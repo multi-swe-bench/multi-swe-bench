@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Optional, Union
 
 from multi_swe_bench.harness.pull_request import PullRequest
 
@@ -14,6 +14,8 @@ class File:
 @dataclass
 class Config:
     need_clone: bool
+    global_env: Optional[dict[str, str]]
+    clear_env: bool
 
 
 class Image:
@@ -25,6 +27,22 @@ class Image:
     @property
     def config(self) -> Config:
         raise NotImplementedError
+
+    @property
+    def global_env(self) -> str:
+        if not self.config.global_env:
+            return ""
+
+        return "\n".join(
+            [f"ENV {key}={value}" for key, value in self.config.global_env.items()]
+        )
+
+    @property
+    def clear_env(self) -> str:
+        if not self.config.clear_env:
+            return ""
+
+        return "\n".join([f'ENV {key}=""' for key in self.config.global_env.keys()])
 
     def dependency(self) -> Union[str, "Image"]:
         return NotImplementedError

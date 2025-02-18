@@ -30,6 +30,21 @@ from multi_swe_bench.utils.logger import get_non_propagate_logger, setup_logger
 from multi_swe_bench.utils.thread_util import Result, SPMCThreadPool
 
 
+def str_to_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    if not isinstance(value, str):
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+    if value.lower() in {"true", "yes", "1"}:
+        return True
+    elif value.lower() in {"false", "no", "0"}:
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="A command-line tool for processing build dataset."
@@ -105,6 +120,12 @@ def get_parser() -> argparse.ArgumentParser:
         type=str,
         help="The global environment variables for running instances.",
     )
+    parser.add_argument(
+        "--clear_env",
+        type=str_to_bool,
+        default=True,
+        help="Whether to clear environment variables before running instances.",
+    )
 
     return parser
 
@@ -122,6 +143,7 @@ class CliArgs:
     max_workers_build_image: int
     max_workers_run_instance: int
     global_env: Optional[list[str]]
+    clear_env: bool
 
 
 def init_logger(
@@ -443,12 +465,37 @@ def generate_report(instances: list[Instance], cli: CliArgs, logger: logging.Log
             f.write("\n")
 
 
+def convert_to_dict(env: Optional[list[str]]) -> Optional[dict[str, str]]:
+    if env is None:
+        return None
+
+    if len(env) == 0:
+        return None
+
+    result = {}
+    for item in env:
+        key_value = item.split("=")
+        if len(key_value) == 2:
+            key, value = key_value
+            result[key] = value
+
+    return result
+
+
 def main(cli: CliArgs):
     logger = init_logger(cli.workdir, cli.log_level, cli.print_to_console)
 
     prs = load_pull_requests(cli.pr_file, logger)
 
-    instances = create_instances(prs, Config(need_clone=cli.need_clone), logger)
+    instances = create_instances(
+        prs,
+        Config(
+            need_clone=cli.need_clone,
+            global_env=convert_to_dict(cli.global_env),
+            clear_env=cli.clear_env,
+        ),
+        logger,
+    )
 
     if cli.repo_dir:
         check_commit_hashes(cli.repo_dir, instances, logger)

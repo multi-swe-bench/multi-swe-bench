@@ -44,15 +44,18 @@ class CliImageBase(Image):
         else:
             code = "COPY {pr.repo} /home/{pr.repo}"
 
-        return """FROM {image_name}
+        return f"""FROM {image_name}
+
+{self.global_env}
 
 WORKDIR /home/
 
 {code}
+RUN go env -w GO111MODULE=on && go env -w GOPROXY=https://goproxy.cn,direct
 
-""".format(
-            image_name=image_name, code=code
-        )
+{self.clear_env}
+
+"""
 
 
 class CliImageDefault(Image):
@@ -185,9 +188,19 @@ go test -v -count=1 ./...
         for file in self.files():
             copy_commands += f"COPY {file.name} /home/\n"
 
-        prepare_commands = "RUN bash /home/prepare.sh\n"
+        prepare_commands = "RUN bash /home/prepare.sh"
 
-        return f"FROM {name}:{tag}\n{copy_commands}\n{prepare_commands}"
+        return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
 
 
 @Instance.register("cli", "cli")
