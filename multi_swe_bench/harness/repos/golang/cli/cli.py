@@ -51,7 +51,6 @@ class CliImageBase(Image):
 WORKDIR /home/
 
 {code}
-RUN go env -w GO111MODULE=on && go env -w GOPROXY=https://goproxy.cn,direct
 
 {self.clear_env}
 
