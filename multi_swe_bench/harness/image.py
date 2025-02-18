@@ -39,7 +39,7 @@ class Image:
 
     @property
     def clear_env(self) -> str:
-        if not self.config.clear_env:
+        if not self.config.clear_env or not self.config.global_env:
             return ""
 
         return "\n".join([f'ENV {key}=""' for key in self.config.global_env.keys()])
