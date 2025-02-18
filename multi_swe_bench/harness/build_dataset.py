@@ -65,8 +65,8 @@ def get_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--need_clone",
+        type=str_to_bool,
         default=True,
-        action="store_true",
         help="Whether to clone the repository when building images.",
     )
     parser.add_argument(
