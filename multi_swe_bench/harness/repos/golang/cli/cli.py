@@ -42,7 +42,7 @@ class CliImageBase(Image):
         if self.config.need_clone:
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
-            code = "COPY {pr.repo} /home/{pr.repo}"
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
 
         return f"""FROM {image_name}
 
