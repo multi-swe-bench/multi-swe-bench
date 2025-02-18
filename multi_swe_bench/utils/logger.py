@@ -40,6 +40,9 @@ def get_propagate_logger(
 
     id = f"{log_dir.name}/{log_file}"
     propagate_logger = logging.getLogger(id)
+    if propagate_logger.hasHandlers():
+        return propagate_logger
+
     propagate_logger.setLevel(level)
 
     log_path = os.path.join(log_dir, log_file)
@@ -68,6 +71,9 @@ def get_non_propagate_logger(
 
     id = f"{log_dir.name}/{log_file}"
     non_propagate_logger = logging.getLogger(id)
+    if non_propagate_logger.handlers:
+        return non_propagate_logger
+
     non_propagate_logger.setLevel(level)
 
     log_path = os.path.join(log_dir, log_file)
