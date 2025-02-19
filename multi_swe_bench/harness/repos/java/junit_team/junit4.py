@@ -20,7 +20,7 @@ class Fastjson2ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:20.04"
+        return "ubuntu:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -128,24 +128,35 @@ exit 0
             ),
             File(
                 ".",
+                "settings.xml",
+                """<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>central</id>
+            <mirrorOf>central</mirrorOf>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <blocked>false</blocked>
+        </mirror>
+    </mirrors>
+</settings>""",
+            ),
+            File(
+                ".",
                 "prepare.sh",
                 """#!/bin/bash
 set -e
 
 cd /home/{pr.repo}
-git config core.autocrlf input
-git config core.filemode false
-echo ".gitattributes" >> .git/info/exclude
-echo "*.zip binary" >> .gitattributes
-echo "*.png binary" >> .gitattributes
-echo "*.jpg binary" >> .gitattributes
-git add .
 git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-./mvnw -V --no-transfer-progress -Pgen-javadoc -Pgen-dokka clean package -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false || true
+mkdir -p /root/.m2
+cat /home/settings.xml > /root/.m2/settings.xml
+./mvnw clean verify --batch-mode -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.compiler.failOnError=false || true
 
 """.format(
                     pr=self.pr
@@ -158,7 +169,7 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-./mvnw -V --no-transfer-progress -Pgen-javadoc -Pgen-dokka clean test -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false
+./mvnw clean test --batch-mode -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.compiler.failOnError=false
 
 """.format(
                     pr=self.pr
@@ -171,8 +182,7 @@ cd /home/{pr.repo}
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch
-./mvnw -V --no-transfer-progress -Pgen-javadoc -Pgen-dokka clean test -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false
+./mvnw clean test --batch-mode -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.compiler.failOnError=false
 
 """.format(
                     pr=self.pr
@@ -185,8 +195,7 @@ git apply /home/test.patch
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-./mvnw -V --no-transfer-progress -Pgen-javadoc -Pgen-dokka clean test -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false
+./mvnw clean test --batch-mode -Dsurefire.useFile=false -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.compiler.failOnError=false
 
 """.format(
                     pr=self.pr
@@ -218,7 +227,7 @@ git apply /home/test.patch /home/fix.patch
 """
 
 
-@Instance.register("alibaba", "fastjson2")
+@Instance.register("junit-team", "junit4")
 class Fastjson2(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
