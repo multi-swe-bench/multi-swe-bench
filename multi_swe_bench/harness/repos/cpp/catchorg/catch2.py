@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class MaterialUiImageBase(Image):
+class Catch2ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class MaterialUiImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "node:20"
+        return "gcc:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -51,16 +51,22 @@ class MaterialUiImageBase(Image):
 WORKDIR /home/
 
 {code}
-RUN apt update && apt install -y git 
-RUN npm install -g pnpm@9
-RUN apt install -y jq
+RUN apt-get update && apt-get install -y \
+    libbrotli-dev \
+    libcurl4-openssl-dev \
+    clang \
+    build-essential \
+    cmake \
+    python3 \
+    python3-dev \
+    python3-pip
 
 {self.clear_env}
 
 """
 
 
-class MaterialUiImageDefault(Image):
+class Catch2ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -74,7 +80,7 @@ class MaterialUiImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return MaterialUiImageBase(self.pr, self._config)
+        return Catch2ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -132,9 +138,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-sed -i 's/packageManager": ".*"/packageManager": "pnpm@^9"/' package.json
-jq '.packageManager = "pnpm@^9" | del(.engines)' package.json > temp.json && mv temp.json package.json
-pnpm install
+mkdir build
 
 """.format(
                     pr=self.pr
@@ -147,8 +151,10 @@ pnpm install
 set -e
 
 cd /home/{pr.repo}
-pnpm test:unit -- --reporter spec
-
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
 """.format(
                     pr=self.pr
                 ),
@@ -160,8 +166,11 @@ pnpm test:unit -- --reporter spec
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch
-pnpm test:unit -- --reporter spec
+git apply --whitespace=nowarn /home/test.patch
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
 
 """.format(
                     pr=self.pr
@@ -174,8 +183,11 @@ pnpm test:unit -- --reporter spec
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-pnpm test:unit -- --reporter spec
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
 
 """.format(
                     pr=self.pr
@@ -207,8 +219,8 @@ pnpm test:unit -- --reporter spec
 """
 
 
-@Instance.register("mui", "material-ui")
-class MaterialUi(Instance):
+@Instance.register("catchorg", "catch2")
+class Catch2(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -219,7 +231,7 @@ class MaterialUi(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return MaterialUiImageDefault(self.pr, self._config)
+        return Catch2ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -231,11 +243,9 @@ class MaterialUi(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(
-            r"\x1b\[32m✔\x1b\[39m\x1b\[0m\x1b\[90m (.*?)\x1b\[0m", re.DOTALL
-        )
-        re_fail = re.compile(r"\x1b\[31m *\d\) (.*?)\x1b\[0m", re.DOTALL)
-        re_skip = re.compile(r"\x1b\[36m  - (.*?)\x1b\[0m", re.DOTALL)
+        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
+        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
+        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
 
         passed_tests = re_pass.findall(test_log)
         failed_tests = re_fail.findall(test_log)
