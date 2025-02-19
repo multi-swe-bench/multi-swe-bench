@@ -1,2 +1,3 @@
 from multi_swe_bench.harness.repos.rust.tokio_rs.bytes import *
 from multi_swe_bench.harness.repos.rust.tokio_rs.mio import *
+from multi_swe_bench.harness.repos.rust.tokio_rs.tokio import *
