@@ -164,7 +164,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 
 """
 
-class JsonImageBaseCpp5(Image):
+class JsonImageBaseCpp6(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -178,16 +178,16 @@ class JsonImageBaseCpp5(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:5"
+        return "gcc:6"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-cpp-5"
+        return "base-cpp-6"
 
     def workdir(self) -> str:
-        return "base-cpp-5"
+        return "base-cpp-6"
 
     def files(self) -> list[File]:
         return []
@@ -234,7 +234,7 @@ class JsonImageDefault(Image):
         elif 415 <= self.pr.number and self.pr.number <= 2576:
             return JsonImageBaseCpp7(self.pr, self._config)
         elif self.pr.number <= 410:
-            return JsonImageBaseCpp5(self.pr, self._config)
+            return JsonImageBaseCpp6(self.pr, self._config)
 
         return JsonImageBase(self.pr, self._config)
 
