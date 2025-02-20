@@ -60,6 +60,60 @@ RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 """
 
 
+class JsonImageBaseCpp12(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "gcc:12"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base-cpp-12"
+
+    def workdir(self) -> str:
+        return "base-cpp-12"
+
+    def files(self) -> list[File]:
+        return []
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+
+WORKDIR /home/
+
+{code}
+RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
+RUN apt-get install -y clang build-essential cmake
+RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
+
+{self.clear_env}
+
+"""
+
+
 class JsonImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -74,6 +128,9 @@ class JsonImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
+        if 2825 <= self.pr.number and self.pr.number <= 3685:
+            return JsonImageBaseCpp12(self.pr, self._config)
+
         return JsonImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
