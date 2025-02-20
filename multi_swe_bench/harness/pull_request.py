@@ -36,3 +36,7 @@ class PullRequest:
     @property
     def id(self) -> str:
         return f"{self.org}/{self.repo}:pr-{self.number}"
+
+    @property
+    def repo_full_name(self) -> str:
+        return f"{self.org}/{self.repo}"
