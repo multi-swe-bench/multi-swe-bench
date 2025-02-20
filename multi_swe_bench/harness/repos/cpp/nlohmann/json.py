@@ -208,7 +208,7 @@ class JsonImageBaseCpp6(Image):
 WORKDIR /home/
 
 {code}
-RUN apt-get update
+RUN apt-get update && apt-get install -y cmake
 RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 
 {self.clear_env}
