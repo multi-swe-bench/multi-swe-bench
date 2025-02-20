@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class Catch2ImageBase(Image):
+class SimdjsonImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class Catch2ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:latest"
+        return "gcc:11"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -51,80 +51,16 @@ class Catch2ImageBase(Image):
 WORKDIR /home/
 
 {code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
-    build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
+RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
+RUN apt-get install -y clang build-essential cmake pkg-config
+
 
 {self.clear_env}
 
 """
 
-class Catch2ImageBaseCpp12(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
 
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "gcc:12"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-cpp-12"
-
-    def workdir(self) -> str:
-        return "base-cpp-12"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-
-{code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
-    build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
-
-{self.clear_env}
-
-"""
-
-class Catch2ImageBaseCpp7(Image):
+class SimdjsonImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -161,7 +97,6 @@ class Catch2ImageBaseCpp7(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
         return f"""FROM {image_name}
 
 {self.global_env}
@@ -169,21 +104,15 @@ class Catch2ImageBaseCpp7(Image):
 WORKDIR /home/
 
 {code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
-    build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
+RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
+RUN apt-get install -y clang build-essential cmake pkg-config
 
 {self.clear_env}
 
 """
 
-class Catch2ImageDefault(Image):
+
+class SimdjsonImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -197,11 +126,10 @@ class Catch2ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if 2288 <= self.pr.number and self.pr.number <= 2554:
-            return Catch2ImageBaseCpp12(self.pr, self._config)
-        elif self.pr.number <= 2187:
-            return Catch2ImageBaseCpp7(self.pr, self._config)
-        return Catch2ImageBase(self.pr, self._config)
+        # if 2825 <= self.pr.number and self.pr.number <= 3685:
+        #     return SimdjsonImageBaseCpp7(self.pr, self._config)
+
+        return SimdjsonImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -273,8 +201,8 @@ set -e
 
 cd /home/{pr.repo}
 cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
+cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
+cmake --build .
 ctest
 """.format(
                     pr=self.pr
@@ -289,8 +217,8 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
+cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
+cmake --build .
 ctest
 
 """.format(
@@ -306,8 +234,8 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
+cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
+cmake --build .
 ctest
 
 """.format(
@@ -340,8 +268,8 @@ ctest
 """
 
 
-@Instance.register("catchorg", "catch2")
-class Catch2(Instance):
+@Instance.register("simdjson", "simdjson")
+class Simdjson(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -352,7 +280,7 @@ class Catch2(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return Catch2ImageDefault(self.pr, self._config)
+        return SimdjsonImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -364,9 +292,9 @@ class Catch2(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.+ *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.+ *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.+ *Skipped")
+        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
+        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
+        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
 
         passed_tests = re_pass.findall(test_log)
         failed_tests = re_fail.findall(test_log)
