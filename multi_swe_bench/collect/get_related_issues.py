@@ -5,9 +5,10 @@ import re
 import sys
 from pathlib import Path
 
-from collect.util import get_tokens
 from github import Auth, Github
 from tqdm import tqdm
+
+from multi_swe_bench.collect.util import get_tokens
 
 
 def get_parser() -> argparse.ArgumentParser:
