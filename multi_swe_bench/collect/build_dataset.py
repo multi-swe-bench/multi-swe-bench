@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from collect.util import get_tokens, optional_int
 from tqdm import tqdm
 from unidiff import PatchSet
+
+from multi_swe_bench.collect.util import get_tokens, optional_int
 
 
 def get_parser() -> argparse.ArgumentParser:
