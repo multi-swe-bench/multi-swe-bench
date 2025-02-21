@@ -38,6 +38,12 @@ class Image:
         )
 
     @property
+    def need_copy_code(self) -> bool:
+        if isinstance(self.dependency(), str) and not self.config.need_clone:
+            return True
+        return False
+
+    @property
     def clear_env(self) -> str:
         if not self.config.clear_env or not self.config.global_env:
             return ""

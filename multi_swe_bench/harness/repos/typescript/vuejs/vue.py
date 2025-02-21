@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class MaterialUiImageBase(Image):
+class ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -52,7 +52,7 @@ WORKDIR /home/
 
 {code}
 RUN apt update && apt install -y git 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm
 RUN apt install -y jq
 
 {self.clear_env}
@@ -60,7 +60,7 @@ RUN apt install -y jq
 """
 
 
-class MaterialUiImageBase40180(Image):
+class ImageBase12455(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -80,10 +80,10 @@ class MaterialUiImageBase40180(Image):
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base40180"
+        return "base12455"
 
     def workdir(self) -> str:
-        return "base40180"
+        return "base12455"
 
     def files(self) -> list[File]:
         return []
@@ -113,7 +113,7 @@ RUN apt install -y jq
 """
 
 
-class MaterialUiImageDefault(Image):
+class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -127,7 +127,7 @@ class MaterialUiImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return MaterialUiImageBase(self.pr, self._config)
+        return ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -184,10 +184,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-
-sed -i 's/packageManager": ".*"/packageManager": "pnpm@^9"/' package.json
-jq '.packageManager = "pnpm@^9" | del(.engines)' package.json > temp.json && mv temp.json package.json
-pnpm install || true
+pnpm install
 
 """.format(
                     pr=self.pr
@@ -200,7 +197,7 @@ pnpm install || true
 set -e
 
 cd /home/{pr.repo}
-pnpm test:unit -- --reporter spec
+pnpm run test:unit -- --reporter verbose
 
 """.format(
                     pr=self.pr
@@ -214,7 +211,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-pnpm test:unit -- --reporter spec
+pnpm run test:unit -- --reporter verbose
 
 """.format(
                     pr=self.pr
@@ -228,7 +225,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-pnpm test:unit -- --reporter spec
+pnpm run test:unit -- --reporter verbose
 
 """.format(
                     pr=self.pr
@@ -260,7 +257,7 @@ pnpm test:unit -- --reporter spec
 """
 
 
-class MaterialUiImageDefault40180(Image):
+class ImageDefault12455(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -274,151 +271,7 @@ class MaterialUiImageDefault40180(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return MaterialUiImageBase40180(self.pr, self._config)
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def workdir(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "fix.patch",
-                f"{self.pr.fix_patch}",
-            ),
-            File(
-                ".",
-                "test.patch",
-                f"{self.pr.test_patch}",
-            ),
-            File(
-                ".",
-                "check_git_changes.sh",
-                """#!/bin/bash
-set -e
-
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-  echo "check_git_changes: Not inside a git repository"
-  exit 1
-fi
-
-if [[ -n $(git status --porcelain) ]]; then
-  echo "check_git_changes: Uncommitted changes"
-  exit 1
-fi
-
-echo "check_git_changes: No uncommitted changes"
-exit 0
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "prepare.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git reset --hard
-bash /home/check_git_changes.sh
-git checkout {pr.base.sha}
-bash /home/check_git_changes.sh
-
-yarn install || true
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-yarn run test:unit --reporter spec
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "test-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch
-yarn run test:unit --reporter spec
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "fix-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-yarn run test:unit --reporter spec
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-        ]
-
-    def dockerfile(self) -> str:
-        image = self.dependency()
-        name = image.image_name()
-        tag = image.image_tag()
-
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
-        prepare_commands = "RUN bash /home/prepare.sh"
-
-        return f"""FROM {name}:{tag}
-
-{self.global_env}
-
-{copy_commands}
-
-{prepare_commands}
-
-{self.clear_env}
-
-"""
-
-class MaterialUiImageDefault33415(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Image | None:
-        return MaterialUiImageBase40180(self.pr, self._config)
+        return ImageBase12455(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -489,7 +342,7 @@ yarn install || true
 set -e
 
 cd /home/{pr.repo}
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter spec
 
 """.format(
                     pr=self.pr
@@ -503,7 +356,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter spec
 
 """.format(
                     pr=self.pr
@@ -517,7 +370,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter spec
 
 """.format(
                     pr=self.pr
@@ -548,8 +401,9 @@ yarn run test:unit --reporter spec  --exit
 
 """
 
-@Instance.register("mui", "material-ui")
-class MaterialUi(Instance):
+
+@Instance.register("vuejs", "vue")
+class RepoRegister(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -560,12 +414,10 @@ class MaterialUi(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 40180 and self.pr.number > 33415:
-            return MaterialUiImageDefault40180(self.pr, self._config)
-        elif self.pr.number <= 33415:
-            return MaterialUiImageDefault33415(self.pr, self._config)
+        if self.pr.number <= 12455:
+            return ImageDefault12455(self.pr, self._config)
 
-        return MaterialUiImageDefault(self.pr, self._config)
+        return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
