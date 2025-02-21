@@ -231,10 +231,8 @@ class JsonImageDefault(Image):
     def dependency(self) -> Image | None:
         if 2825 <= self.pr.number and self.pr.number <= 3685:
             return JsonImageBaseCpp12(self.pr, self._config)
-        elif 415 <= self.pr.number and self.pr.number <= 2576:
+        elif self.pr.number <= 2576:
             return JsonImageBaseCpp7(self.pr, self._config)
-        elif self.pr.number <= 410:
-            return JsonImageBaseCpp6(self.pr, self._config)
 
         return JsonImageBase(self.pr, self._config)
 

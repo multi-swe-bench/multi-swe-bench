@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class SimdjsonImageBase(Image):
+class valkeyImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class SimdjsonImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:11"
+        return "ubuntu:22.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -49,10 +49,13 @@ class SimdjsonImageBase(Image):
 {self.global_env}
 
 WORKDIR /home/
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+RUN apt update && apt install -y git make gcc pkg-config libjemalloc-dev build-essential autoconf automake libtool tcl tclx libssl-dev libpsl-dev
 
 {code}
-RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
-RUN apt-get install -y clang build-essential cmake pkg-config
+
 
 
 {self.clear_env}
@@ -60,7 +63,7 @@ RUN apt-get install -y clang build-essential cmake pkg-config
 """
 
 
-class SimdjsonImageBaseCpp7(Image):
+class valkeyImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -104,24 +107,15 @@ class SimdjsonImageBaseCpp7(Image):
 WORKDIR /home/
 
 {code}
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
-    pkg-config \
-    wget \
-    tar && \
-    wget https://cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.14.0-Linux-x86_64.tar.gz && \
-    mv cmake-3.14.0-Linux-x86_64 /opt/cmake && \
-    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.14.0-Linux-x86_64.tar.gz
-RUN apt-get install -y cmake
+RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
+RUN apt-get install -y clang build-essential cmake pkg-config
+
 {self.clear_env}
 
 """
 
 
-class SimdjsonImageDefault(Image):
+class valkeyImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -135,10 +129,10 @@ class SimdjsonImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if self.pr.number <= 958:
-            return SimdjsonImageBaseCpp7(self.pr, self._config)
+        # if 2825 <= self.pr.number and self.pr.number <= 3685:
+        #     return valkeyImageBaseCpp7(self.pr, self._config)
 
-        return SimdjsonImageBase(self.pr, self._config)
+        return valkeyImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -196,7 +190,6 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-mkdir build
 
 """.format(
                     pr=self.pr
@@ -209,10 +202,9 @@ mkdir build
 set -e
 
 cd /home/{pr.repo}
-cd build
-cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
-cmake --build .
-ctest
+make distclean
+make -j4
+make test
 """.format(
                     pr=self.pr
                 ),
@@ -225,10 +217,9 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-cd build
-cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
-cmake --build .
-ctest
+make distclean
+make -j4
+make test
 
 """.format(
                     pr=self.pr
@@ -242,10 +233,9 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-cd build
-cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
-cmake --build .
-ctest
+make distclean
+make -j4
+make test
 
 """.format(
                     pr=self.pr
@@ -277,8 +267,8 @@ ctest
 """
 
 
-@Instance.register("simdjson", "simdjson")
-class Simdjson(Instance):
+@Instance.register("valkey-io", "valkey")
+class valkey(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -289,7 +279,7 @@ class Simdjson(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return SimdjsonImageDefault(self.pr, self._config)
+        return valkeyImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
