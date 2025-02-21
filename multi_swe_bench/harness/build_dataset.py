@@ -258,13 +258,9 @@ def check_source_code(
 
     source_code_path = org_dir / image.pr.repo
     if not source_code_path.exists():
-        if clone_if_missing:
-            logger.info(f"Source code not found at {org_dir}. Cloning repository...")
-            clone_repository(org_dir, image.pr.org, image.pr.repo)
-        else:
-            raise FileNotFoundError(
-                f"Source code not found at {repo_dir}. Use --clone_if_missing to clone the repository or manually clone the repository."
-            )
+        raise FileNotFoundError(
+            f"Source code not found at {repo_dir}. Use --clone_if_missing to clone the repository or manually clone the repository."
+        )
 
 
 def build_image(
@@ -283,7 +279,7 @@ def build_image(
     image_dir = workdir / image.workdir()
     image_dir.mkdir(parents=True, exist_ok=True)
 
-    if cli.repo_dir and not cli.need_clone:
+    if cli.repo_dir and image.need_copy_code:
         check_source_code(cli.repo_dir, image, True, logger)
         copy_source_code(cli.repo_dir, image, image_dir)
 

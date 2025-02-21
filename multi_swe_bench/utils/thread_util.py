@@ -36,7 +36,8 @@ class SPMCThreadPool:
             task_id, func, args, kwargs = task
 
             try:
-                print(f"Task {task_id} started.")
+                if self.logger:
+                    self.logger.info(f"Task {task_id} started.")
                 result = func(*args, **kwargs)
                 with self.lock:
                     self.result_dict[task_id] = Result(
