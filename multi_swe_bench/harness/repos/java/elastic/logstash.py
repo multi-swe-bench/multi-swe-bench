@@ -32,7 +32,39 @@ class LogstashImageBase(Image):
         return "base"
 
     def files(self) -> list[File]:
-        return []
+        return [
+            File(
+                ".",
+                "config_gradle.sh",
+                """#!/bin/bash
+set -e
+
+echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
+source ~/.bashrc
+
+PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.http.proxyPort=8118
+systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.https.proxyPort=8118"
+
+GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
+
+if [ ! -d "$HOME/.gradle" ]; then
+    mkdir -p "$HOME/.gradle"
+fi
+
+if [ ! -f "$GRADLE_PROPERTIES" ]; then
+    touch "$GRADLE_PROPERTIES"
+fi
+
+if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
+    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
+    echo "Added proxy settings to $GRADLE_PROPERTIES"
+fi
+
+""",
+            )
+        ]
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -43,6 +75,10 @@ class LogstashImageBase(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
 
         return f"""FROM {image_name}
 
@@ -61,24 +97,9 @@ RUN curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/k
 RUN apt update && apt install -y zulu11-jdk
 {code}
 
-echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
-source ~/.bashrc
+{copy_commands}
 
-PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.http.proxyPort=8118
-systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.https.proxyPort=8118"
-
-GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
-
-if [ ! -f "$GRADLE_PROPERTIES" ]; then
-    touch "$GRADLE_PROPERTIES"
-fi
-
-if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
-    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
-    echo "Added proxy settings to $GRADLE_PROPERTIES"
-fi
+RUN bash /home/config_gradle.sh
 
 {self.clear_env}
 
