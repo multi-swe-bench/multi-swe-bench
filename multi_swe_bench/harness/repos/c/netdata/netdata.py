@@ -191,6 +191,8 @@ cd /home/{pr.repo}
 git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
+git submodule sync
+git submodule update --init --recursive
 bash /home/check_git_changes.sh
 
 
