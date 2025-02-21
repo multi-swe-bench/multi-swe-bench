@@ -47,21 +47,21 @@ if __name__ == "__main__":
 
     tokens = get_tokens(args.tokens)
 
-    # # step 1: get all pull requests
-    # get_all_prs(tokens, args.out_dir, args.org, args.repo)
+    # step 1: get all pull requests
+    get_all_prs(tokens, args.out_dir, args.org, args.repo)
 
-    # # step 2: filter to obtain reqired pull requests
-    # # - closed
-    # # - resolve some issues
-    # pull_file = args.out_dir / f"{args.org}__{args.repo}_prs.jsonl"
-    # filter_prs(args.out_dir, pull_file)
+    # step 2: filter to obtain reqired pull requests
+    # - closed
+    # - resolve some issues
+    pull_file = args.out_dir / f"{args.org}__{args.repo}_prs.jsonl"
+    filter_prs(args.out_dir, pull_file)
 
-    # # step 3: get related issues
-    # pull_file = args.out_dir / f"{args.org}__{args.repo}_filtered_prs.jsonl"
-    # get_related_issues(tokens, args.out_dir, pull_file)
+    # step 3: get related issues
+    pull_file = args.out_dir / f"{args.org}__{args.repo}_filtered_prs.jsonl"
+    get_related_issues(tokens, args.out_dir, pull_file)
 
-    # # step 4: merged filtered pull requests and related issues
-    # merge_prs_with_issues(args.out_dir, args.org, args.repo)
+    # step 4: merged filtered pull requests and related issues
+    merge_prs_with_issues(args.out_dir, args.org, args.repo)
 
     # step 5: build a complete dataset
     # - download patch
