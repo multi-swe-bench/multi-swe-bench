@@ -63,7 +63,7 @@ RUN apt update && apt install -y git clang build-essential cmake pkg-config make
 """
 
 
-class ponycImageBase20(Image):
+class ponycImageBase18(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -77,16 +77,16 @@ class ponycImageBase20(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:20.04"
+        return "ubuntu:18.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-20"
+        return "base-18"
 
     def workdir(self) -> str:
-        return "base-20"
+        return "base-18"
 
     def files(self) -> list[File]:
         return []
@@ -109,9 +109,12 @@ WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git llvm clang build-essential cmake
-RUN apt-get install linux-headers-5.4.0-139-generic libnl-dev
-
+RUN apt update && apt install -y git llvm clang build-essential wget tar python3 python3-dev python3-pip
+RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
+    tar -zxvf cmake-3.16.3-Linux-x86_64.tar.gz && \
+    mv cmake-3.16.3-Linux-x86_64 /opt/cmake && \
+    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
+    rm cmake-3.16.3-Linux-x86_64.tar.gz
 {code}
 
 
@@ -136,7 +139,7 @@ class ponycImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if self.pr.number <= 4288:
-            return ponycImageBase20(self.pr, self._config)
+            return ponycImageBase18(self.pr, self._config)
 
         return ponycImageBase(self.pr, self._config)
 
