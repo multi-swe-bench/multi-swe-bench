@@ -110,7 +110,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 RUN apt update && apt install -y git llvm clang build-essential cmake
-RUN apt-get install linux-headers-$(uname -r) libnl-dev
+RUN apt-get install linux-headers-5.4.0-139-generic libnl-dev
 
 {code}
 
