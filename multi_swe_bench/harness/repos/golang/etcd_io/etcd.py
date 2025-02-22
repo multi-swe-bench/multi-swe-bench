@@ -263,7 +263,8 @@ class Etcd(Instance):
         skipped_tests = []
 
         re_pass = re.compile(r"--- PASS: (\S+)")
-        re_fail = re.compile(r"--- FAIL: (\S+)")
+        re_fail_p1 = re.compile(r"--- FAIL: (\S+)")
+        re_fail_p2 = re.compile(r"FAIL:?\s?(.+?)\s")
         re_skip = re.compile(r"--- SKIP: (\S+)")
 
         for line in test_log.splitlines():
@@ -273,7 +274,11 @@ class Etcd(Instance):
                 if match:
                     passed_tests.append(match.group(1))
             elif line.startswith("--- FAIL:"):
-                match = re_fail.match(line)
+                match = re_fail_p1.match(line)
+                if match:
+                    failed_tests.append(match.group(1))
+            elif line.startswith("FAIL"):
+                match = re_fail_p2.match(line)
                 if match:
                     failed_tests.append(match.group(1))
             elif line.startswith("--- SKIP:"):
