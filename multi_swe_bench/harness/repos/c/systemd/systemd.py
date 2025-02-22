@@ -180,7 +180,6 @@ sed -i '/^XDG_/d' /etc/environment
 set -e
 
 cd /home/{pr.repo}
-./.github/workflows/unit_tests.sh SETUP
 ./.github/workflows/unit_tests.sh RUN
 """.format(
                     pr=self.pr
@@ -194,7 +193,6 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-./.github/workflows/unit_tests.sh SETUP
 ./.github/workflows/unit_tests.sh RUN
 
 """.format(
@@ -209,7 +207,6 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-./.github/workflows/unit_tests.sh SETUP
 ./.github/workflows/unit_tests.sh RUN
 
 """.format(
