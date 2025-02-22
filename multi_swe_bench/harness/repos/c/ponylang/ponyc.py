@@ -63,7 +63,7 @@ RUN apt update && apt install -y git clang build-essential cmake pkg-config make
 """
 
 
-class ponycImageBaseCpp7(Image):
+class ponycImageBase20(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -77,16 +77,16 @@ class ponycImageBaseCpp7(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:7"
+        return "ubuntu:20.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-cpp-7"
+        return "base-20"
 
     def workdir(self) -> str:
-        return "base-cpp-7"
+        return "base-20"
 
     def files(self) -> list[File]:
         return []
@@ -100,15 +100,21 @@ class ponycImageBaseCpp7(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
         return f"""FROM {image_name}
 
 {self.global_env}
 
 WORKDIR /home/
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+RUN apt update && apt install -y git llvm clang build-essential cmake
+RUN apt-get install linux-headers-$(uname -r) libnl-dev
 
 {code}
-RUN apt-get update && apt-get install -y libbrotli-dev libcurl4-openssl-dev
-RUN apt-get install -y clang build-essential cmake pkg-config
+
+
 
 {self.clear_env}
 
@@ -129,8 +135,8 @@ class ponycImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 2825 <= self.pr.number and self.pr.number <= 3685:
-        #     return ponycImageBaseCpp7(self.pr, self._config)
+        if self.pr.number <= 4288:
+            return ponycImageBase20(self.pr, self._config)
 
         return ponycImageBase(self.pr, self._config)
 
