@@ -20,7 +20,7 @@ class ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:20.04"
+        return "ubuntu:24.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -52,10 +52,35 @@ WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-RUN  apt-get -y build-dep systemd
-RUN  apt-get -y 
-RUN apt-get update && apt-get -y build-dep systemd && apt-get install -y \
-    clang expect fdisk jekyll libbpf-dev libfdisk-dev libfido2-dev libp11-kit-dev libpwquality-dev libqrencode-dev libssl-dev libtss2-dev libxkbcommon-dev libzstd-dev python3-libevdev python3-pefile python3-pyelftools python3-pyparsing python3-pytest rpm systemd-boot-efi zstd
+RUN apt-get update && apt-get install -y \
+    git \
+    sudo \
+    clang \
+    expect \
+    fdisk \
+    jekyll \
+    libbpf-dev \
+    libfdisk-dev \
+    libfido2-dev \
+    libp11-kit-dev \
+    libpwquality-dev \
+    libqrencode-dev \
+    libssl-dev \
+    libtss2-dev \
+    libxkbcommon-dev \
+    libzstd-dev \
+    python3 \
+    python3-pip \
+    python3-libevdev \
+    python3-pefile \
+    python3-pyelftools \
+    python3-pyparsing \
+    python3-pytest \
+    rpm \
+    systemd-boot-efi \
+    zstd \
+    meson \
+    ninja-build
 {code}
 
 
@@ -141,6 +166,8 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
+pip3 install -r .github/workflows/requirements.txt --require-hashes --break-system-packages
+sed -i '/^XDG_/d' /etc/environment
 
 """.format(
                     pr=self.pr
@@ -153,7 +180,8 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-./.github/workflows/unit_tests.sh
+.github/workflows/unit_tests.sh SETUP
+.github/workflows/unit_tests.sh RUN
 """.format(
                     pr=self.pr
                 ),
@@ -166,7 +194,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-./.github/workflows/unit_tests.sh
+.github/workflows/unit_tests.sh SETUP
+.github/workflows/unit_tests.sh RUN
 
 """.format(
                     pr=self.pr
@@ -180,7 +209,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-./.github/workflows/unit_tests.sh
+.github/workflows/unit_tests.sh SETUP
+.github/workflows/unit_tests.sh RUN
 
 """.format(
                     pr=self.pr
