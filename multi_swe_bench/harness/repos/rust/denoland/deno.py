@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class MockitoImageBase(Image):
+class DenoImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class MockitoImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:latest"
+        return "rust:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -32,39 +32,7 @@ class MockitoImageBase(Image):
         return "base"
 
     def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "config_gradle.sh",
-                """#!/bin/bash
-set -e
-
-echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
-source ~/.bashrc
-
-PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.http.proxyPort=8118
-systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.https.proxyPort=8118"
-
-GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
-
-if [ ! -d "$HOME/.gradle" ]; then
-    mkdir -p "$HOME/.gradle"
-fi
-
-if [ ! -f "$GRADLE_PROPERTIES" ]; then
-    touch "$GRADLE_PROPERTIES"
-fi
-
-if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
-    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
-    echo "Added proxy settings to $GRADLE_PROPERTIES"
-fi
-
-""",
-            )
-        ]
+        return []
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -76,37 +44,26 @@ fi
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
 
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
         return f"""FROM {image_name}
 
 {self.global_env}
 
-ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 WORKDIR /home/
 
-RUN apt update && apt install -y gnupg ca-certificates git curl
-RUN curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/keyrings/azul.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | tee /etc/apt/sources.list.d/zulu.list
-RUN apt update && apt install -y zulu21-jdk
+RUN apt update && apt install -y curl wget git build-essential cmake clang libclang-dev
+
 {code}
-
-{copy_commands}
-
-RUN bash /home/config_gradle.sh
 
 {self.clear_env}
 
 """
 
 
-class MockitoImageDefault(Image):
+class DenoImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -120,7 +77,7 @@ class MockitoImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return MockitoImageBase(self.pr, self._config)
+        return DenoImageBase(self.pr, self.config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -178,7 +135,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-./gradlew build || true
+cargo test || true
 
 """.format(
                     pr=self.pr
@@ -191,7 +148,7 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-./gradlew test
+cargo test
 
 """.format(
                     pr=self.pr
@@ -205,7 +162,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-./gradlew test
+cargo test
 
 """.format(
                     pr=self.pr
@@ -219,7 +176,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-./gradlew test
+cargo test
 
 """.format(
                     pr=self.pr
@@ -251,8 +208,8 @@ git apply /home/test.patch /home/fix.patch
 """
 
 
-@Instance.register("mockito", "mockito")
-class Mockito(Instance):
+@Instance.register("denoland", "deno")
+class Deno(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -263,7 +220,7 @@ class Mockito(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return MockitoImageDefault(self.pr, self._config)
+        return DenoImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -275,33 +232,28 @@ class Mockito(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        pattern = re.compile(
-            r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: [\d.]+ .+? in (.+)"
-        )
         passed_tests = []
         failed_tests = []
         skipped_tests = []
 
-        for line in test_log.splitlines():
-            match = pattern.search(line)
-            if match:
-                tests_run = int(match.group(1))
-                failures = int(match.group(2))
-                errors = int(match.group(3))
-                skipped = int(match.group(4))
-                test_name = match.group(5)
+        re_pass = re.compile(r"test (\S+) ... ok")
+        re_fail = re.compile(r"test (\S+) ... FAILED")
+        re_skip = re.compile(r"test (\S+) ... ignored")
 
-                if (
-                    tests_run > 0
-                    and failures == 0
-                    and errors == 0
-                    and skipped != tests_run
-                ):
-                    passed_tests.append(test_name)
-                elif failures > 0 or errors > 0:
-                    failed_tests.append(test_name)
-                elif skipped == tests_run:
-                    skipped_tests.append(test_name)
+        for line in test_log.splitlines():
+            line = line.strip()
+            if line.startswith("test") and " ... ok" in line:
+                match = re_pass.match(line)
+                if match:
+                    passed_tests.append(match.group(1))
+            elif line.startswith("test") and " ... FAILED" in line:
+                match = re_fail.match(line)
+                if match:
+                    failed_tests.append(match.group(1))
+            elif line.startswith("test") and " ... ignored" in line:
+                match = re_skip.match(line)
+                if match:
+                    skipped_tests.append(match.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),
