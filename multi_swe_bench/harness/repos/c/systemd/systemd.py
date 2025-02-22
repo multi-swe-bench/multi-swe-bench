@@ -81,6 +81,7 @@ RUN apt-get update && apt-get install -y \
     zstd \
     meson \
     ninja-build
+RUN apt-get install -y gperf
 {code}
 
 
