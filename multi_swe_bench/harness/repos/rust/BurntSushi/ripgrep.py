@@ -202,7 +202,7 @@ cargo test
 """
 
 
-@Instance.register("typst", "typst")
+@Instance.register("BurntSushi", "ripgrep")
 class Ripgrep(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
