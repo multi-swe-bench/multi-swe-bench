@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class ponycImageBase(Image):
+class PulsarImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class ponycImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:22.04"
+        return "ubuntu:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -48,83 +48,25 @@ class ponycImageBase(Image):
 
 {self.global_env}
 
-WORKDIR /home/
+ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git clang build-essential cmake pkg-config make gcc pkg-config libjemalloc-dev automake libtool libssl-dev libpsl-dev
 
+WORKDIR /home/
+
+RUN apt update && apt install -y gnupg ca-certificates git curl maven
+RUN curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/keyrings/azul.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | tee /etc/apt/sources.list.d/zulu.list
+RUN apt update && apt install -y zulu17-jdk
 {code}
-
-
 
 {self.clear_env}
 
 """
 
 
-class ponycImageBase18(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:18.04"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-18"
-
-    def workdir(self) -> str:
-        return "base-18"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git llvm clang build-essential wget tar python3 python3-dev python3-pip
-RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.16.3-Linux-x86_64.tar.gz && \
-    mv cmake-3.16.3-Linux-x86_64 /opt/cmake && \
-    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.16.3-Linux-x86_64.tar.gz
-{code}
-
-
-
-{self.clear_env}
-
-"""
-
-
-class ponycImageDefault(Image):
+class PulsarImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -138,10 +80,7 @@ class ponycImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if self.pr.number <= 4288:
-            return ponycImageBase18(self.pr, self._config)
-
-        return ponycImageBase(self.pr, self._config)
+        return PulsarImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -199,6 +138,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
+mvn install -DskipTests || true
 
 """.format(
                     pr=self.pr
@@ -211,10 +151,8 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-make libs build_flags=-j8
-make configure config=debug
-make build config=debug
-make test config=debug
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
+
 """.format(
                     pr=self.pr
                 ),
@@ -226,11 +164,8 @@ make test config=debug
 set -e
 
 cd /home/{pr.repo}
-git apply --whitespace=nowarn /home/test.patch
-make libs build_flags=-j8
-make configure config=debug
-make build config=debug
-make test config=debug
+git apply /home/test.patch
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
 
 """.format(
                     pr=self.pr
@@ -243,11 +178,8 @@ make test config=debug
 set -e
 
 cd /home/{pr.repo}
-git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-make libs build_flags=-j8
-make configure config=debug
-make build config=debug
-make test config=debug
+git apply /home/test.patch /home/fix.patch
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
 
 """.format(
                     pr=self.pr
@@ -279,8 +211,8 @@ make test config=debug
 """
 
 
-@Instance.register("ponylang", "ponyc")
-class ponyc(Instance):
+@Instance.register("apache", "pulsar")
+class Pulsar(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -291,7 +223,7 @@ class ponyc(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return ponycImageDefault(self.pr, self._config)
+        return PulsarImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -303,13 +235,33 @@ class ponyc(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        pattern = re.compile(
+            r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: [\d.]+ .+? in (.+)"
+        )
+        passed_tests = []
+        failed_tests = []
+        skipped_tests = []
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        for line in test_log.splitlines():
+            match = pattern.search(line)
+            if match:
+                tests_run = int(match.group(1))
+                failures = int(match.group(2))
+                errors = int(match.group(3))
+                skipped = int(match.group(4))
+                test_name = match.group(5)
+
+                if (
+                    tests_run > 0
+                    and failures == 0
+                    and errors == 0
+                    and skipped != tests_run
+                ):
+                    passed_tests.append(test_name)
+                elif failures > 0 or errors > 0:
+                    failed_tests.append(test_name)
+                elif skipped == tests_run:
+                    skipped_tests.append(test_name)
 
         return TestResult(
             passed_count=len(passed_tests),
