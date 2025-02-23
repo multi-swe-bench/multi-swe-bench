@@ -108,7 +108,7 @@ RUN apt update && apt install -y zulu17-jdk
 
 {copy_commands}
 
-RUN bash /home/config_gradle.sh
+RUN bash /home/config_maven.sh
 
 {self.clear_env}
 
