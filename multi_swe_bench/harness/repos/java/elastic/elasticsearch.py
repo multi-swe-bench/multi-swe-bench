@@ -100,7 +100,7 @@ RUN apt update && apt install -y zulu21-jdk
 {copy_commands}
 
 RUN bash /home/config_gradle.sh
-RUN useradd -s /bin/bash elasticsearch && chown -R elasticsearch:elasticsearch /home
+RUN echo "root:1234" | chpasswd && useradd -s /bin/bash elasticsearch && chown -R elasticsearch:elasticsearch /home
 USER elasticsearch
 
 {self.clear_env}
