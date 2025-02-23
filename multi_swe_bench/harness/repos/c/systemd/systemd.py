@@ -82,6 +82,13 @@ RUN apt-get update && apt-get install -y \
     meson \
     ninja-build
 RUN apt-get install -y gperf
+RUN apt-get install -y libcap-dev
+RUN apt-get install -y pkg-config
+RUN apt-get install -y cmake
+RUN apt-get install -y libmount-dev
+RUN apt-get install -y python3-jinja2
+RUN apt-get install -y gettext
+
 {code}
 
 
@@ -169,6 +176,9 @@ git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 pip3 install -r .github/workflows/requirements.txt --require-hashes --break-system-packages
 sed -i '/^XDG_/d' /etc/environment
+
+
+
 
 """.format(
                     pr=self.pr
@@ -264,19 +274,34 @@ class zstd(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = []
+        failed_tests = []
+        skipped_tests = []
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        re_pass = re.compile(r"OK(\S+)")
+        re_fail_p1 = re.compile(r"FAIL(\S+)")
+        re_skip = re.compile(r"SKIP(\S+)")
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if line.startswith("PASS"):
+                match = re_pass.match(line)
+                if match:
+                    passed_tests.append(match.group(1))
+            elif line.startswith("FAIL"):
+                match = re_fail_p1.match(line)
+                if match:
+                    failed_tests.append(match.group(1))
+            elif line.startswith("SKIP"):
+                match = re_skip.match(line)
+                if match:
+                    skipped_tests.append(match.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),
             skipped_count=len(skipped_tests),
-            passed_tests=passed_tests,
-            failed_tests=failed_tests,
-            skipped_tests=skipped_tests,
+            passed_tests=[],
+            failed_tests=[],
+            skipped_tests=[],
         )
