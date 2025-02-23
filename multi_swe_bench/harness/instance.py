@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 from dataclasses_json import dataclass_json
 
@@ -31,21 +32,24 @@ class Report:
     test_patch_result: TestResult
     fix_patch_result: TestResult
 
-    def check(self) -> bool:
-        return (
-            self.is_normal_test_patch()
-            # and self.is_test_count_consistent()
-            and self.is_test_fixed()
-        )
+    def check(self) -> Tuple[bool, str]:
+        if (
+            self.run_result.all_count != 0
+            and self.test_patch_result.all_count == 0
+            and self.fix_patch_result.all_count != 0
+        ):
+            return (True, "")
 
-    def is_normal_test_patch(self) -> bool:
-        return self.test_patch_result.failed_count > 0
+        if self.test_patch_result.failed_count == 0:
+            return (False, f"Not failed: {self.short_report()}")
 
-    def is_test_count_consistent(self) -> bool:
-        return self.test_patch_result.all_count == self.fix_patch_result.all_count
+        if self.fix_patch_result.failed_count >= self.test_patch_result.failed_count:
+            return (False, f"Not fixed: {self.short_report()}")
 
-    def is_test_fixed(self) -> bool:
-        return self.fix_patch_result.failed_count < self.test_patch_result.failed_count
+        return (True, "")
+
+    def short_report(self) -> str:
+        return f"run=({self.run_result.passed_count}, {self.run_result.failed_count}, {self.run_result.skipped_count}), test=({self.test_patch_result.passed_count}, {self.test_patch_result.failed_count}, {self.test_patch_result.skipped_count}), fix=({self.fix_patch_result.passed_count}, {self.fix_patch_result.failed_count}, {self.fix_patch_result.skipped_count})"
 
 
 class Instance:

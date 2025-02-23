@@ -496,8 +496,11 @@ def regenerate_reports(instances: list[Instance], cli: CliArgs, logger: logging.
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(report.to_json())
 
-            if not report.check():
-                logger.warning(f"Report for {instance.name()} is not valid.")
+            ok, error_msg = report.check()
+            if not ok:
+                logger.warning(
+                    f"Report for {instance.name()} is not valid: {error_msg}"
+                )
                 continue
 
             repo_reports.append(
