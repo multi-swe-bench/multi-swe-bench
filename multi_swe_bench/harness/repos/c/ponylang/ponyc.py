@@ -211,7 +211,7 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-make libs build_flags=-j8
+make libs
 make configure config=debug
 make build config=debug
 make test config=debug
@@ -227,7 +227,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-make libs build_flags=-j8
+make libs
 make configure config=debug
 make build config=debug
 make test config=debug
@@ -244,7 +244,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-make libs build_flags=-j8
+make libs
 make configure config=debug
 make build config=debug
 make test config=debug
