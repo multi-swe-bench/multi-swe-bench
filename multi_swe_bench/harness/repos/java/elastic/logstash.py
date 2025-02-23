@@ -275,33 +275,45 @@ class Logstash(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        pattern = re.compile(
-            r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: [\d.]+ .+? in (.+)"
-        )
+        passed_res = [
+            re.compile(r"^> Task :(\S+)$"),
+            re.compile(r"^> Task :(\S+) UP-TO-DATE$"),
+            re.compile(r"^(.+ > .+) PASSED$"),
+        ]
+
+        failed_res = [
+            re.compile(r"^> Task :(\S+) FAILED$"),
+            re.compile(r"^(.+ > .+) FAILED$"),
+        ]
+
+        skipped_res = [
+            re.compile(r"^> Task :(\S+) SKIPPED$"),
+            re.compile(r"^> Task :(\S+) NO-SOURCE$"),
+            re.compile(r"^(.+ > .+) SKIPPED$"),
+        ]
+
         passed_tests = []
         failed_tests = []
         skipped_tests = []
 
         for line in test_log.splitlines():
-            match = pattern.search(line)
-            if match:
-                tests_run = int(match.group(1))
-                failures = int(match.group(2))
-                errors = int(match.group(3))
-                skipped = int(match.group(4))
-                test_name = match.group(5)
+            for passed_re in passed_res:
+                m = passed_re.match(line)
+                if m:
+                    passed_tests.append(m.group(1))
+                    break
 
-                if (
-                    tests_run > 0
-                    and failures == 0
-                    and errors == 0
-                    and skipped != tests_run
-                ):
-                    passed_tests.append(test_name)
-                elif failures > 0 or errors > 0:
-                    failed_tests.append(test_name)
-                elif skipped == tests_run:
-                    skipped_tests.append(test_name)
+            for failed_re in failed_res:
+                m = failed_re.match(line)
+                if m:
+                    failed_tests.append(m.group(1))
+                    break
+
+            for skipped_re in skipped_res:
+                m = skipped_re.match(line)
+                if m:
+                    skipped_tests.append(m.group(1))
+                    break
 
         return TestResult(
             passed_count=len(passed_tests),
@@ -309,5 +321,5 @@ class Logstash(Instance):
             skipped_count=len(skipped_tests),
             passed_tests=passed_tests,
             failed_tests=failed_tests,
-            skipped_tests=skipped_tests,
+            skipped_tests=[skipped_tests],
         )
