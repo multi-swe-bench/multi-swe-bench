@@ -200,7 +200,7 @@ mvn clean install -T1C || true
 set -e
 
 cd /home/{pr.repo}
-mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.test.failure.ignore=true
 
 """.format(
                     pr=self.pr
@@ -214,7 +214,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.test.failure.ignore=true
 
 """.format(
                     pr=self.pr
@@ -228,7 +228,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.test.failure.ignore=true
 
 """.format(
                     pr=self.pr
