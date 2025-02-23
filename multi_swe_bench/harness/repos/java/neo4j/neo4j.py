@@ -100,10 +100,10 @@ ENV LC_ALL=C.UTF-8
 
 WORKDIR /home/
 
-RUN apt update && apt install -y gnupg ca-certificates git curl maven
+RUN apt update && apt install -y gnupg ca-certificates git curl maven debhelper devscripts dos2unix dpkg make xmlstarlet
 RUN curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/keyrings/azul.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | tee /etc/apt/sources.list.d/zulu.list
-RUN apt update && apt install -y zulu17-jdk
+RUN apt update && apt install -y zulu11-jdk
 {code}
 
 {copy_commands}
@@ -187,7 +187,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-mvn clean install -T1C || true
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false -Dmaven.test.failure.ignore=true || true
 
 """.format(
                     pr=self.pr
