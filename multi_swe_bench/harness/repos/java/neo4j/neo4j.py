@@ -32,7 +32,48 @@ class Neo4jImageBase(Image):
         return "base"
 
     def files(self) -> list[File]:
-        return []
+        return [
+            File(
+                ".",
+                "config_maven.sh",
+                """#!/bin/bash
+set -e
+
+PROXY_SETTINGS='<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <proxies>
+        <proxy>
+            <id>example-proxy</id>
+            <active>true</active>
+            <protocol>http</protocol>
+            <host>sys-proxy-rd-relay.byted.org</host>
+            <port>8118</port>
+            <username></username>
+            <password></password>
+            <nonProxyHosts></nonProxyHosts>
+        </proxy>
+    </proxies>
+
+</settings>'
+
+MAVEN_SETTINGS="$HOME/.m2/settings.xml"
+
+if [ ! -d "$HOME/.m2" ]; then
+    mkdir -p "$HOME/.m2"
+fi
+
+if [ ! -f "$MAVEN_SETTINGS" ]; then
+    touch "$MAVEN_SETTINGS"
+fi
+
+echo "$PROXY_SETTINGS" > "$MAVEN_SETTINGS"
+
+""",
+            )
+        ]
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -43,6 +84,10 @@ class Neo4jImageBase(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
 
         return f"""FROM {image_name}
 
@@ -60,6 +105,10 @@ RUN curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/k
     && echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | tee /etc/apt/sources.list.d/zulu.list
 RUN apt update && apt install -y zulu17-jdk
 {code}
+
+{copy_commands}
+
+RUN bash /home/config_gradle.sh
 
 {self.clear_env}
 
