@@ -510,6 +510,7 @@ def regenerate_reports(instances: list[Instance], cli: CliArgs, logger: logging.
             )
 
         with open(repo_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
+            repo_reports.sort(key=lambda x: x["number"], reverse=True)
             for report in repo_reports:
                 json.dump(report, f, cls=SetEncoder)
                 f.write("\n")
@@ -521,6 +522,7 @@ def regenerate_reports(instances: list[Instance], cli: CliArgs, logger: logging.
         logger.info(f"Generated {count} valid reports for {name}.")
 
     with open(cli.workdir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
+        reports.sort(key=lambda x: x["number"], reverse=True)
         for report in reports:
             json.dump(report, f, cls=SetEncoder)
             f.write("\n")
