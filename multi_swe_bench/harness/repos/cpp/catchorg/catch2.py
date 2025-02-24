@@ -340,7 +340,7 @@ ctest
 """
 
 
-@Instance.register("catchorg", "catch2")
+@Instance.register("catchorg", "Catch2")
 class Catch2(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
