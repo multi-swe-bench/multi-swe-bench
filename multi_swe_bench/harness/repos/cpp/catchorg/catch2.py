@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y \
 
 """
 
+
 class Catch2ImageBaseCpp12(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -124,6 +125,7 @@ RUN apt-get update && apt-get install -y \
 
 """
 
+
 class Catch2ImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -182,6 +184,7 @@ RUN apt-get update && apt-get install -y \
 {self.clear_env}
 
 """
+
 
 class Catch2ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):

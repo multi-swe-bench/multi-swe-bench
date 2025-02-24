@@ -70,7 +70,6 @@ RUN apt-get update && apt-get install -y \
 """
 
 
-
 class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr

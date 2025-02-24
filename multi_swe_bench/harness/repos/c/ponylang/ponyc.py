@@ -123,6 +123,7 @@ RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
 
 """
 
+
 class ponycImageBase16(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -177,6 +178,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 {self.clear_env}
 
 """
+
 
 class ponycImageBase16V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -234,6 +236,7 @@ RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
 
 """
 
+
 class ponycImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -250,7 +253,7 @@ class ponycImageDefault(Image):
     def dependency(self) -> Image | None:
         if 3530 <= self.pr.number <= 4288:
             return ponycImageBase18(self.pr, self._config)
-        elif 3043< self.pr.number <= 3442:
+        elif 3043 < self.pr.number <= 3442:
             return ponycImageBase16(self.pr, self._config)
         elif self.pr.number <= 3043:
             return ponycImageBase16V2(self.pr, self._config)

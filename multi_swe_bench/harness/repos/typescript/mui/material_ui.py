@@ -404,6 +404,7 @@ yarn run test:unit --reporter spec
 
 """
 
+
 class MaterialUiImageDefault33415(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -547,6 +548,7 @@ yarn run test:unit --reporter spec  --exit
 {self.clear_env}
 
 """
+
 
 @Instance.register("mui", "material-ui")
 class MaterialUi(Instance):

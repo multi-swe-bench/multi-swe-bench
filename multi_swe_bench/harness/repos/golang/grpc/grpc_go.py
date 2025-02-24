@@ -224,6 +224,7 @@ class GrpcGo(Instance):
 
     def fix_patch_run(self) -> str:
         return "bash /home/fix-run.sh"
+
     def parse_log(self, test_log: str) -> TestResult:
         passed_tests = []
         failed_tests = []

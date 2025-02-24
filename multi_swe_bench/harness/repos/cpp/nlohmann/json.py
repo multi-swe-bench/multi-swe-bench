@@ -112,6 +112,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 
 """
 
+
 class JsonImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -164,6 +165,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 
 """
 
+
 class JsonImageBaseCpp6(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -214,6 +216,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/json_test_data.git
 {self.clear_env}
 
 """
+
 
 class JsonImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
