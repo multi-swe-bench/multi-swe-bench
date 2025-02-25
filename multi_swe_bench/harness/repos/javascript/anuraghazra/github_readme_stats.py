@@ -20,7 +20,7 @@ class ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "FROM ubuntu:latest"
+        return "ubuntu:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -56,9 +56,6 @@ ENV LC_ALL=C.UTF-8
 RUN apt update && apt install -y git nodejs npm
 {code}
 
-
-
-
 {self.clear_env}
 
 """
@@ -78,9 +75,6 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 2825 <= self.pr.number and self.pr.number <= 3685:
-        #     return valkeyImageBaseCpp7(self.pr, self._config)
-
         return ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
@@ -138,8 +132,9 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-npm install
-npm ci 
+
+npm install || true
+npm ci || true
 
 """.format(
                     pr=self.pr
