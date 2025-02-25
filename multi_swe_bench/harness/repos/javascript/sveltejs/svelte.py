@@ -129,9 +129,9 @@ class SvelteImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if self.pr.number <= 11804:
-            return SvelteImageBase8(self.pr)
+            return SvelteImageBase8(self.pr, self.config)
         else:
-            return SvelteImageBase9(self.pr)
+            return SvelteImageBase9(self.pr, self.config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()

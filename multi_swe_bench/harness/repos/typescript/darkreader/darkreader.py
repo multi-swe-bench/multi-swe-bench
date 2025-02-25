@@ -360,6 +360,9 @@ class Darkreader(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+        if self.pr.number <= 7241:
+            return DarkreaderImageDefault7241(self.pr, self._config)
+
         return DarkreaderImageDefault(self.pr, self._config)
 
     def run(self) -> str:
