@@ -26,10 +26,10 @@ class SvelteImageBase8(Image):
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base"
+        return "base8"
 
     def workdir(self) -> str:
-        return "base"
+        return "base8"
 
     def files(self) -> list[File]:
         return []
@@ -80,10 +80,10 @@ class SvelteImageBase9(Image):
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base"
+        return "base9"
 
     def workdir(self) -> str:
-        return "base"
+        return "base9"
 
     def files(self) -> list[File]:
         return []

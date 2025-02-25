@@ -20,7 +20,7 @@ class ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "node:18"
+        return "node:20"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
