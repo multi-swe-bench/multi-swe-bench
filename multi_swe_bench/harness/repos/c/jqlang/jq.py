@@ -59,9 +59,6 @@ RUN apt-get update && \
 RUN apt-get install -y crossbuild-essential-amd64
 {code}
 
-
-
-
 {self.clear_env}
 
 """
@@ -81,9 +78,6 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 2825 <= self.pr.number and self.pr.number <= 3685:
-        #     return valkeyImageBaseCpp7(self.pr, self._config)
-
         return ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:

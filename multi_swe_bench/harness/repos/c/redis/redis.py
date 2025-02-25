@@ -54,11 +54,7 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 RUN apt update && apt install -y git make gcc pkg-config libjemalloc-dev build-essential autoconf automake libtool tcl libssl-dev libpsl-dev
 
-
 {code}
-
-
-
 
 {self.clear_env}
 
@@ -79,9 +75,6 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 2825 <= self.pr.number and self.pr.number <= 3685:
-        #     return valkeyImageBaseCpp7(self.pr, self._config)
-
         return ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
