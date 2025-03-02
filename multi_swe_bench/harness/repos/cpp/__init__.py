@@ -4,3 +4,4 @@ from multi_swe_bench.harness.repos.cpp.nlohmann import *
 from multi_swe_bench.harness.repos.cpp.simdjson import *
 from multi_swe_bench.harness.repos.cpp.cgal import *
 from multi_swe_bench.harness.repos.cpp.yhirose import *
+from multi_swe_bench.harness.repos.cpp.rootproject import *

@@ -52,10 +52,10 @@ WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 RUN apt-get update && apt-get install -y clang wget sudo git build-essential pkg-config tar tzdata cmake
-RUN apt-get install -y  libmpfr-dev \
+RUN apt-get install -y libboost-dev libboost-program-options-dev libmpfr-dev libeigen3-dev
+RUN apt-get install -y libmpfr-dev \
     libeigen3-dev qtbase5-dev libqt5sql5-sqlite libqt5opengl5-dev qtscript5-dev \
     libqt5svg5-dev qttools5-dev qttools5-dev-tools libboost-dev libinsighttoolkit5-dev zsh
-RUN apt-get install -y libboost-dev libboost-program-options-dev libmpfr-dev libeigen3-dev
 {code}
 
 
