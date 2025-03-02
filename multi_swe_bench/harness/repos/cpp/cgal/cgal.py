@@ -214,7 +214,7 @@ set -e
 cd /home/{pr.repo}
 set -e
 mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
-ctest
+ctest -j 8
 """.format(
                     pr=self.pr
                 ),
@@ -229,7 +229,7 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 set -e
 mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
-ctest
+ctest -j 8
 
 """.format(
                     pr=self.pr
@@ -245,7 +245,7 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 set -e
 mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
-ctest
+ctest -j 8
 
 """.format(
                     pr=self.pr
