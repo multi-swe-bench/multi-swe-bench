@@ -63,14 +63,6 @@ RUN apt-get update && \
 
 RUN apt-get install -y binutils cmake dpkg-dev libssl-dev git libx11-dev \
 libxext-dev libxft-dev libxpm-dev python3 libtbb-dev libgif-dev
-RUN apt-get install -y gfortran libpcre3-dev \
-libglu1-mesa-dev libglew-dev libftgl-dev \
-libfftw3-dev libcfitsio-dev libgraphviz-dev \
-libavahi-compat-libdnssd-dev libldap2-dev \
-python3-dev python3-numpy libxml2-dev libkrb5-dev \
-libgsl-dev qtwebengine5-dev nlohmann-json3-dev libmariadb-dev \
-libgl2ps-dev \
-liblzma-dev libxxhash-dev liblz4-dev libzstd-dev
 
 {self.clear_env}
 
