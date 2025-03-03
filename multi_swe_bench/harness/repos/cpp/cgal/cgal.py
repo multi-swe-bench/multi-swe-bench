@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class AntDesignImageBase(Image):
+class CgalImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class AntDesignImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:latest"
+        return "ubuntu:22.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -49,25 +49,83 @@ class AntDesignImageBase(Image):
 {self.global_env}
 
 WORKDIR /home/
-
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    unzip \
-    nodejs \
-    npm \
-    && apt-get clean
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+ENV TZ=Etc/UTC
+RUN apt-get update && apt-get install -y clang wget sudo git build-essential pkg-config tar tzdata cmake
+RUN apt-get install -y libboost-dev libboost-program-options-dev libmpfr-dev libeigen3-dev
+RUN apt-get install -y libmpfr-dev \
+    libeigen3-dev qtbase5-dev libqt5sql5-sqlite libqt5opengl5-dev qtscript5-dev \
+    libqt5svg5-dev qttools5-dev qttools5-dev-tools libboost-dev libinsighttoolkit5-dev zsh
 {code}
+
 
 {self.clear_env}
 
 """
 
 
-class AntDesignImageDefault(Image):
+class CgalImageBaseCpp7(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "gcc:7"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base-cpp-7"
+
+    def workdir(self) -> str:
+        return "base-cpp-7"
+
+    def files(self) -> list[File]:
+        return []
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+        return f"""FROM {image_name}
+
+{self.global_env}
+
+WORKDIR /home/
+
+{code}
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    pkg-config \
+    wget \
+    tar && \
+    wget https://cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz && \
+    tar -zxvf cmake-3.14.0-Linux-x86_64.tar.gz && \
+    mv cmake-3.14.0-Linux-x86_64 /opt/cmake && \
+    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
+    rm cmake-3.14.0-Linux-x86_64.tar.gz
+RUN apt-get install -y cmake
+{self.clear_env}
+
+"""
+
+
+class CgalImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -81,7 +139,10 @@ class AntDesignImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return AntDesignImageBase(self.pr, self.config)
+        # if self.pr.number <= 958:
+        #     return CgalImageBaseCpp7(self.pr, self._config)
+
+        return CgalImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -139,7 +200,6 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-bun install 
 
 """.format(
                     pr=self.pr
@@ -152,8 +212,9 @@ bun install
 set -e
 
 cd /home/{pr.repo}
-bun run test -- --verbose
-
+set -e
+mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
+ctest -j 8
 """.format(
                     pr=self.pr
                 ),
@@ -165,8 +226,10 @@ bun run test -- --verbose
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch
-bun run test -- --verbose
+git apply --whitespace=nowarn /home/test.patch
+set -e
+mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
+ctest -j 8
 
 """.format(
                     pr=self.pr
@@ -179,8 +242,10 @@ bun run test -- --verbose
 set -e
 
 cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-bun run test -- --verbose
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
+set -e
+mkdir build && cd build && CXX=clang++ cmake -DWITH_examples=ON -DWITH_tests=ON -DWITH_demos=ON -DBUILD_TESTING=ON ..
+ctest -j 8
 
 """.format(
                     pr=self.pr
@@ -212,8 +277,8 @@ bun run test -- --verbose
 """
 
 
-@Instance.register("ant-design", "ant-design")
-class AntDesign(Instance):
+@Instance.register("CGAL", "cgal")
+class cgal(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -224,8 +289,7 @@ class AntDesign(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-
-        return AntDesignImageDefault(self.pr, self._config)
+        return CgalImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -237,33 +301,13 @@ class AntDesign(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
+        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
+        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
+        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
 
-        re_pass = re.compile(r"--- PASS: (\S+)")
-        re_fail_p1 = re.compile(r"--- FAIL: (\S+)")
-        re_fail_p2 = re.compile(r"FAIL:?\s?(.+?)\s")
-        re_skip = re.compile(r"--- SKIP: (\S+)")
-
-        for line in test_log.splitlines():
-            line = line.strip()
-            if line.startswith("--- PASS:"):
-                match = re_pass.match(line)
-                if match:
-                    passed_tests.append(match.group(1))
-            elif line.startswith("--- FAIL:"):
-                match = re_fail_p1.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("FAIL"):
-                match = re_fail_p2.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("--- SKIP:"):
-                match = re_skip.match(line)
-                if match:
-                    skipped_tests.append(match.group(1))
+        passed_tests = re_pass.findall(test_log)
+        failed_tests = re_fail.findall(test_log)
+        skipped_tests = re_skip.findall(test_log)
 
         return TestResult(
             passed_count=len(passed_tests),
