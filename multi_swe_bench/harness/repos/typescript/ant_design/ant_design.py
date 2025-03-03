@@ -225,7 +225,6 @@ class AntDesign(Instance):
 
     def dependency(self) -> Optional[Image]:
 
-
         return AntDesignImageDefault(self.pr, self._config)
 
     def run(self) -> str:
