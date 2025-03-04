@@ -129,7 +129,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-yarn install
+yarn install || true
 
 """.format(
                     pr=self.pr
@@ -172,7 +172,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-yarn test -- --verbose
+yarn test 
 
 """.format(
                     pr=self.pr
