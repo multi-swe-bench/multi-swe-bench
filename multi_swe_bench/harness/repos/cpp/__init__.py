@@ -6,3 +6,4 @@ from multi_swe_bench.harness.repos.cpp.rootproject import *
 from multi_swe_bench.harness.repos.cpp.simdjson import *
 from multi_swe_bench.harness.repos.cpp.yhirose import *
 from multi_swe_bench.harness.repos.cpp.bitcoin import *
+from multi_swe_bench.harness.repos.cpp.halide import *
