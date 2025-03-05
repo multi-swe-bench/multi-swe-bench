@@ -6,3 +6,5 @@ from multi_swe_bench.harness.repos.c.valkey_io import *
 from multi_swe_bench.harness.repos.c.mruby import *
 from multi_swe_bench.harness.repos.c.fluent import *
 from multi_swe_bench.harness.repos.c.OpenMathLib import *
+from multi_swe_bench.harness.repos.c.libgit2 import *
+from multi_swe_bench.harness.repos.c.libsdlorg import *
