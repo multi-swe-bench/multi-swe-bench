@@ -9,3 +9,4 @@ from multi_swe_bench.harness.repos.typescript.nuxt import *
 from multi_swe_bench.harness.repos.typescript.facebook import *
 from multi_swe_bench.harness.repos.typescript.remix_run import *
 from multi_swe_bench.harness.repos.typescript.withastro import *
+from multi_swe_bench.harness.repos.typescript.trpc import *
