@@ -242,12 +242,13 @@ class Fastjson2(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+
         pattern = re.compile(
             r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: [\d.]+ .+? in (.+)"
         )
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
 
         for line in test_log.splitlines():
             match = pattern.search(line)
@@ -264,11 +265,11 @@ class Fastjson2(Instance):
                     and errors == 0
                     and skipped != tests_run
                 ):
-                    passed_tests.append(test_name)
+                    passed_tests.add(test_name)
                 elif failures > 0 or errors > 0:
-                    failed_tests.append(test_name)
+                    failed_tests.add(test_name)
                 elif skipped == tests_run:
-                    skipped_tests.append(test_name)
+                    skipped_tests.add(test_name)
 
         return TestResult(
             passed_count=len(passed_tests),

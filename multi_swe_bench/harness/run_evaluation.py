@@ -1,9 +1,8 @@
 import argparse
 import json
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +11,6 @@ from tqdm import tqdm
 from multi_swe_bench.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
-    FINAL_REPORT_FILE,
     FIX_PATCH_RUN_LOG_FILE,
     INSTANCE_WORKDIR,
     REPORT_FILE,
@@ -24,7 +22,7 @@ from multi_swe_bench.harness.constant import (
 from multi_swe_bench.harness.gen_report import Report, generate_report
 from multi_swe_bench.harness.image import Config, Image
 from multi_swe_bench.harness.instance import Instance
-from multi_swe_bench.harness.pull_request import Base, PullRequest
+from multi_swe_bench.harness.pull_request import PullRequest
 from multi_swe_bench.utils.docker_util import build, exists, run
 from multi_swe_bench.utils.fs_utils import copy_source_code
 from multi_swe_bench.utils.git_util import clone_repository, get_all_commit_hashes
@@ -128,18 +126,6 @@ def get_parser() -> argparse.ArgumentParser:
         default=True,
         help="Whether to clear environment variables before running instances.",
     )
-    parser.add_argument(
-        "--regenerate_reports_for_pr_file",
-        type=str_to_bool,
-        default=False,
-        help="Whether to regenerate reports for all instances in the input pull requests file.",
-    )
-    parser.add_argument(
-        "--regenerate_reports_for_workdir",
-        type=str_to_bool,
-        default=False,
-        help="Whether to regenerate reports for all logs in the input workdir.",
-    )
 
     return parser
 
@@ -158,8 +144,6 @@ class CliArgs:
     max_workers_run_instance: int
     global_env: Optional[list[str]]
     clear_env: bool
-    regenerate_reports_for_pr_file: bool
-    regenerate_reports_for_workdir: bool
 
 
 def init_logger(
@@ -460,104 +444,6 @@ def generate_instance_report(
     return report
 
 
-def regenerate_reports(instances: list[Instance], cli: CliArgs, logger: logging.Logger):
-    logger.info("Start to regenerate reports for all given instances...")
-
-    class SetEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, set):
-                return list(obj)
-            return super().default(obj)
-
-    instances_dict: dict[str, list[Instance]] = {}
-    for instance in instances:
-        if instance.pr.repo_full_name not in instances_dict:
-            instances_dict[instance.pr.repo_full_name] = []
-        instances_dict[instance.pr.repo_full_name].append(instance)
-
-    reports = []
-    repo_report_counts: dict[str, int] = {}
-    for instances in instances_dict.values():
-        repo_reports = []
-        repo_dir = cli.workdir / instances[0].pr.org / instances[0].pr.repo
-        for instance in instances:
-            instance_dir = repo_dir / INSTANCE_WORKDIR / instance.dependency().workdir()
-
-            report_path = instance_dir / REPORT_FILE
-            report = generate_instance_report(instance, instance_dir)
-            with open(report_path, "w", encoding="utf-8") as f:
-                f.write(report.to_json())
-
-            ok, error_msg = report.check()
-            if not ok:
-                logger.warning(
-                    f"Report for {instance.name()} is not valid: {error_msg}"
-                )
-                continue
-
-            repo_reports.append(
-                {
-                    "org": instance.pr.org,
-                    "repo": instance.pr.repo,
-                    "number": instance.pr.number,
-                    **asdict(report),
-                }
-            )
-
-        with open(repo_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
-            repo_reports.sort(key=lambda x: x["number"], reverse=True)
-            for report in repo_reports:
-                json.dump(report, f, cls=SetEncoder)
-                f.write("\n")
-
-        repo_report_counts[instances[0].pr.repo_full_name] = len(repo_reports)
-        reports.extend(repo_reports)
-
-    for name, count in repo_report_counts.items():
-        logger.info(f"Generated {count} valid reports for {name}.")
-
-    with open(cli.workdir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
-        reports.sort(key=lambda x: x["number"], reverse=True)
-        for report in reports:
-            json.dump(report, f, cls=SetEncoder)
-            f.write("\n")
-
-    logger.info(f"Generated {len(reports)} valid reports in total.")
-    logger.info("Reports regenerated successfully.")
-
-
-def generate_reports(instances: list[Instance], cli: CliArgs, logger: logging.Logger):
-    reports = []
-    for instance in instances:
-        instance_dir = (
-            cli.workdir
-            / instance.pr.org
-            / instance.pr.repo
-            / INSTANCE_WORKDIR
-            / instance.dependency().workdir()
-        )
-        report_path = instance_dir / REPORT_FILE
-
-        report: Report = Report.from_json(report_path.read_text(encoding="utf-8"))
-
-        if not report.check():
-            logger.warning(f"Report for {instance.name()} is not valid.")
-            continue
-
-        reports.append({**asdict(instance.pr), **asdict(report)})
-
-    class SetEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, set):
-                return list(obj)
-            return super().default(obj)
-
-    with open(cli.workdir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
-        for report in reports:
-            json.dump(report, f, cls=SetEncoder)
-            f.write("\n")
-
-
 def convert_to_dict(env: Optional[list[str]]) -> Optional[dict[str, str]]:
     if env is None:
         return None
@@ -575,66 +461,8 @@ def convert_to_dict(env: Optional[list[str]]) -> Optional[dict[str, str]]:
     return result
 
 
-def regenerate_reports_for_workdir(cli: CliArgs, logger: logging.Logger):
-    logger.info("Start to regenerate reports for the input workdir...")
-
-    def creat_instace(org: str, repo: str, number: int) -> Instance:
-        pr = PullRequest(
-            org=org,
-            repo=repo,
-            number=number,
-            state="",
-            title="",
-            body="",
-            base=Base(label="", ref="", sha=""),
-            resolved_issues=[],
-            fix_patch="",
-            test_patch="",
-        )
-
-        config = Config(
-            need_clone=cli.need_clone,
-            global_env=convert_to_dict(cli.global_env),
-            clear_env=cli.clear_env,
-        )
-
-        return Instance.create(pr, config)
-
-    re_number = re.compile(r"pr-(\d+)")
-    instances: list[Instance] = []
-    for org_dir in cli.workdir.iterdir():
-        if not org_dir.is_dir():
-            continue
-
-        for repo_dir in org_dir.iterdir():
-            if not repo_dir.is_dir():
-                continue
-
-            if not (repo_dir / "instances").exists():
-                continue
-
-            for instance_dir in (repo_dir / "instances").iterdir():
-                if not instance_dir.is_dir():
-                    continue
-
-                match = re_number.match(instance_dir.name)
-                if not match:
-                    continue
-
-                number = int(match.group(1))
-                instances.append(creat_instace(org_dir.name, repo_dir.name, number))
-
-    regenerate_reports(instances, cli, logger)
-
-    logger.info("Reports regenerated successfully.")
-
-
 def main(cli: CliArgs):
     logger = init_logger(cli.workdir, cli.log_level, cli.print_to_console)
-
-    if cli.regenerate_reports_for_workdir:
-        regenerate_reports_for_workdir(cli, logger)
-        return
 
     if cli.pr_file is None:
         raise ValueError("Please provide the path to the pull requests file.")
@@ -651,18 +479,12 @@ def main(cli: CliArgs):
         logger,
     )
 
-    if cli.regenerate_reports_for_pr_file:
-        regenerate_reports(instances, cli, logger)
-        return
-
     if cli.repo_dir:
         check_commit_hashes(cli.repo_dir, instances, logger)
 
     build_images(instances, cli, logger)
 
     run_instances(instances, cli, logger)
-
-    generate_reports(instances, cli, logger)
 
 
 if __name__ == "__main__":

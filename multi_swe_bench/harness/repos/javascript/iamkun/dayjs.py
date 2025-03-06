@@ -230,13 +230,48 @@ class zstd(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        current_suite = None
+
+        re_pass_suite = re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+        re_pass_test = re.compile(r"^✓ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+
+        re_fail_suite = re.compile(r"^FAIL (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+        re_fail_test = re.compile(r"^✕ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            pass_match = re_pass_suite.match(line)
+            if pass_match:
+                current_suite = pass_match.group(1)
+                passed_tests.add(current_suite)
+
+            fail_match = re_fail_suite.match(line)
+            if fail_match:
+                current_suite = fail_match.group(1)
+                failed_tests.add(current_suite)
+
+            pass_test_match = re_pass_test.match(line)
+            if pass_test_match:
+                if current_suite is None:
+                    raise ValueError(f"Test passed without suite: {line}")
+
+                test = f"{current_suite}:{pass_test_match.group(1)}"
+                passed_tests.add(test)
+
+            fail_test_match = re_fail_test.match(line)
+            if fail_test_match:
+                if current_suite is None:
+                    raise ValueError(f"Test failed without suite: {line}")
+
+                test = f"{current_suite}:{fail_test_match.group(1)}"
+                failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),

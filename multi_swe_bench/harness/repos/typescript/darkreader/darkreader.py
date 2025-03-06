@@ -375,33 +375,48 @@ class Darkreader(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        re_pass = re.compile(r"--- PASS: (\S+)")
-        re_fail_p1 = re.compile(r"--- FAIL: (\S+)")
-        re_fail_p2 = re.compile(r"FAIL:?\s?(.+?)\s")
-        re_skip = re.compile(r"--- SKIP: (\S+)")
+        current_suite = None
+
+        re_pass_suite = re.compile(r"^PASS (\S+)(\s*\(.+\))?$")
+        re_pass_test = re.compile(r"^✓ (.+?)(\s+\(.+\))?$")
+
+        re_fail_suite = re.compile(r"^FAIL (\S+)(\s*\(.+\))?$")
+        re_fail_test = re.compile(r"^✕ (.+?)(\s+\(.+\))?$")
 
         for line in test_log.splitlines():
             line = line.strip()
-            if line.startswith("--- PASS:"):
-                match = re_pass.match(line)
-                if match:
-                    passed_tests.append(match.group(1))
-            elif line.startswith("--- FAIL:"):
-                match = re_fail_p1.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("FAIL"):
-                match = re_fail_p2.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("--- SKIP:"):
-                match = re_skip.match(line)
-                if match:
-                    skipped_tests.append(match.group(1))
+            if not line:
+                continue
+
+            pass_match = re_pass_suite.match(line)
+            if pass_match:
+                current_suite = pass_match.group(1)
+                passed_tests.add(current_suite)
+
+            fail_match = re_fail_suite.match(line)
+            if fail_match:
+                current_suite = fail_match.group(1)
+                failed_tests.add(current_suite)
+
+            pass_test_match = re_pass_test.match(line)
+            if pass_test_match:
+                if current_suite is None:
+                    raise ValueError(f"Test passed without suite: {line}")
+
+                test = f"{current_suite}:{pass_test_match.group(1)}"
+                passed_tests.add(test)
+
+            fail_test_match = re_fail_test.match(line)
+            if fail_test_match:
+                if current_suite is None:
+                    raise ValueError(f"Test failed without suite: {line}")
+
+                test = f"{current_suite}:{fail_test_match.group(1)}"
+                failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),
