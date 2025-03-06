@@ -62,7 +62,7 @@ RUN apt update && apt install -y cmake flex bison libyaml-dev libssl-dev
 """
 
 
-class fluentbitImageBase18(Image):
+class fluentbitImageBaseGCC7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -76,16 +76,16 @@ class fluentbitImageBase18(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:18.04"
+        return "gcc:7"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-18"
+        return "base-gcc-7"
 
     def workdir(self) -> str:
-        return "base-18"
+        return "base-gcc-7"
 
     def files(self) -> list[File]:
         return []
@@ -106,14 +106,9 @@ class fluentbitImageBase18(Image):
 
 WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git llvm clang build-essential wget tar python3 python3-dev python3-pip
-RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.16.3-Linux-x86_64.tar.gz && \
-    mv cmake-3.16.3-Linux-x86_64 /opt/cmake && \
-    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.16.3-Linux-x86_64.tar.gz
+ENV TZ=Etc/UTC
+RUN apt update && apt install -y cmake flex bison libyaml-dev libssl-dev
+
 {code}
 
 
@@ -121,120 +116,6 @@ RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
 {self.clear_env}
 
 """
-
-
-class fluentbitImageBase16(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:16.04"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-16"
-
-    def workdir(self) -> str:
-        return "base-16"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git clang build-essential cmake
-{code}
-
-
-
-{self.clear_env}
-
-"""
-
-
-class fluentbitImageBase16V2(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:16.04"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-16V2"
-
-    def workdir(self) -> str:
-        return "base-16V2"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git clang build-essential cmake 
-RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
-{code}
-
-
-
-{self.clear_env}
-
-"""
-
 
 class fluentbitImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -250,12 +131,8 @@ class fluentbitImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 3530 <= self.pr.number <= 4288:
-        #     return fluentbitImageBase18(self.pr, self._config)
-        # elif 3043 < self.pr.number <= 3442:
-        #     return fluentbitImageBase16(self.pr, self._config)
-        # elif self.pr.number <= 3043:
-        #     return fluentbitImageBase16V2(self.pr, self._config)
+        if self.pr.number <= 3663:
+            return fluentbitImageBaseGCC7(self.pr, self._config)
         return fluentbitImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
