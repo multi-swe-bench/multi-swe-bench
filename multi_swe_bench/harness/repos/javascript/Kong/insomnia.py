@@ -20,7 +20,7 @@ class ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "node:20"
+        return "node:18"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -133,7 +133,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-npm ci || true
+npm ci 
 
 """.format(
                     pr=self.pr
@@ -146,7 +146,7 @@ npm ci || true
 set -e
 
 cd /home/{pr.repo}
-npm test 
+npm test -- --verbose
 """.format(
                     pr=self.pr
                 ),
@@ -159,7 +159,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-npm test 
+npm test -- --verbose
 
 """.format(
                     pr=self.pr
@@ -173,7 +173,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-npm test 
+npm test -- --verbose
 
 """.format(
                     pr=self.pr
