@@ -71,7 +71,7 @@ RUN apt-get update && apt-get install -y clang-tools lld llvm-dev libclang-dev l
 """
 
 
-class HalideImageBase18(Image):
+class HalideImageBaseGCC11(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -85,16 +85,16 @@ class HalideImageBase18(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:18.04"
+        return "gcc:11"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-18"
+        return "base-gcc-11"
 
     def workdir(self) -> str:
-        return "base-18"
+        return "base-gcc-11"
 
     def files(self) -> list[File]:
         return []
@@ -115,14 +115,22 @@ class HalideImageBase18(Image):
 
 WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git llvm clang build-essential wget tar python3 python3-dev python3-pip
-RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.16.3-Linux-x86_64.tar.gz && \
-    mv cmake-3.16.3-Linux-x86_64 /opt/cmake && \
+ENV TZ=Etc/UTC
+RUN wget https://cmake.org/files/v3.22/cmake-3.22.0-linux-x86_64.tar.gz && \
+    tar -zxvf cmake-3.22.0-linux-x86_64.tar.gz && \
+    mv cmake-3.22.0-linux-x86_64 /opt/cmake && \
     ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.16.3-Linux-x86_64.tar.gz
+    rm cmake-3.22.0-linux-x86_64.tar.gz
+    
+RUN apt update && apt install -y lsb-release software-properties-common gnupg
+RUN wget https://apt.llvm.org/llvm.sh && \
+chmod +x llvm.sh && \
+./llvm.sh 14 all && \
+apt autoremove
+
+RUN apt install -y libpng-dev libjpeg-dev libgl-dev python3-dev python3-numpy python3-scipy \
+    python3-imageio python3-pybind11 libopenblas-dev libeigen3-dev cmake
+
 {code}
 
 
@@ -259,8 +267,8 @@ class HalideImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if 3530 <= self.pr.number <= 4288:
-        #     return HalideImageBase18(self.pr, self._config)
+        if  self.pr.number <= 7557:
+            return HalideImageBaseGCC11(self.pr, self._config)
         # elif 3043 < self.pr.number <= 3442:
         #     return HalideImageBase16(self.pr, self._config)
         # elif self.pr.number <= 3043:
