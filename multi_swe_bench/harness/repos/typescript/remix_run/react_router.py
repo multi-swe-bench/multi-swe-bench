@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class PuppeteerImageBase(Image):
+class ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -60,7 +60,7 @@ RUN apt update && apt install -y jq
 """
 
 
-class PuppeteerImageDefault(Image):
+class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -74,7 +74,7 @@ class PuppeteerImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return PuppeteerImageBase(self.pr, self.config)
+        return ImageBase(self.pr, self.config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -209,9 +209,157 @@ pnpm test -- --verbose --testLocationInResults
 
 """
 
+class ImageDefault11199(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Image | None:
+        return ImageBase(self.pr, self.config)
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+rm -rf node_modules
+yarn --frozen-lockfile
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+yarn build
+yarn test -- --verbose
+
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply /home/test.patch
+yarn build
+yarn test -- --verbose
+
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply /home/test.patch /home/fix.patch
+yarn build
+yarn test -- --verbose
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        image = self.dependency()
+        name = image.image_name()
+        tag = image.image_tag()
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        prepare_commands = "RUN bash /home/prepare.sh"
+
+        return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
 
 @Instance.register("remix-run", "react-router")
-class puppeteer(Instance):
+class react_router(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -222,9 +370,12 @@ class puppeteer(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+        if self.pr.number <= 40180 :
+            return ImageDefault11199(self.pr, self._config)
+        # elif self.pr.number <= 33415:
+        #     return MaterialUiImageDefault33415(self.pr, self._config)
 
-
-        return PuppeteerImageDefault(self.pr, self._config)
+        return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
