@@ -1,55 +1,6 @@
-from dataclasses import dataclass
-from typing import Tuple
-
-from dataclasses_json import dataclass_json
-
 from multi_swe_bench.harness.image import Config, Image
 from multi_swe_bench.harness.pull_request import PullRequest
-
-
-@dataclass_json
-@dataclass
-class TestResult:
-    passed_count: int
-    failed_count: int
-    skipped_count: int
-    passed_tests: set[str]
-    failed_tests: set[str]
-    skipped_tests: set[str]
-
-    @property
-    def all_count(self) -> int:
-        return self.passed_count + self.failed_count + self.skipped_count
-
-    def is_non_zero_tests(self) -> bool:
-        return self.failed_count > 0 or self.passed_count > 0
-
-
-@dataclass_json
-@dataclass
-class Report:
-    run_result: TestResult
-    test_patch_result: TestResult
-    fix_patch_result: TestResult
-
-    def check(self) -> Tuple[bool, str]:
-        if (
-            self.run_result.all_count != 0
-            and self.test_patch_result.all_count == 0
-            and self.fix_patch_result.all_count != 0
-        ):
-            return (True, "")
-
-        if self.test_patch_result.failed_count == 0:
-            return (False, f"Not failed: {self.short_report()}")
-
-        if self.fix_patch_result.failed_count >= self.test_patch_result.failed_count:
-            return (False, f"Not fixed: {self.short_report()}")
-
-        return (True, "")
-
-    def short_report(self) -> str:
-        return f"run=({self.run_result.passed_count}, {self.run_result.failed_count}, {self.run_result.skipped_count}), test=({self.test_patch_result.passed_count}, {self.test_patch_result.failed_count}, {self.test_patch_result.skipped_count}), fix=({self.fix_patch_result.passed_count}, {self.fix_patch_result.failed_count}, {self.fix_patch_result.skipped_count})"
+from multi_swe_bench.harness.test_result import TestResult
 
 
 class Instance:

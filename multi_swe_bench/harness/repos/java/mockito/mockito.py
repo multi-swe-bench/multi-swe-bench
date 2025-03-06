@@ -275,6 +275,10 @@ class Mockito(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+
         passed_res = [
             re.compile(r"^> Task :(\S+)$"),
             re.compile(r"^> Task :(\S+) UP-TO-DATE$"),
@@ -292,28 +296,23 @@ class Mockito(Instance):
             re.compile(r"^(.+ > .+) SKIPPED$"),
         ]
 
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
-
         for line in test_log.splitlines():
             for passed_re in passed_res:
                 m = passed_re.match(line)
-                if m:
-                    passed_tests.append(m.group(1))
-                    break
+                if m and m.group(1) not in failed_tests:
+                    passed_tests.add(m.group(1))
 
             for failed_re in failed_res:
                 m = failed_re.match(line)
                 if m:
-                    failed_tests.append(m.group(1))
-                    break
+                    failed_tests.add(m.group(1))
+                    if m.group(1) in passed_tests:
+                        passed_tests.remove(m.group(1))
 
             for skipped_re in skipped_res:
                 m = skipped_re.match(line)
                 if m:
-                    skipped_tests.append(m.group(1))
-                    break
+                    skipped_tests.add(m.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),
@@ -321,5 +320,5 @@ class Mockito(Instance):
             skipped_count=len(skipped_tests),
             passed_tests=passed_tests,
             failed_tests=failed_tests,
-            skipped_tests=[skipped_tests],
+            skipped_tests=skipped_tests,
         )

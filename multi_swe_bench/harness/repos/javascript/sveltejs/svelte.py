@@ -286,20 +286,27 @@ class Svelte(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        test_case_pattern = re.compile(r" *([✓×]) *(.*)")
+        re_pass_test = re.compile(r"^✓ (.+)$")
+        re_fail_test = re.compile(r"^✕ (.+)$")
 
         for line in test_log.splitlines():
-            match = test_case_pattern.match(line)
-            if match:
-                status, test_name = match.groups()
-                if status == "✓":
-                    passed_tests.append(test_name)
-                elif status == "✗":
-                    failed_tests.append(test_name)
+            line = line.strip()
+            if not line:
+                continue
+
+            pass_test_match = re_pass_test.match(line)
+            if pass_test_match:
+                test = pass_test_match.group(1)
+                passed_tests.add(test)
+
+            fail_test_match = re_fail_test.match(line)
+            if fail_test_match:
+                test = fail_test_match.group(1)
+                failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -1,5 +1,9 @@
 import re
-from typing import Optional, Union
+from dataclasses import asdict, dataclass
+from json import JSONDecoder
+from typing import Generator, Optional, Union
+
+from dataclasses_json import dataclass_json
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -580,15 +584,130 @@ class MaterialUi(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(
-            r"\x1b\[32m✔\x1b\[39m\x1b\[0m\x1b\[90m (.*?)\x1b\[0m", re.DOTALL
-        )
-        re_fail = re.compile(r"\x1b\[31m *\d\) (.*?)\x1b\[0m", re.DOTALL)
-        re_skip = re.compile(r"\x1b\[36m  - (.*?)\x1b\[0m", re.DOTALL)
+        passed_tests: set[str] = set()
+        failed_tests: set[str] = set()
+        skipped_tests: set[str] = set()
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        @dataclass_json
+        @dataclass
+        class MaterialUiStats:
+            suites: int
+            tests: int
+            passes: int
+            pending: int
+            failures: int
+            start: str
+            end: str
+            duration: int
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "TestResult":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "TestResult":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        @dataclass_json
+        @dataclass
+        class MaterialUiTest:
+            title: str
+            fullTitle: str
+            file: str
+            currentRetry: int
+            err: dict
+            duration: Optional[int] = None
+            speed: Optional[str] = None
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "TestResult":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "TestResult":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        @dataclass_json
+        @dataclass
+        class MaterialUiInfo:
+            stats: MaterialUiStats
+            tests: list[MaterialUiTest]
+            pending: list[MaterialUiTest]
+            failures: list[MaterialUiTest]
+            passes: list[MaterialUiTest]
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "MaterialUiInfo":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "MaterialUiInfo":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        def extract_json_objects(
+            text: str, decoder=JSONDecoder()
+        ) -> Generator[dict, None, None]:
+            pos = 0
+            while True:
+                match = text.find("{", pos)
+                if match == -1:
+                    break
+                try:
+                    result, index = decoder.raw_decode(text[match:])
+                    yield result
+                    pos = match + index
+                except ValueError:
+                    pos = match + 1
+
+        if "Building new" in test_log:
+            test_log = test_log[test_log.find("Building new", 0) :]
+
+        re_removes = [
+            re.compile(r"error Command failed with exit code \d+\.", re.DOTALL),
+        ]
+
+        for re_remove in re_removes:
+            test_log = re_remove.sub("", test_log)
+
+        test_log = test_log.replace("\r\n", "")
+        test_log = test_log.replace("\n", "")
+
+        for obj in extract_json_objects(test_log):
+            info = MaterialUiInfo.from_dict(obj)
+            for test in info.passes:
+                passed_tests.add(f"{test.file}:{test.fullTitle}")
+            for test in info.failures:
+                failed_tests.add(f"{test.file}:{test.fullTitle}")
+            for test in info.pending:
+                skipped_tests.add(f"{test.file}:{test.fullTitle}")
+
+        for test in failed_tests:
+            if test in passed_tests:
+                passed_tests.remove(test)
+            if test in skipped_tests:
+                skipped_tests.remove(test)
+
+        for test in skipped_tests:
+            if test in passed_tests:
+                passed_tests.remove(test)
 
         return TestResult(
             passed_count=len(passed_tests),

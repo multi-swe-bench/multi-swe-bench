@@ -611,13 +611,37 @@ class ponyc(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        re_passes = [
+            re.compile(r"^\[       OK \] (\S+?)( \(.+\))?$"),
+            re.compile(r"^\x1b\[0;32m\[       OK \] \x1b\[0m(\S+?)( \(.+\))?$"),
+            re.compile(r"^\x1b\[92m---- Passed: (\S+?)\x1b\[0m$"),
+        ]
+        re_fails = [
+            re.compile(r"^\[  FAILED  \] (\S+?)( \(.+\))?$"),
+            re.compile(r"^\x1b\[0;31m\[  FAILED  \] \x1b\[0m(\S+?)( \(.+\))?$"),
+            re.compile(r"^\x1b\[91m\*\*\*\* FAILED: (\S+?)\x1b\[0m$"),
+        ]
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            for re_pass in re_passes:
+                pass_match = re_pass.match(line)
+                if pass_match:
+                    test = pass_match.group(1)
+                    passed_tests.add(test)
+
+            for re_fail in re_fails:
+                fail_match = re_fail.match(line)
+                if fail_match:
+                    test = fail_match.group(1)
+                    failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),

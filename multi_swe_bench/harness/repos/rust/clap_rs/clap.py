@@ -226,28 +226,31 @@ class Clap(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        re_pass = re.compile(r"test (\S+) ... ok")
-        re_fail = re.compile(r"test (\S+) ... FAILED")
-        re_skip = re.compile(r"test (\S+) ... ignored")
+        re_pass_tests = [re.compile(r"test (\S+) ... ok")]
+        re_fail_tests = [re.compile(r"test (\S+) ... FAILED")]
+        re_skip_tests = [re.compile(r"test (\S+) ... ignored")]
 
         for line in test_log.splitlines():
             line = line.strip()
-            if line.startswith("test") and " ... ok" in line:
+
+            for re_pass in re_pass_tests:
                 match = re_pass.match(line)
                 if match:
-                    passed_tests.append(match.group(1))
-            elif line.startswith("test") and " ... FAILED" in line:
+                    passed_tests.add(match.group(1))
+
+            for re_fail in re_fail_tests:
                 match = re_fail.match(line)
                 if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("test") and " ... ignored" in line:
+                    failed_tests.add(match.group(1))
+
+            for re_skip in re_skip_tests:
                 match = re_skip.match(line)
                 if match:
-                    skipped_tests.append(match.group(1))
+                    skipped_tests.add(match.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),
