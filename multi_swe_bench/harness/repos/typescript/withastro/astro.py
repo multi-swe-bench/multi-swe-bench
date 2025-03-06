@@ -20,7 +20,7 @@ class PuppeteerImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "node:20"
+        return "node:22"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -49,9 +49,8 @@ class PuppeteerImageBase(Image):
 {self.global_env}
 
 WORKDIR /home/
-RUN apt update && apt install -y git 
 RUN npm install -g pnpm
-RUN apt install -y jq
+RUN apt update && apt install -y jq
 
 
 {code}
@@ -132,7 +131,8 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-pnpm install 
+
+pnpm install  
 
 """.format(
                     pr=self.pr
@@ -145,9 +145,8 @@ pnpm install
 set -e
 
 cd /home/{pr.repo}
-pnpm dev:prepare
-pnpm test:unit -- --verbose
-
+pnpm run build
+pnpm run test 
 
 
 """.format(
@@ -162,9 +161,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-pnpm dev:prepare 
-pnpm test:unit -- --verbose
-
+pnpm run build
+pnpm run test 
 
 
 """.format(
@@ -179,8 +177,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-pnpm dev:prepare
-pnpm test:unit -- --verbose
+pnpm run build
+pnpm run test 
 
 """.format(
                     pr=self.pr
@@ -212,7 +210,7 @@ pnpm test:unit -- --verbose
 """
 
 
-@Instance.register("nuxt", "nuxt")
+@Instance.register("withastro", "astro")
 class puppeteer(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
