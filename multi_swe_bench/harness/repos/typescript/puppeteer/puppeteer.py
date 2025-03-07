@@ -145,7 +145,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-npm ci
+npm ci || true
 
 """.format(
                     pr=self.pr

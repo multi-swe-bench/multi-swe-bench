@@ -132,7 +132,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-pnpm install  
+pnpm install  || true
 
 """.format(
                     pr=self.pr
