@@ -140,7 +140,7 @@ RUN apt install -y libpng-dev libjpeg-dev libgl-dev python3-dev python3-numpy py
 """
 
 
-class HalideImageBase16(Image):
+class HalideImageBaseGCC11V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -154,16 +154,16 @@ class HalideImageBase16(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:16.04"
+        return "gcc:11"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-16"
+        return "base-gcc-11-V2"
 
     def workdir(self) -> str:
-        return "base-16"
+        return "base-gcc-11-V2"
 
     def files(self) -> list[File]:
         return []
@@ -184,9 +184,13 @@ class HalideImageBase16(Image):
 
 WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git clang build-essential cmake
+ENV TZ=Etc/UTC
+RUN apt update && apt install -y --fix-missing clang-tools lld llvm-dev libclang-dev \
+                  libpng-dev libjpeg-dev libgl-dev \
+                  python3-dev python3-numpy python3-scipy python3-imageio python3-pybind11 \
+                  libopenblas-dev libeigen3-dev libatlas-base-dev \
+                  doxygen ninja-build cmake
+
 {code}
 
 
@@ -196,7 +200,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 """
 
 
-class HalideImageBase16V2(Image):
+class HalideImageBaseU20(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -210,16 +214,16 @@ class HalideImageBase16V2(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "ubuntu:16.04"
+        return "ubuntu:20.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-16V2"
+        return "base-ubuntu-20"
 
     def workdir(self) -> str:
-        return "base-16V2"
+        return "base-ubuntu-20"
 
     def files(self) -> list[File]:
         return []
@@ -240,10 +244,12 @@ class HalideImageBase16V2(Image):
 
 WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git clang build-essential cmake 
-RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
+ENV TZ=Etc/UTC
+RUN apt update && apt install -y --fix-missing git clang-tools lld llvm-dev libclang-dev liblld-10-dev \
+                  libpng-dev libjpeg-dev libgl-dev \
+                  python3-dev python3-numpy python3-scipy python3-imageio python3-pybind11 \
+                  libopenblas-dev libeigen3-dev libatlas-base-dev \
+                  doxygen ninja-build cmake
 {code}
 
 
@@ -267,12 +273,12 @@ class HalideImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if  self.pr.number <= 7557:
+        if  6626 <= self.pr.number <= 7557:
             return HalideImageBaseGCC11(self.pr, self._config)
-        # elif 3043 < self.pr.number <= 3442:
-        #     return HalideImageBase16(self.pr, self._config)
-        # elif self.pr.number <= 3043:
-        #     return HalideImageBase16V2(self.pr, self._config)
+        elif 5626 < self.pr.number <= 6533:
+            return HalideImageBaseGCC11V2(self.pr, self._config)
+        elif self.pr.number <= 5626:
+            return HalideImageBaseU20(self.pr, self._config)
         return HalideImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
