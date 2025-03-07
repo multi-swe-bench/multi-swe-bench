@@ -49,63 +49,7 @@ class ImageBase(Image):
 {self.global_env}
 
 WORKDIR /home/
-RUN apt update && apt install -y git 
-RUN npm install -g pnpm
-RUN apt install -y jq
-
-
-{code}
-
-{self.clear_env}
-
-"""
-
-class ImageBase7792(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "node:18"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base7792"
-
-    def workdir(self) -> str:
-        return "base7792"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-RUN apt update && apt install -y git 
-RUN npm install -g pnpm
-RUN apt install -y jq
+RUN yarn add typescript@latest
 
 
 {code}
@@ -186,7 +130,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-pnpm install  || true
+yarn install || true
 
 """.format(
                     pr=self.pr
@@ -199,8 +143,8 @@ pnpm install  || true
 set -e
 
 cd /home/{pr.repo}
-pnpm test 
-
+yarn build
+yarn test
 
 
 """.format(
@@ -215,155 +159,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-pnpm test 
-
-
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "fix-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch /home/fix.patch
-pnpm test 
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-        ]
-
-    def dockerfile(self) -> str:
-        image = self.dependency()
-        name = image.image_name()
-        tag = image.image_tag()
-
-        copy_commands = ""
-        for file in self.files():
-            copy_commands += f"COPY {file.name} /home/\n"
-
-        prepare_commands = "RUN bash /home/prepare.sh"
-
-        return f"""FROM {name}:{tag}
-
-{self.global_env}
-
-{copy_commands}
-
-{prepare_commands}
-
-{self.clear_env}
-
-"""
-
-class ImageDefault7792(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Image | None:
-        return ImageBase7792(self.pr, self.config)
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def workdir(self) -> str:
-        return f"pr-{self.pr.number}"
-
-    def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "fix.patch",
-                f"{self.pr.fix_patch}",
-            ),
-            File(
-                ".",
-                "test.patch",
-                f"{self.pr.test_patch}",
-            ),
-            File(
-                ".",
-                "check_git_changes.sh",
-                """#!/bin/bash
-set -e
-
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-  echo "check_git_changes: Not inside a git repository"
-  exit 1
-fi
-
-if [[ -n $(git status --porcelain) ]]; then
-  echo "check_git_changes: Uncommitted changes"
-  exit 1
-fi
-
-echo "check_git_changes: No uncommitted changes"
-exit 0
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "prepare.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git reset --hard
-bash /home/check_git_changes.sh
-git checkout {pr.base.sha}
-bash /home/check_git_changes.sh
-pnpm install  || true
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-pnpm test -- --verbose
-
-
-
-""".format(
-                    pr=self.pr
-                ),
-            ),
-            File(
-                ".",
-                "test-run.sh",
-                """#!/bin/bash
-set -e
-
-cd /home/{pr.repo}
-git apply /home/test.patch
-pnpm test -- --verbose
-
+yarn build
+yarn test
 
 
 """.format(
@@ -378,7 +175,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-pnpm test -- --verbose
+yarn build
+yarn test
 
 """.format(
                     pr=self.pr
@@ -410,8 +208,8 @@ pnpm test -- --verbose
 """
 
 
-@Instance.register("chakra-ui", "chakra-ui")
-class chakra_ui(Instance):
+@Instance.register("colinhacks", "zod")
+class zod(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -422,10 +220,6 @@ class chakra_ui(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 7792 :
-            return ImageDefault7792(self.pr, self._config)
-        # elif self.pr.number <= 33415:
-        #     return MaterialUiImageDefault33415(self.pr, self._config)
 
 
         return ImageDefault(self.pr, self._config)

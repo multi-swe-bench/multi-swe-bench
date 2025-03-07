@@ -11,3 +11,4 @@ from multi_swe_bench.harness.repos.typescript.remix_run import *
 from multi_swe_bench.harness.repos.typescript.withastro import *
 from multi_swe_bench.harness.repos.typescript.trpc import *
 from multi_swe_bench.harness.repos.typescript.NervJS import *
+from multi_swe_bench.harness.repos.typescript.colinhacks import *
