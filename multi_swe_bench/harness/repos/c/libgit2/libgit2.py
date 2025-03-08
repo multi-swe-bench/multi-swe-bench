@@ -340,8 +340,8 @@ set -e
 cd /home/{pr.repo}
 cd build
 cmake ..
-make -j 4
-ctest -j 4
+make
+ctest -V
 """.format(
                     pr=self.pr
                 ),
@@ -356,8 +356,8 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 cd build
 cmake ..
-make -j 4
-ctest -j 4
+make
+ctest -V
 
 """.format(
                     pr=self.pr
@@ -373,8 +373,8 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 cd build
 cmake ..
-make -j 4
-ctest -j 4
+make
+ctest -V
 
 """.format(
                     pr=self.pr
