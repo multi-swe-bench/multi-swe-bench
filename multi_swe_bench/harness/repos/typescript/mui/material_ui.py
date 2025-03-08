@@ -200,7 +200,7 @@ pnpm install || true
 set -e
 
 cd /home/{pr.repo}
-pnpm test:unit -- --reporter spec
+pnpm test:unit -- --reporter json
 
 """.format(
                     pr=self.pr
@@ -214,8 +214,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-pnpm test:unit -- --reporter spec
-
+pnpm test:unit -- --reporter json
 """.format(
                     pr=self.pr
                 ),
@@ -228,8 +227,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-pnpm test:unit -- --reporter spec
-
+pnpm test:unit -- --reporter json
 """.format(
                     pr=self.pr
                 ),
@@ -345,7 +343,7 @@ yarn install || true
 set -e
 
 cd /home/{pr.repo}
-yarn run test:unit --reporter spec
+yarn run test:unit --reporter json 
 
 """.format(
                     pr=self.pr
@@ -359,7 +357,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-yarn run test:unit --reporter spec
+yarn run test:unit --reporter json 
 
 """.format(
                     pr=self.pr
@@ -373,7 +371,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-yarn run test:unit --reporter spec
+yarn run test:unit --reporter json 
 
 """.format(
                     pr=self.pr
@@ -490,7 +488,9 @@ yarn install || true
 set -e
 
 cd /home/{pr.repo}
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter json  --exit
+
+
 
 """.format(
                     pr=self.pr
@@ -504,7 +504,8 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter json  --exit
+
 
 """.format(
                     pr=self.pr
@@ -518,7 +519,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-yarn run test:unit --reporter spec  --exit
+yarn run test:unit --reporter json  --exit
 
 """.format(
                     pr=self.pr
