@@ -147,7 +147,7 @@ npm install --legacy-peer-deps || npm install --force || true
 set -e
 
 cd /home/{pr.repo}
-npm test -- --verbose && codecov 
+npm test -- --json && codecov 
 """.format(
                     pr=self.pr
                 ),
@@ -160,7 +160,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-npm test -- --verbose && codecov 
+npm test -- --json && codecov 
 
 """.format(
                     pr=self.pr
@@ -174,7 +174,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-npm test -- --verbose && codecov 
+npm test -- --json && codecov 
 
 """.format(
                     pr=self.pr
