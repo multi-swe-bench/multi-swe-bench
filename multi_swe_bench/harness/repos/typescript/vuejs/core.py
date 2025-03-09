@@ -144,7 +144,7 @@ pnpm install || true
 set -e
 
 cd /home/{pr.repo}
-pnpm run test-unit --no-watch --reporter=verbose
+pnpm run test-unit --no-watch --reporter=json
 
 """.format(
                     pr=self.pr
@@ -158,7 +158,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-pnpm run test-unit --no-watch --reporter=verbose
+pnpm run test-unit --no-watch --reporter=json
 
 """.format(
                     pr=self.pr
@@ -172,7 +172,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-pnpm run test-unit --no-watch --reporter=verbose
+pnpm run test-unit --no-watch --reporter=json
 
 """.format(
                     pr=self.pr
