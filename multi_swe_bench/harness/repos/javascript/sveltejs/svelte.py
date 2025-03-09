@@ -202,7 +202,7 @@ pnpm install --frozen-lockfile || true
 set -e
 
 cd /home/{pr.repo}
-pnpm test -- --reporter json
+pnpm test -- --reporter verbose
 
 """.format(
                     pr=self.pr
@@ -216,7 +216,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-pnpm test -- --reporter json 
+pnpm test -- --reporter verbose 
 
 """.format(
                     pr=self.pr
@@ -230,7 +230,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-pnpm test -- --reporter json 
+pnpm test -- --reporter verbose 
 
 """.format(
                     pr=self.pr
