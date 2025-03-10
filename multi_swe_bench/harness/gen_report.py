@@ -284,6 +284,90 @@ class Report:
         return f"run=({self.run_result.passed_count}, {self.run_result.failed_count}, {self.run_result.skipped_count}), test=({self.test_patch_result.passed_count}, {self.test_patch_result.failed_count}, {self.test_patch_result.skipped_count}), fix=({self.fix_patch_result.passed_count}, {self.fix_patch_result.failed_count}, {self.fix_patch_result.skipped_count})"
 
 
+@dataclass_json
+@dataclass
+class FinalReport:
+    total_instances: int
+    submitted_instances: int
+    completed_instances: int
+    resolved_instances: int
+    unresolved_instances: int
+    empty_patch_instances: int
+    error_instances: int
+
+    submitted_ids: list[str]
+    completed_ids: list[str]
+    incomplete_ids: list[str]
+    resolved_ids: list[str]
+    unresolved_ids: list[str]
+    empty_patch_ids: list[str]
+    error_ids: list[str]
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FinalReport":
+        return cls(**d)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "FinalReport":
+        return cls.from_dict(cls.schema().loads(json_str))
+
+    def dict(self) -> dict:
+        return asdict(self)
+
+    def json(self) -> str:
+        return self.to_json(ensure_ascii=False)
+
+    @classmethod
+    def from_reports(clc, reports: list[Report]) -> "FinalReport":
+        submitted_ids = [
+            f"{report.org}__{report.repo}-{report.number}" for report in reports
+        ]
+        completed_ids = [
+            f"{report.org}__{report.repo}-{report.number}"
+            for report in reports
+            if report.fix_patch_result.all_count > 0
+        ]
+        incomplete_ids = [
+            f"{report.org}__{report.repo}-{report.number}"
+            for report in reports
+            if report.fix_patch_result.all_count == 0
+        ]
+        resolved_ids = [
+            f"{report.org}__{report.repo}-{report.number}"
+            for report in reports
+            if report.fix_patch_result.all_count > 0 and report.valid
+        ]
+        unresolved_ids = [
+            f"{report.org}__{report.repo}-{report.number}"
+            for report in reports
+            if report.fix_patch_result.all_count > 0 and not report.valid
+        ]
+        empty_patch_ids = []
+        error_ids = [
+            f"{report.org}__{report.repo}-{report.number}"
+            for report in reports
+            if report.fix_patch_result.all_count == 0
+        ]
+        final_report = FinalReport(
+            total_instances=len(reports),
+            submitted_instances=len(submitted_ids),
+            completed_instances=len(completed_ids),
+            resolved_instances=len(resolved_ids),
+            unresolved_instances=len(unresolved_ids),
+            empty_patch_instances=empty_patch_ids,
+            error_instances=len(error_ids),
+            submitted_ids=submitted_ids,
+            completed_ids=completed_ids,
+            incomplete_ids=incomplete_ids,
+            resolved_ids=resolved_ids,
+            unresolved_ids=unresolved_ids,
+            empty_patch_ids=empty_patch_ids,
+            error_ids=error_ids,
+        )
+
+        return final_report
+
+
 def init_logger(workdir: Path, log_level: str, log_to_console: bool) -> logging.Logger:
     logger = setup_logger(workdir, GENERATE_REPORT_LOG_FILE, log_level, log_to_console)
     logger.info("Initialize logger successfully.")
@@ -452,25 +536,12 @@ def generate_repo_report(
         else:
             logger.debug(f"Generate report for {org}/{repo}:{instance} successfully.")
 
-        ok, error_msg = report.check()
-        if not ok:
-            logger.debug(
-                f"Report for {org}/{repo}:{instance} is not valid: {error_msg}"
-            )
-            continue
-
         reports.append(report)
 
     if to_disk_repo:
-        reports.sort(reverse=True)
+        final_report = FinalReport.from_reports(reports=reports)
         with open(repo_dir / report_file_name_repo, "w", encoding="utf-8") as f:
-            for report in reports:
-                f.write(report.json())
-                f.write("\n")
-
-    logger.info(
-        f"Generate repo reports for {org}/{repo} successfully with {len(reports)}/{len(specific_instances)} reports."
-    )
+            f.write(final_report.json())
 
     return reports
 
@@ -538,15 +609,9 @@ def generate_org_report(
         reports.extend(repo_reports)
 
     if to_disk_org:
-        reports.sort(reverse=True)
+        final_report = FinalReport.from_reports(reports=reports)
         with open(org_dir / report_file_name_org, "w", encoding="utf-8") as f:
-            for report in reports:
-                f.write(report.json())
-                f.write("\n")
-
-    logger.debug(
-        f"Generate org reports for {org} successfully with {len(reports)} reports."
-    )
+            f.write(final_report.json())
 
     return reports
 
@@ -606,15 +671,9 @@ def generate_workdir_report(
         reports.extend(org_reports)
 
     if to_disk_workdir:
-        reports.sort(reverse=True)
+        final_report = FinalReport.from_reports(reports=reports)
         with open(workdir / report_file_name_workdir, "w", encoding="utf-8") as f:
-            for report in reports:
-                f.write(report.json())
-                f.write("\n")
-
-    logger.debug(
-        f"Generate workdir reports for {workdir} successfully with {len(reports)} reports."
-    )
+            f.write(final_report.json())
 
     return reports
 
