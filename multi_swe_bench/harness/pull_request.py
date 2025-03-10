@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from dataclasses_json import dataclass_json
 
@@ -40,3 +40,17 @@ class PullRequest:
     @property
     def repo_full_name(self) -> str:
         return f"{self.org}/{self.repo}"
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PullRequest":
+        return cls(**d)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "PullRequest":
+        return cls.from_dict(cls.schema().loads(json_str))
+
+    def dict(self) -> dict:
+        return asdict(self)
+
+    def json(self) -> str:
+        return self.to_json(ensure_ascii=False)
