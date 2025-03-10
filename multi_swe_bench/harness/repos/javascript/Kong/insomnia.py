@@ -20,7 +20,7 @@ class ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "node:18"
+        return "node:20"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -206,7 +206,7 @@ npm test -- --verbose
 
 
 @Instance.register("Kong", "insomnia")
-class zstd(Instance):
+class insomnia(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
