@@ -270,6 +270,29 @@ class zstd(Instance):
                 test = skip_match.group(1)
                 skipped_tests.add(test)
 
+        if 1831 <= self.pr.number <= 2703:
+            keyword = "make[1]: Leaving directory '/home/zstd/doc/educational_decoder'"
+            keyword_count = len(re.findall(re.escape(keyword), test_log))
+            if keyword_count == 1:
+                passed_tests = {"all tests"}
+                failed_tests = {}
+                skipped_tests = {}
+            else:
+                passed_tests = {}
+                failed_tests = {"all tests"}
+                skipped_tests = {}
+        elif 1230 <= self.pr.number <= 1748:
+            keyword = "PASS: all POOL tests"
+            keyword_count = len(re.findall(re.escape(keyword), test_log))
+            if keyword_count == 1:
+                passed_tests = {"all tests"}
+                failed_tests = {}
+                skipped_tests = {}
+            else:
+                passed_tests = {}
+                failed_tests = {"all tests"}
+                skipped_tests = {}        
+                
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),
