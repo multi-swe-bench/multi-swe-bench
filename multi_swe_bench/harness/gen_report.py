@@ -15,10 +15,11 @@ from multi_swe_bench.harness.constant import (
     RUN_LOG_FILE,
     TEST_PATCH_RUN_LOG_FILE,
 )
+from multi_swe_bench.harness.dataset import Dataset
 from multi_swe_bench.harness.image import Config
 from multi_swe_bench.harness.instance import Instance
 from multi_swe_bench.harness.pull_request import Base, PullRequest
-from multi_swe_bench.harness.test_result import Test, TestResult, TestStatus
+from multi_swe_bench.harness.report import FinalReport, Report
 from multi_swe_bench.utils.args_util import ArgumentParser
 from multi_swe_bench.utils.logger import setup_logger
 
@@ -146,6 +147,18 @@ def get_parser() -> ArgumentParser:
         default=INSTANCE_WORKDIR,
     )
     parser.add_argument(
+        "--raw_dataset",
+        type=Path,
+        help="Path to the raw dataset",
+        default=None,
+    )
+    parser.add_argument(
+        "--gen_dataset",
+        type=bool,
+        help="Gen dataset",
+        default=False,
+    )
+    parser.add_argument(
         "--log_dir",
         type=Path,
         help="Path to the log dir",
@@ -165,207 +178,6 @@ def get_parser() -> ArgumentParser:
     )
 
     return parser
-
-
-@dataclass_json
-@dataclass
-class Report:
-    org: str
-    repo: str
-    number: int
-    valid: Optional[bool] = None
-    error_msg: Optional[str] = None
-    fixed_tests: dict[str, Test] = field(default_factory=dict)
-    run_result: TestResult = None
-    test_patch_result: TestResult = None
-    fix_patch_result: TestResult = None
-    _tests: dict[str, Test] = field(
-        default_factory=dict, metadata=config(exclude=lambda _: True)
-    )
-
-    def __post_init__(self):
-        if not self.run_result:
-            raise ValueError("Invalid run_result: None")
-        if not self.test_patch_result:
-            raise ValueError("Invalid test_patch_result: None")
-        if not self.fix_patch_result:
-            raise ValueError("Invalid fix_patch_result: None")
-
-        all_tests = (
-            self.run_result._tests.keys()
-            | self.test_patch_result._tests.keys()
-            | self.fix_patch_result._tests.keys()
-        )
-
-        for test_name in all_tests:
-            run = self.run_result._tests.get(test_name, TestStatus.NONE)
-            test = self.test_patch_result._tests.get(test_name, TestStatus.NONE)
-            fix = self.fix_patch_result._tests.get(test_name, TestStatus.NONE)
-            self._tests[test_name] = Test(run, test, fix)
-
-        self.valid, self.error_msg = self.check()
-
-    def __lt__(self, other: "Report") -> bool:
-        if self.org != other.org:
-            return self.org < other.org
-
-        if self.repo != other.repo:
-            return self.repo < other.repo
-
-        return self.number < other.number
-
-    def __repr__(self) -> str:
-        return f"{self.org}/{self.repo}:pr-{self.number}"
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "Report":
-        return cls(**d)
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "Report":
-        return cls.from_dict(cls.schema().loads(json_str))
-
-    def dict(self) -> dict:
-        return asdict(self)
-
-    def json(self) -> str:
-        return self.to_json(ensure_ascii=False)
-
-    def check(self, force: bool = False) -> Tuple[bool, str]:
-        if not force and self.valid is not None:
-            return (self.valid, self.error_msg)
-
-        # 1. Exist valid fix patch result
-        if self.fix_patch_result.all_count == 0:
-            self.valid = False
-            self.error_msg = (
-                f"There is no valid fix patch result: {self.short_report()}"
-            )
-            return (self.valid, self.error_msg)
-
-        # 2. No new failures
-        for name, test in self._tests.items():
-            if test.test == TestStatus.PASS and test.fix == TestStatus.FAIL:
-                self.valid = False
-                # self._error_msg = f"Test passed but not fixed: {self.short_report()}"
-                self.error_msg = f"Test passed in test patch but failed in fix patch: {self.short_report()}. `{name}`: {test}"
-                return (self.valid, self.error_msg)
-
-        # 3. Fix something
-        fix_something = False
-        for name, test in self._tests.items():
-            if test.test != TestStatus.PASS and test.fix == TestStatus.PASS:
-                fix_something = True
-                self.fixed_tests[name] = test
-
-        if not fix_something:
-            self.valid = False
-            self.error_msg = f"No fix for failed test: {self.short_report()}"
-            return (self.valid, self.error_msg)
-
-        # 4. Anomalous Pattern
-        for name, test in self._tests.items():
-            if (
-                (test.test == TestStatus.NONE or test.test == TestStatus.SKIP)
-                and test.fix == TestStatus.FAIL
-                and test.run == TestStatus.PASS
-            ):
-                self.valid = False
-                self.error_msg = (
-                    f"Anomalous pattern: {self.short_report()}. `{name}`: {test}"
-                )
-                return (self.valid, self.error_msg)
-
-        self.valid = True
-        self.error_msg = ""
-        return (self.valid, self.error_msg)
-
-    def short_report(self) -> str:
-        return f"run=({self.run_result.passed_count}, {self.run_result.failed_count}, {self.run_result.skipped_count}), test=({self.test_patch_result.passed_count}, {self.test_patch_result.failed_count}, {self.test_patch_result.skipped_count}), fix=({self.fix_patch_result.passed_count}, {self.fix_patch_result.failed_count}, {self.fix_patch_result.skipped_count})"
-
-
-@dataclass_json
-@dataclass
-class FinalReport:
-    total_instances: int
-    submitted_instances: int
-    completed_instances: int
-    resolved_instances: int
-    unresolved_instances: int
-    empty_patch_instances: int
-    error_instances: int
-
-    submitted_ids: list[str]
-    completed_ids: list[str]
-    incomplete_ids: list[str]
-    resolved_ids: list[str]
-    unresolved_ids: list[str]
-    empty_patch_ids: list[str]
-    error_ids: list[str]
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "FinalReport":
-        return cls(**d)
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "FinalReport":
-        return cls.from_dict(cls.schema().loads(json_str))
-
-    def dict(self) -> dict:
-        return asdict(self)
-
-    def json(self) -> str:
-        return self.to_json(ensure_ascii=False)
-
-    @classmethod
-    def from_reports(clc, reports: list[Report]) -> "FinalReport":
-        submitted_ids = [
-            f"{report.org}__{report.repo}-{report.number}" for report in reports
-        ]
-        completed_ids = [
-            f"{report.org}__{report.repo}-{report.number}"
-            for report in reports
-            if report.fix_patch_result.all_count > 0
-        ]
-        incomplete_ids = [
-            f"{report.org}__{report.repo}-{report.number}"
-            for report in reports
-            if report.fix_patch_result.all_count == 0
-        ]
-        resolved_ids = [
-            f"{report.org}__{report.repo}-{report.number}"
-            for report in reports
-            if report.fix_patch_result.all_count > 0 and report.valid
-        ]
-        unresolved_ids = [
-            f"{report.org}__{report.repo}-{report.number}"
-            for report in reports
-            if report.fix_patch_result.all_count > 0 and not report.valid
-        ]
-        empty_patch_ids = []
-        error_ids = [
-            f"{report.org}__{report.repo}-{report.number}"
-            for report in reports
-            if report.fix_patch_result.all_count == 0
-        ]
-        final_report = FinalReport(
-            total_instances=len(reports),
-            submitted_instances=len(submitted_ids),
-            completed_instances=len(completed_ids),
-            resolved_instances=len(resolved_ids),
-            unresolved_instances=len(unresolved_ids),
-            empty_patch_instances=empty_patch_ids,
-            error_instances=len(error_ids),
-            submitted_ids=submitted_ids,
-            completed_ids=completed_ids,
-            incomplete_ids=incomplete_ids,
-            resolved_ids=resolved_ids,
-            unresolved_ids=unresolved_ids,
-            empty_patch_ids=empty_patch_ids,
-            error_ids=error_ids,
-        )
-
-        return final_report
 
 
 def init_logger(workdir: Path, log_level: str, log_to_console: bool) -> logging.Logger:
@@ -459,6 +271,8 @@ def generate_repo_report(
     to_disk_repo: bool = True,
     report_file_name_instance: str = REPORT_FILE,
     report_file_name_repo: str = FINAL_REPORT_FILE,
+    raw_dataset: dict[PullRequest] = {},
+    gen_dataset: bool = True,
 ) -> list[Report]:
     logger.debug(f"Start to generate repo reports for {org}/{repo} in {repo_dir}...")
 
@@ -543,6 +357,25 @@ def generate_repo_report(
         with open(repo_dir / report_file_name_repo, "w", encoding="utf-8") as f:
             f.write(final_report.json())
 
+    if gen_dataset and raw_dataset:
+        dataset: list[Dataset] = []
+        for report in reports:
+            if not report.valid:
+                continue
+            id = f"{org}/{repo}:pr-{report.number}"
+            if id not in raw_dataset:
+                continue
+            dataset.append(Dataset.build(raw_dataset[id], report))
+
+        if len(dataset) > 0:
+            dataset.sort()
+            with open(
+                repo_dir / f"{org}__{repo}_dataset.json", "w", encoding="utf-8"
+            ) as f:
+                for data in dataset:
+                    f.write(data.json())
+                    f.write("\n")
+
     return reports
 
 
@@ -561,6 +394,8 @@ def generate_org_report(
     report_file_name_repo: str = FINAL_REPORT_FILE,
     report_file_name_instance: str = REPORT_FILE,
     instance_workdir: Optional[str] = INSTANCE_WORKDIR,
+    raw_dataset: dict[PullRequest] = {},
+    gen_dataset: bool = True,
 ) -> list[Report]:
     logger.debug(f"Start to generate org reports for {org} in {org_dir}...")
 
@@ -605,6 +440,8 @@ def generate_org_report(
             to_disk_instance=to_disk_instance,
             report_file_name_repo=report_file_name_repo,
             report_file_name_instance=report_file_name_instance,
+            raw_dataset=raw_dataset,
+            gen_dataset=gen_dataset,
         )
         reports.extend(repo_reports)
 
@@ -634,6 +471,8 @@ def generate_workdir_report(
     report_file_name_repo: str = FINAL_REPORT_FILE,
     report_file_name_instance: str = REPORT_FILE,
     instance_workdir: Optional[str] = INSTANCE_WORKDIR,
+    raw_dataset: dict[PullRequest] = {},
+    gen_dataset: bool = True,
 ) -> list[Report]:
     logger.debug(f"Start to generate workdir reports for {workdir}...")
 
@@ -667,6 +506,8 @@ def generate_workdir_report(
             report_file_name_repo=report_file_name_repo,
             report_file_name_org=report_file_name_org,
             instance_workdir=instance_workdir,
+            raw_dataset=raw_dataset,
+            gen_dataset=gen_dataset,
         )
         reports.extend(org_reports)
 
@@ -701,9 +542,14 @@ class CliArgs:
     report_file_name_repo: Optional[str]
     report_file_name_instance: Optional[str]
     instance_workdir: Optional[str]
+    raw_dataset: Optional[Path]
+    gen_dataset: bool
     log_dir: Path
     log_level: str
     log_to_console: bool
+    _raw_dataset: dict[str, PullRequest] = field(
+        default_factory=dict, metadata=config(exclude=lambda _: True)
+    )
 
     def __post_init__(self):
         if not self.workdir:
@@ -716,6 +562,26 @@ class CliArgs:
             raise ValueError("Invalid log_dir: None")
         if isinstance(self.log_dir, str):
             self.log_dir = Path(self.log_dir)
+        if isinstance(self.raw_dataset, str):
+            self.raw_dataset = Path(self.raw_dataset)
+
+    @property
+    def dataset(self) -> dict[PullRequest]:
+        if not self.raw_dataset:
+            return []
+
+        if self._raw_dataset:
+            return self._raw_dataset
+
+        with open(self.raw_dataset, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip() == "":
+                    continue
+
+                pr = PullRequest.from_json(line)
+                self._raw_dataset[pr.id] = pr
+
+        return self._raw_dataset
 
     @classmethod
     def from_dict(cls, d: dict) -> "CliArgs":
@@ -956,6 +822,8 @@ class CliArgs:
             self.to_disk_repo,
             self.report_file_name_instance,
             self.report_file_name_repo,
+            raw_dataset=self.dataset,
+            gen_dataset=self.gen_dataset,
         )
 
     def run_org_mode(self):
@@ -979,6 +847,8 @@ class CliArgs:
             report_file_name_repo=self.report_file_name_repo,
             report_file_name_instance=self.report_file_name_instance,
             instance_workdir=self.instance_workdir,
+            raw_dataset=self.dataset,
+            gen_dataset=self.gen_dataset,
         )
 
     def run_workdir_mode(self):
@@ -1005,6 +875,8 @@ class CliArgs:
             report_file_name_repo=self.report_file_name_repo,
             report_file_name_instance=self.report_file_name_instance,
             instance_workdir=self.instance_workdir,
+            raw_dataset=self.dataset,
+            gen_dataset=self.gen_dataset,
         )
 
 
