@@ -2,7 +2,8 @@ import logging
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple, Union
+import concurrent.futures
 
 from dataclasses_json import config, dataclass_json
 
@@ -227,7 +228,7 @@ def generate_report(
 def generate_instance_report(
     org: str,
     repo: str,
-    number: str,
+    number: Union[str, int],
     instance_dir: Path,
     to_disk_instance: bool = True,
     report_file_name_instance: str = REPORT_FILE,
@@ -317,11 +318,12 @@ def generate_repo_report(
             specific_instances.add(instance)
 
     reports: list[Report] = []
-    for instance in specific_instances:
+
+    def process_instance(instance: str) -> Optional[Report]:
         instance_dir = repo_dir / instance
         if not instance_dir.exists():
             logger.warning(f"No instance found for {org}/{repo}:{instance}")
-            continue
+            return None
 
         run_log = instance_dir / RUN_LOG_FILE
         test_patch_log = instance_dir / TEST_PATCH_RUN_LOG_FILE
@@ -332,7 +334,7 @@ def generate_repo_report(
             logger.warning(
                 f"Some logs are missing for {org}/{repo}:{instance}, run_log: {run_log.exists()}, test_patch_log: {test_patch_log.exists()}, fix_patch_log: {fix_patch_log.exists()}"
             )
-            continue
+            return None
 
         try:
             logger.debug(f"Start to generate report for {org}/{repo}:{instance}")
@@ -346,11 +348,21 @@ def generate_repo_report(
             )
         except Exception as e:
             logging.error(f"Failed to generate report for {org}/{repo}:{instance}: {e}")
-            continue
+            return None
         else:
             logger.debug(f"Generate report for {org}/{repo}:{instance} successfully.")
+            return report
 
-        reports.append(report)
+    # 使用线程池并行处理所有实例
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(process_instance, instance): instance
+            for instance in specific_instances
+        }
+        for future in concurrent.futures.as_completed(futures):
+            report = future.result()
+            if report is not None:
+                reports.append(report)
 
     if to_disk_repo:
         final_report = FinalReport.from_reports(reports=reports)
@@ -370,7 +382,7 @@ def generate_repo_report(
         if len(dataset) > 0:
             dataset.sort()
             with open(
-                repo_dir / f"{org}__{repo}_dataset.json", "w", encoding="utf-8"
+                repo_dir / f"{org}__{repo}_dataset.jsonl", "w", encoding="utf-8"
             ) as f:
                 for data in dataset:
                     f.write(data.json())

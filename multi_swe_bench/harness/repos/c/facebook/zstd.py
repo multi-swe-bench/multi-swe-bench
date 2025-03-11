@@ -275,24 +275,24 @@ class zstd(Instance):
             keyword_count = len(re.findall(re.escape(keyword), test_log))
             if keyword_count == 1:
                 passed_tests = {"all tests"}
-                failed_tests = {}
-                skipped_tests = {}
+                failed_tests = set()
+                skipped_tests = set()
             else:
-                passed_tests = {}
+                passed_tests = set()
                 failed_tests = {"all tests"}
-                skipped_tests = {}
+                skipped_tests = set()
         elif 1230 <= self.pr.number <= 1748:
             keyword = "PASS: all POOL tests"
             keyword_count = len(re.findall(re.escape(keyword), test_log))
             if keyword_count == 1:
                 passed_tests = {"all tests"}
-                failed_tests = {}
-                skipped_tests = {}
+                failed_tests = set()
+                skipped_tests = set()
             else:
-                passed_tests = {}
+                passed_tests = set()
                 failed_tests = {"all tests"}
-                skipped_tests = {}        
-                
+                skipped_tests = set()
+
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),

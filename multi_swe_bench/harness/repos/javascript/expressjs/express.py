@@ -1,5 +1,9 @@
+from dataclasses import asdict, dataclass
+from json import JSONDecoder
 import re
-from typing import Optional, Union
+from typing import Generator, Optional, Union
+
+from dataclasses_json import dataclass_json
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -205,7 +209,7 @@ npm run test-ci -- --reporter json
 
 
 @Instance.register("expressjs", "express")
-class zstd(Instance):
+class Express(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -228,6 +232,9 @@ class zstd(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
+        if self.pr.number not in [4212, 4852, 5555, 5841]:
+            return self.parse_json_log(test_log)
+
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
@@ -249,6 +256,133 @@ class zstd(Instance):
             if fail_test_match:
                 test = fail_test_match.group(1)
                 failed_tests.add(test)
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
+
+    def parse_json_log(self, test_log: str) -> TestResult:
+        passed_tests: set[str] = set()
+        failed_tests: set[str] = set()
+        skipped_tests: set[str] = set()
+
+        @dataclass_json
+        @dataclass
+        class ExpressStats:
+            suites: int
+            tests: int
+            passes: int
+            pending: int
+            failures: int
+            start: str
+            end: str
+            duration: int
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "TestResult":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "TestResult":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        @dataclass_json
+        @dataclass
+        class ExpressTest:
+            title: str
+            fullTitle: str
+            currentRetry: int
+            err: dict
+            duration: Optional[int] = None
+            speed: Optional[str] = None
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "TestResult":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "TestResult":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        @dataclass_json
+        @dataclass
+        class ExpressInfo:
+            stats: ExpressStats
+            tests: list[ExpressTest]
+            pending: list[ExpressTest]
+            failures: list[ExpressTest]
+            passes: list[ExpressTest]
+
+            @classmethod
+            def from_dict(cls, d: dict) -> "ExpressInfo":
+                return cls(**d)
+
+            @classmethod
+            def from_json(cls, json_str: str) -> "ExpressInfo":
+                return cls.from_dict(cls.schema().loads(json_str))
+
+            def dict(self) -> dict:
+                return asdict(self)
+
+            def json(self) -> str:
+                return self.to_json(ensure_ascii=False)
+
+        def extract_json_objects(
+            text: str, decoder=JSONDecoder()
+        ) -> Generator[dict, None, None]:
+            pos = 0
+            while True:
+                match = text.find("{", pos)
+                if match == -1:
+                    break
+                try:
+                    result, index = decoder.raw_decode(text[match:])
+                    yield result
+                    pos = match + index
+                except ValueError:
+                    pos = match + 1
+
+        pattern = r"^(=+|Writing .*)$"
+        test_log = re.sub(pattern, "", test_log, flags=re.MULTILINE)
+
+        test_log = test_log.replace("\r\n", "")
+        test_log = test_log.replace("\n", "")
+
+        for obj in extract_json_objects(test_log):
+            info = ExpressInfo.from_dict(obj)
+            for test in info.passes:
+                passed_tests.add(f"{test.fullTitle}")
+            for test in info.failures:
+                failed_tests.add(f"{test.fullTitle}")
+            for test in info.pending:
+                skipped_tests.add(f"{test.fullTitle}")
+
+        for test in failed_tests:
+            if test in passed_tests:
+                passed_tests.remove(test)
+            if test in skipped_tests:
+                skipped_tests.remove(test)
+
+        for test in skipped_tests:
+            if test in passed_tests:
+                passed_tests.remove(test)
 
         return TestResult(
             passed_count=len(passed_tests),
