@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from typing import Optional, Union
 
 import toml
 import yaml
@@ -67,3 +68,17 @@ class ArgumentParser(argparse.ArgumentParser):
             env_value = os.getenv(env_key)
             if env_value is not None and getattr(args, key) == self.get_default(key):
                 setattr(args, key, env_value)
+
+    def bool(self, value: Union[str, bool, None]) -> bool:
+        if isinstance(value, bool):
+            return value
+
+        if not isinstance(value, str):
+            raise argparse.ArgumentTypeError("Boolean value expected.")
+
+        if value.lower() in {"true", "yes", "1"}:
+            return True
+        elif value.lower() in {"false", "no", "0"}:
+            return False
+        else:
+            raise argparse.ArgumentTypeError(f"Boolean expected, got `{value}`")

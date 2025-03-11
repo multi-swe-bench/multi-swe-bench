@@ -19,6 +19,19 @@ class Config:
 
 
 class Image:
+    def __lt__(self, other: "Image") -> bool:
+        return self.image_full_name() < other.image_full_name()
+
+    def __repr__(self) -> str:
+        return self.image_full_name()
+
+    def __hash__(self):
+        return hash(self.image_full_name())
+
+    def __eq__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        return self.image_full_name() == other.image_full_name()
 
     @property
     def pr(self) -> PullRequest:

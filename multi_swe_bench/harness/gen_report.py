@@ -87,7 +87,7 @@ def get_parser() -> ArgumentParser:
     )
     parser.add_argument(
         "--log_to_console",
-        type=bool,
+        type=parser.bool,
         required=False,
         default=True,
         help="Whether to log to the console.",
@@ -185,20 +185,6 @@ class CliArgs:
         if not isinstance(self.log_to_console, bool):
             raise ValueError(f"Invalid log_to_console: {self.log_to_console}")
 
-    @classmethod
-    def from_dict(cls, d: dict) -> "CliArgs":
-        return cls(**d)
-
-    @classmethod
-    def from_json(cls, json_str: str) -> "CliArgs":
-        return cls.from_dict(cls.schema().loads(json_str))
-
-    def dict(self) -> dict:
-        return asdict(self)
-
-    def json(self) -> str:
-        return self.to_json(ensure_ascii=False)
-
     @property
     def logger(self) -> logging.Logger:
         if not hasattr(self, "_logger"):
@@ -228,7 +214,25 @@ class CliArgs:
                         pr = PullRequest.from_json(line)
                         self._raw_dataset[pr.id] = pr
 
+            self.logger.info(
+                f"Successfully loaded {len(self._raw_dataset)} valid pull requests from {self.raw_dataset_files}"
+            )
+
         return self._raw_dataset
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "CliArgs":
+        return cls(**d)
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "CliArgs":
+        return cls.from_dict(cls.schema().loads(json_str))
+
+    def dict(self) -> dict:
+        return asdict(self)
+
+    def json(self) -> str:
+        return self.to_json(ensure_ascii=False)
 
     def check_specific(self, name: str) -> bool:
         if self.specifics and not any(
@@ -260,9 +264,9 @@ class CliArgs:
                         try:
                             number = int(instance_dir.name[3:])
                             task = ReportTask(org, repo, number, instance_dir)
-                            if not self.check_specific(
-                                task.repo_full_name
-                            ) or self.check_skip(task.repo_full_name):
+                            if not self.check_specific(task.repo_full_name):
+                                continue
+                            if self.check_skip(task.repo_full_name):
                                 continue
                             tasks.append(task)
                         except ValueError:

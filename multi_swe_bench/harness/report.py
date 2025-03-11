@@ -15,14 +15,14 @@ from multi_swe_bench.harness.instance import Instance
 from multi_swe_bench.harness.pull_request import (
     Base,
     PullRequest,
-    PullRequestIdentifier,
+    PullRequestBase,
 )
 from multi_swe_bench.harness.test_result import Test, TestResult, TestStatus
 
 
 @dataclass_json
 @dataclass
-class Report(PullRequestIdentifier):
+class Report(PullRequestBase):
     valid: Optional[bool] = None
     error_msg: Optional[str] = None
     fixed_tests: dict[str, Test] = field(default_factory=dict)
@@ -139,7 +139,7 @@ def generate_report(
 
 @dataclass_json
 @dataclass
-class ReportTask(PullRequestIdentifier):
+class ReportTask(PullRequestBase):
     instance_dir: Path
 
     @property
