@@ -1,4 +1,5 @@
 import argparse
+from enum import Enum
 import json
 import logging
 import re
@@ -550,6 +551,8 @@ def generate_reports(instances: list[Instance], cli: CliArgs, logger: logging.Lo
         def default(self, obj):
             if isinstance(obj, set):
                 return list(obj)
+            if isinstance(obj, Enum):
+                return obj.value
             return super().default(obj)
 
     with open(cli.workdir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
