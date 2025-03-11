@@ -1,6 +1,6 @@
+import re
 from dataclasses import asdict, dataclass
 from json import JSONDecoder
-import re
 from typing import Generator, Optional, Union
 
 from dataclasses_json import dataclass_json

@@ -117,6 +117,7 @@ RUN apt update && apt install -y cmake flex bison libyaml-dev libssl-dev
 
 """
 
+
 class fluentbitImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr

@@ -214,6 +214,7 @@ pnpm test:runtime  --no-watch
 
 """
 
+
 class ImageDefault24709(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -384,7 +385,6 @@ class nuxt(Instance):
             return ImageDefault24709(self.pr, self._config)
         # elif self.pr.number <= 33415:
         #     return MaterialUiImageDefault33415(self.pr, self._config)
-
 
         return ImageDefault(self.pr, self._config)
 

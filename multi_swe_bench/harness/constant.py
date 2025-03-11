@@ -11,4 +11,4 @@ RUN_LOG_FILE = "run.log"
 TEST_PATCH_RUN_LOG_FILE = "test-patch-run.log"
 FIX_PATCH_RUN_LOG_FILE = "fix-patch-run.log"
 
-GENERATE_REPORT_LOG_FILE = "generate_report.log"
+GENERATE_REPORT_LOG_FILE = "gen_report.log"

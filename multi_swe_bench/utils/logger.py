@@ -21,7 +21,7 @@ def setup_logger(
 
     logging.basicConfig(
         level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format=f"[%(asctime)s] [{log_file_name}] [%(levelname)s]: %(message)s",
         handlers=handlers,
     )
 

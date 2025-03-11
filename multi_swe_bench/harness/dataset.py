@@ -15,18 +15,6 @@ class Dataset(PullRequest):
     test_patch_result: TestResult = None
     fix_patch_result: TestResult = None
 
-    def __lt__(self, other: "Report") -> bool:
-        if self.org != other.org:
-            return self.org < other.org
-
-        if self.repo != other.repo:
-            return self.repo < other.repo
-
-        return self.number < other.number
-
-    def __repr__(self) -> str:
-        return f"{self.org}/{self.repo}:pr-{self.number}"
-
     @classmethod
     def from_dict(cls, d: dict) -> "Dataset":
         return cls(**d)

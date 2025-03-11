@@ -60,6 +60,7 @@ RUN apt install -y jq
 
 """
 
+
 class ImageBase7792(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -262,6 +263,7 @@ pnpm test
 
 """
 
+
 class ImageDefault7792(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -422,11 +424,10 @@ class chakra_ui(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 7792 :
+        if self.pr.number <= 7792:
             return ImageDefault7792(self.pr, self._config)
         # elif self.pr.number <= 33415:
         #     return MaterialUiImageDefault33415(self.pr, self._config)
-
 
         return ImageDefault(self.pr, self._config)
 

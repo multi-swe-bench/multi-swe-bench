@@ -221,7 +221,6 @@ class zod(Instance):
 
     def dependency(self) -> Optional[Image]:
 
-
         return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:

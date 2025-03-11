@@ -216,7 +216,7 @@ pnpm test -- --verbose
 class puppeteer(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
-        self._pr = pr   
+        self._pr = pr
         self._config = config
 
     @property
@@ -224,7 +224,6 @@ class puppeteer(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-
 
         return PuppeteerImageDefault(self.pr, self._config)
 

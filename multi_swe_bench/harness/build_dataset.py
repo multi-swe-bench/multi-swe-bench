@@ -1,10 +1,10 @@
 import argparse
-from enum import Enum
 import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
