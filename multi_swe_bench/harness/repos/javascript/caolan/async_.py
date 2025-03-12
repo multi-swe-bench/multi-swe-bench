@@ -49,14 +49,7 @@ class ImageBase(Image):
 {self.global_env}
 
 WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt update && apt install -y git 
-RUN apt install -y wget curl gnupg
-RUN wget -qO - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-RUN echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-RUN apt update && apt install -y google-chrome-stable
+
 {code}
 
 {self.clear_env}
@@ -137,7 +130,7 @@ git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
 npm ci || true
-
+npm install eslint --save-dev
 """.format(
                     pr=self.pr
                 ),
@@ -149,7 +142,8 @@ npm ci || true
 set -e
 
 cd /home/{pr.repo}
-npm run test:unit
+npm test -- --verbose  
+
 """.format(
                     pr=self.pr
                 ),
@@ -161,8 +155,8 @@ npm run test:unit
 set -e
 
 cd /home/{pr.repo}
-git apply --whitespace=nowarn /home/test.patch
-npm run test:unit
+git apply  --exclude package.json --whitespace=nowarn /home/test.patch
+npm test -- --verbose  
 
 """.format(
                     pr=self.pr
@@ -175,8 +169,9 @@ npm run test:unit
 set -e
 
 cd /home/{pr.repo}
-git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-npm run test:unit
+git apply  --exclude package.json --whitespace=nowarn /home/test.patch /home/fix.patch
+npm test -- --verbose 
+
 
 """.format(
                     pr=self.pr
@@ -208,8 +203,8 @@ npm run test:unit
 """
 
 
-@Instance.register("preactjs", "preact")
-class zstd(Instance):
+@Instance.register("caolan", "async")
+class zx(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -220,6 +215,7 @@ class zstd(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+
         return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:

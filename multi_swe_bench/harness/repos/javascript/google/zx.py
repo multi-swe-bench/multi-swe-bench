@@ -141,7 +141,7 @@ set -e
 
 cd /home/{pr.repo}
 npm run build
-npm run test:coverage -- --reporter=json
+npm run test:coverage -- --reporter=verbose
 """.format(
                     pr=self.pr
                 ),
@@ -153,9 +153,9 @@ npm run test:coverage -- --reporter=json
 set -e
 
 cd /home/{pr.repo}
-git apply  --exclude package.json --whitespace=nowarn /home/test.patch
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch
 npm run build
-npm run test:coverage -- --reporter=json
+npm run test:coverage -- --reporter=verbose
 
 """.format(
                     pr=self.pr
@@ -168,9 +168,9 @@ npm run test:coverage -- --reporter=json
 set -e
 
 cd /home/{pr.repo}
-git apply  --exclude package.json --whitespace=nowarn /home/test.patch /home/fix.patch
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch /home/fix.patch
 npm run build
-npm run test:coverage -- --reporter=json
+npm run test:coverage -- --reporter=verbose
 
 
 """.format(
@@ -202,6 +202,148 @@ npm run test:coverage -- --reporter=json
 
 """
 
+class ImageDefault849(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Image | None:
+        return ImageBase(self.pr, self._config)
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+
+npm ci || true
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+npm test -- --reporter=verbose
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch
+npm test -- --reporter=verbose
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch /home/fix.patch
+npm test -- --reporter=verbose
+
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        image = self.dependency()
+        name = image.image_name()
+        tag = image.image_tag()
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        prepare_commands = "RUN bash /home/prepare.sh"
+
+        return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
 
 @Instance.register("google", "zx")
 class zx(Instance):
@@ -215,6 +357,9 @@ class zx(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
+        if self.pr.number <= 849:
+            return ImageDefault849(self.pr, self._config)
+
         return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
