@@ -1,9 +1,9 @@
 import concurrent.futures
-from dataclasses import asdict, dataclass, field
 import glob
 import logging
-from pathlib import Path
 import sys
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Dict, Literal, Optional
 
 from dataclasses_json import dataclass_json
@@ -19,6 +19,7 @@ from multi_swe_bench.harness.constant import (
     RUN_LOG_FILE,
     TEST_PATCH_RUN_LOG_FILE,
 )
+from multi_swe_bench.harness.gen_report import CliArgs as ReportBuilder
 from multi_swe_bench.harness.image import Config, Image
 from multi_swe_bench.harness.instance import Instance
 from multi_swe_bench.harness.pull_request import PullRequest, Repository
@@ -27,7 +28,6 @@ from multi_swe_bench.utils import docker_util, git_util
 from multi_swe_bench.utils.args_util import ArgumentParser
 from multi_swe_bench.utils.fs_utils import copy_source_code
 from multi_swe_bench.utils.logger import get_non_propagate_logger, setup_logger
-from multi_swe_bench.harness.gen_report import CliArgs as ReportBuilder
 
 
 def get_parser() -> ArgumentParser:
