@@ -193,7 +193,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-./gradlew test --continue
+./gradlew clean test --continue
 """.format(
                     pr=self.pr
                 ),
@@ -205,7 +205,7 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-./gradlew test --continue
+./gradlew clean test --continue
 """.format(
                     pr=self.pr
                 ),
@@ -218,7 +218,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-./gradlew test --continue
+./gradlew clean test --continue
 
 """.format(
                     pr=self.pr
@@ -232,7 +232,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-./gradlew test --continue
+./gradlew clean test --continue
 
 """.format(
                     pr=self.pr
