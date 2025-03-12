@@ -223,7 +223,6 @@ class CliArgs:
             raise ValueError(f"Invalid workdir: {self.workdir}")
         if not self.workdir.exists():
             raise ValueError(f"Workdir not found: {self.workdir}")
-        self.workdir = self.workdir.absolute()
 
     def _check_raw_dataset_files(self):
         if not self.raw_dataset_files:
@@ -252,7 +251,6 @@ class CliArgs:
             raise ValueError(f"Invalid output_dir: {self.output_dir}")
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.output_dir = self.output_dir.absolute()
 
     def _check_repo_dir(self):
         if not self.repo_dir:
@@ -263,7 +261,6 @@ class CliArgs:
             raise ValueError(f"Invalid repo_dir: {self.repo_dir}")
         if not self.repo_dir.exists():
             raise ValueError(f"Repo dir not found: {self.repo_dir}")
-        self.repo_dir = self.repo_dir.absolute()
 
     def _check_log_dir(self):
         if not self.log_dir:
@@ -274,7 +271,6 @@ class CliArgs:
             raise ValueError(f"Invalid log_dir: {self.log_dir}")
         if not self.log_dir.exists():
             self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_dir = self.log_dir.absolute()
 
     def _check_log_level(self):
         self.log_level = self.log_level.upper()

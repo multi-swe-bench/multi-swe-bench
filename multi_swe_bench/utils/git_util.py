@@ -1,5 +1,4 @@
 import logging
-import os
 import subprocess
 from pathlib import Path
 
@@ -17,9 +16,10 @@ def is_clean(path: Path) -> tuple[bool, str]:
     if not exists(path):
         return False, f"Repository not found: {path}"
 
-    os.chdir(path)
     result = subprocess.run(
-        ["git", "status", "--porcelain"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        ["git", "-C", str(path), "status", "--porcelain"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
 
     if result.returncode != 0:
@@ -33,7 +33,7 @@ def is_clean(path: Path) -> tuple[bool, str]:
 
 def clone_repository(destination: Path, org: str, repo: str):
     repo_url = f"https://github.com/{org}/{repo}.git"
-    repo_path = destination.absolute() / repo
+    repo_path = destination / repo
     subprocess.run(
         ["git", "clone", repo_url, str(repo_path)],
         check=True,
