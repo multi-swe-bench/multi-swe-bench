@@ -193,7 +193,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-
+./gradlew test --continue
 """.format(
                     pr=self.pr
                 ),
@@ -259,7 +259,7 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
 {prepare_commands}
 
-
+{self.clear_env}
 """
 
 
