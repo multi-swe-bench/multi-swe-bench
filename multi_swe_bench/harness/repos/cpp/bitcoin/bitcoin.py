@@ -225,6 +225,59 @@ RUN apt-get install -y libdb-dev libdb++-dev
 
 """
 
+class bitcoinImageBaseCpp8(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "gcc:8"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base-cpp-8"
+
+    def workdir(self) -> str:
+        return "base-cpp-8"
+
+    def files(self) -> list[File]:
+        return []
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+
+WORKDIR /home/
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+{code}
+RUN apt-get update && apt-get install -y build-essential libtool autotools-dev automake pkg-config bsdmainutils python3 libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev libboost-thread-dev libminiupnpc-dev libzmq3-dev python3-zmq
+RUN apt-get install -y libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libqrencode-dev
+RUN apt-get install -y libdb-dev libdb++-dev
+{self.clear_env}
+
+"""
+
 class bitcoinImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -243,8 +296,10 @@ class bitcoinImageDefault(Image):
             return bitcoinImageBaseCpp11(self.pr, self._config)
         elif 20166 < self.pr.number <= 24104:
             return bitcoinImageBaseCpp11V2(self.pr, self._config)
-        elif self.pr.number <= 20166:
+        elif 19054 <=self.pr.number <= 20166:
             return bitcoinImageBaseCpp11V3(self.pr, self._config)
+        elif self.pr.number <= 18982:
+            return bitcoinImageBaseCpp8(self.pr, self._config)
         return bitcoinImageBase(self.pr, self._config)
 
     def image_name(self) -> str:

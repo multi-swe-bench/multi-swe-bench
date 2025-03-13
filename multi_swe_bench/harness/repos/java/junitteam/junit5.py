@@ -193,7 +193,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-./gradlew clean test --continue
+./gradlew clean test --continue || true
 """.format(
                     pr=self.pr
                 ),
