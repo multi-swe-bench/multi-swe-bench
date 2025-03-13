@@ -11,9 +11,21 @@ from multi_swe_bench.harness.test_result import Test, TestResult
 @dataclass
 class Dataset(PullRequest):
     fixed_tests: dict[str, Test] = field(default_factory=dict)
+    p2p_tests: dict[str, Test] = field(default_factory=dict)
+    f2p_tests: dict[str, Test] = field(default_factory=dict)
+    s2p_tests: dict[str, Test] = field(default_factory=dict)
+    n2p_tests: dict[str, Test] = field(default_factory=dict)
     run_result: TestResult = None
     test_patch_result: TestResult = None
     fix_patch_result: TestResult = None
+
+    def __post_init__(self):
+        if self.run_result is None:
+            raise ValueError("Invalid run_result: None")
+        if self.test_patch_result is None:
+            raise ValueError("Invalid test_patch_result: None")
+        if self.fix_patch_result is None:
+            raise ValueError("Invalid fix_patch_result: None")
 
     @classmethod
     def from_dict(cls, d: dict) -> "Dataset":
@@ -43,6 +55,10 @@ class Dataset(PullRequest):
             fix_patch=pr.fix_patch,
             test_patch=pr.test_patch,
             fixed_tests=report.fixed_tests,
+            p2p_tests=report.p2p_tests,
+            f2p_tests=report.f2p_tests,
+            s2p_tests=report.s2p_tests,
+            n2p_tests=report.n2p_tests,
             run_result=report.run_result,
             test_patch_result=report.test_patch_result,
             fix_patch_result=report.fix_patch_result,

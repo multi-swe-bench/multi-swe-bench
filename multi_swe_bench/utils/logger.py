@@ -10,10 +10,13 @@ def setup_logger(
     level: Union[int, str] = logging.INFO,
     print_to_console: bool = True,
 ) -> logging.Logger:
+    log_path = os.path.join(log_dir, log_file_name)
+    existing_logger = logging.getLogger(log_path)
+    if existing_logger.handlers:
+        return get_non_propagate_logger(log_dir, log_file_name, level, print_to_console)
+
     if not log_dir.exists():
         log_dir.mkdir(parents=True, exist_ok=True)
-
-    log_path = os.path.join(log_dir, log_file_name)
 
     handlers = [logging.FileHandler(log_path, encoding="utf-8")]
     if print_to_console:
@@ -25,7 +28,7 @@ def setup_logger(
         handlers=handlers,
     )
 
-    logger = logging.getLogger(str(log_path))
+    logger = logging.getLogger(log_path)
 
     return logger
 

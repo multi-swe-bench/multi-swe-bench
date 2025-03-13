@@ -27,7 +27,7 @@ def get_parser() -> ArgumentParser:
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["dataset", "summary", "regen"],
+        choices=["dataset", "evaluation", "summary", "regen"],
         required=False,
         default="dataset",
         help="The mode to run the script in.",
@@ -66,6 +66,13 @@ def get_parser() -> ArgumentParser:
         help="The paths to the raw dataset files. Supports glob patterns.",
     )
     parser.add_argument(
+        "--dataset_files",
+        type=str,
+        nargs="*",
+        required=False,
+        help="The paths to the dataset files. Supports glob patterns.",
+    )
+    parser.add_argument(
         "--max_workers",
         type=int,
         required=False,
@@ -99,12 +106,13 @@ def get_parser() -> ArgumentParser:
 @dataclass_json
 @dataclass
 class CliArgs:
-    mode: Literal["dataset", "summary", "regen"]
+    mode: Literal["dataset", "evaluation", "summary", "regen"]
     workdir: Path
     output_dir: Optional[Path]
     specifics: Optional[set[str]]
     skips: Optional[set[str]]
     raw_dataset_files: Optional[list[str]]
+    dataset_files: Optional[list[str]]
     max_workers: int
     log_dir: Path
     log_level: str
@@ -120,11 +128,14 @@ class CliArgs:
         if self.mode == "dataset":
             self._check_output_dir()
             self._check_raw_dataset_files()
+        elif self.mode == "evaluation":
+            self._check_output_dir()
+            self._check_dataset_files()
         elif self.mode == "summary":
             self._check_output_dir()
 
     def _check_mode(self):
-        valid_modes = {"dataset", "summary", "regen"}
+        valid_modes = {"dataset", "evaluation", "summary", "regen"}
         if self.mode not in valid_modes:
             raise ValueError(f"Invalid mode: {self.mode}, expected: {valid_modes}")
 
@@ -165,6 +176,24 @@ class CliArgs:
         for file_path in self._expanded_files:
             if not file_path.exists():
                 raise ValueError(f"Raw dataset file not found: {file_path}")
+
+    def _check_dataset_files(self):
+        if not self.dataset_files:
+            raise ValueError(f"Invalid dataset_files: {self.dataset_files}")
+
+        self._expanded_files: list[Path] = []
+        for file_pattern in self.dataset_files:
+            matched_files = glob.glob(file_pattern)
+            if not matched_files:
+                raise ValueError(f"No files found matching pattern: {file_pattern}")
+            self._expanded_files.extend([Path(f) for f in matched_files])
+
+        if not self._expanded_files:
+            raise ValueError("No dataset files found after expanding patterns")
+
+        for file_path in self._expanded_files:
+            if not file_path.exists():
+                raise ValueError(f"Dataset file not found: {file_path}")
 
     def _check_log_dir(self):
         if not self.log_dir:
@@ -219,6 +248,29 @@ class CliArgs:
             )
 
         return self._raw_dataset
+
+    @property
+    def dataset(self) -> Dict[str, Dataset]:
+        if not self.dataset_files:
+            raise ValueError(f"Invalid dataset_files: {self.dataset_files}")
+
+        if not hasattr(self, "_dataset"):
+            self._dataset: dict[str, Dataset] = {}
+
+            for file_path in self._expanded_files:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip() == "":
+                            continue
+
+                        dataset = Dataset.from_json(line)
+                        self._dataset[dataset.id] = dataset
+
+            self.logger.info(
+                f"Successfully loaded {len(self._dataset)} valid datasets from {self.dataset_files}"
+            )
+
+        return self._dataset
 
     @classmethod
     def from_dict(cls, d: dict) -> "CliArgs":
@@ -313,6 +365,44 @@ class CliArgs:
 
         return (reports, [task for task, _ in failed_tasks])
 
+    def gen_eval_reports(
+        self, tasks: list[ReportTask]
+    ) -> tuple[list[Report], list[ReportTask]]:
+        reports: list[Report] = []
+        failed_tasks: list[tuple[ReportTask, str]] = []
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.max_workers
+        ) as executor:
+
+            def safe_generate_report(task: ReportTask) -> Report | None:
+                try:
+                    run_log = self.dataset[task.id].run_result
+                    test_patch_run_log = self.dataset[task.id].test_patch_result
+                    return task.generate_report(run_log, test_patch_run_log)
+                except Exception as e:
+                    logging.error(f"Error generating report for {task.id}: {str(e)}")
+                    failed_tasks.append((task, str(e)))
+                    return None
+
+            futures = list(
+                tqdm(
+                    executor.map(safe_generate_report, tasks),
+                    total=len(tasks),
+                    desc="Generating reports",
+                )
+            )
+
+            reports = [report for report in futures if report is not None]
+
+        self.logger.info(f"Successfully generated {len(reports)} reports.")
+        if failed_tasks:
+            self.logger.error(f"Failed to generate {len(failed_tasks)} reports.")
+            self.logger.error("Failed task list:")
+            for task, error in failed_tasks:
+                self.logger.error(f"  - {task.id}: {error}")
+
+        return (reports, [task for task, _ in failed_tasks])
+
     def run_regen(self):
         tasks = self.collect_report_tasks()
         self.gen_reports(tasks)
@@ -320,6 +410,13 @@ class CliArgs:
     def run_summary(self):
         tasks = self.collect_report_tasks()
         reports, failed_tasks = self.gen_reports(tasks)
+        final_report = FinalReport.from_reports(reports, failed_tasks)
+        with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
+            f.write(final_report.json())
+
+    def run_evaluation(self):
+        tasks = self.collect_report_tasks()
+        reports, failed_tasks = self.gen_eval_reports(tasks)
         final_report = FinalReport.from_reports(reports, failed_tasks)
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
             f.write(final_report.json())
@@ -357,6 +454,8 @@ class CliArgs:
             self.run_regen()
         elif self.mode == "summary":
             self.run_summary()
+        elif self.mode == "evaluation":
+            self.run_evaluation()
         elif self.mode == "dataset":
             self.run_dataset()
         else:

@@ -81,6 +81,9 @@ class Image:
     def files(self) -> list[File]:
         raise NotImplementedError
 
+    def fix_patch_path(self) -> str:
+        return "/home/fix.patch"
+
     def dockerfile_name(self) -> str:
         return "Dockerfile"
 

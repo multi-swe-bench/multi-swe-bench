@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 from dataclasses_json import config, dataclass_json
 
@@ -26,6 +26,10 @@ class Report(PullRequestBase):
     valid: Optional[bool] = None
     error_msg: Optional[str] = None
     fixed_tests: dict[str, Test] = field(default_factory=dict)
+    p2p_tests: dict[str, Test] = field(default_factory=dict)
+    f2p_tests: dict[str, Test] = field(default_factory=dict)
+    s2p_tests: dict[str, Test] = field(default_factory=dict)
+    n2p_tests: dict[str, Test] = field(default_factory=dict)
     run_result: TestResult = None
     test_patch_result: TestResult = None
     fix_patch_result: TestResult = None
@@ -114,6 +118,16 @@ class Report(PullRequestBase):
                 )
                 return (self.valid, self.error_msg)
 
+        for name, test in self._tests.items():
+            if test.test == TestStatus.PASS and test.fix == TestStatus.PASS:
+                self.p2p_tests[name] = test
+            elif test.test == TestStatus.PASS and test.fix == TestStatus.FAIL:
+                self.f2p_tests[name] = test
+            elif test.test == TestStatus.FAIL and test.fix == TestStatus.PASS:
+                self.n2p_tests[name] = test
+            elif test.test == TestStatus.FAIL and test.fix == TestStatus.FAIL:
+                self.s2p_tests[name] = test
+
         self.valid = True
         self.error_msg = ""
         return (self.valid, self.error_msg)
@@ -123,15 +137,25 @@ class Report(PullRequestBase):
 
 
 def generate_report(
-    instance: Instance, output_run: str, output_test: str, output_fix: str
+    instance: Instance,
+    run_result: Union[str, TestResult],
+    test_patch_result: Union[str, TestResult],
+    fix_patch_result: Union[str, TestResult],
 ) -> Report:
+    if isinstance(run_result, str):
+        run_result = instance.parse_log(run_result)
+    if isinstance(test_patch_result, str):
+        test_patch_result = instance.parse_log(test_patch_result)
+    if isinstance(fix_patch_result, str):
+        fix_patch_result = instance.parse_log(fix_patch_result)
+
     report = Report(
         org=instance.pr.org,
         repo=instance.pr.repo,
         number=instance.pr.number,
-        run_result=instance.parse_log(output_run),
-        test_patch_result=instance.parse_log(output_test),
-        fix_patch_result=instance.parse_log(output_fix),
+        run_result=run_result,
+        test_patch_result=test_patch_result,
+        fix_patch_result=fix_patch_result,
     )
 
     return report
@@ -196,12 +220,17 @@ class ReportTask(PullRequestBase):
             fix_patch_run_log = f.read()
         return fix_patch_run_log
 
-    def generate_report(self) -> Report:
+    def generate_report(
+        self,
+        run_log: Optional[Union[str, TestResult]] = None,
+        test_patch_run_log: Optional[Union[str, TestResult]] = None,
+        fix_patch_run_log: Optional[Union[str, TestResult]] = None,
+    ) -> Report:
         report = generate_report(
             self.instance,
-            self.run_log,
-            self.test_patch_run_log,
-            self.fix_patch_run_log,
+            run_log or self.run_log,
+            test_patch_run_log or self.test_patch_run_log,
+            fix_patch_run_log or self.fix_patch_run_log,
         )
 
         with open(self.instance_dir / REPORT_FILE, "w", encoding="utf-8") as f:
