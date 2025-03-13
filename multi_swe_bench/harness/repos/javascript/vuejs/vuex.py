@@ -130,7 +130,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-npm install || true
+npm install --legacy-peer-deps || true
 """.format(
                     pr=self.pr
                 ),
@@ -155,7 +155,7 @@ npm run test:ssr  -- --verbose
 set -e
 
 cd /home/{pr.repo}
-git apply  --exclude package.json --whitespace=nowarn /home/test.patch
+git apply  --exclude package.json  --exclude yarn.lock --whitespace=nowarn /home/test.patch
 npm run test:unit -- --verbose  
 npm run test:ssr  -- --verbose 
 
@@ -170,7 +170,7 @@ npm run test:ssr  -- --verbose
 set -e
 
 cd /home/{pr.repo}
-git apply  --exclude package.json --whitespace=nowarn /home/test.patch /home/fix.patch
+git apply  --exclude package.json  --exclude yarn.lock --whitespace=nowarn /home/test.patch /home/fix.patch
 npm run test:unit -- --verbose  
 npm run test:ssr  -- --verbose 
 
