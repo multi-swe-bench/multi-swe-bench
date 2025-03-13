@@ -274,7 +274,7 @@ git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
 npm install || true
-npm install eslint --save-dev
+npm install eslint --save-dev || true
 """.format(
                     pr=self.pr
                 ),
