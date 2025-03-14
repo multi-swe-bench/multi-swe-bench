@@ -13,7 +13,7 @@ from multi_swe_bench.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
     FIX_PATCH_RUN_LOG_FILE,
-    INSTANCE_WORKDIR,
+    EVALUATION_WORKDIR,
     REPORT_FILE,
     RUN_EVALUATION_LOG_FILE,
 )
@@ -638,7 +638,7 @@ class CliArgs:
             self.workdir
             / instance.pr.org
             / instance.pr.repo
-            / INSTANCE_WORKDIR
+            / EVALUATION_WORKDIR
             / instance.dependency().workdir()
         )
         instance_dir.mkdir(parents=True, exist_ok=True)

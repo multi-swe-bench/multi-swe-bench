@@ -1,6 +1,7 @@
 # Image related
 BUILD_IMAGE_WORKDIR = "images"
 INSTANCE_WORKDIR = "instances"
+EVALUATION_WORKDIR = "evals"
 
 # Report related
 REPORT_FILE = "report.json"
