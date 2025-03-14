@@ -202,6 +202,7 @@ npm run test:coverage -- --reporter=verbose
 
 """
 
+
 class ImageDefault849(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -344,6 +345,7 @@ npm test -- --reporter=verbose
 {self.clear_env}
 
 """
+
 
 @Instance.register("google", "zx")
 class zx(Instance):

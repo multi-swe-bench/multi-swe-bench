@@ -12,8 +12,8 @@ from tqdm import tqdm
 from multi_swe_bench.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
-    FIX_PATCH_RUN_LOG_FILE,
     EVALUATION_WORKDIR,
+    FIX_PATCH_RUN_LOG_FILE,
     REPORT_FILE,
     RUN_EVALUATION_LOG_FILE,
 )
@@ -515,7 +515,9 @@ class CliArgs:
 
             for commit_hash in repo_commits.commits:
                 if commit_hash not in commit_hashes:
-                    self.logger.error(f"Commit hash not found in {repo.repo_full_name}")
+                    self.logger.error(
+                        f"Commit hash not found in {repo.repo_full_name}: {commit_hash}"
+                    )
                     error_happened = True
 
         if error_happened:

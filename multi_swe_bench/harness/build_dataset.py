@@ -443,7 +443,9 @@ class CliArgs:
 
             for commit_hash in repo_commits.commits:
                 if commit_hash not in commit_hashes:
-                    self.logger.error(f"Commit hash not found in {repo.repo_full_name}")
+                    self.logger.error(
+                        f"Commit hash not found in {repo.repo_full_name}: {commit_hash}"
+                    )
                     error_happened = True
 
         if error_happened:
