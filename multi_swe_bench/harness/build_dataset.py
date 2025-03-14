@@ -64,7 +64,7 @@ def get_parser() -> ArgumentParser:
     )
     parser.add_argument(
         "--output_dir",
-        type=Optional[Path],
+        type=Path,
         required=False,
         default=None,
         help="The path to the output directory.",
