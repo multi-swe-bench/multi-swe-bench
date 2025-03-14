@@ -209,6 +209,7 @@ pnpm test -- --verbose --testLocationInResults
 
 """
 
+
 class ImageDefault11199(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -358,6 +359,7 @@ yarn test -- --verbose
 
 """
 
+
 @Instance.register("remix-run", "react-router")
 class react_router(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -370,7 +372,7 @@ class react_router(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 40180 :
+        if self.pr.number <= 40180:
             return ImageDefault11199(self.pr, self._config)
         # elif self.pr.number <= 33415:
         #     return MaterialUiImageDefault33415(self.pr, self._config)

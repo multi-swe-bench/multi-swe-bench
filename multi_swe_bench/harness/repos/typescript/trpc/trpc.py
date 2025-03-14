@@ -208,6 +208,7 @@ pnpm test-ci --reporter=verbose
 
 """
 
+
 class ImageDefault5560(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -360,7 +361,7 @@ pnpm turbo --filter tests test-ci
 class trpc(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
-        self._pr = pr   
+        self._pr = pr
         self._config = config
 
     @property
@@ -368,11 +369,10 @@ class trpc(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        if self.pr.number <= 5560 :
+        if self.pr.number <= 5560:
             return ImageDefault5560(self.pr, self._config)
         # elif self.pr.number <= 33415:
         #     return MaterialUiImageDefault33415(self.pr, self._config)
-
 
         return ImageDefault(self.pr, self._config)
 

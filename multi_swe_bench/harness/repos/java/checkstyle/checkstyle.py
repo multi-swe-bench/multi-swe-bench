@@ -321,5 +321,5 @@ class checkstyle(Instance):
             skipped_count=0,
             passed_tests=passed_tests,
             failed_tests=failed_tests,
-            skipped_tests=set()
+            skipped_tests=set(),
         )

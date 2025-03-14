@@ -229,13 +229,34 @@ class insomnia(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        re_pass_tests = [
+            re.compile(r"^✓ (.+?)(?:\s\(\d+\s+tests\))?(?:\s*\d*\.?\d+\s*\w+)?$"),
+            re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$"),
+        ]
+        re_fail_tests = [
+            re.compile(r"^FAIL (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$"),
+        ]
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            for re_pass_test in re_pass_tests:
+                pass_test_match = re_pass_test.match(line)
+                if pass_test_match:
+                    test = pass_test_match.group(1)
+                    passed_tests.add(test)
+
+            for re_fail_test in re_fail_tests:
+                fail_test_match = re_fail_test.match(line)
+                if fail_test_match:
+                    test = fail_test_match.group(1)
+                    failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),
