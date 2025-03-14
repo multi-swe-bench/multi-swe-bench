@@ -9,6 +9,7 @@ from dataclasses_json import dataclass_json
 from tqdm import tqdm
 
 from multi_swe_bench.harness.constant import (
+    EVALUATION_WORKDIR,
     FINAL_REPORT_FILE,
     GENERATE_REPORT_LOG_FILE,
     INSTANCE_WORKDIR,
@@ -311,7 +312,7 @@ class CliArgs:
             return True
         return False
 
-    def collect_report_tasks(self) -> list[ReportTask]:
+    def collect_report_tasks(self, subdir: str = INSTANCE_WORKDIR) -> list[ReportTask]:
         tasks: list[ReportTask] = []
         for org_dir in self.workdir.iterdir():
             if not org_dir.is_dir():
@@ -323,7 +324,7 @@ class CliArgs:
                     continue
 
                 repo = repo_dir.name
-                instances_dir = repo_dir / INSTANCE_WORKDIR
+                instances_dir = repo_dir / subdir
                 if not instances_dir.exists():
                     continue
 
@@ -472,7 +473,7 @@ class CliArgs:
             f.write(final_report.json())
 
     def run_evaluation(self):
-        tasks = self.collect_report_tasks()
+        tasks = self.collect_report_tasks(EVALUATION_WORKDIR)
         reports, failed_tasks = self.gen_eval_reports(tasks)
         final_report = FinalReport.from_reports(reports, failed_tasks)
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
