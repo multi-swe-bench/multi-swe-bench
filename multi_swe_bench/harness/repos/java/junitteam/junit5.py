@@ -83,7 +83,9 @@ fi
         return f"""FROM {image_name}
 
 {self.global_env}
-
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 WORKDIR /home/
 RUN apt-get update && apt-get install -y git openjdk-21-jdk
 {code}
@@ -97,7 +99,7 @@ RUN bash /home/config_gradle.sh
 """
 
 
-class junit5ImageBaseCpp7(Image):
+class junit5ImageBaseJDK17(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -111,19 +113,51 @@ class junit5ImageBaseCpp7(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:7"
+        return "ubuntu:22.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
 
     def image_tag(self) -> str:
-        return "base-cpp-7"
+        return "base-JDK-17"
 
     def workdir(self) -> str:
-        return "base-cpp-7"
+        return "base-JDK-17"
 
     def files(self) -> list[File]:
-        return []
+        return [
+            File(
+                ".",
+                "config_gradle.sh",
+                """#!/bin/bash
+set -e
+
+echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
+source ~/.bashrc
+
+PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.http.proxyPort=8118
+systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.https.proxyPort=8118"
+
+GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
+
+if [ ! -d "$HOME/.gradle" ]; then
+    mkdir -p "$HOME/.gradle"
+fi
+
+if [ ! -f "$GRADLE_PROPERTIES" ]; then
+    touch "$GRADLE_PROPERTIES"
+fi
+
+if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
+    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
+    echo "Added proxy settings to $GRADLE_PROPERTIES"
+fi
+
+""",
+            )
+        ]
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -134,25 +168,25 @@ class junit5ImageBaseCpp7(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
         return f"""FROM {image_name}
 
 {self.global_env}
-
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 WORKDIR /home/
-
+RUN apt-get update && apt-get install -y git openjdk-17-jdk
 {code}
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
-    pkg-config \
-    wget \
-    tar && \
-    wget https://cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.14.0-Linux-x86_64.tar.gz && \
-    mv cmake-3.14.0-Linux-x86_64 /opt/cmake && \
-    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.14.0-Linux-x86_64.tar.gz
-RUN apt-get install -y cmake
+
+{copy_commands}
+
+RUN bash /home/config_gradle.sh
+
 {self.clear_env}
 
 """
@@ -172,8 +206,8 @@ class junit5ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        # if self.pr.number <= 958:
-        #     return junit5ImageBaseCpp7(self.pr, self._config)
+        if self.pr.number <= 3423:
+            return junit5ImageBaseJDK17(self.pr, self._config)
 
         return junit5ImageBase(self.pr, self._config)
 
