@@ -10,20 +10,18 @@ from dataclasses_json import dataclass_json
 from tqdm import tqdm
 
 from multi_swe_bench.harness.constant import (
-    BUILD_DATASET_LOG_FILE,
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
     FIX_PATCH_RUN_LOG_FILE,
     INSTANCE_WORKDIR,
     REPORT_FILE,
-    RUN_LOG_FILE,
-    TEST_PATCH_RUN_LOG_FILE,
+    RUN_EVALUATION_LOG_FILE,
 )
+from multi_swe_bench.harness.dataset import Dataset
 from multi_swe_bench.harness.gen_report import CliArgs as ReportBuilder
 from multi_swe_bench.harness.image import Config, Image
 from multi_swe_bench.harness.instance import Instance
-from multi_swe_bench.harness.pull_request import PullRequest, Repository
-from multi_swe_bench.harness.report import generate_report
+from multi_swe_bench.harness.pull_request import PullRequestBase, Repository
 from multi_swe_bench.utils import docker_util, git_util
 from multi_swe_bench.utils.args_util import ArgumentParser
 from multi_swe_bench.utils.fs_utils import copy_source_code
@@ -37,9 +35,9 @@ def get_parser() -> ArgumentParser:
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["dataset", "instance", "instance_only", "image"],
+        choices=["evaluation", "instance", "instance_only", "image"],
         required=False,
-        default="dataset",
+        default="evaluation",
         help="The mode to run the script in.",
     )
     parser.add_argument(
@@ -49,11 +47,18 @@ def get_parser() -> ArgumentParser:
         help="The path to the workdir.",
     )
     parser.add_argument(
-        "--raw_dataset_files",
+        "--patch_files",
         type=str,
         nargs="*",
         required=False,
-        help="The paths to the raw dataset files. Supports glob patterns.",
+        help="The paths to the patch files. Supports glob patterns.",
+    )
+    parser.add_argument(
+        "--dataset_files",
+        type=str,
+        nargs="*",
+        required=False,
+        help="The paths to the dataset files. Supports glob patterns.",
     )
     parser.add_argument(
         "--force_build",
@@ -170,10 +175,21 @@ class RepoCommits(Repository):
 
 @dataclass_json
 @dataclass
+class Patch(PullRequestBase):
+    fix_patch: str
+
+    def __post_init__(self):
+        if not isinstance(self.fix_patch, str):
+            raise ValueError(f"Invalid patch: {self.fix_patch}")
+
+
+@dataclass_json
+@dataclass
 class CliArgs:
-    mode: Literal["dataset", "instance", "instance_only", "image"]
+    mode: Literal["evaluation", "instance", "instance_only", "image"]
     workdir: Path
-    raw_dataset_files: Optional[list[str]]
+    patch_files: Optional[list[str]]
+    dataset_files: Optional[list[str]]
     force_build: bool
     output_dir: Optional[Path]
     specifics: Optional[set[str]]
@@ -193,13 +209,14 @@ class CliArgs:
     def __post_init__(self):
         self._check_mode()
         self._check_workdir()
-        self._check_raw_dataset_files()
+        self._check_patch_files()
+        self._check_dataset_files()
         self._check_log_dir()
         self._check_log_level()
         self._check_log_to_console()
         self._check_max_workers()
 
-        if self.mode == "dataset":
+        if self.mode == "evaluation":
             self._check_repo_dir()
             self._check_output_dir()
         elif self.mode == "instance":
@@ -210,7 +227,7 @@ class CliArgs:
             self._check_repo_dir()
 
     def _check_mode(self):
-        valid_modes = ["dataset", "instance", "instance_only", "image"]
+        valid_modes = ["evaluation", "instance", "instance_only", "image"]
         if self.mode not in valid_modes:
             raise ValueError(f"Invalid mode: {self.mode}, expected: {valid_modes}")
 
@@ -224,23 +241,41 @@ class CliArgs:
         if not self.workdir.exists():
             raise ValueError(f"Workdir not found: {self.workdir}")
 
-    def _check_raw_dataset_files(self):
-        if not self.raw_dataset_files:
-            raise ValueError(f"Invalid raw_dataset_files: {self.raw_dataset_files}")
+    def _check_patch_files(self):
+        if not self.patch_files:
+            raise ValueError(f"Invalid patch_files: {self.patch_files}")
 
-        self._expanded_files: list[Path] = []
-        for file_pattern in self.raw_dataset_files:
+        self._patch_files: list[Path] = []
+        for file_pattern in self.patch_files:
             matched_files = glob.glob(file_pattern)
             if not matched_files:
                 raise ValueError(f"No files found matching pattern: {file_pattern}")
-            self._expanded_files.extend([Path(f) for f in matched_files])
+            self._patch_files.extend([Path(f) for f in matched_files])
 
-        if not self._expanded_files:
-            raise ValueError("No raw dataset files found after expanding patterns")
+        if not self._patch_files:
+            raise ValueError("No patch files found after expanding patterns")
 
-        for file_path in self._expanded_files:
+        for file_path in self._patch_files:
             if not file_path.exists():
-                raise ValueError(f"Raw dataset file not found: {file_path}")
+                raise ValueError(f"Patch file not found: {file_path}")
+
+    def _check_dataset_files(self):
+        if not self.dataset_files:
+            raise ValueError(f"Invalid dataset_files: {self.dataset_files}")
+
+        self._dataset_files: list[Path] = []
+        for file_pattern in self.dataset_files:
+            matched_files = glob.glob(file_pattern)
+            if not matched_files:
+                raise ValueError(f"No files found matching pattern: {file_pattern}")
+            self._dataset_files.extend([Path(f) for f in matched_files])
+
+        if not self._dataset_files:
+            raise ValueError("No dataset files found after expanding patterns")
+
+        for file_path in self._dataset_files:
+            if not file_path.exists():
+                raise ValueError(f"Dataset file not found: {file_path}")
 
     def _check_output_dir(self):
         if not self.output_dir:
@@ -298,7 +333,7 @@ class CliArgs:
         if not hasattr(self, "_logger"):
             self._logger = setup_logger(
                 self.log_dir,
-                BUILD_DATASET_LOG_FILE,
+                RUN_EVALUATION_LOG_FILE,
                 self.log_level,
                 self.log_to_console,
             )
@@ -306,27 +341,58 @@ class CliArgs:
         return self._logger
 
     @property
-    def raw_dataset(self) -> Dict[str, PullRequest]:
-        if not self.raw_dataset_files:
-            raise ValueError(f"Invalid raw_dataset_files: {self.raw_dataset_files}")
+    def patches(self) -> dict[str, Patch]:
+        if not self.patch_files:
+            raise ValueError(f"Invalid patch_files: {self.patch_files}")
 
-        if not hasattr(self, "_raw_dataset"):
-            self._raw_dataset: dict[str, PullRequest] = {}
+        if not hasattr(self, "_patches"):
+            self._patches: dict[str, Patch] = {}
 
-            for file_path in self._expanded_files:
+            for file_path in self._patch_files:
                 with open(file_path, "r", encoding="utf-8") as f:
                     for line in f:
                         if line.strip() == "":
                             continue
 
-                        pr = PullRequest.from_json(line)
-                        self._raw_dataset[pr.id] = pr
+                        patch = Patch.from_json(line)
+                        self._patches[patch.id] = patch
+
+        return self._patches
+
+    @property
+    def patch_numbers(self) -> set[int]:
+        if not hasattr(self, "_patch_numbers"):
+            self._patch_numbers: set[int] = set()
+            for patch in self.patches.values():
+                self._patch_numbers.add(patch.number)
+        return self._patch_numbers
+
+    @property
+    def dataset(self) -> Dict[str, Dataset]:
+        if not self.dataset_files:
+            raise ValueError(f"Invalid dataset_files: {self.dataset_files}")
+
+        if not hasattr(self, "_dataset"):
+            self._dataset: dict[str, Dataset] = {}
+
+            for file_path in self._dataset_files:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip() == "":
+                            continue
+
+                        dataset = Dataset.from_json(line)
+                        if not self.check_specific(dataset.id):
+                            continue
+                        if self.check_skip(dataset.id):
+                            continue
+                        self._dataset[dataset.id] = dataset
 
             self.logger.info(
-                f"Successfully loaded {len(self._raw_dataset)} valid pull requests from {self.raw_dataset_files}"
+                f"Successfully loaded {len(self._dataset)} valid datasets from {self.dataset_files}"
             )
 
-        return self._raw_dataset
+        return self._dataset
 
     @property
     def instances(self) -> list[Instance]:
@@ -347,23 +413,29 @@ class CliArgs:
             return result
 
         if not hasattr(self, "_instances"):
-            self._instances: list[Instance] = []
+            instances: list[Instance] = []
             config = Config(
                 need_clone=self.need_clone,
                 global_env=list_to_dict(self.global_env),
                 clear_env=self.clear_env,
             )
 
-            for pr in self.raw_dataset.values():
+            for pr in self.dataset.values():
                 try:
                     instance: Instance = Instance.create(pr, config)
-                    if not self.check_specific(instance.pr.repo_full_name):
+                    if not self.check_specific(instance.pr.id):
                         continue
-                    if self.check_skip(instance.pr.repo_full_name):
+                    if self.check_skip(instance.pr.id):
                         continue
-                    self._instances.append(instance)
+                    instances.append(instance)
                 except Exception as e:
                     self.logger.error(f"Error creating instance for {pr.id}: {e}")
+
+            self._instances = [
+                instance
+                for instance in instances
+                if instance.pr.number in self.patch_numbers
+            ]
 
             self.logger.info(
                 f"Successfully loaded {len(self._instances)} valid instances."
@@ -571,6 +643,10 @@ class CliArgs:
         )
         instance_dir.mkdir(parents=True, exist_ok=True)
 
+        fix_patch_path = instance_dir.absolute() / "fix.patch"
+        with open(fix_patch_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(self.patches[instance.pr.id].fix_patch)
+
         report_path = instance_dir / REPORT_FILE
         if report_path.exists():
             self.logger.info(
@@ -585,29 +661,24 @@ class CliArgs:
                 f"Running {image_full_name} with command: {run_command}..."
             )
             output = docker_util.run(
-                image_full_name, run_command, output_path, self.global_env
+                image_full_name,
+                run_command,
+                output_path,
+                self.global_env,
+                volumes={
+                    fix_patch_path: {
+                        "bind": instance.dependency().fix_patch_path(),
+                        "mode": "rw",
+                    }
+                },
             )
-
             return output
 
-        output_run = run_and_save_output(
-            instance.name(), instance.run(), instance_dir / RUN_LOG_FILE
-        )
-        output_test = run_and_save_output(
-            instance.name(),
-            instance.test_patch_run(),
-            instance_dir / TEST_PATCH_RUN_LOG_FILE,
-        )
-        output_fix = run_and_save_output(
+        run_and_save_output(
             instance.name(),
             instance.fix_patch_run(),
             instance_dir / FIX_PATCH_RUN_LOG_FILE,
         )
-
-        report = generate_report(instance, output_run, output_test, output_fix)
-
-        with open(report_path, "w", encoding="utf-8") as f:
-            f.write(report.json())
 
     def run_mode_instance_only(self):
         self.logger.info("Running instances...")
@@ -641,17 +712,17 @@ class CliArgs:
         self.run_mode_image()
         self.run_mode_instance_only()
 
-    def run_mode_dataset(self):
+    def run_mode_evaluation(self):
         self.run_mode_instance()
-        self.logger.info("Building dataset...")
+        self.logger.info("Running evaluation...")
         ReportBuilder(
-            mode="dataset",
+            mode="evaluation",
             workdir=self.workdir,
             output_dir=self.output_dir,
             specifics=self.specifics,
             skips=self.skips,
-            raw_dataset_files=self.raw_dataset_files,
-            dataset_files=None,
+            raw_dataset_files=None,
+            dataset_files=self.dataset_files,
             max_workers=self.max_workers,
             log_dir=self.log_dir,
             log_level=self.log_level,
@@ -661,12 +732,12 @@ class CliArgs:
     def run(self):
         if self.mode == "image":
             self.run_mode_image()
-        elif self.mode == "instance":
-            self.run_mode_instance()
         elif self.mode == "instance_only":
             self.run_mode_instance_only()
-        elif self.mode == "dataset":
-            self.run_mode_dataset()
+        elif self.mode == "instance":
+            self.run_mode_instance()
+        elif self.mode == "evaluation":
+            self.run_mode_evaluation()
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 

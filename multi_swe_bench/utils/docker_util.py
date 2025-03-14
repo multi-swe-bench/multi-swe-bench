@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import docker
 
@@ -59,6 +59,7 @@ def run(
     run_command: str,
     output_path: Optional[Path] = None,
     global_env: Optional[list[str]] = None,
+    volumes: Optional[Union[dict[str, str], list[str]]] = None,
 ) -> str:
     container = docker_client.containers.run(
         image=image_full_name,
@@ -68,6 +69,7 @@ def run(
         stdout=True,
         stderr=True,
         environment=global_env,
+        volumes=volumes,
     )
 
     output = ""

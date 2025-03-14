@@ -226,33 +226,34 @@ class Gin(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        passed_tests = []
-        failed_tests = []
-        skipped_tests = []
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        re_pass = re.compile(r"--- PASS: (\S+)")
-        re_fail_p1 = re.compile(r"--- FAIL: (\S+)")
-        re_fail_p2 = re.compile(r"FAIL:?\s?(.+?)\s")
-        re_skip = re.compile(r"--- SKIP: (\S+)")
+        re_pass_tests = [re.compile(r"--- PASS: (\S+)")]
+        re_fail_tests = [
+            re.compile(r"--- FAIL: (\S+)"),
+            re.compile(r"FAIL:?\s?(.+?)\s"),
+        ]
+        re_skip_tests = [re.compile(r"--- SKIP: (\S+)")]
 
         for line in test_log.splitlines():
             line = line.strip()
-            if line.startswith("--- PASS:"):
-                match = re_pass.match(line)
-                if match:
-                    passed_tests.append(match.group(1))
-            elif line.startswith("--- FAIL:"):
-                match = re_fail_p1.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("FAIL"):
-                match = re_fail_p2.match(line)
-                if match:
-                    failed_tests.append(match.group(1))
-            elif line.startswith("--- SKIP:"):
-                match = re_skip.match(line)
-                if match:
-                    skipped_tests.append(match.group(1))
+
+            for re_pass_test in re_pass_tests:
+                pass_match = re_pass_test.match(line)
+                if pass_match:
+                    passed_tests.add(pass_match.group(1))
+
+            for re_fail_test in re_fail_tests:
+                fail_match = re_fail_test.match(line)
+                if fail_match:
+                    failed_tests.add(fail_match.group(1))
+
+            for re_skip_test in re_skip_tests:
+                skip_match = re_skip_test.match(line)
+                if skip_match:
+                    skipped_tests.add(skip_match.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),

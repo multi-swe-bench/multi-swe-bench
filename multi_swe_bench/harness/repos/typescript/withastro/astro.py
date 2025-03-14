@@ -223,7 +223,6 @@ class puppeteer(Instance):
 
     def dependency(self) -> Optional[Image]:
 
-
         return PuppeteerImageDefault(self.pr, self._config)
 
     def run(self) -> str:

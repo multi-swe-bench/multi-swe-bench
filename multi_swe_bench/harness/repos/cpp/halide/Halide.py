@@ -273,7 +273,7 @@ class HalideImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if  6626 <= self.pr.number <= 7557:
+        if 6626 <= self.pr.number <= 7557:
             return HalideImageBaseGCC11(self.pr, self._config)
         elif 5626 < self.pr.number <= 6533:
             return HalideImageBaseGCC11V2(self.pr, self._config)

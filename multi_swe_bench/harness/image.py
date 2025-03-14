@@ -19,6 +19,19 @@ class Config:
 
 
 class Image:
+    def __lt__(self, other: "Image") -> bool:
+        return self.image_full_name() < other.image_full_name()
+
+    def __repr__(self) -> str:
+        return self.image_full_name()
+
+    def __hash__(self):
+        return hash(self.image_full_name())
+
+    def __eq__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        return self.image_full_name() == other.image_full_name()
 
     @property
     def pr(self) -> PullRequest:
@@ -67,6 +80,9 @@ class Image:
 
     def files(self) -> list[File]:
         raise NotImplementedError
+
+    def fix_patch_path(self) -> str:
+        return "/home/fix.patch"
 
     def dockerfile_name(self) -> str:
         return "Dockerfile"

@@ -119,6 +119,7 @@ RUN apt-get install -y qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 li
 
 """
 
+
 class bitcoinImageBaseCpp11V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -171,6 +172,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 {self.clear_env}
 
 """
+
 
 class bitcoinImageBaseCpp11V3(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -225,6 +227,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 
 """
 
+
 class bitcoinImageBaseCpp8(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -278,6 +281,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 
 """
 
+
 class bitcoinImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -296,7 +300,7 @@ class bitcoinImageDefault(Image):
             return bitcoinImageBaseCpp11(self.pr, self._config)
         elif 20166 < self.pr.number <= 24104:
             return bitcoinImageBaseCpp11V2(self.pr, self._config)
-        elif 19054 <=self.pr.number <= 20166:
+        elif 19054 <= self.pr.number <= 20166:
             return bitcoinImageBaseCpp11V3(self.pr, self._config)
         elif self.pr.number <= 18982:
             return bitcoinImageBaseCpp8(self.pr, self._config)
@@ -312,7 +316,7 @@ class bitcoinImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        if 24138<=self.pr.number <= 30762:
+        if 24138 <= self.pr.number <= 30762:
             return [
                 File(
                     ".",
