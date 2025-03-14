@@ -55,6 +55,58 @@ WORKDIR /home/
 
 """
 
+class ImageBase14761(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "ubuntu:20.04"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base14761"
+
+    def workdir(self) -> str:
+        return "base14761"
+
+    def files(self) -> list[File]:
+        return []
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+
+WORKDIR /home/
+RUN apt update && apt install -y git curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt install -y nodejs 
+{code}
+
+{self.clear_env}
+
+"""
+
 
 class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -199,6 +251,148 @@ npm test
 
 """
 
+class ImageDefault14761(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Image | None:
+        return ImageBase14761(self.pr, self._config)
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+
+npm install || true
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+npm test
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch
+npm test
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply  --exclude package-lock.json --whitespace=nowarn /home/test.patch /home/fix.patch
+npm test
+
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        image = self.dependency()
+        name = image.image_name()
+        tag = image.image_tag()
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        prepare_commands = "RUN bash /home/prepare.sh"
+
+        return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
 
 @Instance.register("Automattic", "mongoose")
 class zx(Instance):
@@ -212,8 +406,8 @@ class zx(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        # if self.pr.number <= 849:
-        #     return ImageDefault849(self.pr, self._config)
+        if self.pr.number <= 14761:
+            return ImageDefault14761(self.pr, self._config)
 
         return ImageDefault(self.pr, self._config)
 
@@ -230,24 +424,6 @@ class zx(Instance):
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
-
-        re_pass_test = re.compile(r"^✔ (.+?)(?:\s\(\d*\.?\d*\s*\w+\))?$")
-        re_fail_test = re.compile(r"^✖ (.+?)(?:\s\(\d*\.?\d*\s*\w+\))?$")
-
-        for line in test_log.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-
-            pass_test_match = re_pass_test.match(line)
-            if pass_test_match:
-                test = pass_test_match.group(1)
-                passed_tests.add(test)
-
-            fail_test_match = re_fail_test.match(line)
-            if fail_test_match:
-                test = fail_test_match.group(1)
-                failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),
