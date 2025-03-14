@@ -360,13 +360,9 @@ class RxJava(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
-
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
         return TestResult(
             passed_count=len(passed_tests),
