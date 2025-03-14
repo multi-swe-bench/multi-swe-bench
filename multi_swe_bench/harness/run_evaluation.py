@@ -382,6 +382,10 @@ class CliArgs:
                             continue
 
                         dataset = Dataset.from_json(line)
+                        if not self.check_specific(dataset.id):
+                            continue
+                        if self.check_skip(dataset.id):
+                            continue
                         self._dataset[dataset.id] = dataset
 
             self.logger.info(
@@ -419,9 +423,9 @@ class CliArgs:
             for pr in self.dataset.values():
                 try:
                     instance: Instance = Instance.create(pr, config)
-                    if not self.check_specific(instance.pr.repo_full_name):
+                    if not self.check_specific(instance.pr.id):
                         continue
-                    if self.check_skip(instance.pr.repo_full_name):
+                    if self.check_skip(instance.pr.id):
                         continue
                     instances.append(instance)
                 except Exception as e:
@@ -461,11 +465,15 @@ class CliArgs:
 
     @classmethod
     def from_dict(cls, d: dict) -> "CliArgs":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "CliArgs":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)

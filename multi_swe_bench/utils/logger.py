@@ -24,7 +24,7 @@ def setup_logger(
 
     logging.basicConfig(
         level=level,
-        format=f"[%(asctime)s] [{log_file_name}] [%(levelname)s]: %(message)s",
+        format="[%(asctime)s] [%(filename)s] [%(levelname)s]: %(message)s",
         handlers=handlers,
     )
 
@@ -52,7 +52,7 @@ def get_propagate_logger(
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "[%(asctime)s] [%(filename)s] [%(levelname)s]: %(message)s"
     )
     file_handler.setFormatter(formatter)
 
@@ -83,7 +83,7 @@ def get_non_propagate_logger(
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "[%(asctime)s] [%(filename)s] [%(levelname)s]: %(message)s"
     )
     file_handler.setFormatter(formatter)
 

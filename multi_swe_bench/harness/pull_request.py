@@ -42,12 +42,16 @@ class Repository:
         return f"{self.org}__{self.repo}"
 
     @classmethod
-    def from_dict(cls, d: dict) -> "PullRequestBase":
-        return cls(**d)
+    def from_dict(cls, d: dict) -> "Repository":
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
-    def from_json(cls, json_str: str) -> "PullRequestBase":
-        return cls.from_dict(cls.schema().loads(json_str))
+    def from_json(cls, json_str: str) -> "Repository":
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -99,11 +103,15 @@ class ResolvedIssue:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ResolvedIssue":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "ResolvedIssue":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -129,11 +137,15 @@ class Base:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Base":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "Base":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -171,14 +183,12 @@ class PullRequest(PullRequestBase):
 
     @classmethod
     def from_dict(cls, d: dict) -> "PullRequest":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "PullRequest":
-        return cls.from_dict(cls.schema().loads(json_str))
-
-    def dict(self) -> dict:
-        return asdict(self)
-
-    def json(self) -> str:
-        return self.to_json(ensure_ascii=False)
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data

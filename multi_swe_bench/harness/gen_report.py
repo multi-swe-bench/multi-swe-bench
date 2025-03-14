@@ -241,6 +241,10 @@ class CliArgs:
                             continue
 
                         pr = PullRequest.from_json(line)
+                        if not self.check_specific(pr.id):
+                            continue
+                        if self.check_skip(pr.id):
+                            continue
                         self._raw_dataset[pr.id] = pr
 
             self.logger.info(
@@ -264,6 +268,11 @@ class CliArgs:
                             continue
 
                         dataset = Dataset.from_json(line)
+
+                        if not self.check_specific(dataset.id):
+                            continue
+                        if self.check_skip(dataset.id):
+                            continue
                         self._dataset[dataset.id] = dataset
 
             self.logger.info(
@@ -274,11 +283,15 @@ class CliArgs:
 
     @classmethod
     def from_dict(cls, d: dict) -> "CliArgs":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "CliArgs":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -316,9 +329,9 @@ class CliArgs:
                         try:
                             number = int(instance_dir.name[3:])
                             task = ReportTask(org, repo, number, instance_dir)
-                            if not self.check_specific(task.repo_full_name):
+                            if not self.check_specific(task.id):
                                 continue
-                            if self.check_skip(task.repo_full_name):
+                            if self.check_skip(task.id):
                                 continue
                             tasks.append(task)
                         except ValueError:
@@ -374,25 +387,65 @@ class CliArgs:
             max_workers=self.max_workers
         ) as executor:
 
-            def safe_generate_report(task: ReportTask) -> Report | None:
+            def safe_generate_report(
+                dataset: Dataset,
+                task: ReportTask,
+                run_log: str,
+                test_patch_run_log: str,
+            ) -> Report | None:
                 try:
-                    run_log = self.dataset[task.id].run_result
-                    test_patch_run_log = self.dataset[task.id].test_patch_result
-                    return task.generate_report(run_log, test_patch_run_log)
+                    report = task.generate_report(run_log, test_patch_run_log)
+                    if not report.valid:
+                        raise ValueError(
+                            f"Invalid report for {task.id}: {report.short_report()}"
+                        )
+
+                    for p2p in dataset.p2p_tests:
+                        if p2p not in report.p2p_tests:
+                            raise ValueError(
+                                f"Invalid p2p_tests for {task.id}: missing {p2p}"
+                            )
+
+                    for f2p in dataset.f2p_tests:
+                        if f2p not in report.f2p_tests:
+                            raise ValueError(
+                                f"Invalid f2p_tests for {task.id}: missing {f2p}"
+                            )
+
+                    for s2p in dataset.s2p_tests:
+                        if s2p not in report.s2p_tests:
+                            raise ValueError(
+                                f"Invalid s2p_tests for {task.id}: missing {s2p}"
+                            )
+
+                    for n2p in dataset.n2p_tests:
+                        if n2p not in report.n2p_tests:
+                            raise ValueError(
+                                f"Invalid n2p_tests for {task.id}: missing {n2p}"
+                            )
+
+                    return report
                 except Exception as e:
                     logging.error(f"Error generating report for {task.id}: {str(e)}")
                     failed_tasks.append((task, str(e)))
                     return None
 
-            futures = list(
-                tqdm(
-                    executor.map(safe_generate_report, tasks),
-                    total=len(tasks),
-                    desc="Generating reports",
+            futures = [
+                executor.submit(
+                    safe_generate_report,
+                    self.dataset[task.id],
+                    task,
+                    run_log=self.dataset[task.id].run_result,
+                    test_patch_run_log=self.dataset[task.id].test_patch_result,
                 )
-            )
+                for task in tasks
+            ]
 
-            reports = [report for report in futures if report is not None]
+            reports = []
+            for future in concurrent.futures.as_completed(futures):
+                report = future.result()
+                if report is not None:
+                    reports.append(report)
 
         self.logger.info(f"Successfully generated {len(reports)} reports.")
         if failed_tasks:

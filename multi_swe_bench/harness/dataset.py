@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 
 from dataclasses_json import dataclass_json
 
@@ -29,17 +29,15 @@ class Dataset(PullRequest):
 
     @classmethod
     def from_dict(cls, d: dict) -> "Dataset":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "Dataset":
-        return cls.from_dict(cls.schema().loads(json_str))
-
-    def dict(self) -> dict:
-        return asdict(self)
-
-    def json(self) -> str:
-        return self.to_json(ensure_ascii=False)
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     @classmethod
     def build(cls, pr: PullRequest, report: Report) -> "Dataset":

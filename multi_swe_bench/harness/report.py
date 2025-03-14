@@ -61,11 +61,15 @@ class Report(PullRequestBase):
 
     @classmethod
     def from_dict(cls, d: dict) -> "Report":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "Report":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -121,12 +125,12 @@ class Report(PullRequestBase):
         for name, test in self._tests.items():
             if test.test == TestStatus.PASS and test.fix == TestStatus.PASS:
                 self.p2p_tests[name] = test
-            elif test.test == TestStatus.PASS and test.fix == TestStatus.FAIL:
-                self.f2p_tests[name] = test
             elif test.test == TestStatus.FAIL and test.fix == TestStatus.PASS:
-                self.n2p_tests[name] = test
-            elif test.test == TestStatus.FAIL and test.fix == TestStatus.FAIL:
+                self.f2p_tests[name] = test
+            elif test.test == TestStatus.SKIP and test.fix == TestStatus.PASS:
                 self.s2p_tests[name] = test
+            elif test.test == TestStatus.NONE and test.fix == TestStatus.PASS:
+                self.n2p_tests[name] = test
 
         self.valid = True
         self.error_msg = ""
@@ -261,11 +265,15 @@ class FinalReport:
 
     @classmethod
     def from_dict(cls, d: dict) -> "FinalReport":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "FinalReport":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)

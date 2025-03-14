@@ -393,11 +393,15 @@ class CliArgs:
 
     @classmethod
     def from_dict(cls, d: dict) -> "CliArgs":
-        return cls(**d)
+        data = cls(**d)
+        data.__post_init__()
+        return data
 
     @classmethod
     def from_json(cls, json_str: str) -> "CliArgs":
-        return cls.from_dict(cls.schema().loads(json_str))
+        data = cls.from_dict(cls.schema().loads(json_str))
+        data.__post_init__()
+        return data
 
     def dict(self) -> dict:
         return asdict(self)
@@ -647,6 +651,7 @@ class CliArgs:
             specifics=self.specifics,
             skips=self.skips,
             raw_dataset_files=self.raw_dataset_files,
+            dataset_files=None,
             max_workers=self.max_workers,
             log_dir=self.log_dir,
             log_level=self.log_level,
