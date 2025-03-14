@@ -587,6 +587,9 @@ class CliArgs:
             output = docker_util.run(
                 image_full_name, run_command, output_path, self.global_env
             )
+            self.logger.info(
+                f"Running {image_full_name} with command: {run_command}... done"
+            )
 
             return output
 
@@ -604,10 +607,14 @@ class CliArgs:
             instance_dir / FIX_PATCH_RUN_LOG_FILE,
         )
 
+        self.logger.debug(f"Generating report for {instance.name()}...")
         report = generate_report(instance, output_run, output_test, output_fix)
+        self.logger.debug(f"Report for {instance.name()} generated successfully.")
 
+        self.logger.debug(f"Saving report for {instance.name()}...")
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(report.json())
+        self.logger.debug(f"Report for {instance.name()} saved successfully.")
 
     def run_mode_instance_only(self):
         self.logger.info("Running instances...")
