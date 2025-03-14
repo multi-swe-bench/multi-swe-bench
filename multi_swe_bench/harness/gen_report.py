@@ -324,6 +324,9 @@ class CliArgs:
 
                 repo = repo_dir.name
                 instances_dir = repo_dir / INSTANCE_WORKDIR
+                if not instances_dir.exists():
+                    continue
+
                 for instance_dir in instances_dir.iterdir():
                     if instance_dir.is_dir() and instance_dir.name.startswith("pr-"):
                         try:
@@ -439,6 +442,7 @@ class CliArgs:
                     test_patch_run_log=self.dataset[task.id].test_patch_result,
                 )
                 for task in tasks
+                if task.id in self.dataset
             ]
 
             reports = []
@@ -496,7 +500,9 @@ class CliArgs:
         for repo_file_name in dataset:
             dataset[repo_file_name].sort(reverse=True)
             with open(
-                self.output_dir / f"{repo_file_name}.jsonl", "w", encoding="utf-8"
+                self.output_dir / f"{repo_file_name}_dataset.jsonl",
+                "w",
+                encoding="utf-8",
             ) as f:
                 for data in dataset[repo_file_name]:
                     f.write(data.json())
