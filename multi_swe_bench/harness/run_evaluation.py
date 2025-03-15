@@ -497,7 +497,9 @@ class CliArgs:
 
     def check_commit_hashes(self):
         error_happened = False
-        for repo, repo_commits in self.repo_commits.items():
+        for repo, repo_commits in tqdm(
+            self.repo_commits.items(), desc="Checking commit hashes"
+        ):
             repo_dir = self.repo_dir / repo.repo_full_name
             if not git_util.exists(repo_dir):
                 self.logger.warning(f"Repository not found: {repo_dir}")
@@ -515,7 +517,10 @@ class CliArgs:
                 error_happened = True
                 continue
 
-            for commit_hash, pr_number in repo_commits.commits.items():
+            for commit_hash, pr_number in tqdm(
+                repo_commits.commits.items(),
+                desc=f"Checking commit hashes for {repo.repo_full_name}",
+            ):
                 if commit_hash not in commit_hashes:
                     self.logger.error(
                         f"Commit hash not found in {repo.repo_full_name}:pr-{pr_number}: {commit_hash}"
