@@ -311,6 +311,7 @@ class CliArgs:
             raise ValueError(f"Invalid raw_dataset_files: {self.raw_dataset_files}")
 
         if not hasattr(self, "_raw_dataset"):
+            self.logger.info("Loading raw dataset...")
             self._raw_dataset: dict[str, PullRequest] = {}
 
             for file_path in self._expanded_files:
@@ -347,6 +348,7 @@ class CliArgs:
             return result
 
         if not hasattr(self, "_instances"):
+            self.logger.info("Creating instances...")
             self._instances: list[Instance] = []
             config = Config(
                 need_clone=self.need_clone,
@@ -374,6 +376,7 @@ class CliArgs:
     @property
     def repo_commits(self) -> dict[Repository, RepoCommits]:
         if not hasattr(self, "_repo_commits"):
+            self.logger.info("Creating repo commits...")
             self._repo_commits: dict[Repository, RepoCommits] = {}
 
             for instance in self.instances:
