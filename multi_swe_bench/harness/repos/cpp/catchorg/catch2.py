@@ -372,19 +372,23 @@ class Catch2(Instance):
         skipped_tests = set()
 
         re_passes = [
-            re.compile(r"^-- Performing Test (.+) - Success$"),
-            re.compile(r"^\d+/\d+ Test\s+#\d+: (.+) \.+\s+ Passed\s+.+$"),
+            re.compile(r"^-- Performing Test (.+) - Success$", re.IGNORECASE),
+            re.compile(
+                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\s+ Passed\s+.+$", re.IGNORECASE
+            ),
         ]
         re_fails = [
-            re.compile(r"^-- Performing Test (.+) - Failed$"),
-            re.compile(r"^\d+/\d+ Test\s+#\d+: (.+) \.+\*\*\*Failed\s+.+$"),
+            re.compile(r"^-- Performing Test (.+) - Failed$", re.IGNORECASE),
+            re.compile(
+                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\*\*\*Failed\s+.+$", re.IGNORECASE
+            ),
         ]
         re_skips = [
-            re.compile(r"^-- Performing Test (.+) - skipped$"),
+            re.compile(r"^-- Performing Test (.+) - skipped$", re.IGNORECASE),
         ]
 
         for line in test_log.splitlines():
-            line = line.strip()
+            line = line.strip().lower()
             if not line:
                 continue
 
