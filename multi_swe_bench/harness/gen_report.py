@@ -401,7 +401,7 @@ class CliArgs:
                     report = task.generate_report(run_log, test_patch_run_log)
                     if not report.valid:
                         raise ValueError(
-                            f"Invalid report for {task.id}: {report.short_report()}"
+                            f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
                         )
 
                     for p2p in dataset.p2p_tests:
