@@ -361,6 +361,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 sed -i '/repositories {{/a \    maven \{{ url "https://oss.jfrog.org/artifactory/oss-release-local/" \}}' build.gradle
+sed -i '/repositories {{/a \    maven \{{ url "https://groovy.jfrog.io/artifactory/libs-release/" \}}' build.gradle
 ./gradlew clean test --continue || true
 """.format(
                     pr=self.pr
