@@ -191,6 +191,97 @@ RUN bash /home/config_gradle.sh
 
 """
 
+class RxJavaImageBaseJDK8(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "ubuntu:20.04"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base-jdk-8"
+
+    def workdir(self) -> str:
+        return "base-jdk-8"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "config_gradle.sh",
+                """#!/bin/bash
+set -e
+
+echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
+source ~/.bashrc
+
+PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.http.proxyPort=8118
+systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
+systemProp.https.proxyPort=8118"
+
+GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
+
+if [ ! -d "$HOME/.gradle" ]; then
+    mkdir -p "$HOME/.gradle"
+fi
+
+if [ ! -f "$GRADLE_PROPERTIES" ]; then
+    touch "$GRADLE_PROPERTIES"
+fi
+
+if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
+    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
+    echo "Added proxy settings to $GRADLE_PROPERTIES"
+fi
+
+""",
+            )
+        ]
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+WORKDIR /home/
+RUN apt-get update && apt-get install -y git openjdk-8-jdk
+{code}
+
+{copy_commands}
+
+RUN bash /home/config_gradle.sh
+
+{self.clear_env}
+
+"""
 
 class RxJavaImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -206,8 +297,10 @@ class RxJavaImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if self.pr.number <= 7298:
+        if 7203 < self.pr.number <= 7298:
             return RxJavaImageBaseJDK11(self.pr, self._config)
+        elif self.pr.number <= 7203:
+            return RxJavaImageBaseJDK8(self.pr, self._config)
 
         return RxJavaImageBase(self.pr, self._config)
 
@@ -221,6 +314,99 @@ class RxJavaImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
+        if self.pr.number <= 7203:
+            return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+sed -i '/repositories {{/a \    maven \{{ url "https://oss.jfrog.org/artifactory/oss-release-local/" \}}' build.gradle
+./gradlew clean test --continue || true
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+./gradlew clean test --continue
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch
+./gradlew clean test --continue
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
+./gradlew clean test --continue
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
         return [
             File(
                 ".",
