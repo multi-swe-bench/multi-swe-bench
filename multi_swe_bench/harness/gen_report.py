@@ -360,7 +360,13 @@ class CliArgs:
 
             def safe_generate_report(task: ReportTask) -> Report | None:
                 try:
-                    return task.generate_report()
+                    report = task.generate_report()
+                    if not report.valid:
+                        raise ValueError(
+                            f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
+                        )
+
+                    return report
                 except Exception as e:
                     logging.error(f"Error generating report for {task.id}: {str(e)}")
                     failed_tasks.append((task, str(e)))
@@ -382,6 +388,8 @@ class CliArgs:
             self.logger.error("Failed task list:")
             for task, error in failed_tasks:
                 self.logger.error(f"  - {task.id}: {error}")
+        else:
+            self.logger.info("All reports generated successfully.")
 
         return (reports, [task for task, _ in failed_tasks])
 
