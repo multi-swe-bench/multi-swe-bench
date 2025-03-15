@@ -297,9 +297,9 @@ class RxJavaImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if 7203 < self.pr.number <= 7298:
+        if 7205 < self.pr.number <= 7298:
             return RxJavaImageBaseJDK11(self.pr, self._config)
-        elif self.pr.number <= 7203:
+        elif self.pr.number <= 7205:
             return RxJavaImageBaseJDK8(self.pr, self._config)
 
         return RxJavaImageBase(self.pr, self._config)
@@ -314,7 +314,7 @@ class RxJavaImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        if self.pr.number <= 7203:
+        if self.pr.number <= 7205:
             return [
             File(
                 ".",
