@@ -55,6 +55,7 @@ WORKDIR /home/
 
 """
 
+
 class ImageBase14761(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -251,6 +252,7 @@ npm test
 
 """
 
+
 class ImageDefault14761(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -393,6 +395,7 @@ npm test
 {self.clear_env}
 
 """
+
 
 @Instance.register("Automattic", "mongoose")
 class zx(Instance):

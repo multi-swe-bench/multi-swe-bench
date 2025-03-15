@@ -258,8 +258,6 @@ class zod(Instance):
                 current_suite = fail_match.group(1)
                 failed_tests.add(current_suite)
 
-
-
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),

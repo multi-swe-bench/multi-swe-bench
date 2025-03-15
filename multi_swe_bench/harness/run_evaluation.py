@@ -12,8 +12,8 @@ from tqdm import tqdm
 from multi_swe_bench.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
-    FIX_PATCH_RUN_LOG_FILE,
     EVALUATION_WORKDIR,
+    FIX_PATCH_RUN_LOG_FILE,
     REPORT_FILE,
     RUN_EVALUATION_LOG_FILE,
 )
@@ -170,7 +170,7 @@ def get_parser() -> ArgumentParser:
 @dataclass_json
 @dataclass
 class RepoCommits(Repository):
-    commits: set[str] = field(default_factory=set)
+    commits: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass_json
@@ -454,7 +454,9 @@ class CliArgs:
                 if repo not in self._repo_commits:
                     self._repo_commits[repo] = repo_commits
 
-                self._repo_commits[repo].commits.add(instance.pr.base.sha)
+                self._repo_commits[repo].commits[
+                    instance.pr.base.sha
+                ] = instance.pr.number
 
             for repo, repo_commits in self._repo_commits.items():
                 self.logger.debug(
@@ -513,9 +515,11 @@ class CliArgs:
                 error_happened = True
                 continue
 
-            for commit_hash in repo_commits.commits:
+            for commit_hash, pr_number in repo_commits.commits.items():
                 if commit_hash not in commit_hashes:
-                    self.logger.error(f"Commit hash not found in {repo.repo_full_name}")
+                    self.logger.error(
+                        f"Commit hash not found in {repo.repo_full_name}:pr-{pr_number}: {commit_hash}"
+                    )
                     error_happened = True
 
         if error_happened:

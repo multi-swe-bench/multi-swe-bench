@@ -201,6 +201,8 @@ npm test -- --verbose
 {self.clear_env}
 
 """
+
+
 class ImageDefault1234(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -345,7 +347,6 @@ npm test -- --verbose
 {self.clear_env}
 
 """
-
 
 
 @Instance.register("caolan", "async")

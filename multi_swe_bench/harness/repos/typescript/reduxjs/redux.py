@@ -227,6 +227,7 @@ class puppeteer(Instance):
 
     def fix_patch_run(self) -> str:
         return "bash /home/fix-run.sh"
+
     def parse_log(self, test_log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
@@ -261,8 +262,6 @@ class puppeteer(Instance):
             if fail_match2:
                 current_suite = fail_match2.group(1)
                 failed_tests.add(current_suite)
-
-
 
         return TestResult(
             passed_count=len(passed_tests),
