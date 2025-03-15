@@ -221,6 +221,102 @@ class junit5ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
+        if self.pr.number <= 2786:
+            return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+sed -i '/mavenCentral()/a \    maven(url = "https://artifactory.appodeal.com/appodeal-public/")' settings.gradle.kts
+sed -i '/repositories {{/a \    maven(url = "https://artifactory.appodeal.com/appodeal-public/")' buildSrc/build.gradle.kts
+sed -i -E 's/(version\s*=\s*)[^\s]+/\\15.9.4-SNAPSHOT/; s/(platformVersion\s*=\s*)[^\s]+/\\11.9.4-SNAPSHOT/; s/(vintageVersion\s*=\s*)[^\s]+/\\15.9.4-SNAPSHOT/' gradle.properties
+
+./gradlew clean test --continue || true
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+./gradlew clean test --continue
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch
+./gradlew clean test --continue
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
+./gradlew clean test --continue
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
         return [
             File(
                 ".",

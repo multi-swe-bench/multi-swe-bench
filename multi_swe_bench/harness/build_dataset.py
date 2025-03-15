@@ -311,6 +311,7 @@ class CliArgs:
             raise ValueError(f"Invalid raw_dataset_files: {self.raw_dataset_files}")
 
         if not hasattr(self, "_raw_dataset"):
+            self.logger.info("Loading raw dataset...")
             self._raw_dataset: dict[str, PullRequest] = {}
 
             for file_path in self._expanded_files:
@@ -347,6 +348,7 @@ class CliArgs:
             return result
 
         if not hasattr(self, "_instances"):
+            self.logger.info("Creating instances...")
             self._instances: list[Instance] = []
             config = Config(
                 need_clone=self.need_clone,
@@ -374,6 +376,7 @@ class CliArgs:
     @property
     def repo_commits(self) -> dict[Repository, RepoCommits]:
         if not hasattr(self, "_repo_commits"):
+            self.logger.info("Creating repo commits...")
             self._repo_commits: dict[Repository, RepoCommits] = {}
 
             for instance in self.instances:
@@ -425,7 +428,9 @@ class CliArgs:
 
     def check_commit_hashes(self):
         error_happened = False
-        for repo, repo_commits in self.repo_commits.items():
+        for repo, repo_commits in tqdm(
+            self.repo_commits.items(), desc="Checking commit hashes"
+        ):
             repo_dir = self.repo_dir / repo.repo_full_name
             if not git_util.exists(repo_dir):
                 self.logger.warning(f"Repository not found: {repo_dir}")
@@ -443,7 +448,10 @@ class CliArgs:
                 error_happened = True
                 continue
 
-            for commit_hash, pr_number in repo_commits.commits.items():
+            for commit_hash, pr_number in tqdm(
+                repo_commits.commits.items(),
+                desc=f"Checking commit hashes for {repo.repo_full_name}",
+            ):
                 if commit_hash not in commit_hashes:
                     self.logger.error(
                         f"Commit hash not found in {repo.repo_full_name}:pr-{pr_number}: {commit_hash}"

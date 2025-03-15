@@ -233,6 +233,7 @@ class CliArgs:
             raise ValueError(f"Invalid raw_dataset_files: {self.raw_dataset_files}")
 
         if not hasattr(self, "_raw_dataset"):
+            self.logger.info("Loading raw dataset...")
             self._raw_dataset: dict[str, PullRequest] = {}
 
             for file_path in self._expanded_files:
@@ -260,6 +261,7 @@ class CliArgs:
             raise ValueError(f"Invalid dataset_files: {self.dataset_files}")
 
         if not hasattr(self, "_dataset"):
+            self.logger.info("Loading dataset...")
             self._dataset: dict[str, Dataset] = {}
 
             for file_path in self._expanded_files:
@@ -313,6 +315,7 @@ class CliArgs:
         return False
 
     def collect_report_tasks(self, subdir: str = INSTANCE_WORKDIR) -> list[ReportTask]:
+        self.logger.info("Collecting report tasks...")
         tasks: list[ReportTask] = []
         for org_dir in self.workdir.iterdir():
             if not org_dir.is_dir():
@@ -357,7 +360,13 @@ class CliArgs:
 
             def safe_generate_report(task: ReportTask) -> Report | None:
                 try:
-                    return task.generate_report()
+                    report = task.generate_report()
+                    if not report.valid:
+                        raise ValueError(
+                            f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
+                        )
+
+                    return report
                 except Exception as e:
                     logging.error(f"Error generating report for {task.id}: {str(e)}")
                     failed_tasks.append((task, str(e)))
@@ -379,6 +388,8 @@ class CliArgs:
             self.logger.error("Failed task list:")
             for task, error in failed_tasks:
                 self.logger.error(f"  - {task.id}: {error}")
+        else:
+            self.logger.info("All reports generated successfully.")
 
         return (reports, [task for task, _ in failed_tasks])
 
