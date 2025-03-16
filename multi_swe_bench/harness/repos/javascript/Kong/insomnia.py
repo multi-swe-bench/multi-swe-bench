@@ -234,7 +234,7 @@ class insomnia(Instance):
         skipped_tests = set()
 
         re_pass_tests = [
-            re.compile(r"^✓ (.+?)(?:\s\(\d+\s+tests\))?(?:\s*\d*\.?\d+\s*\w+)?$"),
+            re.compile(r"^✓ (.+?)(?:\s\(\d+\s+tests\))?(?:\s*\(?\d*\.?\d+\s*\w+\)?)?$"),
             re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$"),
         ]
         re_fail_tests = [
