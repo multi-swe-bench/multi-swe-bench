@@ -384,17 +384,25 @@ class trpc(Instance):
 
     def fix_patch_run(self) -> str:
         return "bash /home/fix-run.sh"
-    
+
     def parse_log(self, test_log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
 
         current_suite = None
-        re_pass_suite1 = re.compile(r"@trpc\/tests:test-ci: \[0\]\s+\[32m✓\[39m\s+([^\s]+)")
-        re_pass_suite2 = re.compile(r"\[0\]\s+\[32m✓\[39m\s+\[32m\|tests\|\[39m\s+([^\s]+)")
-        re_fail_suite1 = re.compile(r"@trpc\/tests:test-ci: \[0\]\s+\[33m❯\[39m\s+([^\s]+)")
-        re_fail_suite2 = re.compile(r"\[0\]\s+\[33m❯\[39m\s+\[32m\|tests\|\[39m\s+([^\s]+)")
+        re_pass_suite1 = re.compile(
+            r"@trpc\/tests:test-ci: \[0\]\s+\[32m✓\[39m\s+([^\s]+)"
+        )
+        re_pass_suite2 = re.compile(
+            r"\[0\]\s+\[32m✓\[39m\s+\[32m\|tests\|\[39m\s+([^\s]+)"
+        )
+        re_fail_suite1 = re.compile(
+            r"@trpc\/tests:test-ci: \[0\]\s+\[33m❯\[39m\s+([^\s]+)"
+        )
+        re_fail_suite2 = re.compile(
+            r"\[0\]\s+\[33m❯\[39m\s+\[32m\|tests\|\[39m\s+([^\s]+)"
+        )
 
         for line in test_log.splitlines():
             line = line.strip()

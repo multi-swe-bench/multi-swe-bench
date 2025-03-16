@@ -199,6 +199,7 @@ npx jest --verbose
 
 """
 
+
 class ImageDefault987(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -342,7 +343,6 @@ npm test
 {self.clear_env}
 
 """
-
 
 
 @Instance.register("tj", "commander.js")
