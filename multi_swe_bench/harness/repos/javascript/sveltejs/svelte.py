@@ -290,8 +290,8 @@ class Svelte(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        re_pass_test = re.compile(r"^✓ (.+)$")
-        re_fail_test = re.compile(r"^✕ (.+)$")
+        re_pass_test = re.compile(r"^✓ (.+?)(?:\s*\d*\.?\d+\s*(?:ms|s|m))?$")
+        re_fail_test = re.compile(r"^× (.+?)(?:\s*\d*\.?\d+\s*(?:ms|s|m))?$")
 
         for line in test_log.splitlines():
             line = line.strip()

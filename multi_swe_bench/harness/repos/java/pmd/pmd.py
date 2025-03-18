@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class Catch2ImageBase(Image):
+class pmdImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class Catch2ImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "gcc:latest"
+        return "ubuntu:22.04"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -47,86 +47,20 @@ class Catch2ImageBase(Image):
         return f"""FROM {image_name}
 
 {self.global_env}
-
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 WORKDIR /home/
-
+RUN apt-get update && apt-get install -y git openjdk-11-jdk
 {code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
-    build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
+
 
 {self.clear_env}
 
 """
 
 
-class Catch2ImageBaseCpp12(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "gcc:12"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-cpp-12"
-
-    def workdir(self) -> str:
-        return "base-cpp-12"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-
-{code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
-    build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
-
-{self.clear_env}
-
-"""
-
-
-class Catch2ImageBaseCpp7(Image):
+class pmdImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -163,7 +97,6 @@ class Catch2ImageBaseCpp7(Image):
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
             code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
         return f"""FROM {image_name}
 
 {self.global_env}
@@ -171,22 +104,24 @@ class Catch2ImageBaseCpp7(Image):
 WORKDIR /home/
 
 {code}
-RUN apt-get update && apt-get install -y \
-    libbrotli-dev \
-    libcurl4-openssl-dev \
-    clang \
+RUN apt-get update && \
+    apt-get install -y \
     build-essential \
-    cmake \
-    python3 \
-    python3-dev \
-    python3-pip
-
+    pkg-config \
+    wget \
+    tar && \
+    wget https://cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz && \
+    tar -zxvf cmake-3.14.0-Linux-x86_64.tar.gz && \
+    mv cmake-3.14.0-Linux-x86_64 /opt/cmake && \
+    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
+    rm cmake-3.14.0-Linux-x86_64.tar.gz
+RUN apt-get install -y cmake
 {self.clear_env}
 
 """
 
 
-class Catch2ImageDefault(Image):
+class pmdImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -200,11 +135,10 @@ class Catch2ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if 2288 <= self.pr.number and self.pr.number <= 2554:
-            return Catch2ImageBaseCpp12(self.pr, self._config)
-        elif self.pr.number <= 2187:
-            return Catch2ImageBaseCpp7(self.pr, self._config)
-        return Catch2ImageBase(self.pr, self._config)
+        # if self.pr.number <= 958:
+        #     return pmdImageBaseCpp7(self.pr, self._config)
+
+        return pmdImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -262,8 +196,6 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-mkdir build
-
 """.format(
                     pr=self.pr
                 ),
@@ -275,10 +207,7 @@ mkdir build
 set -e
 
 cd /home/{pr.repo}
-cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
-ctest
+./mvnw clean test -fae
 """.format(
                     pr=self.pr
                 ),
@@ -291,10 +220,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
-ctest
+./mvnw clean test -fae
 
 """.format(
                     pr=self.pr
@@ -308,10 +234,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-cd build
-cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
-make
-ctest
+./mvnw clean test -fae
 
 """.format(
                     pr=self.pr
@@ -343,8 +266,8 @@ ctest
 """
 
 
-@Instance.register("catchorg", "Catch2")
-class Catch2(Instance):
+@Instance.register("pmd", "pmd")
+class pmd(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -355,7 +278,7 @@ class Catch2(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return Catch2ImageDefault(self.pr, self._config)
+        return pmdImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -370,45 +293,6 @@ class Catch2(Instance):
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
-
-        re_passes = [
-            re.compile(r"^-- Performing Test (.+) - Success$", re.IGNORECASE),
-            re.compile(
-                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\s+ Passed\s+.+$", re.IGNORECASE
-            ),
-        ]
-        re_fails = [
-            re.compile(r"^-- Performing Test (.+) - Failed$", re.IGNORECASE),
-            re.compile(
-                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\*\*\*Failed\s+.+$", re.IGNORECASE
-            ),
-        ]
-        re_skips = [
-            re.compile(r"^-- Performing Test (.+) - skipped$", re.IGNORECASE),
-        ]
-
-        for line in test_log.splitlines():
-            line = line.strip().lower()
-            if not line:
-                continue
-
-            for re_pass in re_passes:
-                pass_match = re_pass.match(line)
-                if pass_match:
-                    test = pass_match.group(1)
-                    passed_tests.add(test)
-
-            for re_fail in re_fails:
-                fail_match = re_fail.match(line)
-                if fail_match:
-                    test = fail_match.group(1)
-                    failed_tests.add(test)
-
-            for re_skip in re_skips:
-                skip_match = re_skip.match(line)
-                if skip_match:
-                    test = skip_match.group(1)
-                    skipped_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),

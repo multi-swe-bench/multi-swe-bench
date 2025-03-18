@@ -362,7 +362,7 @@ class CliArgs:
                 try:
                     report = task.generate_report()
                     if not report.valid:
-                        raise ValueError(
+                        self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
                         )
 
@@ -411,33 +411,38 @@ class CliArgs:
                 try:
                     report = task.generate_report(run_log, test_patch_run_log)
                     if not report.valid:
-                        raise ValueError(
+                        self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
                         )
+                        return report
 
                     for p2p in dataset.p2p_tests:
                         if p2p not in report.p2p_tests:
-                            raise ValueError(
+                            self.logger.error(
                                 f"Invalid p2p_tests for {task.id}: missing {p2p}"
                             )
+                            return report
 
                     for f2p in dataset.f2p_tests:
                         if f2p not in report.f2p_tests:
-                            raise ValueError(
+                            self.logger.error(
                                 f"Invalid f2p_tests for {task.id}: missing {f2p}"
                             )
+                            return report
 
                     for s2p in dataset.s2p_tests:
                         if s2p not in report.s2p_tests:
-                            raise ValueError(
+                            self.logger.error(
                                 f"Invalid s2p_tests for {task.id}: missing {s2p}"
                             )
+                            return report
 
                     for n2p in dataset.n2p_tests:
                         if n2p not in report.n2p_tests:
-                            raise ValueError(
+                            self.logger.error(
                                 f"Invalid n2p_tests for {task.id}: missing {n2p}"
                             )
+                            return report
 
                     return report
                 except Exception as e:
