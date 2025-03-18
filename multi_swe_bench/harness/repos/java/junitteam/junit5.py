@@ -470,7 +470,7 @@ allprojects {{
     }}
 }}
 EOF
-./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue
+./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue || true
 """.format(
                             pr=self.pr
                         ),
