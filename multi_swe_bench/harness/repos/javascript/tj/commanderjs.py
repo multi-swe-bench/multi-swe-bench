@@ -376,6 +376,32 @@ class zx(Instance):
         failed_tests = set()
         skipped_tests = set()
 
+        re_pass_tests = [
+            re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$"),
+            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[36m✓\x1b\[0m")
+        ]
+        re_fail_tests = [
+            re.compile(r"^FAIL (.+?)$"),
+            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[31m✖\x1b\[0m")
+        ]
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            for re_pass_test in re_pass_tests:
+                pass_test_match = re_pass_test.match(line)
+                if pass_test_match:
+                    test = pass_test_match.group(1)
+                    passed_tests.add(test)
+
+            for re_fail_test in re_fail_tests:
+                fail_test_match = re_fail_test.match(line)
+                if fail_test_match:
+                    test = fail_test_match.group(1)
+                    failed_tests.add(test)
+
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),
@@ -383,4 +409,4 @@ class zx(Instance):
             passed_tests=passed_tests,
             failed_tests=failed_tests,
             skipped_tests=skipped_tests,
-        )
+        ) 
