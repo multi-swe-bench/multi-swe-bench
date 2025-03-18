@@ -364,7 +364,7 @@ git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 sed -i '/repositories {{/a \    maven \{{ url "https://oss.jfrog.org/artifactory/oss-release-local/" \}}' build.gradle
 sed -i '/repositories {{/a \    maven \{{ url "https://groovy.jfrog.io/artifactory/libs-release/" \}}' build.gradle
-./gradlew clean test --continue || true
+./gradlew clean test --max-workers 2 --continue || true
 """.format(
                         pr=self.pr
                     ),
@@ -376,7 +376,7 @@ sed -i '/repositories {{/a \    maven \{{ url "https://groovy.jfrog.io/artifacto
 set -e
 
 cd /home/{pr.repo}
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 """.format(
                         pr=self.pr
                     ),
@@ -389,7 +389,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 
 """.format(
                         pr=self.pr
@@ -403,7 +403,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 
 """.format(
                         pr=self.pr
@@ -455,7 +455,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-./gradlew clean test --continue || true
+./gradlew clean test --max-workers 2 --continue || true
 """.format(
                     pr=self.pr
                 ),
@@ -467,7 +467,7 @@ bash /home/check_git_changes.sh
 set -e
 
 cd /home/{pr.repo}
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 """.format(
                     pr=self.pr
                 ),
@@ -480,7 +480,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 
 """.format(
                     pr=self.pr
@@ -494,7 +494,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
-./gradlew clean test --continue
+./gradlew clean test --max-workers 2 --continue
 
 """.format(
                     pr=self.pr
