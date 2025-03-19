@@ -213,7 +213,7 @@ pnpm test -- --verbose
 
 
 @Instance.register("NervJS", "taro")
-class puppeteer(Instance):
+class Taro(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

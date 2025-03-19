@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class fluentbitImageBase(Image):
+class FluentbitImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -62,7 +62,7 @@ RUN apt update && apt install -y cmake flex bison libyaml-dev libssl-dev
 """
 
 
-class fluentbitImageBaseGCC7(Image):
+class FluentbitImageBaseGCC7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -118,7 +118,7 @@ RUN apt update && apt install -y cmake flex bison libyaml-dev libssl-dev
 """
 
 
-class fluentbitImageDefault(Image):
+class FluentbitImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -133,8 +133,8 @@ class fluentbitImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if self.pr.number <= 3663:
-            return fluentbitImageBaseGCC7(self.pr, self._config)
-        return fluentbitImageBase(self.pr, self._config)
+            return FluentbitImageBaseGCC7(self.pr, self._config)
+        return FluentbitImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -273,7 +273,7 @@ ctest -j 4 --timeout 320
 
 
 @Instance.register("fluent", "fluent-bit")
-class fluentbit(Instance):
+class FluentBit(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -284,7 +284,7 @@ class fluentbit(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return fluentbitImageDefault(self.pr, self._config)
+        return FluentbitImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

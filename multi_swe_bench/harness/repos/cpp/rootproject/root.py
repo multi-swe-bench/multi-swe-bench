@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class rootImageBase(Image):
+class RootImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -69,7 +69,7 @@ libxext-dev libxft-dev libxpm-dev python3 libtbb-dev libgif-dev
 """
 
 
-class rootImageBaseCpp12(Image):
+class RootImageBaseCpp12(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -122,7 +122,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/root_test_data.git
 """
 
 
-class rootImageBaseCpp7(Image):
+class RootImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -175,7 +175,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/root_test_data.git
 """
 
 
-class rootImageBaseCpp6(Image):
+class RootImageBaseCpp6(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -227,7 +227,7 @@ RUN cd /home/ && git clone https://github.com/nlohmann/root_test_data.git
 """
 
 
-class rootImageDefault(Image):
+class RootImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -246,7 +246,7 @@ class rootImageDefault(Image):
         # elif self.pr.number <= 2576:
         #     return rootImageBaseCpp7(self.pr, self._config)
 
-        return rootImageBase(self.pr, self._config)
+        return RootImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -386,7 +386,7 @@ ctest -j 8
 
 
 @Instance.register("root-project", "root")
-class root(Instance):
+class Root(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -397,7 +397,7 @@ class root(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return rootImageDefault(self.pr, self._config)
+        return RootImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

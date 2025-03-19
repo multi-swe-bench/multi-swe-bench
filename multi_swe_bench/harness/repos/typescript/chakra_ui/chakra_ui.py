@@ -413,7 +413,7 @@ pnpm test -- --verbose
 
 
 @Instance.register("chakra-ui", "chakra-ui")
-class chakra_ui(Instance):
+class ChakraUi(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

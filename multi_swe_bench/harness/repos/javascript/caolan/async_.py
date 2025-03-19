@@ -350,7 +350,7 @@ npm test -- --verbose
 
 
 @Instance.register("caolan", "async")
-class caolan_async(Instance):
+class Async(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -375,7 +375,6 @@ class caolan_async(Instance):
     def fix_patch_run(self) -> str:
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, test_log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
@@ -387,7 +386,7 @@ class caolan_async(Instance):
             for match in pass_pattern1.finditer(test_log):
                 test_name = match.group(1).strip()
                 passed_tests.add(f"test-async.js:{test_name}")
-            
+
             fail_pattern1 = re.compile(r"\[31m✖\s+(.+?)(?:\[39m|$)", re.MULTILINE)
             for match in fail_pattern1.finditer(test_log):
                 test_name = match.group(1).strip()
@@ -395,25 +394,27 @@ class caolan_async(Instance):
 
         # Split the log into lines and process each line
         lines = test_log.splitlines()
-        
+
         # Keep track of the nesting level structure
         current_path = []
         indentation_to_level = {}
-        
+
         for line in lines:
             # Match test lines - including both group headers and test cases
             # Group 1: indentation spaces
             # Group 2: optional status indicator (✔ or number+))
             # Group 3: test name (without timing info)
-            match = re.match(r'^(\s*)(?:(✓|[0-9]+\))\s+)?(.*?)(?:\s+\([0-9]+ms\))?$', line)
-            
+            match = re.match(
+                r"^(\s*)(?:(✓|[0-9]+\))\s+)?(.*?)(?:\s+\([0-9]+ms\))?$", line
+            )
+
             if not match or not match.group(3).strip():
                 continue
-            
+
             spaces, status, name = match.groups()
             name = name.strip()
             indent = len(spaces)
-            
+
             # Determine the level in the hierarchy based on indentation
             # First time we see this indentation, assign it a level
             if indent not in indentation_to_level:
@@ -421,20 +422,24 @@ class caolan_async(Instance):
                     indentation_to_level[indent] = 0
                 else:
                     # Find the closest smaller indentation
-                    prev_indents = sorted([i for i in indentation_to_level.keys() if i < indent])
+                    prev_indents = sorted(
+                        [i for i in indentation_to_level.keys() if i < indent]
+                    )
                     if prev_indents:
                         closest_indent = prev_indents[-1]
-                        indentation_to_level[indent] = indentation_to_level[closest_indent] + 1
+                        indentation_to_level[indent] = (
+                            indentation_to_level[closest_indent] + 1
+                        )
                     else:
                         # If no smaller indentation, this must be a root level
                         indentation_to_level[indent] = 0
-            
+
             level = indentation_to_level[indent]
-            
+
             # Update the current path based on level
             current_path = current_path[:level]
             current_path.append(name)
-            
+
             # Only add to passed/failed sets if this is an actual test (has status indicator)
             if status:
                 full_path = ":".join(current_path)
@@ -450,4 +455,4 @@ class caolan_async(Instance):
             passed_tests=passed_tests,
             failed_tests=failed_tests,
             skipped_tests=skipped_tests,
-        ) 
+        )

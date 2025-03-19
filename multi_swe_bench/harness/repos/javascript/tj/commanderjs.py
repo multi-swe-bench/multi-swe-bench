@@ -346,7 +346,7 @@ npm test
 
 
 @Instance.register("tj", "commander.js")
-class zx(Instance):
+class Commanderjs(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -378,11 +378,11 @@ class zx(Instance):
 
         re_pass_tests = [
             re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$"),
-            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[36m✓\x1b\[0m")
+            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[36m✓\x1b\[0m"),
         ]
         re_fail_tests = [
             re.compile(r"^FAIL (.+?)$"),
-            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[31m✖\x1b\[0m")
+            re.compile(r"\x1b\[90m\s+(.+?\.js)\x1b\[0m\s+\x1b\[31m✖\x1b\[0m"),
         ]
 
         for line in test_log.splitlines():
@@ -409,4 +409,4 @@ class zx(Instance):
             passed_tests=passed_tests,
             failed_tests=failed_tests,
             skipped_tests=skipped_tests,
-        ) 
+        )

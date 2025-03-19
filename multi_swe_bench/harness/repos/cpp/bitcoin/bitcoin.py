@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class bitcoinImageBase(Image):
+class BitcoinImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -66,7 +66,7 @@ RUN apt-get install -y qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 li
 """
 
 
-class bitcoinImageBaseCpp11(Image):
+class BitcoinImageBaseCpp11(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -120,7 +120,7 @@ RUN apt-get install -y qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 li
 """
 
 
-class bitcoinImageBaseCpp11V2(Image):
+class BitcoinImageBaseCpp11V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -174,7 +174,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 """
 
 
-class bitcoinImageBaseCpp11V3(Image):
+class BitcoinImageBaseCpp11V3(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -228,7 +228,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 """
 
 
-class bitcoinImageBaseCpp8(Image):
+class BitcoinImageBaseCpp8(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -282,7 +282,7 @@ RUN apt-get install -y libdb-dev libdb++-dev
 """
 
 
-class bitcoinImageDefault(Image):
+class BitcoinImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -297,14 +297,14 @@ class bitcoinImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if 24138 <= self.pr.number <= 30762:
-            return bitcoinImageBaseCpp11(self.pr, self._config)
+            return BitcoinImageBaseCpp11(self.pr, self._config)
         elif 20166 < self.pr.number <= 24104:
-            return bitcoinImageBaseCpp11V2(self.pr, self._config)
+            return BitcoinImageBaseCpp11V2(self.pr, self._config)
         elif 19054 <= self.pr.number <= 20166:
-            return bitcoinImageBaseCpp11V3(self.pr, self._config)
+            return BitcoinImageBaseCpp11V3(self.pr, self._config)
         elif self.pr.number <= 18982:
-            return bitcoinImageBaseCpp8(self.pr, self._config)
-        return bitcoinImageBase(self.pr, self._config)
+            return BitcoinImageBaseCpp8(self.pr, self._config)
+        return BitcoinImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -648,7 +648,7 @@ test/functional/test_runner.py --extended
 
 
 @Instance.register("bitcoin", "bitcoin")
-class bitcoin(Instance):
+class Bitcoin(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -659,7 +659,7 @@ class bitcoin(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return bitcoinImageDefault(self.pr, self._config)
+        return BitcoinImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

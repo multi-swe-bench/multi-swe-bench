@@ -205,7 +205,7 @@ yarn test
 
 
 @Instance.register("facebook", "docusaurus")
-class puppeteer(Instance):
+class Puppeteer(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class valkeyImageBase(Image):
+class ValkeyImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -63,7 +63,7 @@ RUN apt update && apt install -y git make gcc pkg-config libjemalloc-dev build-e
 """
 
 
-class valkeyImageBaseCpp7(Image):
+class ValkeyImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -115,7 +115,7 @@ RUN apt-get install -y clang build-essential cmake pkg-config
 """
 
 
-class valkeyImageDefault(Image):
+class ValkeyImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -132,7 +132,7 @@ class valkeyImageDefault(Image):
         # if 2825 <= self.pr.number and self.pr.number <= 3685:
         #     return valkeyImageBaseCpp7(self.pr, self._config)
 
-        return valkeyImageBase(self.pr, self._config)
+        return ValkeyImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -268,7 +268,7 @@ make test
 
 
 @Instance.register("valkey-io", "valkey")
-class valkey(Instance):
+class Valkey(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -279,7 +279,7 @@ class valkey(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return valkeyImageDefault(self.pr, self._config)
+        return ValkeyImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

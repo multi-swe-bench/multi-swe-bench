@@ -1,4 +1,3 @@
-import re
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -6,7 +5,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class pmdImageBase(Image):
+class PmdImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -60,7 +59,7 @@ RUN apt-get update && apt-get install -y git openjdk-11-jdk
 """
 
 
-class pmdImageBaseCpp7(Image):
+class PmdImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -121,7 +120,7 @@ RUN apt-get install -y cmake
 """
 
 
-class pmdImageDefault(Image):
+class PmdImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -138,7 +137,7 @@ class pmdImageDefault(Image):
         # if self.pr.number <= 958:
         #     return pmdImageBaseCpp7(self.pr, self._config)
 
-        return pmdImageBase(self.pr, self._config)
+        return PmdImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -267,7 +266,7 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
 
 @Instance.register("pmd", "pmd")
-class pmd(Instance):
+class Pmd(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -278,7 +277,7 @@ class pmd(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return pmdImageDefault(self.pr, self._config)
+        return PmdImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

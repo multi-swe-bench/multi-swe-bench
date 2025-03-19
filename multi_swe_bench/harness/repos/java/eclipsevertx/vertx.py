@@ -1,4 +1,3 @@
-import re
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -6,7 +5,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class vertxImageBase(Image):
+class VertxImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -60,7 +59,7 @@ RUN apt-get update && apt-get install -y git openjdk-11-jdk maven
 """
 
 
-class vertxImageBaseCpp7(Image):
+class VertxImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -121,7 +120,7 @@ RUN apt-get install -y cmake
 """
 
 
-class vertxImageDefault(Image):
+class VertxImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -138,7 +137,7 @@ class vertxImageDefault(Image):
         # if self.pr.number <= 958:
         #     return vertxImageBaseCpp7(self.pr, self._config)
 
-        return vertxImageBase(self.pr, self._config)
+        return VertxImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -273,7 +272,7 @@ mvn clean test -fae
 
 
 @Instance.register("eclipse-vertx", "vert.x")
-class vertx(Instance):
+class Vertx(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -284,7 +283,7 @@ class vertx(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return vertxImageDefault(self.pr, self._config)
+        return VertxImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

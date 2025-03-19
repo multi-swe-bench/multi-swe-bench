@@ -398,7 +398,7 @@ npm test
 
 
 @Instance.register("Automattic", "mongoose")
-class zx(Instance):
+class Mongoose(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

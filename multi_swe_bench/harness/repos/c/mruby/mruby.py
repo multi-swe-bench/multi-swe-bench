@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class mrubyImageBase(Image):
+class MrubyImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -62,7 +62,7 @@ RUN apt update && apt install -y cmake ruby-full rake
 """
 
 
-class mrubyImageBaseCPP11(Image):
+class MrubyImageBaseCPP11(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -118,7 +118,7 @@ RUN apt update && apt install -y cmake ruby-full rake bison
 """
 
 
-class mrubyImageBase16(Image):
+class MrubyImageBase16(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -174,7 +174,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 """
 
 
-class mrubyImageBase16V2(Image):
+class MrubyImageBase16V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -231,7 +231,7 @@ RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
 """
 
 
-class mrubyImageDefault(Image):
+class MrubyImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -246,12 +246,12 @@ class mrubyImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if self.pr.number <= 4968:
-            return mrubyImageBaseCPP11(self.pr, self._config)
+            return MrubyImageBaseCPP11(self.pr, self._config)
         # elif 3043 < self.pr.number <= 3442:
         #     return mrubyImageBase16(self.pr, self._config)
         # elif self.pr.number <= 3043:
         #     return mrubyImageBase16V2(self.pr, self._config)
-        return mrubyImageBase(self.pr, self._config)
+        return MrubyImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -477,7 +477,7 @@ rake all test --trace
 
 
 @Instance.register("mruby", "mruby")
-class mruby(Instance):
+class Mruby(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -488,7 +488,7 @@ class mruby(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return mrubyImageDefault(self.pr, self._config)
+        return MrubyImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

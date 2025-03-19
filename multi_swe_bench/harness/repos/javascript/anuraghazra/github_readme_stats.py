@@ -207,7 +207,7 @@ npm run test -- --verbose
 
 
 @Instance.register("anuraghazra", "github-readme-stats")
-class zstd(Instance):
+class GithubReadmeStats(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

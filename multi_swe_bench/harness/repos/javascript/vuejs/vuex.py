@@ -206,7 +206,7 @@ npm run test:ssr  -- --verbose
 
 
 @Instance.register("vuejs", "vuex")
-class zx(Instance):
+class Vuex(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

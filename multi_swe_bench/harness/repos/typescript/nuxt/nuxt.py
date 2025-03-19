@@ -370,7 +370,7 @@ pnpm test:runtime  --no-watch
 
 
 @Instance.register("nuxt", "nuxt")
-class nuxt(Instance):
+class Nuxt(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

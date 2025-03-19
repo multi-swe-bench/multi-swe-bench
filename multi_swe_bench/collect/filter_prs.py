@@ -1,9 +1,11 @@
 import argparse
 import json
+import random
 import re
 import sys
 from pathlib import Path
 
+from github import Auth, Github
 from tqdm import tqdm
 
 
@@ -40,20 +42,29 @@ def extract_resolved_issues(pull: dict) -> list[str]:
     # Construct text to search over for issue numbers from PR body and commit messages
     text = pull["title"] if pull["title"] else ""
     text += "\n" + (pull["body"] if pull["body"] else "")
+    text += "\n" + "\n".join([commit["message"] for commit in pull["commits"]])
 
     # Remove comments from text
     text = comments_pat.sub("", text)
     # Look for issue numbers in text via scraping <keyword, number> patterns
     references = dict(issues_pat.findall(text))
-    resolved_issues = list()
+    resolved_issues = set()
     if references:
         for word, issue_num in references.items():
             if word.lower() in keywords:
-                resolved_issues.append(int(issue_num))
-    return resolved_issues
+                resolved_issues.add(int(issue_num))
+
+    resolved_issues.remove(0)
+
+    return list(resolved_issues)
 
 
-def main(out_dir: Path, prs_file: Path):
+def get_github(token) -> Github:
+    auth = Auth.Token(token)
+    return Github(auth=auth, per_page=100)
+
+
+def main(tokens: list[str], out_dir: Path, prs_file: Path):
     print("starting filter to obtain required pull requests")
     print(f"Output directory: {out_dir}")
     print((f"All Pull Requests: {prs_file}"))
@@ -69,6 +80,9 @@ def main(out_dir: Path, prs_file: Path):
     print(f"Org: {org}")
     print(f"Repo: {repo}")
 
+    g = get_github(random.choice(tokens))
+    r = g.get_repo(f"{org}/{repo}")
+
     with open(
         out_dir / f"{org}__{repo}_filtered_prs.jsonl",
         "w",
@@ -79,6 +93,18 @@ def main(out_dir: Path, prs_file: Path):
         for pull in tqdm(prs, desc="Pull Requests"):
             if pull["state"] != "closed":
                 continue
+
+            pr = r.get_pull(pull["number"])
+            pull["commits"] = (
+                [
+                    {
+                        "sha": commit.sha,
+                        "parents": [parent.sha for parent in commit.parents],
+                        "message": commit.commit.message,
+                    }
+                    for commit in pr.get_commits()
+                ],
+            )
 
             resolved_issues = extract_resolved_issues(pull)
             if len(resolved_issues) == 0:

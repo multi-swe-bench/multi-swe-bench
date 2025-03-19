@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class libgit2ImageBase(Image):
+class Libgit2ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -74,7 +74,7 @@ libc6-dev
 """
 
 
-class libgit2ImageBase4(Image):
+class Libgit2ImageBase4(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -136,7 +136,7 @@ RUN apt update && apt install -y --allow-unauthenticated cmake python3
 """
 
 
-class libgit2ImageBase16(Image):
+class Libgit2ImageBase16(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -192,7 +192,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 """
 
 
-class libgit2ImageBase16V2(Image):
+class Libgit2ImageBase16V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -249,7 +249,7 @@ RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
 """
 
 
-class libgit2ImageDefault(Image):
+class Libgit2ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -264,12 +264,12 @@ class libgit2ImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if self.pr.number <= 4898:
-            return libgit2ImageBase4(self.pr, self._config)
+            return Libgit2ImageBase4(self.pr, self._config)
         # elif 3043 < self.pr.number <= 3442:
         #     return libgit2ImageBase16(self.pr, self._config)
         # elif self.pr.number <= 3043:
         #     return libgit2ImageBase16V2(self.pr, self._config)
-        return libgit2ImageBase(self.pr, self._config)
+        return Libgit2ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -510,7 +510,7 @@ ctest -V
 
 
 @Instance.register("libgit2", "libgit2")
-class libgit2(Instance):
+class Libgit2(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -521,7 +521,7 @@ class libgit2(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return libgit2ImageDefault(self.pr, self._config)
+        return Libgit2ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

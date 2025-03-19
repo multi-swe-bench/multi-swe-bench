@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class phpImageBase(Image):
+class PhpImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -63,7 +63,7 @@ libxml2-dev libsqlite3-dev cmake
 """
 
 
-class phpImageBase18(Image):
+class PhpImageBase18(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -124,7 +124,7 @@ RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
 """
 
 
-class phpImageBase16(Image):
+class PhpImageBase16(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -180,7 +180,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 """
 
 
-class phpImageBase16V2(Image):
+class PhpImageBase16V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -237,7 +237,7 @@ RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
 """
 
 
-class phpImageDefault(Image):
+class PhpImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -257,7 +257,7 @@ class phpImageDefault(Image):
         #     return phpImageBase16(self.pr, self._config)
         # elif self.pr.number <= 3043:
         #     return phpImageBase16V2(self.pr, self._config)
-        return phpImageBase(self.pr, self._config)
+        return PhpImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -395,7 +395,7 @@ make TEST_PHP_ARGS=-j4 NO_INTERACTION=1 test
 
 
 @Instance.register("php", "php-src")
-class php(Instance):
+class Php(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -406,7 +406,7 @@ class php(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return phpImageDefault(self.pr, self._config)
+        return PhpImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

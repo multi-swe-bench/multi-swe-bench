@@ -348,7 +348,7 @@ npm test -- --reporter=verbose
 
 
 @Instance.register("google", "zx")
-class zx(Instance):
+class Zx(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -402,7 +402,9 @@ class zx(Instance):
                 status = m_test.group(1)
                 test_name = m_test.group(2).strip()
                 # 拼接多级测试名：用栈中对应层级的名称拼接，最后一段优先使用当前行里的信息
-                full_test_name = ":".join(stack[:-1] + [test_name]) if stack else test_name
+                full_test_name = (
+                    ":".join(stack[:-1] + [test_name]) if stack else test_name
+                )
 
                 if status == "ok":
                     passed_tests.add(full_test_name)

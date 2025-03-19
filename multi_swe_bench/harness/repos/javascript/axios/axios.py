@@ -207,7 +207,7 @@ npm test -- --reporter console
 
 
 @Instance.register("axios", "axios")
-class zstd(Instance):
+class Axios(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

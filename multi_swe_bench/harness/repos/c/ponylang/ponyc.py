@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class ponycImageBase(Image):
+class PonycImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -63,7 +63,7 @@ RUN apt update && apt install -y git clang build-essential cmake pkg-config make
 """
 
 
-class ponycImageBase18(Image):
+class PonycImageBase18(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -124,7 +124,7 @@ RUN wget https://cmake.org/files/v3.16/cmake-3.16.3-Linux-x86_64.tar.gz && \
 """
 
 
-class ponycImageBase16(Image):
+class PonycImageBase16(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -180,7 +180,7 @@ RUN apt update && apt install -y git clang build-essential cmake
 """
 
 
-class ponycImageBase16V2(Image):
+class PonycImageBase16V2(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -237,7 +237,7 @@ RUN apt install -y llvm-3.9 zlib1g-dev libncurses5-dev
 """
 
 
-class ponycImageDefault(Image):
+class PonycImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -252,12 +252,12 @@ class ponycImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if 3530 <= self.pr.number <= 4288:
-            return ponycImageBase18(self.pr, self._config)
+            return PonycImageBase18(self.pr, self._config)
         elif 3043 < self.pr.number <= 3442:
-            return ponycImageBase16(self.pr, self._config)
+            return PonycImageBase16(self.pr, self._config)
         elif self.pr.number <= 3043:
-            return ponycImageBase16V2(self.pr, self._config)
-        return ponycImageBase(self.pr, self._config)
+            return PonycImageBase16V2(self.pr, self._config)
+        return PonycImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -588,7 +588,7 @@ make test config=debug
 
 
 @Instance.register("ponylang", "ponyc")
-class ponyc(Instance):
+class Ponyc(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -599,7 +599,7 @@ class ponyc(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return ponycImageDefault(self.pr, self._config)
+        return PonycImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

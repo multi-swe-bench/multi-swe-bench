@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class checkstyleImageBase(Image):
+class CheckstyleImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -60,7 +60,7 @@ RUN apt-get update && apt-get install -y git openjdk-11-jdk maven
 """
 
 
-class checkstyleImageBaseCpp7(Image):
+class CheckstyleImageBaseCpp7(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -121,7 +121,7 @@ RUN apt-get install -y cmake
 """
 
 
-class checkstyleImageDefault(Image):
+class CheckstyleImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -138,7 +138,7 @@ class checkstyleImageDefault(Image):
         # if self.pr.number <= 958:
         #     return checkstyleImageBaseCpp7(self.pr, self._config)
 
-        return checkstyleImageBase(self.pr, self._config)
+        return CheckstyleImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -267,7 +267,7 @@ mvn clean test -Dstyle.color=never
 
 
 @Instance.register("checkstyle", "checkstyle")
-class checkstyle(Instance):
+class Checkstyle(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -278,7 +278,7 @@ class checkstyle(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return checkstyleImageDefault(self.pr, self._config)
+        return CheckstyleImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"

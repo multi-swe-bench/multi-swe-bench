@@ -213,7 +213,7 @@ ctest
 
 
 @Instance.register("fmtlib", "fmt")
-class zstd(Instance):
+class Fmt(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

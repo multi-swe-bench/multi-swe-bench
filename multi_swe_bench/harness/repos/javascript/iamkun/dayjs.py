@@ -207,7 +207,7 @@ npm test -- --verbose && codecov
 
 
 @Instance.register("iamkun", "dayjs")
-class zstd(Instance):
+class Dayjs(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

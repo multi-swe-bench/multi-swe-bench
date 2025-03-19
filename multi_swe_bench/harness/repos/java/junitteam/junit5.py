@@ -1,4 +1,3 @@
-import re
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -6,7 +5,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class junit5ImageBase(Image):
+class Junit5ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -99,7 +98,7 @@ RUN bash /home/config_gradle.sh
 """
 
 
-class junit5ImageBaseJDK17(Image):
+class Junit5ImageBaseJDK17(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -191,7 +190,8 @@ RUN bash /home/config_gradle.sh
 
 """
 
-class junit5ImageBaseJDK11(Image):
+
+class Junit5ImageBaseJDK11(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -283,7 +283,8 @@ RUN bash /home/config_gradle.sh
 
 """
 
-class junit5ImageDefault(Image):
+
+class Junit5ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -298,10 +299,10 @@ class junit5ImageDefault(Image):
 
     def dependency(self) -> Image | None:
         if 2721 < self.pr.number <= 3423:
-            return junit5ImageBaseJDK17(self.pr, self._config)
+            return Junit5ImageBaseJDK17(self.pr, self._config)
         if self.pr.number <= 2721:
-            return junit5ImageBaseJDK11(self.pr, self._config)
-        return junit5ImageBase(self.pr, self._config)
+            return Junit5ImageBaseJDK11(self.pr, self._config)
+        return Junit5ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -411,20 +412,20 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
             ]
         elif self.pr.number <= 2721:
             return [
-                    File(
-                        ".",
-                        "fix.patch",
-                        f"{self.pr.fix_patch}",
-                    ),
-                    File(
-                        ".",
-                        "test.patch",
-                        f"{self.pr.test_patch}",
-                    ),
-                    File(
-                        ".",
-                        "check_git_changes.sh",
-                        """#!/bin/bash
+                File(
+                    ".",
+                    "fix.patch",
+                    f"{self.pr.fix_patch}",
+                ),
+                File(
+                    ".",
+                    "test.patch",
+                    f"{self.pr.test_patch}",
+                ),
+                File(
+                    ".",
+                    "check_git_changes.sh",
+                    """#!/bin/bash
 set -e
 
 if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
@@ -441,13 +442,13 @@ echo "check_git_changes: No uncommitted changes"
 exit 0
 
     """.format(
-                            pr=self.pr
-                        ),
+                        pr=self.pr
                     ),
-                    File(
-                        ".",
-                        "prepare.sh",
-                        """#!/bin/bash
+                ),
+                File(
+                    ".",
+                    "prepare.sh",
+                    """#!/bin/bash
 set -e
 
 cd /home/{pr.repo}
@@ -472,25 +473,25 @@ allprojects {{
 EOF
 ./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue || true
 """.format(
-                            pr=self.pr
-                        ),
+                        pr=self.pr
                     ),
-                    File(
-                        ".",
-                        "run.sh",
-                        """#!/bin/bash
+                ),
+                File(
+                    ".",
+                    "run.sh",
+                    """#!/bin/bash
 set -e
 
 cd /home/{pr.repo}
 ./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue
     """.format(
-                            pr=self.pr
-                        ),
+                        pr=self.pr
                     ),
-                    File(
-                        ".",
-                        "test-run.sh",
-                        """#!/bin/bash
+                ),
+                File(
+                    ".",
+                    "test-run.sh",
+                    """#!/bin/bash
 set -e
 
 cd /home/{pr.repo}
@@ -498,13 +499,13 @@ git apply --whitespace=nowarn /home/test.patch
 ./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue
 
     """.format(
-                            pr=self.pr
-                        ),
+                        pr=self.pr
                     ),
-                    File(
-                        ".",
-                        "fix-run.sh",
-                        """#!/bin/bash
+                ),
+                File(
+                    ".",
+                    "fix-run.sh",
+                    """#!/bin/bash
 set -e
 
 cd /home/{pr.repo}
@@ -512,10 +513,10 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 ./gradlew clean test --init-script ~/.gradle/init.gradle --max-workers 8 --continue
 
     """.format(
-                            pr=self.pr
-                        ),
+                        pr=self.pr
                     ),
-                ]
+                ),
+            ]
         return [
             File(
                 ".",
@@ -632,7 +633,7 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
 
 @Instance.register("junit-team", "junit5")
-class junit5(Instance):
+class Junit5(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -643,7 +644,7 @@ class junit5(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return junit5ImageDefault(self.pr, self._config)
+        return Junit5ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
