@@ -3,7 +3,6 @@ from pathlib import Path
 
 from multi_swe_bench.collect.build_dataset import main as build_dataset
 from multi_swe_bench.collect.filter_prs import main as filter_prs
-from multi_swe_bench.collect.get_all_prs import main as get_all_prs
 from multi_swe_bench.collect.get_related_issues import main as get_related_issues
 from multi_swe_bench.collect.merge_prs_with_issues import main as merge_prs_with_issues
 from multi_swe_bench.collect.util import get_tokens, optional_int
@@ -37,6 +36,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=3,
         help="Number of attempts to retry on error.",
     )
+    parser.add_argument(
+        "--skip-commit-message",
+        type=bool,
+        default=False,
+        help="Skip commit message.",
+    )
 
     return parser
 
@@ -54,7 +59,7 @@ if __name__ == "__main__":
     # - closed
     # - resolve some issues
     pull_file = args.out_dir / f"{args.org}__{args.repo}_prs.jsonl"
-    filter_prs(tokens, args.out_dir, pull_file)
+    filter_prs(tokens, args.out_dir, pull_file, args.skip_commit_message)
 
     # step 3: get related issues
     pull_file = args.out_dir / f"{args.org}__{args.repo}_filtered_prs.jsonl"
