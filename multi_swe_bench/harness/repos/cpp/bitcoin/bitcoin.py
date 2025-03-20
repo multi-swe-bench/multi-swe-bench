@@ -697,7 +697,7 @@ class Bitcoin(Instance):
                 fail_match = re_fail_test.match(line)
                 if fail_match:
                     test = fail_match.group(1)
-                    if test != 'ALL':
+                    if test != "ALL":
                         failed_tests.add(test)
 
         return TestResult(

@@ -65,10 +65,11 @@ def get_github(token) -> Github:
     return Github(auth=auth, per_page=100)
 
 
-def main(tokens: list[str], out_dir: Path, prs_file: Path):
+def main(tokens: list[str], out_dir: Path, prs_file: Path, skip_commit_message: bool):
     print("starting filter to obtain required pull requests")
     print(f"Output directory: {out_dir}")
     print((f"All Pull Requests: {prs_file}"))
+    print(f"Skip commit message: {skip_commit_message}")
 
     org_repo_re = re.compile(r"(.+)__(.+)_prs.jsonl")
     m = org_repo_re.match(prs_file.name)
@@ -81,8 +82,9 @@ def main(tokens: list[str], out_dir: Path, prs_file: Path):
     print(f"Org: {org}")
     print(f"Repo: {repo}")
 
-    g = get_github(random.choice(tokens))
-    r = g.get_repo(f"{org}/{repo}")
+    if not skip_commit_message:
+        g = get_github(random.choice(tokens))
+        r = g.get_repo(f"{org}/{repo}")
 
     with open(
         out_dir / f"{org}__{repo}_filtered_prs.jsonl",
@@ -95,15 +97,17 @@ def main(tokens: list[str], out_dir: Path, prs_file: Path):
             if pull["state"] != "closed":
                 continue
 
-            pr = r.get_pull(pull["number"])
-            pull["commits"] = [
-                {
-                    "sha": commit.sha,
-                    "parents": [parent.sha for parent in commit.parents],
-                    "message": commit.commit.message,
-                }
-                for commit in pr.get_commits()
-            ]
+            pull["commits"] = []
+            if not skip_commit_message:
+                pr = r.get_pull(pull["number"])
+                pull["commits"] = [
+                    {
+                        "sha": commit.sha,
+                        "parents": [parent.sha for parent in commit.parents],
+                        "message": commit.commit.message,
+                    }
+                    for commit in pr.get_commits()
+                ]
 
             resolved_issues = extract_resolved_issues(pull)
             if len(resolved_issues) == 0:

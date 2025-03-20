@@ -37,6 +37,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=3,
         help="Number of attempts to retry on error.",
     )
+    parser.add_argument(
+        "--skip-commit-message",
+        type=bool,
+        default=False,
+        help="Skip commit message.",
+    )
 
     return parser
 
@@ -48,13 +54,13 @@ if __name__ == "__main__":
     tokens = get_tokens(args.tokens)
 
     # step 1: get all pull requests
-    # get_all_prs(tokens, args.out_dir, args.org, args.repo)
+    get_all_prs(tokens, args.out_dir, args.org, args.repo)
 
     # step 2: filter to obtain reqired pull requests
     # - closed
     # - resolve some issues
     pull_file = args.out_dir / f"{args.org}__{args.repo}_prs.jsonl"
-    filter_prs(tokens, args.out_dir, pull_file)
+    filter_prs(tokens, args.out_dir, pull_file, args.skip_commit_message)
 
     # step 3: get related issues
     pull_file = args.out_dir / f"{args.org}__{args.repo}_filtered_prs.jsonl"

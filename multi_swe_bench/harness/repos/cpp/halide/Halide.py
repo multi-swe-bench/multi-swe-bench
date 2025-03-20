@@ -448,10 +448,18 @@ class Halide(Instance):
         re_pass_tests = [re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*Passed")]
         re_fail_tests = [
             re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Failed"),
-            re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: Illegal"),
-            re.compile(r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Subprocess\s+aborted\*+\s*Exception:"),
-            re.compile(r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Child\s+aborted\*+\s*Exception:"),
-            re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: SegFault"),
+            re.compile(
+                r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: Illegal"
+            ),
+            re.compile(
+                r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Subprocess\s+aborted\*+\s*Exception:"
+            ),
+            re.compile(
+                r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Child\s+aborted\*+\s*Exception:"
+            ),
+            re.compile(
+                r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: SegFault"
+            ),
         ]
 
         for line in test_log.splitlines():

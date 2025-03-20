@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class PuppeteerImageBase(Image):
+class ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -58,7 +58,7 @@ WORKDIR /home/
 """
 
 
-class PuppeteerImageDefault(Image):
+class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -72,7 +72,7 @@ class PuppeteerImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return PuppeteerImageBase(self.pr, self.config)
+        return ImageBase(self.pr, self.config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -129,7 +129,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-yarn install || true
+npm ci || true
 
 """.format(
                     pr=self.pr
@@ -142,7 +142,10 @@ yarn install || true
 set -e
 
 cd /home/{pr.repo}
-yarn test
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 
 """.format(
@@ -157,7 +160,10 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-yarn test
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 
 """.format(
@@ -172,7 +178,10 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-yarn test 
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 """.format(
                     pr=self.pr
@@ -204,8 +213,8 @@ yarn test
 """
 
 
-@Instance.register("facebook", "docusaurus")
-class Puppeteer(Instance):
+@Instance.register("markedjs", "marked")
+class Zod(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -217,7 +226,7 @@ class Puppeteer(Instance):
 
     def dependency(self) -> Optional[Image]:
 
-        return PuppeteerImageDefault(self.pr, self._config)
+        return ImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -233,6 +242,50 @@ class Puppeteer(Instance):
         failed_tests = set()
         skipped_tests = set()
 
+        suite_stack = []
+
+        suite_regex = re.compile(r"^▶ (.+)$")
+        pass_regex = re.compile(r"^✔ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+        fail_regex = re.compile(r"^✖ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+
+        for line in test_log.splitlines():
+            indent = len(line) - len(line.lstrip())
+            line = line.strip()
+            if not line:
+                continue
+
+            # Match a new suite line
+            suite_match = suite_regex.match(line)
+            if suite_match:
+                if indent == 0:
+                    suite_stack = []
+                suite_stack.append(suite_match.group(1))
+                continue
+
+            # Match a passed test
+            pass_match = pass_regex.match(line)
+            if pass_match:
+                test_name = pass_match.group(1)
+                current_suite = ":".join(suite_stack) if suite_stack else ""
+                # Avoid duplication if single-suite name matches test
+                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                    full_test_name = test_name
+                else:
+                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                passed_tests.add(full_test_name)
+                continue
+
+            # Match a failed test
+            fail_match = fail_regex.match(line)
+            if fail_match:
+                test_name = fail_match.group(1)
+                current_suite = ":".join(suite_stack) if suite_stack else ""
+                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                    full_test_name = test_name
+                else:
+                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                failed_tests.add(full_test_name)
+                continue
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),

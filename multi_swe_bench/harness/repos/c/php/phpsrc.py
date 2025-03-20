@@ -422,12 +422,8 @@ class Php(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        re_pass_tests = [
-            re.compile(r".*?PASS.*?\s+(.*)")
-        ]
-        re_fail_tests = [
-            re.compile(r".*?FAIL.*?\s+(.*)")
-        ]
+        re_pass_tests = [re.compile(r".*?PASS.*?\s+(.*)")]
+        re_fail_tests = [re.compile(r".*?FAIL.*?\s+(.*)")]
 
         for line in test_log.splitlines():
             line = line.strip()
