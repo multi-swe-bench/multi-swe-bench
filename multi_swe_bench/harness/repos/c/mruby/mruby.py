@@ -500,13 +500,59 @@ class Mruby(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+        if 4933 <= self.pr.number:
+            re_pass_tests = [re.compile(r"^(.*?)\s*:\s*\.$")]
+            re_fail_tests = [re.compile(r"^(.*?)\s*:\s*F$")]
+            ok_count = len(re.findall(r"\sOK:\s", test_log))
+            if ok_count == 2:
+                passed_tests.add("build")
+            else:
+                failed_tests.add("build")
+            for line in test_log.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+                for re_pass_test in re_pass_tests:
+                    pass_match = re_pass_test.match(line)
+                    if pass_match:
+                        test = pass_match.group(1)
+                        passed_tests.add(test)
+
+                for re_fail_test in re_fail_tests:
+                    fail_match = re_fail_test.match(line)
+                    if fail_match:
+                        test = fail_match.group(1)
+                        failed_tests.add(test)
+        elif 2784 <= self.pr.number < 4933:
+            ko_numbers = re.findall(r"\sKO:\s*(\d+)", test_log)
+            ignore_count = len(re.findall(r"Fail: regression for #1564", test_log))
+            ko_numbers = list(map(int, ko_numbers))
+            if ignore_count == 1:
+                ko_numbers[1] -= 1
+            if len(ko_numbers) == 2:
+                passed_tests.add("build")
+            else:
+                failed_tests.add("build")
+            if len(ko_numbers) == 2 and ko_numbers[0] == 0 and ko_numbers[1] == 0:
+                passed_tests.add("all tests")
+            else:
+                failed_tests.add("all tests")
+        elif self.pr.number < 2784:
+            # 提取 Total 后的数字
+            total_match = re.search(r"Total:\s*(\d+)", test_log)
+            total = int(total_match.group(1)) if total_match else None
+            # 提取 OK 后的数字
+            ok_match = re.search(r"\sOK:\s*(\d+)", test_log)
+            ok = int(ok_match.group(1)) if ok_match else None
+
+            if total and ok and total == ok:
+                passed_tests.add("all tests")
+            else:
+                failed_tests.add("all tests")
 
         return TestResult(
             passed_count=len(passed_tests),

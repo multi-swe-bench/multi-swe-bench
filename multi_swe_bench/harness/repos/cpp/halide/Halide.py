@@ -441,13 +441,35 @@ class Halide(Instance):
         return "bash /home/fix-run.sh"
 
     def parse_log(self, test_log: str) -> TestResult:
-        re_pass = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Passed")
-        re_fail = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Failed")
-        re_skip = re.compile(r"\d*\/\d* *Test *#\d*: *(.*?) *\.* *Skipped")
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
 
-        passed_tests = re_pass.findall(test_log)
-        failed_tests = re_fail.findall(test_log)
-        skipped_tests = re_skip.findall(test_log)
+        re_pass_tests = [re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*Passed")]
+        re_fail_tests = [
+            re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Failed"),
+            re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: Illegal"),
+            re.compile(r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Subprocess\s+aborted\*+\s*Exception:"),
+            re.compile(r"^\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\s*Child\s+aborted\*+\s*Exception:"),
+            re.compile(r"^\d+/\d+\s*Test\s*#\d+:\s*(.*?)\s*\.+\s*\*+Exception: SegFault"),
+        ]
+
+        for line in test_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            for re_pass_test in re_pass_tests:
+                pass_match = re_pass_test.match(line)
+                if pass_match:
+                    test = pass_match.group(1)
+                    passed_tests.add(test)
+
+            for re_fail_test in re_fail_tests:
+                fail_match = re_fail_test.match(line)
+                if fail_match:
+                    test = fail_match.group(1)
+                    failed_tests.add(test)
 
         return TestResult(
             passed_count=len(passed_tests),
