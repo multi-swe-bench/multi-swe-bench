@@ -129,7 +129,7 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-npm install || true
+npm ci || true
 
 """.format(
                     pr=self.pr
@@ -142,7 +142,10 @@ npm install || true
 set -e
 
 cd /home/{pr.repo}
-npx vitest run
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 
 """.format(
@@ -157,7 +160,10 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-npx vitest run
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 
 """.format(
@@ -172,7 +178,10 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-npx vitest run
+npm run build
+npm run test:unit
+npm run test:specs
+npm run test:umd
 
 """.format(
                     pr=self.pr
@@ -204,7 +213,7 @@ npx vitest run
 """
 
 
-@Instance.register("date-fns", "date-fns")
+@Instance.register("markedjs", "marked")
 class Zod(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
@@ -233,27 +242,50 @@ class Zod(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        current_suite = None
+        suite_stack = []
 
-        re_pass_suite = re.compile(r"^PASS (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
-
-        re_fail_suite = re.compile(r"^FAIL (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+        suite_regex = re.compile(r"^▶ (.+)$")
+        pass_regex = re.compile(r"^✔ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
+        fail_regex = re.compile(r"^✖ (.+?)(?:\s\(\d*\.?\d+\s*\w+\))?$")
 
         for line in test_log.splitlines():
+            indent = len(line) - len(line.lstrip())
             line = line.strip()
             if not line:
                 continue
 
-            pass_match = re_pass_suite.match(line)
+            # Match a new suite line
+            suite_match = suite_regex.match(line)
+            if suite_match:
+                if indent == 0:
+                    suite_stack = []
+                suite_stack.append(suite_match.group(1))
+                continue
+
+            # Match a passed test
+            pass_match = pass_regex.match(line)
             if pass_match:
-                current_suite = pass_match.group(1)
-                passed_tests.add(current_suite)
+                test_name = pass_match.group(1)
+                current_suite = ":".join(suite_stack) if suite_stack else ""
+                # Avoid duplication if single-suite name matches test
+                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                    full_test_name = test_name
+                else:
+                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                passed_tests.add(full_test_name)
+                continue
 
-            fail_match = re_fail_suite.match(line)
+            # Match a failed test
+            fail_match = fail_regex.match(line)
             if fail_match:
-                current_suite = fail_match.group(1)
-                failed_tests.add(current_suite)
-
+                test_name = fail_match.group(1)
+                current_suite = ":".join(suite_stack) if suite_stack else ""
+                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                    full_test_name = test_name
+                else:
+                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                failed_tests.add(full_test_name)
+                continue
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),

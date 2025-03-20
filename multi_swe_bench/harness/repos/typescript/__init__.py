@@ -11,4 +11,4 @@ from multi_swe_bench.harness.repos.typescript.remix_run import *
 from multi_swe_bench.harness.repos.typescript.trpc import *
 from multi_swe_bench.harness.repos.typescript.vuejs import *
 from multi_swe_bench.harness.repos.typescript.withastro import *
-from multi_swe_bench.harness.repos.typescript.date_fns import *
+from multi_swe_bench.harness.repos.typescript.markedjs import *
