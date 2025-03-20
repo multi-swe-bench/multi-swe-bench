@@ -3,6 +3,7 @@ from pathlib import Path
 
 from multi_swe_bench.collect.build_dataset import main as build_dataset
 from multi_swe_bench.collect.filter_prs import main as filter_prs
+from multi_swe_bench.collect.get_all_prs import main as get_all_prs
 from multi_swe_bench.collect.get_related_issues import main as get_related_issues
 from multi_swe_bench.collect.merge_prs_with_issues import main as merge_prs_with_issues
 from multi_swe_bench.collect.util import get_tokens, optional_int
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     tokens = get_tokens(args.tokens)
 
     # step 1: get all pull requests
-    # get_all_prs(tokens, args.out_dir, args.org, args.repo)
+    get_all_prs(tokens, args.out_dir, args.org, args.repo)
 
     # step 2: filter to obtain reqired pull requests
     # - closed
