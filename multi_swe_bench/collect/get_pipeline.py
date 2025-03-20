@@ -48,7 +48,7 @@ if __name__ == "__main__":
     tokens = get_tokens(args.tokens)
 
     # step 1: get all pull requests
-    # get_all_prs(tokens, args.out_dir, args.org, args.repo)
+    get_all_prs(tokens, args.out_dir, args.org, args.repo)
 
     # step 2: filter to obtain reqired pull requests
     # - closed
