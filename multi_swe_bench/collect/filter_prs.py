@@ -54,7 +54,8 @@ def extract_resolved_issues(pull: dict) -> list[str]:
             if word.lower() in keywords:
                 resolved_issues.add(int(issue_num))
 
-    resolved_issues.remove(0)
+    if 0 in resolved_issues:
+        resolved_issues.remove(0)
 
     return list(resolved_issues)
 
@@ -95,16 +96,14 @@ def main(tokens: list[str], out_dir: Path, prs_file: Path):
                 continue
 
             pr = r.get_pull(pull["number"])
-            pull["commits"] = (
-                [
-                    {
-                        "sha": commit.sha,
-                        "parents": [parent.sha for parent in commit.parents],
-                        "message": commit.commit.message,
-                    }
-                    for commit in pr.get_commits()
-                ],
-            )
+            pull["commits"] = [
+                {
+                    "sha": commit.sha,
+                    "parents": [parent.sha for parent in commit.parents],
+                    "message": commit.commit.message,
+                }
+                for commit in pr.get_commits()
+            ]
 
             resolved_issues = extract_resolved_issues(pull)
             if len(resolved_issues) == 0:
