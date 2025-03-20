@@ -3,8 +3,8 @@ from typing import Optional, Union
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
-
-
+import re
+import textwrap
 class PmdImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -194,7 +194,8 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-mkdir -p ~/.m2 && cat <<EOF > ~/.m2/settings.xml
+if [ ! -f ~/.m2/settings.xml ]; then
+    mkdir -p ~/.m2 && cat <<EOF > ~/.m2/settings.xml
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
@@ -210,6 +211,17 @@ mkdir -p ~/.m2 && cat <<EOF > ~/.m2/settings.xml
 
 </settings>
 EOF
+else
+  grep -q "<mirror>" ~/.m2/settings.xml || sed -i '/<\/settings>/i \\
+  <mirrors> \\
+      <mirror> \\
+          <id>aliyunmaven</id> \\
+          <mirrorOf>central</mirrorOf> \\
+          <name>Aliyun Maven Mirror</name> \\
+          <url>https://maven.aliyun.com/repository/public</url> \\
+      </mirror> \\
+  </mirrors>' ~/.m2/settings.xml
+fi
 ./mvnw clean test -fae || true
 """.format(
                     pr=self.pr
@@ -267,15 +279,59 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
             copy_commands += f"COPY {file.name} /home/\n"
 
         prepare_commands = "RUN bash /home/prepare.sh"
+        proxy_setup = ""
+        proxy_cleanup = ""
 
+        if self.global_env:
+            # 提取代理host和port
+            proxy_host = None
+            proxy_port = None
+
+            for line in self.global_env.splitlines():
+                match = re.match(r"^ENV\s*(http[s]?_proxy)=http[s]?://([^:]+):(\d+)", line)
+                if match:
+                    proxy_host = match.group(2)
+                    proxy_port = match.group(3)
+                    break
+            if proxy_host and proxy_port:
+                proxy_setup = textwrap.dedent(f"""
+                RUN mkdir -p ~/.m2 && \\
+                    if [ ! -f ~/.m2/settings.xml ]; then \\
+                        echo '<?xml version="1.0" encoding="UTF-8"?>' > ~/.m2/settings.xml && \\
+                        echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"' >> ~/.m2/settings.xml && \\
+                        echo '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> ~/.m2/settings.xml && \\
+                        echo '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> ~/.m2/settings.xml && \\
+                        echo '</settings>' >> ~/.m2/settings.xml; \\
+                    fi && \\
+                    sed -i '$d' ~/.m2/settings.xml && \\
+                    echo '<proxies>' >> ~/.m2/settings.xml && \\
+                    echo '    <proxy>' >> ~/.m2/settings.xml && \\
+                    echo '        <id>example-proxy</id>' >> ~/.m2/settings.xml && \\
+                    echo '        <active>true</active>' >> ~/.m2/settings.xml && \\
+                    echo '        <protocol>http</protocol>' >> ~/.m2/settings.xml && \\
+                    echo '        <host>{proxy_host}</host>' >> ~/.m2/settings.xml && \\
+                    echo '        <port>{proxy_port}</port>' >> ~/.m2/settings.xml && \\
+                    echo '        <username></username>' >> ~/.m2/settings.xml && \\
+                    echo '        <password></password>' >> ~/.m2/settings.xml && \\
+                    echo '        <nonProxyHosts></nonProxyHosts>' >> ~/.m2/settings.xml && \\
+                    echo '    </proxy>' >> ~/.m2/settings.xml && \\
+                    echo '</proxies>' >> ~/.m2/settings.xml && \\
+                    echo '</settings>' >> ~/.m2/settings.xml
+                """)
+
+                proxy_cleanup = textwrap.dedent("""
+                    RUN sed -i '/<proxies>/,/<\\/proxies>/d' ~/.m2/settings.xml
+                """)
         return f"""FROM {name}:{tag}
 
 {self.global_env}
+{proxy_setup}
 
 {copy_commands}
 
 {prepare_commands}
 
+{proxy_cleanup}
 {self.clear_env}
 
 """
