@@ -189,6 +189,58 @@ RUN apt-get update && apt-get install -y git openjdk-17-jdk
 
 """
 
+class SpotbugsImageBaseJDK16(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "ubuntu:22.04"
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return "base-jdk-16"
+
+    def workdir(self) -> str:
+        return "base-jdk-16"
+
+    def files(self) -> list[File]:
+        return []
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+WORKDIR /home/
+RUN apt-get update && apt-get install -y git openjdk-15-jdk
+{code}
+
+{self.clear_env}
+
+"""
+
 
 class SpotbugsImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -206,8 +258,10 @@ class SpotbugsImageDefault(Image):
     def dependency(self) -> Image | None:
         # if 7205 < self.pr.number <= 7298:
         #     return spotbugsImageBaseJDK11(self.pr, self._config)
-        if self.pr.number <= 2679:
+        if 1734 < self.pr.number <= 2679:
             return SpotbugsImageBaseJDK17(self.pr, self._config)
+        elif self.pr.number <= 1734:
+            return SpotbugsImageBaseJDK16(self.pr, self._config)
 
         return SpotbugsImageBase(self.pr, self._config)
 
