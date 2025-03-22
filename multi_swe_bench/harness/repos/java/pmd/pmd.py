@@ -1,10 +1,12 @@
+import re
+import textwrap
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
-import re
-import textwrap
+
+
 class PmdImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -288,13 +290,16 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
             proxy_port = None
 
             for line in self.global_env.splitlines():
-                match = re.match(r"^ENV\s*(http[s]?_proxy)=http[s]?://([^:]+):(\d+)", line)
+                match = re.match(
+                    r"^ENV\s*(http[s]?_proxy)=http[s]?://([^:]+):(\d+)", line
+                )
                 if match:
                     proxy_host = match.group(2)
                     proxy_port = match.group(3)
                     break
             if proxy_host and proxy_port:
-                proxy_setup = textwrap.dedent(f"""
+                proxy_setup = textwrap.dedent(
+                    f"""
                 RUN mkdir -p ~/.m2 && \\
                     if [ ! -f ~/.m2/settings.xml ]; then \\
                         echo '<?xml version="1.0" encoding="UTF-8"?>' > ~/.m2/settings.xml && \\
@@ -317,11 +322,14 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
                     echo '    </proxy>' >> ~/.m2/settings.xml && \\
                     echo '</proxies>' >> ~/.m2/settings.xml && \\
                     echo '</settings>' >> ~/.m2/settings.xml
-                """)
+                """
+                )
 
-                proxy_cleanup = textwrap.dedent("""
+                proxy_cleanup = textwrap.dedent(
+                    """
                     RUN sed -i '/<proxies>/,/<\\/proxies>/d' ~/.m2/settings.xml
-                """)
+                """
+                )
         return f"""FROM {name}:{tag}
 
 {self.global_env}

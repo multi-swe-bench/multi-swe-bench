@@ -268,10 +268,16 @@ class Zod(Instance):
                 test_name = pass_match.group(1)
                 current_suite = ":".join(suite_stack) if suite_stack else ""
                 # Avoid duplication if single-suite name matches test
-                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                if (
+                    current_suite
+                    and len(suite_stack) == 1
+                    and test_name == suite_stack[-1]
+                ):
                     full_test_name = test_name
                 else:
-                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                    full_test_name = (
+                        f"{current_suite}:{test_name}" if current_suite else test_name
+                    )
                 passed_tests.add(full_test_name)
                 continue
 
@@ -280,10 +286,16 @@ class Zod(Instance):
             if fail_match:
                 test_name = fail_match.group(1)
                 current_suite = ":".join(suite_stack) if suite_stack else ""
-                if current_suite and len(suite_stack) == 1 and test_name == suite_stack[-1]:
+                if (
+                    current_suite
+                    and len(suite_stack) == 1
+                    and test_name == suite_stack[-1]
+                ):
                     full_test_name = test_name
                 else:
-                    full_test_name = f"{current_suite}:{test_name}" if current_suite else test_name
+                    full_test_name = (
+                        f"{current_suite}:{test_name}" if current_suite else test_name
+                    )
                 failed_tests.add(full_test_name)
                 continue
         return TestResult(

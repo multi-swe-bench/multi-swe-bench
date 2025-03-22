@@ -2,6 +2,7 @@ from multi_swe_bench.harness.repos.typescript.ant_design import *
 from multi_swe_bench.harness.repos.typescript.colinhacks import *
 from multi_swe_bench.harness.repos.typescript.darkreader import *
 from multi_swe_bench.harness.repos.typescript.facebook import *
+from multi_swe_bench.harness.repos.typescript.markedjs import *
 from multi_swe_bench.harness.repos.typescript.mui import *
 from multi_swe_bench.harness.repos.typescript.NervJS import *
 from multi_swe_bench.harness.repos.typescript.nuxt import *
@@ -11,4 +12,3 @@ from multi_swe_bench.harness.repos.typescript.remix_run import *
 from multi_swe_bench.harness.repos.typescript.trpc import *
 from multi_swe_bench.harness.repos.typescript.vuejs import *
 from multi_swe_bench.harness.repos.typescript.withastro import *
-from multi_swe_bench.harness.repos.typescript.markedjs import *
