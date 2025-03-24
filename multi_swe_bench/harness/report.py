@@ -279,15 +279,22 @@ class FinalReport:
 
     @classmethod
     def from_reports(
-        clc, reports: list[Report], failed_tasks: list[ReportTask] = []
+        cls,
+        reports: list[Report],
+        invalid_reports: list[Report],
+        failed_tasks: list[ReportTask] = [],
     ) -> "FinalReport":
-        submitted_ids = [report.id for report in reports] + [
-            task.id for task in failed_tasks
+        submitted_ids = (
+            [report.id for report in reports]
+            + [report.id for report in invalid_reports]
+            + [task.id for task in failed_tasks]
+        )
+        completed_ids = [report.id for report in reports] + [
+            report.id for report in invalid_reports
         ]
-        completed_ids = [report.id for report in reports]
         incomplete_ids = [task.id for task in failed_tasks]
-        resolved_ids = [report.id for report in reports if report.valid]
-        unresolved_ids = [report.id for report in reports if not report.valid]
+        resolved_ids = [report.id for report in reports]
+        unresolved_ids = [report.id for report in invalid_reports]
         empty_patch_ids = []
         error_ids = [task.id for task in failed_tasks]
 

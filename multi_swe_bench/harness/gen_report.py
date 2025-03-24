@@ -3,7 +3,7 @@ import glob
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal, Optional, Tuple, Union
 
 from dataclasses_json import dataclass_json
 from tqdm import tqdm
@@ -353,20 +353,22 @@ class CliArgs:
         self, tasks: list[ReportTask]
     ) -> tuple[list[Report], list[ReportTask]]:
         reports: list[Report] = []
+        invalid_reports: list[Report] = []
         failed_tasks: list[tuple[ReportTask, str]] = []
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_workers
         ) as executor:
 
-            def safe_generate_report(task: ReportTask) -> Report | None:
+            def safe_generate_report(task: ReportTask) -> Tuple[Report, bool] | None:
                 try:
                     report = task.generate_report()
                     if not report.valid:
                         self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
                         )
+                        return (report, False)
 
-                    return report
+                    return (report, True)
                 except Exception as e:
                     logging.error(f"Error generating report for {task.id}: {str(e)}")
                     failed_tasks.append((task, str(e)))
@@ -380,7 +382,11 @@ class CliArgs:
                 )
             )
 
-            reports = [report for report in futures if report is not None]
+            for report, valid in futures:
+                if valid:
+                    reports.append(report)
+                else:
+                    invalid_reports.append(report)
 
         self.logger.info(f"Successfully generated {len(reports)} reports.")
         if failed_tasks:
@@ -391,12 +397,13 @@ class CliArgs:
         else:
             self.logger.info("All reports generated successfully.")
 
-        return (reports, [task for task, _ in failed_tasks])
+        return (reports, invalid_reports, [task for task, _ in failed_tasks])
 
     def gen_eval_reports(
         self, tasks: list[ReportTask]
-    ) -> tuple[list[Report], list[ReportTask]]:
+    ) -> tuple[list[Report], list[Report], list[ReportTask]]:
         reports: list[Report] = []
+        invalid_reports: list[Report] = []
         failed_tasks: list[tuple[ReportTask, str]] = []
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_workers
@@ -407,44 +414,44 @@ class CliArgs:
                 task: ReportTask,
                 run_log: str,
                 test_patch_run_log: str,
-            ) -> Report | None:
+            ) -> Union[Tuple[Report, bool], None]:
                 try:
                     report = task.generate_report(run_log, test_patch_run_log)
                     if not report.valid:
                         self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
                         )
-                        return report
+                        return (report, False)
 
                     for p2p in dataset.p2p_tests:
                         if p2p not in report.p2p_tests:
                             self.logger.error(
                                 f"Invalid p2p_tests for {task.id}: missing {p2p}"
                             )
-                            return report
+                            return (report, False)
 
                     for f2p in dataset.f2p_tests:
                         if f2p not in report.f2p_tests:
                             self.logger.error(
                                 f"Invalid f2p_tests for {task.id}: missing {f2p}"
                             )
-                            return report
+                            return (report, False)
 
                     for s2p in dataset.s2p_tests:
                         if s2p not in report.s2p_tests:
                             self.logger.error(
                                 f"Invalid s2p_tests for {task.id}: missing {s2p}"
                             )
-                            return report
+                            return (report, False)
 
                     for n2p in dataset.n2p_tests:
                         if n2p not in report.n2p_tests:
                             self.logger.error(
                                 f"Invalid n2p_tests for {task.id}: missing {n2p}"
                             )
-                            return report
+                            return (report, False)
 
-                    return report
+                    return (report, True)
                 except Exception as e:
                     logging.error(f"Error generating report for {task.id}: {str(e)}")
                     failed_tasks.append((task, str(e)))
@@ -466,7 +473,11 @@ class CliArgs:
             for future in concurrent.futures.as_completed(futures):
                 report = future.result()
                 if report is not None:
-                    reports.append(report)
+                    report, valid = report
+                    if valid:
+                        reports.append(report)
+                    else:
+                        invalid_reports.append(report)
 
         self.logger.info(f"Successfully generated {len(reports)} reports.")
         if failed_tasks:
@@ -475,7 +486,7 @@ class CliArgs:
             for task, error in failed_tasks:
                 self.logger.error(f"  - {task.id}: {error}")
 
-        return (reports, [task for task, _ in failed_tasks])
+        return (reports, invalid_reports, [task for task, _ in failed_tasks])
 
     def run_regen(self):
         tasks = self.collect_report_tasks()
@@ -483,29 +494,27 @@ class CliArgs:
 
     def run_summary(self):
         tasks = self.collect_report_tasks()
-        reports, failed_tasks = self.gen_reports(tasks)
-        final_report = FinalReport.from_reports(reports, failed_tasks)
+        reports, invalid_reports, failed_tasks = self.gen_reports(tasks)
+        final_report = FinalReport.from_reports(reports, invalid_reports, failed_tasks)
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
             f.write(final_report.json())
 
     def run_evaluation(self):
         tasks = self.collect_report_tasks(EVALUATION_WORKDIR)
-        reports, failed_tasks = self.gen_eval_reports(tasks)
-        final_report = FinalReport.from_reports(reports, failed_tasks)
+        reports, invalid_reports, failed_tasks = self.gen_eval_reports(tasks)
+        final_report = FinalReport.from_reports(reports, invalid_reports, failed_tasks)
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
             f.write(final_report.json())
 
     def run_dataset(self):
         tasks = self.collect_report_tasks()
-        reports, failed_tasks = self.gen_reports(tasks)
-        final_report = FinalReport.from_reports(reports, failed_tasks)
+        reports, invalid_reports, failed_tasks = self.gen_reports(tasks)
+        final_report = FinalReport.from_reports(reports, invalid_reports, failed_tasks)
         with open(self.output_dir / FINAL_REPORT_FILE, "w", encoding="utf-8") as f:
             f.write(final_report.json())
 
         dataset: dict[str, list[Dataset]] = {}
         for report in reports:
-            if not report.valid:
-                continue
             if report.id not in self.raw_dataset:
                 continue
             if report.repo_file_name not in dataset:
