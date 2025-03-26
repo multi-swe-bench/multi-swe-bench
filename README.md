@@ -195,13 +195,13 @@ example_config:
 ```
 your_workdir/
 ├── <ORG_1>         	# Github organization name
-	└── <REPO_1>    	# Github repository name
-		├── images  	# Files and logs related to BASE and PR images
-		└── instances	# Instances run-related logs
+ └── <REPO_1>    	# Github repository name
+	 ├── images  	# Files and logs related to BASE and PR images
+	 └── instances	# Instances run-related logs
 ├── <ORG_2>         	
-	└── <REPO_2>    	
-		├── images  	
-		└── instances	
+ └── <REPO_2>    	
+	 ├── images  	
+	 └── instances	
 └── ...
 ```
 
