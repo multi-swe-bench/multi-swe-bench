@@ -374,15 +374,21 @@ class CliArgs:
                     failed_tasks.append((task, str(e)))
                     return None
 
-            futures = list(
-                tqdm(
-                    executor.map(safe_generate_report, tasks),
-                    total=len(tasks),
-                    desc="Generating reports",
-                )
-            )
+            futures = [
+                executor.submit(safe_generate_report, task)
+                for task in tasks
+                if task.id in self.raw_dataset
+            ]
 
-            for report, valid in futures:
+            for future in tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(futures),
+                desc="Generating reports",
+            ):
+                result = future.result()
+                if result is None:
+                    continue
+                report, valid = result
                 if valid:
                     reports.append(report)
                 else:
@@ -470,14 +476,19 @@ class CliArgs:
             ]
 
             reports = []
-            for future in concurrent.futures.as_completed(futures):
-                report = future.result()
-                if report is not None:
-                    report, valid = report
-                    if valid:
-                        reports.append(report)
-                    else:
-                        invalid_reports.append(report)
+            for future in tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(futures),
+                desc="Generating eval reports",
+            ):
+                result = future.result()
+                if result is None:
+                    continue
+                report, valid = result
+                if valid:
+                    reports.append(report)
+                else:
+                    invalid_reports.append(report)
 
         self.logger.info(f"Successfully generated {len(reports)} reports.")
         if failed_tasks:
