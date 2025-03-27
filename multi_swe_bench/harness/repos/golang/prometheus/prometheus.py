@@ -238,10 +238,7 @@ class Prometheus(Instance):
         re_skip_tests = [re.compile(r"--- SKIP: (\S+)")]
 
         def get_base_name(test_name: str) -> str:
-            index = test_name.rfind("/")
-            if index == -1:
-                return test_name
-            return test_name[:index]
+            return test_name
 
         for line in test_log.splitlines():
             line = line.strip()
