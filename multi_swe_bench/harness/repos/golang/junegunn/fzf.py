@@ -238,10 +238,7 @@ class Fzf(Instance):
         re_skip_tests = [re.compile(r"--- SKIP: (\S+)")]
 
         def get_base_name(test_name: str) -> str:
-            index = test_name.rfind("/")
-            if index == -1:
-                return test_name
-            return test_name[:index]
+            return test_name
 
         for line in test_log.splitlines():
             line = line.strip()
@@ -250,8 +247,11 @@ class Fzf(Instance):
                 pass_match = re_pass_test.match(line)
                 if pass_match:
                     test_name = pass_match.group(1)
-                    if test_name not in failed_tests:
-                        passed_tests.add(get_base_name(test_name))
+                    if test_name in failed_tests:
+                        continue
+                    if test_name in skipped_tests:
+                        skipped_tests.remove(test_name)
+                    passed_tests.add(get_base_name(test_name))
 
             for re_fail_test in re_fail_tests:
                 fail_match = re_fail_test.match(line)
@@ -267,8 +267,11 @@ class Fzf(Instance):
                 skip_match = re_skip_test.match(line)
                 if skip_match:
                     test_name = skip_match.group(1)
+                    if test_name in passed_tests:
+                        continue
                     if test_name not in failed_tests:
-                        skipped_tests.add(get_base_name(test_name))
+                        continue
+                    skipped_tests.add(get_base_name(test_name))
 
         return TestResult(
             passed_count=len(passed_tests),

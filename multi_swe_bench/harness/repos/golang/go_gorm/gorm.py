@@ -250,8 +250,11 @@ class Gorm(Instance):
                 pass_match = re_pass_test.match(line)
                 if pass_match:
                     test_name = pass_match.group(1)
-                    if test_name not in failed_tests:
-                        passed_tests.add(get_base_name(test_name))
+                    if test_name in failed_tests:
+                        continue
+                    if test_name in skipped_tests:
+                        skipped_tests.remove(test_name)
+                    passed_tests.add(get_base_name(test_name))
 
             for re_fail_test in re_fail_tests:
                 fail_match = re_fail_test.match(line)
@@ -267,8 +270,11 @@ class Gorm(Instance):
                 skip_match = re_skip_test.match(line)
                 if skip_match:
                     test_name = skip_match.group(1)
+                    if test_name in passed_tests:
+                        continue
                     if test_name not in failed_tests:
-                        skipped_tests.add(get_base_name(test_name))
+                        continue
+                    skipped_tests.add(get_base_name(test_name))
 
         return TestResult(
             passed_count=len(passed_tests),
