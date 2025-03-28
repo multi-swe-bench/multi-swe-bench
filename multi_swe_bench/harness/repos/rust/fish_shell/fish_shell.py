@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class CaddyImageBase(Image):
+class FishShellImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -20,7 +20,7 @@ class CaddyImageBase(Image):
         return self._config
 
     def dependency(self) -> Union[str, "Image"]:
-        return "golang:latest"
+        return "rust:latest"
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -51,13 +51,14 @@ class CaddyImageBase(Image):
 WORKDIR /home/
 
 {code}
+RUN apt update && apt install -y python3-sphinx
 
 {self.clear_env}
 
 """
 
 
-class CaddyImageDefault(Image):
+class FishShellImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -71,7 +72,7 @@ class CaddyImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return CaddyImageBase(self.pr, self.config)
+        return FishShellImageBase(self.pr, self.config)
 
     def image_name(self) -> str:
         return f"{self.pr.org}/{self.pr.repo}".lower()
@@ -129,7 +130,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-go test -v -count=1 ./... || true
+cargo test || true
 
 """.format(
                     pr=self.pr
@@ -142,7 +143,7 @@ go test -v -count=1 ./... || true
 set -e
 
 cd /home/{pr.repo}
-go test -v -count=1 ./...
+cargo test
 
 """.format(
                     pr=self.pr
@@ -156,7 +157,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch
-go test -v -count=1 ./...
+cargo test
 
 """.format(
                     pr=self.pr
@@ -170,7 +171,7 @@ set -e
 
 cd /home/{pr.repo}
 git apply /home/test.patch /home/fix.patch
-go test -v -count=1 ./...
+cargo test
 
 """.format(
                     pr=self.pr
@@ -202,8 +203,8 @@ go test -v -count=1 ./...
 """
 
 
-@Instance.register("caddyserver", "caddy")
-class Caddy(Instance):
+@Instance.register("fish-shell", "fish-shell")
+class FishShell(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -214,7 +215,7 @@ class Caddy(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return CaddyImageDefault(self.pr, self._config)
+        return FishShellImageDefault(self.pr, self._config)
 
     def run(self) -> str:
         return "bash /home/run.sh"
@@ -230,48 +231,27 @@ class Caddy(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        re_pass_tests = [re.compile(r"--- PASS: (\S+)")]
-        re_fail_tests = [
-            re.compile(r"--- FAIL: (\S+)"),
-            re.compile(r"FAIL:?\s?(.+?)\s"),
-        ]
-        re_skip_tests = [re.compile(r"--- SKIP: (\S+)")]
-
-        def get_base_name(test_name: str) -> str:
-            return test_name
+        re_pass_tests = [re.compile(r"test (\S+) ... ok")]
+        re_fail_tests = [re.compile(r"test (\S+) ... FAILED")]
+        re_skip_tests = [re.compile(r"test (\S+) ... ignored")]
 
         for line in test_log.splitlines():
             line = line.strip()
 
-            for re_pass_test in re_pass_tests:
-                pass_match = re_pass_test.match(line)
-                if pass_match:
-                    test_name = pass_match.group(1)
-                    if test_name in failed_tests:
-                        continue
-                    if test_name in skipped_tests:
-                        skipped_tests.remove(test_name)
-                    passed_tests.add(get_base_name(test_name))
+            for re_pass in re_pass_tests:
+                match = re_pass.match(line)
+                if match:
+                    passed_tests.add(match.group(1))
 
-            for re_fail_test in re_fail_tests:
-                fail_match = re_fail_test.match(line)
-                if fail_match:
-                    test_name = fail_match.group(1)
-                    if test_name in passed_tests:
-                        passed_tests.remove(test_name)
-                    if test_name in skipped_tests:
-                        skipped_tests.remove(test_name)
-                    failed_tests.add(get_base_name(test_name))
+            for re_fail in re_fail_tests:
+                match = re_fail.match(line)
+                if match:
+                    failed_tests.add(match.group(1))
 
-            for re_skip_test in re_skip_tests:
-                skip_match = re_skip_test.match(line)
-                if skip_match:
-                    test_name = skip_match.group(1)
-                    if test_name in passed_tests:
-                        continue
-                    if test_name not in failed_tests:
-                        continue
-                    skipped_tests.add(get_base_name(test_name))
+            for re_skip in re_skip_tests:
+                match = re_skip.match(line)
+                if match:
+                    skipped_tests.add(match.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -1,3 +1,4 @@
+import re
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -659,6 +660,42 @@ class Junit5(Instance):
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
+
+        passed_res = [
+            re.compile(r"^> Task :(\S+)$"),
+            re.compile(r"^> Task :(\S+) UP-TO-DATE$"),
+            re.compile(r"^> Task :(\S+) FROM-CACHE$"),
+            re.compile(r"^(.+ > .+) PASSED$"),
+        ]
+
+        failed_res = [
+            re.compile(r"^> Task :(\S+) FAILED$"),
+            re.compile(r"^(.+ > .+) FAILED$"),
+        ]
+
+        skipped_res = [
+            re.compile(r"^> Task :(\S+) SKIPPED$"),
+            re.compile(r"^> Task :(\S+) NO-SOURCE$"),
+            re.compile(r"^(.+ > .+) SKIPPED$"),
+        ]
+
+        for line in test_log.splitlines():
+            for passed_re in passed_res:
+                m = passed_re.match(line)
+                if m and m.group(1) not in failed_tests:
+                    passed_tests.add(m.group(1))
+
+            for failed_re in failed_res:
+                m = failed_re.match(line)
+                if m:
+                    failed_tests.add(m.group(1))
+                    if m.group(1) in passed_tests:
+                        passed_tests.remove(m.group(1))
+
+            for skipped_re in skipped_res:
+                m = skipped_re.match(line)
+                if m:
+                    skipped_tests.add(m.group(1))
 
         return TestResult(
             passed_count=len(passed_tests),

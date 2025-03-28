@@ -109,7 +109,7 @@ def main(
 
     try:
         with open(
-            out_dir / f"{org}__{repo}_dataset.jsonl", "r", encoding="utf-8"
+            out_dir / f"{org}__{repo}_raw_dataset.jsonl", "r", encoding="utf-8"
         ) as file:
             raw_dataset = {}
             for line in file:
@@ -120,7 +120,7 @@ def main(
 
     failed_number = max([pr["number"] for pr in filtered_prs_with_issues])
 
-    log_file = out_dir / f"{org}__{repo}_dataset.log"
+    log_file = out_dir / f"{org}__{repo}_raw_dataset.log"
     last_failed_number = get_failed_number(log_file)
     if last_failed_number is not None:
         failed_number = last_failed_number
@@ -128,7 +128,9 @@ def main(
     processed_number = min(raw_dataset.keys()) if raw_dataset else failed_number
     print(f"minimum processed number: {processed_number}")
 
-    with open(out_dir / f"{org}__{repo}_dataset.jsonl", "a", encoding="utf-8") as file:
+    with open(
+        out_dir / f"{org}__{repo}_raw_dataset.jsonl", "a", encoding="utf-8"
+    ) as file:
         for pr in tqdm(filtered_prs_with_issues, desc="Building Dataset"):
             if (
                 pr["number"] in raw_dataset
