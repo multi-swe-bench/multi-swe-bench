@@ -71,7 +71,7 @@ The following sections describe the use of each module in turn !
 # Getting started
 
 ## Join our Multi-SWE-RL community!
-If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](.\Doc\demo.md)!
+If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](Doc/demo.md)!
 
 ## Install from Source
 
