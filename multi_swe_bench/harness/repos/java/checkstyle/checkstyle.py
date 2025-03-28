@@ -1,4 +1,5 @@
 import re
+import textwrap
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -55,67 +56,6 @@ RUN apt-get update && apt-get install -y git openjdk-11-jdk maven
 {code}
 
 
-{self.clear_env}
-
-"""
-
-
-class CheckstyleImageBaseCpp7(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "gcc:7"
-
-    def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
-
-    def image_tag(self) -> str:
-        return "base-cpp-7"
-
-    def workdir(self) -> str:
-        return "base-cpp-7"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-
-{code}
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
-    pkg-config \
-    wget \
-    tar && \
-    wget https://cmake.org/files/v3.14/cmake-3.14.0-Linux-x86_64.tar.gz && \
-    tar -zxvf cmake-3.14.0-Linux-x86_64.tar.gz && \
-    mv cmake-3.14.0-Linux-x86_64 /opt/cmake && \
-    ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake && \
-    rm cmake-3.14.0-Linux-x86_64.tar.gz
-RUN apt-get install -y cmake
 {self.clear_env}
 
 """
@@ -195,7 +135,35 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
+if [ ! -f ~/.m2/settings.xml ]; then
+    mkdir -p ~/.m2 && cat <<EOF > ~/.m2/settings.xml
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
 
+    <mirrors>
+        <mirror>
+            <id>aliyunmaven</id>
+            <mirrorOf>central</mirrorOf>
+            <name>Aliyun Maven Mirror</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+        </mirror>
+    </mirrors>
+
+</settings>
+EOF
+else
+  grep -q "<mirror>" ~/.m2/settings.xml || sed -i '/<\/settings>/i \\
+  <mirrors> \\
+      <mirror> \\
+          <id>aliyunmaven</id> \\
+          <mirrorOf>central</mirrorOf> \\
+          <name>Aliyun Maven Mirror</name> \\
+          <url>https://maven.aliyun.com/repository/public</url> \\
+      </mirror> \\
+  </mirrors>' ~/.m2/settings.xml
+fi
+mvn clean test -Dstyle.color=never || true
 """.format(
                     pr=self.pr
                 ),
@@ -252,15 +220,65 @@ mvn clean test -Dstyle.color=never
             copy_commands += f"COPY {file.name} /home/\n"
 
         prepare_commands = "RUN bash /home/prepare.sh"
+        proxy_setup = ""
+        proxy_cleanup = ""
 
+        if self.global_env:
+            # 提取代理host和port
+            proxy_host = None
+            proxy_port = None
+
+            for line in self.global_env.splitlines():
+                match = re.match(
+                    r"^ENV\s*(http[s]?_proxy)=http[s]?://([^:]+):(\d+)", line
+                )
+                if match:
+                    proxy_host = match.group(2)
+                    proxy_port = match.group(3)
+                    break
+            if proxy_host and proxy_port:
+                proxy_setup = textwrap.dedent(
+                    f"""
+                RUN mkdir -p ~/.m2 && \\
+                    if [ ! -f ~/.m2/settings.xml ]; then \\
+                        echo '<?xml version="1.0" encoding="UTF-8"?>' > ~/.m2/settings.xml && \\
+                        echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"' >> ~/.m2/settings.xml && \\
+                        echo '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> ~/.m2/settings.xml && \\
+                        echo '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> ~/.m2/settings.xml && \\
+                        echo '</settings>' >> ~/.m2/settings.xml; \\
+                    fi && \\
+                    sed -i '$d' ~/.m2/settings.xml && \\
+                    echo '<proxies>' >> ~/.m2/settings.xml && \\
+                    echo '    <proxy>' >> ~/.m2/settings.xml && \\
+                    echo '        <id>example-proxy</id>' >> ~/.m2/settings.xml && \\
+                    echo '        <active>true</active>' >> ~/.m2/settings.xml && \\
+                    echo '        <protocol>http</protocol>' >> ~/.m2/settings.xml && \\
+                    echo '        <host>{proxy_host}</host>' >> ~/.m2/settings.xml && \\
+                    echo '        <port>{proxy_port}</port>' >> ~/.m2/settings.xml && \\
+                    echo '        <username></username>' >> ~/.m2/settings.xml && \\
+                    echo '        <password></password>' >> ~/.m2/settings.xml && \\
+                    echo '        <nonProxyHosts></nonProxyHosts>' >> ~/.m2/settings.xml && \\
+                    echo '    </proxy>' >> ~/.m2/settings.xml && \\
+                    echo '</proxies>' >> ~/.m2/settings.xml && \\
+                    echo '</settings>' >> ~/.m2/settings.xml
+                """
+                )
+
+                proxy_cleanup = textwrap.dedent(
+                    """
+                    RUN sed -i '/<proxies>/,/<\\/proxies>/d' ~/.m2/settings.xml
+                """
+                )
         return f"""FROM {name}:{tag}
 
 {self.global_env}
+{proxy_setup}
 
 {copy_commands}
 
 {prepare_commands}
 
+{proxy_cleanup}
 {self.clear_env}
 
 """
