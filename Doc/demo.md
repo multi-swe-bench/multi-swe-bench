@@ -100,7 +100,7 @@ Next, we need to implement Catch2.py, which is responsible for configuring the B
 
 
 ### Class for configuring the Base Image
-The first type configures the Base Image and can be named Catch2ImageBase. Below is an explanation of this class with code examples:
+The first type configures the Base Image and can be named `Catch2ImageBase`. Below is an explanation of this class with code examples:
 ```
 class Catch2ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -228,7 +228,7 @@ RUN apt-get update && apt-get install -y \
 To determine the necessary packages, you can refer to the repository’s GitHub homepage, including files like `.github/workflows`, `README.md`, etc. Additionally, you can look at execution files from other repositories in our project for inspiration. This is a challenging but essential task.
 
 ### Class for configuring the Instance Image
-The second type of class is responsible for configuring the Instance Image. This class can be named Catch2ImageDefault. Below is an explanation with code examples:
+The second type of class is responsible for configuring the Instance Image. This class can be named `Catch2ImageDefault`. Below is an explanation with code examples:
 ```
 class Catch2ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -388,7 +388,7 @@ The `dependency` method in this class returns the required base image. For examp
 def dependency(self) -> Image | None:
     return Catch2ImageBase(self.pr, self._config)
 ```
-Here, we directly return the previously defined Catch2ImageBase.
+Here, we directly return the previously defined `Catch2ImageBase`.
 
 Similar to the base image class, the `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
@@ -508,7 +508,7 @@ The `dockerfile` method in this class returns the Dockerfile content for the Ins
 Generally, this method does not require modifications.
 
 ### Class for running the Instance
-The final class is responsible for executing the Instance, which is defined as follows:
+The final class is responsible for running the Instance, which is defined as follows:
 
 ```
 @Instance.register("catchorg", "Catch2")
@@ -637,7 +637,7 @@ python multi_swe_bench\harness\build_dataset.py \
     HTTPS_PROXY=http://host.docker.internal:7890 \
     https_proxy=http://host.docker.internal:7890
 ```
-After successful execution, you should see the generated images and log files in the `work` directory, and the results in the `output` directory.
+After successful running, you should see the generated images and log files in the `work` directory, and the results in the `output` directory.
 ```
 multi_swe_bench/
 ├── collect/   
