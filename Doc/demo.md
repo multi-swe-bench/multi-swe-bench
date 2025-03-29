@@ -5,8 +5,10 @@ This demo is about how to build a dataset and participate in our Multi-SWE-RL co
 1. **Repository Selection**
 2. **PR Crawling**
 3. **Environment Determinaton**
-4. **PR Filtes and Generates Final Data (Jsonl)**
-5. **Submitting PRs to Huggingface and Github**
+4. **PR Filters and Generates Final Data (Jsonl)**
+5. **Submitting PRs to Huggingface **
+6. **Submitting PRs to Github **
+7. **Tracking Data Reviews**
 
 Let's start a step-by-step journey into the Multi-SWE-RL community together!
 
@@ -738,7 +740,8 @@ It is common for previous configurations to become invalid due to version change
 
 We have already demonstrated the first approach. The second approach is necessary when test commands vary across versions, as seen in [bitcoin's configuration](../multi_swe_bench/harness/repos/cpp/bitcoin/bitcoin.py).
 In this way, by continuously iterating and modifying, you can maximize the execution of all collected instances. The final modified file is similar to [Catch2](../multi_swe_bench/harness/repos/cpp/catchorg/catch2.py).
-# 4.PR Filtes and Generates Final Data (Jsonl)
+
+# 4.PR Filters and Generates Final Data (Jsonl)
 
 Congratulations! You have completed the most challenging step. Now, you can filter qualified instances from the execution data. A qualified instance must fix failed tests with the golden patch and not introduce new issues.
 
@@ -762,7 +765,52 @@ It will invoke the `log_parse` method (configured in [Step 3](#class-for-running
 
 **Note**: If you find that some test cases passed in `test-patch-run.log` but failed in `fix-patch-run.log`, consider whether the failure is caused by the golden patch. You can analyze `run.log` to check for potential causes. Sometimes, failures may result from resource limitations, network issues, or other environmental factors. If certain test failures are confirmed to be caused by external factors, you need to modify the `log_parse` method to exclude those test cases from the evaluation.
 
-# 5.Submitting PRs to Huggingface and Github
+# 5.Submitting PRs to Huggingface
 
-XXX
+This step is the beginning of a simple and enjoyable contribution process！
 
+First you need to get into our [Multi-SWE-RL Huggingface Community]([Multi-SWE-RL/Multi-SWE-RL at main](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main)) 
+
+**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **(naming format: Data year_month).**
+
+The file structure of this Multi-SWE-RL Huggingface repository is shown below：
+
+```
+Data25_4/
+├── c/
+    ├── org1__repo1_dataset.jsonl
+    ├── org2__repo2_dataset.jsonl
+    └── ...
+├── c++/
+    ├── org3__repo3_dataset.jsonl
+    ├── org4__repo4_dataset.jsonl
+    └── ...
+├── java/
+    ├── ...
+    └── ...
+├── javascript/
+    ├── ...
+    └── ...
+└── ...
+Data25_7/
+├── ...
+└── ...
+```
+
+The contribution process is very simple and does not require the use of commands and code, please follow the steps below:
+
+1. Go to the **Data folder** **with the latest date**, and go to the folder of the **contributed language**, and click **Upload files**.
+
+   For example, if we want to contribute **catchorg__Catch2_dataset.jsonl** in **C++**, we will go to the **Data25_7/c++** folder with **the latest date** and click **Upload files**.
+
+<img src="image\demo5_1.png">
+
+2.Then **upload** your catchorg__Catch2_dataset.jsonl, and then **add specific information about the dataset**, and then click **Open a Pull Request** to complete the PR submission!
+
+<img src="image\demo5_2.png">
+
+At this point, congratulations on your huggingface PR submission!
+
+# 6.Submitting PRs to Github
+
+# 7.Tracking Data Reviews

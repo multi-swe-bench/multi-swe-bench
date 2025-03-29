@@ -58,7 +58,7 @@ Welcome to join our community and stay tuned!
 
 This repository is about the datasets construction of Multi-SWE-Bench (Phase1~4) :
 
-<img src=".\Doc\image\Construction.png">
+<img src=".\doc\image\Construction.png">
 
 This repository including three modules:
 
@@ -71,7 +71,7 @@ The following sections describe the use of each module in turn !
 # Getting started
 
 ## Join our Multi-SWE-RL community!
-If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](Doc/demo.md)!
+If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](doc/demo.md)!
 
 ## Install from Source
 
