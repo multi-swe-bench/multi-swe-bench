@@ -244,10 +244,6 @@ class Catch2ImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if 2288 <= self.pr.number and self.pr.number <= 2554:
-            return Catch2ImageBaseCpp12(self.pr, self._config)
-        elif self.pr.number <= 2187:
-            return Catch2ImageBaseCpp7(self.pr, self._config)
         return Catch2ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
@@ -741,6 +737,7 @@ It is common for previous configurations to become invalid due to version change
 - Adjust the `file` method in `Catch2ImageDefault`.
 
 We have already demonstrated the first approach. The second approach is necessary when test commands vary across versions, as seen in [bitcoin's configuration](../multi_swe_bench/harness/repos/cpp/bitcoin/bitcoin.py).
+In this way, by continuously iterating and modifying, you can maximize the execution of all collected instances. The final modified file is similar to [Catch2](../multi_swe_bench/harness/repos/cpp/catchorg/catch2.py).
 # 4.PR Filtes and Generates Final Data (Jsonl)
 
 Congratulations! You have completed the most challenging step. Now, you can filter the qualified instances from the execution data. A qualified instance must meet the following criteria: its golden patch successfully resolves test cases that previously failed without it, and it does not introduce new issues.
