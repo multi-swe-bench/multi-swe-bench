@@ -39,7 +39,7 @@
 
 We are extremely delighted to release **Multi-SWE-Bench** and **Multi-SWE-RL**.Multi-SWE-Bench aims to build a multi-language benchmark dataset containing real software engineering scenarios for evaluating the ability of LLM to solve real software engineering problems. The dataset supports multiple languages, currently including C, C++, Java, Javascript, Typescript, Rust, Go.
 
-Among other things, our team has also created a **Multi-SWE-Bench RL community** to encourage people to make more real software engineering datasets and then contribute to the community to accelerate the research of LLM in software engineering. If you are interested in this, try to follow the following to make a dataset with your hands!
+Among other things, our team has also created a **Multi-SWE RL community** to encourage people to make more real software engineering datasets and then contribute to the community to accelerate the research of LLM in software engineering. If you are interested in this, try to follow the following to make a dataset with your hands!
 
 Welcome to join our community and stay tuned!
 
@@ -198,13 +198,13 @@ example_config:
 ```
 your_workdir/
 ├── <ORG_1>         	# Github organization name
-  └── <REPO_1>    	# Github repository name
-	  ├── images  	# Files and logs related to BASE and PR images
-	  └── instances	# Instances run-related logs
+|   └── <REPO_1>    	# Github repository name
+|	  ├── images  	# Files and logs related to BASE and PR images
+|	  └── instances	# Instances run-related logs
 ├── <ORG_2>         	
-  └── <REPO_2>    	
-	  ├── images  	
-	  └── instances	
+|   └── <REPO_2>    	
+|	  ├── images  	
+|	  └── instances	
 └── ...
 ```
 
