@@ -813,4 +813,6 @@ At this point, congratulations on your huggingface PR submission!
 
 # 6.Submitting PRs to Github
 
+首先fork我们的仓库
+
 # 7.Tracking Data Reviews
