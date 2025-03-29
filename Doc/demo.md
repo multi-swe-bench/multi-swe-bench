@@ -80,7 +80,7 @@ multi_swe_bench/harness/repos/cpp/
 **Note**: When naming files, it is recommended to use lowercase letters and remove special characters such as `-` and `_`. If multiple repositories share the same organization, their execution files can be placed in the same organization folder and managed collectively through `__init__.py`.
 
 ## Updating the __init__.py Files
-After creating the files, update the `__init__.py` file in `multi_swe_bench/harness/repos/cpp/` to include:
+After creating the files, update the `__init__.py` file in `multi_swe_bench/harness/repos/cpp` to include:
 
 ```
 from multi_swe_bench.harness.repos.cpp.catchorg import *
@@ -92,11 +92,11 @@ from multi_swe_bench.harness.repos.cpp.catchorg.catch2 import *
 ## Implementing catch2.py
 Next, we need to implement Catch2.py, which is responsible for configuring the Base Image, Instance Image, and executing the Instance. This is achieved through three types of classes:
 
-- Class for configuring the Base Image: These classes set up the basic environment with necessary dependencies and the code repository.
+- **Class for configuring the Base Image**: These classes set up the basic environment with necessary dependencies and the code repository.
 
-- Class for configuring the Instance Image: This class configures the Instance Image, which is tailored for each PR and contains the required scripts for execution.
+- **Class for configuring the Instance Image**: This class configures the Instance Image, which is tailored for each PR and contains the required scripts for execution.
 
-- Class for running the Instance: This class manages the execution of the instance, applies various scripts, and parses the results.
+- **Class for running the Instance**: This class manages the execution of the instance, applies various scripts, and parses the results.
 
 
 ### Class for configuring the Base Image
@@ -169,7 +169,7 @@ def dependency(self) -> Union[str, "Image"]:
 ```
 This specifies `gcc:latest` as the base dependency image.
 
-The `image_tag` and `workdir` methods define the image tag and working directory, usually set to the same value.
+The `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
 The most critical part of this class is the dockerfile method, as shown below:
 ```
@@ -394,7 +394,7 @@ def dependency(self) -> Image | None:
 ```
 Here, we directly return the previously defined Catch2ImageBase.
 
-Similar to the base image class, the `image_tag` and `workdir` methods define the image tag, which is generally set to the same value.
+Similar to the base image class, the `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
 The `file` method is crucial in configuring the Instance Image. It specifies the files included in the image, such as:
 
