@@ -161,7 +161,7 @@ RUN apt-get update && apt-get install -y \
 
 """
 ```
-The dependency method in this class returns the dependency image for the Base Image. For example:
+The `dependency` method in this class returns the dependency image for the Base Image. For example:
 
 ```
 def dependency(self) -> Union[str, "Image"]:
@@ -171,7 +171,7 @@ This specifies `gcc:latest` as the base dependency image.
 
 The `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
-The most critical part of this class is the dockerfile method, as shown below:
+The most critical part of this class is the `dockerfile` method, as shown below:
 ```
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -204,9 +204,9 @@ RUN apt-get update && apt-get install -y \
 
 """
 ```
-The dockerfile method returns the generated Dockerfile content, where:
+The `dockerfile` method returns the generated Dockerfile content, where:
 
-- `{image_name}` is specified by the dependency method.
+- `{image_name}` is specified by the `dependency` method.
 
 - `{self.global_env}` and `{self.clear_env}` represent proxy configuration commands.
 
@@ -382,7 +382,7 @@ ctest
 
 """
 ```
-The dependency method in this class returns the required base image. For example:
+The `dependency` method in this class returns the required base image. For example:
 
 ```
 def dependency(self) -> Image | None:
@@ -724,7 +724,7 @@ RUN apt-get update && apt-get install -y \
 
 """
 ```
-In the `Catch2ImageDefault` class, we can modify the PR image for specific instances. The simplest way is to check the PR number in the dependency method:
+In the `Catch2ImageDefault` class, we can modify the PR image for specific instances. The simplest way is to check the PR number in the `dependency` method:
 ```
 def dependency(self) -> Image | None:
     if self.pr.number and self.pr.number <= 2554:
@@ -740,13 +740,13 @@ We have already demonstrated the first approach. The second approach is necessar
 In this way, by continuously iterating and modifying, you can maximize the execution of all collected instances. The final modified file is similar to [Catch2](../multi_swe_bench/harness/repos/cpp/catchorg/catch2.py).
 # 4.PR Filtes and Generates Final Data (Jsonl)
 
-Congratulations! You have completed the most challenging step. Now, you can filter the qualified instances from the execution data. A qualified instance must meet the following criteria: its golden patch successfully resolves test cases that previously failed without it, and it does not introduce new issues.
+Congratulations! You have completed the most challenging step. Now, you can filter qualified instances from the execution data. A qualified instance must fix failed tests with the golden patch and not introduce new issues.
 
 The filtering process is based on `test-patch-run.log` and `fix-patch-run.log`, ensuring:
 
-- There exist test cases that failed in test-patch-run.log but passed in fix-patch-run.log.
+- There exist test cases that failed in `test-patch-run.log` but passed in `fix-patch-run.log`.
 
-- No test cases that passed in test-patch-run.log failed in fix-patch-run.log due to the golden patch.
+- No test cases that passed in `test-patch-run.log` failed in `fix-patch-run.log` due to the golden patch.
 
 We provide an automated parsing method. When you execute:
 ```
