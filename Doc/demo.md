@@ -660,7 +660,7 @@ multi_swe_bench/
 ```
 If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for [PR #2554](https://github.com/catchorg/Catch2/pull/2554). You can analyze the logs to identify the issue. Additionally, you can reference the corresponding base commit (`base.sha`) for this instance:
 `8ce92d2c7288b6b3261caf1c016f8a779b6a8efc`
-You can visit the following GitHub link to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc)
+You can visit the following GitHub link to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc).
 
 Upon investigation, the error may be related to the gcc version. 
 Since dependency installation is determined by the Base image, we can redefine a new Base image configuration class, such as `Catch2ImageBaseCpp12`:
