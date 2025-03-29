@@ -39,7 +39,7 @@ By using these filtering and sorting options, you can quickly find repositories 
 
 # 2.PR Crawling
 
-Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository catchorg/Catch2 and have created an output directory, such as collect/catchorg__Catch2, you can run the following command:
+Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can run the following command:
 
 ```bash
 python -m multi_swe_bench.collect.get_pipeline \
@@ -60,9 +60,9 @@ The most important file is `catchorg__Catch2_dataset.jsonl`, which contains the 
 
 # 3.Environment Determinaton
 
-This is the most challenging but crucial step. We need to configure the execution environment for the collected catchorg/Catch2 instances using Docker.
+This is the most challenging but crucial step. We need to configure the execution environment for the collected `catchorg/Catch2` instances using Docker.
 
-Since `catchorg/Catch2` is a C++ repository, we first need to create a folder inside multi_swe_bench/harness/repos/cpp/. It is recommended to name the folder after the repository's organization (catchorg). Inside this folder, create two new files:
+Since `catchorg/Catch2` is a C++ repository, we first need to create a folder inside `multi_swe_bench/harness/repos/cpp`. It is recommended to name the folder after the repository's organization (catchorg). Inside this folder, create two new files:
 
 - A Python file for handling repository execution (recommended to use the repository name, `catch2.py`).
 
@@ -229,7 +229,163 @@ To determine the necessary packages, you can refer to the repository’s GitHub 
 
 ### Class for configuring the Instance Image
 The second type of class is responsible for configuring the Instance Image. This class can be named Catch2ImageDefault. Below is an explanation with code examples:
+```
+class Catch2ImageDefault(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
 
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> Image | None:
+        if 2288 <= self.pr.number and self.pr.number <= 2554:
+            return Catch2ImageBaseCpp12(self.pr, self._config)
+        elif self.pr.number <= 2187:
+            return Catch2ImageBaseCpp7(self.pr, self._config)
+        return Catch2ImageBase(self.pr, self._config)
+
+    def image_name(self) -> str:
+        return f"{self.pr.org}/{self.pr.repo}".lower()
+
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "check_git_changes.sh",
+                """#!/bin/bash
+set -e
+
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  echo "check_git_changes: Not inside a git repository"
+  exit 1
+fi
+
+if [[ -n $(git status --porcelain) ]]; then
+  echo "check_git_changes: Uncommitted changes"
+  exit 1
+fi
+
+echo "check_git_changes: No uncommitted changes"
+exit 0
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout {pr.base.sha}
+bash /home/check_git_changes.sh
+
+mkdir build
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+set -e
+
+cd /home/{pr.repo}
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
+cd build
+cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
+make
+ctest
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        image = self.dependency()
+        name = image.image_name()
+        tag = image.image_tag()
+
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        prepare_commands = "RUN bash /home/prepare.sh"
+
+        return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
+```
 The dependency method in this class returns the required base image. For example:
 
 ```
@@ -349,7 +505,7 @@ The `dockerfile` method in this class returns the Dockerfile content for the Ins
 
 - Copying necessary files.
 
-- Running prepare.sh.
+- Running `prepare.sh`.
 
 - Clearing proxy settings.
 
