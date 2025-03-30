@@ -821,7 +821,7 @@ Refer specifically to the following sample PR for submitting a new dataset：htt
 
 # 7.Tracking Dataset Reviews
 
-Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
+Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
 
 In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
 
@@ -831,7 +831,7 @@ The data review has the following three states：
 * `needs to be fixed：`There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
 * `merge：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
 
-We will review the PRs on the  [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
+We will review the PRs on the  [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
 
 If you have any questions about the process, you can also join our [Discord](https://discord.gg/EtfbkfqUuN) to discuss it!
 

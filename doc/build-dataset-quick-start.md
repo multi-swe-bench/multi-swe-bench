@@ -2,7 +2,7 @@
 
 This repository is about the datasets construction of Multi-SWE-Bench (Phase1~4) :
 
-<img src=".\doc\image\Construction.png">
+<img src=".\image\Construction.png">
 
 This repository including three modules:
 
