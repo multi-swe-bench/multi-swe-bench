@@ -769,7 +769,7 @@ It will invoke the `log_parse` method (configured in [Step 3](#class-for-running
 
 This step is the beginning of a simple and enjoyable contribution process！
 
-First you need to get into our [Multi-SWE-RL Huggingface Community]([Multi-SWE-RL/Multi-SWE-RL at main](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main)) 
+First you need to get into our [Multi-SWE-RL Huggingface Community](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main) 
 
 **Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **(naming format: Data year_month).**
 
@@ -813,6 +813,25 @@ At this point, congratulations on your huggingface PR submission!
 
 # 6.Submitting PRs to Github
 
-首先fork我们的仓库
+Fork our github repository, **submit the code changes of phase 1-4 as PR**, when submitting PR, you should **read the PR template carefully and fill in the relevant content**, such as huggingface link and specific data information and so on.
 
-# 7.Tracking Data Reviews
+Refer specifically to the following sample PR for submitting a new dataset：https://github.com/multi-swe-bench/multi-swe-bench/pull/1
+
+
+
+# 7.Tracking Dataset Reviews
+
+Next you just need to follow up on our reviews，We've created a Github Project board called [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
+
+In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
+
+The data review has the following three states：
+
+* **pending review：**The PR has gone through our PR format review (in this case including huggingface's PR correlation with github's PR, etc.) and is in the awaiting data review stage
+* **needs to be fixed：**There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
+* **merge：**Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
+
+We will review the PRs on the  [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
+
+If you have any questions about the process, you can also join our [Discord](https://discord.gg/EtfbkfqUuN) to discuss it!
+
