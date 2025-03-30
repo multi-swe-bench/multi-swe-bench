@@ -66,6 +66,14 @@ If you want to learn how to get involved in the Multi-SWE-RL community, from bui
 # Features
 xxxxxx
 
+# Star Growth Trends
+
+<p align="center">
+  <a href="https://star-history.com/#multi-swe-bench/multi-swe-bench&Date">
+    <img src="https://api.star-history.com/svg?repos=multi-swe-bench/multi-swe-bench&type=Date" width="500" alt="Star History Chart">
+  </a>
+</p>
+
 # License
 This project is licensed under Apache License 2.0. See the [LICENSE](/LICENSE) flie for details.
 # Citation

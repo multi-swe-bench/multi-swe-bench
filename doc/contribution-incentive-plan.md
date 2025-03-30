@@ -13,7 +13,7 @@ We offer two tiers of recognition to reward contributors based on their effort a
 #### **Tier 1: Community Contributor**  
 - **Requirement**: Submit **validated data entries contributions** 
 - **Reward**:  
-  - Your name listed in the [Multi-SWE-RL Contribution Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) on our gitHub repository.  
+  - Your name listed in the [Multi-SWE-RL Contribution Table](https://github.com/users/multi-swe-bench/projects/3/views/1) on our gitHub repository.  
   - Your name(Name you provided/Github Username) will also be mentioned in the acknowledgements of our technical reports.
 
 #### **Tier 2: New authors of technical reports**  
