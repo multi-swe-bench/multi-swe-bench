@@ -60,14 +60,14 @@ zr:xxxxxxx
 # Multi-SWE-RL Community
 The Multi-SWE-RL Community is an open-source initiative focused on collaborative dataset creation for software engineering and reinforcement learning research. To foster active participation and recognize contributors, we introduce this Contribution Incentive Plan. By contributing high-quality data, you directly support advancements in AI research and earn recognition within the community.  
 
-We offer different levels of incentives for contributors, such as being added to the [community contributor list](doc/contributors.md) or being named as an author of a technical report, etc. Please check out our [contribution incentive plan](doc/contribution-incentive-plan.md).
+We offer different levels of incentives for contributors, such as being added to the [community merged contributors list](https://github.com/users/multi-swe-bench/projects/3/views/9) or being named as an author of a technical report, etc. Please check out our [contribution incentive plan](doc/contribution-incentive-plan.md).
 
 If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](doc/demo.md) or [quick-start](doc/build-dataset-quick-start.md)!
 # Features
 xxxxxx
 
 # License
-This project is licensed under XXX. See the XXX flie for details.
+This project is licensed under Apache License 2.0. See the [LICENSE](/LICENSE) flie for details.
 # Citation
 If you find XXX useful for your research and applications, feel free to give us a star ⭐ or cite us using:
 
