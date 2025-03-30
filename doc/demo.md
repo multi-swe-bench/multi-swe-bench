@@ -2,13 +2,13 @@
 
 This demo is about how to build a dataset and participate in our Multi-SWE-RL community, includes the following phases:
 
-1. **Repository Selection**
-2. **PR Crawling**
-3. **Environment Determinaton**
-4. **PR Filters and Generates Final Data (Jsonl)**
-5. **Submitting PRs to Huggingface **
-6. **Submitting PRs to Github **
-7. **Tracking Data Reviews**
+1. `Repository Selection`
+2. `PR Crawling`
+3. `Environment Determinaton`
+4. `PR Filters and Generates Final Data (Jsonl)`
+5. `Submitting PRs to Huggingface `
+6. `Submitting PRs to Github `
+7. `Tracking Dataset Reviews`
 
 Let's start a step-by-step journey into the Multi-SWE-RL community together!
 
@@ -827,9 +827,9 @@ In addition to **recording the states of the data review**, this dashboard also 
 
 The data review has the following three states：
 
-* **pending review：**The PR has gone through our PR format review (in this case including huggingface's PR correlation with github's PR, etc.) and is in the awaiting data review stage
-* **needs to be fixed：**There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
-* **merge：**Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
+* `pending review：`The PR has gone through our PR format review (in this case including huggingface's PR correlation with github's PR, etc.) and is in the awaiting data review stage
+* `needs to be fixed：`There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
+* `merge：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
 
 We will review the PRs on the  [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
 
