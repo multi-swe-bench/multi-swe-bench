@@ -41,7 +41,7 @@ By using these filtering and sorting options, you can quickly find repositories 
 
 # 2.PR Crawling
 
-Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can run the following command:
+Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can execute the following command:
 
 ```bash
 python -m multi_swe_bench.collect.get_pipeline \
@@ -50,7 +50,7 @@ python -m multi_swe_bench.collect.get_pipeline \
     --repo Catch2 \
     --tokens <your_github_tokens>    # GitHub tokens
 ```
-After execution, the generated files will be stored in:
+After execution, the generated files will be:
 ```
 collect/catchorg__Catch2/
     ├── catchorg__Catch2_prs.jsonl             
@@ -79,7 +79,7 @@ multi_swe_bench/harness/repos/cpp/
         └── __init__.py
     └── __init__.py
 ```
-**Note**: When naming files, it is recommended to use lowercase letters and remove special characters such as `-` and `_`. If multiple repositories share the same organization, their execution files can be placed in the same organization folder and managed collectively through `__init__.py`.
+**Note**: When naming files, it is recommended to use lowercase letters and remove special characters such as `-` and `_`. If multiple repositories share the same organization, their execution files can be placed in the same organization folder and managed through `__init__.py`.
 
 ## Updating the __init__.py Files
 After creating the files, update the `__init__.py` file in `multi_swe_bench/harness/repos/cpp` to include:
@@ -92,13 +92,13 @@ Similarly, update `multi_swe_bench/harness/repos/cpp/catchorg/__init__.py` with:
 from multi_swe_bench.harness.repos.cpp.catchorg.catch2 import *
 ```
 ## Implementing catch2.py
-Next, we need to implement Catch2.py, which is responsible for configuring the Base Image, Instance Image, and executing the Instance. This is achieved through three types of classes:
+Next, we need to implement `catch2.py`, which is responsible for configuring the Base Image, Instance Image, and running the Instance. This is achieved through three types of classes:
 
 - **Class for configuring the Base Image**: These classes set up the basic environment with necessary dependencies and the code repository.
 
 - **Class for configuring the Instance Image**: This class configures the Instance Image, which is tailored for each PR and contains the required scripts for execution.
 
-- **Class for running the Instance**: This class manages the execution of the instance, applies various scripts, and parses the results.
+- **Class for running the Instance**: This class manages the execution process, applies various scripts, and parses the results.
 
 
 ### Class for configuring the Base Image
@@ -227,7 +227,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     python3-pip
 ```
-To determine the necessary packages, you can refer to the repository’s GitHub homepage, including files like `.github/workflows`, `README.md`, etc. Additionally, you can look at execution files from other repositories in our project for inspiration. This is a challenging but essential task.
+To determine the necessary packages, you can refer to the repository’s GitHub homepage, such as `.github/workflows`, `README.md`, etc. Additionally, you can look at execution files from other repositories in our project for inspiration. This is a challenging but essential task.
 
 ### Class for configuring the Instance Image
 The second type of class is responsible for configuring the Instance Image. This class can be named `Catch2ImageDefault`. Below is an explanation with code examples:
@@ -384,7 +384,7 @@ ctest
 
 """
 ```
-The `dependency` method in this class returns the required base image. For example:
+The `dependency` method in this class returns the required Base Image. For example:
 
 ```
 def dependency(self) -> Image | None:
@@ -392,7 +392,7 @@ def dependency(self) -> Image | None:
 ```
 Here, we directly return the previously defined `Catch2ImageBase`.
 
-Similar to the base image class, the `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
+Similar to the Base Image class, the `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
 The `file` method is crucial in configuring the Instance Image. It specifies the files included in the image, such as:
 
@@ -411,7 +411,7 @@ The `file` method is crucial in configuring the Instance Image. It specifies the
 - `fix-run.sh` (script for running after applying both test and gold patches)
 
 
-To run an instance, the most critical scripts to modify are `prepare.sh`, `run.sh`, `test-run.sh`, and `fix-run.sh`. Below is an explanation of each script:
+To run an instance, the most critical scripts to modify are `prepare.sh`, `run.sh`, `test-run.sh`, and `fix-run.sh`.
 
 `prepare.sh`: This script performs initial setup tasks before executing the main scripts. It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
 
@@ -603,9 +603,7 @@ The most crucial part of this class is defining the `parse_log` method. This met
 - skipped (skipped test)
 
 ## Running the Collected Instances
-Congratulations! You have successfully created these three files. Now, let's run the collected instances based on these files.
-
-Before running the instance, we need to create three directories:
+Now, let's run the collected instances based on the configured files. Before running the instances, we need to create three directories:
 
 - work (working directory)
 
@@ -639,7 +637,7 @@ python multi_swe_bench\harness\build_dataset.py \
     HTTPS_PROXY=http://host.docker.internal:7890 \
     https_proxy=http://host.docker.internal:7890
 ```
-After successful running, you should see the generated images and log files in the `work` directory, and the results in the `output` directory.
+After successful running, you will see the generated images and log files in the `work` directory, and the results in the `output` directory.
 ```
 multi_swe_bench/
 ├── collect/   
@@ -660,12 +658,12 @@ multi_swe_bench/
                 └── test-patch-run.log
             └── ...
 ```
-If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for [PR #2554](https://github.com/catchorg/Catch2/pull/2554). You can analyze the logs to identify the issue. Additionally, you can reference the corresponding base commit (`base.sha`) for this instance:
-`8ce92d2c7288b6b3261caf1c016f8a779b6a8efc`
-You can visit the following GitHub link to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc).
+## Debugging Errors
+If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for PR #2554. 
+You can analyze the logs to identify the error, or you can reference the base commit (`base.sha: 8ce92d2c7288b6b3261caf1c016f8a779b6a8efc`) for this instance to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc).
 
 Upon investigation, the error may be related to the gcc version. 
-Since dependency installation is determined by the Base image, we can redefine a new Base image configuration class, such as `Catch2ImageBaseCpp12`:
+Since dependency installation is determined by the Base Image, we can redefine a new Base Image configuration class, such as `Catch2ImageBaseCpp12`:
 ```
 class Catch2ImageBaseCpp12(Image):
     def __init__(self, pr: PullRequest, config: Config):
@@ -726,7 +724,7 @@ RUN apt-get update && apt-get install -y \
 
 """
 ```
-In the `Catch2ImageDefault` class, we can modify the PR image for specific instances. The simplest way is to check the PR number in the `dependency` method:
+In the `Catch2ImageDefault` class, we can modify the dependency image for specific instances. The simplest way is to modify the `dependency` method based on the PR number:
 ```
 def dependency(self) -> Image | None:
     if self.pr.number and self.pr.number <= 2554:
@@ -734,7 +732,7 @@ def dependency(self) -> Image | None:
     return Catch2ImageBase(self.pr, self._config)
 ```
 
-It is common for previous configurations to become invalid due to version changes. In such cases, we can flexibly:
+Due to version changes, previous configurations often become invalid. In such cases, we can flexibly:
 - Create a new class to configure the Base Image and modify the `dependency` method in `Catch2ImageDefault`.
 - Adjust the `file` method in `Catch2ImageDefault`.
 
