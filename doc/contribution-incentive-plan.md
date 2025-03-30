@@ -11,15 +11,15 @@ The Multi-SWE-RL Community is an open-source initiative focused on collaborative
 We offer two tiers of recognition to reward contributors based on their effort and impact:  
 
 #### **Tier 1: Community Contributor**  
-- **Requirement**: Submit **50 validated data entries contributions** 
+- **Requirement**: Submit **validated data entries contributions** 
 - **Reward**:  
-  - Your name listed in the [Multi-SWE-RL Contributors](/doc/contributors.md) on the community website and GitHub repository.  
+  - Your name listed in the [Multi-SWE-RL Contribution Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) on our gitHub repository.  
+  - Your name(Name you provided/Github Username) will also be mentioned in the acknowledgements of our technical reports.
 
-#### **Tier 2: Technical Report Co-Author**  
-- **Requirement**: Submit **500 validated contributions** with consistent quality.  
+#### **Tier 2: New authors of technical reports**  
+- **Requirement**: Submit and **merge 200 data entries** and **more than 5 repositories** 
 - **Reward**:  
-  - Inclusion as a **co-author** in the community’s annual technical report/publication.  
-  - A featured interview/story on the community blog and social media.  
+  - Included in our relevant technical reports as **new author**.  
   - Priority consideration for leadership roles (e.g., dataset moderation, event organization).  
 
 ---
