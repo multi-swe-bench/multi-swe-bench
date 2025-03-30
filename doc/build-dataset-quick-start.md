@@ -1,11 +1,8 @@
 # Introduction
 
-This repository is about the datasets construction of Multi-SWE-Bench (Phase1~4) :
+This document is a brief introduction to the interfaces involved in building datasets,please refer to the detailed 👉[Demo](doc/demo.md) for more information.
 
-<img src=".\image\Construction.png">
-
-This repository including three modules:
-
+This interfaces including three modules:
 * Multi-SWE-Bench data collection module
 * Multi-SWE-Bench dataset construction module
 * Multi-SWE-Bench report generation Module
@@ -13,9 +10,6 @@ This repository including three modules:
 The following sections describe the use of each module in turn !
 
 # Getting started
-
-## Join our Multi-SWE-RL community!
-If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[Demo](doc/demo.md)!
 
 ## Install from Source
 

@@ -1,16 +1,26 @@
 # Overview
-
+<img src=".\image\Construction.png">
+The process of building datasets is shown above (Phase1~4),
 This demo is about how to build a dataset and participate in our Multi-SWE-RL community, includes the following phases:
 
 1. `Repository Selection`
+   * Selection of high-quality and well-maintained Repositories
 2. `PR Crawling`
+   * Crawling PR dataset with `get_pipeline.py` 
 3. `Environment Determinaton`
+   * Configure the execution environment for your collected dataset.
+   * Verify your dataset can be run while parsing the logs.
 4. `PR Filters and Generates Final Data (Jsonl)`
+   * Filtering of final dataset based on generated reports and parsed logs.
 5. `Submitting PRs to Huggingface `
+   * Upload your new dataset to our Multi-SWE-RL Community.
 6. `Submitting PRs to Github `
-7. `Tracking Dataset Reviews`
+   * Upload the code you changed in stages 3 ~ 4 to github
+7. `Tracking Progress`
 
-Let's start a step-by-step journey into the Multi-SWE-RL community together!
+**Notes**: Check that your newly built dataset does not duplicate an already published dataset.
+
+If you want to know about the specifics of how each phase works,what follows will be a step-by-step guide.
 
 # 1.Repository Selection
 
@@ -103,7 +113,7 @@ Next, we need to implement Catch2.py, which is responsible for configuring the B
 
 ### Class for configuring the Base Image
 The first type configures the Base Image and can be named `Catch2ImageBase`. Below is an explanation of this class with code examples:
-```
+```python
 class Catch2ImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -174,7 +184,7 @@ This specifies `gcc:latest` as the base dependency image.
 The `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
 The most critical part of this class is the `dockerfile` method, as shown below:
-```
+```python
     def dockerfile(self) -> str:
         image_name = self.dependency()
         if isinstance(image_name, Image):
@@ -231,7 +241,7 @@ To determine the necessary packages, you can refer to the repository’s GitHub 
 
 ### Class for configuring the Instance Image
 The second type of class is responsible for configuring the Instance Image. This class can be named `Catch2ImageDefault`. Below is an explanation with code examples:
-```
+```python
 class Catch2ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -415,7 +425,7 @@ To run an instance, the most critical scripts to modify are `prepare.sh`, `run.s
 
 `prepare.sh`: This script performs initial setup tasks before executing the main scripts. It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
 
-```
+```python
 File(
     ".",
     "prepare.sh",
@@ -435,7 +445,7 @@ mkdir build
 
 `run.sh`: This script navigates to the repository, enters the build folder, runs CMake and Make for compilation, and finally executes tests using CTest.
 
-```
+```python
 File(
     ".",
     "run.sh",
@@ -455,7 +465,7 @@ ctest
 
 `test-run.sh`: Compared to `run.sh`, this script includes an additional step to apply the test patch before running the tests.
 
-```
+```python
 File(
     ".",
     "test-run.sh",
@@ -476,7 +486,7 @@ ctest
 ```
 `fix-run.sh`: Compared to `test-run.sh`, this script includes an extra step to apply the gold patch.
 
-```
+```python
 File(
     ".",
     "fix-run.sh",
@@ -512,7 +522,7 @@ Generally, this method does not require modifications.
 ### Class for running the Instance
 The final class is responsible for running the Instance, which is defined as follows:
 
-```
+```python
 @Instance.register("catchorg", "Catch2")
 class Catch2(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -666,7 +676,7 @@ You can visit the following GitHub link to check the repository state at [that c
 
 Upon investigation, the error may be related to the gcc version. 
 Since dependency installation is determined by the Base image, we can redefine a new Base image configuration class, such as `Catch2ImageBaseCpp12`:
-```
+```python
 class Catch2ImageBaseCpp12(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -727,7 +737,7 @@ RUN apt-get update && apt-get install -y \
 """
 ```
 In the `Catch2ImageDefault` class, we can modify the PR image for specific instances. The simplest way is to check the PR number in the `dependency` method:
-```
+```python
 def dependency(self) -> Image | None:
     if self.pr.number and self.pr.number <= 2554:
         return Catch2ImageBaseCpp12(self.pr, self._config)
@@ -771,28 +781,28 @@ This step is the beginning of a simple and enjoyable contribution process！
 
 First you need to get into our [Multi-SWE-RL Huggingface Community](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main) 
 
-**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **(naming format: Data year_month).**
+**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **( data_v[Year].[Month]).**
 
 The file structure of this Multi-SWE-RL Huggingface repository is shown below：
 
 ```
-Data25_4/
+data_v25.4/
 ├── c/
     ├── org1__repo1_dataset.jsonl
     ├── org2__repo2_dataset.jsonl
     └── ...
-├── c++/
+├── cpp/
     ├── org3__repo3_dataset.jsonl
     ├── org4__repo4_dataset.jsonl
     └── ...
 ├── java/
     ├── ...
     └── ...
-├── javascript/
+├── js/
     ├── ...
     └── ...
 └── ...
-Data25_7/
+data_v25.7/
 ├── ...
 └── ...
 ```
@@ -819,9 +829,9 @@ Refer specifically to the following sample PR for submitting a new dataset：htt
 
 
 
-# 7.Tracking Dataset Reviews
+# 7.Tracking Progress
 
-Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
+Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the Progress.
 
 In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
 
@@ -829,7 +839,7 @@ The data review has the following three states：
 
 * `pending review：`The PR has gone through our PR format review (in this case including huggingface's PR correlation with github's PR, etc.) and is in the awaiting data review stage
 * `needs to be fixed：`There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
-* `merge：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
+* `merged：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
 
 We will review the PRs on the  [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
 

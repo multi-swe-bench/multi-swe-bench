@@ -19,20 +19,24 @@ Examples:
 ---
 
 <!-- New Dataset Submission (Multi-SWE-RL Community) PRs fill below -->
-## New Dataset Details (Delete if not applicable)
+## New Dataset Details (Ignore this part if you don't need it.)
 If you haven't submitted your newly created dataset (jsonl) to our Multi-SWE-RL datasets repository, please move to our huggingface to submit PR first!
 
 Then fill in your PR link below.
-1. Huggingface PR Link:
+1. Check that your newly built dataset does not duplicate an already published dataset (e.g. yes, no.)
 
-2. Dataset Types (e.g. C, C++, visual, etc.):
+2. Huggingface PR Link:
 
-3. Dataset Size (e.g. 100, 1000, etc.):
+3. Dataset Types (e.g. C, C++, visual, etc.):
+
+4. Repos that you are collected(e.g. python/cpython, nodejs/node.):
+
+5. Dataset Size (e.g. 100, 1000, etc.):
 
 
 
 <!-- Source code PRs fill below -->
-## Source Code Details (Delete if not applicable)
+## Source Code Details (Ignore this part if you don't need it.)
 1. Modification description:
 
 2...
