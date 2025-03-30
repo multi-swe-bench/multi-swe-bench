@@ -821,7 +821,7 @@ Refer specifically to the following sample PR for submitting a new dataset：htt
 
 # 7.Tracking Dataset Reviews
 
-Next you just need to follow up on our reviews，We've created a Github Project board called [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
+Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Board](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the status of data reviews.
 
 In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
 

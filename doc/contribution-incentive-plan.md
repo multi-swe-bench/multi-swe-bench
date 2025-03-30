@@ -1,4 +1,4 @@
-**Contribution Incentive Plan for Multi-SWE-RL Community**  
+## **Contribution Incentive Plan for Multi-SWE-RL Community**  
 
 ---
 
@@ -13,7 +13,7 @@ We offer two tiers of recognition to reward contributors based on their effort a
 #### **Tier 1: Community Contributor**  
 - **Requirement**: Submit **50 validated data entries contributions** 
 - **Reward**:  
-  - Your name listed in the [Multi-SWE-RL Contributors](/contributors.md) on the community website and GitHub repository.  
+  - Your name listed in the [Multi-SWE-RL Contributors](/doc/contributors.md) on the community website and GitHub repository.  
 
 #### **Tier 2: Technical Report Co-Author**  
 - **Requirement**: Submit **500 validated contributions** with consistent quality.  
@@ -25,7 +25,7 @@ We offer two tiers of recognition to reward contributors based on their effort a
 ---
 
 ### **3. Contribution Guidelines**  
-We have created a very [detailed demo](/demo.md) for this section.
+We have created a very [detailed demo](/doc/demo.md) for this section.
 
 ---
 
@@ -38,7 +38,7 @@ We have created a very [detailed demo](/demo.md) for this section.
 
 ### **5. FAQ**  
 **Q: How is my contribution count tracked?**  
-A: Each merged PR increments your count. Check your total via the [Contribution Dashboard](link-to-dashboard).  
+A: Each merged PR increments your count. Check your total via the [Multi-SWE-RL Contribution Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1).  
 
 **Q: Can team contributions be split across members?**  
 A: No. Contributions are tracked per GitHub account and Huggingface account.  
@@ -53,7 +53,7 @@ A: Authors are listed alphabetically, with core maintainers noted separately.
 
 ### **6. Get Started Today!**  
 Join us in building the future of AI datasets!  
-- [Demo](/demo.md)
+- [Demo](/doc/demo.md)
 - [Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
 - [Discord](https://discord.gg/EtfbkfqUuN)
 - Contact: [zandaoguang@bytedance.com](mailto:zandaoguang@bytedance.com)
