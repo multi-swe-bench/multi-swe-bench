@@ -225,7 +225,15 @@ class ReportTask(PullRequestBase):
         run_log: Optional[Union[str, TestResult]] = None,
         test_patch_run_log: Optional[Union[str, TestResult]] = None,
         fix_patch_run_log: Optional[Union[str, TestResult]] = None,
+        regen: bool = True,
     ) -> Report:
+        if not regen:
+            report_path = self.instance_dir / REPORT_FILE
+            if report_path.exists():
+                with open(report_path, "r", encoding="utf-8") as f:
+                    report = Report.from_json(f.read())
+                return report
+
         report = generate_report(
             self.instance,
             run_log or self.run_log,

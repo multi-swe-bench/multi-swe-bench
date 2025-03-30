@@ -100,6 +100,13 @@ def get_parser() -> ArgumentParser:
         default=True,
         help="Whether to log to the console.",
     )
+    parser.add_argument(
+        "--regen",
+        type=parser.bool,
+        required=False,
+        default=True,
+        help="Whether to regenerate the reports.",
+    )
 
     return parser
 
@@ -118,6 +125,7 @@ class CliArgs:
     log_dir: Path
     log_level: str
     log_to_console: bool
+    regen: bool = True
 
     def __post_init__(self):
         self._check_mode()
@@ -361,7 +369,7 @@ class CliArgs:
 
             def safe_generate_report(task: ReportTask) -> Tuple[Report, bool] | None:
                 try:
-                    report = task.generate_report()
+                    report = task.generate_report(regen=self.regen)
                     if not report.valid:
                         self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
@@ -422,7 +430,9 @@ class CliArgs:
                 test_patch_run_log: str,
             ) -> Union[Tuple[Report, bool], None]:
                 try:
-                    report = task.generate_report(run_log, test_patch_run_log)
+                    report = task.generate_report(
+                        run_log, test_patch_run_log, regen=self.regen
+                    )
                     if not report.valid:
                         self.logger.error(
                             f"Invalid report for {task.id}, {report.short_report()}, {report.error_msg}"
