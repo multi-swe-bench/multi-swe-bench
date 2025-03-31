@@ -23,7 +23,11 @@ class Libgit2ImageBase(Image):
         return "gcc:7"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base"
@@ -91,7 +95,11 @@ class Libgit2ImageBase4(Image):
         return "gcc:4"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-4"
@@ -153,7 +161,11 @@ class Libgit2ImageBase16(Image):
         return "ubuntu:16.04"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-16"
@@ -209,7 +221,11 @@ class Libgit2ImageBase16V2(Image):
         return "ubuntu:16.04"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-16V2"
@@ -272,7 +288,11 @@ class Libgit2ImageDefault(Image):
         return Libgit2ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"

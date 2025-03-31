@@ -1,4 +1,3 @@
-import re
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -23,7 +22,11 @@ class RxJavaImageBase(Image):
         return "ubuntu:22.04"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base"
@@ -116,7 +119,11 @@ class RxJavaImageBaseJDK11(Image):
         return "ubuntu:22.04"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-jdk-11"
@@ -209,7 +216,11 @@ class RxJavaImageBaseJDK8(Image):
         return "ubuntu:20.04"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-jdk-8"
@@ -307,7 +318,11 @@ class RxJavaImageDefault(Image):
         return RxJavaImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"

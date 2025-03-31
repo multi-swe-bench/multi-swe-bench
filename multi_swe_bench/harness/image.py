@@ -69,6 +69,9 @@ class Image:
     def image_full_name(self) -> str:
         return f"{self.image_name()}:{self.image_tag()}"
 
+    def image_prefix(self) -> str:
+        return "mswebench"
+
     def image_name(self) -> str:
         raise NotImplementedError
 

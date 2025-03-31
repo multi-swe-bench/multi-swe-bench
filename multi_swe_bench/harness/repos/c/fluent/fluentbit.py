@@ -23,7 +23,11 @@ class FluentbitImageBase(Image):
         return "gcc:11"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base"
@@ -79,7 +83,11 @@ class FluentbitImageBaseGCC7(Image):
         return "gcc:7"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-gcc-7"
@@ -137,7 +145,11 @@ class FluentbitImageDefault(Image):
         return FluentbitImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
