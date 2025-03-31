@@ -22,7 +22,7 @@
 <!-- 注释：以上为Seed官方信息，可直接复制使用，请注意导入“Seed WeChat”（第12行）、“Seed logo”(第20行)图片替换 -->
 
 
-# Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving
+# 🚀 Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving
 <p align="center">
   <a href="https://github.com/multi-swe-bench/multi-swe-bench">
     <img src="https://img.shields.io/badge/Multi_SWE_bench-Project Page-yellow"></a>
@@ -50,26 +50,28 @@ Welcome to join our community and stay tuned!
 请注意，徽章可根据具体项目自定义，如技术成果落地页、技术成果报告/Paper、Hugging Face、项目微信交流群、License、打榜榜单等，更换名字和链接即可；
 专属微信群出现在两个位置，第34行、第42行，可以联系EB同学创建 -->
 
-# News
+# 📢 News
 [2025/03/XX]🔥We have supported XXXXXX.
 <br>
 [2025/02/XX]🔥XXX is accepted as XXXXXX.
 <br>
 [2025/01/XX]🔥We release XXX.
 
-# Evaluation
+# 📊 Evaluation
 zr:xxxxxxx
 
-# Multi-SWE-RL Community
+# 🏆 Multi-SWE-RL Community
+[📋 Multi-SWE-RL Dataset Overview](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=1043807282#gid=1043807282)
+
 The Multi-SWE-RL Community is an open-source initiative focused on collaborative dataset creation for software engineering and reinforcement learning research. To foster active participation and recognize contributors, we introduce this Contribution Incentive Plan. By contributing high-quality data, you directly support advancements in AI research and earn recognition within the community.  
 
 We offer different levels of incentives for contributors, such as being recorded in the [Multi-SWE-RL Contribution Progress](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) or being a new author in subsequent updated technical reports, etc. Please check out our [contribution incentive plan](doc/contribution-incentive-plan.md).
 
 If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[contribution demo](doc/contribution-demo.md) or [quick-start](doc/build-dataset-quick-start.md)!
-# Features
+# ⚡ Features
 xxxxxx
 
-# Star Growth Trends
+# 🌟 Star Growth Trends
 
 <p align="center">
   <a href="https://star-history.com/#multi-swe-bench/multi-swe-bench&Date">
@@ -77,9 +79,9 @@ xxxxxx
   </a>
 </p>
 
-# License
+# 📜 License
 This project is licensed under Apache License 2.0. See the [LICENSE](/LICENSE) flie for details.
-# Citation
+# 📖 Citation
 If you find XXX useful for your research and applications, feel free to give us a star ⭐ or cite us using:
 
 ```bibtex
@@ -90,7 +92,7 @@ If you find XXX useful for your research and applications, feel free to give us 
   year={2024}
 }
 ```
-# About [ByteDance Seed Team](https://team.doubao.com/)
+# 🏢 About [ByteDance Seed Team](https://team.doubao.com/)
 
 Founded in 2023, ByteDance Seed Team is dedicated to crafting the industry's most advanced AI foundation models. The team aspires to become a world-class research team and make significant contributions to the advancement of science and society.
 
