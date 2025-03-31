@@ -24,18 +24,21 @@
 
 # Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving
 <p align="center">
-  <a href="https://github.com/bytedance/flux">
+  <a href="https://github.com/multi-swe-bench/multi-swe-bench">
     <img src="https://img.shields.io/badge/Multi_SWE_bench-Project Page-yellow"></a>
   <a href="https://arxiv.org/pdf/2502.19811">
     <img src="https://img.shields.io/badge/Multi_SWE_bench-Tech Report-red"></a>
-  <a href="XXXX">
+  <a href="https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-Bench">
     <img src="https://img.shields.io/badge/Multi_SWE_bench-Hugging Face-orange"></a>
   <br>
-  <a href="https://github.com/user-attachments/assets/d3fcb3bf-466b-4efe-8c3f-5f85258202ae">
-    <img src="https://img.shields.io/badge/Multi_SWE_bench-Wechat Communication Group-07C160"></a>
-  <a href="XXX">
-    <img src="https://img.shields.io/badge/License-XXX-blue"></a>
+  <a href="https://huggingface.co/Multi-SWE-RL">
+    <img src="https://img.shields.io/badge/Multi_SWE_RL_Community-Hugging Face-EE9A12"></a>
+  <a href="https://discord.gg/EtfbkfqUuN">
+    <img src="https://img.shields.io/badge/Multi_SWE_RL_Community-Discord-1449DA"></a>
+  <a href="https://github.com/multi-swe-bench/multi-swe-bench/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-Apache-blue"></a>
 </p>
+
 
 We are extremely delighted to release **Multi-SWE-Bench** and **Multi-SWE-RL**.Multi-SWE-Bench aims to build a multi-language benchmark dataset containing real software engineering scenarios for evaluating the ability of LLM to solve real software engineering problems. The dataset supports multiple languages, currently including C, C++, Java, Javascript, Typescript, Rust, Go.
 

@@ -779,12 +779,12 @@ This step is the beginning of a simple and enjoyable contribution process！
 
 First you need to get into our [Multi-SWE-RL Huggingface Community](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main) 
 
-**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **( data_v[Year].[Month]).**
+**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **( data_[YYYYMMDD]_[YYYYMMDD]).**
 
 The file structure of this Multi-SWE-RL Huggingface repository is shown below：
 
 ```
-data_v25.4/
+data_20240601_20250331/
 ├── c/
     ├── org1__repo1_dataset.jsonl
     ├── org2__repo2_dataset.jsonl
@@ -800,7 +800,7 @@ data_v25.4/
     ├── ...
     └── ...
 └── ...
-data_v25.7/
+data_20250401_20250631/
 ├── ...
 └── ...
 ```
