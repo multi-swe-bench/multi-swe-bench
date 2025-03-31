@@ -14,12 +14,12 @@ We offer two tiers of recognition to reward contributors based on their effort a
 - **Requirement**: Submit **validated data entries contributions** 
 - **Reward**:  
   - Your name listed in the [Multi-SWE-RL Contribution Table](https://github.com/users/multi-swe-bench/projects/3/views/1) on our gitHub repository.  
-  - Your name(Name you provided/Github Username) will also be mentioned in the acknowledgements of our technical reports.
+  - Your name(Name you provided/Github Username) will also be mentioned in the acknowledgements of our subsequent updated technical report.
 
 #### **Tier 2: New authors of technical reports**  
 - **Requirement**: Submit and **merge 200 data entries** and **more than 5 repositories** 
 - **Reward**:  
-  - Included in our relevant technical reports as **new author**.  
+  - Included in our subsequent updated technical report as **new author**.  
   - Priority consideration for leadership roles (e.g., dataset moderation, event organization).  
 
 ---
