@@ -37,39 +37,7 @@ class SpotbugsImageBase(Image):
         return "base"
 
     def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "config_gradle.sh",
-                """#!/bin/bash
-set -e
-
-echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
-source ~/.bashrc
-
-PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.http.proxyPort=8118
-systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.https.proxyPort=8118"
-
-GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
-
-if [ ! -d "$HOME/.gradle" ]; then
-    mkdir -p "$HOME/.gradle"
-fi
-
-if [ ! -f "$GRADLE_PROPERTIES" ]; then
-    touch "$GRADLE_PROPERTIES"
-fi
-
-if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
-    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
-    echo "Added proxy settings to $GRADLE_PROPERTIES"
-fi
-
-""",
-            )
-        ]
+        return []
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -96,7 +64,6 @@ RUN apt-get update && apt-get install -y git openjdk-21-jdk
 {code}
 
 {copy_commands}
-
 
 {self.clear_env}
 
@@ -133,39 +100,7 @@ class SpotbugsImageBaseJDK17(Image):
         return "base-jdk-17"
 
     def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "config_gradle.sh",
-                """#!/bin/bash
-set -e
-
-echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
-source ~/.bashrc
-
-PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.http.proxyPort=8118
-systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.https.proxyPort=8118"
-
-GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
-
-if [ ! -d "$HOME/.gradle" ]; then
-    mkdir -p "$HOME/.gradle"
-fi
-
-if [ ! -f "$GRADLE_PROPERTIES" ]; then
-    touch "$GRADLE_PROPERTIES"
-fi
-
-if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
-    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
-    echo "Added proxy settings to $GRADLE_PROPERTIES"
-fi
-
-""",
-            )
-        ]
+        return []
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -192,7 +127,6 @@ RUN apt-get update && apt-get install -y git openjdk-17-jdk
 {code}
 
 {copy_commands}
-
 
 {self.clear_env}
 
@@ -506,7 +440,6 @@ git apply --whitespace=nowarn /home/test.patch /home/fix.patch
         proxy_cleanup = ""
 
         if self.global_env:
-            # 提取代理host和port
             proxy_host = None
             proxy_port = None
 

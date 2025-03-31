@@ -1,4 +1,5 @@
 import re
+import textwrap
 from typing import Optional, Union
 
 from multi_swe_bench.harness.image import Config, File, Image
@@ -36,39 +37,7 @@ class MockitoImageBase(Image):
         return "base"
 
     def files(self) -> list[File]:
-        return [
-            File(
-                ".",
-                "config_gradle.sh",
-                """#!/bin/bash
-set -e
-
-echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc
-source ~/.bashrc
-
-PROXY_SETTINGS="systemProp.http.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.http.proxyPort=8118
-systemProp.https.proxyHost=sys-proxy-rd-relay.byted.org
-systemProp.https.proxyPort=8118"
-
-GRADLE_PROPERTIES="$HOME/.gradle/gradle.properties"
-
-if [ ! -d "$HOME/.gradle" ]; then
-    mkdir -p "$HOME/.gradle"
-fi
-
-if [ ! -f "$GRADLE_PROPERTIES" ]; then
-    touch "$GRADLE_PROPERTIES"
-fi
-
-if ! grep -q "systemProp.http.proxyHost" "$GRADLE_PROPERTIES"; then
-    echo "$PROXY_SETTINGS" >> "$GRADLE_PROPERTIES"
-    echo "Added proxy settings to $GRADLE_PROPERTIES"
-fi
-
-""",
-            )
-        ]
+        return []
 
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -102,8 +71,6 @@ RUN apt update && apt install -y zulu21-jdk
 {code}
 
 {copy_commands}
-
-RUN bash /home/config_gradle.sh
 
 {self.clear_env}
 
@@ -246,14 +213,53 @@ git apply /home/test.patch /home/fix.patch
 
         prepare_commands = "RUN bash /home/prepare.sh"
 
+        proxy_setup = ""
+        proxy_cleanup = ""
+        if self.global_env:
+            proxy_host = None
+            proxy_port = None
+
+            for line in self.global_env.splitlines():
+                match = re.match(
+                    r"^ENV\s*(http[s]?_proxy)=http[s]?://([^:]+):(\d+)", line
+                )
+                if match:
+                    proxy_host = match.group(2)
+                    proxy_port = match.group(3)
+                    break
+            if proxy_host and proxy_port:
+                proxy_setup = textwrap.dedent(
+                    f"""
+                    RUN mkdir -p ~/.gradle && \\
+                        if [ ! -f "$HOME/.gradle/gradle.properties" ]; then \\
+                            touch "$HOME/.gradle/gradle.properties"; \\
+                        fi && \\
+                        if ! grep -q "systemProp.http.proxyHost" "$HOME/.gradle/gradle.properties"; then \\
+                            echo 'systemProp.http.proxyHost={proxy_host}' >> "$HOME/.gradle/gradle.properties" && \\
+                            echo 'systemProp.http.proxyPort={proxy_port}' >> "$HOME/.gradle/gradle.properties" && \\
+                            echo 'systemProp.https.proxyHost={proxy_host}' >> "$HOME/.gradle/gradle.properties" && \\
+                            echo 'systemProp.https.proxyPort={proxy_port}' >> "$HOME/.gradle/gradle.properties"; \\
+                        fi && \\
+                        echo 'export GRADLE_USER_HOME=/root/.gradle' >> ~/.bashrc && \\
+                        /bin/bash -c "source ~/.bashrc"
+                """
+                )
+
+                proxy_cleanup = textwrap.dedent(
+                    """
+                    RUN rm -f ~/.gradle/gradle.properties
+                """
+                )
         return f"""FROM {name}:{tag}
 
 {self.global_env}
+{proxy_setup}
 
 {copy_commands}
 
 {prepare_commands}
 
+{proxy_cleanup}
 {self.clear_env}
 
 """
