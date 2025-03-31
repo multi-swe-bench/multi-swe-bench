@@ -60,14 +60,24 @@ Welcome to join our community and stay tuned!
 ## 📊 Evaluation
 zr:xxxxxxx
 
+
+
 ## [🏆 Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
 [📋 Multi-SWE-RL Dataset Overview](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=1043807282#gid=1043807282)
 
 The Multi-SWE-RL Community is an open-source initiative focused on collaborative dataset creation for software engineering and reinforcement learning research. To foster active participation and recognize contributors, we introduce this Contribution Incentive Plan. By contributing high-quality data, you directly support advancements in AI research and earn recognition within the community.  
 
-We offer different levels of incentives for contributors, such as being recorded in the [Multi-SWE-RL Contribution Progress](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) or being a new author in subsequent updated technical reports, etc. Please check out our [contribution incentive plan](doc/contribution-incentive-plan.md).
+**Incentive Tiers:**
+1. **Be a Contributor**: Get listed in the [Contribution Progress Sheet](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/)  
+2. **Report Authorship**: Become an author in future technical reports   
 
-If you want to learn how to get involved in the Multi-SWE-RL community, from building data to submitting PRs, check out this detailed👉[contribution demo](doc/contribution-demo.md) or [quick-start](doc/build-dataset-quick-start.md)!
+Full details: [Contribution Incentive Plan](doc/contribution-incentive-plan.md)
+
+**Get Started in 2 Steps:**
+1. **Learn**: [Quick-Start Guide](doc/build-dataset-quick-start.md)  
+2. **Try**: Follow our [Contribution Demo](doc/contribution-demo.md)  
+
+---
 ## ⚡ Features
 xxxxxx
 
