@@ -19,7 +19,7 @@
 
 ![seed logo](https://github.com/user-attachments/assets/c42e675e-497c-4508-8bb9-093ad4d1f216)
 
-<!-- 注释：以上为Seed官方信息，可直接复制使用，请注意导入“Seed WeChat”（第12行）、“Seed logo”(第20行)图片替换 -->
+<!-- 注释：以上为Seed官方信息，可直接复制使用，请注意导入"Seed WeChat"（第12行）、"Seed logo"(第20行)图片替换 -->
 
 
 ## 🚀 Multi-SWE-bench: A Multilingual Benchmark for Issue Resolving
@@ -58,9 +58,75 @@ Welcome to join our community and stay tuned!
 [2025/01/XX]🔥We release XXX.
 
 ## 📊 Evaluation
-zr:xxxxxxx
 
+### Run Evaluation
 
+To run the evaluation, you need to prepare the following:
+
+1. Patch Files: Some patch files in JSONL format, each item containing:
+   - `org`: Organization Name
+   - `repo`: Repository Name
+   - `number`: Pull Request Number
+   - `fix_patch`: Fix Patch Content
+2. Dataset Files: Dataset files in JSONL format available on Hugging Face, such as [Multi-SWE-Bench](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-Bench) or [Multi-SWE-RL](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL)
+
+Then you can run the evaluation using the following command:
+
+```bash
+python -m multi_swe_bench.harness.run_evaluation --config /path/to/your/config.json
+```
+
+#### Configuration File Example
+
+```json
+{
+    "mode": "evaluation",
+    "workdir": "./data/workdir",
+    "patch_files": [
+        "./data/patches/<your_patch_file>.jsonl"
+    ],
+    "dataset_files": [
+        "./data/patches/<to_evaluate_dataset_file>.jsonl"
+    ],
+    "force_build": false,
+    "output_dir": "./data/dataset",
+    "specifics": [],
+    "skips": [],
+    "repo_dir": "./data/repos",
+    "need_clone": false,
+    "global_env": [],
+    "clear_env": true,
+    "stop_on_error": true,
+    "max_workers": 8,
+    "max_workers_build_image": 8,
+    "max_workers_run_instance": 8,
+    "log_dir": "./data/logs",
+    "log_level": "DEBUG"
+}
+```
+
+#### Configuration Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `mode` | Execution mode for the script. Options: `"evaluation"`, `"instance"`, `"instance_only"`, `"image"`. Default: `"evaluation"` |
+| `workdir` | Working directory path for evaluation operations |
+| `patch_files` | List of patch file paths in JSONL format (supports glob patterns) |
+| `dataset_files` | List of dataset file paths in JSONL format (supports glob patterns) |
+| `force_build` | Whether to force rebuild Docker images even if they already exist |
+| `output_dir` | Directory path for output results |
+| `specifics` | List of specific PR IDs to evaluate (empty = all) |
+| `skips` | List of PR IDs to skip during evaluation |
+| `repo_dir` | Directory containing cloned repositories |
+| `need_clone` | Whether repositories should be cloned if not present |
+| `global_env` | Global environment variables to pass to Docker containers (format: `"KEY=VALUE"`) |
+| `clear_env` | Whether to clear environment variables in Docker containers |
+| `stop_on_error` | Whether to stop execution when an error occurs |
+| `max_workers` | Maximum number of concurrent worker threads for general tasks |
+| `max_workers_build_image` | Maximum number of concurrent worker threads for building Docker images |
+| `max_workers_run_instance` | Maximum number of concurrent worker threads for running instances |
+| `log_dir` | Directory for log files |
+| `log_level` | Logging level. Options: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` |
 
 ## [🏆 Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
 [📋 Multi-SWE-RL Dataset Overview](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=1043807282#gid=1043807282)
