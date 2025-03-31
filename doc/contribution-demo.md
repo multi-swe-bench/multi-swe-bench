@@ -779,7 +779,7 @@ This step is the beginning of a simple and enjoyable contribution process！
 
 First you need to get into our [Multi-SWE-RL Huggingface Community](https://huggingface.co/datasets/Multi-SWE-RL/Multi-SWE-RL/tree/main) 
 
-**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update **( data_[YYYYMMDD]_[YYYYMMDD]).**
+**Notes:**This repository is maintained and updated on an ongoing basis, and is currently scheduled to be updated every three months, with a separate file created for each update .
 
 The file structure of this Multi-SWE-RL Huggingface repository is shown below：
 
@@ -809,7 +809,7 @@ The contribution process is very simple and does not require the use of commands
 
 1. Go to the **Data folder** **with the latest date**, and go to the folder of the **contributed language**, and click **Upload files**.
 
-   For example, if we want to contribute **catchorg__Catch2_dataset.jsonl** in **C++**, we will go to the **Data25_7/c++** folder with **the latest date** and click **Upload files**.
+   For example, if we want to contribute **catchorg__Catch2_dataset.jsonl** in **C++**, we will go to the **data_20250401_20250631/cpp** folder with **the latest date** and click **Upload files**.
 
 <img src="image\demo5_1.png">
 
@@ -829,7 +829,7 @@ Refer specifically to the following sample PR for submitting a new dataset：htt
 
 # 7.Tracking Progress
 
-Next you just need to follow up on our reviews，We've created a Github Project Dashboard called [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1) to make it easy to track the Progress.
+Next you just need to follow up on our reviews，We've created [Multi-SWE-RL Contribution Progress Dashboard](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) to make it easy to track the Progress.
 
 In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
 
@@ -839,7 +839,7 @@ The data review has the following three states：
 * `needs to be fixed：`There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
 * `merged：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
 
-We will review the PRs on the  [Multi-SWE-RL Dashboard](https://github.com/users/multi-swe-bench/projects/3/views/1)  **every three months**，
+We will review the PRs on the [Multi-SWE-RL Contribution Progress Dashboard](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) **every three months**，
 
 If you have any questions about the process, you can also join our [Discord](https://discord.gg/EtfbkfqUuN) to discuss it!
 

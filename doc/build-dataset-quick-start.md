@@ -1,6 +1,6 @@
 # Introduction
 
-This document is a brief introduction to the interfaces involved in building datasets,please refer to the detailed 👉[Demo](doc/demo.md) for more information.
+This document is a brief introduction to the interfaces involved in building datasets,please refer to the detailed 👉[contribution demo](doc/contribution-demo.md) for more information.
 
 This interfaces including three modules:
 * Multi-SWE-Bench data collection module

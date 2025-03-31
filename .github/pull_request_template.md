@@ -23,15 +23,17 @@ Examples:
 If you haven't submitted your newly created dataset (jsonl) to our Multi-SWE-RL datasets repository, please move to our huggingface to submit PR first!
 
 Then fill in your PR link below.
-1. Check that your newly built dataset does not duplicate an already published dataset (e.g. yes, no.)
+1. Check that your newly built dataset does not duplicate an already published dataset (e.g. yes, no.):
 
 2. Huggingface PR Link:
 
 3. Dataset Types (e.g. C, C++, visual, etc.):
 
-4. Repos that you are collected(e.g. python/cpython, nodejs/node.):
+4. Repos that you are collected (e.g. python/cpython, nodejs/node.):
 
 5. Dataset Size (e.g. 100, 1000, etc.):
+
+6. Push your dataset to the date latest data folder on Huggingface (e.g. yes, no.):
 
 
 
@@ -39,4 +41,4 @@ Then fill in your PR link below.
 ## Source Code Details (Ignore this part if you don't need it.)
 1. Modification description:
 
-2...
+2. ...
