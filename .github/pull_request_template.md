@@ -7,9 +7,9 @@
 
 ## PR Title
 
-**Format**:[Type] Brief description
+**Format**:  [Type] Brief description
 
-**Example**:[Dataset] Add a dataset in C++ with the number of 100 entries.
+**Example**:  [Dataset] Add a dataset in C++ with the number of 100 entries.
 
 ---
 <!-- New Dataset Submission (Multi-SWE-RL Community) PRs fill below -->
