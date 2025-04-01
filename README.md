@@ -131,6 +131,11 @@ python -m multi_swe_bench.harness.run_evaluation --config /path/to/your/config.j
 | `log_dir` | Directory for log files |
 | `log_level` | Logging level. Options: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` |
 
+## TODO
+- Merge the Java instances from [previous work](https://github.com/multi-swe-bench/multi-swe-bench-env).
+- Integrate the Python instances from the [SWE-bench](https://github.com/swe-bench/SWE-bench) project.
+
+
 ## [🏆 Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
 [📋 Multi-SWE-RL Dataset Overview](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=493937140#gid=493937140)
 
