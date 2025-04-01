@@ -22,22 +22,29 @@
 
 ## Fill in the blank list 
 
+| 项目 | 内容 |
+|------|------|
+| Huggingface PR Link | [填写链接](https://huggingface.co) |
+| Programming Languages | 例如：Python, C++, JavaScript |
+| Repos Collected | 例如：python/cpython: [link](https://github.com/python/cpython) |
+
+
 1.Huggingface PR Link:
 
-`A:`
+`Answer`: 
 
-2.Languages (e.g. C, C++, JS, etc.):
+2.Programming Languages (e.g., C, C++, JS, etc.):
 
-`A:`
+`Answer`:
 
-3.Repos that you are collected (e.g. python/cpython:[[link]](https://github.com/python/cpython)):
+3.Repos that you are collected (e.g., python/cpython:[[link]](https://github.com/python/cpython)):
 
-`A:`
+`Answer`:
 
-4.Dataset Size (e.g. 100, 1000, etc.):
+4.Dataset Size (e.g., 100, 1000, etc.):
 
-`A:`
+`Answer`:
 
-5.Licenses for the repositories you collected (e.g. ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
+5.Licenses for the repositories you collected (e.g., ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
 
-`A:`
+`Answer`:
