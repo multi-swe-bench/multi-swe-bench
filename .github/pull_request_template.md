@@ -22,13 +22,6 @@
 
 ## Fill in the blank list 
 
-| 项目 | 内容 |
-|------|------|
-| Huggingface PR Link | [填写链接](https://huggingface.co) |
-| Programming Languages | 例如：Python, C++, JavaScript |
-| Repos Collected | 例如：python/cpython: [link](https://github.com/python/cpython) |
-
-
 1.Huggingface PR Link:
 
 `Answer`: 
