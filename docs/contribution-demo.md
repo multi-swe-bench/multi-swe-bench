@@ -1,5 +1,6 @@
 # Overview
-<img src=".\image\Construction.png">
+<img src=".\image\construction_phase1_phase4.png">
+
 The process of building datasets is shown above (Phase1~4),
 This demo is about how to build a dataset and participate in our Multi-SWE-RL community, includes the following phases:
 
@@ -53,9 +54,9 @@ By using these filtering and sorting options, you can quickly find repositories 
 
 # 2.PR Crawling
 
-**Notes:**Before you start the next steps, you need to fork our repository and clone it locally.
+**Note**: Before you start the next steps, you need to fork [our repository](https://github.com/multi-swe-bench/multi-swe-bench) and clone it locally.
 
-Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can execute the following command:
+If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, You need to get the [github token](https://github.com/settings/tokens) first, and execute the following command:
 
 ```bash
 python -m multi_swe_bench.collect.get_pipeline \
@@ -135,7 +136,11 @@ class Catch2ImageBase(Image):
         return "gcc:latest"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base"
@@ -187,7 +192,7 @@ This specifies `gcc:latest` as the base dependency image.
 
 The `image_tag` and `workdir` methods define the image tag and the directory name for storing the image, usually set to the same value.
 
-The most critical part of this class is the `dockerfile` method, as shown below:
+Moving on to the following, the most critical part of this class is the `dockerfile` method, as shown below:
 ```python
     def dockerfile(self) -> str:
         image_name = self.dependency()
@@ -263,7 +268,11 @@ class Catch2ImageDefault(Image):
         return Catch2ImageBase(self.pr, self._config)
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
@@ -424,8 +433,14 @@ The `file` method is crucial in configuring the Instance Image. It specifies the
 
 - `fix-run.sh` (script for running after applying both test and gold patches)
 
-
 To run an instance, the most critical scripts to modify are `prepare.sh`, `run.sh`, `test-run.sh`, and `fix-run.sh`.
+
+The main scripts do the following:
+
+- `run.sh:` Tests are executed on the base commit without any modifications.
+- `test-run.sh:` The test.patch is applied to the base commit before execution.
+- `fix-run.sh:` Both the test.patch and the fix.patch are applied to the base commit before
+  execution
 
 `prepare.sh`: This script performs initial setup tasks before executing the main scripts. It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
 
@@ -498,7 +513,7 @@ File(
 set -e
 
 cd /home/{pr.repo}
-git apply --whitespace=nowarn /home/fix.patch
+git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 cd build
 cmake -DCATCH_DEVELOPMENT_BUILD=ON ..
 make
@@ -513,15 +528,42 @@ The `dockerfile` method in this class returns the Dockerfile content for the Ins
 
 - Specifying the base image.
 
-- Configuring proxy settings.
+- Configuring environment variable settings (e.g., proxy).
 
 - Copying necessary files.
 
 - Running `prepare.sh`.
 
-- Clearing proxy settings.
+- Clearing environment variable settings.
 
 Generally, this method does not require modifications.
+
+```python
+def dockerfile(self) -> str:
+    image = self.dependency()
+    name = image.image_name()
+    tag = image.image_tag()
+
+    copy_commands = ""
+    for file in self.files():
+    copy_commands += f"COPY {file.name} /home/\n"
+
+    prepare_commands = "RUN bash /home/prepare.sh"
+
+    return f"""FROM {name}:{tag}
+
+{self.global_env}
+
+{copy_commands}
+
+{prepare_commands}
+
+{self.clear_env}
+
+"""
+```
+
+
 
 ### Class for running the Instance
 The final class is responsible for running the Instance, which is defined as follows:
@@ -550,6 +592,94 @@ class Catch2(Instance):
     def fix_patch_run(self) -> str:
         return "bash /home/fix-run.sh"
 
+    def parse_log(self, test_log: str) -> TestResult:
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
+```
+In this class, we need to register the repository. The project will locate the corresponding files based on the instance's org and repo. Therefore, we must configure:
+
+```
+@Instance.register("catchorg", "Catch2")
+```
+The most crucial part of this class is defining the `parse_log` method. This method is responsible for parsing the logs and extracting test cases and their statuses. The statuses are generally categorized into three types:
+
+- passed (successful test)
+
+- failed (failed test)
+
+- skipped (skipped test)
+
+Since `parse_log` depends on logs from running instances, we can initially keep the three test case sets empty.
+A complete version will be implemented [later](#Implementing-parse_log).
+## Running the Collected Instances
+Now, let's run the collected instances based on the configured files. Before running the instances, we need to create three directories:
+
+- work (working directory)
+
+- output (output directory)
+
+- repos (repository directory)
+
+After setting them up, the directory structure will look like this:
+
+```
+multi_swe_bench/
+├── collect/   
+├── multi_swe_bench/           
+├── output/
+├── repos/ 
+└── work/ 
+```
+
+If you need to use a proxy, configure the proxy address. You can execute the following command:
+```
+python -m multi_swe_bench.harness.build_dataset.py \
+    --workdir work \
+    --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
+    --log_dir work \ 
+    --output_dir output \ 
+    --repo_dir repos \ 
+    --need_clone true \
+    --global_env \
+    HTTP_PROXY=http://host.docker.internal:7890 \
+    http_proxy=http://host.docker.internal:7890 \
+    HTTPS_PROXY=http://host.docker.internal:7890 \
+    https_proxy=http://host.docker.internal:7890
+```
+After successful running, you will see the generated images and log files in the `work` directory, and the results in the `output` directory.
+```
+multi_swe_bench/
+├── collect/   
+├── multi_swe_bench/           
+├── output/
+    ├── catchorg__Catch2_dataset.jsonl
+    └── final_report.json
+├── repos/
+    └── catchorg/
+└──  work/ 
+    └── catchorg/Catch2/
+        ├── images/
+        └── instances/
+            ├── pr-xxxx
+                ├── fix-patch-run.log
+                ├── report.log
+                ├── run.log
+                └── test-patch-run.log
+            └── ...
+```
+## Implementing `parse_log`
+We can read the log files generated in the `work` directory and extract all test cases using regular expressions. For this repository, the `parse_log` implementation is as follows:
+```python
     def parse_log(self, test_log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
@@ -603,75 +733,7 @@ class Catch2(Instance):
             skipped_tests=skipped_tests,
         )
 ```
-In this class, we need to register the repository. The project will locate the corresponding files based on the instance's org and repo. Therefore, we must configure:
 
-```
-@Instance.register("catchorg", "Catch2")
-```
-The most crucial part of this class is defining the `parse_log` method. This method is responsible for parsing the logs and extracting test cases and their statuses. The statuses are generally categorized into three types:
-
-- passed (successful test)
-
-- failed (failed test)
-
-- skipped (skipped test)
-
-## Running the Collected Instances
-Now, let's run the collected instances based on the configured files. Before running the instances, we need to create three directories:
-
-- work (working directory)
-
-- output (output directory)
-
-- repos (repository directory)
-
-After setting them up, the directory structure will look like this:
-
-```
-multi_swe_bench/
-├── collect/   
-├── multi_swe_bench/           
-├── output/
-├── repos/ 
-└── work/ 
-```
-
-If you need to use a proxy, configure the proxy address. You can execute the following command:
-```
-python multi_swe_bench\harness\build_dataset.py \
-    --workdir work \
-    --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
-    --log_dir work \ 
-    --output_dir output \ 
-    --repo_dir repos \ 
-    --need_clone true \
-    --global_env \
-    HTTP_PROXY=http://host.docker.internal:7890 \
-    http_proxy=http://host.docker.internal:7890 \
-    HTTPS_PROXY=http://host.docker.internal:7890 \
-    https_proxy=http://host.docker.internal:7890
-```
-After successful running, you will see the generated images and log files in the `work` directory, and the results in the `output` directory.
-```
-multi_swe_bench/
-├── collect/   
-├── multi_swe_bench/           
-├── output/
-    ├── catchorg__Catch2_dataset.jsonl
-    └── final_report.json
-├── repos/
-    └── catchorg/
-└──  work/ 
-    └── catchorg/Catch2/
-        ├── images/
-        └── instances/
-            ├── pr-xxxx
-                ├── fix-patch-run.log
-                ├── report.log
-                ├── run.log
-                └── test-patch-run.log
-            └── ...
-```
 ## Debugging Errors
 If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for PR #2554. 
 You can analyze the logs to identify the error, or you can reference the base commit (`base.sha: 8ce92d2c7288b6b3261caf1c016f8a779b6a8efc`) for this instance to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc).
@@ -696,7 +758,11 @@ class Catch2ImageBaseCpp12(Image):
         return "gcc:12"
 
     def image_name(self) -> str:
-        return f"{self.pr.org}/{self.pr.repo}".lower()
+        return (
+            f"{self.image_prefix()}/{self.pr.org}_m_{self.pr.repo}".lower()
+            if self.image_prefix()
+            else f"{self.pr.org}_m_{self.pr.repo}".lower()
+        )
 
     def image_tag(self) -> str:
         return "base-cpp-12"
@@ -757,25 +823,27 @@ In this way, by continuously iterating and modifying, you can maximize the execu
 
 Congratulations! You have completed the most challenging step. Now, you can filter qualified instances from the execution data. A qualified instance must fix failed tests with the golden patch and not introduce new issues.
 
-The filtering process is based on `test-patch-run.log` and `fix-patch-run.log`, ensuring:
+The filtering process is based on `test-patch-run.log` and `fix-patch-run.log` after we run the collected Instances successfully , ensuring:
 
 - There exist test cases that failed in `test-patch-run.log` but passed in `fix-patch-run.log`.
 
 - No test cases that passed in `test-patch-run.log` failed in `fix-patch-run.log` due to the golden patch.
 
-We provide an automated parsing method. When you execute:
+We provide an automated parsing method, the filtering rules we just mentioned are already set up in the `gen_report` interface, so you just need to do the correct parsing of the logs. 
+
+When you execute:
+
 ```
-python multi_swe_bench\harness\build_dataset.py \
+python -m multi_swe_bench.harness.gen_report.py \
+    --mode dataset \
     --workdir work \
     --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
     --log_dir work \ 
     --output_dir output \ 
-    --repo_dir repos \ 
-    --need_clone true 
+    --log_level DEBUG \ 
+    --regen true 
 ```
-It will invoke the `log_parse` method (configured in [Step 3](#class-for-running-the-Instance)) to analyze the execution logs, automatically extract failed and successful test cases for evaluation, and generate `final_report.json` and `catchorg__Catch2_dataset.jsonl` in the `output` directory. The filtered data is stored in `catchorg__Catch2_dataset.jsonl`, while `final_report.json` provides an overview of the dataset construction process.
-
-**Note**: If you find that some test cases passed in `test-patch-run.log` but failed in `fix-patch-run.log`, consider whether the failure is caused by the golden patch. You can analyze `run.log` to check for potential causes. Sometimes, failures may result from resource limitations, network issues, or other environmental factors. If certain test failures are confirmed to be caused by external factors, you need to modify the `log_parse` method to exclude those test cases from the evaluation.
+It will invoke the `log_parse` method (configured in [Step 3](#Implementing-parse_log)) to analyze the execution logs, automatically extract failed and successful test cases for evaluation, and generate `final_report.json` and `catchorg__Catch2_dataset.jsonl` in the `output` directory. The filtered data is stored in `catchorg__Catch2_dataset.jsonl`, while `final_report.json` provides an overview of the dataset construction process.
 
 # 5.Submitting PRs to Huggingface
 
@@ -814,7 +882,7 @@ The contribution process is very simple and does not require the use of commands
 1. Go to the **Data folder** **with the latest date**, and go to the folder of the **contributed language**, and click **Upload files**.
 
    For example, if we want to contribute **catchorg__Catch2_dataset.jsonl** in **C++**, we will go to the folder with **the latest date** and click **Upload files**.
-
+<img src=".\image\hf_pr.jpg">
 
 2. Then **upload** your catchorg__Catch2_dataset.jsonl, and then **add specific information about the dataset**, and then click **Open a Pull Request** to complete the PR submission!
 
@@ -822,15 +890,13 @@ At this point, congratulations on your huggingface PR submission!
 
 # 6.Submitting PRs to Github
 
-Fork our github repository, **submit the code changes of phase 1-4 as PR**, when submitting PR, you should **read the PR template carefully and fill in the relevant content**, such as huggingface link and specific data information and so on.
+Next you need to **submit the code changes of phase 1-4 as PR**, when submitting PR, you should **read the PR template carefully and fill in the relevant content**, such as huggingface link and specific data information and so on.
 
 Refer specifically to the following sample PR for submitting a new dataset：https://github.com/multi-swe-bench/multi-swe-bench/pull/1
 
-
-
 # 7.Tracking Progress
 
-Next you just need to follow up on our reviews，We've created [Multi-SWE-RL Contribution Progress Board](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) to make it easy to track the Progress.
+Next you just need to follow up on our reviews，We've created [Multi-SWE-RL Contribution Progress Board](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) to make it easy to track the Progress. We'll review the PRs weekly and update it in this sheet.
 
 In addition to **recording the states of the data review**, this dashboard also **associates github PR and huggingface PR**, as well as recording **specific dataset information** for the current PR.
 
@@ -839,8 +905,6 @@ The data review has the following three states：
 * `pending review：`The PR has gone through our PR format review (in this case including huggingface's PR correlation with github's PR, etc.) and is in the awaiting data review stage
 * `needs to be fixed：`There is a issue in the data review stage that needs to be fixed, and we will respond to the specific issue in the discussion forum of the corresponding PR.
 * `merged：`Congratulations, the new dataset you produced has been merged into the Multi-SWE-RL community!
-
-We will review the PRs on the [Multi-SWE-RL Contribution Progress Board](https://docs.google.com/spreadsheets/d/1C90SiRmlac3FizmsJzxzrhSNsnCjyYewdrXzFbBV4x0/edit?gid=0#gid=0) **every three months**，
 
 If you have any questions about the process, you can also join our [Discord](https://discord.gg/EtfbkfqUuN) to discuss it!
 
