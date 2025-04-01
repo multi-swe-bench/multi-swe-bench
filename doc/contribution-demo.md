@@ -19,7 +19,7 @@ This demo is about how to build a dataset and participate in our Multi-SWE-RL co
 7. `Tracking Progress`
 
 **Notes**: 
-* Check that your newly built dataset does not duplicate an already published dataset.
+* Your newly created dataset **can't overlap with the dataset we've already released**.
 * Record the license when using open source repositories, and provide the relevant license if it's your own private repo (a license of your own design or an open source license)
 
 If you want to know about the specifics of how each phase works,what follows will be a step-by-step guide.
@@ -52,6 +52,8 @@ By using these filtering and sorting options, you can quickly find repositories 
 
 
 # 2.PR Crawling
+
+**Notes:**Before you start the next steps, you need to fork our repository and clone it locally.
 
 Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can execute the following command:
 

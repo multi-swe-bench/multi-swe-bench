@@ -1,6 +1,5 @@
 from multi_swe_bench.harness.repos.javascript.anuraghazra import *
 from multi_swe_bench.harness.repos.javascript.Automattic import *
-from multi_swe_bench.harness.repos.javascript.axios import *
 from multi_swe_bench.harness.repos.javascript.caolan import *
 from multi_swe_bench.harness.repos.javascript.expressjs import *
 from multi_swe_bench.harness.repos.javascript.fastify import *
