@@ -528,7 +528,7 @@ The `dockerfile` method in this class returns the Dockerfile content for the Ins
 
 - Specifying the base image.
 
-- Configuring environment variable settings (e.g. proxy).
+- Configuring environment variable settings (e.g., proxy).
 
 - Copying necessary files.
 
