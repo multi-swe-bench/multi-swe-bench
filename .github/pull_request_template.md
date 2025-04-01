@@ -22,17 +22,22 @@
 
 ## Fill in the blank list 
 
-1. Huggingface PR Link:
-A:
+1.Huggingface PR Link:
 
-2. Languages (e.g. C, C++, JS, etc.):
-A:
+`A:`
 
-3. Repos that you are collected (e.g. python/cpython:[link](https://github.com/python/cpython)):
-A:
+2.Languages (e.g. C, C++, JS, etc.):
 
-4. Dataset Size (e.g. 100, 1000, etc.):
-A:
+`A:`
 
-5. Licenses for the repositories you collected (e.g. ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
-A:
+3.Repos that you are collected (e.g. python/cpython:[link](https://github.com/python/cpython)):
+
+`A:`
+
+4.Dataset Size (e.g. 100, 1000, etc.):
+
+`A:`
+
+5.Licenses for the repositories you collected (e.g. ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
+
+`A:`
