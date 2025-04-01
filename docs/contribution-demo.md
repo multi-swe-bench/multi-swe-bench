@@ -433,8 +433,14 @@ The `file` method is crucial in configuring the Instance Image. It specifies the
 
 - `fix-run.sh` (script for running after applying both test and gold patches)
 
-
 To run an instance, the most critical scripts to modify are `prepare.sh`, `run.sh`, `test-run.sh`, and `fix-run.sh`.
+
+The main scripts do the following:
+
+- `run.sh:` Tests are executed on the base commit without any modifications.
+- `test-run.sh:` The test.patch is applied to the base commit before execution.
+- `fix-run.sh:` Both the test.patch and the fix.patch are applied to the base commit before
+  execution
 
 `prepare.sh`: This script performs initial setup tasks before executing the main scripts(`run.sh`, `test-run.sh`, and `fix-run.sh`). It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
 
@@ -876,7 +882,7 @@ The contribution process is very simple and does not require the use of commands
 1. Go to the **Data folder** **with the latest date**, and go to the folder of the **contributed language**, and click **Upload files**.
 
    For example, if we want to contribute **catchorg__Catch2_dataset.jsonl** in **C++**, we will go to the folder with **the latest date** and click **Upload files**.
-
+<img src=".\image\hf_pr.jpg">
 
 2. Then **upload** your catchorg__Catch2_dataset.jsonl, and then **add specific information about the dataset**, and then click **Open a Pull Request** to complete the PR submission!
 
