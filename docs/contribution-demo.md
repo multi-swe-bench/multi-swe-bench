@@ -53,9 +53,9 @@ By using these filtering and sorting options, you can quickly find repositories 
 
 # 2.PR Crawling
 
-**Notes:**Before you start the next steps, you need to fork our repository and clone it locally.
+**Note**: Before you start the next steps, you need to fork our repository and clone it locally.
 
-Make sure you have [installed](../README.md#install-from-source) this project. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can execute the following command:
+Make sure you have [installed](../README.md#install-from-source) our repository. If you want to collect pull requests (PRs) from the repository `catchorg/Catch2` and have created an output directory, such as `collect/catchorg__Catch2`, you can execute the following command:
 
 ```bash
 python -m multi_swe_bench.collect.get_pipeline \
@@ -555,45 +555,6 @@ class Catch2(Instance):
         failed_tests = set()
         skipped_tests = set()
 
-        re_passes = [
-            re.compile(r"^-- Performing Test (.+) - Success$", re.IGNORECASE),
-            re.compile(
-                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\s+ Passed\s+.+$", re.IGNORECASE
-            ),
-        ]
-        re_fails = [
-            re.compile(r"^-- Performing Test (.+) - Failed$", re.IGNORECASE),
-            re.compile(
-                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\*\*\*Failed\s+.+$", re.IGNORECASE
-            ),
-        ]
-        re_skips = [
-            re.compile(r"^-- Performing Test (.+) - skipped$", re.IGNORECASE),
-        ]
-
-        for line in test_log.splitlines():
-            line = line.strip().lower()
-            if not line:
-                continue
-
-            for re_pass in re_passes:
-                pass_match = re_pass.match(line)
-                if pass_match:
-                    test = pass_match.group(1)
-                    passed_tests.add(test)
-
-            for re_fail in re_fails:
-                fail_match = re_fail.match(line)
-                if fail_match:
-                    test = fail_match.group(1)
-                    failed_tests.add(test)
-
-            for re_skip in re_skips:
-                skip_match = re_skip.match(line)
-                if skip_match:
-                    test = skip_match.group(1)
-                    skipped_tests.add(test)
-
         return TestResult(
             passed_count=len(passed_tests),
             failed_count=len(failed_tests),
@@ -616,6 +577,8 @@ The most crucial part of this class is defining the `parse_log` method. This met
 
 - skipped (skipped test)
 
+Since `parse_log` depends on logs from running instances, we can initially keep the three test case sets empty.
+A complete version will be implemented later.
 ## Running the Collected Instances
 Now, let's run the collected instances based on the configured files. Before running the instances, we need to create three directories:
 
@@ -672,6 +635,8 @@ multi_swe_bench/
                 └── test-patch-run.log
             └── ...
 ```
+## Debugging Errors
+
 ## Debugging Errors
 If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for PR #2554. 
 You can analyze the logs to identify the error, or you can reference the base commit (`base.sha: 8ce92d2c7288b6b3261caf1c016f8a779b6a8efc`) for this instance to check the repository state at [that commit](https://github.com/catchorg/Catch2/tree/8ce92d2c7288b6b3261caf1c016f8a779b6a8efc).
@@ -765,17 +730,16 @@ The filtering process is based on `test-patch-run.log` and `fix-patch-run.log`, 
 
 We provide an automated parsing method. When you execute:
 ```
-python multi_swe_bench\harness\build_dataset.py \
+python multi_swe_bench\harness\gen_report.py \
+    --mode dataset \
     --workdir work \
     --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
     --log_dir work \ 
     --output_dir output \ 
-    --repo_dir repos \ 
-    --need_clone true 
+    --log_level DEBUG \ 
+    --regen true 
 ```
 It will invoke the `log_parse` method (configured in [Step 3](#class-for-running-the-Instance)) to analyze the execution logs, automatically extract failed and successful test cases for evaluation, and generate `final_report.json` and `catchorg__Catch2_dataset.jsonl` in the `output` directory. The filtered data is stored in `catchorg__Catch2_dataset.jsonl`, while `final_report.json` provides an overview of the dataset construction process.
-
-**Note**: If you find that some test cases passed in `test-patch-run.log` but failed in `fix-patch-run.log`, consider whether the failure is caused by the golden patch. You can analyze `run.log` to check for potential causes. Sometimes, failures may result from resource limitations, network issues, or other environmental factors. If certain test failures are confirmed to be caused by external factors, you need to modify the `log_parse` method to exclude those test cases from the evaluation.
 
 # 5.Submitting PRs to Huggingface
 
