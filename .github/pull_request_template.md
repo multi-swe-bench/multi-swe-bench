@@ -30,7 +30,7 @@
 
 `A:`
 
-3.Repos that you are collected (e.g. python/cpython:[link](https://github.com/python/cpython)):
+3.Repos that you are collected (e.g. python/cpython:[[link]](https://github.com/python/cpython)):
 
 `A:`
 
