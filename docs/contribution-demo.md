@@ -578,7 +578,7 @@ The most crucial part of this class is defining the `parse_log` method. This met
 - skipped (skipped test)
 
 Since `parse_log` depends on logs from running instances, we can initially keep the three test case sets empty.
-A complete version will be implemented later.
+A complete version will be implemented [later](#Implementing-parse_log).
 ## Running the Collected Instances
 Now, let's run the collected instances based on the configured files. Before running the instances, we need to create three directories:
 
@@ -794,7 +794,7 @@ python multi_swe_bench\harness\gen_report.py \
     --log_level DEBUG \ 
     --regen true 
 ```
-It will invoke the `log_parse` method (configured in [Step 3](#class-for-running-the-Instance)) to analyze the execution logs, automatically extract failed and successful test cases for evaluation, and generate `final_report.json` and `catchorg__Catch2_dataset.jsonl` in the `output` directory. The filtered data is stored in `catchorg__Catch2_dataset.jsonl`, while `final_report.json` provides an overview of the dataset construction process.
+It will invoke the `log_parse` method (configured in [Step 3](#Implementing-parse_log)) to analyze the execution logs, automatically extract failed and successful test cases for evaluation, and generate `final_report.json` and `catchorg__Catch2_dataset.jsonl` in the `output` directory. The filtered data is stored in `catchorg__Catch2_dataset.jsonl`, while `final_report.json` provides an overview of the dataset construction process.
 
 # 5.Submitting PRs to Huggingface
 
