@@ -635,7 +635,62 @@ multi_swe_bench/
                 └── test-patch-run.log
             └── ...
 ```
-## Debugging Errors
+## Implementing `parse_log`
+We can read the log files generated in the `work` directory and extract all test cases using regular expressions. For this repository, the `parse_log` implementation is as follows:
+```python
+    def parse_log(self, test_log: str) -> TestResult:
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+
+        re_passes = [
+            re.compile(r"^-- Performing Test (.+) - Success$", re.IGNORECASE),
+            re.compile(
+                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\s+ Passed\s+.+$", re.IGNORECASE
+            ),
+        ]
+        re_fails = [
+            re.compile(r"^-- Performing Test (.+) - Failed$", re.IGNORECASE),
+            re.compile(
+                r"^\d+/\d+ Test\s+#\d+: (.+) \.+\*\*\*Failed\s+.+$", re.IGNORECASE
+            ),
+        ]
+        re_skips = [
+            re.compile(r"^-- Performing Test (.+) - skipped$", re.IGNORECASE),
+        ]
+
+        for line in test_log.splitlines():
+            line = line.strip().lower()
+            if not line:
+                continue
+
+            for re_pass in re_passes:
+                pass_match = re_pass.match(line)
+                if pass_match:
+                    test = pass_match.group(1)
+                    passed_tests.add(test)
+
+            for re_fail in re_fails:
+                fail_match = re_fail.match(line)
+                if fail_match:
+                    test = fail_match.group(1)
+                    failed_tests.add(test)
+
+            for re_skip in re_skips:
+                skip_match = re_skip.match(line)
+                if skip_match:
+                    test = skip_match.group(1)
+                    skipped_tests.add(test)
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
+```
 
 ## Debugging Errors
 If errors occur in the logs, debugging is necessary. For example, the above configuration might cause an error when running the instance for PR #2554. 
