@@ -133,7 +133,7 @@ python -m multi_swe_bench.harness.run_evaluation --config /path/to/your/config.j
 
 ## TODO
 - Merge the Java instances from [previous work](https://github.com/multi-swe-bench/multi-swe-bench-env).
-- Integrate the Python instances from the [Swebench](https://github.com/swe-bench/SWE-bench) project.
+- Integrate the Python instances from the [SWE-bench](https://github.com/swe-bench/SWE-bench) project.
 
 
 ## [🏆 Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
