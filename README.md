@@ -40,15 +40,27 @@
 </p>
 
 
-We are extremely delighted to release **Multi-SWE-Bench** and **Multi-SWE-RL**.Multi-SWE-Bench aims to build a multi-language benchmark dataset containing real software engineering scenarios for evaluating the ability of LLM to solve real software engineering problems. The dataset supports multiple languages, currently including C, C++, Java, Javascript, Typescript, Rust, Go.
+We are extremely delighted to release **Multi-SWE-Bench**! Multi-SWE-Bench addresses the lack of multilingual benchmarks for evaluating LLMs in real-world code issue resolution. Unlike existing Python-centric benchmarks (e.g., SWE-bench), our framework spans ​7 languages (Java, Go, Rust, TypeScript, JavaScript, C, C++) with ​1,632 high-quality instances, curated from 2,803 candidates by ​88 expert annotators for reliability.
 
-Among other things, our team has also created a **Multi-SWE RL community** to encourage people to make more real software engineering datasets and then contribute to the community to accelerate the research of LLM in software engineering. If you are interested in this, try to follow the following to make a dataset with your hands!
-
-Welcome to join our community and stay tuned!
+We aim to accelerate progress in automated issue resolution and RL, bridging the gap toward AGI. Let's join the **Multi-SWE-RL community** to expand datasets, tools, and research collaboration!
 
 <!-- 注释：以上为项目基础信息，以项目COMET举例，Comet一级标题（第25行）、徽章Comet名字（第28、30、32、34行）记得替换，徽章可按需使用
 请注意，徽章可根据具体项目自定义，如技术成果落地页、技术成果报告/Paper、Hugging Face、项目微信交流群、License、打榜榜单等，更换名字和链接即可；
 专属微信群出现在两个位置，第34行、第42行，可以联系EB同学创建 -->
+## ⚡ Features
+Here’s a streamlined GitHub-friendly overview incorporating all key points concisely:
+
+---
+
+**Multi-SWE-Bench: Multilingual Benchmark for Code Issue Resolution**  
+
+**Overview**  
+Multi-SWE-Bench addresses the lack of multilingual benchmarks for evaluating LLMs in real-world code issue resolution. Unlike existing Python-centric benchmarks (e.g., SWE-bench), our framework spans **7 languages** (Java, Go, Rust, TypeScript, JavaScript, C, C++) with **1,727 high-quality instances**, curated from 2,803 candidates by **88 expert annotators** for reliability.  
+
+**Key Features**  
+- **Comprehensive Evaluation**: Tests top models (GPT-4o, Claude 3.5/3.7, DeepSeek V3/R1, Doubao-Pro, etc.) across frameworks (Agentless, SWE-agent, OpenHands), yielding actionable insights.  
+- **Multi-SWE-RL Community**: Open-source initiative for large-scale reinforcement learning (RL) datasets. Initial release includes **4723 structured instances** across languages to advance RL research.  
+- **Open Infrastructure**: Full data pipeline and tutorials open-sourced to foster community contributions and scalability.  
 
 ## 📢 News
 [2025/03/XX]🔥We have supported XXXXXX.
@@ -142,10 +154,6 @@ Full details: [Contribution Incentive Plan](doc/contribution-incentive-plan.md)
 **Get Started in 2 Steps:**
 1. **Learn**: [Quick-Start Guide](doc/build-dataset-quick-start.md)  
 2. **Try**: Follow our [Contribution Demo](doc/contribution-demo.md)  
-
----
-## ⚡ Features
-xxxxxx
 
 ## 🌟 Star Growth Trends
 
