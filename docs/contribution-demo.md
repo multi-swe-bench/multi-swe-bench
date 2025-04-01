@@ -442,7 +442,7 @@ The main scripts do the following:
 - `fix-run.sh:` Both the test.patch and the fix.patch are applied to the base commit before
   execution
 
-`prepare.sh`: This script performs initial setup tasks before executing the main scripts(`run.sh`, `test-run.sh`, and `fix-run.sh`). It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
+`prepare.sh`: This script performs initial setup tasks before executing the main scripts. It can be used to switch branches, create the build directory, etc., so these operations do not need to be repeated in other scripts.
 
 ```python
 File(
