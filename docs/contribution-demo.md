@@ -643,7 +643,7 @@ multi_swe_bench/
 
 If you need to use a proxy, configure the proxy address. You can execute the following command:
 ```
-python multi_swe_bench\harness\build_dataset.py \
+python -m multi_swe_bench.harness.build_dataset.py \
     --workdir work \
     --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
     --log_dir work \ 
@@ -834,7 +834,7 @@ We provide an automated parsing method, the filtering rules we just mentioned ar
 When you execute:
 
 ```
-python multi_swe_bench\harness\gen_report.py \
+python -m multi_swe_bench.harness.gen_report.py \
     --mode dataset \
     --workdir work \
     --raw_dataset_files collect/catchorg__Catch2/catchorg__Catch2_dataset.jsonl \ 
