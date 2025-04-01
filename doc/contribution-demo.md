@@ -18,7 +18,9 @@ This demo is about how to build a dataset and participate in our Multi-SWE-RL co
    * Upload the code you changed in stages 3 ~ 4 to github
 7. `Tracking Progress`
 
-**Notes**: Check that your newly built dataset does not duplicate an already published dataset.
+**Notes**: 
+* Check that your newly built dataset does not duplicate an already published dataset.
+* Record the license when using open source repositories, and provide the relevant license if it's your own private repo (a license of your own design or an open source license)
 
 If you want to know about the specifics of how each phase works,what follows will be a step-by-step guide.
 
