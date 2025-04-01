@@ -48,16 +48,7 @@ We aim to accelerate progress in automated issue resolution and RL, bridging the
 请注意，徽章可根据具体项目自定义，如技术成果落地页、技术成果报告/Paper、Hugging Face、项目微信交流群、License、打榜榜单等，更换名字和链接即可；
 专属微信群出现在两个位置，第34行、第42行，可以联系EB同学创建 -->
 ## ⚡ Features
-Here’s a streamlined GitHub-friendly overview incorporating all key points concisely:
 
----
-
-**Multi-SWE-Bench: Multilingual Benchmark for Code Issue Resolution**  
-
-**Overview**  
-Multi-SWE-Bench addresses the lack of multilingual benchmarks for evaluating LLMs in real-world code issue resolution. Unlike existing Python-centric benchmarks (e.g., SWE-bench), our framework spans **7 languages** (Java, Go, Rust, TypeScript, JavaScript, C, C++) with **1,727 high-quality instances**, curated from 2,803 candidates by **88 expert annotators** for reliability.  
-
-**Key Features**  
 - **Comprehensive Evaluation**: Tests top models (GPT-4o, Claude 3.5/3.7, DeepSeek V3/R1, Doubao-Pro, etc.) across frameworks (Agentless, SWE-agent, OpenHands), yielding actionable insights.  
 - **Multi-SWE-RL Community**: Open-source initiative for large-scale reinforcement learning (RL) datasets. Initial release includes **4723 structured instances** across languages to advance RL research.  
 - **Open Infrastructure**: Full data pipeline and tutorials open-sourced to foster community contributions and scalability.  
