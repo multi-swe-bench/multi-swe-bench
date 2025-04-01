@@ -9,3 +9,4 @@ from multi_swe_bench.harness.repos.javascript.Kong import *
 from multi_swe_bench.harness.repos.javascript.sveltejs import *
 from multi_swe_bench.harness.repos.javascript.tj import *
 from multi_swe_bench.harness.repos.javascript.vuejs import *
+from multi_swe_bench.harness.repos.javascript.axios import *
