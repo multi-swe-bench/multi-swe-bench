@@ -25,7 +25,7 @@ We offer two tiers of recognition to reward contributors based on their effort a
 ---
 
 ### **3. Contribution Guidelines**  
-We have created a very [detailed demo](/doc/demo.md) for this section.
+We have created a very [detailed demo](/docs/demo.md) for this section.
 
 ---
 
@@ -53,7 +53,7 @@ A: Authors are listed alphabetically, with core maintainers noted separately.
 
 ### **6. Get Started Today!**  
 Join us in building the future of AI datasets!  
-- [Demo](/doc/demo.md)
+- [Demo](/docs/demo.md)
 - [Multi-SWE-RL Community](https://huggingface.co/Multi-SWE-RL)
 - [Discord](https://discord.gg/EtfbkfqUuN)
 - Contact: [zandaoguang@bytedance.com](mailto:zandaoguang@bytedance.com)
