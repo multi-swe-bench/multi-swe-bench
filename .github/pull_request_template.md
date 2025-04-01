@@ -1,46 +1,33 @@
 <!-- Please delete unselected PR type sections -->
 ## PR Type Selection
-- [ ] Source Code Modification 
-- [ ] New Dataset Submission (Multi-SWE-RL Community)
+- If you are a **New Dataset Submission (Multi-SWE-RL Community)**, you can use the following PR template.
+- If you are not a New Dataset Submission (Multi-SWE-RL Community), you can create your own template.
 
 ---
 
-## Common Requirements
-### PR Title
+## PR Title
 (Follow format: [Type] Brief description)  
 Examples:
-- [Source] Fix xxx issue
 - [Dataset] Add a dataset in C++ with the number of 100 entries.
 
-### Change Overview
-1. One-sentence purpose:
-
-
 ---
-
 <!-- New Dataset Submission (Multi-SWE-RL Community) PRs fill below -->
-## New Dataset Details (Ignore this part if you don't need it.)
-If you haven't submitted your newly created dataset (jsonl) to our Multi-SWE-RL datasets repository, please move to our huggingface to submit PR first!
+## Checklist 
 
-Then fill in your PR link below.
-1. Check that your newly built dataset does not duplicate an already published dataset (e.g. yes, no.):
-
-2. Huggingface PR Link:
-
-3. Dataset Types (e.g. C, C++, visual, etc.):
-
-4. Licenses for the repositories you collected (e.g. ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
-
-5. Repos that you are collected (e.g. python/cpython, nodejs/node.):
-
-6. Dataset Size (e.g. 100, 1000, etc.):
-
-7. Push your dataset to the date latest data folder on Huggingface (e.g. yes, no.):
+- [ ]  Your newly created dataset (jsonl) have submitted to our Multi-SWE-RL datasets repository. (If no, please move to our huggingface to submit PR first!).
+- [ ]  Your newly created dataset doesn't overlap with the dataset we've already released.
+- [ ]  You hava submit your dataset to the date latest data folder on Huggingface.
 
 
+## Fill in the blank list 
 
-<!-- Source code PRs fill below -->
-## Source Code Details (Ignore this part if you don't need it.)
-1. Modification description:
+1. Huggingface PR Link:
 
-2. ...
+2. Dataset Types (e.g. C, C++, visual, etc.):
+
+3. Repos that you are collected (e.g. python/cpython, nodejs/node.):
+
+4. Dataset Size (e.g. 100, 1000, etc.):
+
+5. Licenses for the repositories you collected (e.g. ponylang/ponyc:[BSD-2-Clause](https://github.com/ponylang/ponyc#BSD-2-Clause-1-ov-file); fmtlib/fmt:[MIT license](https://github.com/fmtlib/fmt/blob/master/LICENSE)visual, etc.):
+
