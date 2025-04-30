@@ -9,6 +9,7 @@ RUN git clone https://github.com/vuejs/core.git /home/core
 
 COPY run.sh /home/
 COPY check_git_changes.sh /home/
+COPY break_env.sh /home/
 
 WORKDIR /home/core
 RUN git reset --hard
