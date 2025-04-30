@@ -1,0 +1,53 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/_config.js b/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/_config.js
+new file mode 100644
+index 000000000000..cb37111379a9
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/_config.js
+@@ -0,0 +1,24 @@
++import { flushSync } from 'svelte';
++import { test, ok } from '../../test';
++
++export default test({
++	mode: ['client'],
++	async test({ assert, target, logs }) {
++		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++
++		flushSync(() => {
++			btn1.click();
++			btn2.click();
++		});
++
++		assert.deepEqual(logs, ['AA', 'AB']);
++
++		flushSync(() => {
++			btn3.click();
++			btn1.click();
++			btn2.click();
++		});
++
++		assert.deepEqual(logs, ['AA', 'AB', 'BA', 'BB']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/main.svelte b/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/main.svelte
+new file mode 100644
+index 000000000000..bff372d3b1b3
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/dynamic-hof-delegated-event/main.svelte
+@@ -0,0 +1,17 @@
++<script>
++	let hof = $state((name) => () => console.log('A' + name));
++
++	const member = $derived({
++		hof
++	});
++
++	function change() {
++		hof = (name) => () => console.log('B' + name);
++	}
++</script>
++
++<button onclick={hof('A')}>A</button>
++<button onclick={member.hof('B')}>B</button>
++
++<br />
++<button onclick={change}>change</button>

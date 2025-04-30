@@ -1,0 +1,70 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/binding-select-initial-value-undefined-2/_config.js b/packages/svelte/tests/runtime-legacy/samples/binding-select-initial-value-undefined-2/_config.js
+index b7ddbb7d3cfc..0590c6eef11e 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/binding-select-initial-value-undefined-2/_config.js
++++ b/packages/svelte/tests/runtime-legacy/samples/binding-select-initial-value-undefined-2/_config.js
+@@ -8,7 +8,7 @@ export default test({
+ 
+ 		<select>
+ 			<option>a</option>
+-			<option>b</option>
++			<option selected="">b</option>
+ 			<option>c</option>
+ 		</select>
+ 
+diff --git a/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/_config.js b/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/_config.js
+new file mode 100644
+index 000000000000..497364f1be0f
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/_config.js
+@@ -0,0 +1,34 @@
++import { ok, test } from '../../test';
++
++const items = [{ id: 'a' }, { id: 'b' }];
++
++export default test({
++	get props() {
++		return {
++			/** @type {{ id: string } | null} */
++			foo: null,
++			items
++		};
++	},
++
++	test({ assert, component, target }) {
++		const select = target.querySelector('select');
++		ok(select);
++
++		const options = target.querySelectorAll('option');
++
++		assert.equal(options[0].selected, true);
++		assert.equal(options[1].selected, false);
++		assert.equal(options[0].value, '');
++
++		component.foo = items[0];
++		assert.equal(options[0].selected, false);
++		assert.equal(options[1].selected, true);
++
++		component.foo = { id: 'c' }; // doesn't match an option
++		assert.equal(select.value, '');
++		assert.equal(select.selectedIndex, -1);
++		assert.equal(options[0].selected, false);
++		assert.equal(options[1].selected, false);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/main.svelte b/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/main.svelte
+new file mode 100644
+index 000000000000..56219ef28442
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/binding-select-null-placeholder-2/main.svelte
+@@ -0,0 +1,11 @@
++<script>
++	export let foo;
++	export let items;
++</script>
++
++<select bind:value={foo}>
++	<option value={null}></option>
++	{#each items as item}
++		<option value={item}>{item.id}</option>
++	{/each}
++</select>

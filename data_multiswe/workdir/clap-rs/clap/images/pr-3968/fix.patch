@@ -1,0 +1,126 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 6b22b0d5c6e..57f3f2c2d16 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
+ 
+ ### Breaking Changes
+ 
+-- `Error::EmptyValue` replaced with `Error::InvalidValue`
++- `ErrorKind::EmptyValue` replaced with `ErrorKind::InvalidValue`
++- `ErrorKind::UnrecognizedSubcommand` replaced with `ErrorKind::InvalidSubcommand`
+ 
+ ### Features
+ 
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index daf72d836f7..8db400f915f 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -528,7 +528,7 @@ fn gen_from_arg_matches(
+         },
+ 
+         None => quote! {
+-            ::std::result::Result::Err(clap::Error::raw(clap::ErrorKind::UnrecognizedSubcommand, format!("The subcommand '{}' wasn't recognized", #subcommand_name_var)))
++            ::std::result::Result::Err(clap::Error::raw(clap::ErrorKind::InvalidSubcommand, format!("The subcommand '{}' wasn't recognized", #subcommand_name_var)))
+         },
+     };
+ 
+diff --git a/examples/derive_ref/hand_subcommand.rs b/examples/derive_ref/hand_subcommand.rs
+index e9423bdc0fa..e5d9ea9c24a 100644
+--- a/examples/derive_ref/hand_subcommand.rs
++++ b/examples/derive_ref/hand_subcommand.rs
+@@ -26,7 +26,7 @@ impl FromArgMatches for CliSub {
+             Some(("add", args)) => Ok(Self::Add(AddArgs::from_arg_matches(args)?)),
+             Some(("remove", args)) => Ok(Self::Remove(RemoveArgs::from_arg_matches(args)?)),
+             Some((_, _)) => Err(Error::raw(
+-                ErrorKind::UnrecognizedSubcommand,
++                ErrorKind::InvalidSubcommand,
+                 "Valid subcommands are `add` and `remove`",
+             )),
+             None => Err(Error::raw(
+@@ -41,7 +41,7 @@ impl FromArgMatches for CliSub {
+             Some(("remove", args)) => *self = Self::Remove(RemoveArgs::from_arg_matches(args)?),
+             Some((_, _)) => {
+                 return Err(Error::raw(
+-                    ErrorKind::UnrecognizedSubcommand,
++                    ErrorKind::InvalidSubcommand,
+                     "Valid subcommands are `add` and `remove`",
+                 ))
+             }
+diff --git a/src/error/kind.rs b/src/error/kind.rs
+index 32639103d6e..9f5c2bc4f86 100644
+--- a/src/error/kind.rs
++++ b/src/error/kind.rs
+@@ -56,33 +56,6 @@ pub enum ErrorKind {
+     /// [`UnknownArgument`]: ErrorKind::UnknownArgument
+     InvalidSubcommand,
+ 
+-    /// Occurs when the user provides an unrecognized [`Subcommand`] which either
+-    /// doesn't meet the threshold for being similar enough to an existing subcommand,
+-    /// or the 'suggestions' feature is disabled.
+-    /// Otherwise the more detailed [`InvalidSubcommand`] error is returned.
+-    ///
+-    /// This error typically happens when passing additional subcommand names to the `help`
+-    /// subcommand. Otherwise, the more general [`UnknownArgument`] error is used.
+-    ///
+-    /// # Examples
+-    ///
+-    /// ```rust
+-    /// # use clap::{Command, Arg, ErrorKind, };
+-    /// let result = Command::new("prog")
+-    ///     .subcommand(Command::new("config")
+-    ///         .about("Used for configuration")
+-    ///         .arg(Arg::new("config_file")
+-    ///             .help("The configuration file to use")))
+-    ///     .try_get_matches_from(vec!["prog", "help", "nothing"]);
+-    /// assert!(result.is_err());
+-    /// assert_eq!(result.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
+-    /// ```
+-    ///
+-    /// [`Subcommand`]: crate::Subcommand
+-    /// [`InvalidSubcommand`]: ErrorKind::InvalidSubcommand
+-    /// [`UnknownArgument`]: ErrorKind::UnknownArgument
+-    UnrecognizedSubcommand,
+-
+     /// Occurs when the user doesn't use equals for an option that requires equal
+     /// sign to provide values.
+     ///
+@@ -361,7 +334,6 @@ impl ErrorKind {
+                 Some("Found an argument which wasn't expected or isn't valid in this context")
+             }
+             Self::InvalidSubcommand => Some("A subcommand wasn't recognized"),
+-            Self::UnrecognizedSubcommand => Some("A subcommand wasn't recognized"),
+             Self::NoEquals => Some("Equal is needed when assigning values to one of the arguments"),
+             Self::ValueValidation => Some("Invalid value for one of the arguments"),
+             Self::TooManyValues => Some("An argument received an unexpected value"),
+diff --git a/src/error/mod.rs b/src/error/mod.rs
+index 59ca224d692..3104d98c229 100644
+--- a/src/error/mod.rs
++++ b/src/error/mod.rs
+@@ -307,7 +307,7 @@ impl Error {
+     }
+ 
+     pub(crate) fn unrecognized_subcommand(cmd: &Command, subcmd: String, usage: String) -> Self {
+-        Self::new(ErrorKind::UnrecognizedSubcommand)
++        Self::new(ErrorKind::InvalidSubcommand)
+             .with_cmd(cmd)
+             .extend_context_unchecked([
+                 (ContextKind::InvalidSubcommand, ContextValue::String(subcmd)),
+@@ -603,17 +603,6 @@ impl Error {
+                     false
+                 }
+             }
+-            ErrorKind::UnrecognizedSubcommand => {
+-                let invalid_sub = self.get_context(ContextKind::InvalidSubcommand);
+-                if let Some(ContextValue::String(invalid_sub)) = invalid_sub {
+-                    c.none("The subcommand '");
+-                    c.warning(invalid_sub);
+-                    c.none("' wasn't recognized");
+-                    true
+-                } else {
+-                    false
+-                }
+-            }
+             ErrorKind::MissingRequiredArgument => {
+                 let invalid_arg = self.get_context(ContextKind::InvalidArg);
+                 if let Some(ContextValue::Strings(invalid_arg)) = invalid_arg {

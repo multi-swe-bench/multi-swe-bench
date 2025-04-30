@@ -1,0 +1,62 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 9b4661e37b1..49b114ed4b5 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -33,7 +33,6 @@ type PullRequest struct {
+ 	Number           int
+ 	Title            string
+ 	State            string
+-	Closed           bool
+ 	URL              string
+ 	BaseRefName      string
+ 	HeadRefName      string
+@@ -142,6 +141,10 @@ func (pr PullRequest) Identifier() string {
+ 	return pr.ID
+ }
+ 
++func (pr PullRequest) IsOpen() bool {
++	return pr.State == "OPEN"
++}
++
+ type PullRequestReviewStatus struct {
+ 	ChangesRequested bool
+ 	Approved         bool
+diff --git a/pkg/cmd/pr/close/close.go b/pkg/cmd/pr/close/close.go
+index f4cc442c224..850bd7631fd 100644
+--- a/pkg/cmd/pr/close/close.go
++++ b/pkg/cmd/pr/close/close.go
+@@ -76,7 +76,7 @@ func closeRun(opts *CloseOptions) error {
+ 	if pr.State == "MERGED" {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) can't be closed because it was already merged", cs.Red("!"), pr.Number, pr.Title)
+ 		return cmdutil.SilentError
+-	} else if pr.Closed {
++	} else if !pr.IsOpen() {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already closed\n", cs.Yellow("!"), pr.Number, pr.Title)
+ 		return nil
+ 	}
+diff --git a/pkg/cmd/pr/ready/ready.go b/pkg/cmd/pr/ready/ready.go
+index 003902963db..a33248f9a03 100644
+--- a/pkg/cmd/pr/ready/ready.go
++++ b/pkg/cmd/pr/ready/ready.go
+@@ -75,7 +75,7 @@ func readyRun(opts *ReadyOptions) error {
+ 		return err
+ 	}
+ 
+-	if pr.Closed {
++	if !pr.IsOpen() {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is closed. Only draft pull requests can be marked as \"ready for review\"", cs.Red("!"), pr.Number)
+ 		return cmdutil.SilentError
+ 	} else if !pr.IsDraft {
+diff --git a/pkg/cmd/pr/reopen/reopen.go b/pkg/cmd/pr/reopen/reopen.go
+index 135e341faf0..f22b8bfd228 100644
+--- a/pkg/cmd/pr/reopen/reopen.go
++++ b/pkg/cmd/pr/reopen/reopen.go
+@@ -70,7 +70,7 @@ func reopenRun(opts *ReopenOptions) error {
+ 		return cmdutil.SilentError
+ 	}
+ 
+-	if !pr.Closed {
++	if pr.IsOpen() {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already open\n", cs.Yellow("!"), pr.Number, pr.Title)
+ 		return nil
+ 	}

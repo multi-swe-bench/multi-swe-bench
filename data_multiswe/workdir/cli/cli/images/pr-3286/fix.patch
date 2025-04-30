@@ -1,0 +1,2001 @@
+diff --git a/cmd/gh/main.go b/cmd/gh/main.go
+index bb399f1a527..a32ae863aa3 100644
+--- a/cmd/gh/main.go
++++ b/cmd/gh/main.go
+@@ -59,10 +59,6 @@ func mainRun() exitCode {
+ 
+ 	hasDebug := os.Getenv("DEBUG") != ""
+ 
+-	if hostFromEnv := os.Getenv("GH_HOST"); hostFromEnv != "" {
+-		ghinstance.OverrideDefault(hostFromEnv)
+-	}
+-
+ 	cmdFactory := factory.New(buildVersion)
+ 	stderr := cmdFactory.IOStreams.ErrOut
+ 	if !cmdFactory.IOStreams.ColorEnabled() {
+diff --git a/context/remote.go b/context/remote.go
+index b8887848377..5ddfe38c963 100644
+--- a/context/remote.go
++++ b/context/remote.go
+@@ -54,6 +54,20 @@ func (r Remotes) Less(i, j int) bool {
+ 	return remoteNameSortScore(r[i].Name) > remoteNameSortScore(r[j].Name)
+ }
+ 
++// Filter remotes by given hostnames, maintains original order
++func (r Remotes) FilterByHosts(hosts []string) Remotes {
++	filtered := make(Remotes, 0)
++	for _, rr := range r {
++		for _, host := range hosts {
++			if strings.EqualFold(rr.RepoHost(), host) {
++				filtered = append(filtered, rr)
++				break
++			}
++		}
++	}
++	return filtered
++}
++
+ // Remote represents a git remote mapped to a GitHub repository
+ type Remote struct {
+ 	*git.Remote
+diff --git a/internal/config/config_map.go b/internal/config/config_map.go
+new file mode 100644
+index 00000000000..f6b25fcb6ad
+--- /dev/null
++++ b/internal/config/config_map.go
+@@ -0,0 +1,99 @@
++package config
++
++import (
++	"errors"
++
++	"gopkg.in/yaml.v3"
++)
++
++// This type implements a low-level get/set config that is backed by an in-memory tree of Yaml
++// nodes. It allows us to interact with a yaml-based config programmatically, preserving any
++// comments that were present when the yaml was parsed.
++type ConfigMap struct {
++	Root *yaml.Node
++}
++
++type ConfigEntry struct {
++	KeyNode   *yaml.Node
++	ValueNode *yaml.Node
++	Index     int
++}
++
++type NotFoundError struct {
++	error
++}
++
++func (cm *ConfigMap) Empty() bool {
++	return cm.Root == nil || len(cm.Root.Content) == 0
++}
++
++func (cm *ConfigMap) GetStringValue(key string) (string, error) {
++	entry, err := cm.FindEntry(key)
++	if err != nil {
++		return "", err
++	}
++	return entry.ValueNode.Value, nil
++}
++
++func (cm *ConfigMap) SetStringValue(key, value string) error {
++	entry, err := cm.FindEntry(key)
++
++	var notFound *NotFoundError
++
++	valueNode := entry.ValueNode
++
++	if err != nil && errors.As(err, &notFound) {
++		keyNode := &yaml.Node{
++			Kind:  yaml.ScalarNode,
++			Value: key,
++		}
++		valueNode = &yaml.Node{
++			Kind:  yaml.ScalarNode,
++			Tag:   "!!str",
++			Value: "",
++		}
++
++		cm.Root.Content = append(cm.Root.Content, keyNode, valueNode)
++	} else if err != nil {
++		return err
++	}
++
++	valueNode.Value = value
++
++	return nil
++}
++
++func (cm *ConfigMap) FindEntry(key string) (ce *ConfigEntry, err error) {
++	err = nil
++
++	ce = &ConfigEntry{}
++
++	topLevelKeys := cm.Root.Content
++	for i, v := range topLevelKeys {
++		if v.Value == key {
++			ce.KeyNode = v
++			ce.Index = i
++			if i+1 < len(topLevelKeys) {
++				ce.ValueNode = topLevelKeys[i+1]
++			}
++			return
++		}
++	}
++
++	return ce, &NotFoundError{errors.New("not found")}
++}
++
++func (cm *ConfigMap) RemoveEntry(key string) {
++	newContent := []*yaml.Node{}
++
++	content := cm.Root.Content
++	for i := 0; i < len(content); i++ {
++		if content[i].Value == key {
++			i++ // skip the next node which is this key's value
++		} else {
++			newContent = append(newContent, content[i])
++		}
++	}
++
++	cm.Root.Content = newContent
++}
+diff --git a/internal/config/config_type.go b/internal/config/config_type.go
+index 998d54d31a4..9098a1c083e 100644
+--- a/internal/config/config_type.go
++++ b/internal/config/config_type.go
+@@ -1,16 +1,25 @@
+ package config
+ 
+ import (
+-	"bytes"
+-	"errors"
+ 	"fmt"
+-	"sort"
+-	"strings"
+ 
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"gopkg.in/yaml.v3"
+ )
+ 
++// This interface describes interacting with some persistent configuration for gh.
++type Config interface {
++	Get(string, string) (string, error)
++	GetWithSource(string, string) (string, string, error)
++	Set(string, string, string) error
++	UnsetHost(string)
++	Hosts() ([]string, error)
++	DefaultHost() (string, error)
++	DefaultHostWithSource() (string, string, error)
++	Aliases() (*AliasConfig, error)
++	CheckWriteable(string, string) error
++	Write() error
++}
++
+ type ConfigOption struct {
+ 	Key           string
+ 	Description   string
+@@ -88,115 +97,6 @@ func ValidateValue(key, value string) error {
+ 	return &InvalidValueError{ValidValues: validValues}
+ }
+ 
+-// This interface describes interacting with some persistent configuration for gh.
+-type Config interface {
+-	Get(string, string) (string, error)
+-	GetWithSource(string, string) (string, string, error)
+-	Set(string, string, string) error
+-	UnsetHost(string)
+-	Hosts() ([]string, error)
+-	Aliases() (*AliasConfig, error)
+-	CheckWriteable(string, string) error
+-	Write() error
+-}
+-
+-type NotFoundError struct {
+-	error
+-}
+-
+-type HostConfig struct {
+-	ConfigMap
+-	Host string
+-}
+-
+-// This type implements a low-level get/set config that is backed by an in-memory tree of Yaml
+-// nodes. It allows us to interact with a yaml-based config programmatically, preserving any
+-// comments that were present when the yaml was parsed.
+-type ConfigMap struct {
+-	Root *yaml.Node
+-}
+-
+-func (cm *ConfigMap) Empty() bool {
+-	return cm.Root == nil || len(cm.Root.Content) == 0
+-}
+-
+-func (cm *ConfigMap) GetStringValue(key string) (string, error) {
+-	entry, err := cm.FindEntry(key)
+-	if err != nil {
+-		return "", err
+-	}
+-	return entry.ValueNode.Value, nil
+-}
+-
+-func (cm *ConfigMap) SetStringValue(key, value string) error {
+-	entry, err := cm.FindEntry(key)
+-
+-	var notFound *NotFoundError
+-
+-	valueNode := entry.ValueNode
+-
+-	if err != nil && errors.As(err, &notFound) {
+-		keyNode := &yaml.Node{
+-			Kind:  yaml.ScalarNode,
+-			Value: key,
+-		}
+-		valueNode = &yaml.Node{
+-			Kind:  yaml.ScalarNode,
+-			Tag:   "!!str",
+-			Value: "",
+-		}
+-
+-		cm.Root.Content = append(cm.Root.Content, keyNode, valueNode)
+-	} else if err != nil {
+-		return err
+-	}
+-
+-	valueNode.Value = value
+-
+-	return nil
+-}
+-
+-type ConfigEntry struct {
+-	KeyNode   *yaml.Node
+-	ValueNode *yaml.Node
+-	Index     int
+-}
+-
+-func (cm *ConfigMap) FindEntry(key string) (ce *ConfigEntry, err error) {
+-	err = nil
+-
+-	ce = &ConfigEntry{}
+-
+-	topLevelKeys := cm.Root.Content
+-	for i, v := range topLevelKeys {
+-		if v.Value == key {
+-			ce.KeyNode = v
+-			ce.Index = i
+-			if i+1 < len(topLevelKeys) {
+-				ce.ValueNode = topLevelKeys[i+1]
+-			}
+-			return
+-		}
+-	}
+-
+-	return ce, &NotFoundError{errors.New("not found")}
+-}
+-
+-func (cm *ConfigMap) RemoveEntry(key string) {
+-	newContent := []*yaml.Node{}
+-
+-	content := cm.Root.Content
+-	for i := 0; i < len(content); i++ {
+-		if content[i].Value == key {
+-			i++ // skip the next node which is this key's value
+-		} else {
+-			newContent = append(newContent, content[i])
+-		}
+-	}
+-
+-	cm.Root.Content = newContent
+-}
+-
+ func NewConfig(root *yaml.Node) Config {
+ 	return &fileConfig{
+ 		ConfigMap:    ConfigMap{Root: root.Content[0]},
+@@ -284,290 +184,3 @@ func NewBlankRoot() *yaml.Node {
+ 		},
+ 	}
+ }
+-
+-// This type implements a Config interface and represents a config file on disk.
+-type fileConfig struct {
+-	ConfigMap
+-	documentRoot *yaml.Node
+-}
+-
+-func (c *fileConfig) Root() *yaml.Node {
+-	return c.ConfigMap.Root
+-}
+-
+-func (c *fileConfig) Get(hostname, key string) (string, error) {
+-	val, _, err := c.GetWithSource(hostname, key)
+-	return val, err
+-}
+-
+-func (c *fileConfig) GetWithSource(hostname, key string) (string, string, error) {
+-	if hostname != "" {
+-		var notFound *NotFoundError
+-
+-		hostCfg, err := c.configForHost(hostname)
+-		if err != nil && !errors.As(err, &notFound) {
+-			return "", "", err
+-		}
+-
+-		var hostValue string
+-		if hostCfg != nil {
+-			hostValue, err = hostCfg.GetStringValue(key)
+-			if err != nil && !errors.As(err, &notFound) {
+-				return "", "", err
+-			}
+-		}
+-
+-		if hostValue != "" {
+-			return hostValue, HostsConfigFile(), nil
+-		}
+-	}
+-
+-	defaultSource := ConfigFile()
+-
+-	value, err := c.GetStringValue(key)
+-
+-	var notFound *NotFoundError
+-
+-	if err != nil && errors.As(err, &notFound) {
+-		return defaultFor(key), defaultSource, nil
+-	} else if err != nil {
+-		return "", defaultSource, err
+-	}
+-
+-	if value == "" {
+-		return defaultFor(key), defaultSource, nil
+-	}
+-
+-	return value, defaultSource, nil
+-}
+-
+-func (c *fileConfig) Set(hostname, key, value string) error {
+-	if hostname == "" {
+-		return c.SetStringValue(key, value)
+-	} else {
+-		hostCfg, err := c.configForHost(hostname)
+-		var notFound *NotFoundError
+-		if errors.As(err, &notFound) {
+-			hostCfg = c.makeConfigForHost(hostname)
+-		} else if err != nil {
+-			return err
+-		}
+-		return hostCfg.SetStringValue(key, value)
+-	}
+-}
+-
+-func (c *fileConfig) UnsetHost(hostname string) {
+-	if hostname == "" {
+-		return
+-	}
+-
+-	hostsEntry, err := c.FindEntry("hosts")
+-	if err != nil {
+-		return
+-	}
+-
+-	cm := ConfigMap{hostsEntry.ValueNode}
+-	cm.RemoveEntry(hostname)
+-}
+-
+-func (c *fileConfig) configForHost(hostname string) (*HostConfig, error) {
+-	hosts, err := c.hostEntries()
+-	if err != nil {
+-		return nil, fmt.Errorf("failed to parse hosts config: %w", err)
+-	}
+-
+-	for _, hc := range hosts {
+-		if strings.EqualFold(hc.Host, hostname) {
+-			return hc, nil
+-		}
+-	}
+-	return nil, &NotFoundError{fmt.Errorf("could not find config entry for %q", hostname)}
+-}
+-
+-func (c *fileConfig) CheckWriteable(hostname, key string) error {
+-	// TODO: check filesystem permissions
+-	return nil
+-}
+-
+-func (c *fileConfig) Write() error {
+-	mainData := yaml.Node{Kind: yaml.MappingNode}
+-	hostsData := yaml.Node{Kind: yaml.MappingNode}
+-
+-	nodes := c.documentRoot.Content[0].Content
+-	for i := 0; i < len(nodes)-1; i += 2 {
+-		if nodes[i].Value == "hosts" {
+-			hostsData.Content = append(hostsData.Content, nodes[i+1].Content...)
+-		} else {
+-			mainData.Content = append(mainData.Content, nodes[i], nodes[i+1])
+-		}
+-	}
+-
+-	mainBytes, err := yaml.Marshal(&mainData)
+-	if err != nil {
+-		return err
+-	}
+-
+-	filename := ConfigFile()
+-	err = WriteConfigFile(filename, yamlNormalize(mainBytes))
+-	if err != nil {
+-		return err
+-	}
+-
+-	hostsBytes, err := yaml.Marshal(&hostsData)
+-	if err != nil {
+-		return err
+-	}
+-
+-	return WriteConfigFile(HostsConfigFile(), yamlNormalize(hostsBytes))
+-}
+-
+-func yamlNormalize(b []byte) []byte {
+-	if bytes.Equal(b, []byte("{}\n")) {
+-		return []byte{}
+-	}
+-	return b
+-}
+-
+-func (c *fileConfig) Aliases() (*AliasConfig, error) {
+-	// The complexity here is for dealing with either a missing or empty aliases key. It's something
+-	// we'll likely want for other config sections at some point.
+-	entry, err := c.FindEntry("aliases")
+-	var nfe *NotFoundError
+-	notFound := errors.As(err, &nfe)
+-	if err != nil && !notFound {
+-		return nil, err
+-	}
+-
+-	toInsert := []*yaml.Node{}
+-
+-	keyNode := entry.KeyNode
+-	valueNode := entry.ValueNode
+-
+-	if keyNode == nil {
+-		keyNode = &yaml.Node{
+-			Kind:  yaml.ScalarNode,
+-			Value: "aliases",
+-		}
+-		toInsert = append(toInsert, keyNode)
+-	}
+-
+-	if valueNode == nil || valueNode.Kind != yaml.MappingNode {
+-		valueNode = &yaml.Node{
+-			Kind:  yaml.MappingNode,
+-			Value: "",
+-		}
+-		toInsert = append(toInsert, valueNode)
+-	}
+-
+-	if len(toInsert) > 0 {
+-		newContent := []*yaml.Node{}
+-		if notFound {
+-			newContent = append(c.Root().Content, keyNode, valueNode)
+-		} else {
+-			for i := 0; i < len(c.Root().Content); i++ {
+-				if i == entry.Index {
+-					newContent = append(newContent, keyNode, valueNode)
+-					i++
+-				} else {
+-					newContent = append(newContent, c.Root().Content[i])
+-				}
+-			}
+-		}
+-		c.Root().Content = newContent
+-	}
+-
+-	return &AliasConfig{
+-		Parent:    c,
+-		ConfigMap: ConfigMap{Root: valueNode},
+-	}, nil
+-}
+-
+-func (c *fileConfig) hostEntries() ([]*HostConfig, error) {
+-	entry, err := c.FindEntry("hosts")
+-	if err != nil {
+-		return nil, fmt.Errorf("could not find hosts config: %w", err)
+-	}
+-
+-	hostConfigs, err := c.parseHosts(entry.ValueNode)
+-	if err != nil {
+-		return nil, fmt.Errorf("could not parse hosts config: %w", err)
+-	}
+-
+-	return hostConfigs, nil
+-}
+-
+-// Hosts returns a list of all known hostnames configured in hosts.yml
+-func (c *fileConfig) Hosts() ([]string, error) {
+-	entries, err := c.hostEntries()
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	hostnames := []string{}
+-	for _, entry := range entries {
+-		hostnames = append(hostnames, entry.Host)
+-	}
+-
+-	sort.SliceStable(hostnames, func(i, j int) bool { return hostnames[i] == ghinstance.Default() })
+-
+-	return hostnames, nil
+-}
+-
+-func (c *fileConfig) makeConfigForHost(hostname string) *HostConfig {
+-	hostRoot := &yaml.Node{Kind: yaml.MappingNode}
+-	hostCfg := &HostConfig{
+-		Host:      hostname,
+-		ConfigMap: ConfigMap{Root: hostRoot},
+-	}
+-
+-	var notFound *NotFoundError
+-	hostsEntry, err := c.FindEntry("hosts")
+-	if errors.As(err, &notFound) {
+-		hostsEntry.KeyNode = &yaml.Node{
+-			Kind:  yaml.ScalarNode,
+-			Value: "hosts",
+-		}
+-		hostsEntry.ValueNode = &yaml.Node{Kind: yaml.MappingNode}
+-		root := c.Root()
+-		root.Content = append(root.Content, hostsEntry.KeyNode, hostsEntry.ValueNode)
+-	} else if err != nil {
+-		panic(err)
+-	}
+-
+-	hostsEntry.ValueNode.Content = append(hostsEntry.ValueNode.Content,
+-		&yaml.Node{
+-			Kind:  yaml.ScalarNode,
+-			Value: hostname,
+-		}, hostRoot)
+-
+-	return hostCfg
+-}
+-
+-func (c *fileConfig) parseHosts(hostsEntry *yaml.Node) ([]*HostConfig, error) {
+-	hostConfigs := []*HostConfig{}
+-
+-	for i := 0; i < len(hostsEntry.Content)-1; i = i + 2 {
+-		hostname := hostsEntry.Content[i].Value
+-		hostRoot := hostsEntry.Content[i+1]
+-		hostConfig := HostConfig{
+-			ConfigMap: ConfigMap{Root: hostRoot},
+-			Host:      hostname,
+-		}
+-		hostConfigs = append(hostConfigs, &hostConfig)
+-	}
+-
+-	if len(hostConfigs) == 0 {
+-		return nil, errors.New("could not find any host configurations")
+-	}
+-
+-	return hostConfigs, nil
+-}
+-
+-func defaultFor(key string) string {
+-	for _, co := range configOptions {
+-		if co.Key == key {
+-			return co.DefaultValue
+-		}
+-	}
+-	return ""
+-}
+diff --git a/internal/config/from_env.go b/internal/config/from_env.go
+index 7b2853bd767..97a5e5b41f7 100644
+--- a/internal/config/from_env.go
++++ b/internal/config/from_env.go
+@@ -8,6 +8,7 @@ import (
+ )
+ 
+ const (
++	GH_HOST                 = "GH_HOST"
+ 	GH_TOKEN                = "GH_TOKEN"
+ 	GITHUB_TOKEN            = "GITHUB_TOKEN"
+ 	GH_ENTERPRISE_TOKEN     = "GH_ENTERPRISE_TOKEN"
+@@ -46,6 +47,18 @@ func (c *envConfig) Hosts() ([]string, error) {
+ 	return hosts, err
+ }
+ 
++func (c *envConfig) DefaultHost() (string, error) {
++	val, _, err := c.DefaultHostWithSource()
++	return val, err
++}
++
++func (c *envConfig) DefaultHostWithSource() (string, string, error) {
++	if host := os.Getenv(GH_HOST); host != "" {
++		return host, GH_HOST, nil
++	}
++	return c.Config.DefaultHostWithSource()
++}
++
+ func (c *envConfig) Get(hostname, key string) (string, error) {
+ 	val, _, err := c.GetWithSource(hostname, key)
+ 	return val, err
+diff --git a/internal/config/from_file.go b/internal/config/from_file.go
+new file mode 100644
+index 00000000000..b6b7d5a0e75
+--- /dev/null
++++ b/internal/config/from_file.go
+@@ -0,0 +1,318 @@
++package config
++
++import (
++	"bytes"
++	"errors"
++	"fmt"
++	"sort"
++	"strings"
++
++	"github.com/cli/cli/internal/ghinstance"
++	"gopkg.in/yaml.v3"
++)
++
++// This type implements a Config interface and represents a config file on disk.
++type fileConfig struct {
++	ConfigMap
++	documentRoot *yaml.Node
++}
++
++type HostConfig struct {
++	ConfigMap
++	Host string
++}
++
++func (c *fileConfig) Root() *yaml.Node {
++	return c.ConfigMap.Root
++}
++
++func (c *fileConfig) Get(hostname, key string) (string, error) {
++	val, _, err := c.GetWithSource(hostname, key)
++	return val, err
++}
++
++func (c *fileConfig) GetWithSource(hostname, key string) (string, string, error) {
++	if hostname != "" {
++		var notFound *NotFoundError
++
++		hostCfg, err := c.configForHost(hostname)
++		if err != nil && !errors.As(err, &notFound) {
++			return "", "", err
++		}
++
++		var hostValue string
++		if hostCfg != nil {
++			hostValue, err = hostCfg.GetStringValue(key)
++			if err != nil && !errors.As(err, &notFound) {
++				return "", "", err
++			}
++		}
++
++		if hostValue != "" {
++			return hostValue, HostsConfigFile(), nil
++		}
++	}
++
++	defaultSource := ConfigFile()
++
++	value, err := c.GetStringValue(key)
++
++	var notFound *NotFoundError
++
++	if err != nil && errors.As(err, &notFound) {
++		return defaultFor(key), defaultSource, nil
++	} else if err != nil {
++		return "", defaultSource, err
++	}
++
++	if value == "" {
++		return defaultFor(key), defaultSource, nil
++	}
++
++	return value, defaultSource, nil
++}
++
++func (c *fileConfig) Set(hostname, key, value string) error {
++	if hostname == "" {
++		return c.SetStringValue(key, value)
++	} else {
++		hostCfg, err := c.configForHost(hostname)
++		var notFound *NotFoundError
++		if errors.As(err, &notFound) {
++			hostCfg = c.makeConfigForHost(hostname)
++		} else if err != nil {
++			return err
++		}
++		return hostCfg.SetStringValue(key, value)
++	}
++}
++
++func (c *fileConfig) UnsetHost(hostname string) {
++	if hostname == "" {
++		return
++	}
++
++	hostsEntry, err := c.FindEntry("hosts")
++	if err != nil {
++		return
++	}
++
++	cm := ConfigMap{hostsEntry.ValueNode}
++	cm.RemoveEntry(hostname)
++}
++
++func (c *fileConfig) configForHost(hostname string) (*HostConfig, error) {
++	hosts, err := c.hostEntries()
++	if err != nil {
++		return nil, fmt.Errorf("failed to parse hosts config: %w", err)
++	}
++
++	for _, hc := range hosts {
++		if strings.EqualFold(hc.Host, hostname) {
++			return hc, nil
++		}
++	}
++	return nil, &NotFoundError{fmt.Errorf("could not find config entry for %q", hostname)}
++}
++
++func (c *fileConfig) CheckWriteable(hostname, key string) error {
++	// TODO: check filesystem permissions
++	return nil
++}
++
++func (c *fileConfig) Write() error {
++	mainData := yaml.Node{Kind: yaml.MappingNode}
++	hostsData := yaml.Node{Kind: yaml.MappingNode}
++
++	nodes := c.documentRoot.Content[0].Content
++	for i := 0; i < len(nodes)-1; i += 2 {
++		if nodes[i].Value == "hosts" {
++			hostsData.Content = append(hostsData.Content, nodes[i+1].Content...)
++		} else {
++			mainData.Content = append(mainData.Content, nodes[i], nodes[i+1])
++		}
++	}
++
++	mainBytes, err := yaml.Marshal(&mainData)
++	if err != nil {
++		return err
++	}
++
++	filename := ConfigFile()
++	err = WriteConfigFile(filename, yamlNormalize(mainBytes))
++	if err != nil {
++		return err
++	}
++
++	hostsBytes, err := yaml.Marshal(&hostsData)
++	if err != nil {
++		return err
++	}
++
++	return WriteConfigFile(HostsConfigFile(), yamlNormalize(hostsBytes))
++}
++
++func (c *fileConfig) Aliases() (*AliasConfig, error) {
++	// The complexity here is for dealing with either a missing or empty aliases key. It's something
++	// we'll likely want for other config sections at some point.
++	entry, err := c.FindEntry("aliases")
++	var nfe *NotFoundError
++	notFound := errors.As(err, &nfe)
++	if err != nil && !notFound {
++		return nil, err
++	}
++
++	toInsert := []*yaml.Node{}
++
++	keyNode := entry.KeyNode
++	valueNode := entry.ValueNode
++
++	if keyNode == nil {
++		keyNode = &yaml.Node{
++			Kind:  yaml.ScalarNode,
++			Value: "aliases",
++		}
++		toInsert = append(toInsert, keyNode)
++	}
++
++	if valueNode == nil || valueNode.Kind != yaml.MappingNode {
++		valueNode = &yaml.Node{
++			Kind:  yaml.MappingNode,
++			Value: "",
++		}
++		toInsert = append(toInsert, valueNode)
++	}
++
++	if len(toInsert) > 0 {
++		newContent := []*yaml.Node{}
++		if notFound {
++			newContent = append(c.Root().Content, keyNode, valueNode)
++		} else {
++			for i := 0; i < len(c.Root().Content); i++ {
++				if i == entry.Index {
++					newContent = append(newContent, keyNode, valueNode)
++					i++
++				} else {
++					newContent = append(newContent, c.Root().Content[i])
++				}
++			}
++		}
++		c.Root().Content = newContent
++	}
++
++	return &AliasConfig{
++		Parent:    c,
++		ConfigMap: ConfigMap{Root: valueNode},
++	}, nil
++}
++
++func (c *fileConfig) hostEntries() ([]*HostConfig, error) {
++	entry, err := c.FindEntry("hosts")
++	if err != nil {
++		return nil, fmt.Errorf("could not find hosts config: %w", err)
++	}
++
++	hostConfigs, err := c.parseHosts(entry.ValueNode)
++	if err != nil {
++		return nil, fmt.Errorf("could not parse hosts config: %w", err)
++	}
++
++	return hostConfigs, nil
++}
++
++// Hosts returns a list of all known hostnames configured in hosts.yml
++func (c *fileConfig) Hosts() ([]string, error) {
++	entries, err := c.hostEntries()
++	if err != nil {
++		return nil, err
++	}
++
++	hostnames := []string{}
++	for _, entry := range entries {
++		hostnames = append(hostnames, entry.Host)
++	}
++
++	sort.SliceStable(hostnames, func(i, j int) bool { return hostnames[i] == ghinstance.Default() })
++
++	return hostnames, nil
++}
++
++func (c *fileConfig) DefaultHost() (string, error) {
++	val, _, err := c.DefaultHostWithSource()
++	return val, err
++}
++
++func (c *fileConfig) DefaultHostWithSource() (string, string, error) {
++	hosts, err := c.Hosts()
++	if err == nil && len(hosts) == 1 {
++		return hosts[0], HostsConfigFile(), nil
++	}
++
++	return ghinstance.Default(), "", nil
++}
++
++func (c *fileConfig) makeConfigForHost(hostname string) *HostConfig {
++	hostRoot := &yaml.Node{Kind: yaml.MappingNode}
++	hostCfg := &HostConfig{
++		Host:      hostname,
++		ConfigMap: ConfigMap{Root: hostRoot},
++	}
++
++	var notFound *NotFoundError
++	hostsEntry, err := c.FindEntry("hosts")
++	if errors.As(err, &notFound) {
++		hostsEntry.KeyNode = &yaml.Node{
++			Kind:  yaml.ScalarNode,
++			Value: "hosts",
++		}
++		hostsEntry.ValueNode = &yaml.Node{Kind: yaml.MappingNode}
++		root := c.Root()
++		root.Content = append(root.Content, hostsEntry.KeyNode, hostsEntry.ValueNode)
++	} else if err != nil {
++		panic(err)
++	}
++
++	hostsEntry.ValueNode.Content = append(hostsEntry.ValueNode.Content,
++		&yaml.Node{
++			Kind:  yaml.ScalarNode,
++			Value: hostname,
++		}, hostRoot)
++
++	return hostCfg
++}
++
++func (c *fileConfig) parseHosts(hostsEntry *yaml.Node) ([]*HostConfig, error) {
++	hostConfigs := []*HostConfig{}
++
++	for i := 0; i < len(hostsEntry.Content)-1; i = i + 2 {
++		hostname := hostsEntry.Content[i].Value
++		hostRoot := hostsEntry.Content[i+1]
++		hostConfig := HostConfig{
++			ConfigMap: ConfigMap{Root: hostRoot},
++			Host:      hostname,
++		}
++		hostConfigs = append(hostConfigs, &hostConfig)
++	}
++
++	if len(hostConfigs) == 0 {
++		return nil, errors.New("could not find any host configurations")
++	}
++
++	return hostConfigs, nil
++}
++
++func yamlNormalize(b []byte) []byte {
++	if bytes.Equal(b, []byte("{}\n")) {
++		return []byte{}
++	}
++	return b
++}
++
++func defaultFor(key string) string {
++	for _, co := range configOptions {
++		if co.Key == key {
++			return co.DefaultValue
++		}
++	}
++	return ""
++}
+diff --git a/internal/config/stub.go b/internal/config/stub.go
+index 57761dac599..e68183d32a9 100644
+--- a/internal/config/stub.go
++++ b/internal/config/stub.go
+@@ -49,3 +49,11 @@ func (c ConfigStub) Write() error {
+ 	c["_written"] = "true"
+ 	return nil
+ }
++
++func (c ConfigStub) DefaultHost() (string, error) {
++	return "", nil
++}
++
++func (c ConfigStub) DefaultHostWithSource() (string, string, error) {
++	return "", "", nil
++}
+diff --git a/internal/ghinstance/host.go b/internal/ghinstance/host.go
+index 76639ed26a3..709d7125509 100644
+--- a/internal/ghinstance/host.go
++++ b/internal/ghinstance/host.go
+@@ -8,27 +8,11 @@ import (
+ 
+ const defaultHostname = "github.com"
+ 
+-var hostnameOverride string
+-
+ // Default returns the host name of the default GitHub instance
+ func Default() string {
+ 	return defaultHostname
+ }
+ 
+-// OverridableDefault is like Default, except it is overridable by the GH_HOST environment variable
+-func OverridableDefault() string {
+-	if hostnameOverride != "" {
+-		return hostnameOverride
+-	}
+-	return defaultHostname
+-}
+-
+-// OverrideDefault overrides the value returned from OverridableDefault. This should only ever be
+-// called from the main runtime path, not tests.
+-func OverrideDefault(newhost string) {
+-	hostnameOverride = newhost
+-}
+-
+ // IsEnterprise reports whether a non-normalized host name looks like a GHE instance
+ func IsEnterprise(h string) bool {
+ 	return NormalizeHostname(h) != defaultHostname
+diff --git a/internal/ghrepo/repo.go b/internal/ghrepo/repo.go
+index 86fb74d67bb..997a5621dd1 100644
+--- a/internal/ghrepo/repo.go
++++ b/internal/ghrepo/repo.go
+@@ -18,7 +18,7 @@ type Interface interface {
+ 
+ // New instantiates a GitHub repository from owner and name arguments
+ func New(owner, repo string) Interface {
+-	return NewWithHost(owner, repo, ghinstance.OverridableDefault())
++	return NewWithHost(owner, repo, ghinstance.Default())
+ }
+ 
+ // NewWithHost is like New with an explicit host name
+diff --git a/pkg/cmd/api/api.go b/pkg/cmd/api/api.go
+index a4bbafa9c86..714f555cb4e 100644
+--- a/pkg/cmd/api/api.go
++++ b/pkg/cmd/api/api.go
+@@ -18,6 +18,7 @@ import (
+ 
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/api"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmdutil"
+@@ -45,6 +46,7 @@ type ApiOptions struct {
+ 	CacheTTL            time.Duration
+ 	FilterOutput        string
+ 
++	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Branch     func() (string, error)
+@@ -53,6 +55,7 @@ type ApiOptions struct {
+ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command {
+ 	opts := ApiOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 		BaseRepo:   f.BaseRepo,
+ 		Branch:     f.Branch,
+@@ -288,7 +291,16 @@ func apiRun(opts *ApiOptions) error {
+ 		defer opts.IO.StopPager()
+ 	}
+ 
+-	host := ghinstance.OverridableDefault()
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
+ 	if opts.Hostname != "" {
+ 		host = opts.Hostname
+ 	}
+diff --git a/pkg/cmd/factory/default.go b/pkg/cmd/factory/default.go
+index ff8ca8ac9a8..04b9104d747 100644
+--- a/pkg/cmd/factory/default.go
++++ b/pkg/cmd/factory/default.go
+@@ -5,11 +5,9 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"os"
+-	"strings"
+ 
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -33,16 +31,11 @@ func New(appVersion string) *cmdutil.Factory {
+ 		return cachedConfig, configError
+ 	}
+ 
+-	hostOverride := ""
+-	if !strings.EqualFold(ghinstance.Default(), ghinstance.OverridableDefault()) {
+-		hostOverride = ghinstance.OverridableDefault()
+-	}
+-
+ 	rr := &remoteResolver{
+ 		readRemotes: git.Remotes,
+ 		getConfig:   configFunc,
+ 	}
+-	remotesFunc := rr.Resolver(hostOverride)
++	remotesFunc := rr.Resolver()
+ 
+ 	ghExecutable := "gh"
+ 	if exe, err := os.Executable(); err == nil {
+diff --git a/pkg/cmd/factory/remote_resolver.go b/pkg/cmd/factory/remote_resolver.go
+index ee603e49d79..4a512671ab9 100644
+--- a/pkg/cmd/factory/remote_resolver.go
++++ b/pkg/cmd/factory/remote_resolver.go
+@@ -4,21 +4,23 @@ import (
+ 	"errors"
+ 	"net/url"
+ 	"sort"
+-	"strings"
+ 
+ 	"github.com/cli/cli/context"
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/pkg/set"
+ )
+ 
++const GH_HOST = "GH_HOST"
++
+ type remoteResolver struct {
+ 	readRemotes   func() (git.RemoteSet, error)
+ 	getConfig     func() (config.Config, error)
+ 	urlTranslator func(*url.URL) *url.URL
+ }
+ 
+-func (rr *remoteResolver) Resolver(hostOverride string) func() (context.Remotes, error) {
++func (rr *remoteResolver) Resolver() func() (context.Remotes, error) {
+ 	var cachedRemotes context.Remotes
+ 	var remotesError error
+ 
+@@ -48,50 +50,45 @@ func (rr *remoteResolver) Resolver(hostOverride string) func() (context.Remotes,
+ 			return nil, err
+ 		}
+ 
+-		knownHosts := map[string]bool{}
+-		knownHosts[ghinstance.Default()] = true
+-		if authenticatedHosts, err := cfg.Hosts(); err == nil {
+-			for _, h := range authenticatedHosts {
+-				knownHosts[h] = true
+-			}
++		authedHosts, err := cfg.Hosts()
++		if err != nil {
++			return nil, err
+ 		}
++		defaultHost, src, err := cfg.DefaultHostWithSource()
++		if err != nil {
++			return nil, err
++		}
++		// Use set to dedupe list of hosts
++		hostsSet := set.NewStringSet()
++		hostsSet.AddValues(authedHosts)
++		hostsSet.AddValues([]string{defaultHost, ghinstance.Default()})
++		hosts := hostsSet.ToSlice()
+ 
+-		// filter remotes to only those sharing a single, known hostname
+-		var hostname string
+-		cachedRemotes = context.Remotes{}
++		// Sort remotes
+ 		sort.Sort(resolvedRemotes)
+ 
+-		if hostOverride != "" {
+-			for _, r := range resolvedRemotes {
+-				if strings.EqualFold(r.RepoHost(), hostOverride) {
+-					cachedRemotes = append(cachedRemotes, r)
+-				}
+-			}
+-
+-			if len(cachedRemotes) == 0 {
+-				remotesError = errors.New("none of the git remotes configured for this repository correspond to the GH_HOST environment variable. Try adding a matching remote or unsetting the variable.")
+-				return nil, remotesError
+-			}
+-
+-			return cachedRemotes, nil
+-		}
++		// Filter remotes by hosts
++		cachedRemotes := resolvedRemotes.FilterByHosts(hosts)
+ 
+-		for _, r := range resolvedRemotes {
+-			if hostname == "" {
+-				if !knownHosts[r.RepoHost()] {
+-					continue
+-				}
+-				hostname = r.RepoHost()
+-			} else if r.RepoHost() != hostname {
+-				continue
++		// Filter again by default host if one is set
++		// For config file default host fallback to cachedRemotes if none match
++		// For enviornment default host (GH_HOST) do not fallback to cachedRemotes if none match
++		if src != "" {
++			filteredRemotes := cachedRemotes.FilterByHosts([]string{defaultHost})
++			if src == GH_HOST || len(filteredRemotes) > 0 {
++				cachedRemotes = filteredRemotes
+ 			}
+-			cachedRemotes = append(cachedRemotes, r)
+ 		}
+ 
+ 		if len(cachedRemotes) == 0 {
+-			remotesError = errors.New("none of the git remotes configured for this repository point to a known GitHub host. To tell gh about a new GitHub host, please use `gh auth login`")
++			if src == GH_HOST {
++				remotesError = errors.New("none of the git remotes configured for this repository correspond to the GH_HOST environment variable. Try adding a matching remote or unsetting the variable.")
++			} else {
++				remotesError = errors.New("none of the git remotes configured for this repository point to a known GitHub host. To tell gh about a new GitHub host, please use `gh auth login`")
++			}
+ 			return nil, remotesError
+ 		}
++
+ 		return cachedRemotes, nil
+ 	}
+ }
+diff --git a/pkg/cmd/gist/clone/clone.go b/pkg/cmd/gist/clone/clone.go
+index 8bdc932aea6..7a20a650dca 100644
+--- a/pkg/cmd/gist/clone/clone.go
++++ b/pkg/cmd/gist/clone/clone.go
+@@ -7,7 +7,6 @@ import (
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/spf13/cobra"
+@@ -76,7 +75,10 @@ func cloneRun(opts *CloneOptions) error {
+ 		if err != nil {
+ 			return err
+ 		}
+-		hostname := ghinstance.OverridableDefault()
++		hostname, err := cfg.DefaultHost()
++		if err != nil {
++			return err
++		}
+ 		protocol, err := cfg.Get(hostname, "git_protocol")
+ 		if err != nil {
+ 			return err
+diff --git a/pkg/cmd/gist/create/create.go b/pkg/cmd/gist/create/create.go
+index 5ba3d56c738..dcee4e4e4df 100644
+--- a/pkg/cmd/gist/create/create.go
++++ b/pkg/cmd/gist/create/create.go
+@@ -15,7 +15,7 @@ import (
+ 
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/api"
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -32,12 +32,14 @@ type CreateOptions struct {
+ 	FilenameOverride string
+ 	WebMode          bool
+ 
++	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ }
+ 
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := CreateOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -49,22 +51,22 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ 			Gists can be created from one or multiple files. Alternatively, pass "-" as
+ 			file name to read from standard input.
+-			
++
+ 			By default, gists are private; use '--public' to make publicly listed ones.
+ 		`),
+ 		Example: heredoc.Doc(`
+ 			# publish file 'hello.py' as a public gist
+ 			$ gh gist create --public hello.py
+-			
++
+ 			# create a gist with a description
+ 			$ gh gist create hello.py -d "my Hello-World program in Python"
+ 
+ 			# create a gist containing several files
+ 			$ gh gist create hello.py world.py cool.txt
+-			
++
+ 			# read from standard input to create a gist
+ 			$ gh gist create -
+-			
++
+ 			# create a gist from output piped from another command
+ 			$ cat cool.txt | gh gist create
+ 		`),
+@@ -128,7 +130,17 @@ func createRun(opts *CreateOptions) error {
+ 		return err
+ 	}
+ 
+-	gist, err := createGist(httpClient, ghinstance.OverridableDefault(), opts.Description, opts.Public, files)
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	gist, err := createGist(httpClient, host, opts.Description, opts.Public, files)
+ 	if err != nil {
+ 		var httpError api.HTTPError
+ 		if errors.As(err, &httpError) {
+diff --git a/pkg/cmd/gist/delete/delete.go b/pkg/cmd/gist/delete/delete.go
+index 674c33ad6fe..7490efedd2d 100644
+--- a/pkg/cmd/gist/delete/delete.go
++++ b/pkg/cmd/gist/delete/delete.go
+@@ -6,7 +6,7 @@ import (
+ 	"strings"
+ 
+ 	"github.com/cli/cli/api"
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -15,6 +15,7 @@ import (
+ 
+ type DeleteOptions struct {
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ 
+ 	Selector string
+@@ -23,6 +24,7 @@ type DeleteOptions struct {
+ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
+ 	opts := DeleteOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -58,11 +60,21 @@ func deleteRun(opts *DeleteOptions) error {
+ 
+ 	apiClient := api.NewClientFromHTTP(client)
+ 
+-	gist, err := shared.GetGist(client, ghinstance.OverridableDefault(), gistID)
++	cfg, err := opts.Config()
+ 	if err != nil {
+ 		return err
+ 	}
+-	username, err := api.CurrentLoginName(apiClient, ghinstance.OverridableDefault())
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	gist, err := shared.GetGist(client, host, gistID)
++	if err != nil {
++		return err
++	}
++	username, err := api.CurrentLoginName(apiClient, host)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -71,7 +83,7 @@ func deleteRun(opts *DeleteOptions) error {
+ 		return fmt.Errorf("You do not own this gist.")
+ 	}
+ 
+-	err = deleteGist(apiClient, ghinstance.OverridableDefault(), gistID)
++	err = deleteGist(apiClient, host, gistID)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/edit/edit.go b/pkg/cmd/gist/edit/edit.go
+index 6eb4a4ac8cd..8e24ef202f4 100644
+--- a/pkg/cmd/gist/edit/edit.go
++++ b/pkg/cmd/gist/edit/edit.go
+@@ -14,7 +14,6 @@ import (
+ 	"github.com/AlecAivazis/survey/v2"
+ 	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -88,7 +87,17 @@ func editRun(opts *EditOptions) error {
+ 
+ 	apiClient := api.NewClientFromHTTP(client)
+ 
+-	gist, err := shared.GetGist(client, ghinstance.OverridableDefault(), gistID)
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	gist, err := shared.GetGist(client, host, gistID)
+ 	if err != nil {
+ 		if errors.Is(err, shared.NotFoundErr) {
+ 			return fmt.Errorf("gist not found: %s", gistID)
+@@ -96,7 +105,7 @@ func editRun(opts *EditOptions) error {
+ 		return err
+ 	}
+ 
+-	username, err := api.CurrentLoginName(apiClient, ghinstance.OverridableDefault())
++	username, err := api.CurrentLoginName(apiClient, host)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -112,7 +121,7 @@ func editRun(opts *EditOptions) error {
+ 		}
+ 
+ 		gist.Files = files
+-		return updateGist(apiClient, ghinstance.OverridableDefault(), gist)
++		return updateGist(apiClient, host, gist)
+ 	}
+ 
+ 	filesToUpdate := map[string]string{}
+@@ -210,7 +219,7 @@ func editRun(opts *EditOptions) error {
+ 		return nil
+ 	}
+ 
+-	err = updateGist(apiClient, ghinstance.OverridableDefault(), gist)
++	err = updateGist(apiClient, host, gist)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/list/list.go b/pkg/cmd/gist/list/list.go
+index abe407827bc..befb60e8caa 100644
+--- a/pkg/cmd/gist/list/list.go
++++ b/pkg/cmd/gist/list/list.go
+@@ -6,7 +6,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -17,6 +17,7 @@ import (
+ 
+ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ 
+ 	Limit      int
+@@ -26,6 +27,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -68,7 +70,17 @@ func listRun(opts *ListOptions) error {
+ 		return err
+ 	}
+ 
+-	gists, err := shared.ListGists(client, ghinstance.OverridableDefault(), opts.Limit, opts.Visibility)
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	gists, err := shared.ListGists(client, host, opts.Limit, opts.Visibility)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/view/view.go b/pkg/cmd/gist/view/view.go
+index 33946fe8b13..2b49c642deb 100644
+--- a/pkg/cmd/gist/view/view.go
++++ b/pkg/cmd/gist/view/view.go
+@@ -8,6 +8,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/AlecAivazis/survey/v2"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+@@ -21,6 +22,7 @@ import (
+ 
+ type ViewOptions struct {
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ 
+ 	Selector  string
+@@ -33,6 +35,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -72,9 +75,19 @@ func viewRun(opts *ViewOptions) error {
+ 		return err
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	hostname, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
+ 	cs := opts.IO.ColorScheme()
+ 	if gistID == "" {
+-		gistID, err = promptGists(client, cs)
++		gistID, err = promptGists(client, hostname, cs)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -88,7 +101,6 @@ func viewRun(opts *ViewOptions) error {
+ 	if opts.Web {
+ 		gistURL := gistID
+ 		if !strings.Contains(gistURL, "/") {
+-			hostname := ghinstance.OverridableDefault()
+ 			gistURL = ghinstance.GistPrefix(hostname) + gistID
+ 		}
+ 		if opts.IO.IsStderrTTY() {
+@@ -105,7 +117,7 @@ func viewRun(opts *ViewOptions) error {
+ 		gistID = id
+ 	}
+ 
+-	gist, err := shared.GetGist(client, ghinstance.OverridableDefault(), gistID)
++	gist, err := shared.GetGist(client, hostname, gistID)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -190,8 +202,8 @@ func viewRun(opts *ViewOptions) error {
+ 	return nil
+ }
+ 
+-func promptGists(client *http.Client, cs *iostreams.ColorScheme) (gistID string, err error) {
+-	gists, err := shared.ListGists(client, ghinstance.OverridableDefault(), 10, "all")
++func promptGists(client *http.Client, host string, cs *iostreams.ColorScheme) (gistID string, err error) {
++	gists, err := shared.ListGists(client, host, 10, "all")
+ 	if err != nil {
+ 		return "", err
+ 	}
+diff --git a/pkg/cmd/repo/clone/clone.go b/pkg/cmd/repo/clone/clone.go
+index 5cf2d14b88c..5a2c3b68d6f 100644
+--- a/pkg/cmd/repo/clone/clone.go
++++ b/pkg/cmd/repo/clone/clone.go
+@@ -9,7 +9,6 @@ import (
+ 	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -106,7 +105,11 @@ func cloneRun(opts *CloneOptions) error {
+ 		if repositoryIsFullName {
+ 			fullName = opts.Repository
+ 		} else {
+-			currentUser, err := api.CurrentLoginName(apiClient, ghinstance.OverridableDefault())
++			host, err := cfg.DefaultHost()
++			if err != nil {
++				return err
++			}
++			currentUser, err := api.CurrentLoginName(apiClient, host)
+ 			if err != nil {
+ 				return err
+ 			}
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index 4ab6025f946..7ccf844915e 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -190,6 +190,11 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
+ 	var repoToCreate ghrepo.Interface
+ 
+ 	if strings.Contains(opts.Name, "/") {
+@@ -199,7 +204,11 @@ func createRun(opts *CreateOptions) error {
+ 			return fmt.Errorf("argument error: %w", err)
+ 		}
+ 	} else {
+-		repoToCreate = ghrepo.New("", opts.Name)
++		host, err := cfg.DefaultHost()
++		if err != nil {
++			return err
++		}
++		repoToCreate = ghrepo.NewWithHost("", opts.Name, host)
+ 	}
+ 
+ 	var templateRepoMainBranch string
+@@ -276,11 +285,6 @@ func createRun(opts *CreateOptions) error {
+ 			fmt.Fprintln(stdout, repo.URL)
+ 		}
+ 
+-		// TODO This is overly wordy and I'd like to streamline this.
+-		cfg, err := opts.Config()
+-		if err != nil {
+-			return err
+-		}
+ 		protocol, err := cfg.Get(repo.RepoHost(), "git_protocol")
+ 		if err != nil {
+ 			return err
+diff --git a/pkg/cmd/repo/garden/http.go b/pkg/cmd/repo/garden/http.go
+index 3e4bfa799d3..d466cf15526 100644
+--- a/pkg/cmd/repo/garden/http.go
++++ b/pkg/cmd/repo/garden/http.go
+@@ -36,7 +36,7 @@ func getCommits(client *http.Client, repo ghrepo.Interface, maxCommits int) ([]*
+ 			break
+ 		}
+ 		result := Result{}
+-		resp, err := getResponse(client, pathF(page), &result)
++		resp, err := getResponse(client, repo.RepoHost(), pathF(page), &result)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -68,8 +68,8 @@ func getCommits(client *http.Client, repo ghrepo.Interface, maxCommits int) ([]*
+ 	return commits, nil
+ }
+ 
+-func getResponse(client *http.Client, path string, data interface{}) (*http.Response, error) {
+-	url := ghinstance.RESTPrefix(ghinstance.OverridableDefault()) + path
++func getResponse(client *http.Client, host, path string, data interface{}) (*http.Response, error) {
++	url := ghinstance.RESTPrefix(host) + path
+ 	req, err := http.NewRequest("GET", url, nil)
+ 	if err != nil {
+ 		return nil, err
+diff --git a/pkg/cmd/repo/list/list.go b/pkg/cmd/repo/list/list.go
+index 0b0b5fd5e5d..5b0af46f04a 100644
+--- a/pkg/cmd/repo/list/list.go
++++ b/pkg/cmd/repo/list/list.go
+@@ -5,7 +5,7 @@ import (
+ 	"net/http"
+ 	"time"
+ 
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/text"
+@@ -15,6 +15,7 @@ import (
+ 
+ type ListOptions struct {
+ 	HttpClient func() (*http.Client, error)
++	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 
+ 	Limit int
+@@ -33,6 +34,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := ListOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 		Now:        time.Now,
+ 	}
+@@ -105,7 +107,17 @@ func listRun(opts *ListOptions) error {
+ 		NonArchived: opts.NonArchived,
+ 	}
+ 
+-	listResult, err := listRepos(httpClient, ghinstance.OverridableDefault(), opts.Limit, opts.Owner, filter)
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	listResult, err := listRepos(httpClient, host, opts.Limit, opts.Owner, filter)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/secret/list/list.go b/pkg/cmd/secret/list/list.go
+index 792e5fc8229..d331482b888 100644
+--- a/pkg/cmd/secret/list/list.go
++++ b/pkg/cmd/secret/list/list.go
+@@ -8,7 +8,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/cli/cli/api"
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmd/secret/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+@@ -20,6 +20,7 @@ import (
+ type ListOptions struct {
+ 	HttpClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	OrgName string
+@@ -28,6 +29,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -74,7 +76,20 @@ func listRun(opts *ListOptions) error {
+ 	if orgName == "" {
+ 		secrets, err = getRepoSecrets(client, baseRepo)
+ 	} else {
+-		secrets, err = getOrgSecrets(client, orgName)
++		var cfg config.Config
++		var host string
++
++		cfg, err = opts.Config()
++		if err != nil {
++			return err
++		}
++
++		host, err = cfg.DefaultHost()
++		if err != nil {
++			return err
++		}
++
++		secrets, err = getOrgSecrets(client, host, orgName)
+ 	}
+ 
+ 	if err != nil {
+@@ -131,8 +146,7 @@ func fmtVisibility(s Secret) string {
+ 	return ""
+ }
+ 
+-func getOrgSecrets(client *api.Client, orgName string) ([]*Secret, error) {
+-	host := ghinstance.OverridableDefault()
++func getOrgSecrets(client *api.Client, host, orgName string) ([]*Secret, error) {
+ 	secrets, err := getSecrets(client, host, fmt.Sprintf("orgs/%s/actions/secrets", orgName))
+ 	if err != nil {
+ 		return nil, err
+diff --git a/pkg/cmd/secret/remove/remove.go b/pkg/cmd/secret/remove/remove.go
+index 55ab08a67d0..d52269d73fe 100644
+--- a/pkg/cmd/secret/remove/remove.go
++++ b/pkg/cmd/secret/remove/remove.go
+@@ -5,7 +5,7 @@ import (
+ 	"net/http"
+ 
+ 	"github.com/cli/cli/api"
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -15,6 +15,7 @@ import (
+ type RemoveOptions struct {
+ 	HttpClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	SecretName string
+@@ -24,6 +25,7 @@ type RemoveOptions struct {
+ func NewCmdRemove(f *cmdutil.Factory, runF func(*RemoveOptions) error) *cobra.Command {
+ 	opts := &RemoveOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -73,7 +75,16 @@ func removeRun(opts *RemoveOptions) error {
+ 		path = fmt.Sprintf("orgs/%s/actions/secrets/%s", orgName, opts.SecretName)
+ 	}
+ 
+-	host := ghinstance.OverridableDefault()
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
+ 	err = client.REST(host, "DELETE", path, nil, nil)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to delete secret %s: %w", opts.SecretName, err)
+diff --git a/pkg/cmd/secret/set/http.go b/pkg/cmd/secret/set/http.go
+index 15edb0b1da3..8c589adec71 100644
+--- a/pkg/cmd/secret/set/http.go
++++ b/pkg/cmd/secret/set/http.go
+@@ -9,7 +9,6 @@ import (
+ 	"strings"
+ 
+ 	"github.com/cli/cli/api"
+-	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmd/secret/shared"
+ )
+@@ -47,8 +46,7 @@ func getPubKey(client *api.Client, host, path string) (*PubKey, error) {
+ 	return &pk, nil
+ }
+ 
+-func getOrgPublicKey(client *api.Client, orgName string) (*PubKey, error) {
+-	host := ghinstance.OverridableDefault()
++func getOrgPublicKey(client *api.Client, host, orgName string) (*PubKey, error) {
+ 	return getPubKey(client, host, fmt.Sprintf("orgs/%s/actions/secrets/public-key", orgName))
+ }
+ 
+@@ -67,11 +65,10 @@ func putSecret(client *api.Client, host, path string, payload SecretPayload) err
+ 	return client.REST(host, "PUT", path, requestBody, nil)
+ }
+ 
+-func putOrgSecret(client *api.Client, pk *PubKey, opts SetOptions, eValue string) error {
++func putOrgSecret(client *api.Client, host string, pk *PubKey, opts SetOptions, eValue string) error {
+ 	secretName := opts.SecretName
+ 	orgName := opts.OrgName
+ 	visibility := opts.Visibility
+-	host := ghinstance.OverridableDefault()
+ 
+ 	var repositoryIDs []int
+ 	var err error
+diff --git a/pkg/cmd/secret/set/set.go b/pkg/cmd/secret/set/set.go
+index 4c4c20908ca..14eb97ebdff 100644
+--- a/pkg/cmd/secret/set/set.go
++++ b/pkg/cmd/secret/set/set.go
+@@ -12,6 +12,7 @@ import (
+ 
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/api"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmd/secret/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+@@ -23,6 +24,7 @@ import (
+ type SetOptions struct {
+ 	HttpClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	RandomOverride io.Reader
+@@ -37,6 +39,7 @@ type SetOptions struct {
+ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command {
+ 	opts := &SetOptions{
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
+@@ -134,9 +137,19 @@ func setRun(opts *SetOptions) error {
+ 		}
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
+ 	var pk *PubKey
+ 	if orgName != "" {
+-		pk, err = getOrgPublicKey(client, orgName)
++		pk, err = getOrgPublicKey(client, host, orgName)
+ 	} else {
+ 		pk, err = getRepoPubKey(client, baseRepo)
+ 	}
+@@ -152,7 +165,7 @@ func setRun(opts *SetOptions) error {
+ 	encoded := base64.StdEncoding.EncodeToString(eBody)
+ 
+ 	if orgName != "" {
+-		err = putOrgSecret(client, pk, *opts, encoded)
++		err = putOrgSecret(client, host, pk, *opts, encoded)
+ 	} else {
+ 		err = putRepoSecret(client, pk, baseRepo, opts.SecretName, encoded)
+ 	}
+diff --git a/pkg/cmd/ssh-key/add/add.go b/pkg/cmd/ssh-key/add/add.go
+index ab95b592f37..80d03ae5bc4 100644
+--- a/pkg/cmd/ssh-key/add/add.go
++++ b/pkg/cmd/ssh-key/add/add.go
+@@ -7,7 +7,7 @@ import (
+ 	"net/http"
+ 	"os"
+ 
+-	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/spf13/cobra"
+@@ -15,6 +15,7 @@ import (
+ 
+ type AddOptions struct {
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	HTTPClient func() (*http.Client, error)
+ 
+ 	KeyFile string
+@@ -24,6 +25,7 @@ type AddOptions struct {
+ func NewCmdAdd(f *cmdutil.Factory, runF func(*AddOptions) error) *cobra.Command {
+ 	opts := &AddOptions{
+ 		HTTPClient: f.HttpClient,
++		Config:     f.Config,
+ 		IO:         f.IOStreams,
+ 	}
+ 
+@@ -71,7 +73,16 @@ func runAdd(opts *AddOptions) error {
+ 		keyReader = f
+ 	}
+ 
+-	hostname := ghinstance.OverridableDefault()
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	hostname, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
+ 	err = SSHKeyUpload(httpClient, hostname, keyReader, opts.Title)
+ 	if err != nil {
+ 		if errors.Is(err, scopesError) {
+diff --git a/pkg/cmd/ssh-key/list/http.go b/pkg/cmd/ssh-key/list/http.go
+index 70a8d057873..2b6613593a2 100644
+--- a/pkg/cmd/ssh-key/list/http.go
++++ b/pkg/cmd/ssh-key/list/http.go
+@@ -20,12 +20,12 @@ type sshKey struct {
+ 	CreatedAt time.Time `json:"created_at"`
+ }
+ 
+-func userKeys(httpClient *http.Client, userHandle string) ([]sshKey, error) {
++func userKeys(httpClient *http.Client, host, userHandle string) ([]sshKey, error) {
+ 	resource := "user/keys"
+ 	if userHandle != "" {
+ 		resource = fmt.Sprintf("users/%s/keys", userHandle)
+ 	}
+-	url := fmt.Sprintf("%s%s?per_page=%d", ghinstance.RESTPrefix(ghinstance.OverridableDefault()), resource, 100)
++	url := fmt.Sprintf("%s%s?per_page=%d", ghinstance.RESTPrefix(host), resource, 100)
+ 	req, err := http.NewRequest("GET", url, nil)
+ 	if err != nil {
+ 		return nil, err
+diff --git a/pkg/cmd/ssh-key/list/list.go b/pkg/cmd/ssh-key/list/list.go
+index 3f88f902154..de921e470a2 100644
+--- a/pkg/cmd/ssh-key/list/list.go
++++ b/pkg/cmd/ssh-key/list/list.go
+@@ -6,6 +6,7 @@ import (
+ 	"net/http"
+ 	"time"
+ 
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/utils"
+@@ -14,13 +15,15 @@ import (
+ 
+ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
++	Config     func() (config.Config, error)
+ 	HTTPClient func() (*http.Client, error)
+ }
+ 
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+-		HTTPClient: f.HttpClient,
+ 		IO:         f.IOStreams,
++		Config:     f.Config,
++		HTTPClient: f.HttpClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -44,7 +47,17 @@ func listRun(opts *ListOptions) error {
+ 		return err
+ 	}
+ 
+-	sshKeys, err := userKeys(apiClient, "")
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
++	host, err := cfg.DefaultHost()
++	if err != nil {
++		return err
++	}
++
++	sshKeys, err := userKeys(apiClient, host, "")
+ 	if err != nil {
+ 		if errors.Is(err, scopesError) {
+ 			cs := opts.IO.ColorScheme()
+diff --git a/pkg/iostreams/iostreams.go b/pkg/iostreams/iostreams.go
+index 5df44098db8..da57cac802e 100644
+--- a/pkg/iostreams/iostreams.go
++++ b/pkg/iostreams/iostreams.go
+@@ -189,7 +189,7 @@ func (s *IOStreams) StopPager() {
+ 		return
+ 	}
+ 
+-	s.Out.(io.ReadCloser).Close()
++	_ = s.Out.(io.ReadCloser).Close()
+ 	_, _ = s.pagerProcess.Wait()
+ 	s.pagerProcess = nil
+ }

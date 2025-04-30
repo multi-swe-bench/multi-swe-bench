@@ -1,0 +1,50 @@
+diff --git a/release-notes/VERSION-2.x b/release-notes/VERSION-2.x
+index d2f7f756..9f5174b9 100644
+--- a/release-notes/VERSION-2.x
++++ b/release-notes/VERSION-2.x
+@@ -16,6 +16,8 @@ Project: jackson-dataformat-xml
+   `XmlMapper.createParser(XMLStreamReader)` overloads
+ #634: Support use of xsi:type for polymorphic deserialization
+   (FromXmlParser.Feature.AUTO_DETECT_XSI_TYPE)
++#637: `JacksonXmlAnnotationIntrospector.findNamespace()` should
++  properly merge namespace information
+ * Upgrade Woodstox to 6.6.0 (latest at the time)
+ 
+ 2.16.1 (24-Dec-2023)
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
+index a86914fc..144c4582 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
+@@ -117,16 +117,27 @@ public PropertyName findRootName(AnnotatedClass ac)
+     @Override
+     public String findNamespace(MapperConfig<?> config, Annotated ann)
+     {
+-        JacksonXmlProperty prop = _findAnnotation(ann, JacksonXmlProperty.class);
+-        if (prop != null) {
+-            return prop.namespace();
++        String ns1 = null;
++        JacksonXmlProperty xmlProp = _findAnnotation(ann, JacksonXmlProperty.class);
++        if (xmlProp != null) {
++            ns1 = xmlProp.namespace();
+         }
+         // 14-Nov-2020, tatu: 2.12 adds namespace for this too
+         JsonProperty jprop = _findAnnotation(ann, JsonProperty.class);
++        String ns2 = null;
+         if (jprop != null) {
+-            return jprop.namespace();
++            ns2 = jprop.namespace();
+         }
+-        return null;
++        if (ns1 == null) {
++            return ns2;
++        }
++        if (ns2 == null) {
++            return ns1;
++        }
++        if (ns1.isEmpty()) {
++            return ns2;
++        }
++        return ns1;
+     }
+ 
+     /**

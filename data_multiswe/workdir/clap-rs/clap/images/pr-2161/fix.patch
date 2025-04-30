@@ -1,0 +1,50 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index 7b5f83ebbe4..fafce2728f3 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -214,18 +214,26 @@ impl<'help> App<'help> {
+         self.get_arguments().filter(|a| a.is_positional())
+     }
+ 
+-    /// Iterate through the *flags* that don't have custom heading.
+-    pub fn get_flags_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++    /// Iterate through the *flags*.
++    pub fn get_flags(&self) -> impl Iterator<Item = &Arg<'help>> {
+         self.get_arguments()
+             .filter(|a| !a.is_set(ArgSettings::TakesValue) && a.get_index().is_none())
+-            .filter(|a| a.get_help_heading().is_none())
+     }
+ 
+-    /// Iterate through the *options* that don't have custom heading.
+-    pub fn get_opts_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++    /// Iterate through the *options*.
++    pub fn get_opts(&self) -> impl Iterator<Item = &Arg<'help>> {
+         self.get_arguments()
+             .filter(|a| a.is_set(ArgSettings::TakesValue) && a.get_index().is_none())
+-            .filter(|a| a.get_help_heading().is_none())
++    }
++
++    /// Iterate through the *flags* that don't have custom heading.
++    pub fn get_flags_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++        self.get_flags().filter(|a| a.get_help_heading().is_none())
++    }
++
++    /// Iterate through the *options* that don't have custom heading.
++    pub fn get_opts_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++        self.get_opts().filter(|a| a.get_help_heading().is_none())
+     }
+ 
+     /// Get a list of all arguments the given argument conflicts with.
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 014484ba159..be375f1f6c9 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -1562,7 +1562,7 @@ impl<'help, 'app> Parser<'help, 'app> {
+     pub(crate) fn add_defaults(&mut self, matcher: &mut ArgMatcher) -> ClapResult<()> {
+         debug!("Parser::add_defaults");
+ 
+-        for o in self.app.get_opts_with_no_heading() {
++        for o in self.app.get_opts() {
+             debug!("Parser::add_defaults:iter:{}:", o.name);
+             self.add_value(o, matcher, ValueType::DefaultValue)?;
+         }

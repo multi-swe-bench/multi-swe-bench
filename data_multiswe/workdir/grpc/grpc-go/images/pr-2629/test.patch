@@ -1,0 +1,110 @@
+diff --git a/balancer/grpclb/grpclb_test.go b/balancer/grpclb/grpclb_test.go
+index 56c0bb3246ad..04c5b2f7f38d 100644
+--- a/balancer/grpclb/grpclb_test.go
++++ b/balancer/grpclb/grpclb_test.go
+@@ -117,9 +117,9 @@ func (c *serverNameCheckCreds) OverrideServerName(s string) error {
+ 
+ // fakeNameDialer replaces fakeName with localhost when dialing.
+ // This will test that custom dialer is passed from Dial to grpclb.
+-func fakeNameDialer(addr string, timeout time.Duration) (net.Conn, error) {
++func fakeNameDialer(ctx context.Context, addr string) (net.Conn, error) {
+ 	addr = strings.Replace(addr, fakeName, "localhost", 1)
+-	return net.DialTimeout("tcp", addr, timeout)
++	return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+ }
+ 
+ // merge merges the new client stats into current stats.
+@@ -382,7 +382,7 @@ func TestGRPCLB(t *testing.T) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ 	defer cancel()
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+-		grpc.WithTransportCredentials(&creds), grpc.WithDialer(fakeNameDialer))
++		grpc.WithTransportCredentials(&creds), grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+@@ -433,7 +433,7 @@ func TestGRPCLBWeighted(t *testing.T) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ 	defer cancel()
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+-		grpc.WithTransportCredentials(&creds), grpc.WithDialer(fakeNameDialer))
++		grpc.WithTransportCredentials(&creds), grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+@@ -498,7 +498,7 @@ func TestDropRequest(t *testing.T) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ 	defer cancel()
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+-		grpc.WithTransportCredentials(&creds), grpc.WithDialer(fakeNameDialer))
++		grpc.WithTransportCredentials(&creds), grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+@@ -585,7 +585,7 @@ func TestBalancerDisconnects(t *testing.T) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ 	defer cancel()
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+-		grpc.WithTransportCredentials(&creds), grpc.WithDialer(fakeNameDialer))
++		grpc.WithTransportCredentials(&creds), grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+@@ -666,7 +666,7 @@ func TestFallback(t *testing.T) {
+ 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+ 	defer cancel()
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+-		grpc.WithTransportCredentials(&creds), grpc.WithDialer(fakeNameDialer))
++		grpc.WithTransportCredentials(&creds), grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+@@ -760,7 +760,7 @@ func runAndGetStats(t *testing.T, drop bool, runRPCs func(*grpc.ClientConn)) *rp
+ 	cc, err := grpc.DialContext(ctx, r.Scheme()+":///"+beServerName,
+ 		grpc.WithTransportCredentials(&creds),
+ 		grpc.WithPerRPCCredentials(failPreRPCCred{}),
+-		grpc.WithDialer(fakeNameDialer))
++		grpc.WithContextDialer(fakeNameDialer))
+ 	if err != nil {
+ 		t.Fatalf("Failed to dial to the backend %v", err)
+ 	}
+diff --git a/test/gracefulstop_test.go b/test/gracefulstop_test.go
+index 46545fd55408..96b1578a8628 100644
+--- a/test/gracefulstop_test.go
++++ b/test/gracefulstop_test.go
+@@ -76,7 +76,7 @@ func (d *delayListener) allowClientRead() {
+ 	d.cc.allowRead()
+ }
+ 
+-func (d *delayListener) Dial(to time.Duration) (net.Conn, error) {
++func (d *delayListener) Dial(ctx context.Context) (net.Conn, error) {
+ 	if d.dialed {
+ 		// Only hand out one connection (net.Dial can return more even after the
+ 		// listener is closed).  This is not thread-safe, but Dial should never be
+@@ -84,7 +84,7 @@ func (d *delayListener) Dial(to time.Duration) (net.Conn, error) {
+ 		return nil, fmt.Errorf("no more conns")
+ 	}
+ 	d.dialed = true
+-	c, err := net.DialTimeout("tcp", d.Listener.Addr().String(), to)
++	c, err := (&net.Dialer{}).DialContext(ctx, "tcp", d.Listener.Addr().String())
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -137,7 +137,7 @@ func (s) TestGracefulStop(t *testing.T) {
+ 		closeCalled:  make(chan struct{}),
+ 		allowCloseCh: make(chan struct{}),
+ 	}
+-	d := func(_ string, to time.Duration) (net.Conn, error) { return dlis.Dial(to) }
++	d := func(ctx context.Context, _ string) (net.Conn, error) { return dlis.Dial(ctx) }
+ 	serverGotReq := make(chan struct{})
+ 
+ 	ss := &stubServer{
+@@ -180,7 +180,7 @@ func (s) TestGracefulStop(t *testing.T) {
+ 	// even though GracefulStop has closed the listener.
+ 	ctx, dialCancel := context.WithTimeout(context.Background(), 5*time.Second)
+ 	defer dialCancel()
+-	cc, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithDialer(d))
++	cc, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(d))
+ 	if err != nil {
+ 		dlis.allowClientRead()
+ 		t.Fatalf("grpc.Dial(%q) = %v", lis.Addr().String(), err)

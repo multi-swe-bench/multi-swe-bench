@@ -1,0 +1,1413 @@
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/tag.js b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+index 0dc7b9709eed..baa86783b04c 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/tag.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+@@ -594,7 +594,10 @@ function special(parser) {
+ 			type: 'RenderTag',
+ 			start,
+ 			end: parser.index,
+-			expression: expression
++			expression: expression,
++			metadata: {
++				dynamic: false
++			}
+ 		});
+ 	}
+ }
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index f0f017814436..06cb49b1bc07 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -1520,6 +1520,13 @@ const common_visitors = {
+ 				return;
+ 			}
+ 		}
++	},
++	Component(node, context) {
++		const binding = context.state.scope.get(
++			node.name.includes('.') ? node.name.slice(0, node.name.indexOf('.')) : node.name
++		);
++
++		node.metadata.dynamic = binding !== null && binding.kind !== 'normal';
+ 	}
+ };
+ 
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 93d12bfeda7f..b2097e60ce24 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -633,6 +633,11 @@ const validation = {
+ 		});
+ 	},
+ 	RenderTag(node, context) {
++		const callee = unwrap_optional(node.expression).callee;
++
++		node.metadata.dynamic =
++			callee.type !== 'Identifier' || context.state.scope.get(callee.name)?.kind !== 'normal';
++
+ 		context.state.analysis.uses_render_tags = true;
+ 
+ 		const raw_args = unwrap_optional(node.expression).arguments;
+@@ -642,7 +647,6 @@ const validation = {
+ 			}
+ 		}
+ 
+-		const callee = unwrap_optional(node.expression).callee;
+ 		if (
+ 			callee.type === 'MemberExpression' &&
+ 			callee.property.type === 'Identifier' &&
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index b28c73c4d8aa..3045814ac948 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -36,6 +36,7 @@ import {
+ 	EACH_KEYED,
+ 	is_capture_event,
+ 	TEMPLATE_FRAGMENT,
++	TEMPLATE_UNSET_START,
+ 	TEMPLATE_USE_IMPORT_NODE,
+ 	TRANSITION_GLOBAL,
+ 	TRANSITION_IN,
+@@ -942,6 +943,7 @@ function serialize_inline_component(node, component_name, context) {
+ 		fn = (node_id) => {
+ 			return b.call(
+ 				'$.component',
++				node_id,
+ 				b.thunk(/** @type {import('estree').Expression} */ (context.visit(node.expression))),
+ 				b.arrow(
+ 					[b.id(component_name)],
+@@ -1680,14 +1682,35 @@ export const template_visitors = {
+ 
+ 				process_children(trimmed, expression, false, { ...context, state });
+ 
++				var first = trimmed[0];
++
++				/**
++				 * If the first item in an effect is a static slot or render tag, it will clone
++				 * a template but without creating a child effect. In these cases, we need to keep
++				 * the current `effect.nodes.start` undefined, so that it can be populated by
++				 * the item in question
++				 * TODO come up with a better name than `unset`
++				 */
++				var unset = false;
++
++				if (first.type === 'SlotElement') unset = true;
++				if (first.type === 'RenderTag' && !first.metadata.dynamic) unset = true;
++				if (first.type === 'Component' && !first.metadata.dynamic && !context.state.options.hmr) {
++					unset = true;
++				}
++
+ 				const use_comment_template = state.template.length === 1 && state.template[0] === '<!>';
+ 
+ 				if (use_comment_template) {
+ 					// special case — we can use `$.comment` instead of creating a unique template
+-					body.push(b.var(id, b.call('$.comment')));
++					body.push(b.var(id, b.call('$.comment', unset && b.literal(unset))));
+ 				} else {
+ 					let flags = TEMPLATE_FRAGMENT;
+ 
++					if (unset) {
++						flags |= TEMPLATE_UNSET_START;
++					}
++
+ 					if (state.metadata.context.template_needs_import_node) {
+ 						flags |= TEMPLATE_USE_IMPORT_NODE;
+ 					}
+@@ -1832,27 +1855,26 @@ export const template_visitors = {
+ 		context.state.template.push('<!>');
+ 		const callee = unwrap_optional(node.expression).callee;
+ 		const raw_args = unwrap_optional(node.expression).arguments;
+-		const is_reactive =
+-			callee.type !== 'Identifier' || context.state.scope.get(callee.name)?.kind !== 'normal';
+ 
+-		/** @type {import('estree').Expression[]} */
+-		const args = [context.state.node];
+-		for (const arg of raw_args) {
+-			args.push(b.thunk(/** @type {import('estree').Expression} */ (context.visit(arg))));
+-		}
++		const args = raw_args.map((arg) =>
++			b.thunk(/** @type {import('estree').Expression} */ (context.visit(arg)))
++		);
+ 
+ 		let snippet_function = /** @type {import('estree').Expression} */ (context.visit(callee));
+ 		if (context.state.options.dev) {
+ 			snippet_function = b.call('$.validate_snippet', snippet_function);
+ 		}
+ 
+-		if (is_reactive) {
+-			context.state.init.push(b.stmt(b.call('$.snippet', b.thunk(snippet_function), ...args)));
++		if (node.metadata.dynamic) {
++			context.state.init.push(
++				b.stmt(b.call('$.snippet', context.state.node, b.thunk(snippet_function), ...args))
++			);
+ 		} else {
+ 			context.state.init.push(
+ 				b.stmt(
+ 					(node.expression.type === 'CallExpression' ? b.call : b.maybe_call)(
+ 						snippet_function,
++						context.state.node,
+ 						...args
+ 					)
+ 				)
+@@ -1915,7 +1937,7 @@ export const template_visitors = {
+ 		}
+ 
+ 		if (node.name === 'noscript') {
+-			context.state.template.push('<!>');
++			context.state.template.push('<noscript></noscript>');
+ 			return;
+ 		}
+ 		if (node.name === 'script') {
+@@ -2985,16 +3007,14 @@ export const template_visitors = {
+ 		}
+ 	},
+ 	Component(node, context) {
+-		const binding = context.state.scope.get(
+-			node.name.includes('.') ? node.name.slice(0, node.name.indexOf('.')) : node.name
+-		);
+-		if (binding !== null && binding.kind !== 'normal') {
++		if (node.metadata.dynamic) {
+ 			// Handle dynamic references to what seems like static inline components
+ 			const component = serialize_inline_component(node, '$$component', context);
+ 			context.state.init.push(
+ 				b.stmt(
+ 					b.call(
+ 						'$.component',
++						context.state.node,
+ 						// TODO use untrack here to not update when binding changes?
+ 						// Would align with Svelte 4 behavior, but it's arguably nicer/expected to update this
+ 						b.thunk(
+@@ -3006,6 +3026,7 @@ export const template_visitors = {
+ 			);
+ 			return;
+ 		}
++
+ 		const component = serialize_inline_component(node, node.name, context);
+ 		context.state.init.push(component);
+ 	},
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index 05ac91bda256..25947dcf2b0e 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -152,6 +152,9 @@ export interface DebugTag extends BaseNode {
+ export interface RenderTag extends BaseNode {
+ 	type: 'RenderTag';
+ 	expression: SimpleCallExpression | (ChainExpression & { expression: SimpleCallExpression });
++	metadata: {
++		dynamic: boolean;
++	};
+ }
+ 
+ type Tag = ExpressionTag | HtmlTag | ConstTag | DebugTag | RenderTag;
+@@ -271,6 +274,9 @@ interface BaseElement extends BaseNode {
+ 
+ export interface Component extends BaseElement {
+ 	type: 'Component';
++	metadata: {
++		dynamic: boolean;
++	};
+ }
+ 
+ interface TitleElement extends BaseElement {
+diff --git a/packages/svelte/src/constants.js b/packages/svelte/src/constants.js
+index a8963d685462..5c22be5f5dc5 100644
+--- a/packages/svelte/src/constants.js
++++ b/packages/svelte/src/constants.js
+@@ -18,6 +18,7 @@ export const TRANSITION_GLOBAL = 1 << 2;
+ 
+ export const TEMPLATE_FRAGMENT = 1;
+ export const TEMPLATE_USE_IMPORT_NODE = 1 << 1;
++export const TEMPLATE_UNSET_START = 1 << 2;
+ 
+ export const HYDRATION_START = '[';
+ export const HYDRATION_END = ']';
+diff --git a/packages/svelte/src/internal/client/constants.js b/packages/svelte/src/internal/client/constants.js
+index 4fc214d469ea..accdf0503678 100644
+--- a/packages/svelte/src/internal/client/constants.js
++++ b/packages/svelte/src/internal/client/constants.js
+@@ -17,6 +17,7 @@ export const EFFECT_TRANSPARENT = 1 << 15;
+ /** Svelte 4 legacy mode props need to be handled with deriveds and be recognized elsewhere, hence the dedicated flag */
+ export const LEGACY_DERIVED_PROP = 1 << 16;
+ export const INSPECT_EFFECT = 1 << 17;
++export const HEAD_EFFECT = 1 << 18;
+ 
+ export const STATE_SYMBOL = Symbol('$state');
+ export const STATE_FROZEN_SYMBOL = Symbol('$state.frozen');
+diff --git a/packages/svelte/src/internal/client/dev/hmr.js b/packages/svelte/src/internal/client/dev/hmr.js
+index 9ba2a6989784..e9b4a60bbf1c 100644
+--- a/packages/svelte/src/internal/client/dev/hmr.js
++++ b/packages/svelte/src/internal/client/dev/hmr.js
+@@ -18,7 +18,7 @@ export function hmr(source) {
+ 		/** @type {import("#client").Effect} */
+ 		let effect;
+ 
+-		block(() => {
++		block(anchor, 0, () => {
+ 			const component = get(source);
+ 
+ 			if (effect) {
+diff --git a/packages/svelte/src/internal/client/dom/blocks/await.js b/packages/svelte/src/internal/client/dom/blocks/await.js
+index 4c57f9b56401..d1681d3e00cd 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/await.js
++++ b/packages/svelte/src/internal/client/dom/blocks/await.js
+@@ -105,7 +105,7 @@ export function await_block(anchor, get_input, pending_fn, then_fn, catch_fn) {
+ 		}
+ 	}
+ 
+-	var effect = block(() => {
++	var effect = block(anchor, 0, () => {
+ 		if (input === (input = get_input())) return;
+ 
+ 		if (is_promise(input)) {
+diff --git a/packages/svelte/src/internal/client/dom/blocks/each.js b/packages/svelte/src/internal/client/dom/blocks/each.js
+index e20d4ec41fa9..7fdd2fc0e79c 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/each.js
++++ b/packages/svelte/src/internal/client/dom/blocks/each.js
+@@ -24,12 +24,14 @@ import {
+ 	run_out_transitions,
+ 	pause_children,
+ 	pause_effect,
+-	resume_effect
++	resume_effect,
++	get_first_node
+ } from '../../reactivity/effects.js';
+ import { source, mutable_source, set } from '../../reactivity/sources.js';
+ import { is_array, is_frozen } from '../../utils.js';
+ import { INERT, STATE_SYMBOL } from '../../constants.js';
+ import { queue_micro_task } from '../task.js';
++import { current_effect } from '../../runtime.js';
+ 
+ /**
+  * The row of a keyed each block that is currently updating. We track this
+@@ -54,11 +56,12 @@ export function index(_, i) {
+ /**
+  * Pause multiple effects simultaneously, and coordinate their
+  * subsequent destruction. Used in each blocks
++ * @param {import('#client').EachState} state
+  * @param {import('#client').EachItem[]} items
+  * @param {null | Node} controlled_anchor
+  * @param {Map<any, import("#client").EachItem>} items_map
+  */
+-function pause_effects(items, controlled_anchor, items_map) {
++function pause_effects(state, items, controlled_anchor, items_map) {
+ 	/** @type {import('#client').TransitionManager[]} */
+ 	var transitions = [];
+ 	var length = items.length;
+@@ -77,7 +80,7 @@ function pause_effects(items, controlled_anchor, items_map) {
+ 		clear_text_content(parent_node);
+ 		parent_node.append(/** @type {Element} */ (controlled_anchor));
+ 		items_map.clear();
+-		link(items[0].prev, items[length - 1].next);
++		link(state, items[0].prev, items[length - 1].next);
+ 	}
+ 
+ 	run_out_transitions(transitions, () => {
+@@ -85,7 +88,7 @@ function pause_effects(items, controlled_anchor, items_map) {
+ 			var item = items[i];
+ 			if (!is_controlled) {
+ 				items_map.delete(item.k);
+-				link(item.prev, item.next);
++				link(state, item.prev, item.next);
+ 			}
+ 			destroy_effect(item.e, !is_controlled);
+ 		}
+@@ -104,7 +107,7 @@ function pause_effects(items, controlled_anchor, items_map) {
+  */
+ export function each(anchor, flags, get_collection, get_key, render_fn, fallback_fn = null) {
+ 	/** @type {import('#client').EachState} */
+-	var state = { flags, items: new Map(), next: null };
++	var state = { flags, items: new Map(), first: null };
+ 
+ 	var is_controlled = (flags & EACH_IS_CONTROLLED) !== 0;
+ 
+@@ -121,7 +124,7 @@ export function each(anchor, flags, get_collection, get_key, render_fn, fallback
+ 	/** @type {import('#client').Effect | null} */
+ 	var fallback = null;
+ 
+-	block(() => {
++	block(anchor, 0, () => {
+ 		var collection = get_collection();
+ 
+ 		var array = is_array(collection)
+@@ -163,8 +166,8 @@ export function each(anchor, flags, get_collection, get_key, render_fn, fallback
+ 			/** @type {Node} */
+ 			var child_anchor = hydrate_start;
+ 
+-			/** @type {import('#client').EachItem | import('#client').EachState} */
+-			var prev = state;
++			/** @type {import('#client').EachItem | null} */
++			var prev = null;
+ 
+ 			/** @type {import('#client').EachItem} */
+ 			var item;
+@@ -184,7 +187,7 @@ export function each(anchor, flags, get_collection, get_key, render_fn, fallback
+ 				child_anchor = hydrate_anchor(child_anchor);
+ 				var value = array[i];
+ 				var key = get_key(value, i);
+-				item = create_item(child_anchor, prev, null, value, key, i, render_fn, flags);
++				item = create_item(child_anchor, state, prev, null, value, key, i, render_fn, flags);
+ 				state.items.set(key, item);
+ 				child_anchor = /** @type {Comment} */ (child_anchor.nextSibling);
+ 
+@@ -242,14 +245,14 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 
+ 	var length = array.length;
+ 	var items = state.items;
+-	var first = state.next;
++	var first = state.first;
+ 	var current = first;
+ 
+ 	/** @type {Set<import('#client').EachItem>} */
+ 	var seen = new Set();
+ 
+-	/** @type {import('#client').EachState | import('#client').EachItem} */
+-	var prev = state;
++	/** @type {import('#client').EachItem | null} */
++	var prev = null;
+ 
+ 	/** @type {Set<import('#client').EachItem>} */
+ 	var to_animate = new Set();
+@@ -293,7 +296,17 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 		if (item === undefined) {
+ 			var child_anchor = current ? get_first_node(current.e) : anchor;
+ 
+-			prev = create_item(child_anchor, prev, prev.next, value, key, i, render_fn, flags);
++			prev = create_item(
++				child_anchor,
++				state,
++				prev,
++				prev === null ? state.first : prev.next,
++				value,
++				key,
++				i,
++				render_fn,
++				flags
++			);
+ 
+ 			items.set(key, prev);
+ 
+@@ -336,9 +349,9 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 						seen.delete(stashed[j]);
+ 					}
+ 
+-					link(a.prev, b.next);
+-					link(prev, a);
+-					link(b, start);
++					link(state, a.prev, b.next);
++					link(state, prev, a);
++					link(state, b, start);
+ 
+ 					current = start;
+ 					prev = b;
+@@ -351,9 +364,9 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 					seen.delete(item);
+ 					move(item, current, anchor);
+ 
+-					link(item.prev, item.next);
+-					link(item, prev.next);
+-					link(prev, item);
++					link(state, item.prev, item.next);
++					link(state, item, prev === null ? state.first : prev.next);
++					link(state, prev, item);
+ 
+ 					prev = item;
+ 				}
+@@ -403,7 +416,7 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 			}
+ 		}
+ 
+-		pause_effects(to_destroy, controlled_anchor, items);
++		pause_effects(state, to_destroy, controlled_anchor, items);
+ 	}
+ 
+ 	if (is_animated) {
+@@ -413,6 +426,9 @@ function reconcile(array, state, anchor, render_fn, flags, get_key) {
+ 			}
+ 		});
+ 	}
++
++	/** @type {import('#client').Effect} */ (current_effect).first = state.first && state.first.e;
++	/** @type {import('#client').Effect} */ (current_effect).last = prev && prev.e;
+ }
+ 
+ /**
+@@ -437,7 +453,8 @@ function update_item(item, value, index, type) {
+ /**
+  * @template V
+  * @param {Node} anchor
+- * @param {import('#client').EachItem | import('#client').EachState} prev
++ * @param {import('#client').EachState} state
++ * @param {import('#client').EachItem | null} prev
+  * @param {import('#client').EachItem | null} next
+  * @param {V} value
+  * @param {unknown} key
+@@ -446,7 +463,7 @@ function update_item(item, value, index, type) {
+  * @param {number} flags
+  * @returns {import('#client').EachItem}
+  */
+-function create_item(anchor, prev, next, value, key, index, render_fn, flags) {
++function create_item(anchor, state, prev, next, value, key, index, render_fn, flags) {
+ 	var previous_each_item = current_each_item;
+ 
+ 	try {
+@@ -468,52 +485,28 @@ function create_item(anchor, prev, next, value, key, index, render_fn, flags) {
+ 			next
+ 		};
+ 
+-		prev.next = item;
+-		if (next !== null) next.prev = item;
+-
+ 		current_each_item = item;
+-		item.e = branch(() => render_fn(anchor, v, i));
++		item.e = branch(() => render_fn(anchor, v, i), hydrating);
+ 
+-		return item;
+-	} finally {
+-		current_each_item = previous_each_item;
+-	}
+-}
++		item.e.prev = prev && prev.e;
++		item.e.next = next && next.e;
+ 
+-/**
+- * @param {import('#client').TemplateNode} dom
+- * @param {import("#client").Effect} effect
+- * @returns {import('#client').TemplateNode}
+- */
+-function get_adjusted_first_node(dom, effect) {
+-	if ((dom.nodeType === 3 && /** @type {Text} */ (dom).data === '') || dom.nodeType === 8) {
+-		var adjusted = effect.first;
+-		var next;
+-		while (adjusted !== null) {
+-			next = adjusted.first;
+-			if (adjusted.dom !== null) {
+-				break;
+-			} else if (next === null) {
+-				return /** @type {import('#client').TemplateNode} */ (dom.previousSibling);
+-			}
+-			adjusted = next;
++		if (prev === null) {
++			state.first = item;
++		} else {
++			prev.next = item;
++			prev.e.next = item.e;
+ 		}
+-		return get_first_node(/** @type {import("#client").Effect} */ (adjusted));
+-	}
+-	return dom;
+-}
+ 
+-/**
+- *
+- * @param {import('#client').Effect} effect
+- * @returns {import('#client').TemplateNode}
+- */
+-function get_first_node(effect) {
+-	var dom = effect.dom;
+-	if (is_array(dom)) {
+-		return get_adjusted_first_node(dom[0], effect);
++		if (next !== null) {
++			next.prev = item;
++			next.e.prev = item.e;
++		}
++
++		return item;
++	} finally {
++		current_each_item = previous_each_item;
+ 	}
+-	return get_adjusted_first_node(/** @type {import('#client').TemplateNode} **/ (dom), effect);
+ }
+ 
+ /**
+@@ -535,11 +528,20 @@ function move(item, next, anchor) {
+ }
+ 
+ /**
+- *
+- * @param {import('#client').EachItem | import('#client').EachState} prev
++ * @param {import('#client').EachState} state
++ * @param {import('#client').EachItem | null} prev
+  * @param {import('#client').EachItem | null} next
+  */
+-function link(prev, next) {
+-	prev.next = next;
+-	if (next !== null) next.prev = prev;
++function link(state, prev, next) {
++	if (prev === null) {
++		state.first = next;
++	} else {
++		prev.next = next;
++		prev.e.next = next && next.e;
++	}
++
++	if (next !== null) {
++		next.prev = prev;
++		next.e.prev = prev && prev.e;
++	}
+ }
+diff --git a/packages/svelte/src/internal/client/dom/blocks/html.js b/packages/svelte/src/internal/client/dom/blocks/html.js
+index 6873adf70ce2..c014da4a1df1 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/html.js
++++ b/packages/svelte/src/internal/client/dom/blocks/html.js
+@@ -1,30 +1,7 @@
+-import { derived } from '../../reactivity/deriveds.js';
+-import { render_effect } from '../../reactivity/effects.js';
+-import { current_effect, get } from '../../runtime.js';
+-import { is_array } from '../../utils.js';
+-import { hydrate_nodes, hydrating } from '../hydration.js';
+-import { create_fragment_from_html, remove } from '../reconciler.js';
+-import { push_template_node } from '../template.js';
+-
+-/**
+- * @param {import('#client').Effect} effect
+- * @param {(Element | Comment | Text)[]} to_remove
+- * @returns {void}
+- */
+-function remove_from_parent_effect(effect, to_remove) {
+-	const dom = effect.dom;
+-
+-	if (is_array(dom)) {
+-		for (let i = dom.length - 1; i >= 0; i--) {
+-			if (to_remove.includes(dom[i])) {
+-				dom.splice(i, 1);
+-				break;
+-			}
+-		}
+-	} else if (dom !== null && to_remove.includes(dom)) {
+-		effect.dom = null;
+-	}
+-}
++import { block, branch, destroy_effect } from '../../reactivity/effects.js';
++import { get_start, hydrate_nodes, hydrating } from '../hydration.js';
++import { create_fragment_from_html } from '../reconciler.js';
++import { assign_nodes } from '../template.js';
+ 
+ /**
+  * @param {Element | Text | Comment} anchor
+@@ -34,72 +11,52 @@ function remove_from_parent_effect(effect, to_remove) {
+  * @returns {void}
+  */
+ export function html(anchor, get_value, svg, mathml) {
+-	const parent_effect = anchor.parentNode !== current_effect?.dom ? current_effect : null;
+-	let value = derived(get_value);
++	var value = '';
+ 
+-	render_effect(() => {
+-		var dom = html_to_dom(anchor, parent_effect, get(value), svg, mathml);
++	/** @type {import('#client').Effect | null} */
++	var effect;
+ 
+-		if (dom) {
+-			return () => {
+-				if (parent_effect !== null) {
+-					remove_from_parent_effect(parent_effect, is_array(dom) ? dom : [dom]);
+-				}
+-				remove(dom);
+-			};
+-		}
+-	});
+-}
++	block(anchor, 0, () => {
++		if (value === (value = get_value())) return;
+ 
+-/**
+- * Creates the content for a `@html` tag from its string value,
+- * inserts it before the target anchor and returns the new nodes.
+- * @template V
+- * @param {Element | Text | Comment} target
+- * @param {import('#client').Effect | null} effect
+- * @param {V} value
+- * @param {boolean} svg
+- * @param {boolean} mathml
+- * @returns {Element | Comment | (Element | Comment | Text)[]}
+- */
+-function html_to_dom(target, effect, value, svg, mathml) {
+-	if (hydrating) return hydrate_nodes;
+-
+-	var html = value + '';
+-	if (svg) html = `<svg>${html}</svg>`;
+-	else if (mathml) html = `<math>${html}</math>`;
++		if (effect) {
++			destroy_effect(effect);
++			effect = null;
++		}
+ 
+-	// Don't use create_fragment_with_script_from_html here because that would mean script tags are executed.
+-	// @html is basically `.innerHTML = ...` and that doesn't execute scripts either due to security reasons.
+-	/** @type {DocumentFragment | Element} */
+-	var node = create_fragment_from_html(html);
++		if (value === '') return;
+ 
+-	if (svg || mathml) {
+-		node = /** @type {Element} */ (node.firstChild);
+-	}
++		effect = branch(() => {
++			if (hydrating) {
++				assign_nodes(get_start(), hydrate_nodes[hydrate_nodes.length - 1]);
++				return;
++			}
+ 
+-	if (node.childNodes.length === 1) {
+-		var child = /** @type {Text | Element | Comment} */ (node.firstChild);
+-		target.before(child);
+-		if (effect !== null) {
+-			push_template_node(child, effect);
+-		}
+-		return child;
+-	}
++			var html = value + '';
++			if (svg) html = `<svg>${html}</svg>`;
++			else if (mathml) html = `<math>${html}</math>`;
+ 
+-	var nodes = /** @type {Array<Text | Element | Comment>} */ ([...node.childNodes]);
++			// Don't use create_fragment_with_script_from_html here because that would mean script tags are executed.
++			// @html is basically `.innerHTML = ...` and that doesn't execute scripts either due to security reasons.
++			/** @type {DocumentFragment | Element} */
++			var node = create_fragment_from_html(html);
+ 
+-	if (svg || mathml) {
+-		while (node.firstChild) {
+-			target.before(node.firstChild);
+-		}
+-	} else {
+-		target.before(node);
+-	}
++			if (svg || mathml) {
++				node = /** @type {Element} */ (node.firstChild);
++			}
+ 
+-	if (effect !== null) {
+-		push_template_node(nodes, effect);
+-	}
++			assign_nodes(
++				/** @type {import('#client').TemplateNode} */ (node.firstChild),
++				/** @type {import('#client').TemplateNode} */ (node.lastChild)
++			);
+ 
+-	return nodes;
++			if (svg || mathml) {
++				while (node.firstChild) {
++					anchor.before(node.firstChild);
++				}
++			} else {
++				anchor.before(node);
++			}
++		});
++	});
+ }
+diff --git a/packages/svelte/src/internal/client/dom/blocks/if.js b/packages/svelte/src/internal/client/dom/blocks/if.js
+index 80ed8c09f4f6..9ad208fe2fea 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/if.js
++++ b/packages/svelte/src/internal/client/dom/blocks/if.js
+@@ -30,7 +30,7 @@ export function if_block(
+ 
+ 	var flags = elseif ? EFFECT_TRANSPARENT : 0;
+ 
+-	block(() => {
++	block(anchor, flags, () => {
+ 		if (condition === (condition = !!get_condition())) return;
+ 
+ 		/** Whether or not there was a hydration mismatch. Needs to be a `let` or else it isn't treeshaken out */
+@@ -78,5 +78,5 @@ export function if_block(
+ 			// continue in hydration mode
+ 			set_hydrating(true);
+ 		}
+-	}, flags);
++	});
+ }
+diff --git a/packages/svelte/src/internal/client/dom/blocks/key.js b/packages/svelte/src/internal/client/dom/blocks/key.js
+index eb68978ffea3..641fd2875e07 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/key.js
++++ b/packages/svelte/src/internal/client/dom/blocks/key.js
+@@ -16,7 +16,7 @@ export function key_block(anchor, get_key, render_fn) {
+ 	/** @type {import('#client').Effect} */
+ 	let effect;
+ 
+-	block(() => {
++	block(anchor, 0, () => {
+ 		if (safe_not_equal(key, (key = get_key()))) {
+ 			if (effect) {
+ 				pause_effect(effect);
+diff --git a/packages/svelte/src/internal/client/dom/blocks/snippet.js b/packages/svelte/src/internal/client/dom/blocks/snippet.js
+index 611733feb1e4..5602f7baf2d5 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/snippet.js
++++ b/packages/svelte/src/internal/client/dom/blocks/snippet.js
+@@ -2,26 +2,25 @@ import { add_snippet_symbol } from '../../../shared/validate.js';
+ import { EFFECT_TRANSPARENT } from '../../constants.js';
+ import { branch, block, destroy_effect } from '../../reactivity/effects.js';
+ import {
+-	current_component_context,
+ 	dev_current_component_function,
+ 	set_dev_current_component_function
+ } from '../../runtime.js';
+ 
+ /**
+  * @template {(node: import('#client').TemplateNode, ...args: any[]) => import('#client').Dom} SnippetFn
++ * @param {import('#client').TemplateNode} anchor
+  * @param {() => SnippetFn | null | undefined} get_snippet
+- * @param {import('#client').TemplateNode} node
+  * @param {(() => any)[]} args
+  * @returns {void}
+  */
+-export function snippet(get_snippet, node, ...args) {
++export function snippet(anchor, get_snippet, ...args) {
+ 	/** @type {SnippetFn | null | undefined} */
+ 	var snippet;
+ 
+ 	/** @type {import('#client').Effect | null} */
+ 	var snippet_effect;
+ 
+-	block(() => {
++	block(anchor, EFFECT_TRANSPARENT, () => {
+ 		if (snippet === (snippet = get_snippet())) return;
+ 
+ 		if (snippet_effect) {
+@@ -30,9 +29,9 @@ export function snippet(get_snippet, node, ...args) {
+ 		}
+ 
+ 		if (snippet) {
+-			snippet_effect = branch(() => /** @type {SnippetFn} */ (snippet)(node, ...args));
++			snippet_effect = branch(() => /** @type {SnippetFn} */ (snippet)(anchor, ...args));
+ 		}
+-	}, EFFECT_TRANSPARENT);
++	});
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/internal/client/dom/blocks/svelte-component.js b/packages/svelte/src/internal/client/dom/blocks/svelte-component.js
+index 8487852b3575..0e04eff10b01 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/svelte-component.js
++++ b/packages/svelte/src/internal/client/dom/blocks/svelte-component.js
+@@ -1,22 +1,21 @@
+ import { block, branch, pause_effect } from '../../reactivity/effects.js';
+ 
+-// TODO seems weird that `anchor` is unused here — possible bug?
+-
+ /**
+  * @template P
+  * @template {(props: P) => void} C
++ * @param {import('#client').TemplateNode} anchor
+  * @param {() => C} get_component
+  * @param {(component: C) => import('#client').Dom | void} render_fn
+  * @returns {void}
+  */
+-export function component(get_component, render_fn) {
++export function component(anchor, get_component, render_fn) {
+ 	/** @type {C} */
+ 	let component;
+ 
+ 	/** @type {import('#client').Effect | null} */
+ 	let effect;
+ 
+-	block(() => {
++	block(anchor, 0, () => {
+ 		if (component === (component = get_component())) return;
+ 
+ 		if (effect) {
+diff --git a/packages/svelte/src/internal/client/dom/blocks/svelte-element.js b/packages/svelte/src/internal/client/dom/blocks/svelte-element.js
+index 6e0740b937b3..9fc0ab1dbb1b 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/svelte-element.js
++++ b/packages/svelte/src/internal/client/dom/blocks/svelte-element.js
+@@ -12,31 +12,9 @@ import { set_should_intro } from '../../render.js';
+ import { current_each_item, set_current_each_item } from './each.js';
+ import { current_component_context, current_effect } from '../../runtime.js';
+ import { DEV } from 'esm-env';
+-import { is_array } from '../../utils.js';
+-import { push_template_node } from '../template.js';
++import { assign_nodes } from '../template.js';
+ import { noop } from '../../../shared/utils.js';
+ 
+-/**
+- * @param {import('#client').Effect} effect
+- * @param {Element} from
+- * @param {Element} to
+- * @returns {void}
+- */
+-function swap_block_dom(effect, from, to) {
+-	const dom = effect.dom;
+-
+-	if (is_array(dom)) {
+-		for (let i = 0; i < dom.length; i++) {
+-			if (dom[i] === from) {
+-				dom[i] = to;
+-				break;
+-			}
+-		}
+-	} else if (dom === from) {
+-		effect.dom = to;
+-	}
+-}
+-
+ /**
+  * @param {Comment | Element} node
+  * @param {() => string} get_tag
+@@ -63,18 +41,6 @@ export function element(node, get_tag, is_svg, render_fn, get_namespace, locatio
+ 	/** @type {import('#client').Effect | null} */
+ 	let effect;
+ 
+-	const parent_effect = /** @type {import('#client').Effect} */ (current_effect);
+-
+-	// Remove the the hydrated effect dom entry for our dynamic element
+-	if (hydrating && is_array(parent_effect.dom)) {
+-		var remove_index = parent_effect.dom.indexOf(
+-			/** @type {import('#client').TemplateNode} */ (element)
+-		);
+-		if (remove_index !== -1) {
+-			parent_effect.dom.splice(remove_index, 1);
+-		}
+-	}
+-
+ 	/**
+ 	 * The keyed `{#each ...}` item block, if any, that this element is inside.
+ 	 * We track this so we can set it when changing the element, allowing any
+@@ -82,8 +48,7 @@ export function element(node, get_tag, is_svg, render_fn, get_namespace, locatio
+ 	 */
+ 	let each_item_block = current_each_item;
+ 
+-	block(() => {
+-		const element_effect = /** @type {import('#client').Effect} */ (current_effect);
++	block(anchor, 0, () => {
+ 		const next_tag = get_tag() || null;
+ 		const ns = get_namespace
+ 			? get_namespace()
+@@ -125,6 +90,8 @@ export function element(node, get_tag, is_svg, render_fn, get_namespace, locatio
+ 						? document.createElementNS(ns, next_tag)
+ 						: document.createElement(next_tag);
+ 
++				assign_nodes(element, element);
++
+ 				if (DEV && location) {
+ 					// @ts-expect-error
+ 					element.__svelte_meta = {
+@@ -137,10 +104,7 @@ export function element(node, get_tag, is_svg, render_fn, get_namespace, locatio
+ 				}
+ 
+ 				if (prev_element && !hydrating) {
+-					swap_block_dom(element_effect, prev_element, element);
+ 					prev_element.remove();
+-				} else {
+-					push_template_node(element, element_effect);
+ 				}
+ 
+ 				if (render_fn) {
+diff --git a/packages/svelte/src/internal/client/dom/blocks/svelte-head.js b/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
+index b00a3a242b1e..d61c8fbe243a 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
++++ b/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
+@@ -2,6 +2,7 @@ import { hydrate_anchor, hydrate_nodes, hydrating, set_hydrate_nodes } from '../
+ import { empty } from '../operations.js';
+ import { block } from '../../reactivity/effects.js';
+ import { HYDRATION_END, HYDRATION_START } from '../../../../constants.js';
++import { HEAD_EFFECT } from '../../constants.js';
+ 
+ /**
+  * @type {Node | undefined}
+@@ -47,7 +48,7 @@ export function head(render_fn) {
+ 	}
+ 
+ 	try {
+-		block(() => render_fn(anchor));
++		block(null, HEAD_EFFECT, () => render_fn(anchor));
+ 	} finally {
+ 		if (was_hydrating) {
+ 			set_hydrate_nodes(/** @type {import('#client').TemplateNode[]} */ (previous_hydrate_nodes));
+diff --git a/packages/svelte/src/internal/client/dom/hydration.js b/packages/svelte/src/internal/client/dom/hydration.js
+index 06113ba784da..02d07be057d1 100644
+--- a/packages/svelte/src/internal/client/dom/hydration.js
++++ b/packages/svelte/src/internal/client/dom/hydration.js
+@@ -30,6 +30,17 @@ export function set_hydrate_nodes(nodes) {
+ 	hydrate_start = nodes && nodes[0];
+ }
+ 
++/**
++ * When assigning nodes to an effect during hydration, we typically want the hydration boundary comment node
++ * immediately before `hydrate_start`. In some cases, this comment doesn't exist because we optimized it away.
++ * TODO it might be worth storing this value separately rather than retrieving it with `previousSibling`
++ */
++export function get_start() {
++	return /** @type {import('#client').TemplateNode} */ (
++		hydrate_start.previousSibling ?? hydrate_start
++	);
++}
++
+ /**
+  * This function is only called when `hydrating` is true. If passed a `<!--[-->` opening
+  * hydration marker, it finds the corresponding closing marker and sets `hydrate_nodes`
+diff --git a/packages/svelte/src/internal/client/dom/operations.js b/packages/svelte/src/internal/client/dom/operations.js
+index c1fdbd0e75c6..78c0969088a5 100644
+--- a/packages/svelte/src/internal/client/dom/operations.js
++++ b/packages/svelte/src/internal/client/dom/operations.js
+@@ -85,13 +85,13 @@ export function first_child(fragment, is_text) {
+ 	// text node to hydrate — we must therefore create one
+ 	if (is_text && hydrate_start?.nodeType !== 3) {
+ 		var text = empty();
+-		var dom = /** @type {import('#client').TemplateNode[]} */ (
+-			/** @type {import('#client').Effect} */ (current_effect).dom
+-		);
++		var effect = /** @type {import('#client').Effect} */ (current_effect);
+ 
+-		dom.unshift(text);
+-		hydrate_start?.before(text);
++		if (effect.nodes?.start === hydrate_start) {
++			effect.nodes.start = text;
++		}
+ 
++		hydrate_start?.before(text);
+ 		return text;
+ 	}
+ 
+@@ -122,13 +122,7 @@ export function sibling(node, is_text = false) {
+ 	// text node to hydrate — we must therefore create one
+ 	if (is_text && type !== 3) {
+ 		var text = empty();
+-		var dom = /** @type {import('#client').TemplateNode[]} */ (
+-			/** @type {import('#client').Effect} */ (current_effect).dom
+-		);
+-
+-		dom.unshift(text);
+ 		next_sibling?.before(text);
+-
+ 		return text;
+ 	}
+ 
+diff --git a/packages/svelte/src/internal/client/dom/template.js b/packages/svelte/src/internal/client/dom/template.js
+index 7342b71edadd..1ebef63bba44 100644
+--- a/packages/svelte/src/internal/client/dom/template.js
++++ b/packages/svelte/src/internal/client/dom/template.js
+@@ -1,35 +1,28 @@
+-import { hydrate_nodes, hydrate_start, hydrating } from './hydration.js';
++import { get_start, hydrate_nodes, hydrate_start, hydrating } from './hydration.js';
+ import { empty } from './operations.js';
+ import { create_fragment_from_html } from './reconciler.js';
+ import { current_effect } from '../runtime.js';
+-import { TEMPLATE_FRAGMENT, TEMPLATE_USE_IMPORT_NODE } from '../../../constants.js';
+-import { is_array } from '../utils.js';
++import {
++	TEMPLATE_FRAGMENT,
++	TEMPLATE_UNSET_START,
++	TEMPLATE_USE_IMPORT_NODE
++} from '../../../constants.js';
+ import { queue_micro_task } from './task.js';
+ 
+ /**
+- * @template {import("#client").TemplateNode | import("#client").TemplateNode[]} T
+- * @param {T} dom
+- * @param {import("#client").Effect} effect
++ *
++ * @param {import('#client').TemplateNode | undefined | null} start
++ * @param {import('#client').TemplateNode} end
++ * @param {import('#client').TemplateNode | null} anchor
+  */
+-export function push_template_node(
+-	dom,
+-	effect = /** @type {import('#client').Effect} */ (current_effect)
+-) {
+-	var current_dom = effect.dom;
+-	if (current_dom === null) {
+-		effect.dom = dom;
+-	} else {
+-		if (!is_array(current_dom)) {
+-			current_dom = effect.dom = [current_dom];
+-		}
++export function assign_nodes(start, end, anchor = null) {
++	const effect = /** @type {import('#client').Effect} */ (current_effect);
+ 
+-		if (is_array(dom)) {
+-			current_dom.push(...dom);
+-		} else {
+-			current_dom.push(dom);
+-		}
++	if (effect.nodes === null) {
++		effect.nodes = { start, anchor, end };
++	} else if (effect.nodes.start === undefined) {
++		effect.nodes.start = start;
+ 	}
+-	return dom;
+ }
+ 
+ /**
+@@ -45,9 +38,13 @@ export function template(content, flags) {
+ 	/** @type {Node} */
+ 	var node;
+ 
++	var has_start = !content.startsWith('<!>');
++	var unset = (flags & TEMPLATE_UNSET_START) !== 0;
++
+ 	return () => {
+ 		if (hydrating) {
+-			push_template_node(is_fragment ? hydrate_nodes : hydrate_start);
++			assign_nodes(get_start(), hydrate_nodes[hydrate_nodes.length - 1]);
++
+ 			return hydrate_start;
+ 		}
+ 
+@@ -56,14 +53,20 @@ export function template(content, flags) {
+ 			if (!is_fragment) node = /** @type {Node} */ (node.firstChild);
+ 		}
+ 
+-		var clone = use_import_node ? document.importNode(node, true) : node.cloneNode(true);
+-
+-		push_template_node(
+-			is_fragment
+-				? /** @type {import('#client').TemplateNode[]} */ ([...clone.childNodes])
+-				: /** @type {import('#client').TemplateNode} */ (clone)
++		var clone = /** @type {import('#client').TemplateNode} */ (
++			use_import_node ? document.importNode(node, true) : node.cloneNode(true)
+ 		);
+ 
++		if (is_fragment) {
++			var first = /** @type {import('#client').TemplateNode} */ (clone.firstChild);
++			var start = has_start ? first : unset ? undefined : null;
++			var end = /** @type {import('#client').TemplateNode} */ (clone.lastChild);
++
++			assign_nodes(start, end, first);
++		} else {
++			assign_nodes(clone, clone);
++		}
++
+ 		return clone;
+ 	};
+ }
+@@ -101,37 +104,46 @@ export function template_with_script(content, flags) {
+ /*#__NO_SIDE_EFFECTS__*/
+ export function ns_template(content, flags, ns = 'svg') {
+ 	var is_fragment = (flags & TEMPLATE_FRAGMENT) !== 0;
+-	var fn = template(`<${ns}>${content}</${ns}>`, 0); // we don't need to worry about using importNode for namespaced elements
++	var wrapped = `<${ns}>${content}</${ns}>`;
+ 
+ 	/** @type {Element | DocumentFragment} */
+ 	var node;
+ 
++	var has_start = !content.startsWith('<!>');
++	var unset = (flags & TEMPLATE_UNSET_START) !== 0;
++
+ 	return () => {
+ 		if (hydrating) {
+-			push_template_node(is_fragment ? hydrate_nodes : hydrate_start);
++			assign_nodes(get_start(), hydrate_nodes[hydrate_nodes.length - 1]);
++
+ 			return hydrate_start;
+ 		}
+ 
+ 		if (!node) {
+-			var wrapper = /** @type {Element} */ (fn());
++			var fragment = /** @type {DocumentFragment} */ (create_fragment_from_html(wrapped));
++			var root = /** @type {Element} */ (fragment.firstChild);
+ 
+-			if ((flags & TEMPLATE_FRAGMENT) === 0) {
+-				node = /** @type {Element} */ (wrapper.firstChild);
+-			} else {
++			if (is_fragment) {
+ 				node = document.createDocumentFragment();
+-				while (wrapper.firstChild) {
+-					node.appendChild(wrapper.firstChild);
++				while (root.firstChild) {
++					node.appendChild(root.firstChild);
+ 				}
++			} else {
++				node = /** @type {Element} */ (root.firstChild);
+ 			}
+ 		}
+ 
+-		var clone = node.cloneNode(true);
++		var clone = /** @type {import('#client').TemplateNode} */ (node.cloneNode(true));
+ 
+-		push_template_node(
+-			is_fragment
+-				? /** @type {import('#client').TemplateNode[]} */ ([...clone.childNodes])
+-				: /** @type {import('#client').TemplateNode} */ (clone)
+-		);
++		if (is_fragment) {
++			var first = /** @type {import('#client').TemplateNode} */ (clone.firstChild);
++			var start = has_start ? first : unset ? undefined : null;
++			var end = /** @type {import('#client').TemplateNode} */ (clone.lastChild);
++
++			assign_nodes(start, end, first);
++		} else {
++			assign_nodes(clone, clone);
++		}
+ 
+ 		return clone;
+ 	};
+@@ -208,7 +220,11 @@ function run_scripts(node) {
+  */
+ /*#__NO_SIDE_EFFECTS__*/
+ export function text(anchor) {
+-	if (!hydrating) return push_template_node(empty());
++	if (!hydrating) {
++		var t = empty();
++		assign_nodes(t, t);
++		return t;
++	}
+ 
+ 	var node = hydrate_start;
+ 
+@@ -218,21 +234,26 @@ export function text(anchor) {
+ 		anchor.before((node = empty()));
+ 	}
+ 
+-	push_template_node(node);
++	assign_nodes(node, node);
+ 	return node;
+ }
+ 
+-export function comment() {
++/**
++ * @param {boolean} unset
++ */
++export function comment(unset = false) {
+ 	// we're not delegating to `template` here for performance reasons
+ 	if (hydrating) {
+-		push_template_node(hydrate_nodes);
++		assign_nodes(get_start(), hydrate_nodes[hydrate_nodes.length - 1]);
++
+ 		return hydrate_start;
+ 	}
+ 
+ 	var frag = document.createDocumentFragment();
+ 	var anchor = empty();
+ 	frag.append(anchor);
+-	push_template_node([anchor]);
++
++	assign_nodes(unset ? undefined : null, anchor, anchor);
+ 
+ 	return frag;
+ }
+diff --git a/packages/svelte/src/internal/client/reactivity/effects.js b/packages/svelte/src/internal/client/reactivity/effects.js
+index 0de476dab066..3e2db129b9a5 100644
+--- a/packages/svelte/src/internal/client/reactivity/effects.js
++++ b/packages/svelte/src/internal/client/reactivity/effects.js
+@@ -31,10 +31,10 @@ import {
+ 	DERIVED,
+ 	UNOWNED,
+ 	CLEAN,
+-	INSPECT_EFFECT
++	INSPECT_EFFECT,
++	HEAD_EFFECT
+ } from '../constants.js';
+ import { set } from './sources.js';
+-import { remove } from '../dom/reconciler.js';
+ import * as e from '../errors.js';
+ import { DEV } from 'esm-env';
+ import { define_property } from '../utils.js';
+@@ -75,16 +75,17 @@ export function push_effect(effect, parent_effect) {
+  * @param {number} type
+  * @param {null | (() => void | (() => void))} fn
+  * @param {boolean} sync
++ * @param {boolean} push
+  * @returns {import('#client').Effect}
+  */
+-function create_effect(type, fn, sync) {
++function create_effect(type, fn, sync, push = true) {
+ 	var is_root = (type & ROOT_EFFECT) !== 0;
+ 
+ 	/** @type {import('#client').Effect} */
+ 	var effect = {
+ 		ctx: current_component_context,
+ 		deps: null,
+-		dom: null,
++		nodes: null,
+ 		f: type | DIRTY,
+ 		first: null,
+ 		fn,
+@@ -120,10 +121,10 @@ function create_effect(type, fn, sync) {
+ 		sync &&
+ 		effect.deps === null &&
+ 		effect.first === null &&
+-		effect.dom === null &&
++		effect.nodes === null &&
+ 		effect.teardown === null;
+ 
+-	if (!inert && !is_root) {
++	if (!inert && !is_root && push) {
+ 		if (current_effect !== null) {
+ 			push_effect(effect, current_effect);
+ 		}
+@@ -298,16 +299,22 @@ export function template_effect(fn) {
+ }
+ 
+ /**
+- * @param {(() => void)} fn
++ * @param {import('#client').TemplateNode | null} anchor
+  * @param {number} flags
++ * @param {(() => void)} fn
+  */
+-export function block(fn, flags = 0) {
+-	return create_effect(RENDER_EFFECT | BLOCK_EFFECT | flags, fn, true);
++export function block(anchor, flags, fn) {
++	const effect = create_effect(RENDER_EFFECT | BLOCK_EFFECT | flags, fn, true);
++	if (anchor !== null) effect.nodes = { start: null, anchor: null, end: anchor };
++	return effect;
+ }
+ 
+-/** @param {(() => void)} fn */
+-export function branch(fn) {
+-	return create_effect(RENDER_EFFECT | BRANCH_EFFECT, fn, true);
++/**
++ * @param {(() => void)} fn
++ * @param {boolean} [push]
++ */
++export function branch(fn, push = true) {
++	return create_effect(RENDER_EFFECT | BRANCH_EFFECT, fn, true, push);
+ }
+ 
+ /**
+@@ -335,13 +342,26 @@ export function execute_effect_teardown(effect) {
+  * @returns {void}
+  */
+ export function destroy_effect(effect, remove_dom = true) {
+-	var dom = effect.dom;
++	var removed = false;
+ 
+-	if (dom !== null && remove_dom) {
+-		remove(dom);
++	if ((remove_dom || (effect.f & HEAD_EFFECT) !== 0) && effect.nodes !== null) {
++		/** @type {import('#client').TemplateNode | null} */
++		var node = get_first_node(effect);
++		var end = effect.nodes.end;
++
++		while (node !== null) {
++			/** @type {import('#client').TemplateNode | null} */
++			var next =
++				node === end ? null : /** @type {import('#client').TemplateNode} */ (node.nextSibling);
++
++			node.remove();
++			node = next;
++		}
++
++		removed = true;
+ 	}
+ 
+-	destroy_effect_children(effect, remove_dom);
++	destroy_effect_children(effect, remove_dom && !removed);
+ 	remove_reactions(effect, 0);
+ 	set_signal_status(effect, DESTROYED);
+ 
+@@ -365,13 +385,44 @@ export function destroy_effect(effect, remove_dom = true) {
+ 		effect.prev =
+ 		effect.teardown =
+ 		effect.ctx =
+-		effect.dom =
+ 		effect.deps =
+ 		effect.parent =
+ 		effect.fn =
++		effect.nodes =
+ 			null;
+ }
+ 
++/**
++ * @param {import('#client').Effect} effect
++ * @returns {import('#client').TemplateNode}
++ */
++export function get_first_node(effect) {
++	var nodes = /** @type {NonNullable<typeof effect.nodes>} */ (effect.nodes);
++	var start = nodes.start;
++
++	if (start === undefined) {
++		// edge case — a snippet or component was the first item inside the effect,
++		// but it didn't render any DOM. in this case, we return the item's anchor
++		return /** @type {import('#client').TemplateNode} */ (nodes.anchor);
++	}
++
++	if (start !== null) {
++		return start;
++	}
++
++	var child = effect.first;
++	while (child && (child.nodes === null || (child.f & HEAD_EFFECT) !== 0)) {
++		child = child.next;
++	}
++
++	if (child !== null && child.nodes !== null) {
++		return get_first_node(child);
++	}
++
++	// in the case that there's no DOM, return the first anchor
++	return nodes.end;
++}
++
+ /**
+  * Detach an effect from the effect tree, freeing up memory and
+  * reducing the amount of work that happens on subsequent traversals
+diff --git a/packages/svelte/src/internal/client/reactivity/types.d.ts b/packages/svelte/src/internal/client/reactivity/types.d.ts
+index 4d77a68a1300..1d3544660789 100644
+--- a/packages/svelte/src/internal/client/reactivity/types.d.ts
++++ b/packages/svelte/src/internal/client/reactivity/types.d.ts
+@@ -1,4 +1,4 @@
+-import type { ComponentContext, Dom, Equals, TransitionManager } from '#client';
++import type { ComponentContext, Dom, Equals, TemplateNode, TransitionManager } from '#client';
+ 
+ export interface Signal {
+ 	/** Flags bitmask */
+@@ -36,7 +36,11 @@ export interface Derived<V = unknown> extends Value<V>, Reaction {
+ 
+ export interface Effect extends Reaction {
+ 	parent: Effect | null;
+-	dom: Dom | null;
++	nodes: null | {
++		start: undefined | null | TemplateNode;
++		anchor: null | TemplateNode;
++		end: TemplateNode;
++	};
+ 	/** The associated component context */
+ 	ctx: null | ComponentContext;
+ 	/** The effect function */
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index c46acaa16015..f6db179b7877 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -555,7 +555,7 @@ function flush_queued_effects(effects) {
+ 			// don't know if we need to keep them until they are executed. Doing the check
+ 			// here (rather than in `execute_effect`) allows us to skip the work for
+ 			// immediate effects.
+-			if (effect.deps === null && effect.first === null && effect.dom === null) {
++			if (effect.deps === null && effect.first === null && effect.nodes === null) {
+ 				if (effect.teardown === null) {
+ 					// remove this effect from the graph
+ 					unlink_effect(effect);
+diff --git a/packages/svelte/src/internal/client/types.d.ts b/packages/svelte/src/internal/client/types.d.ts
+index 292c233fa691..53fd222d1854 100644
+--- a/packages/svelte/src/internal/client/types.d.ts
++++ b/packages/svelte/src/internal/client/types.d.ts
+@@ -71,7 +71,7 @@ export type EachState = {
+ 	/** a key -> item lookup */
+ 	items: Map<any, EachItem>;
+ 	/** head of the linked list of items */
+-	next: EachItem | null;
++	first: EachItem | null;
+ };
+ 
+ export type EachItem = {
+@@ -85,7 +85,7 @@ export type EachItem = {
+ 	i: number | Source<number>;
+ 	/** key */
+ 	k: unknown;
+-	prev: EachItem | EachState;
++	prev: EachItem | null;
+ 	next: EachItem | null;
+ };
+ 
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index d7503bb08f8f..a325cab40a7c 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1568,6 +1568,9 @@ declare module 'svelte/compiler' {
+ 	interface RenderTag extends BaseNode {
+ 		type: 'RenderTag';
+ 		expression: SimpleCallExpression | (ChainExpression & { expression: SimpleCallExpression });
++		metadata: {
++			dynamic: boolean;
++		};
+ 	}
+ 
+ 	type Tag = ExpressionTag | HtmlTag | ConstTag | DebugTag | RenderTag;
+@@ -1687,6 +1690,9 @@ declare module 'svelte/compiler' {
+ 
+ 	interface Component extends BaseElement {
+ 		type: 'Component';
++		metadata: {
++			dynamic: boolean;
++		};
+ 	}
+ 
+ 	interface TitleElement extends BaseElement {

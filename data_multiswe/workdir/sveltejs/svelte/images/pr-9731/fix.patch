@@ -1,0 +1,125 @@
+diff --git a/.changeset/lemon-geese-drum.md b/.changeset/lemon-geese-drum.md
+new file mode 100644
+index 000000000000..b830138372b1
+--- /dev/null
++++ b/.changeset/lemon-geese-drum.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: improve `$inspect` type definition
+diff --git a/.changeset/two-dragons-yell.md b/.changeset/two-dragons-yell.md
+new file mode 100644
+index 000000000000..f6f7e17532d4
+--- /dev/null
++++ b/.changeset/two-dragons-yell.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly inspect derived values
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index a3c392c9de4d..6b3d7abecc19 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -191,9 +191,36 @@ function create_source_signal(flags, value) {
+  * @param {import('./types.js').SignalFlags} flags
+  * @param {V} value
+  * @param {import('./types.js').Block | null} block
+- * @returns {import('./types.js').ComputationSignal<V>}
++ * @returns {import('./types.js').ComputationSignal<V> | import('./types.js').ComputationSignal<V> & import('./types.js').SourceSignalDebug}
+  */
+ function create_computation_signal(flags, value, block) {
++	if (DEV) {
++		return {
++			// block
++			b: block,
++			// consumers
++			c: null,
++			// destroy
++			d: null,
++			// equals
++			e: null,
++			// flags
++			f: flags,
++			// init
++			i: null,
++			// references
++			r: null,
++			// value
++			v: value,
++			// context: We can remove this if we get rid of beforeUpdate/afterUpdate
++			x: null,
++			// destroy
++			y: null,
++			// this is for DEV only
++			inspect: new Set()
++		};
++	}
++
+ 	return {
+ 		// block
+ 		b: block,
+@@ -671,6 +698,12 @@ function update_derived(signal, force_schedule) {
+ 	if (!equals(value, signal.v)) {
+ 		signal.v = value;
+ 		mark_signal_consumers(signal, DIRTY, force_schedule);
++
++		// @ts-expect-error
++		if (DEV && signal.inspect && force_schedule) {
++			// @ts-expect-error
++			for (const fn of signal.inspect) fn();
++		}
+ 	}
+ }
+ 
+@@ -836,7 +869,15 @@ export function get(signal) {
+ 	}
+ 
+ 	if ((flags & DERIVED) !== 0 && is_signal_dirty(signal)) {
+-		update_derived(/** @type {import('./types.js').ComputationSignal<V>} **/ (signal), false);
++		if (DEV) {
++			// we want to avoid tracking indirect dependencies
++			const previous_inspect_fn = inspect_fn;
++			inspect_fn = null;
++			update_derived(/** @type {import('./types.js').ComputationSignal<V>} **/ (signal), false);
++			inspect_fn = previous_inspect_fn;
++		} else {
++			update_derived(/** @type {import('./types.js').ComputationSignal<V>} **/ (signal), false);
++		}
+ 	}
+ 	return signal.v;
+ }
+diff --git a/packages/svelte/src/main/ambient.d.ts b/packages/svelte/src/main/ambient.d.ts
+index 0e81faeacb6a..a351e48b3e4d 100644
+--- a/packages/svelte/src/main/ambient.d.ts
++++ b/packages/svelte/src/main/ambient.d.ts
+@@ -132,12 +132,23 @@ declare namespace $effect {
+ declare function $props<T>(): T;
+ 
+ /**
+- * Logs the arguments whenever they, or the properties they contain, change. Example:
++ * Inspects a value whenever it, or the properties it contains, change. Example:
+  *
+  * ```ts
+- * $inspect(someValue, someOtherValue)
++ * $inspect({ someValue, someOtherValue })
++ * ```
++ *
++ * If a second argument is provided, it will be called with the value and the event type
++ * (`'init'` or `'update'`), otherwise the value will be logged to the console.
++ *
++ * ```ts
++ * $inspect(x, console.trace);
++ * $inspect(y, (y) => { debugger; });
+  * ```
+  *
+  * https://svelte-5-preview.vercel.app/docs/runes#$inspect
+  */
+-declare function $inspect(): void;
++declare function $inspect<T>(
++	value: T,
++	callback?: (value: T, type: 'init' | 'update') => void
++): void;

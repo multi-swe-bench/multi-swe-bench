@@ -1,0 +1,214 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/_config.js
+new file mode 100644
+index 000000000000..f54f78f5c1f3
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/_config.js
+@@ -0,0 +1,56 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++/**
++ * @param {any[]} logs
++ */
++function normalise_trace_logs(logs) {
++	let normalised = [];
++	for (let i = 0; i < logs.length; i++) {
++		const log = logs[i];
++
++		if (typeof log === 'string' && log.includes('%c')) {
++			const split = log.split('%c');
++			normalised.push({
++				log: (split[0].length !== 0 ? split[0] : split[1]).trim(),
++				highlighted: logs[i + 1] === 'color: CornflowerBlue; font-weight: bold'
++			});
++			i++;
++		} else if (log instanceof Error) {
++			continue;
++		} else {
++			normalised.push({ log });
++		}
++	}
++	return normalised;
++}
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	test({ assert, target, logs }) {
++		// initial log, everything is highlighted
++
++		assert.deepEqual(normalise_trace_logs(logs), [
++			{ log: 'iife', highlighted: false },
++			{ log: '$state', highlighted: true },
++			{ log: 0 },
++			{ log: 'effect', highlighted: false }
++		]);
++
++		logs.length = 0;
++
++		const button = target.querySelector('button');
++		button?.click();
++		flushSync();
++
++		assert.deepEqual(normalise_trace_logs(logs), [
++			{ log: 'iife', highlighted: false },
++			{ log: '$state', highlighted: true },
++			{ log: 1 },
++			{ log: 'effect', highlighted: false }
++		]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/main.svelte
+new file mode 100644
+index 000000000000..f60fb0438c3b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-nested/main.svelte
+@@ -0,0 +1,13 @@
++<script>
++	let count = $state(0);
++
++	$effect(() => {
++		$inspect.trace('effect');
++		(()=>{
++			$inspect.trace("iife");
++			count;
++		})();
++	});
++</script>
++
++<button onclick={() => count++}>{count}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/_config.js
+new file mode 100644
+index 000000000000..e779a835c2ef
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/_config.js
+@@ -0,0 +1,8 @@
++import { test } from '../../test';
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++	test() {}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/main.svelte
+new file mode 100644
+index 000000000000..30eb95f12418
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-null/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let count = $state(null);
++	$effect(() => {
++		$inspect.trace();
++		count;
++	});
++</script>
++
++<button onclick={()=>count++}>{count}</button>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/_config.js
+new file mode 100644
+index 000000000000..c9a66289a12d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/_config.js
+@@ -0,0 +1,72 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++/**
++ * @param {any[]} logs
++ */
++function normalise_trace_logs(logs) {
++	let normalised = [];
++	for (let i = 0; i < logs.length; i++) {
++		const log = logs[i];
++
++		if (typeof log === 'string' && log.includes('%c')) {
++			const split = log.split('%c');
++			normalised.push({
++				log: (split[0].length !== 0 ? split[0] : split[1]).trim(),
++				highlighted: logs[i + 1] === 'color: CornflowerBlue; font-weight: bold'
++			});
++			i++;
++		} else if (log instanceof Error) {
++			continue;
++		} else {
++			normalised.push({ log });
++		}
++	}
++	return normalised;
++}
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	test({ assert, target, logs }) {
++		// initial log, everything is highlighted
++
++		assert.deepEqual(normalise_trace_logs(logs), [
++			{ log: 'effect', highlighted: false },
++			{ log: '$state', highlighted: true },
++			{ log: false }
++		]);
++
++		logs.length = 0;
++
++		const button = target.querySelector('button');
++		button?.click();
++		flushSync();
++
++		const input = target.querySelector('input');
++		input?.click();
++		flushSync();
++
++		// checked changed, effect reassign state, values should be correct and be correctly highlighted
++
++		assert.deepEqual(normalise_trace_logs(logs), [
++			{ log: 'effect', highlighted: false },
++			{ log: '$state', highlighted: true },
++			{ log: true },
++			{ log: '$state', highlighted: true },
++			{ log: 1 },
++			{ log: 'effect', highlighted: false },
++			{ log: '$state', highlighted: false },
++			{ log: true },
++			{ log: '$state', highlighted: true },
++			{ log: 2 },
++			{ log: 'effect', highlighted: false },
++			{ log: '$state', highlighted: false },
++			{ log: true },
++			{ log: '$state', highlighted: true },
++			{ log: 3 }
++		]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/main.svelte
+new file mode 100644
+index 000000000000..5028c0f25183
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace-reassignment/main.svelte
+@@ -0,0 +1,18 @@
++<script>
++	let count = $state(0);
++	let checked = $state(false);
++
++	$effect(() => {
++		$inspect.trace("effect");
++		if(checked && count > 0 && count < 3){
++			let old = count;
++			// this should not show up in the logs
++			count = 1000;
++			count = old + 1;
++		}
++	});
++</script>
++<input type="checkbox" bind:checked />
++<button onclick={()=>{
++	count++;
++}}>{count}</button>
+\ No newline at end of file

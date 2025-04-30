@@ -1,0 +1,42 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5f08e72c26d..a24c2160fd5 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
+ - *(assert)* Add missing `#[track_caller]`s to make it easier to debug asserts
+ - *(assert)* Ensure `overrides_with` IDs are valid
+ - *(assert)* Ensure no self-`overrides_with` now that Actions replace it
++- *(assert)* Ensure subcommand names are not duplicated
+ - *(help)* Use `Command::display_name` in the help title rather than `Command::bin_name`
+ - *(version)* Use `Command::display_name` rather than `Command::bin_name`
+ - *(parser)* Assert on unknown args when using external subcommands (#3703)
+diff --git a/src/builder/debug_asserts.rs b/src/builder/debug_asserts.rs
+index 7c2aeb39037..3f6e0dcf33e 100644
+--- a/src/builder/debug_asserts.rs
++++ b/src/builder/debug_asserts.rs
+@@ -309,6 +309,25 @@ pub(crate) fn assert_app(cmd: &Command) {
+     detect_duplicate_flags(&long_flags, "long");
+     detect_duplicate_flags(&short_flags, "short");
+ 
++    let mut subs = indexmap::IndexSet::new();
++    for sc in cmd.get_subcommands() {
++        assert!(
++            subs.insert(sc.get_name()),
++            "Command {}: command name `{}` is duplicated",
++            cmd.get_name(),
++            sc.get_name()
++        );
++        for alias in sc.get_all_aliases() {
++            assert!(
++                subs.insert(alias),
++                "Command {}: command `{}` alias `{}` is duplicated",
++                cmd.get_name(),
++                sc.get_name(),
++                alias
++            );
++        }
++    }
++
+     _verify_positionals(cmd);
+ 
+     if let Some(help_template) = cmd.get_help_template() {

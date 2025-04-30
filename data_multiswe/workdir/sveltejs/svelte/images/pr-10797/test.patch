@@ -1,0 +1,270 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-behavior/_config.js b/packages/svelte/tests/runtime-runes/samples/props-default-value-behavior/_config.js
+index f4b1f09ec97e..47f48b5c20af 100644
+--- a/packages/svelte/tests/runtime-runes/samples/props-default-value-behavior/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-behavior/_config.js
+@@ -1,6 +1,6 @@
+ import { test } from '../../test';
+ 
+-// Tests that default values apply only initially and that they propagate back correctly for bindings
++// Tests that default values apply every time and that they propagate back correctly for bindings
+ export default test({
+ 	// set accessors to false so that $.prop() is also created
+ 	accessors: false,
+@@ -267,7 +267,7 @@ export default test({
+ 			<p>props undefined:</p>
+ 			<p>
+ 				readonly:
+-				readonlyWithDefault:
++				readonlyWithDefault: 1
+ 				binding:
+ 			</p>
+ 			<button>set bindings to 5</button>
+@@ -276,7 +276,7 @@ export default test({
+ 			<p>props defined:</p>
+ 			<p>
+ 				readonly:
+-				readonlyWithDefault:
++				readonlyWithDefault: 1
+ 				binding:
+ 			</p>
+ 			<button>set bindings to 5</button>
+@@ -285,7 +285,7 @@ export default test({
+ 			<p>bindings undefined:</p>
+ 			<p>
+ 				readonly:
+-				readonlyWithDefault:
++				readonlyWithDefault: 1
+ 				binding:
+ 			</p>
+ 			<button>set bindings to 5</button>
+@@ -294,7 +294,7 @@ export default test({
+ 			<p>bindings defined:</p>
+ 			<p>
+ 				readonly:
+-				readonlyWithDefault:
++				readonlyWithDefault: 1
+ 				binding:
+ 			</p>
+ 			<button>set bindings to 5</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/_config.js b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/_config.js
+new file mode 100644
+index 000000000000..0919bdfca98e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/_config.js
+@@ -0,0 +1,29 @@
++import { test } from '../../test';
++
++// Tests that default values only fire lazily when the prop is undefined, and every time
++export default test({
++	props: {
++		p0: 0,
++		p1: 0,
++		p2: 0,
++		p3: 0
++	},
++	html: `<p>props: 0 0 0 0 1 1 1 1</p><p>log: nested.fallback_value,fallback_fn`,
++	async test({ assert, target, component }) {
++		component.p0 = undefined;
++		component.p1 = undefined;
++		component.p2 = undefined;
++		component.p3 = undefined;
++		// Nuance: these are already undefined in the props, but we're setting them to undefined again,
++		// which calls the fallback value again, even if it will result in the same value. There's no way
++		// to prevent this, and in practise it won't matter - and you shouldn't use accessors in runes mode anyway.
++		component.p4 = undefined;
++		component.p5 = undefined;
++		component.p6 = undefined;
++		component.p7 = undefined;
++		assert.htmlEqual(
++			target.innerHTML,
++			`<p>props: 1 1 1 1 1 1 1 1</p><p>log: nested.fallback_value,fallback_fn,nested.fallback_value,fallback_fn,nested.fallback_value,fallback_fn`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/main.svelte b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/main.svelte
+new file mode 100644
+index 000000000000..fe2ac37bd3f6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy-accessors/main.svelte
+@@ -0,0 +1,29 @@
++<script>
++	let log = $state([]);
++
++	const fallback_value = 1;
++	const nested = {
++		get fallback_value() {
++			log.push('nested.fallback_value');
++			return fallback_value;
++		}
++	}
++	const fallback_fn = () => {
++		log.push('fallback_fn');
++		return fallback_value;
++	}
++
++	const {
++		p0 = 1,
++		p1 = fallback_value,
++		p2 = nested.fallback_value,
++		p3 = fallback_fn(),
++		p4 = 1,
++		p5 = fallback_value,
++		p6 = nested.fallback_value,
++		p7 = fallback_fn()
++	} = $props();
++</script>
++
++<p>props: {p0} {p1} {p2} {p3} {p4} {p5} {p6} {p7}</p>
++<p>log: {log}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/_config.js b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/_config.js
+index 7d2e74101bbd..5016418004bc 100644
+--- a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/_config.js
+@@ -1,23 +1,24 @@
++import { tick } from 'svelte';
+ import { test } from '../../test';
+ 
+-// Tests that default values only fire lazily when the prop is undefined, and only initially
++// Tests that default values only fire lazily when the prop is undefined, and every time
+ export default test({
+-	props: {
+-		p0: 0,
+-		p1: 0,
+-		p2: 0,
+-		p3: 0
+-	},
+-	html: `<p>props: 0 0 0 0 1 1 1 1</p><p>log: nested.fallback_value,fallback_fn`,
+-	async test({ assert, target, component }) {
+-		component.p0 = undefined;
+-		component.p1 = undefined;
+-		component.p2 = undefined;
+-		component.p3 = undefined;
+-		component.p4 = undefined;
+-		component.p5 = undefined;
+-		component.p6 = undefined;
+-		component.p7 = undefined;
+-		assert.htmlEqual(target.innerHTML, `<p>props: </p><p>log: nested.fallback_value,fallback_fn`);
++	html: `
++	<p>props: 0 0 0 0 1 1 1 1</p>
++	<p>log: nested.fallback_value,fallback_fn</p>
++	<button>Set all to undefined</button>
++	`,
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		btn?.click();
++		await tick();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<p>props: 1 1 1 1 1 1 1 1</p>
++			<p>log: nested.fallback_value,fallback_fn,nested.fallback_value,fallback_fn</p>
++			<button>Set all to undefined</button>
++			`
++		);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/main.svelte b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/main.svelte
+index 9f74c327e0dd..6e0b9b5894e7 100644
+--- a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/main.svelte
+@@ -1,31 +1,25 @@
+ <script>
+-	let log = $state([]);
++	import Sub from "./sub.svelte";
+ 
+-	const fallback_value = 1;
+-	const nested = {
+-		get fallback_value() {
+-			log.push('nested.fallback_value');
+-			log = log;
+-			return fallback_value;
+-		}
+-	}
+-	const fallback_fn = () => {
+-		log.push('fallback_fn');
+-			log = log;
+-		return fallback_value;
+-	}
+-
+-	const {
+-		p0 = 1,
+-		p1 = fallback_value,
+-		p2 = nested.fallback_value,
+-		p3 = fallback_fn(),
+-		p4 = 1,
+-		p5 = fallback_value,
+-		p6 = nested.fallback_value,
+-		p7 = fallback_fn()
+-	} = $props();
++	let p0 = $state(0);
++	let p1 = $state(0);
++	let p2 = $state(0);
++	let p3 = $state(0);
++	let p4 = $state();
++	let p5 = $state();
++	let p6 = $state();
++	let p7 = $state();
+ </script>
+ 
+-<p>props: {p0} {p1} {p2} {p3} {p4} {p5} {p6} {p7}</p>
+-<p>log: {log}</p>
++<Sub {p0} {p1} {p2} {p3} {p4} {p5} {p6} {p7} />
++
++<button onclick={() => {
++  p0 = undefined;
++  p1 = undefined;
++  p2 = undefined;
++  p3 = undefined;
++  p4 = undefined;
++  p5 = undefined;
++  p6 = undefined;
++  p7 = undefined;
++}}>Set all to undefined</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/sub.svelte b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/sub.svelte
+new file mode 100644
+index 000000000000..fe2ac37bd3f6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-default-value-lazy/sub.svelte
+@@ -0,0 +1,29 @@
++<script>
++	let log = $state([]);
++
++	const fallback_value = 1;
++	const nested = {
++		get fallback_value() {
++			log.push('nested.fallback_value');
++			return fallback_value;
++		}
++	}
++	const fallback_fn = () => {
++		log.push('fallback_fn');
++		return fallback_value;
++	}
++
++	const {
++		p0 = 1,
++		p1 = fallback_value,
++		p2 = nested.fallback_value,
++		p3 = fallback_fn(),
++		p4 = 1,
++		p5 = fallback_value,
++		p6 = nested.fallback_value,
++		p7 = fallback_fn()
++	} = $props();
++</script>
++
++<p>props: {p0} {p1} {p2} {p3} {p4} {p5} {p6} {p7}</p>
++<p>log: {log}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js
+index f6be4fbae486..40ad73aa8728 100644
+--- a/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js
+@@ -48,7 +48,7 @@ export default test({
+ 			`
+ 				<button>change propA</button>
+ 				<button>change propB</button>
+-				<p>true</p>
++				<p>true fallback</p>
+ 			`
+ 		);
+ 	}

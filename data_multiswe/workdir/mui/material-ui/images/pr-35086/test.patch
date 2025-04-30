@@ -1,0 +1,173 @@
+diff --git a/packages/mui-material/src/SvgIcon/SvgIcon.test.js b/packages/mui-material/src/SvgIcon/SvgIcon.test.js
+index 67f7bd26b1609a..bf07547f30abb7 100644
+--- a/packages/mui-material/src/SvgIcon/SvgIcon.test.js
++++ b/packages/mui-material/src/SvgIcon/SvgIcon.test.js
+@@ -22,17 +22,32 @@ describe('<SvgIcon />', () => {
+       render,
+       muiName: 'MuiSvgIcon',
+       refInstanceof: window.SVGSVGElement,
+-      testComponentPropWith: (props) => (
+-        <svg {...props}>
+-          <defs>
+-            <linearGradient id="gradient1">
+-              <stop offset="20%" stopColor="#39F" />
+-              <stop offset="90%" stopColor="#F3F" />
+-            </linearGradient>
+-          </defs>
+-          {props.children}
+-        </svg>
+-      ),
++      testComponentPropWith: [
++        () => (
++          <svg>
++            <defs>
++              <linearGradient id="gradient1">
++                <stop offset="20%" stopColor="#39F" />
++                <stop offset="90%" stopColor="#F3F" />
++              </linearGradient>
++            </defs>
++          </svg>
++        ),
++        class extends React.PureComponent {
++          render() {
++            return (
++              <svg>
++                <defs>
++                  <linearGradient id="gradient1">
++                    <stop offset="20%" stopColor="#39F" />
++                    <stop offset="90%" stopColor="#F3F" />
++                  </linearGradient>
++                </defs>
++              </svg>
++            );
++          }
++        },
++      ],
+       skip: ['themeVariants', 'componentsProp'],
+     }),
+   );
+@@ -55,6 +70,50 @@ describe('<SvgIcon />', () => {
+       expect(queryByText('Network')).not.to.equal(null);
+       expect(container.firstChild).not.to.have.attribute('aria-hidden');
+     });
++
++    it('should also be able to make an icon accessible with component prop', () => {
++      function Component() {
++        return <svg>{path}</svg>;
++      }
++
++      const { container, queryByText } = render(
++        <SvgIcon title="Go to link" titleAccess="Network" component={Component} />,
++      );
++
++      expect(queryByText('Network')).not.to.equal(null);
++      expect(container.firstChild).not.to.have.attribute('aria-hidden');
++    });
++
++    it('should inherit a title from component prop', () => {
++      function Component() {
++        return <SvgIcon titleAccess="Componet prop title">{path}</SvgIcon>;
++      }
++
++      const { container, queryByText } = render(
++        <SvgIcon title="Inherit a title" component={Component} />,
++      );
++
++      expect(queryByText('Componet prop title')).not.to.equal(null);
++      expect(container.firstChild).not.to.have.attribute('aria-hidden');
++    });
++
++    it('should override the title from component prop', () => {
++      function Component() {
++        return <SvgIcon titleAccess="Componet prop title">{path}</SvgIcon>;
++      }
++
++      const { container, queryByText } = render(
++        <SvgIcon
++          title="Override component prop title"
++          titleAccess="Root title"
++          component={Component}
++        />,
++      );
++
++      expect(queryByText('Root title')).not.to.equal(null);
++      expect(queryByText('Componet prop title')).to.equal(null);
++      expect(container.firstChild).not.to.have.attribute('aria-hidden');
++    });
+   });
+ 
+   describe('prop: color', () => {
+diff --git a/test/utils/describeConformance.tsx b/test/utils/describeConformance.tsx
+index 306f3251587856..83b5983f36a9d3 100644
+--- a/test/utils/describeConformance.tsx
++++ b/test/utils/describeConformance.tsx
+@@ -30,8 +30,8 @@ export interface InputConformanceOptions {
+   render: (node: React.ReactElement) => MuiRenderResult;
+   only?: Array<keyof typeof fullSuite>;
+   skip?: Array<keyof typeof fullSuite | 'classesRoot'>;
+-  testComponentsRootPropWith?: string;
+-  testComponentPropWith?: string;
++  testComponentsRootPropWith?: React.ElementType;
++  testComponentPropWith?: React.ElementType | Array<React.ElementType>;
+   testDeepOverrides?: SlotTestOverride | SlotTestOverride[];
+   testRootOverrides?: SlotTestOverride;
+   testStateOverrides?: { prop?: string; value?: any; styleKey: string };
+@@ -128,11 +128,30 @@ export function testComponentProp(
+ ) {
+   describe('prop: component', () => {
+     it('can render another root component with the `component` prop', () => {
+-      const { mount, testComponentPropWith: component = 'em' } = getOptions();
+-
+-      const wrapper = mount(React.cloneElement(element, { component }));
+-
+-      expect(findRootComponent(wrapper, component).exists()).to.equal(true);
++      const { mount, testComponentPropWith = 'em' } = getOptions();
++
++      const components =
++        testComponentPropWith instanceof Array ? testComponentPropWith : [testComponentPropWith];
++
++      components.forEach((component) => {
++        const wrapper = mount(React.cloneElement(element, { component }));
++
++        if (typeof component === 'function') {
++          // `component` is a Component.
++          const reactElement = React.createElement(component as any);
++          const finalElement =
++            reactElement.type.prototype instanceof React.Component
++              ? reactElement.type.prototype.render() // element from class component
++              : (component as React.FunctionComponent)({}); // element from function component
++
++          expect(
++            findRootComponent(wrapper, (finalElement as React.ReactElement).type).exists(),
++          ).to.equal(true);
++        } else if (component) {
++          // `component` is a string tag.
++          expect(findRootComponent(wrapper, component).exists()).to.equal(true);
++        }
++      });
+     });
+   });
+ }
+diff --git a/test/utils/describeConformanceUnstyled.tsx b/test/utils/describeConformanceUnstyled.tsx
+index 9f9c83578bf313..815dfb29fd5422 100644
+--- a/test/utils/describeConformanceUnstyled.tsx
++++ b/test/utils/describeConformanceUnstyled.tsx
+@@ -12,13 +12,16 @@ import {
+ } from './describeConformance';
+ 
+ export interface UnstyledConformanceOptions
+-  extends Omit<Partial<ConformanceOptions>, 'render' | 'skip' | 'classes'> {
++  extends Omit<
++    Partial<ConformanceOptions>,
++    'render' | 'skip' | 'classes' | 'testComponentPropWith'
++  > {
+   render: (
+     element: React.ReactElement<any, string | React.JSXElementConstructor<any>>,
+     options?: RenderOptions | undefined,
+   ) => MuiRenderResult;
+   skip?: (keyof typeof fullSuite)[];
+-  testComponentPropWith?: string;
++  testComponentPropWith?: React.ElementType;
+ }
+ 
+ function throwMissingPropError(field: string): never {

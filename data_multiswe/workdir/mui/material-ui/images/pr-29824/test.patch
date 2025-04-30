@@ -1,0 +1,151 @@
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-styled.test.js b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test.js
+index 7383d04fad9829..932ff64687c877 100644
+--- a/packages/mui-codemod/src/v5.0.0/jss-to-styled.test.js
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test.js
+@@ -563,5 +563,35 @@ describe('@mui/codemod', () => {
+         expect(actual).to.equal(expected, 'The transformed version should be correct');
+       });
+     });
++
++    describe('bugs - #29363 multiple makeStyles with the same classKeys', () => {
++      it('transforms as needed', () => {
++        const actual = transform(
++          {
++            source: read('./jss-to-styled.test/multipleWithStyles.actual.js'),
++            path: require.resolve('./jss-to-styled.test/multipleWithStyles.actual.js'),
++          },
++          { jscodeshift },
++          {},
++        );
++
++        const expected = read('./jss-to-styled.test/multipleWithStyles.expected.js');
++        expect(actual).to.equal(expected, 'The transformed version should be correct');
++      });
++
++      it('should be idempotent', () => {
++        const actual = transform(
++          {
++            source: read('./jss-to-styled.test/multipleWithStyles.expected.js'),
++            path: require.resolve('./jss-to-styled.test/multipleWithStyles.expected.js'),
++          },
++          { jscodeshift },
++          {},
++        );
++
++        const expected = read('./jss-to-styled.test/multipleWithStyles.expected.js');
++        expect(actual).to.equal(expected, 'The transformed version should be correct');
++      });
++    });
+   });
+ });
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.actual.js b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.actual.js
+new file mode 100644
+index 00000000000000..297d37ca6bacc0
+--- /dev/null
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.actual.js
+@@ -0,0 +1,35 @@
++import React from 'react';
++import Button from '@mui/material/Button';
++import withStyles from '@mui/styles/withStyles';
++
++const Button1 = withStyles({
++  root: {
++    backgroundColor: 'red',
++  },
++})(Button);
++
++const Button2 = withStyles((theme) => ({
++  root: {
++    backgroundColor: theme.palette.primary.main,
++  },
++  actions: {
++    padding: theme.spacing(1),
++  },
++}))(Button);
++
++const Button3 = withStyles({
++  root: {
++    backgroundColor: 'blue',
++  },
++  actions: {
++    padding: '0px',
++  },
++})(Button);
++
++export const Test = () => (
++  <React.Fragment>
++    <Button1 />
++    <Button2 />
++    <Button3 />
++  </React.Fragment>
++);
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.expected.js b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.expected.js
+new file mode 100644
+index 00000000000000..8602af7d1c9005
+--- /dev/null
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-styled.test/multipleWithStyles.expected.js
+@@ -0,0 +1,64 @@
++import React from 'react';
++import { styled } from '@mui/material/styles';
++import Button from '@mui/material/Button';
++const PREFIX = 'Test';
++
++const classes = {
++  root: `${PREFIX}-root`,
++  root2: `${PREFIX}-root2`,
++  actions: `${PREFIX}-actions`,
++  root3: `${PREFIX}-root3`,
++  actions2: `${PREFIX}-actions2`
++};
++
++// TODO jss-to-styled codemod: The Fragment root was replaced by div. Change the tag if needed.
++const Root = styled('div')((
++  {
++    theme
++  }
++) => ({
++  [`& .${classes.root}`]: {
++    backgroundColor: 'red',
++  },
++
++  [`& .${classes.root2}`]: {
++    backgroundColor: theme.palette.primary.main,
++  },
++
++  [`& .${classes.actions}`]: {
++    padding: theme.spacing(1),
++  },
++
++  [`& .${classes.root3}`]: {
++    backgroundColor: 'blue',
++  },
++
++  [`& .${classes.actions2}`]: {
++    padding: '0px',
++  }
++}));
++
++const Button1 = Button;
++
++const Button2 = Button;
++
++const Button3 = Button;
++
++export const Test = () => (
++  <Root>
++    <Button1
++      classes={{
++        root: classes.root
++      }} />
++    <Button2
++      classes={{
++        root: classes.root2,
++        actions: classes.actions
++      }} />
++    <Button3
++      classes={{
++        root: classes.root3,
++        actions: classes.actions2
++      }} />
++  </Root>
++);

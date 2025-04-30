@@ -1,0 +1,392 @@
+diff --git a/api/fake_http.go b/api/fake_http.go
+index 6a3605b0bdf..773567aafe6 100644
+--- a/api/fake_http.go
++++ b/api/fake_http.go
+@@ -6,6 +6,8 @@ import (
+ 	"io"
+ 	"io/ioutil"
+ 	"net/http"
++	"os"
++	"path"
+ 	"strings"
+ )
+ 
+@@ -38,6 +40,13 @@ func (f *FakeHTTP) RoundTrip(req *http.Request) (*http.Response, error) {
+ 	return resp, nil
+ }
+ 
++func (f *FakeHTTP) StubWithFixture(status int, fixtureFileName string) func() {
++	fixturePath := path.Join("../test/fixtures/", fixtureFileName)
++	fixtureFile, _ := os.Open(fixturePath)
++	f.StubResponse(status, fixtureFile)
++	return func() { fixtureFile.Close() }
++}
++
+ func (f *FakeHTTP) StubRepoResponse(owner, repo string) {
+ 	body := bytes.NewBufferString(fmt.Sprintf(`
+ 		{ "data": { "repo_000": {
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index dbe4176a3c4..f3401f53f87 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -6,15 +6,18 @@ import (
+ 	"fmt"
+ 	"sort"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/cli/cli/internal/ghrepo"
+ )
+ 
+ // Repository contains information about a GitHub repo
+ type Repository struct {
+-	ID    string
+-	Name  string
+-	Owner RepositoryOwner
++	ID        string
++	Name      string
++	CloneURL  string
++	CreatedAt time.Time
++	Owner     RepositoryOwner
+ 
+ 	IsPrivate        bool
+ 	HasIssuesEnabled bool
+@@ -59,7 +62,6 @@ func (r Repository) ViewerCanPush() bool {
+ 	}
+ }
+ 
+-// GitHubRepo looks up the node ID of a named repository
+ func GitHubRepo(client *Client, repo ghrepo.Interface) (*Repository, error) {
+ 	query := `
+ 	query($owner: String!, $name: String!) {
+@@ -78,12 +80,8 @@ func GitHubRepo(client *Client, repo ghrepo.Interface) (*Repository, error) {
+ 	}{}
+ 	err := client.GraphQL(query, variables, &result)
+ 
+-	if err != nil || result.Repository.ID == "" {
+-		newErr := fmt.Errorf("failed to determine repository ID for '%s'", ghrepo.FullName(repo))
+-		if err != nil {
+-			newErr = fmt.Errorf("%s: %w", newErr, err)
+-		}
+-		return nil, newErr
++	if err != nil {
++		return nil, err
+ 	}
+ 
+ 	return &result.Repository, nil
+@@ -190,9 +188,11 @@ func RepoNetwork(client *Client, repos []ghrepo.Interface) (RepoNetworkResult, e
+ 
+ // repositoryV3 is the repository result from GitHub API v3
+ type repositoryV3 struct {
+-	NodeID string
+-	Name   string
+-	Owner  struct {
++	NodeID    string
++	Name      string
++	CreatedAt time.Time `json:"created_at"`
++	CloneURL  string    `json:"clone_url"`
++	Owner     struct {
+ 		Login string
+ 	}
+ }
+@@ -208,8 +208,10 @@ func ForkRepo(client *Client, repo ghrepo.Interface) (*Repository, error) {
+ 	}
+ 
+ 	return &Repository{
+-		ID:   result.NodeID,
+-		Name: result.Name,
++		ID:        result.NodeID,
++		Name:      result.Name,
++		CloneURL:  result.CloneURL,
++		CreatedAt: result.CreatedAt,
+ 		Owner: RepositoryOwner{
+ 			Login: result.Owner.Login,
+ 		},
+diff --git a/command/repo.go b/command/repo.go
+index 484ef609cce..031c3690d25 100644
+--- a/command/repo.go
++++ b/command/repo.go
+@@ -2,12 +2,17 @@ package command
+ 
+ import (
+ 	"fmt"
++	"net/url"
+ 	"os"
+ 	"strings"
++	"time"
+ 
++	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/utils"
++
++	"github.com/AlecAivazis/survey/v2"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -15,6 +20,12 @@ func init() {
+ 	RootCmd.AddCommand(repoCmd)
+ 	repoCmd.AddCommand(repoCloneCmd)
+ 	repoCmd.AddCommand(repoViewCmd)
++	repoCmd.AddCommand(repoForkCmd)
++
++	repoForkCmd.Flags().String("clone", "prompt", "Clone fork: {true|false|prompt}")
++	repoForkCmd.Flags().String("remote", "prompt", "Add remote for fork. {true|false|prompt}")
++	repoForkCmd.Flags().Lookup("clone").NoOptDefVal = "true"
++	repoForkCmd.Flags().Lookup("remote").NoOptDefVal = "true"
+ }
+ 
+ var repoCmd = &cobra.Command{
+@@ -37,9 +48,18 @@ To pass 'git clone' options, separate them with '--'.`,
+ 	RunE: repoClone,
+ }
+ 
++var repoForkCmd = &cobra.Command{
++	Use:   "fork [<repository>]",
++	Short: "Create a fork of a repository.",
++	Long: `Create a fork of a repository.
++
++With no argument, creates a fork of the current repository. Otherwise, forks the specified repository.`,
++	RunE: repoFork,
++}
++
+ var repoViewCmd = &cobra.Command{
+-	Use:   "view [<repo>]",
+-	Short: "View a repository in the browser",
++	Use:   "view [<repository>]",
++	Short: "View a repository in the browser.",
+ 	Long: `View a GitHub repository in the browser.
+ 
+ With no argument, the repository for the current directory is opened.`,
+@@ -63,6 +83,153 @@ func repoClone(cmd *cobra.Command, args []string) error {
+ 	return utils.PrepareCmd(cloneCmd).Run()
+ }
+ 
++func isURL(arg string) bool {
++	return strings.HasPrefix(arg, "http:/") || strings.HasPrefix(arg, "https:/")
++}
++
++var Since = func(t time.Time) time.Duration {
++	return time.Since(t)
++}
++
++func repoFork(cmd *cobra.Command, args []string) error {
++	ctx := contextForCommand(cmd)
++
++	clonePref, err := cmd.Flags().GetString("clone")
++	if err != nil {
++		return err
++	}
++	remotePref, err := cmd.Flags().GetString("remote")
++	if err != nil {
++		return err
++	}
++
++	apiClient, err := apiClientForContext(ctx)
++	if err != nil {
++		return fmt.Errorf("unable to create client: %w", err)
++	}
++
++	var toFork ghrepo.Interface
++	inParent := false // whether or not we're forking the repo we're currently "in"
++	if len(args) == 0 {
++		baseRepo, err := determineBaseRepo(cmd, ctx)
++		if err != nil {
++			return fmt.Errorf("unable to determine base repository: %w", err)
++		}
++		inParent = true
++		toFork = baseRepo
++	} else {
++		repoArg := args[0]
++
++		if isURL(repoArg) {
++			parsedURL, err := url.Parse(repoArg)
++			if err != nil {
++				return fmt.Errorf("did not understand argument: %w", err)
++			}
++
++			toFork, err = ghrepo.FromURL(parsedURL)
++			if err != nil {
++				return fmt.Errorf("did not understand argument: %w", err)
++			}
++
++		} else {
++			toFork = ghrepo.FromFullName(repoArg)
++			if toFork.RepoName() == "" || toFork.RepoOwner() == "" {
++				return fmt.Errorf("could not parse owner or repo name from %s", repoArg)
++			}
++		}
++	}
++
++	greenCheck := utils.Green("✓")
++	out := colorableOut(cmd)
++	s := utils.Spinner()
++	loading := utils.Gray("Forking ") + utils.Bold(utils.Gray(ghrepo.FullName(toFork))) + utils.Gray("...")
++	s.Suffix = " " + loading
++	s.FinalMSG = utils.Gray(fmt.Sprintf("- %s\n", loading))
++	s.Start()
++
++	authLogin, err := ctx.AuthLogin()
++	if err != nil {
++		s.Stop()
++		return fmt.Errorf("could not determine current username: %w", err)
++	}
++
++	possibleFork := ghrepo.New(authLogin, toFork.RepoName())
++
++	forkedRepo, err := api.ForkRepo(apiClient, toFork)
++	if err != nil {
++		s.Stop()
++		return fmt.Errorf("failed to fork: %w", err)
++	}
++
++	s.Stop()
++	// This is weird. There is not an efficient way to determine via the GitHub API whether or not a
++	// given user has forked a given repo. We noticed, also, that the create fork API endpoint just
++	// returns the fork repo data even if it already exists -- with no change in status code or
++	// anything. We thus check the created time to see if the repo is brand new or not; if it's not,
++	// we assume the fork already existed and report an error.
++	created_ago := Since(forkedRepo.CreatedAt)
++	if created_ago > time.Minute {
++		fmt.Fprintf(out, "%s %s %s\n",
++			utils.Yellow("!"),
++			utils.Bold(ghrepo.FullName(possibleFork)),
++			"already exists")
++	} else {
++		fmt.Fprintf(out, "%s Created fork %s\n", greenCheck, utils.Bold(ghrepo.FullName(forkedRepo)))
++	}
++
++	if (inParent && remotePref == "false") || (!inParent && clonePref == "false") {
++		return nil
++	}
++
++	if inParent {
++		remoteDesired := remotePref == "true"
++		if remotePref == "prompt" {
++			err = Confirm("Would you like to add a remote for the fork?", &remoteDesired)
++			if err != nil {
++				return fmt.Errorf("failed to prompt: %w", err)
++			}
++		}
++		if remoteDesired {
++			_, err := git.AddRemote("fork", forkedRepo.CloneURL, "")
++			if err != nil {
++				return fmt.Errorf("failed to add remote: %w", err)
++			}
++
++			fmt.Fprintf(out, "%s Remote added at %s\n", greenCheck, utils.Bold("fork"))
++		}
++	} else {
++		cloneDesired := clonePref == "true"
++		if clonePref == "prompt" {
++			err = Confirm("Would you like to clone the fork?", &cloneDesired)
++			if err != nil {
++				return fmt.Errorf("failed to prompt: %w", err)
++			}
++		}
++		if cloneDesired {
++			cloneCmd := git.GitCommand("clone", forkedRepo.CloneURL)
++			cloneCmd.Stdin = os.Stdin
++			cloneCmd.Stdout = os.Stdout
++			cloneCmd.Stderr = os.Stderr
++			err = utils.PrepareCmd(cloneCmd).Run()
++			if err != nil {
++				return fmt.Errorf("failed to clone fork: %w", err)
++			}
++
++			fmt.Fprintf(out, "%s Cloned fork\n", greenCheck)
++		}
++	}
++
++	return nil
++}
++
++var Confirm = func(prompt string, result *bool) error {
++	p := &survey.Confirm{
++		Message: prompt,
++		Default: true,
++	}
++	return survey.AskOne(p, result)
++}
++
+ func repoView(cmd *cobra.Command, args []string) error {
+ 	ctx := contextForCommand(cmd)
+ 
+@@ -75,7 +242,7 @@ func repoView(cmd *cobra.Command, args []string) error {
+ 		openURL = fmt.Sprintf("https://github.com/%s", ghrepo.FullName(baseRepo))
+ 	} else {
+ 		repoArg := args[0]
+-		if strings.HasPrefix(repoArg, "http:/") || strings.HasPrefix(repoArg, "https:/") {
++		if isURL(repoArg) {
+ 			openURL = repoArg
+ 		} else {
+ 			openURL = fmt.Sprintf("https://github.com/%s", repoArg)
+diff --git a/context/blank_context.go b/context/blank_context.go
+index 93c43161198..110b4376803 100644
+--- a/context/blank_context.go
++++ b/context/blank_context.go
+@@ -30,6 +30,10 @@ func (c *blankContext) SetAuthToken(t string) {
+ 	c.authToken = t
+ }
+ 
++func (c *blankContext) SetAuthLogin(login string) {
++	c.authLogin = login
++}
++
+ func (c *blankContext) AuthLogin() (string, error) {
+ 	return c.authLogin, nil
+ }
+diff --git a/go.mod b/go.mod
+index 801583ef02e..f185961b980 100644
+--- a/go.mod
++++ b/go.mod
+@@ -5,6 +5,7 @@ go 1.13
+ require (
+ 	github.com/AlecAivazis/survey/v2 v2.0.7
+ 	github.com/alecthomas/chroma v0.7.1 // indirect
++	github.com/briandowns/spinner v1.9.0
+ 	github.com/charmbracelet/glamour v0.1.1-0.20200210132808-8d4e3f0692f8
+ 	github.com/dlclark/regexp2 v1.2.0 // indirect
+ 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+diff --git a/go.sum b/go.sum
+index 02718dcfe61..31d3b9d83ba 100644
+--- a/go.sum
++++ b/go.sum
+@@ -27,6 +27,8 @@ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRF
+ github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
+ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
+ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
++github.com/briandowns/spinner v1.9.0 h1:+OMAisemaHar1hjuJ3Z2hIvNhQl9Y7GLPWUwwz2Pxo8=
++github.com/briandowns/spinner v1.9.0/go.mod h1://Zf9tMcxfRUA36V23M6YGEAv+kECGfvpnLTnb8n4XQ=
+ github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
+ github.com/charmbracelet/glamour v0.1.1-0.20200210132808-8d4e3f0692f8 h1:udjWAc2bbIP0LyzEMt7BWxk6O6lIoONWoonN3C9bMtA=
+ github.com/charmbracelet/glamour v0.1.1-0.20200210132808-8d4e3f0692f8/go.mod h1:UsY1vFbaLp/j/SYgLfPH0n2I0jngBL+q6+mCAsESih4=
+@@ -50,6 +52,8 @@ github.com/dlclark/regexp2 v1.1.6 h1:CqB4MjHw0MFCDj+PHHjiESmHX+N7t0tJzKvC6M97BRg
+ github.com/dlclark/regexp2 v1.1.6/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
+ github.com/dlclark/regexp2 v1.2.0 h1:8sAhBGEM0dRWogWqWyQeIJnxjWO6oIjl8FKqREDsGfk=
+ github.com/dlclark/regexp2 v1.2.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
++github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
++github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
+ github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
+ github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
+ github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
+diff --git a/utils/utils.go b/utils/utils.go
+index a3af92fcb45..fe7bcd4f7b0 100644
+--- a/utils/utils.go
++++ b/utils/utils.go
+@@ -5,6 +5,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
++	"github.com/briandowns/spinner"
+ 	"github.com/charmbracelet/glamour"
+ 	"github.com/cli/cli/pkg/browser"
+ )
+@@ -59,3 +60,7 @@ func FuzzyAgo(ago time.Duration) string {
+ 
+ 	return fmtDuration(int(ago.Hours()/24/365), "year")
+ }
++
++func Spinner() *spinner.Spinner {
++	return spinner.New(spinner.CharSets[11], 400*time.Millisecond)
++}

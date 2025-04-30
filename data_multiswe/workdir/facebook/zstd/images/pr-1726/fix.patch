@@ -1,0 +1,157 @@
+diff --git a/programs/fileio.c b/programs/fileio.c
+index 569a410c1a2..873013a514a 100644
+--- a/programs/fileio.c
++++ b/programs/fileio.c
+@@ -304,6 +304,7 @@ struct FIO_prefs_s {
+     int ldmMinMatch;
+     int ldmBucketSizeLog;
+     int ldmHashRateLog;
++    size_t streamSrcSize;
+     size_t targetCBlockSize;
+     ZSTD_literalCompressionMode_e literalCompressionMode;
+ 
+@@ -349,6 +350,7 @@ FIO_prefs_t* FIO_createPreferences(void)
+     ret->ldmMinMatch = 0;
+     ret->ldmBucketSizeLog = FIO_LDM_PARAM_NOTSET;
+     ret->ldmHashRateLog = FIO_LDM_PARAM_NOTSET;
++    ret->streamSrcSize = 0;
+     ret->targetCBlockSize = 0;
+     ret->literalCompressionMode = ZSTD_lcm_auto;
+     return ret;
+@@ -418,6 +420,10 @@ void FIO_setRsyncable(FIO_prefs_t* const prefs, int rsyncable) {
+     prefs->rsyncable = rsyncable;
+ }
+ 
++void FIO_setStreamSrcSize(FIO_prefs_t* const prefs, size_t streamSrcSize) {
++    prefs->streamSrcSize = streamSrcSize;
++}
++
+ void FIO_setTargetCBlockSize(FIO_prefs_t* const prefs, size_t targetCBlockSize) {
+     prefs->targetCBlockSize = targetCBlockSize;
+ }
+@@ -633,7 +639,6 @@ typedef struct {
+ 
+ static cRess_t FIO_createCResources(FIO_prefs_t* const prefs,
+                                     const char* dictFileName, int cLevel,
+-                                    U64 srcSize,
+                                     ZSTD_compressionParameters comprParams) {
+     cRess_t ress;
+     memset(&ress, 0, sizeof(ress));
+@@ -698,10 +703,7 @@ static cRess_t FIO_createCResources(FIO_prefs_t* const prefs,
+         CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_rsyncable, prefs->rsyncable) );
+ #endif
+         /* dictionary */
+-        CHECK( ZSTD_CCtx_setPledgedSrcSize(ress.cctx, srcSize) );  /* set the value temporarily for dictionary loading, to adapt compression parameters */
+         CHECK( ZSTD_CCtx_loadDictionary(ress.cctx, dictBuffer, dictBuffSize) );
+-        CHECK( ZSTD_CCtx_setPledgedSrcSize(ress.cctx, ZSTD_CONTENTSIZE_UNKNOWN) );  /* reset */
+-
+         free(dictBuffer);
+     }
+ 
+@@ -1003,6 +1005,9 @@ FIO_compressZstdFrame(FIO_prefs_t* const prefs,
+     /* init */
+     if (fileSize != UTIL_FILESIZE_UNKNOWN) {
+         CHECK(ZSTD_CCtx_setPledgedSrcSize(ress.cctx, fileSize));
++    } else if (prefs->streamSrcSize > 0) {
++      /* unknown source size; use the declared stream size */
++      CHECK( ZSTD_CCtx_setPledgedSrcSize(ress.cctx, prefs->streamSrcSize) );
+     }
+     (void)srcFileName;
+ 
+@@ -1361,10 +1366,7 @@ int FIO_compressFilename(FIO_prefs_t* const prefs,
+                          const char* dictFileName, int compressionLevel,
+                          ZSTD_compressionParameters comprParams)
+ {
+-    U64 const fileSize = UTIL_getFileSize(srcFileName);
+-    U64 const srcSize = (fileSize == UTIL_FILESIZE_UNKNOWN) ? ZSTD_CONTENTSIZE_UNKNOWN : fileSize;
+-
+-    cRess_t const ress = FIO_createCResources(prefs, dictFileName, compressionLevel, srcSize, comprParams);
++    cRess_t const ress = FIO_createCResources(prefs, dictFileName, compressionLevel, comprParams);
+     int const result = FIO_compressFilename_srcFile(prefs, ress, dstFileName, srcFileName, compressionLevel);
+ 
+ 
+@@ -1415,10 +1417,7 @@ int FIO_compressMultipleFilenames(FIO_prefs_t* const prefs,
+                                   ZSTD_compressionParameters comprParams)
+ {
+     int error = 0;
+-    U64 const firstFileSize = UTIL_getFileSize(inFileNamesTable[0]);
+-    U64 const firstSrcSize = (firstFileSize == UTIL_FILESIZE_UNKNOWN) ? ZSTD_CONTENTSIZE_UNKNOWN : firstFileSize;
+-    U64 const srcSize = (nbFiles != 1) ? ZSTD_CONTENTSIZE_UNKNOWN : firstSrcSize ;
+-    cRess_t ress = FIO_createCResources(prefs, dictFileName, compressionLevel, srcSize, comprParams);
++    cRess_t ress = FIO_createCResources(prefs, dictFileName, compressionLevel, comprParams);
+ 
+     /* init */
+     assert(outFileName != NULL || suffix != NULL);
+diff --git a/programs/fileio.h b/programs/fileio.h
+index 311f8c0e1f0..13f6f1d0590 100644
+--- a/programs/fileio.h
++++ b/programs/fileio.h
+@@ -71,6 +71,7 @@ void FIO_setOverlapLog(FIO_prefs_t* const prefs, int overlapLog);
+ void FIO_setRemoveSrcFile(FIO_prefs_t* const prefs, unsigned flag);
+ void FIO_setSparseWrite(FIO_prefs_t* const prefs, unsigned sparse);  /**< 0: no sparse; 1: disable on stdout; 2: always enabled */
+ void FIO_setRsyncable(FIO_prefs_t* const prefs, int rsyncable);
++void FIO_setStreamSrcSize(FIO_prefs_t* const prefs, size_t streamSrcSize);
+ void FIO_setTargetCBlockSize(FIO_prefs_t* const prefs, size_t targetCBlockSize);
+ void FIO_setLiteralCompressionMode(
+         FIO_prefs_t* const prefs,
+diff --git a/programs/zstd.1.md b/programs/zstd.1.md
+index 3ab2667a048..1bdc426540b 100644
+--- a/programs/zstd.1.md
++++ b/programs/zstd.1.md
+@@ -144,6 +144,11 @@ the last one takes effect.
+     Due to the chaotic nature of dynamic adaptation, compressed result is not reproducible.
+     _note_ : at the time of this writing, `--adapt` can remain stuck at low speed
+     when combined with multiple worker threads (>=2).
++* `--stream-size=#` :
++    Sets the pledged source size of input coming from a stream. This value must be exact, as it
++    will be included in the produced frame header. Incorrect stream sizes will cause an error.
++    This information will be used to better optimize compression parameters, resulting in
++    better and potentially faster compression, especially for smaller source sizes.
+ * `--rsyncable` :
+     `zstd` will periodically synchronize the compression state to make the
+     compressed file more rsync-friendly. There is a negligible impact to
+diff --git a/programs/zstdcli.c b/programs/zstdcli.c
+index de286cdf283..401e1ee2c2f 100644
+--- a/programs/zstdcli.c
++++ b/programs/zstdcli.c
+@@ -141,6 +141,7 @@ static int usage_advanced(const char* programName)
+     DISPLAY( "--long[=#]: enable long distance matching with given window log (default: %u)\n", g_defaultMaxWindowLog);
+     DISPLAY( "--fast[=#]: switch to ultra fast compression level (default: %u)\n", 1);
+     DISPLAY( "--adapt : dynamically adapt compression level to I/O conditions \n");
++    DISPLAY( "--stream-size=# : optimize compression parameters for streaming input of given number of bytes \n");
+     DISPLAY( "--target-compressed-block-size=# : make compressed block near targeted size \n");
+ #ifdef ZSTD_MULTITHREAD
+     DISPLAY( " -T#    : spawns # compression threads (default: 1, 0==# cores) \n");
+@@ -588,6 +589,7 @@ int main(int argCount, const char* argv[])
+     const char* suffix = ZSTD_EXTENSION;
+     unsigned maxDictSize = g_defaultMaxDictSize;
+     unsigned dictID = 0;
++    size_t streamSrcSize = 0;
+     size_t targetCBlockSize = 0;
+     int dictCLevel = g_defaultDictCLevel;
+     unsigned dictSelect = g_defaultSelectivityLevel;
+@@ -745,6 +747,7 @@ int main(int argCount, const char* argv[])
+                     if (longCommandWArg(&argument, "--maxdict=")) { maxDictSize = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--dictID=")) { dictID = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--zstd=")) { if (!parseCompressionParameters(argument, &compressionParams)) CLEAN_RETURN(badusage(programName)); continue; }
++                    if (longCommandWArg(&argument, "--stream-size=")) { streamSrcSize = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--target-compressed-block-size=")) { targetCBlockSize = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--long")) {
+                         unsigned ldmWindowLog = 0;
+@@ -1150,6 +1153,7 @@ int main(int argCount, const char* argv[])
+         FIO_setAdaptMin(prefs, adaptMin);
+         FIO_setAdaptMax(prefs, adaptMax);
+         FIO_setRsyncable(prefs, rsyncable);
++        FIO_setStreamSrcSize(prefs, streamSrcSize);
+         FIO_setTargetCBlockSize(prefs, targetCBlockSize);
+         FIO_setLiteralCompressionMode(prefs, literalCompressionMode);
+         if (adaptMin > cLevel) cLevel = adaptMin;
+@@ -1160,7 +1164,7 @@ int main(int argCount, const char* argv[])
+         else
+           operationResult = FIO_compressMultipleFilenames(prefs, filenameTable, filenameIdx, outFileName, suffix, dictFileName, cLevel, compressionParams);
+ #else
+-        (void)suffix; (void)adapt; (void)rsyncable; (void)ultra; (void)cLevel; (void)ldmFlag; (void)literalCompressionMode; (void)targetCBlockSize; /* not used when ZSTD_NOCOMPRESS set */
++        (void)suffix; (void)adapt; (void)rsyncable; (void)ultra; (void)cLevel; (void)ldmFlag; (void)literalCompressionMode; (void)streamSrcSize; (void)targetCBlockSize; /* not used when ZSTD_NOCOMPRESS set */
+         DISPLAY("Compression not supported \n");
+ #endif
+     } else {  /* decompression or test */

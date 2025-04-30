@@ -1,0 +1,1039 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c10b28f99f..d7a641af80 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -40,6 +40,7 @@ endif()
+ option(JSON_BuildTests                     "Build the unit tests when BUILD_TESTING is enabled." ${JSON_BuildTests_INIT})
+ option(JSON_CI                             "Enable CI build targets." OFF)
+ option(JSON_Diagnostics                    "Use extended diagnostic messages." OFF)
++option(JSON_GlobalUDLs                     "Place use-defined string literals in the global namespace." ON)
+ option(JSON_ImplicitConversions            "Enable implicit conversions." ON)
+ option(JSON_DisableEnumSerialization       "Disable default integer enum serialization." OFF)
+ option(JSON_LegacyDiscardedValueComparison "Enable legacy discarded value comparison." OFF)           
+@@ -110,6 +111,7 @@ endif()
+ target_compile_definitions(
+     ${NLOHMANN_JSON_TARGET_NAME}
+     INTERFACE
++    $<$<NOT:$<BOOL:${JSON_GlobalUDLs}>>:JSON_USE_GLOBAL_UDLS=0>
+     $<$<NOT:$<BOOL:${JSON_ImplicitConversions}>>:JSON_USE_IMPLICIT_CONVERSIONS=0>
+     $<$<BOOL:${JSON_DisableEnumSerialization}>:JSON_DISABLE_ENUM_SERIALIZATION=1>
+     $<$<BOOL:${JSON_Diagnostics}>:JSON_DIAGNOSTICS=1>
+diff --git a/README.md b/README.md
+index 7ca1a18081..e888d55d43 100644
+--- a/README.md
++++ b/README.md
+@@ -148,6 +148,7 @@ json ex1 = json::parse(R"(
+ )");
+ 
+ // Using user-defined (raw) string literals
++using namespace nlohmann::literals;
+ json ex2 = R"(
+   {
+     "pi": 3.141,
+@@ -262,7 +263,12 @@ auto j2 = R"(
+ )"_json;
+ ```
+ 
+-Note that without appending the `_json` suffix, the passed string literal is not parsed, but just used as JSON string value. That is, `json j = "{ \"happy\": true, \"pi\": 3.141 }"` would just store the string `"{ "happy": true, "pi": 3.141 }"` rather than parsing the actual object.
++Note that without appending the `_json` suffix, the passed string literal is not parsed, but just used as JSON string
++value. That is, `json j = "{ \"happy\": true, \"pi\": 3.141 }"` would just store the string
++`"{ "happy": true, "pi": 3.141 }"` rather than parsing the actual object.
++
++The string literal should be brought into scope with with `using namespace nlohmann::literals;`
++(see [`json::parse()`](https://json.nlohmann.me/api/operator_literal_json/)).
+ 
+ The above example can also be expressed explicitly using [`json::parse()`](https://json.nlohmann.me/api/basic_json/parse/):
+ 
+diff --git a/cmake/ci.cmake b/cmake/ci.cmake
+index 7a3e44a49c..5ccd4c4a4d 100644
+--- a/cmake/ci.cmake
++++ b/cmake/ci.cmake
+@@ -517,6 +517,20 @@ add_custom_target(ci_test_legacycomparison
+     COMMENT "Compile and test with legacy discarded value comparison enabled"
+ )
+ 
++###############################################################################
++# Disable global UDLs.
++###############################################################################
++
++add_custom_target(ci_test_noglobaludls
++    COMMAND CXX=${CLANG_TOOL} ${CMAKE_COMMAND}
++    -DCMAKE_BUILD_TYPE=Debug -GNinja
++    -DJSON_BuildTests=ON -DJSON_FastTests=ON -DJSON_UseGlobalUDLs=OFF
++    -S${PROJECT_SOURCE_DIR} -B${PROJECT_BINARY_DIR}/build_noglobaludls
++    COMMAND ${CMAKE_COMMAND} --build ${PROJECT_BINARY_DIR}/build_noglobaludls
++    COMMAND cd ${PROJECT_BINARY_DIR}/build_noglobaludls && ${CMAKE_CTEST_COMMAND} --parallel ${N} --output-on-failure
++    COMMENT "Compile and test with global UDLs disabled"
++)
++
+ ###############################################################################
+ # Coverage.
+ ###############################################################################
+@@ -838,7 +852,7 @@ endfunction()
+ ci_get_cmake(3.1.0 CMAKE_3_1_0_BINARY)
+ ci_get_cmake(3.13.0 CMAKE_3_13_0_BINARY)
+ 
+-set(JSON_CMAKE_FLAGS_3_1_0 JSON_Diagnostics JSON_ImplicitConversions JSON_DisableEnumSerialization 
++set(JSON_CMAKE_FLAGS_3_1_0 JSON_Diagnostics JSON_GlobalUDLs JSON_ImplicitConversions JSON_DisableEnumSerialization
+     JSON_LegacyDiscardedValueComparison JSON_Install JSON_MultipleHeaders JSON_SystemInclude JSON_Valgrind)
+ set(JSON_CMAKE_FLAGS_3_13_0 JSON_BuildTests)
+ 
+diff --git a/docs/Makefile b/docs/Makefile
+index 7ceba27e28..35c30daefb 100644
+--- a/docs/Makefile
++++ b/docs/Makefile
+@@ -14,13 +14,17 @@ cxx_standard = $(lastword c++11 $(filter c++%, $(subst ., ,$1)))
+ # create output from a stand-alone example file
+ %.output: %.cpp
+ 	@echo "standard $(call cxx_standard $(<:.cpp=))"
+-	$(MAKE) $(<:.cpp=) CPPFLAGS="-I $(SRCDIR)" CXXFLAGS="-std=$(call cxx_standard,$(<:.cpp=)) -Wno-deprecated-declarations"
++	$(MAKE) $(<:.cpp=) \
++		CPPFLAGS="-I $(SRCDIR) -DJSON_USE_GLOBAL_UDLS=0" \
++		CXXFLAGS="-std=$(call cxx_standard,$(<:.cpp=)) -Wno-deprecated-declarations"
+ 	./$(<:.cpp=) > $@
+ 	rm $(<:.cpp=)
+ 
+ # compare created output with current output of the example files
+ %.test: %.cpp
+-	$(MAKE) $(<:.cpp=) CPPFLAGS="-I $(SRCDIR)" CXXFLAGS="-std=$(call cxx_standard,$(<:.cpp=)) -Wno-deprecated-declarations"
++	$(MAKE) $(<:.cpp=) \
++		CPPFLAGS="-I $(SRCDIR) -DJSON_USE_GLOBAL_UDLS=0" \
++		CXXFLAGS="-std=$(call cxx_standard,$(<:.cpp=)) -Wno-deprecated-declarations"
+ 	./$(<:.cpp=) > $@
+ 	diff $@ $(<:.cpp=.output)
+ 	rm $(<:.cpp=) $@
+diff --git a/docs/docset/docSet.sql b/docs/docset/docSet.sql
+index e1441c9c7b..e076ea5758 100644
+--- a/docs/docset/docSet.sql
++++ b/docs/docset/docSet.sql
+@@ -150,8 +150,8 @@ INSERT INTO searchIndex(name, type, path) VALUES ('json_sax::parse_error', 'Meth
+ INSERT INTO searchIndex(name, type, path) VALUES ('json_sax::start_array', 'Method', 'api/json_sax/start_array/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('json_sax::start_object', 'Method', 'api/json_sax/start_object/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('json_sax::string', 'Method', 'api/json_sax/string/index.html');
+-INSERT INTO searchIndex(name, type, path) VALUES ('operator""_json', 'Literal', 'api/basic_json/operator_literal_json/index.html');
+-INSERT INTO searchIndex(name, type, path) VALUES ('operator""_json_pointer', 'Literal', 'api/basic_json/operator_literal_json_pointer/index.html');
++INSERT INTO searchIndex(name, type, path) VALUES ('operator""_json', 'Literal', 'api/operator_literal_json/index.html');
++INSERT INTO searchIndex(name, type, path) VALUES ('operator""_json_pointer', 'Literal', 'api/operator_literal_json_pointer/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('operator<<', 'Operator', 'api/operator_ltlt/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('operator>>', 'Operator', 'api/operator_gtgt/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('ordered_json', 'Class', 'api/ordered_json/index.html');
+@@ -212,6 +212,7 @@ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_SKIP_LIBRARY_VERSION_CHE
+ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_SKIP_UNSUPPORTED_COMPILER_CHECK', 'Macro', 'api/macros/json_skip_unsupported_compiler_check/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_THROW_USER', 'Macro', 'api/macros/json_throw_user/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_TRY_USER', 'Macro', 'api/macros/json_throw_user/index.html');
++INSERT INTO searchIndex(name, type, path) VALUES ('JSON_USE_GLOBAL_UDLS', 'Macro', 'api/macros/json_use_global_udls/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_USE_IMPLICIT_CONVERSIONS', 'Macro', 'api/macros/json_use_implicit_conversions/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON', 'Macro', 'api/macros/json_use_legacy_discarded_value_comparison/index.html');
+ INSERT INTO searchIndex(name, type, path) VALUES ('Macros', 'Macro', 'api/macros/index.html');
+diff --git a/docs/examples/at__json_pointer.cpp b/docs/examples/at__json_pointer.cpp
+index f554d8533b..26dfd8edda 100644
+--- a/docs/examples/at__json_pointer.cpp
++++ b/docs/examples/at__json_pointer.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/at__json_pointer_const.cpp b/docs/examples/at__json_pointer_const.cpp
+index 3ac232b9f1..f049bd8d9e 100644
+--- a/docs/examples/at__json_pointer_const.cpp
++++ b/docs/examples/at__json_pointer_const.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/contains__json_pointer.cpp b/docs/examples/contains__json_pointer.cpp
+index 54bcaa9e4a..f9de546b5d 100644
+--- a/docs/examples/contains__json_pointer.cpp
++++ b/docs/examples/contains__json_pointer.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/contains__keytype.c++17.cpp b/docs/examples/contains__keytype.c++17.cpp
+index 998079c76d..43b62fab10 100644
+--- a/docs/examples/contains__keytype.c++17.cpp
++++ b/docs/examples/contains__keytype.c++17.cpp
+@@ -4,6 +4,7 @@
+ 
+ using namespace std::string_view_literals;
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/contains__object_t_key_type.cpp b/docs/examples/contains__object_t_key_type.cpp
+index df8201c330..a8bc8143df 100644
+--- a/docs/examples/contains__object_t_key_type.cpp
++++ b/docs/examples/contains__object_t_key_type.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/diff.cpp b/docs/examples/diff.cpp
+index 71b19be661..ef01332a14 100644
+--- a/docs/examples/diff.cpp
++++ b/docs/examples/diff.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/merge_patch.cpp b/docs/examples/merge_patch.cpp
+index b8804d7c5f..f3fee1ed1b 100644
+--- a/docs/examples/merge_patch.cpp
++++ b/docs/examples/merge_patch.cpp
+@@ -3,6 +3,7 @@
+ #include <iomanip> // for std::setw
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/nlohmann_define_type_intrusive_explicit.cpp b/docs/examples/nlohmann_define_type_intrusive_explicit.cpp
+index fb7701dec8..7d2ba8aa1f 100644
+--- a/docs/examples/nlohmann_define_type_intrusive_explicit.cpp
++++ b/docs/examples/nlohmann_define_type_intrusive_explicit.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_intrusive_macro.cpp b/docs/examples/nlohmann_define_type_intrusive_macro.cpp
+index ce292659a0..2977cd4568 100644
+--- a/docs/examples/nlohmann_define_type_intrusive_macro.cpp
++++ b/docs/examples/nlohmann_define_type_intrusive_macro.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_intrusive_with_default_explicit.cpp b/docs/examples/nlohmann_define_type_intrusive_with_default_explicit.cpp
+index 621ed14521..7400c47a87 100644
+--- a/docs/examples/nlohmann_define_type_intrusive_with_default_explicit.cpp
++++ b/docs/examples/nlohmann_define_type_intrusive_with_default_explicit.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_intrusive_with_default_macro.cpp b/docs/examples/nlohmann_define_type_intrusive_with_default_macro.cpp
+index 7851f526ea..851a3582f4 100644
+--- a/docs/examples/nlohmann_define_type_intrusive_with_default_macro.cpp
++++ b/docs/examples/nlohmann_define_type_intrusive_with_default_macro.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_non_intrusive_explicit.cpp b/docs/examples/nlohmann_define_type_non_intrusive_explicit.cpp
+index b9d30dd8f8..b71613d4f6 100644
+--- a/docs/examples/nlohmann_define_type_non_intrusive_explicit.cpp
++++ b/docs/examples/nlohmann_define_type_non_intrusive_explicit.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_non_intrusive_macro.cpp b/docs/examples/nlohmann_define_type_non_intrusive_macro.cpp
+index b073ef615a..be11a45767 100644
+--- a/docs/examples/nlohmann_define_type_non_intrusive_macro.cpp
++++ b/docs/examples/nlohmann_define_type_non_intrusive_macro.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_non_intrusive_with_default_explicit.cpp b/docs/examples/nlohmann_define_type_non_intrusive_with_default_explicit.cpp
+index 21967b6382..6b538d18d5 100644
+--- a/docs/examples/nlohmann_define_type_non_intrusive_with_default_explicit.cpp
++++ b/docs/examples/nlohmann_define_type_non_intrusive_with_default_explicit.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/nlohmann_define_type_non_intrusive_with_default_macro.cpp b/docs/examples/nlohmann_define_type_non_intrusive_with_default_macro.cpp
+index 470fed69c9..aa9bc53b4b 100644
+--- a/docs/examples/nlohmann_define_type_non_intrusive_with_default_macro.cpp
++++ b/docs/examples/nlohmann_define_type_non_intrusive_with_default_macro.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ namespace ns
+ {
+diff --git a/docs/examples/operator_array__json_pointer.cpp b/docs/examples/operator_array__json_pointer.cpp
+index 7a0353a1c9..0fa207f026 100644
+--- a/docs/examples/operator_array__json_pointer.cpp
++++ b/docs/examples/operator_array__json_pointer.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/operator_array__json_pointer_const.cpp b/docs/examples/operator_array__json_pointer_const.cpp
+index a5a437b445..f40e2494a7 100644
+--- a/docs/examples/operator_array__json_pointer_const.cpp
++++ b/docs/examples/operator_array__json_pointer_const.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/operator_literal_json.cpp b/docs/examples/operator_literal_json.cpp
+index 2ec008eb49..84ca6297d4 100644
+--- a/docs/examples/operator_literal_json.cpp
++++ b/docs/examples/operator_literal_json.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/operator_literal_json_pointer.cpp b/docs/examples/operator_literal_json_pointer.cpp
+index bbdb974af1..aba93e88e4 100644
+--- a/docs/examples/operator_literal_json_pointer.cpp
++++ b/docs/examples/operator_literal_json_pointer.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/other_error.cpp b/docs/examples/other_error.cpp
+index 2e7ccfbb8d..99c4be70e6 100644
+--- a/docs/examples/other_error.cpp
++++ b/docs/examples/other_error.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/patch.cpp b/docs/examples/patch.cpp
+index b0896c794d..b7ecb8eee6 100644
+--- a/docs/examples/patch.cpp
++++ b/docs/examples/patch.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/patch_inplace.cpp b/docs/examples/patch_inplace.cpp
+index 2224b7061d..061708a2d2 100644
+--- a/docs/examples/patch_inplace.cpp
++++ b/docs/examples/patch_inplace.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/std_hash.cpp b/docs/examples/std_hash.cpp
+index eee0fad0cf..9721910eb9 100644
+--- a/docs/examples/std_hash.cpp
++++ b/docs/examples/std_hash.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/to_bjdata.cpp b/docs/examples/to_bjdata.cpp
+index 0bfe333236..9b7abac4ee 100644
+--- a/docs/examples/to_bjdata.cpp
++++ b/docs/examples/to_bjdata.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ // function to print BJData's diagnostic format
+ void print_byte(uint8_t byte)
+diff --git a/docs/examples/to_bson.cpp b/docs/examples/to_bson.cpp
+index 2dd4487687..3484b0b760 100644
+--- a/docs/examples/to_bson.cpp
++++ b/docs/examples/to_bson.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/to_cbor.cpp b/docs/examples/to_cbor.cpp
+index 3d85deb5a8..3d5e041508 100644
+--- a/docs/examples/to_cbor.cpp
++++ b/docs/examples/to_cbor.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/to_msgpack.cpp b/docs/examples/to_msgpack.cpp
+index 76bb22f142..b29ae8c7c7 100644
+--- a/docs/examples/to_msgpack.cpp
++++ b/docs/examples/to_msgpack.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/to_ubjson.cpp b/docs/examples/to_ubjson.cpp
+index 2329cdd054..fd267a85a4 100644
+--- a/docs/examples/to_ubjson.cpp
++++ b/docs/examples/to_ubjson.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ // function to print UBJSON's diagnostic format
+ void print_byte(uint8_t byte)
+diff --git a/docs/examples/update.cpp b/docs/examples/update.cpp
+index 8f8b3bf8e0..ff94b67fa9 100644
+--- a/docs/examples/update.cpp
++++ b/docs/examples/update.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/update__range.cpp b/docs/examples/update__range.cpp
+index 98a390429d..5b43850463 100644
+--- a/docs/examples/update__range.cpp
++++ b/docs/examples/update__range.cpp
+@@ -3,6 +3,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/examples/value__json_ptr.cpp b/docs/examples/value__json_ptr.cpp
+index f25b7736ae..d866ef0767 100644
+--- a/docs/examples/value__json_ptr.cpp
++++ b/docs/examples/value__json_ptr.cpp
+@@ -2,6 +2,7 @@
+ #include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
++using namespace nlohmann::literals;
+ 
+ int main()
+ {
+diff --git a/docs/mkdocs/docs/api/basic_json/index.md b/docs/mkdocs/docs/api/basic_json/index.md
+index 35ce63c3e1..e474b662e9 100644
+--- a/docs/mkdocs/docs/api/basic_json/index.md
++++ b/docs/mkdocs/docs/api/basic_json/index.md
+@@ -289,8 +289,7 @@ Access to the JSON value
+ 
+ ## Literals
+ 
+-- [**operator""_json**](operator_literal_json.md) - user-defined string literal for JSON values
+-- [**operator""_json_pointer**](operator_literal_json_pointer.md) - user-defined string literal for JSON pointers
++- [**operator""_json**](../operator_literal_json.md) - user-defined string literal for JSON values
+ 
+ ## Helper classes
+ 
+diff --git a/docs/mkdocs/docs/api/basic_json/operator_literal_json.md b/docs/mkdocs/docs/api/basic_json/operator_literal_json.md
+deleted file mode 100644
+index 8e0c65df0d..0000000000
+--- a/docs/mkdocs/docs/api/basic_json/operator_literal_json.md
++++ /dev/null
+@@ -1,48 +0,0 @@
+-# <small>nlohmann::basic_json::</small>operator""_json
+-
+-```cpp
+-json operator "" _json(const char* s, std::size_t n);
+-```
+-
+-This operator implements a user-defined string literal for JSON objects. It can be used by adding `#!cpp _json` to a
+-string literal and returns a [`json`](../json.md) object if no parse error occurred.
+-
+-## Parameters
+-
+-`s` (in)
+-:   a string representation of a JSON object
+-
+-`n` (in)
+-:   length of string `s`
+-
+-## Return value
+-
+-[`json`](../json.md) value parsed from `s`
+-
+-## Exceptions
+-
+-The function can throw anything that [`parse(s, s+n)`](parse.md) would throw.
+-
+-## Complexity
+-
+-Linear.
+-
+-## Examples
+-
+-??? example
+-
+-    The following code shows how to create JSON values from string literals.
+-     
+-    ```cpp
+-    --8<-- "examples/operator_literal_json.cpp"
+-    ```
+-    
+-    Output:
+-    
+-    ```json
+-    --8<-- "examples/operator_literal_json.output"
+-    ```
+-
+-## Version history
+-
+-- Added in version 1.0.0.
+diff --git a/docs/mkdocs/docs/api/json_pointer/index.md b/docs/mkdocs/docs/api/json_pointer/index.md
+index aee845cded..75b536c1c5 100644
+--- a/docs/mkdocs/docs/api/json_pointer/index.md
++++ b/docs/mkdocs/docs/api/json_pointer/index.md
+@@ -37,9 +37,11 @@ are the base for JSON patches.
+ - [**push_back**](push_back.md) - append an unescaped token at the end of the pointer
+ - [**empty**](empty.md) - return whether pointer points to the root document
+ 
++## Literals
++
++- [**operator""_json_pointer**](../operator_literal_json_pointer.md) - user-defined string literal for JSON pointers
+ ## See also
+ 
+-- [operator""_json_pointer](../basic_json/operator_literal_json_pointer.md) - user-defined string literal for JSON pointers
+ - [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901)
+ 
+ ## Version history
+diff --git a/docs/mkdocs/docs/api/macros/index.md b/docs/mkdocs/docs/api/macros/index.md
+index 13accd7970..8e118b03fe 100644
+--- a/docs/mkdocs/docs/api/macros/index.md
++++ b/docs/mkdocs/docs/api/macros/index.md
+@@ -21,6 +21,7 @@ header. See also the [macro overview page](../../features/macros.md).
+ - [**JSON_HAS_THREE_WAY_COMPARISON**](json_has_three_way_comparison.md) - control 3-way comparison support
+ - [**JSON_NO_IO**](json_no_io.md) - switch off functions relying on certain C++ I/O headers
+ - [**JSON_SKIP_UNSUPPORTED_COMPILER_CHECK**](json_skip_unsupported_compiler_check.md) - do not warn about unsupported compilers
++- [**JSON_USE_GLOBAL_UDLS**](json_use_global_udls.md) - place user-defined string literals (UDLs) into the global namespace
+ 
+ ## Library version
+ 
+diff --git a/docs/mkdocs/docs/api/macros/json_use_global_udls.md b/docs/mkdocs/docs/api/macros/json_use_global_udls.md
+new file mode 100644
+index 0000000000..dc9b55f624
+--- /dev/null
++++ b/docs/mkdocs/docs/api/macros/json_use_global_udls.md
+@@ -0,0 +1,99 @@
++# JSON_USE_GLOBAL_UDLS
++
++```cpp
++#define JSON_USE_GLOBAL_UDLS /* value */
++```
++
++When defined to `1`, the user-defined string literals (UDLs) are placed into the global namespace instead of
++`nlohmann::literals::json_literals`.
++
++## Default definition
++
++The default value is `1`.
++
++```cpp
++#define JSON_USE_GLOBAL_UDLS 1
++```
++
++When the macro is not defined, the library will define it to its default value.
++
++## Notes
++
++!!! info "Future behavior change"
++
++    The user-defined string literals will be removed from the global namespace in the next major release of the
++    library.
++
++    To prepare existing code, define `JSON_USE_GLOBAL_UDLS` to `0` and bring the string literals into scope where
++    needed. Refer to any of the [string literals](#see-also) for details.
++
++!!! hint "CMake option"
++
++    The placement of user-defined string literals can also be controlled with the CMake option
++    [`JSON_GlobalUDLs`](../../integration/cmake.md#json_globaludls) (`OFF` by default)
++    which defines `JSON_USE_GLOBAL_UDLS` accordingly.
++
++## Examples
++
++??? example "Example 1: Default behavior"
++
++    The code below shows the default behavior using the `_json` UDL.
++    
++    ```cpp
++    #include <nlohmann/json.hpp>
++    
++    #include <iostream>
++    
++    int main()
++    {
++        auto j = "42"_json;
++    
++        std::cout << j << std::endl;
++    }
++    ```
++    
++    Output:
++    
++    ```json
++    42
++    ```
++
++??? example "Example 2: Namespaced UDLs"
++
++    The code below shows how UDLs need to be brought into scope before using `_json` when `JSON_USE_GLOBAL_UDLS` is
++    defined to `0`.
++    
++    ```cpp
++    #define JSON_USE_GLOBAL_UDLS 0
++    #include <nlohmann/json.hpp>
++
++    #include <iostream>
++    
++    int main()
++    {
++        // auto j = "42"_json; // This line would fail to compile,
++                               // because the UDLs are not in the global namespace
++    
++        // Bring the UDLs into scope
++        using namespace nlohmann::json_literals;
++    
++        auto j = "42"_json;
++    
++        std::cout << j << std::endl;
++    }
++    ```
++    
++    Output:
++    
++    ```json
++    42
++    ```
++
++## See also
++
++- [`operator""_json`](../operator_literal_json.md)
++- [`operator""_json_pointer`](../operator_literal_json_pointer.md)
++
++## Version history
++
++- Added in version 3.11.0.
+diff --git a/docs/mkdocs/docs/api/operator_literal_json.md b/docs/mkdocs/docs/api/operator_literal_json.md
+new file mode 100644
+index 0000000000..330729de0b
+--- /dev/null
++++ b/docs/mkdocs/docs/api/operator_literal_json.md
+@@ -0,0 +1,59 @@
++# <small>nlohmann::</small>operator""_json
++
++```cpp
++json operator "" _json(const char* s, std::size_t n);
++```
++
++This operator implements a user-defined string literal for JSON objects. It can be used by adding `#!cpp _json` to a
++string literal and returns a [`json`](json.md) object if no parse error occurred.
++
++Use any of the following lines to bring the operator into scope:
++```cpp
++using namespace nlohmann::literals;
++using namespace nlohmann::json_literals;
++using namespace nlohmann::literals::json_literals;
++using namespace nlohmann;
++```
++
++Alternatively, define [`JSON_USE_GLOBAL_UDLS`](macros/json_use_global_udls.md) to make them available in the global
++namespace.
++## Parameters
++
++`s` (in)
++:   a string representation of a JSON object
++
++`n` (in)
++:   length of string `s`
++
++## Return value
++
++[`json`](json.md) value parsed from `s`
++
++## Exceptions
++
++The function can throw anything that [`parse(s, s+n)`](basic_json/parse.md) would throw.
++
++## Complexity
++
++Linear.
++
++## Examples
++
++??? example
++
++    The following code shows how to create JSON values from string literals.
++     
++    ```cpp
++    --8<-- "examples/operator_literal_json.cpp"
++    ```
++    
++    Output:
++    
++    ```json
++    --8<-- "examples/operator_literal_json.output"
++    ```
++
++## Version history
++
++- Added in version 1.0.0.
++- Moved to namespace `nlohmann::literals::json_literals` in 3.11.0.
+diff --git a/docs/mkdocs/docs/api/basic_json/operator_literal_json_pointer.md b/docs/mkdocs/docs/api/operator_literal_json_pointer.md
+similarity index 50%
+rename from docs/mkdocs/docs/api/basic_json/operator_literal_json_pointer.md
+rename to docs/mkdocs/docs/api/operator_literal_json_pointer.md
+index 897ac07cda..7c788db2c8 100644
+--- a/docs/mkdocs/docs/api/basic_json/operator_literal_json_pointer.md
++++ b/docs/mkdocs/docs/api/operator_literal_json_pointer.md
+@@ -1,12 +1,22 @@
+-# <small>nlohmann::basic_json::</small>operator""_json_pointer
++# <small>nlohmann::</small>operator""_json_pointer
+ 
+ ```cpp
+ json_pointer operator "" _json_pointer(const char* s, std::size_t n);
+ ```
+ 
+ This operator implements a user-defined string literal for JSON Pointers. It can be used by adding `#!cpp _json_pointer`
+-to a string literal and returns a [`json_pointer`](../json_pointer/index.md) object if no parse error occurred.
++to a string literal and returns a [`json_pointer`](json_pointer/index.md) object if no parse error occurred.
+ 
++Use any of the following lines to bring the operator into scope:
++```cpp
++using namespace nlohmann::literals;
++using namespace nlohmann::json_literals;
++using namespace nlohmann::literals::json_literals;
++using namespace nlohmann;
++```
++
++Alternatively, define [`JSON_USE_GLOBAL_UDLS`](macros/json_use_global_udls.md) to make them available in the global
++namespace.
+ ## Parameters
+ 
+ `s` (in)
+@@ -17,11 +27,11 @@ to a string literal and returns a [`json_pointer`](../json_pointer/index.md) obj
+ 
+ ## Return value
+ 
+-[`json_pointer`](../json_pointer/index.md) value parsed from `s`
++[`json_pointer`](json_pointer/index.md) value parsed from `s`
+ 
+ ## Exceptions
+ 
+-The function can throw anything that [`json_pointer::json_pointer`](../json_pointer/index.md) would throw.
++The function can throw anything that [`json_pointer::json_pointer`](json_pointer/index.md) would throw.
+ 
+ ## Complexity
+ 
+@@ -45,8 +55,9 @@ Linear.
+ 
+ ## See also
+ 
+-- [json_pointer](../json_pointer/index.md) - type to represent JSON Pointers
++- [json_pointer](json_pointer/index.md) - type to represent JSON Pointers
+ 
+ ## Version history
+ 
+ - Added in version 2.0.0.
++- Moved to namespace `nlohmann::literals::json_literals` in 3.11.0.
+diff --git a/docs/mkdocs/docs/integration/cmake.md b/docs/mkdocs/docs/integration/cmake.md
+index 3c45225bf7..1887d347ff 100644
+--- a/docs/mkdocs/docs/integration/cmake.md
++++ b/docs/mkdocs/docs/integration/cmake.md
+@@ -146,6 +146,11 @@ Disable default `enum` serialization by defining the macro
+ 
+ Skip expensive/slow test suites. This option is `OFF` by default. Depends on `JSON_BuildTests`.
+ 
++### `JSON_GlobalUDLs`
++
++Place user-defined string literals in the global namespace by defining the macro
++[`JSON_USE_GLOBAL_UDLS`](../api/macros/json_use_global_udls.md). This option is `OFF` by default.
++
+ ### `JSON_ImplicitConversions`
+ 
+ Enable implicit conversions by defining macro [`JSON_USE_IMPLICIT_CONVERSIONS`](../api/macros/json_use_implicit_conversions.md). This option is `ON` by default.
+diff --git a/docs/mkdocs/mkdocs.yml b/docs/mkdocs/mkdocs.yml
+index 6d2889c844..65182adbf4 100644
+--- a/docs/mkdocs/mkdocs.yml
++++ b/docs/mkdocs/mkdocs.yml
+@@ -162,8 +162,6 @@ nav:
+         - 'operator<=': api/basic_json/operator_le.md
+         - 'operator>=': api/basic_json/operator_ge.md
+         - 'operator<=>': api/basic_json/operator_spaceship.md
+-        - 'operator""_json': api/basic_json/operator_literal_json.md
+-        - 'operator""_json_pointer': api/basic_json/operator_literal_json_pointer.md
+         - 'out_of_range': api/basic_json/out_of_range.md
+         - 'other_error': api/basic_json/other_error.md
+         - 'parse': api/basic_json/parse.md
+@@ -236,6 +234,8 @@ nav:
+       - 'operator<<(basic_json)': api/operator_ltlt.md
+       - 'operator<<(json_pointer)': api/operator_ltlt.md
+       - 'operator>>(basic_json)': api/operator_gtgt.md
++      - 'operator""_json': api/operator_literal_json.md
++      - 'operator""_json_pointer': api/operator_literal_json_pointer.md
+       - 'ordered_json': api/ordered_json.md
+       - 'ordered_map': api/ordered_map.md
+       - macros:
+@@ -258,6 +258,7 @@ nav:
+         - 'JSON_SKIP_UNSUPPORTED_COMPILER_CHECK': api/macros/json_skip_unsupported_compiler_check.md
+         - 'JSON_THROW_USER': api/macros/json_throw_user.md
+         - 'JSON_TRY_USER': api/macros/json_throw_user.md
++        - 'JSON_USE_GLOBAL_UDLS': api/macros/json_use_global_udls.md
+         - 'JSON_USE_IMPLICIT_CONVERSIONS': api/macros/json_use_implicit_conversions.md
+         - 'JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON': api/macros/json_use_legacy_discarded_value_comparison.md
+         - 'NLOHMANN_DEFINE_TYPE_INTRUSIVE': api/macros/nlohmann_define_type_intrusive.md
+@@ -332,6 +333,8 @@ plugins:
+         redirect_maps:
+             'api/basic_json/operator_gtgt.md': api/operator_gtgt.md
+             'api/basic_json/operator_ltlt.md': api/operator_ltlt.md
++            'api/basic_json/operator_literal_json.md': api/operator_literal_json.md
++            'api/basic_json/operator_literal_json_pointer.md': api/operator_literal_json_pointer.md
+             'api/json_pointer/operator_string.md': api/json_pointer/operator_string_t.md
+ 
+ extra_css:
+diff --git a/include/nlohmann/detail/macro_scope.hpp b/include/nlohmann/detail/macro_scope.hpp
+index 420b549e80..52992ca577 100644
+--- a/include/nlohmann/detail/macro_scope.hpp
++++ b/include/nlohmann/detail/macro_scope.hpp
+@@ -462,3 +462,7 @@
+ #ifndef JSON_DISABLE_ENUM_SERIALIZATION
+     #define JSON_DISABLE_ENUM_SERIALIZATION 0
+ #endif
++
++#ifndef JSON_USE_GLOBAL_UDLS
++    #define JSON_USE_GLOBAL_UDLS 0
++#endif
+diff --git a/include/nlohmann/detail/macro_unscope.hpp b/include/nlohmann/detail/macro_unscope.hpp
+index 4a558e358a..33ed8a9b18 100644
+--- a/include/nlohmann/detail/macro_unscope.hpp
++++ b/include/nlohmann/detail/macro_unscope.hpp
+@@ -25,6 +25,7 @@
+ #undef JSON_INLINE_VARIABLE
+ #undef JSON_NO_UNIQUE_ADDRESS
+ #undef JSON_DISABLE_ENUM_SERIALIZATION
++#undef JSON_USE_GLOBAL_UDLS
+ 
+ #ifndef JSON_TEST_KEEP_MACROS
+     #undef JSON_CATCH
+diff --git a/include/nlohmann/json.hpp b/include/nlohmann/json.hpp
+index 37ab7edd60..2a7cb83839 100644
+--- a/include/nlohmann/json.hpp
++++ b/include/nlohmann/json.hpp
+@@ -5074,6 +5074,29 @@ std::string to_string(const NLOHMANN_BASIC_JSON_TPL& j)
+     return j.dump();
+ }
+ 
++inline namespace literals
++{
++inline namespace json_literals
++{
++
++/// @brief user-defined string literal for JSON values
++/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
++JSON_HEDLEY_NON_NULL(1)
++inline nlohmann::json operator "" _json(const char* s, std::size_t n)
++{
++    return nlohmann::json::parse(s, s + n);
++}
++
++/// @brief user-defined string literal for JSON pointer
++/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json_pointer/
++JSON_HEDLEY_NON_NULL(1)
++inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
++{
++    return nlohmann::json::json_pointer(std::string(s, n));
++}
++
++}  // namespace json_literals
++}  // namespace literals
+ NLOHMANN_JSON_NAMESPACE_END
+ 
+ ///////////////////////
+@@ -5130,21 +5153,9 @@ inline void swap(nlohmann::NLOHMANN_BASIC_JSON_TPL& j1, nlohmann::NLOHMANN_BASIC
+ 
+ }  // namespace std
+ 
+-/// @brief user-defined string literal for JSON values
+-/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
+-JSON_HEDLEY_NON_NULL(1)
+-inline nlohmann::json operator "" _json(const char* s, std::size_t n)
+-{
+-    return nlohmann::json::parse(s, s + n);
+-}
+-
+-/// @brief user-defined string literal for JSON pointer
+-/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json_pointer/
+-JSON_HEDLEY_NON_NULL(1)
+-inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
+-{
+-    return nlohmann::json::json_pointer(std::string(s, n));
+-}
++#if JSON_USE_GLOBAL_UDLS
++    using namespace nlohmann::literals::json_literals; // NOLINT(build/namespaces_literals)
++#endif
+ 
+ #include <nlohmann/detail/macro_unscope.hpp>
+ 
+diff --git a/single_include/nlohmann/json.hpp b/single_include/nlohmann/json.hpp
+index 420ea09650..31812e9fd3 100644
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -2792,6 +2792,10 @@ JSON_HEDLEY_DIAGNOSTIC_POP
+     #define JSON_DISABLE_ENUM_SERIALIZATION 0
+ #endif
+ 
++#ifndef JSON_USE_GLOBAL_UDLS
++    #define JSON_USE_GLOBAL_UDLS 0
++#endif
++
+ #if JSON_HAS_THREE_WAY_COMPARISON
+     #include <compare> // partial_ordering
+ #endif
+@@ -24039,6 +24043,29 @@ std::string to_string(const NLOHMANN_BASIC_JSON_TPL& j)
+     return j.dump();
+ }
+ 
++inline namespace literals
++{
++inline namespace json_literals
++{
++
++/// @brief user-defined string literal for JSON values
++/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
++JSON_HEDLEY_NON_NULL(1)
++inline nlohmann::json operator "" _json(const char* s, std::size_t n)
++{
++    return nlohmann::json::parse(s, s + n);
++}
++
++/// @brief user-defined string literal for JSON pointer
++/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json_pointer/
++JSON_HEDLEY_NON_NULL(1)
++inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
++{
++    return nlohmann::json::json_pointer(std::string(s, n));
++}
++
++}  // namespace json_literals
++}  // namespace literals
+ NLOHMANN_JSON_NAMESPACE_END
+ 
+ ///////////////////////
+@@ -24095,21 +24122,9 @@ inline void swap(nlohmann::NLOHMANN_BASIC_JSON_TPL& j1, nlohmann::NLOHMANN_BASIC
+ 
+ }  // namespace std
+ 
+-/// @brief user-defined string literal for JSON values
+-/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
+-JSON_HEDLEY_NON_NULL(1)
+-inline nlohmann::json operator "" _json(const char* s, std::size_t n)
+-{
+-    return nlohmann::json::parse(s, s + n);
+-}
+-
+-/// @brief user-defined string literal for JSON pointer
+-/// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json_pointer/
+-JSON_HEDLEY_NON_NULL(1)
+-inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std::size_t n)
+-{
+-    return nlohmann::json::json_pointer(std::string(s, n));
+-}
++#if JSON_USE_GLOBAL_UDLS
++    using namespace nlohmann::literals::json_literals; // NOLINT(build/namespaces_literals)
++#endif
+ 
+ // #include <nlohmann/detail/macro_unscope.hpp>
+ //     __ _____ _____ _____
+@@ -24139,6 +24154,7 @@ inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std
+ #undef JSON_INLINE_VARIABLE
+ #undef JSON_NO_UNIQUE_ADDRESS
+ #undef JSON_DISABLE_ENUM_SERIALIZATION
++#undef JSON_USE_GLOBAL_UDLS
+ 
+ #ifndef JSON_TEST_KEEP_MACROS
+     #undef JSON_CATCH

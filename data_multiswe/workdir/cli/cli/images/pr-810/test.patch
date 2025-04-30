@@ -1,0 +1,115 @@
+diff --git a/command/repo_test.go b/command/repo_test.go
+index bd10e4218a7..f50eb0cac28 100644
+--- a/command/repo_test.go
++++ b/command/repo_test.go
+@@ -153,7 +153,7 @@ func TestRepoFork_in_parent_yes(t *testing.T) {
+ 
+ 	expectedCmds := []string{
+ 		"git remote rename origin upstream",
+-		"git remote add -f origin https://github.com/someone/repo.git",
++		"git remote add -f origin https://github.com/someone/REPO.git",
+ 	}
+ 
+ 	for x, cmd := range seenCmds {
+@@ -287,7 +287,7 @@ func TestRepoFork_in_parent_survey_yes(t *testing.T) {
+ 
+ 	expectedCmds := []string{
+ 		"git remote rename origin upstream",
+-		"git remote add -f origin https://github.com/someone/repo.git",
++		"git remote add -f origin https://github.com/someone/REPO.git",
+ 	}
+ 
+ 	for x, cmd := range seenCmds {
+@@ -499,7 +499,11 @@ func TestRepoCreate(t *testing.T) {
+ 	{ "data": { "createRepository": {
+ 		"repository": {
+ 			"id": "REPOID",
+-			"url": "https://github.com/OWNER/REPO"
++			"url": "https://github.com/OWNER/REPO",
++			"name": "REPO",
++			"owner": {
++				"login": "OWNER"
++			}
+ 		}
+ 	} } }
+ 	`))
+@@ -522,7 +526,7 @@ func TestRepoCreate(t *testing.T) {
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+ 	}
+-	eq(t, strings.Join(seenCmd.Args, " "), "git remote add origin https://github.com/OWNER/REPO.git")
++	eq(t, strings.Join(seenCmd.Args, " "), "git remote add -f origin https://github.com/OWNER/REPO.git")
+ 
+ 	var reqBody struct {
+ 		Query     string
+@@ -564,7 +568,11 @@ func TestRepoCreate_org(t *testing.T) {
+ 	{ "data": { "createRepository": {
+ 		"repository": {
+ 			"id": "REPOID",
+-			"url": "https://github.com/ORG/REPO"
++			"url": "https://github.com/ORG/REPO",
++			"name": "REPO",
++			"owner": {
++				"login": "ORG"
++			}
+ 		}
+ 	} } }
+ 	`))
+@@ -587,7 +595,7 @@ func TestRepoCreate_org(t *testing.T) {
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+ 	}
+-	eq(t, strings.Join(seenCmd.Args, " "), "git remote add origin https://github.com/ORG/REPO.git")
++	eq(t, strings.Join(seenCmd.Args, " "), "git remote add -f origin https://github.com/ORG/REPO.git")
+ 
+ 	var reqBody struct {
+ 		Query     string
+@@ -629,7 +637,11 @@ func TestRepoCreate_orgWithTeam(t *testing.T) {
+ 	{ "data": { "createRepository": {
+ 		"repository": {
+ 			"id": "REPOID",
+-			"url": "https://github.com/ORG/REPO"
++			"url": "https://github.com/ORG/REPO",
++			"name": "REPO",
++			"owner": {
++				"login": "ORG"
++			}
+ 		}
+ 	} } }
+ 	`))
+@@ -652,7 +664,7 @@ func TestRepoCreate_orgWithTeam(t *testing.T) {
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+ 	}
+-	eq(t, strings.Join(seenCmd.Args, " "), "git remote add origin https://github.com/ORG/REPO.git")
++	eq(t, strings.Join(seenCmd.Args, " "), "git remote add -f origin https://github.com/ORG/REPO.git")
+ 
+ 	var reqBody struct {
+ 		Query     string
+diff --git a/command/root_test.go b/command/root_test.go
+index c0b1fd7d3a1..dbed9628d2f 100644
+--- a/command/root_test.go
++++ b/command/root_test.go
+@@ -40,3 +40,22 @@ func TestChangelogURL(t *testing.T) {
+ 		t.Errorf("expected %s to create url %s but got %s", tag, url, result)
+ 	}
+ }
++
++func TestRemoteURLFormatting_no_config(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "master")
++	result := formatRemoteURL(repoForkCmd, "OWNER/REPO")
++	eq(t, result, "https://github.com/OWNER/REPO.git")
++}
++
++func TestRemoteURLFormatting_ssh_config(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++git_protocol: ssh
++`
++	initBlankContext(cfg, "OWNER/REPO", "master")
++	result := formatRemoteURL(repoForkCmd, "OWNER/REPO")
++	eq(t, result, "git@github.com:OWNER/REPO.git")
++}

@@ -1,0 +1,137 @@
+diff --git a/clap_derive/src/attrs.rs b/clap_derive/src/attrs.rs
+index e442a37237c..61d992dc704 100644
+--- a/clap_derive/src/attrs.rs
++++ b/clap_derive/src/attrs.rs
+@@ -413,6 +413,14 @@ impl Attrs {
+ 
+                 MethodCall(name, args) => self.push_method(name, quote!(#(#args),*)),
+ 
++                ModifyFn(name, method_path) => self.push_method(name.clone(), match self.ty {
++                    Some(ref t) => quote!(#method_path::<#t>),
++                    None => abort!(
++                        name,
++                        "#[clap(modify_fn(..))] can be used only on field level",
++                    ),
++                }),
++
+                 RenameAll(_, casing_lit) => {
+                     self.casing = CasingStyle::from_lit(casing_lit);
+                 }
+diff --git a/clap_derive/src/parse.rs b/clap_derive/src/parse.rs
+index a9117d4267f..081a0f5d575 100644
+--- a/clap_derive/src/parse.rs
++++ b/clap_derive/src/parse.rs
+@@ -6,7 +6,7 @@ use syn::{
+     self, parenthesized,
+     parse::{Parse, ParseBuffer, ParseStream},
+     punctuated::Punctuated,
+-    Attribute, Expr, ExprLit, Ident, Lit, LitBool, LitStr, Token,
++    Attribute, Expr, ExprLit, Ident, Lit, LitBool, LitStr, Token, Path,
+ };
+ 
+ #[allow(clippy::large_enum_variant)]
+@@ -45,6 +45,9 @@ pub enum ClapAttr {
+ 
+     // ident(arbitrary_expr,*)
+     MethodCall(Ident, Vec<Expr>),
++
++    // ident(path)
++    ModifyFn(Ident, Path),
+ }
+ 
+ impl Parse for ClapAttr {
+@@ -165,6 +168,13 @@ impl Parse for ClapAttr {
+                     }
+                 },
+ 
++                "modify_fn" => match nested.parse::<Path>() {
++                    Ok(method_path) => Ok(ModifyFn(name, method_path)),
++                    Err(_) => abort!(name,
++                        "`#[clap(method_t(...))` must contain one identifier"
++                    ),
++                },
++
+                 _ => {
+                     let method_args: Punctuated<_, Token![,]> =
+                         nested.parse_terminated(Expr::parse)?;
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index 385aa6b720f..d150b26a2f4 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -4929,6 +4929,27 @@ impl<'help> Arg<'help> {
+     pub(crate) fn is_multiple(&self) -> bool {
+         self.is_set(ArgSettings::MultipleValues) | self.is_set(ArgSettings::MultipleOccurrences)
+     }
++
++    #[inline]
++    /// Allows adding free functions to a chain
++    ///
++    /// ```
++    /// # use clap::{Arg, ValueHint};
++    /// let func = |a| a;
++    ///
++    /// // Instead of this
++    /// let mut arg = Arg::new("test");
++    /// arg = func(arg);
++    ///
++    /// // You can do this
++    /// let arg = Arg::new("test").modify_fn(func);
++    /// ```
++    pub fn modify_fn<F>(self, mod_fn: F) -> Self
++    where
++        F: Fn(Self) -> Self
++    {
++        (mod_fn)(self)
++    }
+ }
+ 
+ #[cfg(feature = "yaml")]
+diff --git a/src/lib.rs b/src/lib.rs
+index ad79a7598e7..1ded2efb1ba 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -30,7 +30,7 @@ pub use crate::{
+     },
+     parse::errors::{Error, ErrorKind, Result},
+     parse::{ArgMatches, Indices, OsValues, Values},
+-    util::color::ColorChoice,
++    util::{color::ColorChoice, modify_fn::default_value_t},
+ };
+ 
+ pub use crate::derive::{ArgEnum, Args, FromArgMatches, IntoApp, Parser, Subcommand};
+diff --git a/src/util/mod.rs b/src/util/mod.rs
+index ed35765ff6a..dfe20883d20 100644
+--- a/src/util/mod.rs
++++ b/src/util/mod.rs
+@@ -5,6 +5,7 @@ mod graph;
+ mod id;
+ #[cfg(feature = "env")]
+ mod str_to_bool;
++pub(crate) mod modify_fn;
+ 
+ pub use self::fnv::Key;
+ 
+diff --git a/src/util/modify_fn.rs b/src/util/modify_fn.rs
+new file mode 100644
+index 00000000000..2b909f465d6
+--- /dev/null
++++ b/src/util/modify_fn.rs
+@@ -0,0 +1,18 @@
++use crate::Arg;
++
++/// Adds default_value which is obtained via
++/// Default and ToString traits
++pub fn default_value_t<T>(arg: Arg) -> Arg
++where
++    T: Default + ToString
++{
++    let s = make_static_str(<T as Default>::default());
++    arg.default_value(s).required(false)
++}
++
++fn make_static_str<T>(t: T) -> &'static str
++where
++    T: ToString
++{
++    Box::leak(t.to_string().into_boxed_str())
++}

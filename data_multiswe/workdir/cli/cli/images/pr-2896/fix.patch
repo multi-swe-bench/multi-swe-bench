@@ -1,0 +1,209 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 4c35a153ac8..d78da8a66bf 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -28,16 +28,17 @@ type PullRequestAndTotalCount struct {
+ }
+ 
+ type PullRequest struct {
+-	ID          string
+-	Number      int
+-	Title       string
+-	State       string
+-	Closed      bool
+-	URL         string
+-	BaseRefName string
+-	HeadRefName string
+-	Body        string
+-	Mergeable   string
++	ID                  string
++	Number              int
++	Title               string
++	State               string
++	Closed              bool
++	URL                 string
++	BaseRefName         string
++	HeadRefName         string
++	Body                string
++	Mergeable           string
++	ViewerMergeBodyText string
+ 
+ 	Author struct {
+ 		Login string
+@@ -584,6 +585,7 @@ func PullRequestByNumber(client *Client, repo ghrepo.Interface, number int) (*Pu
+ 				milestone{
+ 					title
+ 				}
++				viewerMergeBodyText
+ 				` + commentsFragment() + `
+ 				` + reactionGroupsFragment() + `
+ 			}
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index 4c8c946c0c8..9003765d2bb 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -16,6 +16,7 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
++	"github.com/cli/cli/pkg/surveyext"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -31,7 +32,7 @@ type MergeOptions struct {
+ 	DeleteBranch bool
+ 	MergeMethod  api.PullRequestMergeMethod
+ 
+-	Body *string
++	Body string
+ 
+ 	IsDeleteBranchIndicated bool
+ 	CanDeleteLocalBranch    bool
+@@ -97,11 +98,6 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 			opts.IsDeleteBranchIndicated = cmd.Flags().Changed("delete-branch")
+ 			opts.CanDeleteLocalBranch = !cmd.Flags().Changed("repo")
+ 
+-			if cmd.Flags().Changed("body") {
+-				bodyStr, _ := cmd.Flags().GetString("body")
+-				opts.Body = &bodyStr
+-			}
+-
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+@@ -110,7 +106,7 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 	}
+ 
+ 	cmd.Flags().BoolVarP(&opts.DeleteBranch, "delete-branch", "d", false, "Delete the local and remote branch after merge")
+-	cmd.Flags().StringP("body", "b", "", "Body for merge commit")
++	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "Body for merge commit")
+ 	cmd.Flags().BoolVarP(&flagMerge, "merge", "m", false, "Merge the commits with the base branch")
+ 	cmd.Flags().BoolVarP(&flagRebase, "rebase", "r", false, "Rebase the commits onto the base branch")
+ 	cmd.Flags().BoolVarP(&flagSquash, "squash", "s", false, "Squash the commits into one commit and merge it into the base branch")
+@@ -167,17 +163,52 @@ func mergeRun(opts *MergeOptions) error {
+ 			if err != nil {
+ 				return err
+ 			}
+-			confirm, err := confirmSurvey()
++
++			allowEditMsg := mergeMethod != api.PullRequestMergeMethodRebase
++
++			action, err := confirmSurvey(allowEditMsg)
+ 			if err != nil {
+-				return err
++				return fmt.Errorf("unable to confirm: %w", err)
++			}
++
++			if action == shared.EditCommitMessageAction {
++				var editorCommand string
++				editorCommand, err = cmdutil.DetermineEditor(opts.Config)
++				if err != nil {
++					return err
++				}
++
++				if opts.Body == "" {
++					if mergeMethod == api.PullRequestMergeMethodMerge {
++						opts.Body = pr.Title
++					} else {
++						opts.Body = pr.ViewerMergeBodyText
++					}
++				}
++
++				msg, err := commitMsgSurvey(opts.Body, editorCommand)
++				if err != nil {
++					return err
++				}
++				opts.Body = msg
++
++				action, err = confirmSurvey(false)
++				if err != nil {
++					return fmt.Errorf("unable to confirm: %w", err)
++				}
+ 			}
+-			if !confirm {
++			if action == shared.CancelAction {
+ 				fmt.Fprintln(opts.IO.ErrOut, "Cancelled.")
+ 				return cmdutil.SilentError
+ 			}
+ 		}
+ 
+-		err = api.PullRequestMerge(apiClient, baseRepo, pr, mergeMethod, opts.Body)
++		var body *string
++		if opts.Body != "" {
++			body = &opts.Body
++		}
++
++		err = api.PullRequestMerge(apiClient, baseRepo, pr, mergeMethod, body)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -316,12 +347,50 @@ func deleteBranchSurvey(opts *MergeOptions, crossRepoPR bool) (bool, error) {
+ 	return opts.DeleteBranch, nil
+ }
+ 
+-func confirmSurvey() (bool, error) {
+-	var confirm bool
+-	submit := &survey.Confirm{
+-		Message: "Submit?",
+-		Default: true,
++func confirmSurvey(allowEditMsg bool) (shared.Action, error) {
++	const (
++		submitLabel        = "Submit"
++		editCommitMsgLabel = "Edit commit message"
++		cancelLabel        = "Cancel"
++	)
++
++	options := []string{submitLabel}
++	if allowEditMsg {
++		options = append(options, editCommitMsgLabel)
++	}
++	options = append(options, cancelLabel)
++
++	var result string
++	submit := &survey.Select{
++		Message: "What's next?",
++		Options: options,
++	}
++	err := prompt.SurveyAskOne(submit, &result)
++	if err != nil {
++		return shared.CancelAction, fmt.Errorf("could not prompt: %w", err)
++	}
++
++	switch result {
++	case submitLabel:
++		return shared.SubmitAction, nil
++	case editCommitMsgLabel:
++		return shared.EditCommitMessageAction, nil
++	default:
++		return shared.CancelAction, nil
++	}
++}
++
++func commitMsgSurvey(msg string, editorCommand string) (string, error) {
++	var result string
++	q := &surveyext.GhEditor{
++		EditorCommand: editorCommand,
++		Editor: &survey.Editor{
++			Message:       "Body",
++			AppendDefault: true,
++			Default:       msg,
++			FileName:      "*.md",
++		},
+ 	}
+-	err := prompt.SurveyAskOne(submit, &confirm)
+-	return confirm, err
++	err := prompt.SurveyAskOne(q, &result)
++	return result, err
+ }
+diff --git a/pkg/cmd/pr/shared/survey.go b/pkg/cmd/pr/shared/survey.go
+index 8ef40d047a8..836f8388917 100644
+--- a/pkg/cmd/pr/shared/survey.go
++++ b/pkg/cmd/pr/shared/survey.go
+@@ -21,6 +21,7 @@ const (
+ 	PreviewAction
+ 	CancelAction
+ 	MetadataAction
++	EditCommitMessageAction
+ 
+ 	noMilestone = "(none)"
+ )

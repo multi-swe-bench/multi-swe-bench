@@ -1,0 +1,238 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 8aaedd7768..3266dcad9f 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -98,6 +98,7 @@ dependencies = [
+  "git2",
+  "globset",
+  "lazy_static",
++ "nix",
+  "path_abs",
+  "predicates",
+  "semver",
+@@ -213,12 +214,12 @@ dependencies = [
+ 
+ [[package]]
+ name = "clircle"
+-version = "0.2.0"
++version = "0.3.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "e27a01e782190a8314e65cc94274d9bbcd52e05a9d15b437fe2b31259b854b0d"
++checksum = "e68bbd985a63de680ab4d1ad77b6306611a8f961b282c8b5ab513e6de934e396"
+ dependencies = [
+  "cfg-if",
+- "nix",
++ "libc",
+  "serde",
+  "winapi",
+ ]
+diff --git a/Cargo.toml b/Cargo.toml
+index d67d2a9a60..05da0fa469 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -48,7 +48,7 @@ serde = { version = "1.0", features = ["derive"] }
+ serde_yaml = "0.8"
+ semver = "0.11"
+ path_abs = { version = "0.5", default-features = false }
+-clircle = "0.2.0"
++clircle = "0.3"
+ bugreport = "0.3"
+ dirs-next = { version = "2.0.0", optional = true }
+ 
+@@ -79,6 +79,9 @@ predicates = "1.0.7"
+ wait-timeout = "0.2.0"
+ tempfile = "3.2.0"
+ 
++[target.'cfg(unix)'.dev-dependencies]
++nix = "0.19.1"
++
+ [build-dependencies]
+ clap = { version = "2.33", optional = true }
+ 
+diff --git a/src/assets.rs b/src/assets.rs
+index 5f374675aa..48f59da937 100644
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -329,7 +329,7 @@ mod tests {
+ 
+             let input = Input::ordinary_file(file_path.as_os_str());
+             let dummy_stdin: &[u8] = &[];
+-            let mut opened_input = input.open(dummy_stdin).unwrap();
++            let mut opened_input = input.open(dummy_stdin, None).unwrap();
+ 
+             self.assets
+                 .get_syntax(None, &mut opened_input, &self.syntax_mapping)
+@@ -343,7 +343,7 @@ mod tests {
+             let input = Input::from_reader(Box::new(BufReader::new(first_line.as_bytes())))
+                 .with_name(Some(file_path.as_os_str()));
+             let dummy_stdin: &[u8] = &[];
+-            let mut opened_input = input.open(dummy_stdin).unwrap();
++            let mut opened_input = input.open(dummy_stdin, None).unwrap();
+ 
+             self.assets
+                 .get_syntax(None, &mut opened_input, &self.syntax_mapping)
+@@ -367,7 +367,7 @@ mod tests {
+ 
+         fn syntax_for_stdin_with_content(&self, file_name: &str, content: &[u8]) -> String {
+             let input = Input::stdin().with_name(Some(OsStr::new(file_name)));
+-            let mut opened_input = input.open(content).unwrap();
++            let mut opened_input = input.open(content, None).unwrap();
+ 
+             self.assets
+                 .get_syntax(None, &mut opened_input, &self.syntax_mapping)
+@@ -523,7 +523,7 @@ mod tests {
+ 
+         let input = Input::ordinary_file(file_path_symlink.as_os_str());
+         let dummy_stdin: &[u8] = &[];
+-        let mut opened_input = input.open(dummy_stdin).unwrap();
++        let mut opened_input = input.open(dummy_stdin, None).unwrap();
+ 
+         assert_eq!(
+             test.assets
+diff --git a/src/controller.rs b/src/controller.rs
+index a1e3f11935..a4d88c63fb 100644
+--- a/src/controller.rs
++++ b/src/controller.rs
+@@ -1,4 +1,3 @@
+-use std::convert::TryFrom;
+ use std::io::{self, Write};
+ 
+ use crate::assets::HighlightingAssets;
+@@ -15,6 +14,8 @@ use crate::output::OutputType;
+ use crate::paging::PagingMode;
+ use crate::printer::{InteractivePrinter, Printer, SimplePrinter};
+ 
++use clircle::Clircle;
++
+ pub struct Controller<'a> {
+     config: &'a Config<'a>,
+     assets: &'a HighlightingAssets,
+@@ -67,12 +68,10 @@ impl<'b> Controller<'b> {
+         }
+ 
+         let attached_to_pager = output_type.is_pager();
+-        let rw_cycle_detected = !attached_to_pager && {
+-            let identifiers: Vec<_> = inputs
+-                .iter()
+-                .flat_map(clircle::Identifier::try_from)
+-                .collect();
+-            clircle::stdout_among_inputs(&identifiers)
++        let stdout_identifier = if cfg!(windows) || attached_to_pager {
++            None
++        } else {
++            clircle::Identifier::stdout()
+         };
+ 
+         let writer = output_type.handle()?;
+@@ -87,13 +86,8 @@ impl<'b> Controller<'b> {
+             }
+         };
+ 
+-        if rw_cycle_detected {
+-            print_error(&"The output file is also an input!".into(), writer);
+-            return Ok(false);
+-        }
+-
+         for (index, input) in inputs.into_iter().enumerate() {
+-            match input.open(io::stdin().lock()) {
++            match input.open(io::stdin().lock(), stdout_identifier.as_ref()) {
+                 Err(error) => {
+                     print_error(&error, writer);
+                     no_errors = false;
+diff --git a/src/input.rs b/src/input.rs
+index 1e7aec2f2b..0cc902cd9b 100644
+--- a/src/input.rs
++++ b/src/input.rs
+@@ -2,8 +2,8 @@ use std::convert::TryFrom;
+ use std::ffi::{OsStr, OsString};
+ use std::fs::File;
+ use std::io::{self, BufRead, BufReader, Read};
+-use std::path::Path;
+ 
++use clircle::{Clircle, Identifier};
+ use content_inspector::{self, ContentType};
+ 
+ use crate::error::*;
+@@ -157,25 +157,55 @@ impl<'a> Input<'a> {
+         &mut self.description
+     }
+ 
+-    pub(crate) fn open<R: BufRead + 'a>(self, stdin: R) -> Result<OpenedInput<'a>> {
++    pub(crate) fn open<R: BufRead + 'a>(
++        self,
++        stdin: R,
++        stdout_identifier: Option<&Identifier>,
++    ) -> Result<OpenedInput<'a>> {
+         let description = self.description().clone();
+         match self.kind {
+-            InputKind::StdIn => Ok(OpenedInput {
+-                kind: OpenedInputKind::StdIn,
+-                description,
+-                metadata: self.metadata,
+-                reader: InputReader::new(stdin),
+-            }),
++            InputKind::StdIn => {
++                if let Some(stdout) = stdout_identifier {
++                    let input_identifier = Identifier::try_from(clircle::Stdio::Stdin)
++                        .map_err(|e| format!("Stdin: Error identifying file: {}", e))?;
++                    if stdout.surely_conflicts_with(&input_identifier) {
++                        return Err("IO circle detected. The input from stdin is also an output. Aborting to avoid infinite loop.".into());
++                    }
++                }
++
++                Ok(OpenedInput {
++                    kind: OpenedInputKind::StdIn,
++                    description,
++                    metadata: self.metadata,
++                    reader: InputReader::new(stdin),
++                })
++            }
++
+             InputKind::OrdinaryFile(path) => Ok(OpenedInput {
+                 kind: OpenedInputKind::OrdinaryFile(path.clone()),
+                 description,
+                 metadata: self.metadata,
+                 reader: {
+-                    let file = File::open(&path)
++                    let mut file = File::open(&path)
+                         .map_err(|e| format!("'{}': {}", path.to_string_lossy(), e))?;
+                     if file.metadata()?.is_dir() {
+                         return Err(format!("'{}' is a directory.", path.to_string_lossy()).into());
+                     }
++
++                    if let Some(stdout) = stdout_identifier {
++                        let input_identifier = Identifier::try_from(file).map_err(|e| {
++                            format!("{}: Error identifying file: {}", path.to_string_lossy(), e)
++                        })?;
++                        if stdout.surely_conflicts_with(&input_identifier) {
++                            return Err(format!(
++                                "IO circle detected. The input from '{}' is also an output. Aborting to avoid infinite loop.",
++                                path.to_string_lossy()
++                            )
++                            .into());
++                        }
++                        file = input_identifier.into_inner().expect("The file was lost in the clircle::Identifier, this should not have happended...");
++                    }
++
+                     InputReader::new(BufReader::new(file))
+                 },
+             }),
+@@ -189,18 +219,6 @@ impl<'a> Input<'a> {
+     }
+ }
+ 
+-impl TryFrom<&'_ Input<'_>> for clircle::Identifier {
+-    type Error = ();
+-
+-    fn try_from(input: &Input) -> std::result::Result<clircle::Identifier, ()> {
+-        match input.kind {
+-            InputKind::OrdinaryFile(ref path) => Self::try_from(Path::new(path)).map_err(|_| ()),
+-            InputKind::StdIn => Self::try_from(clircle::Stdio::Stdin).map_err(|_| ()),
+-            InputKind::CustomReader(_) => Err(()),
+-        }
+-    }
+-}
+-
+ pub(crate) struct InputReader<'a> {
+     inner: Box<dyn BufRead + 'a>,
+     pub(crate) first_line: Vec<u8>,

@@ -1,0 +1,129 @@
+diff --git a/.changeset/mean-parents-film.md b/.changeset/mean-parents-film.md
+new file mode 100644
+index 000000000000..689ae01ecc60
+--- /dev/null
++++ b/.changeset/mean-parents-film.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: allow nested `<dt>`/`<dd>` elements if they are within a `<dl>` element
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+index 3207919ada0f..bde068184c1e 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+@@ -98,6 +98,7 @@ export function RegularElement(node, context) {
+ 	if (context.state.parent_element) {
+ 		let past_parent = false;
+ 		let only_warn = false;
++		const ancestors = [context.state.parent_element];
+ 
+ 		for (let i = context.path.length - 1; i >= 0; i--) {
+ 			const ancestor = context.path[i];
+@@ -129,7 +130,9 @@ export function RegularElement(node, context) {
+ 					past_parent = true;
+ 				}
+ 			} else if (ancestor.type === 'RegularElement') {
+-				if (!is_tag_valid_with_ancestor(node.name, ancestor.name)) {
++				ancestors.push(ancestor.name);
++
++				if (!is_tag_valid_with_ancestor(node.name, ancestors)) {
+ 					if (only_warn) {
+ 						w.node_invalid_placement_ssr(node, `\`<${node.name}>\``, ancestor.name);
+ 					} else {
+diff --git a/packages/svelte/src/html-tree-validation.js b/packages/svelte/src/html-tree-validation.js
+index c7f25549661e..fb4fbeadf544 100644
+--- a/packages/svelte/src/html-tree-validation.js
++++ b/packages/svelte/src/html-tree-validation.js
+@@ -2,13 +2,14 @@
+  * Map of elements that have certain elements that are not allowed inside them, in the sense that they will auto-close the parent/ancestor element.
+  * Theoretically one could take advantage of it but most of the time it will just result in confusing behavior and break when SSR'd.
+  * There are more elements that are invalid inside other elements, but they're not auto-closed and so don't break SSR and are therefore not listed here.
+- * @type {Record<string, { direct: string[]} | { descendant: string[] }>}
++ * @type {Record<string, { direct: string[]} | { descendant: string[]; reset_by?: string[] }>}
+  */
+ const autoclosing_children = {
+ 	// based on http://developers.whatwg.org/syntax.html#syntax-tag-omission
+ 	li: { direct: ['li'] },
+-	dt: { descendant: ['dt', 'dd'] },
+-	dd: { descendant: ['dt', 'dd'] },
++	// https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dt#technical_summary
++	dt: { descendant: ['dt', 'dd'], reset_by: ['dl'] },
++	dd: { descendant: ['dt', 'dd'], reset_by: ['dl'] },
+ 	p: {
+ 		descendant: [
+ 			'address',
+@@ -75,7 +76,7 @@ export function closing_tag_omitted(current, next) {
+ /**
+  * Map of elements that have certain elements that are not allowed inside them, in the sense that the browser will somehow repair the HTML.
+  * There are more elements that are invalid inside other elements, but they're not repaired and so don't break SSR and are therefore not listed here.
+- * @type {Record<string, { direct: string[]} | { descendant: string[]; only?: string[] } | { only: string[] }>}
++ * @type {Record<string, { direct: string[]} | { descendant: string[]; reset_by?: string[]; only?: string[] } | { only: string[] }>}
+  */
+ const disallowed_children = {
+ 	...autoclosing_children,
+@@ -137,12 +138,24 @@ const disallowed_children = {
+  * Returns false if the tag is not allowed inside the ancestor tag (which is grandparent and above) such that it will result
+  * in the browser repairing the HTML, which will likely result in an error during hydration.
+  * @param {string} tag
+- * @param {string} ancestor Must not be the parent, but higher up the tree
++ * @param {string[]} ancestors All nodes starting with the parent, up until the ancestor, which means two entries minimum
+  * @returns {boolean}
+  */
+-export function is_tag_valid_with_ancestor(tag, ancestor) {
+-	const disallowed = disallowed_children[ancestor];
+-	return !disallowed || ('descendant' in disallowed ? !disallowed.descendant.includes(tag) : true);
++export function is_tag_valid_with_ancestor(tag, ancestors) {
++	const target = ancestors[ancestors.length - 1];
++	const disallowed = disallowed_children[target];
++	if (!disallowed) return true;
++
++	if ('reset_by' in disallowed && disallowed.reset_by) {
++		for (let i = ancestors.length - 2; i >= 0; i--) {
++			// A reset means that forbidden descendants are allowed again
++			if (disallowed.reset_by.includes(ancestors[i])) {
++				return true;
++			}
++		}
++	}
++
++	return 'descendant' in disallowed ? !disallowed.descendant.includes(tag) : true;
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/internal/server/dev.js b/packages/svelte/src/internal/server/dev.js
+index 1904995086f5..cc43d642fe95 100644
+--- a/packages/svelte/src/internal/server/dev.js
++++ b/packages/svelte/src/internal/server/dev.js
+@@ -59,17 +59,22 @@ function print_error(payload, parent, child) {
+ export function push_element(payload, tag, line, column) {
+ 	var filename = /** @type {Component} */ (current_component).function[FILENAME];
+ 	var child = { tag, parent, filename, line, column };
+-	var ancestor = parent?.parent;
+ 
+-	if (parent !== null && !is_tag_valid_with_parent(tag, parent.tag)) {
+-		print_error(payload, parent, child);
+-	}
++	if (parent !== null) {
++		var ancestor = parent.parent;
++		var ancestors = [parent.tag];
++
++		if (!is_tag_valid_with_parent(tag, parent.tag)) {
++			print_error(payload, parent, child);
++		}
+ 
+-	while (ancestor != null) {
+-		if (!is_tag_valid_with_ancestor(tag, ancestor.tag)) {
+-			print_error(payload, ancestor, child);
++		while (ancestor != null) {
++			ancestors.push(ancestor.tag);
++			if (!is_tag_valid_with_ancestor(tag, ancestors)) {
++				print_error(payload, ancestor, child);
++			}
++			ancestor = ancestor.parent;
+ 		}
+-		ancestor = ancestor.parent;
+ 	}
+ 
+ 	parent = child;

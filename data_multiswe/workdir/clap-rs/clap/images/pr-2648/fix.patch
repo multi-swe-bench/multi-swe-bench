@@ -1,0 +1,41 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index 167aa1cfb64..5ac56422db1 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -2485,8 +2485,7 @@ impl<'help> App<'help> {
+         {
+             debug!("App::_check_help_and_version: Building help subcommand");
+             self.subcommands.push(
+-                App::new("help")
+-                    .about("Print this message or the help of the given subcommand(s)"),
++                App::new("help").about("Print this message or the help of the given subcommand(s)"),
+             );
+         }
+     }
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index 1df4ff8cc77..7f2a3bb589e 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -76,7 +76,10 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+             usage.push_str(" [OPTIONS]");
+         }
+ 
+-        usage.push_str(&req_string[..]);
++        let allow_mising_positional = self.p.app.is_set(AS::AllowMissingPositional);
++        if !allow_mising_positional {
++            usage.push_str(&req_string);
++        }
+ 
+         let has_last = self
+             .p
+@@ -142,6 +145,10 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+             }
+         }
+ 
++        if allow_mising_positional {
++            usage.push_str(&req_string);
++        }
++
+         // incl_reqs is only false when this function is called recursively
+         if self.p.app.has_visible_subcommands() && incl_reqs
+             || self.p.is_set(AS::AllowExternalSubcommands)

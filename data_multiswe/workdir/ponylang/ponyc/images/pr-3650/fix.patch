@@ -1,0 +1,70 @@
+diff --git a/.release-notes/3650.md b/.release-notes/3650.md
+new file mode 100644
+index 0000000000..6f6922dfd2
+--- /dev/null
++++ b/.release-notes/3650.md
+@@ -0,0 +1,5 @@
++## Handling compiler crashes in some `consume` expressions
++
++Previously  an expression of the form `consume (consume variable).field` resulted in the compiler crashing down with an assertion failure. With this fix, we get a friendly error message pointing to the erroneous line.
++
++Likewise, a valid assignment of the form `(consume f).b =  recover Bar end` resulted in a compiler crash. With the fix, the compiler successfuly type checks the assignment and ensures that `f` is _consumed_.
+diff --git a/src/libponyc/pass/refer.c b/src/libponyc/pass/refer.c
+index 75ae6c64fc..f20efb06d9 100644
+--- a/src/libponyc/pass/refer.c
++++ b/src/libponyc/pass/refer.c
+@@ -139,6 +139,8 @@ static const char* generate_multi_dot_name(ast_t* ast, ast_t** def_found) {
+ 
+     default:
+     {
++      if (def == NULL)
++        return stringtab("");
+       pony_assert(0);
+     }
+   }
+@@ -146,7 +148,6 @@ static const char* generate_multi_dot_name(ast_t* ast, ast_t** def_found) {
+   if(def_found != NULL)
+   {
+     *def_found = def;
+-
+     if(def == NULL)
+       return stringtab("");
+   }
+@@ -1166,10 +1167,6 @@ static bool refer_consume(pass_opt_t* opt, ast_t* ast)
+             "can't consume a let or embed field");
+           return false;
+         }
+-      } else if (ast_id(left) == TK_CALL) {
+-        ast_error(opt->check.errors, ast,
+-          "consume expressions must specify a single identifier");
+-        return false;
+       }
+       else
+       {
+diff --git a/src/libponyc/pass/syntax.c b/src/libponyc/pass/syntax.c
+index f5fd638ee8..4b69b1b534 100644
+--- a/src/libponyc/pass/syntax.c
++++ b/src/libponyc/pass/syntax.c
+@@ -696,14 +696,19 @@ static ast_result_t syntax_consume(pass_opt_t* opt, ast_t* ast)
+   {
+     case TK_THIS:
+     case TK_REFERENCE:
+-    case TK_DOT:
+       return AST_OK;
+-
++    case TK_DOT: {
++      AST_GET_CHILDREN(term, left, right);
++      if (ast_id(left) != TK_CALL && ast_id(left) != TK_SEQ)
++      {
++        return AST_OK;
++      }
++    }
+     default: {}
+   }
+ 
+   ast_error(opt->check.errors, term,
+-    "Consume expressions must specify a single identifier");
++    "Consume expressions must specify an identifier or field");
+   return AST_ERROR;
+ }
+ 

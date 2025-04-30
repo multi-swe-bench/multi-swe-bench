@@ -1,0 +1,410 @@
+diff --git a/.changeset/late-grapes-judge.md b/.changeset/late-grapes-judge.md
+new file mode 100644
+index 000000000000..4e291190deac
+--- /dev/null
++++ b/.changeset/late-grapes-judge.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: use state proxy ancestry for ownership validation
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+index c4b87e8d58e1..7857909aa523 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+@@ -168,6 +168,27 @@ export const javascript_visitors_runes = {
+ 			body.push(/** @type {import('estree').MethodDefinition} **/ (visit(definition, child_state)));
+ 		}
+ 
++		if (state.options.dev && public_state.size > 0) {
++			// add an `[$.ADD_OWNER]` method so that a class with state fields can widen ownership
++			body.push(
++				b.method(
++					'method',
++					b.id('$.ADD_OWNER'),
++					[b.id('owner')],
++					Array.from(public_state.keys()).map((name) =>
++						b.stmt(
++							b.call(
++								'$.add_owner',
++								b.call('$.get', b.member(b.this, b.private_id(name))),
++								b.id('owner')
++							)
++						)
++					),
++					true
++				)
++			);
++		}
++
+ 		return { ...node, body };
+ 	},
+ 	VariableDeclaration(node, { state, visit }) {
+diff --git a/packages/svelte/src/internal/client/dev/ownership.js b/packages/svelte/src/internal/client/dev/ownership.js
+index 9cdb4b9f87c6..bef9fb8437ef 100644
+--- a/packages/svelte/src/internal/client/dev/ownership.js
++++ b/packages/svelte/src/internal/client/dev/ownership.js
+@@ -1,7 +1,9 @@
+ /** @typedef {{ file: string, line: number, column: number }} Location */
+ 
+ import { STATE_SYMBOL } from '../constants.js';
+-import { untrack } from '../runtime.js';
++import { render_effect } from '../reactivity/effects.js';
++import { current_component_context, untrack } from '../runtime.js';
++import { get_prototype_of } from '../utils.js';
+ 
+ /** @type {Record<string, Array<{ start: Location, end: Location, component: Function }>>} */
+ const boundaries = {};
+@@ -63,6 +65,8 @@ function get_component() {
+ 	return null;
+ }
+ 
++export const ADD_OWNER = Symbol('ADD_OWNER');
++
+ /**
+  * Together with `mark_module_end`, this function establishes the boundaries of a `.svelte` file,
+  * such that subsequent calls to `get_component` can tell us which component is responsible
+@@ -98,60 +102,130 @@ export function mark_module_end(component) {
+ }
+ 
+ /**
+- *
+  * @param {any} object
+  * @param {any} owner
++ * @param {boolean} [global]
+  */
+-export function add_owner(object, owner) {
+-	untrack(() => {
+-		add_owner_to_object(object, owner);
+-	});
++export function add_owner(object, owner, global = false) {
++	if (object && !global) {
++		// @ts-expect-error
++		const component = current_component_context.function;
++		const metadata = object[STATE_SYMBOL];
++		if (metadata && !has_owner(metadata, component)) {
++			let original = get_owner(metadata);
++
++			if (owner.filename !== component.filename) {
++				let message = `${component.filename} passed a value to ${owner.filename} with \`bind:\`, but the value is owned by ${original.filename}. Consider creating a binding between ${original.filename} and ${component.filename}`;
++
++				// eslint-disable-next-line no-console
++				console.warn(message);
++			}
++		}
++	}
++
++	add_owner_to_object(object, owner, new Set());
+ }
+ 
+ /**
+- * @param {any} object
+- * @param {Function} owner
++ * @param {import('#client').ProxyMetadata | null} from
++ * @param {import('#client').ProxyMetadata} to
+  */
+-function add_owner_to_object(object, owner) {
+-	if (object?.[STATE_SYMBOL]?.o && !object[STATE_SYMBOL].o.has(owner)) {
+-		object[STATE_SYMBOL].o.add(owner);
++export function widen_ownership(from, to) {
++	if (to.owners === null) {
++		return;
++	}
++
++	while (from) {
++		if (from.owners === null) {
++			to.owners = null;
++			break;
++		}
+ 
+-		for (const key in object) {
+-			add_owner_to_object(object[key], owner);
++		for (const owner of from.owners) {
++			to.owners.add(owner);
+ 		}
++
++		from = from.parent;
+ 	}
+ }
+ 
+ /**
+  * @param {any} object
++ * @param {Function} owner
++ * @param {Set<any>} seen
+  */
+-export function strip_owner(object) {
+-	untrack(() => {
+-		strip_owner_from_object(object);
+-	});
++function add_owner_to_object(object, owner, seen) {
++	const metadata = /** @type {import('#client').ProxyMetadata} */ (object?.[STATE_SYMBOL]);
++
++	if (metadata) {
++		// this is a state proxy, add owner directly, if not globally shared
++		if (metadata.owners !== null) {
++			metadata.owners.add(owner);
++		}
++	} else if (object && typeof object === 'object') {
++		if (seen.has(object)) return;
++		seen.add(object);
++
++		if (object[ADD_OWNER]) {
++			// this is a class with state fields. we put this in a render effect
++			// so that if state is replaced (e.g. `instance.name = { first, last }`)
++			// the new state is also co-owned by the caller of `getContext`
++			render_effect(() => {
++				object[ADD_OWNER](owner);
++			});
++		} else {
++			var proto = get_prototype_of(object);
++
++			if (proto === Object.prototype) {
++				// recurse until we find a state proxy
++				for (const key in object) {
++					add_owner_to_object(object[key], owner, seen);
++				}
++			} else if (proto === Array.prototype) {
++				// recurse until we find a state proxy
++				for (let i = 0; i < object.length; i += 1) {
++					add_owner_to_object(object[i], owner, seen);
++				}
++			}
++		}
++	}
+ }
+ 
+ /**
+- * @param {any} object
++ * @param {import('#client').ProxyMetadata} metadata
++ * @param {Function} component
++ * @returns {boolean}
+  */
+-function strip_owner_from_object(object) {
+-	if (object?.[STATE_SYMBOL]?.o) {
+-		object[STATE_SYMBOL].o = null;
+-
+-		for (const key in object) {
+-			strip_owner(object[key]);
+-		}
++function has_owner(metadata, component) {
++	if (metadata.owners === null) {
++		return true;
+ 	}
++
++	return (
++		metadata.owners.has(component) ||
++		(metadata.parent !== null && has_owner(metadata.parent, component))
++	);
++}
++
++/**
++ * @param {import('#client').ProxyMetadata} metadata
++ * @returns {any}
++ */
++function get_owner(metadata) {
++	return (
++		metadata?.owners?.values().next().value ??
++		get_owner(/** @type {import('#client').ProxyMetadata} */ (metadata.parent))
++	);
+ }
+ 
+ /**
+- * @param {Set<Function>} owners
++ * @param {import('#client').ProxyMetadata} metadata
+  */
+-export function check_ownership(owners) {
++export function check_ownership(metadata) {
+ 	const component = get_component();
+ 
+-	if (component && !owners.has(component)) {
+-		let original = [...owners][0];
++	if (component && !has_owner(metadata, component)) {
++		let original = get_owner(metadata);
+ 
+ 		let message =
+ 			// @ts-expect-error
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index 1e07132c9112..18bd4740c862 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -1,5 +1,5 @@
+ export { hmr } from './dev/hmr.js';
+-export { add_owner, mark_module_start, mark_module_end } from './dev/ownership.js';
++export { ADD_OWNER, add_owner, mark_module_start, mark_module_end } from './dev/ownership.js';
+ export { await_block as await } from './dom/blocks/await.js';
+ export { if_block as if } from './dom/blocks/if.js';
+ export { key_block as key } from './dom/blocks/key.js';
+diff --git a/packages/svelte/src/internal/client/proxy.js b/packages/svelte/src/internal/client/proxy.js
+index 24d4567debc4..17f8e1b2cde9 100644
+--- a/packages/svelte/src/internal/client/proxy.js
++++ b/packages/svelte/src/internal/client/proxy.js
+@@ -16,7 +16,7 @@ import {
+ 	is_frozen,
+ 	object_prototype
+ } from './utils.js';
+-import { add_owner, check_ownership, strip_owner } from './dev/ownership.js';
++import { check_ownership, widen_ownership } from './dev/ownership.js';
+ import { mutable_source, source, set } from './reactivity/sources.js';
+ import { STATE_SYMBOL } from './constants.js';
+ import { UNINITIALIZED } from '../../constants.js';
+@@ -25,26 +25,20 @@ import { UNINITIALIZED } from '../../constants.js';
+  * @template T
+  * @param {T} value
+  * @param {boolean} [immutable]
+- * @param {Set<Function> | null} [owners]
++ * @param {import('#client').ProxyMetadata | null} [parent]
+  * @returns {import('#client').ProxyStateObject<T> | T}
+  */
+-export function proxy(value, immutable = true, owners) {
++export function proxy(value, immutable = true, parent = null) {
+ 	if (typeof value === 'object' && value != null && !is_frozen(value)) {
+ 		// If we have an existing proxy, return it...
+ 		if (STATE_SYMBOL in value) {
+ 			const metadata = /** @type {import('#client').ProxyMetadata<T>} */ (value[STATE_SYMBOL]);
++
+ 			// ...unless the proxy belonged to a different object, because
+ 			// someone copied the state symbol using `Reflect.ownKeys(...)`
+ 			if (metadata.t === value || metadata.p === value) {
+ 				if (DEV) {
+-					// update ownership
+-					if (owners) {
+-						for (const owner of owners) {
+-							add_owner(value, owner);
+-						}
+-					} else {
+-						strip_owner(value);
+-					}
++					metadata.parent = parent;
+ 				}
+ 
+ 				return metadata.p;
+@@ -70,16 +64,17 @@ export function proxy(value, immutable = true, owners) {
+ 			});
+ 
+ 			if (DEV) {
+-				// set ownership — either of the parent proxy's owners (if provided) or,
+-				// when calling `$.proxy(...)`, to the current component if such there be
+ 				// @ts-expect-error
+-				value[STATE_SYMBOL].o =
+-					owners === undefined
+-						? current_component_context
++				value[STATE_SYMBOL].parent = parent;
++
++				// @ts-expect-error
++				value[STATE_SYMBOL].owners =
++					parent === null
++						? current_component_context !== null
+ 							? // @ts-expect-error
+ 								new Set([current_component_context.function])
+ 							: null
+-						: owners && new Set(owners);
++						: new Set();
+ 			}
+ 
+ 			return proxy;
+@@ -162,7 +157,7 @@ const state_proxy_handler = {
+ 			const metadata = target[STATE_SYMBOL];
+ 
+ 			const s = metadata.s.get(prop);
+-			if (s !== undefined) set(s, proxy(descriptor.value, metadata.i, metadata.o));
++			if (s !== undefined) set(s, proxy(descriptor.value, metadata.i, metadata));
+ 		}
+ 
+ 		return Reflect.defineProperty(target, prop, descriptor);
+@@ -208,7 +203,7 @@ const state_proxy_handler = {
+ 
+ 		// create a source, but only if it's an own property and not a prototype property
+ 		if (s === undefined && (!(prop in target) || get_descriptor(target, prop)?.writable)) {
+-			s = (metadata.i ? source : mutable_source)(proxy(target[prop], metadata.i, metadata.o));
++			s = (metadata.i ? source : mutable_source)(proxy(target[prop], metadata.i, metadata));
+ 			metadata.s.set(prop, s);
+ 		}
+ 
+@@ -255,7 +250,7 @@ const state_proxy_handler = {
+ 		) {
+ 			if (s === undefined) {
+ 				s = (metadata.i ? source : mutable_source)(
+-					has ? proxy(target[prop], metadata.i, metadata.o) : UNINITIALIZED
++					has ? proxy(target[prop], metadata.i, metadata) : UNINITIALIZED
+ 				);
+ 				metadata.s.set(prop, s);
+ 			}
+@@ -281,23 +276,18 @@ const state_proxy_handler = {
+ 			s = metadata.s.get(prop);
+ 		}
+ 		if (s !== undefined) {
+-			set(s, proxy(value, metadata.i, metadata.o));
++			set(s, proxy(value, metadata.i, metadata));
+ 		}
+ 		const is_array = metadata.a;
+ 		const not_has = !(prop in target);
+ 
+ 		if (DEV) {
+-			// First check ownership of the object that is assigned to.
+-			// Then, if the new object has owners, widen them with the ones from the current object.
+-			// If it doesn't have owners that means it's ownerless, and so the assigned object should be, too.
+-			if (metadata.o) {
+-				check_ownership(metadata.o);
+-				for (const owner in metadata.o) {
+-					add_owner(value, owner);
+-				}
+-			} else {
+-				strip_owner(value);
++			/** @type {import('#client').ProxyMetadata | undefined} */
++			const prop_metadata = value?.[STATE_SYMBOL];
++			if (prop_metadata && prop_metadata?.parent !== metadata) {
++				widen_ownership(metadata, prop_metadata);
+ 			}
++			check_ownership(metadata);
+ 		}
+ 
+ 		// variable.length = value -> clear all signals with index >= value
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 63b86eb75a4b..e8bcc713d4e4 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -894,7 +894,7 @@ export function getContext(key) {
+ 		// @ts-expect-error
+ 		const fn = current_component_context?.function;
+ 		if (fn) {
+-			add_owner(result, fn);
++			add_owner(result, fn, true);
+ 		}
+ 	}
+ 
+@@ -950,7 +950,7 @@ export function getAllContexts() {
+ 		const fn = current_component_context?.function;
+ 		if (fn) {
+ 			for (const value of context_map.values()) {
+-				add_owner(value, fn);
++				add_owner(value, fn, true);
+ 			}
+ 		}
+ 	}
+@@ -1152,7 +1152,7 @@ export function deep_read(value, visited = new Set()) {
+ 				// continue
+ 			}
+ 		}
+-		const proto = Object.getPrototypeOf(value);
++		const proto = get_prototype_of(value);
+ 		if (
+ 			proto !== Object.prototype &&
+ 			proto !== Array.prototype &&
+diff --git a/packages/svelte/src/internal/client/types.d.ts b/packages/svelte/src/internal/client/types.d.ts
+index 435cad9a343b..cd900b0eb12c 100644
+--- a/packages/svelte/src/internal/client/types.d.ts
++++ b/packages/svelte/src/internal/client/types.d.ts
+@@ -165,8 +165,10 @@ export interface ProxyMetadata<T = Record<string | symbol, any>> {
+ 	p: ProxyStateObject<T>;
+ 	/** The original target this proxy was created for */
+ 	t: T;
+-	/** Dev-only — the components that 'own' this state, if any */
+-	o: null | Set<Function>;
++	/** Dev-only — the components that 'own' this state, if any. `null` means no owners, i.e. everyone can mutate this state. */
++	owners: null | Set<Function>;
++	/** Dev-only — the parent metadata object */
++	parent: null | ProxyMetadata;
+ }
+ 
+ export type ProxyStateObject<T = Record<string | symbol, any>> = T & {

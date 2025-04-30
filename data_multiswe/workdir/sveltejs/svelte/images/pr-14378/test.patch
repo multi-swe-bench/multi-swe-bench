@@ -1,0 +1,56 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/_config.js b/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/_config.js
+new file mode 100644
+index 000000000000..0294b930c20e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/_config.js
+@@ -0,0 +1,17 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<p>42</p><p>1337</p><button></button>`,
++	async test({ assert, target, instance }) {
++		const [a, b] = target.querySelectorAll('p');
++		const btn = target.querySelector('button');
++
++		flushSync(() => {
++			btn?.click();
++		});
++
++		assert.equal(a.textContent, '1337');
++		assert.equal(b.textContent, '42');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/main.svelte b/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/main.svelte
+new file mode 100644
+index 000000000000..384795f60d12
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/private-identifiers-not-this/main.svelte
+@@ -0,0 +1,26 @@
++<script>
++	class Box {
++		#value = $state(0);
++
++		get value(){
++			return this.#value;
++		}
++		
++		constructor(num){
++			this.#value = num;
++		}
++		
++		swap(other) {
++			const value = this.#value;
++			this.#value = other.value;
++			other.#value = value;
++		}
++	}
++
++	const a = new Box(42);
++	const b = new Box(1337);
++</script>
++
++<p>{a.value}</p>
++<p>{b.value}</p>
++<button onclick={()=>{a.swap(b)}}></button>
+\ No newline at end of file

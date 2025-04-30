@@ -1,0 +1,94 @@
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index 90d3949a543..9fd821d371e 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"context"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"net/http"
+ 	"sort"
+@@ -312,12 +313,23 @@ type repositoryV3 struct {
+ }
+ 
+ // ForkRepo forks the repository on GitHub and returns the new repository
+-func ForkRepo(client *Client, repo ghrepo.Interface) (*Repository, error) {
++func ForkRepo(client *Client, repo ghrepo.Interface, org string) (*Repository, error) {
+ 	path := fmt.Sprintf("repos/%s/forks", ghrepo.FullName(repo))
+ 	body := bytes.NewBufferString(`{}`)
++	if org != "" {
++		orgBody := fmt.Sprintf(`{ "organization": "%s" }`, org)
++		body = bytes.NewBufferString(orgBody)
++	}
++
+ 	result := repositoryV3{}
+ 	err := client.REST(repo.RepoHost(), "POST", path, body, &result)
+ 	if err != nil {
++		var httpErr HTTPError
++		if errors.As(err, &httpErr) {
++			if httpErr.StatusCode == http.StatusForbidden {
++				return nil, fmt.Errorf("Must have admin rights to Repository")
++			}
++		}
+ 		return nil, err
+ 	}
+ 
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index fc2e70e2608..5093d53d1b3 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -674,7 +674,7 @@ func handlePush(opts CreateOptions, ctx CreateContext) error {
+ 	// one by forking the base repository
+ 	if headRepo == nil && ctx.IsPushEnabled {
+ 		opts.IO.StartProgressIndicator()
+-		headRepo, err = api.ForkRepo(client, ctx.BaseRepo)
++		headRepo, err = api.ForkRepo(client, ctx.BaseRepo, "")
+ 		opts.IO.StopProgressIndicator()
+ 		if err != nil {
+ 			return fmt.Errorf("error forking repo: %w", err)
+diff --git a/pkg/cmd/repo/fork/fork.go b/pkg/cmd/repo/fork/fork.go
+index 30df5ae6784..db1625ea9a3 100644
+--- a/pkg/cmd/repo/fork/fork.go
++++ b/pkg/cmd/repo/fork/fork.go
+@@ -36,6 +36,7 @@ type ForkOptions struct {
+ 	PromptClone  bool
+ 	PromptRemote bool
+ 	RemoteName   string
++	Org          string
+ 	Rename       bool
+ }
+ 
+@@ -110,6 +111,7 @@ Additional 'git clone' flags can be passed in by listing them after '--'.`,
+ 	cmd.Flags().BoolVar(&opts.Clone, "clone", false, "Clone the fork {true|false}")
+ 	cmd.Flags().BoolVar(&opts.Remote, "remote", false, "Add remote for fork {true|false}")
+ 	cmd.Flags().StringVar(&opts.RemoteName, "remote-name", "origin", "Specify a name for a fork's new remote.")
++	cmd.Flags().StringVar(&opts.Org, "org", "", "Fork the repo into an organization")
+ 
+ 	return cmd
+ }
+@@ -169,7 +171,7 @@ func forkRun(opts *ForkOptions) error {
+ 	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+ 	opts.IO.StartProgressIndicator()
+-	forkedRepo, err := api.ForkRepo(apiClient, repoToFork)
++	forkedRepo, err := api.ForkRepo(apiClient, repoToFork, opts.Org)
+ 	opts.IO.StopProgressIndicator()
+ 	if err != nil {
+ 		return fmt.Errorf("failed to fork: %w", err)
+diff --git a/pkg/cmd/repo/fork/orgForkResult.json b/pkg/cmd/repo/fork/orgForkResult.json
+new file mode 100644
+index 00000000000..65c68a829b4
+--- /dev/null
++++ b/pkg/cmd/repo/fork/orgForkResult.json
+@@ -0,0 +1,9 @@
++{
++  "node_id": "123",
++  "name": "REPO",
++  "clone_url": "https://github.com/batmanshome/repo.git",
++  "created_at": "2011-01-26T19:01:12Z",
++  "owner": {
++    "login": "batmanshome"
++  }
++}

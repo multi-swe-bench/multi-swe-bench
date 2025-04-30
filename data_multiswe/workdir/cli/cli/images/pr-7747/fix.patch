@@ -1,0 +1,91 @@
+diff --git a/pkg/cmd/ruleset/list/list.go b/pkg/cmd/ruleset/list/list.go
+index 60afc69abea..6d13441ea51 100644
+--- a/pkg/cmd/ruleset/list/list.go
++++ b/pkg/cmd/ruleset/list/list.go
+@@ -97,9 +97,15 @@ func listRun(opts *ListOptions) error {
+ 		return err
+ 	}
+ 
+-	repoI, err := opts.BaseRepo()
+-	if err != nil {
+-		return err
++	var repoI ghrepo.Interface
++
++	// only one of the repo or org context is necessary
++	if opts.Organization == "" {
++		var repoErr error
++		repoI, repoErr = opts.BaseRepo()
++		if repoErr != nil {
++			return repoErr
++		}
+ 	}
+ 
+ 	hostname, _ := ghAuth.DefaultHost()
+diff --git a/pkg/cmd/ruleset/shared/shared.go b/pkg/cmd/ruleset/shared/shared.go
+index a71b2052279..3ec1c83ee35 100644
+--- a/pkg/cmd/ruleset/shared/shared.go
++++ b/pkg/cmd/ruleset/shared/shared.go
+@@ -24,11 +24,12 @@ type RulesetGraphQL struct {
+ }
+ 
+ type RulesetREST struct {
+-	Id           int
+-	Name         string
+-	Target       string
+-	Enforcement  string
+-	BypassActors []struct {
++	Id                   int
++	Name                 string
++	Target               string
++	Enforcement          string
++	CurrentUserCanBypass string `json:"current_user_can_bypass"`
++	BypassActors         []struct {
+ 		ActorId    int    `json:"actor_id"`
+ 		ActorType  string `json:"actor_type"`
+ 		BypassMode string `json:"bypass_mode"`
+diff --git a/pkg/cmd/ruleset/view/fixtures/rulesetViewRepo.json b/pkg/cmd/ruleset/view/fixtures/rulesetViewRepo.json
+index 5824b341da1..53e6489a526 100644
+--- a/pkg/cmd/ruleset/view/fixtures/rulesetViewRepo.json
++++ b/pkg/cmd/ruleset/view/fixtures/rulesetViewRepo.json
+@@ -5,6 +5,7 @@
+ 	"source_type": "Repository",
+ 	"source": "my-owner/repo-name",
+ 	"enforcement": "active",
++	"current_user_can_bypass": "pull_requests_only",
+ 	"conditions": {
+ 		"ref_name": {
+ 			"exclude": [],
+diff --git a/pkg/cmd/ruleset/view/view.go b/pkg/cmd/ruleset/view/view.go
+index 813f72c51d5..0b79302e5d9 100644
+--- a/pkg/cmd/ruleset/view/view.go
++++ b/pkg/cmd/ruleset/view/view.go
+@@ -113,9 +113,15 @@ func viewRun(opts *ViewOptions) error {
+ 		return err
+ 	}
+ 
+-	repoI, err := opts.BaseRepo()
+-	if err != nil {
+-		return err
++	var repoI ghrepo.Interface
++
++	// only one of the repo or org context is necessary
++	if opts.Organization == "" {
++		var repoErr error
++		repoI, repoErr = opts.BaseRepo()
++		if repoErr != nil {
++			return repoErr
++		}
+ 	}
+ 
+ 	hostname, _ := ghAuth.DefaultHost()
+@@ -194,6 +200,10 @@ func viewRun(opts *ViewOptions) error {
+ 		fmt.Fprintf(w, "%s\n", rs.Enforcement)
+ 	}
+ 
++	if rs.CurrentUserCanBypass != "" {
++		fmt.Fprintf(w, "You can bypass: %s\n", strings.ReplaceAll(rs.CurrentUserCanBypass, "_", " "))
++	}
++
+ 	fmt.Fprintf(w, "\n%s\n", cs.Bold("Bypass List"))
+ 	if len(rs.BypassActors) == 0 {
+ 		fmt.Fprintf(w, "This ruleset cannot be bypassed\n")

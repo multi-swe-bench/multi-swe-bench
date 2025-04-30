@@ -1,0 +1,1002 @@
+diff --git a/docs/data/material/components/badges/BadgeMaterialYouPlayground.js b/docs/data/material/components/badges/BadgeMaterialYouPlayground.js
+new file mode 100644
+index 00000000000000..04671360538516
+--- /dev/null
++++ b/docs/data/material/components/badges/BadgeMaterialYouPlayground.js
+@@ -0,0 +1,48 @@
++import * as React from 'react';
++import MaterialYouUsageDemo from 'docs/src/modules/components/MaterialYouUsageDemo';
++import Badge from '@mui/material-next/Badge';
++import MailIcon from '@mui/icons-material/Mail';
++
++export default function BadgeMaterialYouPlayground() {
++  return (
++    <MaterialYouUsageDemo
++      componentName="Badge"
++      data={[
++        {
++          propName: 'badgeContent',
++          defaultValue: 4,
++        },
++        {
++          propName: 'color',
++          knob: 'select',
++          options: [
++            'error',
++            'info',
++            'warning',
++            'success',
++            'primary',
++            'secondary',
++            'tertiary',
++          ],
++          defaultValue: 'error',
++        },
++        {
++          propName: 'size',
++          knob: 'select',
++          options: ['small', 'large'],
++          defaultValue: 'large',
++        },
++        {
++          propName: 'invisible',
++          knob: 'switch',
++          defaultValue: false,
++        },
++      ]}
++      renderDemo={({ vertical, ...rest }) => (
++        <Badge {...rest}>
++          <MailIcon color="action" />
++        </Badge>
++      )}
++    />
++  );
++}
+diff --git a/docs/data/material/components/badges/badges.md b/docs/data/material/components/badges/badges.md
+index 143dd849cd3bea..0cc72e50fca54d 100644
+--- a/docs/data/material/components/badges/badges.md
++++ b/docs/data/material/components/badges/badges.md
+@@ -71,3 +71,16 @@ You can't rely on the content of the badge to be announced correctly.
+ You should provide a full description, for instance, with `aria-label`:
+ 
+ {{"demo": "AccessibleBadges.js"}}
++
++## Experimental API
++
++### Material You version
++
++The default Badge component follows the Material Design 2 specs.
++For the Material Design 3 ([Material You](https://m3.material.io/)) version, you can use the new experimental `@mui/material-next` package:
++
++```js
++import Badge from '@mui/material-next/Badge';
++```
++
++{{"demo": "BadgeMaterialYouPlayground.js", "hideToolbar": true}}
+diff --git a/packages/mui-material-next/migration.md b/packages/mui-material-next/migration.md
+index a50c2f1f7a5ce0..a104ec7c09156f 100644
+--- a/packages/mui-material-next/migration.md
++++ b/packages/mui-material-next/migration.md
+@@ -6,6 +6,92 @@ This is a reference guide on how to migrate from Material UI v5 to v6.
+ 
+ This section lists all breaking changes related to components in v6 and how to address them.
+ 
++## Overarching changes
++
++These are the changes that apply to all components
++
++### Remove `components` and `componentsProps` props
++
++The deprecated `components` and `componentsProps` props are removed in v6.
++If you were using these, then you can use `slots` and `slotProps` props instead, which have the same functionality and API.
++Here's an example of the change using the Badge component:
++
++```diff
++ <Badge
++     badgeContent={4}
++-    components={{ badge: (props) => <span {...props}>slot test</span> }}
+++    slots={{ badge: (props) => <span {...props}>slot test</span> }}
++-    componentsProps={{ badge: { id: "test-id" } }}
+++    slotProps={{ badge: { id: "test-id" } }}
++ >
++   <MailIcon color="action" />
++ </Badge>
++```
++
++## Badge
++
++### Changed default color
++
++The default value for the color prop was changed to `"error"`.
++
++### Removed the "default" color option
++
++The `"default"` option is no longer accepted for the color prop.
++
++### Removed combined anchor-overlap styleOverrides keys
++
++The following `styleOverrides` `MuiBadge` keys were removed:
++
++- `anchorOriginTopLeftCircular`
++- `anchorOriginTopLeftRectangular`
++- `anchorOriginTopRightCircular`
++- `anchorOriginTopRightRectangular`
++- `anchorOriginBottomLeftCircular`
++- `anchorOriginBottomLeftRectangular`
++- `anchorOriginBottomRightCircular`
++- `anchorOriginBottomRightRectangular`
++
++You can replace them by using a CSS selector inside the `MuiBadge` `styleOverrides` `badge` key.
++The following example replaces the usage of `anchorOriginTopLeftCircular` with a CSS selector including the `MuiBadge-overlapCircular` class and the `MuiBadge-anchorOriginBottomLeft` class
++
++```diff
++ const theme = extendTheme({
++   components: {
++     MuiBadge: {
++       styleOverrides: {
++-       anchorOriginBottomLeftCircular: {
+++       badge: {
+++         "&.MuiBadge-anchorOriginBottomLeft.MuiBadge-overlapCircular": {
++             background: "fuchsia"
++           }
++         }
++       }
++     }
++   }
++ });
++```
++
++### Removed combined anchor-overlap classes
++
++The following classes were removed:
++
++- `MuiBadge-anchorOriginTopLeftCircular`
++- `MuiBadge-anchorOriginTopLeftRectangular`
++- `MuiBadge-anchorOriginTopRightCircular`
++- `MuiBadge-anchorOriginTopRightRectangular`
++- `MuiBadge-anchorOriginBottomLeftCircular`
++- `MuiBadge-anchorOriginBottomLeftRectangular`
++- `MuiBadge-anchorOriginBottomRightCircular`
++- `MuiBadge-anchorOriginBottomRightRectangular`
++
++You can replace them with the `anchorOrigin` value and `overlap` value classes combined in a CSS selector.
++The following example replaces the `MuiBadge-anchorOriginBottomLeftCircular` class using `MuiBadge-anchorOriginBottomLeft` and `MuiBadge-overlapCircular`:
++
++```diff
++- .MuiBadge-anchorOriginBottomLeftCircular
+++ .MuiBadge-anchorOriginBottomLeft.MuiBadge-overlapCircular
++```
++
+ ## Slider
+ 
+ ### Thumb and Value Label slots must accept refs
+diff --git a/packages/mui-material-next/src/Badge/Badge.spec.tsx b/packages/mui-material-next/src/Badge/Badge.spec.tsx
+new file mode 100644
+index 00000000000000..87ed140ba15e89
+--- /dev/null
++++ b/packages/mui-material-next/src/Badge/Badge.spec.tsx
+@@ -0,0 +1,79 @@
++import * as React from 'react';
++import Badge, { BadgeOwnerState } from '@mui/material-next/Badge';
++import { expectType } from '@mui/types';
++
++function classesTest() {
++  return (
++    <Badge
++      badgeContent={4}
++      classes={{ badge: 'testBadgeClassName', colorError: 'colorErrorClass' }}
++    >
++      <div>Hello World</div>
++    </Badge>
++  );
++}
++
++<Badge />;
++
++<Badge component="div" />;
++
++// `size`
++<Badge size="large" />;
++<Badge size="small" />;
++
++// @ts-expect-error there is no 'medium' size
++<Badge size="medium" />;
++
++// `variant`
++<Badge variant="standard" />;
++<Badge variant="dot" />;
++
++// @ts-expect-error there is no variant `filled`
++<Badge variant="filled" />;
++
++// `color`
++<Badge color="primary" />;
++<Badge color="secondary" />;
++<Badge color="tertiary" />;
++<Badge color="error" />;
++<Badge color="info" />;
++<Badge color="warning" />;
++<Badge color="success" />;
++
++// @ts-expect-error there is no color `default`
++<Badge color="default" />;
++
++<Badge
++  slots={{
++    root: 'div',
++    badge: 'div',
++  }}
++/>;
++
++<Badge
++  slotProps={{
++    root: {
++      id: 'test',
++    },
++    badge: {
++      id: 'test',
++    },
++  }}
++/>;
++
++<Badge
++  slotProps={{
++    root: (ownerState) => {
++      expectType<BadgeOwnerState, typeof ownerState>(ownerState);
++      return {
++        id: 'test',
++      };
++    },
++    badge: (ownerState) => {
++      expectType<BadgeOwnerState, typeof ownerState>(ownerState);
++      return {
++        id: 'test',
++      };
++    },
++  }}
++/>;
+diff --git a/packages/mui-material-next/src/Badge/Badge.tsx b/packages/mui-material-next/src/Badge/Badge.tsx
+new file mode 100644
+index 00000000000000..2a69252211d31b
+--- /dev/null
++++ b/packages/mui-material-next/src/Badge/Badge.tsx
+@@ -0,0 +1,370 @@
++'use client';
++import * as React from 'react';
++import PropTypes from 'prop-types';
++import { usePreviousProps, unstable_capitalize as capitalize } from '@mui/utils';
++import composeClasses from '@mui/base/composeClasses';
++import useBadge from '@mui/base/useBadge';
++import { useSlotProps } from '@mui/base';
++import { OverridableComponent } from '@mui/types';
++import styled from '../styles/styled';
++import useTheme from '../styles/useTheme';
++import useThemeProps from '../styles/useThemeProps';
++import badgeClasses, { getBadgeUtilityClass } from './badgeClasses';
++import { BadgeOwnerState, BadgeProps, BadgeTypeMap } from './Badge.types';
++import { MD3ColorSchemeTokens } from '../styles';
++
++const useUtilityClasses = (ownerState: BadgeOwnerState) => {
++  const { color, anchorOrigin, invisible, overlap, size, variant, classes = {} } = ownerState;
++
++  const slots = {
++    root: ['root'],
++    badge: [
++      'badge',
++      size,
++      variant,
++      invisible && 'invisible',
++      `anchorOrigin${capitalize(anchorOrigin.vertical)}${capitalize(anchorOrigin.horizontal)}`,
++      `overlap${capitalize(overlap)}`,
++      `color${capitalize(color)}`,
++    ],
++  };
++
++  return composeClasses(slots, getBadgeUtilityClass, classes);
++};
++
++const BadgeRoot = styled('span', {
++  name: 'MuiBadge',
++  slot: 'Root',
++  overridesResolver: (props, styles) => styles.root,
++})({
++  position: 'relative',
++  display: 'inline-flex',
++  // For correct alignment with the text.
++  verticalAlign: 'middle',
++  flexShrink: 0,
++});
++
++const BadgeBadge = styled('span', {
++  name: 'MuiBadge',
++  slot: 'Badge',
++  overridesResolver: (props, styles) => {
++    const { ownerState }: { ownerState: BadgeOwnerState } = props;
++
++    return [
++      styles.badge,
++      styles[ownerState.size],
++      styles[ownerState.variant],
++      styles[
++        `anchorOrigin${capitalize(ownerState.anchorOrigin.vertical)}${capitalize(
++          ownerState.anchorOrigin.horizontal,
++        )}`
++      ],
++      styles[`overlap${capitalize(ownerState.overlap)}`],
++      styles[`color${capitalize(ownerState.color)}`],
++      ownerState.invisible && styles.invisible,
++    ];
++  },
++})<{ ownerState: BadgeOwnerState }>(({ theme, ownerState }) => {
++  const { vars: tokens } = theme;
++
++  const letterSpacing = `${
++    theme.sys.typescale.label.small.tracking / theme.sys.typescale.label.small.size
++  }rem`;
++
++  const verticalPositionProperty = ownerState.anchorOrigin.vertical === 'top' ? 'bottom' : 'top';
++  const horizontalPositionProperty =
++    ownerState.anchorOrigin.horizontal === 'left' ? 'right' : 'left';
++
++  return {
++    '--md-comp-badge-large-size': '16px',
++    '--md-comp-badge-small-size': '6px',
++    '--md-comp-badge-size': 'var(--md-comp-badge-large-size)',
++    '--md-comp-badge-padding-x': '4px',
++    '--md-comp-badge-inset': 'calc(var(--md-comp-badge-size) - 4px)',
++    ...(ownerState.size === 'small' && {
++      '--md-comp-badge-size': 'var(--md-comp-badge-small-size)',
++      '--md-comp-badge-inset': 'var(--md-comp-badge-size)',
++      '--md-comp-badge-padding-x': '0px',
++    }),
++    ...(ownerState.overlap === 'circular' && {
++      '--md-comp-badge-inset': 'calc(var(--md-comp-badge-size) / 2 + 14%)',
++    }),
++    display: 'flex',
++    flexDirection: 'row',
++    flexWrap: 'wrap',
++    justifyContent: 'center',
++    alignContent: 'center',
++    alignItems: 'center',
++    position: 'absolute',
++    boxSizing: 'border-box',
++    fontFamily: tokens.sys.typescale.label.small.family,
++    fontWeight: tokens.sys.typescale.label.small.weight,
++    fontSize: theme.typography.pxToRem(theme.sys.typescale.label.small.size),
++    lineHeight: `calc(${tokens.sys.typescale.label.small.lineHeight} / ${tokens.sys.typescale.label.small.size})`,
++    letterSpacing,
++    backgroundColor: tokens.sys.color[ownerState.color],
++    color: tokens.sys.color[`on${capitalize(ownerState.color)}` as keyof MD3ColorSchemeTokens],
++    minWidth: 'var(--md-comp-badge-size)',
++    height: 'var(--md-comp-badge-size)',
++    paddingRight: `calc(var(--md-comp-badge-padding-x) - ${letterSpacing})`,
++    paddingLeft: 'var(--md-comp-badge-padding-x)',
++    borderRadius: tokens.sys.shape.corner.full,
++    [verticalPositionProperty]: `calc(100% - var(--md-comp-badge-inset))`,
++    [horizontalPositionProperty]: `calc(100% - var(--md-comp-badge-inset))`,
++    transform: 'scale(1)',
++    transformOrigin: 'calc(var(--md-comp-badge-size) / 2)',
++    zIndex: 1, // Render the badge on top of potential ripples.
++    transition: theme.transitions.create('transform', {
++      easing: theme.transitions.easing.easeInOut,
++      duration: theme.transitions.duration.enteringScreen,
++    }),
++    [`&.${badgeClasses.invisible}`]: {
++      transform: 'scale(0)',
++      transition: theme.transitions.create('transform', {
++        easing: theme.transitions.easing.easeInOut,
++        duration: theme.transitions.duration.leavingScreen,
++      }),
++    },
++  };
++});
++
++const defaultLtRAnchorOrigin = {
++  vertical: 'top',
++  horizontal: 'right',
++};
++
++const defaultRtLAnchorOrigin = {
++  vertical: 'top',
++  horizontal: 'left',
++};
++
++function isSmall(size?: BadgeProps['size'], variant?: BadgeProps['variant']): boolean {
++  if (size) {
++    // size takes precedence
++    return size === 'small';
++  }
++
++  return variant === 'dot';
++}
++
++/**
++ *
++ * Demos:
++ *
++ * - [Badge](https://mui.com/material-ui/react-badge/)
++ *
++ * API:
++ *
++ * - [Badge API](https://mui.com/material-ui/api/badge/)
++ */
++const Badge = React.forwardRef(function Badge<
++  BaseComponentType extends React.ElementType = BadgeTypeMap['defaultComponent'],
++>(inProps: BadgeProps<BaseComponentType>, ref: React.ForwardedRef<Element>) {
++  const props = useThemeProps({ props: inProps, name: 'MuiBadge' });
++
++  const theme = useTheme();
++  const defaultAnchorOrigin =
++    theme.direction === 'rtl' ? defaultRtLAnchorOrigin : defaultLtRAnchorOrigin;
++
++  const {
++    anchorOrigin: anchorOriginProp = defaultAnchorOrigin,
++    className,
++    classes: classesProp,
++    component,
++    children,
++    overlap: overlapProp = 'rectangular',
++    color: colorProp = 'error',
++    invisible: invisibleProp = false,
++    max: maxProp = 99,
++    badgeContent: badgeContentProp,
++    slots = {},
++    slotProps = {},
++    showZero = false,
++    size: sizeProp,
++    variant: variantProp,
++    ...other
++  } = props;
++
++  const {
++    badgeContent,
++    invisible: invisibleFromHook,
++    max,
++    displayValue: displayValueFromHook,
++  } = useBadge({
++    max: maxProp,
++    invisible: invisibleProp,
++    badgeContent: badgeContentProp,
++    showZero,
++  });
++
++  const prevProps = usePreviousProps({
++    anchorOrigin: anchorOriginProp,
++    color: colorProp,
++    overlap: overlapProp,
++    size: sizeProp,
++    variant: variantProp,
++    badgeContent: badgeContentProp,
++  });
++
++  const invisible = invisibleFromHook || (badgeContent == null && !isSmall(sizeProp, variantProp));
++
++  const {
++    color = colorProp,
++    overlap = overlapProp,
++    anchorOrigin = anchorOriginProp,
++    size = sizeProp,
++    variant = variantProp,
++  } = invisible ? prevProps : props;
++
++  const displayValue = !isSmall(size, variant) ? displayValueFromHook : undefined;
++
++  const ownerState = {
++    ...props,
++    badgeContent,
++    invisible,
++    max,
++    displayValue,
++    showZero,
++    anchorOrigin,
++    color,
++    overlap,
++    size: isSmall(size, variant) ? 'small' : 'large',
++    variant: isSmall(size, variant) ? 'dot' : 'standard',
++  };
++
++  const classes = useUtilityClasses(ownerState);
++
++  const RootSlot = slots.root ?? BadgeRoot;
++  const BadgeSlot = slots.badge ?? BadgeBadge;
++
++  const rootProps = useSlotProps({
++    elementType: RootSlot,
++    externalSlotProps: slotProps.root,
++    externalForwardedProps: other,
++    additionalProps: {
++      ref,
++      as: component,
++    },
++    ownerState,
++    className: [classes.root, className],
++  });
++
++  const badgeProps = useSlotProps({
++    elementType: BadgeSlot,
++    externalSlotProps: slotProps.badge,
++    ownerState,
++    className: classes.badge,
++  });
++
++  return (
++    <RootSlot {...rootProps}>
++      {children}
++      <BadgeSlot {...badgeProps}>{displayValue}</BadgeSlot>
++    </RootSlot>
++  );
++}) as OverridableComponent<BadgeTypeMap>;
++
++Badge.propTypes /* remove-proptypes */ = {
++  // ----------------------------- Warning --------------------------------
++  // | These PropTypes are generated from the TypeScript type definitions |
++  // |     To update them edit TypeScript types and run "yarn proptypes"  |
++  // ----------------------------------------------------------------------
++  /**
++   * The anchor of the badge.
++   * @default {
++   *   vertical: 'top',
++   *   horizontal: 'right',
++   * }
++   */
++  anchorOrigin: PropTypes.shape({
++    horizontal: PropTypes.oneOf(['left', 'right']).isRequired,
++    vertical: PropTypes.oneOf(['bottom', 'top']).isRequired,
++  }),
++  /**
++   * The content rendered within the badge.
++   */
++  badgeContent: PropTypes.node,
++  /**
++   * The badge will be added relative to this node.
++   */
++  children: PropTypes.node,
++  /**
++   * Override or extend the styles applied to the component.
++   */
++  classes: PropTypes.object,
++  /**
++   * @ignore
++   */
++  className: PropTypes.string,
++  /**
++   * The color of the component.
++   * It supports both default and custom theme colors, which can be added as shown in the
++   * [palette customization guide](https://mui.com/material-ui/customization/palette/#adding-new-colors).
++   * @default 'error'
++   */
++  color: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.oneOf(['error', 'info', 'primary', 'secondary', 'success', 'tertiary', 'warning']),
++    PropTypes.string,
++  ]),
++  /**
++   * The component used for the root node.
++   * Either a string to use a HTML element or a component.
++   */
++  component: PropTypes.elementType,
++  /**
++   * If `true`, the badge is invisible.
++   * @default false
++   */
++  invisible: PropTypes.bool,
++  /**
++   * Max count to show.
++   * @default 99
++   */
++  max: PropTypes.number,
++  /**
++   * Wrapped shape the badge should overlap.
++   * @default 'rectangular'
++   */
++  overlap: PropTypes.oneOf(['circular', 'rectangular']),
++  /**
++   * Controls whether the badge is hidden when `badgeContent` is zero.
++   * @default false
++   */
++  showZero: PropTypes.bool,
++  /**
++   * The size to use.
++   * @default 'large'
++   */
++  size: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.oneOf(['small', 'large']),
++    PropTypes.string,
++  ]),
++  /**
++   * The props used for each slot inside the Badge.
++   * @default {}
++   */
++  slotProps: PropTypes.shape({
++    badge: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++    root: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++  }),
++  /**
++   * The components used for each slot inside the Badge.
++   * Either a string to use a HTML element or a component.
++   * @default {}
++   */
++  slots: PropTypes.shape({
++    badge: PropTypes.elementType,
++    root: PropTypes.elementType,
++  }),
++  /**
++   * The variant to use.
++   * @default 'standard'
++   * @deprecated Use `size = 'small' | 'large'` instead
++   */
++  variant: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.oneOf(['dot', 'standard']),
++    PropTypes.string,
++  ]),
++} as any;
++
++export default Badge;
+diff --git a/packages/mui-material-next/src/Badge/Badge.types.ts b/packages/mui-material-next/src/Badge/Badge.types.ts
+new file mode 100644
+index 00000000000000..e697da3a13652a
+--- /dev/null
++++ b/packages/mui-material-next/src/Badge/Badge.types.ts
+@@ -0,0 +1,135 @@
++import * as React from 'react';
++import { SxProps } from '@mui/system';
++import { OverridableStringUnion, OverrideProps } from '@mui/types';
++import { SlotComponentProps } from '@mui/base';
++import { Theme } from '../styles';
++import { BadgeClasses } from './badgeClasses';
++
++export interface BadgePropsSizeOverrides {}
++
++export interface BadgePropsVariantOverrides {}
++
++export interface BadgePropsColorOverrides {}
++
++export interface BadgeOrigin {
++  vertical: 'top' | 'bottom';
++  horizontal: 'left' | 'right';
++}
++
++export interface BadgeSlots {
++  /**
++   * The component that renders the root.
++   * @default 'span'
++   */
++  root?: React.ElementType;
++  /**
++   * The component that renders the badge.
++   * @default 'span'
++   */
++  badge?: React.ElementType;
++}
++
++export interface BadgeTypeMap<
++  DefaultComponent extends React.ElementType = 'span',
++  AdditionalProps = {},
++> {
++  props: AdditionalProps & {
++    /**
++     * The anchor of the badge.
++     * @default {
++     *   vertical: 'top',
++     *   horizontal: 'right',
++     * }
++     */
++    anchorOrigin?: BadgeOrigin;
++    /**
++     * The content rendered within the badge.
++     */
++    badgeContent?: React.ReactNode;
++    /**
++     * The badge will be added relative to this node.
++     */
++    children?: React.ReactNode;
++    /**
++     * Override or extend the styles applied to the component.
++     */
++    classes?: Partial<BadgeClasses>;
++    /**
++     * @ignore
++     */
++    className?: string;
++    /**
++     * The color of the component.
++     * It supports both default and custom theme colors, which can be added as shown in the
++     * [palette customization guide](https://mui.com/material-ui/customization/palette/#adding-new-colors).
++     * @default 'error'
++     */
++    color?: OverridableStringUnion<
++      'primary' | 'secondary' | 'tertiary' | 'error' | 'info' | 'warning' | 'success',
++      BadgePropsColorOverrides
++    >;
++    /**
++     * If `true`, the badge is invisible.
++     * @default false
++     */
++    invisible?: boolean;
++    /**
++     * Max count to show.
++     * @default 99
++     */
++    max?: number;
++    /**
++     * Wrapped shape the badge should overlap.
++     * @default 'rectangular'
++     */
++    overlap?: 'rectangular' | 'circular';
++    /**
++     * Controls whether the badge is hidden when `badgeContent` is zero.
++     * @default false
++     */
++    showZero?: boolean;
++    /**
++     * The props used for each slot inside the Badge.
++     * @default {}
++     */
++    slotProps?: {
++      root?: SlotComponentProps<'span', {}, BadgeOwnerState>;
++      badge?: SlotComponentProps<'span', {}, BadgeOwnerState>;
++    };
++    /**
++     * The components used for each slot inside the Badge.
++     * Either a string to use a HTML element or a component.
++     * @default {}
++     */
++    slots?: BadgeSlots;
++    /**
++     * The system prop that allows defining system overrides as well as additional CSS styles.
++     */
++    sx?: SxProps<Theme>;
++    /**
++     * The size to use.
++     * @default 'large'
++     */
++    size?: OverridableStringUnion<'small' | 'large', BadgePropsSizeOverrides>;
++    /**
++     * The variant to use.
++     * @default 'standard'
++     * @deprecated Use `size = 'small' | 'large'` instead
++     */
++    variant?: OverridableStringUnion<'dot' | 'standard', BadgePropsVariantOverrides>;
++  };
++  defaultComponent: DefaultComponent;
++}
++
++export type BadgeProps<
++  RootComponent extends React.ElementType = BadgeTypeMap['defaultComponent'],
++  AdditionalProps = {},
++> = OverrideProps<BadgeTypeMap<RootComponent, AdditionalProps>, RootComponent>;
++
++export interface BadgeOwnerState extends BadgeProps {
++  size: NonNullable<BadgeProps['size']>;
++  variant: NonNullable<BadgeProps['variant']>;
++  anchorOrigin: NonNullable<BadgeProps['anchorOrigin']>;
++  overlap: NonNullable<BadgeProps['overlap']>;
++  color: NonNullable<BadgeProps['color']>;
++}
+diff --git a/packages/mui-material-next/src/Badge/badgeClasses.ts b/packages/mui-material-next/src/Badge/badgeClasses.ts
+new file mode 100644
+index 00000000000000..153f3bc7341248
+--- /dev/null
++++ b/packages/mui-material-next/src/Badge/badgeClasses.ts
+@@ -0,0 +1,78 @@
++import {
++  unstable_generateUtilityClasses as generateUtilityClasses,
++  unstable_generateUtilityClass as generateUtilityClass,
++} from '@mui/utils';
++
++export interface BadgeClasses {
++  /** Styles applied to the root element. */
++  root: string;
++  /** Styles applied to the badge `span` element. */
++  badge: string;
++  /** Styles applied to the badge `span` element if `size="small"`. */
++  small: string;
++  /** Styles applied to the badge `span` element if `size="large"`. */
++  large: string;
++  /** Styles applied to the badge `span` element if `variant="dot"`. */
++  dot: string;
++  /** Styles applied to the badge `span` element if `variant="standard"`. */
++  standard: string;
++  /** Styles applied to the badge `span` element if `anchorOrigin={{ 'top', 'right' }}`. */
++  anchorOriginTopRight: string;
++  /** Styles applied to the badge `span` element if `anchorOrigin={{ 'bottom', 'right' }}`. */
++  anchorOriginBottomRight: string;
++  /** Styles applied to the badge `span` element if `anchorOrigin={{ 'top', 'left' }}`. */
++  anchorOriginTopLeft: string;
++  /** Styles applied to the badge `span` element if `anchorOrigin={{ 'bottom', 'left' }}`. */
++  anchorOriginBottomLeft: string;
++  /** State class applied to the badge `span` element if `invisible={true}`. */
++  invisible: string;
++  /** Styles applied to the badge `span` element if `color="error"`. */
++  colorError: string;
++  /** Styles applied to the badge `span` element if `color="primary"`. */
++  colorPrimary: string;
++  /** Styles applied to the badge `span` element if `color="secondary"`. */
++  colorSecondary: string;
++  /** Styles applied to the badge `span` element if `color="tertiary"`. */
++  colorTertiary: string;
++  /** Styles applied to the badge `span` element if `color="info"`. */
++  colorInfo: string;
++  /** Styles applied to the badge `span` element if `color="warning"`. */
++  colorWarning: string;
++  /** Styles applied to the badge `span` element if `color="success"`. */
++  colorSuccess: string;
++  /** Styles applied to the badge `span` element if `overlap="rectangular"`. */
++  overlapRectangular: string;
++  /** Styles applied to the badge `span` element if `overlap="circular"`. */
++  overlapCircular: string;
++}
++
++export type BadgeClassKey = keyof BadgeClasses;
++
++export function getBadgeUtilityClass(slot: string): string {
++  return generateUtilityClass('MuiBadge', slot);
++}
++
++const badgeClasses: BadgeClasses = generateUtilityClasses('MuiBadge', [
++  'root',
++  'badge',
++  'small',
++  'large',
++  'dot',
++  'standard',
++  'anchorOriginTopRight',
++  'anchorOriginBottomRight',
++  'anchorOriginTopLeft',
++  'anchorOriginBottomLeft',
++  'invisible',
++  'colorError',
++  'colorPrimary',
++  'colorSecondary',
++  'colorTertiary',
++  'colorInfo',
++  'colorWarning',
++  'colorSuccess',
++  'overlapRectangular',
++  'overlapCircular',
++]);
++
++export default badgeClasses;
+diff --git a/packages/mui-material-next/src/Badge/index.ts b/packages/mui-material-next/src/Badge/index.ts
+new file mode 100644
+index 00000000000000..8887c322ea8710
+--- /dev/null
++++ b/packages/mui-material-next/src/Badge/index.ts
+@@ -0,0 +1,5 @@
++'use client';
++export { default } from './Badge';
++export * from './Badge.types';
++export { default as badgeClasses } from './badgeClasses';
++export * from './badgeClasses';
+diff --git a/packages/mui-material-next/src/index.ts b/packages/mui-material-next/src/index.ts
+index 5188a73e9713b2..fcb2614ad0b4f8 100644
+--- a/packages/mui-material-next/src/index.ts
++++ b/packages/mui-material-next/src/index.ts
+@@ -1,4 +1,8 @@
+ 'use client';
++
++export { default as Badge } from './Badge';
++export * from './Badge';
++
+ export { default as Button } from './Button';
+ export * from './Button';
+ 
+diff --git a/packages/mui-material-next/src/styles/Theme.types.ts b/packages/mui-material-next/src/styles/Theme.types.ts
+index 1054d25c53b401..f6079bc72a75e1 100644
+--- a/packages/mui-material-next/src/styles/Theme.types.ts
++++ b/packages/mui-material-next/src/styles/Theme.types.ts
+@@ -34,6 +34,9 @@ export interface MD3Palettes {
+   neutral: MD3NeutralTones;
+   neutralVariant: MD3Tones;
+   error: MD3Tones;
++  info: MD3Tones;
++  warning: MD3Tones;
++  success: MD3Tones;
+   common: {
+     black: string;
+     white: string;
+@@ -61,6 +64,15 @@ export interface MD3ColorSchemeTokens {
+   errorContainer: string;
+   onErrorContainer: string;
+ 
++  info: string;
++  onInfo: string;
++
++  warning: string;
++  onWarning: string;
++
++  success: string;
++  onSuccess: string;
++
+   background: string;
+   onBackground: string;
+ 
+diff --git a/packages/mui-material-next/src/styles/createDarkColorScheme.ts b/packages/mui-material-next/src/styles/createDarkColorScheme.ts
+index 8c9146bb157384..58427cc023da02 100644
+--- a/packages/mui-material-next/src/styles/createDarkColorScheme.ts
++++ b/packages/mui-material-next/src/styles/createDarkColorScheme.ts
+@@ -34,6 +34,12 @@ const createDarkColorScheme = (
+   onPrimary: getCssVar('ref-palette-primary-20', palette.primary[20]),
+   primaryContainer: getCssVar('ref-palette-primary-30', palette.primary[30]),
+   primary: getCssVar('ref-palette-primary-80', palette.primary[80]),
++  info: getCssVar('ref-palette-info-80', palette.info[80]),
++  onInfo: getCssVar('ref-palette-info-20', palette.info[20]),
++  warning: getCssVar('ref-palette-warning-80', palette.warning[80]),
++  onWarning: getCssVar('ref-palette-warning-20', palette.warning[20]),
++  success: getCssVar('ref-palette-success-80', palette.success[80]),
++  onSuccess: getCssVar('ref-palette-success-20', palette.success[20]),
+ });
+ 
+ export default createDarkColorScheme;
+diff --git a/packages/mui-material-next/src/styles/createLightColorScheme.ts b/packages/mui-material-next/src/styles/createLightColorScheme.ts
+index ef15f283b3b460..0eaa4f8696f2cc 100644
+--- a/packages/mui-material-next/src/styles/createLightColorScheme.ts
++++ b/packages/mui-material-next/src/styles/createLightColorScheme.ts
+@@ -34,6 +34,12 @@ const createLightColorScheme = (
+   onPrimary: getCssVar('ref-palette-primary-100', palette.primary[100]),
+   primaryContainer: getCssVar('ref-palette-primary-90', palette.primary[90]),
+   primary: getCssVar('ref-palette-primary-40', palette.primary[40]),
++  info: getCssVar('ref-palette-info-40', palette.info[40]),
++  onInfo: getCssVar('ref-palette-info-100', palette.info[100]),
++  warning: getCssVar('ref-palette-warning-40', palette.warning[40]),
++  onWarning: getCssVar('ref-palette-warning-100', palette.warning[100]),
++  success: getCssVar('ref-palette-success-40', palette.success[40]),
++  onSuccess: getCssVar('ref-palette-success-100', palette.success[100]),
+ });
+ 
+ export default createLightColorScheme;
+diff --git a/packages/mui-material-next/src/styles/palette.ts b/packages/mui-material-next/src/styles/palette.ts
+index f99a4db331ba49..6c5d9525b89fb8 100644
+--- a/packages/mui-material-next/src/styles/palette.ts
++++ b/packages/mui-material-next/src/styles/palette.ts
+@@ -59,6 +59,51 @@ const mdRefPalette = {
+     99: '#fffbfe',
+     100: '#ffffff',
+   },
++  info: {
++    0: '#000000',
++    10: '#05154C',
++    20: '#112874',
++    30: '#2D418B',
++    40: '#465AA4',
++    50: '#6073BF',
++    60: '#7A8CDA',
++    70: '#95A7F7',
++    80: '#B9C4FB',
++    90: '#DDE1FD',
++    95: '#EFF0FE',
++    99: '#FEFBFF',
++    100: '#ffffff',
++  },
++  warning: {
++    0: '#000000',
++    10: '#221B04',
++    20: '#3A2F09',
++    30: '#534612',
++    40: '#6E5D1A',
++    50: '#8C7524',
++    60: '#A88E31',
++    70: '#C5A948',
++    80: '#E2C45F',
++    90: '#FAE190',
++    95: '#FCF1CE',
++    99: '#FEFBFF',
++    100: '#FFFFFF',
++  },
++  success: {
++    0: '#000000',
++    10: '#092018',
++    20: '#14372A',
++    30: '#20503E',
++    40: '#2E6B54',
++    50: '#3B856A',
++    60: '#52A887',
++    70: '#69BD9B',
++    80: '#85D9B6',
++    90: '#A0F5D1',
++    95: '#CAFDE5',
++    99: '#F6FFF9',
++    100: '#FFFFFF',
++  },
+   neutralVariant: {
+     0: '#000000',
+     10: '#1d1a22',

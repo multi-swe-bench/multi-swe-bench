@@ -1,0 +1,886 @@
+diff --git a/.changeset/perfect-actors-bake.md b/.changeset/perfect-actors-bake.md
+new file mode 100644
+index 000000000000..013f15d67f31
+--- /dev/null
++++ b/.changeset/perfect-actors-bake.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++breaking: use structuredClone inside `$state.snapshot`
+diff --git a/documentation/docs/03-runes/01-state.md b/documentation/docs/03-runes/01-state.md
+index 241e6b71bf1e..12716b92210c 100644
+--- a/documentation/docs/03-runes/01-state.md
++++ b/documentation/docs/03-runes/01-state.md
+@@ -91,7 +91,7 @@ State declared with `$state.frozen` cannot be mutated; it can only be _reassigne
+ 
+ This can improve performance with large arrays and objects that you weren't planning to mutate anyway, since it avoids the cost of making them reactive. Note that frozen state can _contain_ reactive state (for example, a frozen array of reactive objects).
+ 
+-> Objects and arrays passed to `$state.frozen` will be shallowly frozen using `Object.freeze()`. If you don't want this, pass in a clone of the object or array instead.
++> Objects and arrays passed to `$state.frozen` will be shallowly frozen using `Object.freeze()`. If you don't want this, pass in a clone of the object or array instead. The argument cannot be an existing state proxy created with `$state(...)`.
+ 
+ ## `$state.snapshot`
+ 
+diff --git a/packages/svelte/messages/client-errors/errors.md b/packages/svelte/messages/client-errors/errors.md
+index e51242d8f63f..442a9e7684e3 100644
+--- a/packages/svelte/messages/client-errors/errors.md
++++ b/packages/svelte/messages/client-errors/errors.md
+@@ -60,6 +60,10 @@
+ 
+ > The `%rune%` rune is only available inside `.svelte` and `.svelte.js/ts` files
+ 
++## state_frozen_invalid_argument
++
++> The argument to `$state.frozen(...)` cannot be an object created with `$state(...)`. You should create a copy of it first, for example with `$state.snapshot`
++
+ ## state_prototype_fixed
+ 
+ > Cannot set prototype of `$state` object
+diff --git a/packages/svelte/src/ambient.d.ts b/packages/svelte/src/ambient.d.ts
+index f6d62194e64d..63a3873d3f19 100644
+--- a/packages/svelte/src/ambient.d.ts
++++ b/packages/svelte/src/ambient.d.ts
+@@ -32,6 +32,75 @@ declare function $state<T>(initial: T): T;
+ declare function $state<T>(): T | undefined;
+ 
+ declare namespace $state {
++	type Primitive = string | number | boolean | null | undefined;
++
++	type TypedArray =
++		| Int8Array
++		| Uint8Array
++		| Uint8ClampedArray
++		| Int16Array
++		| Uint16Array
++		| Int32Array
++		| Uint32Array
++		| Float32Array
++		| Float64Array
++		| BigInt64Array
++		| BigUint64Array;
++
++	/** The things that `structuredClone` can handle — https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm */
++	export type Cloneable =
++		| ArrayBuffer
++		| DataView
++		| Date
++		| Error
++		| Map<any, any>
++		| RegExp
++		| Set<any>
++		| TypedArray
++		// web APIs
++		| Blob
++		| CryptoKey
++		| DOMException
++		| DOMMatrix
++		| DOMMatrixReadOnly
++		| DOMPoint
++		| DOMPointReadOnly
++		| DOMQuad
++		| DOMRect
++		| DOMRectReadOnly
++		| File
++		| FileList
++		| FileSystemDirectoryHandle
++		| FileSystemFileHandle
++		| FileSystemHandle
++		| ImageBitmap
++		| ImageData
++		| RTCCertificate
++		| VideoFrame;
++
++	/** Turn `SvelteDate`, `SvelteMap` and `SvelteSet` into their non-reactive counterparts. (`URL` is uncloneable.) */
++	type NonReactive<T> = T extends Date
++		? Date
++		: T extends Map<infer K, infer V>
++			? Map<K, V>
++			: T extends Set<infer K>
++				? Set<K>
++				: T;
++
++	type Snapshot<T> = T extends Primitive
++		? T
++		: T extends Cloneable
++			? NonReactive<T>
++			: T extends { toJSON(): infer R }
++				? R
++				: T extends Array<infer U>
++					? Array<Snapshot<U>>
++					: T extends object
++						? T extends { [key: string]: any }
++							? { [K in keyof T]: Snapshot<T[K]> }
++							: never
++						: never;
++
+ 	/**
+ 	 * Declares reactive read-only state that is shallowly immutable.
+ 	 *
+@@ -75,7 +144,7 @@ declare namespace $state {
+ 	 *
+ 	 * @param state The value to snapshot
+ 	 */
+-	export function snapshot<T>(state: T): T;
++	export function snapshot<T>(state: T): Snapshot<T>;
+ 
+ 	/**
+ 	 * Compare two values, one or both of which is a reactive `$state(...)` proxy.
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index 687984b3950d..8d2891730ba7 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -423,7 +423,10 @@ const global_visitors = {
+ 		}
+ 
+ 		if (rune === '$state.snapshot') {
+-			return /** @type {import('estree').Expression} */ (context.visit(node.arguments[0]));
++			return b.call(
++				'$.snapshot',
++				/** @type {import('estree').Expression} */ (context.visit(node.arguments[0]))
++			);
+ 		}
+ 
+ 		if (rune === '$state.is') {
+diff --git a/packages/svelte/src/index-client.js b/packages/svelte/src/index-client.js
+index b4f5e9a12b68..37fdb9cf6c65 100644
+--- a/packages/svelte/src/index-client.js
++++ b/packages/svelte/src/index-client.js
+@@ -1,5 +1,5 @@
+ import { current_component_context, flush_sync, untrack } from './internal/client/runtime.js';
+-import { is_array } from './internal/client/utils.js';
++import { is_array } from './internal/shared/utils.js';
+ import { user_effect } from './internal/client/index.js';
+ import * as e from './internal/client/errors.js';
+ import { lifecycle_outside_component } from './internal/shared/errors.js';
+diff --git a/packages/svelte/src/internal/client/dev/inspect.js b/packages/svelte/src/internal/client/dev/inspect.js
+index 89e7e939ec97..733f6d834a9f 100644
+--- a/packages/svelte/src/internal/client/dev/inspect.js
++++ b/packages/svelte/src/internal/client/dev/inspect.js
+@@ -1,6 +1,5 @@
+-import { snapshot } from '../proxy.js';
++import { snapshot } from '../../shared/clone.js';
+ import { inspect_effect, validate_effect } from '../reactivity/effects.js';
+-import { array_prototype, get_prototype_of, object_prototype } from '../utils.js';
+ 
+ /**
+  * @param {() => any[]} get_value
+@@ -13,47 +12,7 @@ export function inspect(get_value, inspector = console.log) {
+ 	let initial = true;
+ 
+ 	inspect_effect(() => {
+-		inspector(initial ? 'init' : 'update', ...deep_snapshot(get_value()));
++		inspector(initial ? 'init' : 'update', ...snapshot(get_value()));
+ 		initial = false;
+ 	});
+ }
+-
+-/**
+- * Like `snapshot`, but recursively traverses into normal arrays/objects to find potential states in them.
+- * @param {any} value
+- * @param {Map<any, any>} visited
+- * @returns {any}
+- */
+-function deep_snapshot(value, visited = new Map()) {
+-	if (typeof value === 'object' && value !== null && !visited.has(value)) {
+-		const unstated = snapshot(value);
+-
+-		if (unstated !== value) {
+-			visited.set(value, unstated);
+-			return unstated;
+-		}
+-
+-		const prototype = get_prototype_of(value);
+-
+-		// Only deeply snapshot plain objects and arrays
+-		if (prototype === object_prototype || prototype === array_prototype) {
+-			let contains_unstated = false;
+-			/** @type {any} */
+-			const nested_unstated = Array.isArray(value) ? [] : {};
+-
+-			for (let key in value) {
+-				const result = deep_snapshot(value[key], visited);
+-				nested_unstated[key] = result;
+-				if (result !== value[key]) {
+-					contains_unstated = true;
+-				}
+-			}
+-
+-			visited.set(value, contains_unstated ? nested_unstated : value);
+-		} else {
+-			visited.set(value, value);
+-		}
+-	}
+-
+-	return visited.get(value) ?? value;
+-}
+diff --git a/packages/svelte/src/internal/client/dev/ownership.js b/packages/svelte/src/internal/client/dev/ownership.js
+index 6d68a1fabf48..4f07a5755476 100644
+--- a/packages/svelte/src/internal/client/dev/ownership.js
++++ b/packages/svelte/src/internal/client/dev/ownership.js
+@@ -4,7 +4,7 @@
+ import { STATE_SYMBOL } from '../constants.js';
+ import { render_effect, user_pre_effect } from '../reactivity/effects.js';
+ import { dev_current_component_function } from '../runtime.js';
+-import { get_prototype_of } from '../utils.js';
++import { get_prototype_of } from '../../shared/utils.js';
+ import * as w from '../warnings.js';
+ 
+ /** @type {Record<string, Array<{ start: Location, end: Location, component: Function }>>} */
+diff --git a/packages/svelte/src/internal/client/dom/blocks/each.js b/packages/svelte/src/internal/client/dom/blocks/each.js
+index 2faca068b4fc..da443b950591 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/each.js
++++ b/packages/svelte/src/internal/client/dom/blocks/each.js
+@@ -28,7 +28,7 @@ import {
+ 	resume_effect
+ } from '../../reactivity/effects.js';
+ import { source, mutable_source, set } from '../../reactivity/sources.js';
+-import { is_array, is_frozen } from '../../utils.js';
++import { is_array, is_frozen } from '../../../shared/utils.js';
+ import { INERT, STATE_FROZEN_SYMBOL, STATE_SYMBOL } from '../../constants.js';
+ import { queue_micro_task } from '../task.js';
+ import { current_effect } from '../../runtime.js';
+diff --git a/packages/svelte/src/internal/client/dom/css.js b/packages/svelte/src/internal/client/dom/css.js
+index 6c10c32791ea..1cccb42b3eec 100644
+--- a/packages/svelte/src/internal/client/dom/css.js
++++ b/packages/svelte/src/internal/client/dom/css.js
+@@ -20,7 +20,7 @@ export function append_styles(anchor, css) {
+ 
+ 		var target = /** @type {ShadowRoot} */ (root).host
+ 			? /** @type {ShadowRoot} */ (root)
+-			: /** @type {Document} */ (root).head;
++			: /** @type {Document} */ (root).head ?? /** @type {Document} */ (root.ownerDocument).head;
+ 
+ 		if (!target.querySelector('#' + css.hash)) {
+ 			const style = document.createElement('style');
+diff --git a/packages/svelte/src/internal/client/dom/elements/attributes.js b/packages/svelte/src/internal/client/dom/elements/attributes.js
+index 5856e5e65e71..7c8c0d8107e5 100644
+--- a/packages/svelte/src/internal/client/dom/elements/attributes.js
++++ b/packages/svelte/src/internal/client/dom/elements/attributes.js
+@@ -1,6 +1,6 @@
+ import { DEV } from 'esm-env';
+ import { hydrating } from '../hydration.js';
+-import { get_descriptors, get_prototype_of } from '../../utils.js';
++import { get_descriptors, get_prototype_of } from '../../../shared/utils.js';
+ import {
+ 	AttributeAliases,
+ 	DelegatedEvents,
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/props.js b/packages/svelte/src/internal/client/dom/elements/bindings/props.js
+index 5337d34e2d60..083833289b9c 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/props.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/props.js
+@@ -1,5 +1,5 @@
+ import { teardown } from '../../../reactivity/effects.js';
+-import { get_descriptor } from '../../../utils.js';
++import { get_descriptor } from '../../../../shared/utils.js';
+ 
+ /**
+  * Makes an `export`ed (non-prop) variable available on the `$$props` object
+diff --git a/packages/svelte/src/internal/client/dom/elements/custom-element.js b/packages/svelte/src/internal/client/dom/elements/custom-element.js
+index ae966651e8c9..1c31d0a394fa 100644
+--- a/packages/svelte/src/internal/client/dom/elements/custom-element.js
++++ b/packages/svelte/src/internal/client/dom/elements/custom-element.js
+@@ -1,7 +1,7 @@
+ import { createClassComponent } from '../../../../legacy/legacy-client.js';
+ import { destroy_effect, render_effect } from '../../reactivity/effects.js';
+ import { append } from '../template.js';
+-import { define_property, object_keys } from '../../utils.js';
++import { define_property, object_keys } from '../../../shared/utils.js';
+ 
+ /**
+  * @typedef {Object} CustomElementPropDefinition
+diff --git a/packages/svelte/src/internal/client/dom/elements/events.js b/packages/svelte/src/internal/client/dom/elements/events.js
+index fa37594074d2..c01055d016dd 100644
+--- a/packages/svelte/src/internal/client/dom/elements/events.js
++++ b/packages/svelte/src/internal/client/dom/elements/events.js
+@@ -1,5 +1,5 @@
+ import { teardown } from '../../reactivity/effects.js';
+-import { define_property, is_array } from '../../utils.js';
++import { define_property, is_array } from '../../../shared/utils.js';
+ import { hydrating } from '../hydration.js';
+ import { queue_micro_task } from '../task.js';
+ 
+diff --git a/packages/svelte/src/internal/client/dom/elements/transitions.js b/packages/svelte/src/internal/client/dom/elements/transitions.js
+index 706d03084d81..b136746a5dd3 100644
+--- a/packages/svelte/src/internal/client/dom/elements/transitions.js
++++ b/packages/svelte/src/internal/client/dom/elements/transitions.js
+@@ -1,10 +1,9 @@
+-import { noop } from '../../../shared/utils.js';
++import { noop, is_function } from '../../../shared/utils.js';
+ import { effect } from '../../reactivity/effects.js';
+ import { current_effect, untrack } from '../../runtime.js';
+ import { raf } from '../../timing.js';
+ import { loop } from '../../loop.js';
+ import { should_intro } from '../../render.js';
+-import { is_function } from '../../utils.js';
+ import { current_each_item } from '../blocks/each.js';
+ import { TRANSITION_GLOBAL, TRANSITION_IN, TRANSITION_OUT } from '../../../../constants.js';
+ import { BLOCK_EFFECT, EFFECT_RAN, EFFECT_TRANSPARENT } from '../../constants.js';
+diff --git a/packages/svelte/src/internal/client/dom/legacy/misc.js b/packages/svelte/src/internal/client/dom/legacy/misc.js
+index 6048b45d30c4..82362e17c42d 100644
+--- a/packages/svelte/src/internal/client/dom/legacy/misc.js
++++ b/packages/svelte/src/internal/client/dom/legacy/misc.js
+@@ -1,6 +1,6 @@
+ import { set, source } from '../../reactivity/sources.js';
+ import { get } from '../../runtime.js';
+-import { is_array } from '../../utils.js';
++import { is_array } from '../../../shared/utils.js';
+ 
+ /**
+  * Under some circumstances, imports may be reactive in legacy mode. In that case,
+diff --git a/packages/svelte/src/internal/client/errors.js b/packages/svelte/src/internal/client/errors.js
+index f7ab6597af20..e0d6b73c39e4 100644
+--- a/packages/svelte/src/internal/client/errors.js
++++ b/packages/svelte/src/internal/client/errors.js
+@@ -262,6 +262,22 @@ export function rune_outside_svelte(rune) {
+ 	}
+ }
+ 
++/**
++ * The argument to `$state.frozen(...)` cannot be an object created with `$state(...)`. You should create a copy of it first, for example with `$state.snapshot`
++ * @returns {never}
++ */
++export function state_frozen_invalid_argument() {
++	if (DEV) {
++		const error = new Error(`state_frozen_invalid_argument\nThe argument to \`$state.frozen(...)\` cannot be an object created with \`$state(...)\`. You should create a copy of it first, for example with \`$state.snapshot\``);
++
++		error.name = 'Svelte error';
++		throw error;
++	} else {
++		// TODO print a link to the documentation
++		throw new Error("state_frozen_invalid_argument");
++	}
++}
++
+ /**
+  * Cannot set prototype of `$state` object
+  * @returns {never}
+diff --git a/packages/svelte/src/internal/client/freeze.js b/packages/svelte/src/internal/client/freeze.js
+new file mode 100644
+index 000000000000..540168afcfcd
+--- /dev/null
++++ b/packages/svelte/src/internal/client/freeze.js
+@@ -0,0 +1,40 @@
++import { DEV } from 'esm-env';
++import { define_property, is_array, is_frozen, object_freeze } from '../shared/utils.js';
++import { STATE_FROZEN_SYMBOL, STATE_SYMBOL } from './constants.js';
++import * as e from './errors.js';
++
++/**
++ * Expects a value that was wrapped with `freeze` and makes it frozen in DEV.
++ * @template T
++ * @param {T} value
++ * @returns {Readonly<T>}
++ */
++export function freeze(value) {
++	if (
++		typeof value === 'object' &&
++		value !== null &&
++		!is_frozen(value) &&
++		!(STATE_FROZEN_SYMBOL in value)
++	) {
++		var copy = /** @type {T} */ (value);
++
++		if (STATE_SYMBOL in value) {
++			e.state_frozen_invalid_argument();
++		}
++
++		define_property(copy, STATE_FROZEN_SYMBOL, {
++			value: true,
++			writable: true,
++			enumerable: false
++		});
++
++		// Freeze the object in DEV
++		if (DEV) {
++			object_freeze(copy);
++		}
++
++		return /** @type {Readonly<T>} */ (copy);
++	}
++
++	return value;
++}
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index 855631b0f345..e42efdcd117c 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -91,6 +91,7 @@ export {
+ 	template_with_script,
+ 	text
+ } from './dom/template.js';
++export { freeze } from './freeze.js';
+ export { derived, derived_safe_equal } from './reactivity/deriveds.js';
+ export {
+ 	effect_tracking,
+@@ -136,7 +137,6 @@ export {
+ 	pop,
+ 	push,
+ 	unwrap,
+-	freeze,
+ 	deep_read,
+ 	deep_read_state,
+ 	getAllContexts,
+@@ -150,7 +150,7 @@ export {
+ 	validate_prop_bindings
+ } from './validate.js';
+ export { raf } from './timing.js';
+-export { proxy, snapshot, is } from './proxy.js';
++export { proxy, is } from './proxy.js';
+ export { create_custom_element } from './dom/elements/custom-element.js';
+ export {
+ 	child,
+@@ -159,6 +159,7 @@ export {
+ 	$window as window,
+ 	$document as document
+ } from './dom/operations.js';
++export { snapshot } from '../shared/clone.js';
+ export { noop } from '../shared/utils.js';
+ export {
+ 	validate_component,
+diff --git a/packages/svelte/src/internal/client/proxy.js b/packages/svelte/src/internal/client/proxy.js
+index f5900ba957c7..206c97fbc7e2 100644
+--- a/packages/svelte/src/internal/client/proxy.js
++++ b/packages/svelte/src/internal/client/proxy.js
+@@ -4,12 +4,11 @@ import {
+ 	array_prototype,
+ 	define_property,
+ 	get_descriptor,
+-	get_descriptors,
+ 	get_prototype_of,
+ 	is_array,
+ 	is_frozen,
+ 	object_prototype
+-} from './utils.js';
++} from '../shared/utils.js';
+ import { check_ownership, widen_ownership } from './dev/ownership.js';
+ import { source, set } from './reactivity/sources.js';
+ import { STATE_FROZEN_SYMBOL, STATE_SYMBOL } from './constants.js';
+@@ -94,63 +93,6 @@ export function proxy(value, parent = null, prev) {
+ 	return value;
+ }
+ 
+-/**
+- * @template {import('#client').ProxyStateObject} T
+- * @param {T} value
+- * @param {Map<T, Record<string | symbol, any>>} already_unwrapped
+- * @returns {Record<string | symbol, any>}
+- */
+-function unwrap(value, already_unwrapped) {
+-	if (typeof value === 'object' && value != null && STATE_SYMBOL in value) {
+-		const unwrapped = already_unwrapped.get(value);
+-		if (unwrapped !== undefined) {
+-			return unwrapped;
+-		}
+-
+-		if (is_array(value)) {
+-			/** @type {Record<string | symbol, any>} */
+-			const array = [];
+-			already_unwrapped.set(value, array);
+-			for (const element of value) {
+-				array.push(unwrap(element, already_unwrapped));
+-			}
+-			return array;
+-		} else {
+-			/** @type {Record<string | symbol, any>} */
+-			const obj = {};
+-			const keys = Reflect.ownKeys(value);
+-			const descriptors = get_descriptors(value);
+-			already_unwrapped.set(value, obj);
+-
+-			for (const key of keys) {
+-				if (key === STATE_SYMBOL) continue;
+-				if (descriptors[key].get) {
+-					define_property(obj, key, descriptors[key]);
+-				} else {
+-					/** @type {T} */
+-					const property = value[key];
+-					obj[key] = unwrap(property, already_unwrapped);
+-				}
+-			}
+-
+-			return obj;
+-		}
+-	}
+-
+-	return value;
+-}
+-
+-/**
+- * @template T
+- * @param {T} value
+- * @returns {T}
+- */
+-export function snapshot(value) {
+-	return /** @type {T} */ (
+-		unwrap(/** @type {import('#client').ProxyStateObject} */ (value), new Map())
+-	);
+-}
+-
+ /**
+  * @param {import('#client').Source<number>} signal
+  * @param {1 | -1} [d]
+diff --git a/packages/svelte/src/internal/client/reactivity/effects.js b/packages/svelte/src/internal/client/reactivity/effects.js
+index a642d4fbacc8..fa920af20796 100644
+--- a/packages/svelte/src/internal/client/reactivity/effects.js
++++ b/packages/svelte/src/internal/client/reactivity/effects.js
+@@ -37,7 +37,7 @@ import {
+ import { set } from './sources.js';
+ import * as e from '../errors.js';
+ import { DEV } from 'esm-env';
+-import { define_property } from '../utils.js';
++import { define_property } from '../../shared/utils.js';
+ 
+ /**
+  * @param {'$effect' | '$effect.pre' | '$inspect'} rune
+diff --git a/packages/svelte/src/internal/client/reactivity/props.js b/packages/svelte/src/internal/client/reactivity/props.js
+index 418d8ddd168c..220fd94d3164 100644
+--- a/packages/svelte/src/internal/client/reactivity/props.js
++++ b/packages/svelte/src/internal/client/reactivity/props.js
+@@ -6,7 +6,7 @@ import {
+ 	PROPS_IS_RUNES,
+ 	PROPS_IS_UPDATED
+ } from '../../../constants.js';
+-import { get_descriptor, is_function } from '../utils.js';
++import { get_descriptor, is_function } from '../../shared/utils.js';
+ import { mutable_source, set, source } from './sources.js';
+ import { derived, derived_safe_equal } from './deriveds.js';
+ import { get, is_signals_recorded, untrack, update } from '../runtime.js';
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index d546e2e0d8e6..73798d1b8a9c 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -15,7 +15,7 @@ import {
+ 	set_hydrate_node,
+ 	set_hydrating
+ } from './dom/hydration.js';
+-import { array_from } from './utils.js';
++import { array_from } from '../shared/utils.js';
+ import {
+ 	all_registered_events,
+ 	handle_event_propagation,
+@@ -26,7 +26,6 @@ import * as w from './warnings.js';
+ import * as e from './errors.js';
+ import { validate_component } from '../shared/validate.js';
+ import { assign_nodes } from './dom/template.js';
+-import { queue_micro_task } from './dom/task.js';
+ 
+ /**
+  * This is normally true — block effects should run their intro transitions —
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 370e5e3d6d65..78e0a7c8e085 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -1,12 +1,5 @@
+ import { DEV } from 'esm-env';
+-import {
+-	define_property,
+-	get_descriptors,
+-	get_prototype_of,
+-	is_frozen,
+-	object_freeze
+-} from './utils.js';
+-import { snapshot } from './proxy.js';
++import { define_property, get_descriptors, get_prototype_of } from '../shared/utils.js';
+ import {
+ 	destroy_effect,
+ 	effect,
+@@ -28,8 +21,7 @@ import {
+ 	BLOCK_EFFECT,
+ 	ROOT_EFFECT,
+ 	LEGACY_DERIVED_PROP,
+-	DISCONNECTED,
+-	STATE_FROZEN_SYMBOL
++	DISCONNECTED
+ } from './constants.js';
+ import { flush_tasks } from './dom/task.js';
+ import { add_owner } from './dev/ownership.js';
+@@ -1211,33 +1203,3 @@ if (DEV) {
+ 	throw_rune_error('$props');
+ 	throw_rune_error('$bindable');
+ }
+-
+-/**
+- * Expects a value that was wrapped with `freeze` and makes it frozen in DEV.
+- * @template T
+- * @param {T} value
+- * @returns {Readonly<T>}
+- */
+-export function freeze(value) {
+-	if (
+-		typeof value === 'object' &&
+-		value != null &&
+-		!is_frozen(value) &&
+-		!(STATE_FROZEN_SYMBOL in value)
+-	) {
+-		// If the object is already proxified, then snapshot the value
+-		if (STATE_SYMBOL in value) {
+-			value = snapshot(value);
+-		}
+-		define_property(value, STATE_FROZEN_SYMBOL, {
+-			value: true,
+-			writable: true,
+-			enumerable: false
+-		});
+-		// Freeze the object in DEV
+-		if (DEV) {
+-			object_freeze(value);
+-		}
+-	}
+-	return value;
+-}
+diff --git a/packages/svelte/src/internal/client/utils.js b/packages/svelte/src/internal/client/utils.js
+deleted file mode 100644
+index 6b7cba30b825..000000000000
+--- a/packages/svelte/src/internal/client/utils.js
++++ /dev/null
+@@ -1,22 +0,0 @@
+-// Store the references to globals in case someone tries to monkey patch these, causing the below
+-// to de-opt (this occurs often when using popular extensions).
+-export var is_array = Array.isArray;
+-export var array_from = Array.from;
+-export var object_keys = Object.keys;
+-export var object_assign = Object.assign;
+-export var is_frozen = Object.isFrozen;
+-export var object_freeze = Object.freeze;
+-export var define_property = Object.defineProperty;
+-export var get_descriptor = Object.getOwnPropertyDescriptor;
+-export var get_descriptors = Object.getOwnPropertyDescriptors;
+-export var object_prototype = Object.prototype;
+-export var array_prototype = Array.prototype;
+-export var get_prototype_of = Object.getPrototypeOf;
+-
+-/**
+- * @param {any} thing
+- * @returns {thing is Function}
+- */
+-export function is_function(thing) {
+-	return typeof thing === 'function';
+-}
+diff --git a/packages/svelte/src/internal/client/validate.js b/packages/svelte/src/internal/client/validate.js
+index 240ed99461aa..036936f9a832 100644
+--- a/packages/svelte/src/internal/client/validate.js
++++ b/packages/svelte/src/internal/client/validate.js
+@@ -1,5 +1,5 @@
+ import { untrack } from './runtime.js';
+-import { get_descriptor, is_array } from './utils.js';
++import { get_descriptor, is_array } from '../shared/utils.js';
+ import * as e from './errors.js';
+ 
+ /** regex of all html void element names */
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 841794e54496..2cb741ad95ec 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -551,6 +551,8 @@ export { push, pop } from './context.js';
+ 
+ export { push_element, pop_element } from './dev.js';
+ 
++export { snapshot } from '../shared/clone.js';
++
+ export {
+ 	add_snippet_symbol,
+ 	validate_component,
+diff --git a/packages/svelte/src/internal/shared/clone.js b/packages/svelte/src/internal/shared/clone.js
+new file mode 100644
+index 000000000000..715ec3d855b7
+--- /dev/null
++++ b/packages/svelte/src/internal/shared/clone.js
+@@ -0,0 +1,54 @@
++/** @import { Snapshot } from './types' */
++import { get_prototype_of, is_array, object_prototype } from './utils.js';
++
++/**
++ * @template T
++ * @param {T} value
++ * @returns {Snapshot<T>}
++ */
++export function snapshot(value) {
++	return clone(value, new Map());
++}
++
++/**
++ * @template T
++ * @param {T} value
++ * @param {Map<T, Snapshot<T>>} cloned
++ * @returns {Snapshot<T>}
++ */
++function clone(value, cloned) {
++	if (typeof value === 'object' && value !== null) {
++		const unwrapped = cloned.get(value);
++		if (unwrapped !== undefined) return unwrapped;
++
++		if (is_array(value)) {
++			const copy = /** @type {Snapshot<any>} */ ([]);
++			cloned.set(value, copy);
++
++			for (const element of value) {
++				copy.push(clone(element, cloned));
++			}
++
++			return copy;
++		}
++
++		if (get_prototype_of(value) === object_prototype) {
++			/** @type {Snapshot<any>} */
++			const copy = {};
++			cloned.set(value, copy);
++
++			for (var key in value) {
++				// @ts-expect-error
++				copy[key] = clone(value[key], cloned);
++			}
++
++			return copy;
++		}
++
++		if (typeof (/** @type {T & { toJSON?: any } } */ (value).toJSON) === 'function') {
++			return clone(/** @type {T & { toJSON(): any } } */ (value).toJSON(), cloned);
++		}
++	}
++
++	return /** @type {Snapshot<T>} */ (structuredClone(value));
++}
+diff --git a/packages/svelte/src/internal/shared/types.d.ts b/packages/svelte/src/internal/shared/types.d.ts
+index 426d928ce3e2..76340531e914 100644
+--- a/packages/svelte/src/internal/shared/types.d.ts
++++ b/packages/svelte/src/internal/shared/types.d.ts
+@@ -6,3 +6,5 @@ export type Store<V> = {
+ export type SourceLocation =
+ 	| [line: number, column: number]
+ 	| [line: number, column: number, SourceLocation[]];
++
++export type Snapshot<T> = ReturnType<typeof $state.snapshot<T>>;
+diff --git a/packages/svelte/src/internal/shared/utils.js b/packages/svelte/src/internal/shared/utils.js
+index f39f7118fef6..5285b2c2e18d 100644
+--- a/packages/svelte/src/internal/shared/utils.js
++++ b/packages/svelte/src/internal/shared/utils.js
+@@ -1,3 +1,26 @@
++// Store the references to globals in case someone tries to monkey patch these, causing the below
++// to de-opt (this occurs often when using popular extensions).
++export var is_array = Array.isArray;
++export var array_from = Array.from;
++export var object_keys = Object.keys;
++export var object_assign = Object.assign;
++export var is_frozen = Object.isFrozen;
++export var object_freeze = Object.freeze;
++export var define_property = Object.defineProperty;
++export var get_descriptor = Object.getOwnPropertyDescriptor;
++export var get_descriptors = Object.getOwnPropertyDescriptors;
++export var object_prototype = Object.prototype;
++export var array_prototype = Array.prototype;
++export var get_prototype_of = Object.getPrototypeOf;
++
++/**
++ * @param {any} thing
++ * @returns {thing is Function}
++ */
++export function is_function(thing) {
++	return typeof thing === 'function';
++}
++
+ export const noop = () => {};
+ 
+ // Adapted from https://github.com/then/is-promise/blob/master/index.js
+diff --git a/packages/svelte/src/legacy/legacy-client.js b/packages/svelte/src/legacy/legacy-client.js
+index 0f8c20895a04..45927edc7b81 100644
+--- a/packages/svelte/src/legacy/legacy-client.js
++++ b/packages/svelte/src/legacy/legacy-client.js
+@@ -3,7 +3,7 @@ import { mutable_source, set } from '../internal/client/reactivity/sources.js';
+ import { user_pre_effect } from '../internal/client/reactivity/effects.js';
+ import { hydrate, mount, unmount } from '../internal/client/render.js';
+ import { get } from '../internal/client/runtime.js';
+-import { define_property } from '../internal/client/utils.js';
++import { define_property } from '../internal/shared/utils.js';
+ 
+ /**
+  * Takes the same options as a Svelte 4 component and the component function and returns a Svelte 4 compatible component.
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 399107815348..e830474e5295 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -2733,6 +2733,75 @@ declare function $state<T>(initial: T): T;
+ declare function $state<T>(): T | undefined;
+ 
+ declare namespace $state {
++	type Primitive = string | number | boolean | null | undefined;
++
++	type TypedArray =
++		| Int8Array
++		| Uint8Array
++		| Uint8ClampedArray
++		| Int16Array
++		| Uint16Array
++		| Int32Array
++		| Uint32Array
++		| Float32Array
++		| Float64Array
++		| BigInt64Array
++		| BigUint64Array;
++
++	/** The things that `structuredClone` can handle — https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm */
++	export type Cloneable =
++		| ArrayBuffer
++		| DataView
++		| Date
++		| Error
++		| Map<any, any>
++		| RegExp
++		| Set<any>
++		| TypedArray
++		// web APIs
++		| Blob
++		| CryptoKey
++		| DOMException
++		| DOMMatrix
++		| DOMMatrixReadOnly
++		| DOMPoint
++		| DOMPointReadOnly
++		| DOMQuad
++		| DOMRect
++		| DOMRectReadOnly
++		| File
++		| FileList
++		| FileSystemDirectoryHandle
++		| FileSystemFileHandle
++		| FileSystemHandle
++		| ImageBitmap
++		| ImageData
++		| RTCCertificate
++		| VideoFrame;
++
++	/** Turn `SvelteDate`, `SvelteMap` and `SvelteSet` into their non-reactive counterparts. (`URL` is uncloneable.) */
++	type NonReactive<T> = T extends Date
++		? Date
++		: T extends Map<infer K, infer V>
++			? Map<K, V>
++			: T extends Set<infer K>
++				? Set<K>
++				: T;
++
++	type Snapshot<T> = T extends Primitive
++		? T
++		: T extends Cloneable
++			? NonReactive<T>
++			: T extends { toJSON(): infer R }
++				? R
++				: T extends Array<infer U>
++					? Array<Snapshot<U>>
++					: T extends object
++						? T extends { [key: string]: any }
++							? { [K in keyof T]: Snapshot<T[K]> }
++							: never
++						: never;
++
+ 	/**
+ 	 * Declares reactive read-only state that is shallowly immutable.
+ 	 *
+@@ -2776,7 +2845,7 @@ declare namespace $state {
+ 	 *
+ 	 * @param state The value to snapshot
+ 	 */
+-	export function snapshot<T>(state: T): T;
++	export function snapshot<T>(state: T): Snapshot<T>;
+ 
+ 	/**
+ 	 * Compare two values, one or both of which is a reactive `$state(...)` proxy.

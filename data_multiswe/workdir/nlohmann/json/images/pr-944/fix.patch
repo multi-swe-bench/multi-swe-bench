@@ -1,0 +1,989 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7e42702017..ca4f49a2d2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -24,7 +24,6 @@ option(JSON_MultipleHeaders "Use non-amalgamated version of the library." OFF)
+ set(NLOHMANN_JSON_TARGET_NAME               ${PROJECT_NAME})
+ set(NLOHMANN_JSON_CONFIG_INSTALL_DIR        "lib/cmake/${PROJECT_NAME}")
+ set(NLOHMANN_JSON_INCLUDE_INSTALL_DIR       "include")
+-set(NLOHMANN_JSON_HEADER_INSTALL_DIR        "${NLOHMANN_JSON_INCLUDE_INSTALL_DIR}/nlohmann")
+ set(NLOHMANN_JSON_TARGETS_EXPORT_NAME       "${PROJECT_NAME}Targets")
+ set(NLOHMANN_JSON_CMAKE_CONFIG_TEMPLATE     "cmake/config.cmake.in")
+ set(NLOHMANN_JSON_CMAKE_CONFIG_DIR          "${CMAKE_CURRENT_BINARY_DIR}/cmake_config")
+@@ -32,9 +31,9 @@ set(NLOHMANN_JSON_CMAKE_VERSION_CONFIG_FILE "${NLOHMANN_JSON_CMAKE_CONFIG_DIR}/$
+ set(NLOHMANN_JSON_CMAKE_PROJECT_CONFIG_FILE "${NLOHMANN_JSON_CMAKE_CONFIG_DIR}/${PROJECT_NAME}Config.cmake")
+ 
+ if (JSON_MultipleHeaders)
+-    set(NLOHMANN_JSON_SOURCE_DIR "develop/")
++    set(NLOHMANN_JSON_INCLUDE_BUILD_DIR "${PROJECT_SOURCE_DIR}/include/")
+ else()
+-    set(NLOHMANN_JSON_SOURCE_DIR "src/")
++    set(NLOHMANN_JSON_INCLUDE_BUILD_DIR "${PROJECT_SOURCE_DIR}/single_include/")
+ endif()
+ 
+ ##
+@@ -46,7 +45,7 @@ add_library(${NLOHMANN_JSON_TARGET_NAME} INTERFACE)
+ target_include_directories(
+     ${NLOHMANN_JSON_TARGET_NAME}
+     INTERFACE
+-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/${NLOHMANN_JSON_SOURCE_DIR}>
++    $<BUILD_INTERFACE:${NLOHMANN_JSON_INCLUDE_BUILD_DIR}>
+     $<INSTALL_INTERFACE:include>
+ )
+ 
+@@ -70,7 +69,6 @@ include(CTest) #adds option BUILD_TESTING (default ON)
+ 
+ if(BUILD_TESTING AND JSON_BuildTests)
+     enable_testing()
+-    include_directories(${NLOHMANN_JSON_SOURCE_DIR})
+     add_subdirectory(test)
+ endif()
+ 
+@@ -87,9 +85,10 @@ configure_package_config_file(
+     ${NLOHMANN_JSON_CMAKE_PROJECT_CONFIG_FILE}
+     INSTALL_DESTINATION ${NLOHMANN_JSON_CONFIG_INSTALL_DIR}
+ )
++
+ install(
+-    DIRECTORY ${NLOHMANN_JSON_SOURCE_DIR}
+-    DESTINATION ${NLOHMANN_JSON_HEADER_INSTALL_DIR}
++    DIRECTORY ${NLOHMANN_JSON_INCLUDE_BUILD_DIR}
++    DESTINATION ${NLOHMANN_JSON_INCLUDE_INSTALL_DIR}
+ )
+ install(
+     FILES ${NLOHMANN_JSON_CMAKE_PROJECT_CONFIG_FILE} ${NLOHMANN_JSON_CMAKE_VERSION_CONFIG_FILE}
+diff --git a/Makefile b/Makefile
+index 36844de837..fca2e0d328 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,37 +1,39 @@
+ .PHONY: pretty clean ChangeLog.md
+ 
+-SRCS = develop/json.hpp \
+-       develop/json_fwd.hpp \
+-       develop/adl_serializer.hpp \
+-       develop/detail/conversions/from_json.hpp \
+-       develop/detail/conversions/to_chars.hpp \
+-       develop/detail/conversions/to_json.hpp \
+-       develop/detail/exceptions.hpp \
+-       develop/detail/input/binary_reader.hpp \
+-       develop/detail/input/input_adapters.hpp \
+-       develop/detail/input/lexer.hpp \
+-       develop/detail/input/parser.hpp \
+-       develop/detail/iterators/internal_iterator.hpp \
+-       develop/detail/iterators/iter_impl.hpp \
+-       develop/detail/iterators/iteration_proxy.hpp \
+-       develop/detail/iterators/json_reverse_iterator.hpp \
+-       develop/detail/iterators/primitive_iterator.hpp \
+-       develop/detail/json_pointer.hpp \
+-       develop/detail/json_ref.hpp \
+-       develop/detail/macro_scope.hpp \
+-       develop/detail/macro_unscope.hpp \
+-       develop/detail/meta.hpp \
+-       develop/detail/output/binary_writer.hpp \
+-       develop/detail/output/output_adapters.hpp \
+-       develop/detail/output/serializer.hpp \
+-       develop/detail/value_t.hpp
++SRCS = include/nlohmann/json.hpp \
++       include/nlohmann/json_fwd.hpp \
++       include/nlohmann/adl_serializer.hpp \
++       include/nlohmann/detail/conversions/from_json.hpp \
++       include/nlohmann/detail/conversions/to_chars.hpp \
++       include/nlohmann/detail/conversions/to_json.hpp \
++       include/nlohmann/detail/exceptions.hpp \
++       include/nlohmann/detail/input/binary_reader.hpp \
++       include/nlohmann/detail/input/input_adapters.hpp \
++       include/nlohmann/detail/input/lexer.hpp \
++       include/nlohmann/detail/input/parser.hpp \
++       include/nlohmann/detail/iterators/internal_iterator.hpp \
++       include/nlohmann/detail/iterators/iter_impl.hpp \
++       include/nlohmann/detail/iterators/iteration_proxy.hpp \
++       include/nlohmann/detail/iterators/json_reverse_iterator.hpp \
++       include/nlohmann/detail/iterators/primitive_iterator.hpp \
++       include/nlohmann/detail/json_pointer.hpp \
++       include/nlohmann/detail/json_ref.hpp \
++       include/nlohmann/detail/macro_scope.hpp \
++       include/nlohmann/detail/macro_unscope.hpp \
++       include/nlohmann/detail/meta.hpp \
++       include/nlohmann/detail/output/binary_writer.hpp \
++       include/nlohmann/detail/output/output_adapters.hpp \
++       include/nlohmann/detail/output/serializer.hpp \
++       include/nlohmann/detail/value_t.hpp
+ 
+ UNAME = $(shell uname)
+ CXX=clang++
+ 
++AMALGAMATED_FILE=single_include/nlohmann/json.hpp
++
+ # main target
+ all:
+-	@echo "amalgamate - amalgamate file src/json.hpp from the develop sources"
++	@echo "amalgamate - amalgamate file single_include/nlohmann/json.hpp from the include/nlohmann sources"
+ 	@echo "ChangeLog.md - generate ChangeLog file"
+ 	@echo "check - compile and execute test suite"
+ 	@echo "check-amalgamation - check whether sources have been amalgamated"
+@@ -243,7 +245,7 @@ fuzzing-stop:
+ 
+ # call cppcheck on the main header file
+ cppcheck:
+-	cppcheck --enable=warning --inconclusive --force --std=c++11 src/json.hpp --error-exitcode=1
++	cppcheck --enable=warning --inconclusive --force --std=c++11 $(AMALGAMATED_FILE) --error-exitcode=1
+ 
+ 
+ ##########################################################################
+@@ -257,29 +259,29 @@ pretty:
+ 	   --indent-col1-comments --pad-oper --pad-header --align-pointer=type \
+ 	   --align-reference=type --add-brackets --convert-tabs --close-templates \
+ 	   --lineend=linux --preserve-date --suffix=none --formatted \
+-	   $(SRCS) src/json.hpp test/src/*.cpp \
++	   $(SRCS) $(AMALGAMATED_FILE) test/src/*.cpp \
+ 	   benchmarks/src/benchmarks.cpp doc/examples/*.cpp
+ 
+ # create single header file
+-amalgamate: src/json.hpp
++amalgamate: $(AMALGAMATED_FILE)
+ 
+-src/json.hpp: $(SRCS)
+-	third_party/amalgamate/amalgamate.py -c third_party/amalgamate/config.json -s develop --verbose=yes
++$(AMALGAMATED_FILE): $(SRCS)
++	third_party/amalgamate/amalgamate.py -c third_party/amalgamate/config.json -s . --verbose=yes
+ 	$(MAKE) pretty
+ 
+-# check if src/json.hpp has been amalgamated from the develop sources
++# check if single_include/nlohmann/json.hpp has been amalgamated from the nlohmann sources
+ check-amalgamation:
+-	@mv src/json.hpp src/json.hpp~
++	@mv $(AMALGAMATED_FILE) $(AMALGAMATED_FILE)~
+ 	@$(MAKE) amalgamate
+-	@diff src/json.hpp src/json.hpp~ || (echo "===================================================================\n  Amalgamation required! Please read the contribution guidelines\n  in file .github/CONTRIBUTING.md.\n===================================================================" ; mv src/json.hpp~ src/json.hpp ; false)
+-	@mv src/json.hpp~ src/json.hpp
++	@diff $(AMALGAMATED_FILE) $(AMALGAMATED_FILE)~ || (echo "===================================================================\n  Amalgamation required! Please read the contribution guidelines\n  in file .github/CONTRIBUTING.md.\n===================================================================" ; mv $(AMALGAMATED_FILE)~ $(AMALGAMATED_FILE) ; false)
++	@mv $(AMALGAMATED_FILE)~ $(AMALGAMATED_FILE)
+ 
+-# check if every header in develop includes sufficient headers to be compiled
++# check if every header in nlohmann includes sufficient headers to be compiled
+ # individually
+ check-single-includes:
+ 	for x in $(SRCS); do \
+-	  echo "#include \"$$x\"\nint main() {}\n" | sed 's|develop/||' > single_include_test.cpp; \
+-	  $(CXX) $(CXXFLAGS) -Idevelop -std=c++11 single_include_test.cpp -o single_include_test; \
++	  echo "#include <$$x>\nint main() {}\n" | sed 's|include/||' > single_include_test.cpp; \
++	  $(CXX) $(CXXFLAGS) -Iinclude -std=c++11 single_include_test.cpp -o single_include_test; \
+ 	  rm single_include_test.cpp single_include_test; \
+ 	done
+ 
+diff --git a/develop/adl_serializer.hpp b/include/nlohmann/adl_serializer.hpp
+similarity index 92%
+rename from develop/adl_serializer.hpp
+rename to include/nlohmann/adl_serializer.hpp
+index cae95637c7..53c9009f0b 100644
+--- a/develop/adl_serializer.hpp
++++ b/include/nlohmann/adl_serializer.hpp
+@@ -2,8 +2,8 @@
+ 
+ #include <utility>
+ 
+-#include "detail/conversions/from_json.hpp"
+-#include "detail/conversions/to_json.hpp"
++#include <nlohmann/detail/conversions/from_json.hpp>
++#include <nlohmann/detail/conversions/to_json.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/conversions/from_json.hpp b/include/nlohmann/detail/conversions/from_json.hpp
+similarity index 98%
+rename from develop/detail/conversions/from_json.hpp
+rename to include/nlohmann/detail/conversions/from_json.hpp
+index ba89e54003..8ea0284a15 100644
+--- a/develop/detail/conversions/from_json.hpp
++++ b/include/nlohmann/detail/conversions/from_json.hpp
+@@ -11,10 +11,10 @@
+ #include <utility> // pair, declval
+ #include <valarray> // valarray
+ 
+-#include "detail/exceptions.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/meta.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/meta.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/conversions/to_chars.hpp b/include/nlohmann/detail/conversions/to_chars.hpp
+similarity index 100%
+rename from develop/detail/conversions/to_chars.hpp
+rename to include/nlohmann/detail/conversions/to_chars.hpp
+diff --git a/develop/detail/conversions/to_json.hpp b/include/nlohmann/detail/conversions/to_json.hpp
+similarity index 99%
+rename from develop/detail/conversions/to_json.hpp
+rename to include/nlohmann/detail/conversions/to_json.hpp
+index 2df7b0b832..ce2bc0aad6 100644
+--- a/develop/detail/conversions/to_json.hpp
++++ b/include/nlohmann/detail/conversions/to_json.hpp
+@@ -8,8 +8,8 @@
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
+-#include "detail/meta.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/meta.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/exceptions.hpp b/include/nlohmann/detail/exceptions.hpp
+similarity index 100%
+rename from develop/detail/exceptions.hpp
+rename to include/nlohmann/detail/exceptions.hpp
+diff --git a/develop/detail/input/binary_reader.hpp b/include/nlohmann/detail/input/binary_reader.hpp
+similarity index 99%
+rename from develop/detail/input/binary_reader.hpp
+rename to include/nlohmann/detail/input/binary_reader.hpp
+index ce48fd93b8..057429cf7c 100644
+--- a/develop/detail/input/binary_reader.hpp
++++ b/include/nlohmann/detail/input/binary_reader.hpp
+@@ -15,10 +15,10 @@
+ #include <string> // char_traits, string
+ #include <utility> // make_pair, move
+ 
+-#include "detail/input/input_adapters.hpp"
+-#include "detail/exceptions.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/input/input_adapters.hpp>
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/input/input_adapters.hpp b/include/nlohmann/detail/input/input_adapters.hpp
+similarity index 99%
+rename from develop/detail/input/input_adapters.hpp
+rename to include/nlohmann/detail/input/input_adapters.hpp
+index abbf5d29b3..ef66948d1c 100644
+--- a/develop/detail/input/input_adapters.hpp
++++ b/include/nlohmann/detail/input/input_adapters.hpp
+@@ -14,7 +14,7 @@
+ #include <type_traits> // enable_if, is_base_of, is_pointer, is_integral, remove_pointer
+ #include <utility> // pair, declval
+ 
+-#include "detail/macro_scope.hpp"
++#include <nlohmann/detail/macro_scope.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/input/lexer.hpp b/include/nlohmann/detail/input/lexer.hpp
+similarity index 99%
+rename from develop/detail/input/lexer.hpp
+rename to include/nlohmann/detail/input/lexer.hpp
+index 2b99c137cb..75001652fd 100644
+--- a/develop/detail/input/lexer.hpp
++++ b/include/nlohmann/detail/input/lexer.hpp
+@@ -10,8 +10,8 @@
+ #include <string> // char_traits, string
+ #include <vector> // vector
+ 
+-#include "detail/macro_scope.hpp"
+-#include "detail/input/input_adapters.hpp"
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/input/input_adapters.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/input/parser.hpp b/include/nlohmann/detail/input/parser.hpp
+similarity index 98%
+rename from develop/detail/input/parser.hpp
+rename to include/nlohmann/detail/input/parser.hpp
+index 799ea920f0..63e8541ffa 100644
+--- a/develop/detail/input/parser.hpp
++++ b/include/nlohmann/detail/input/parser.hpp
+@@ -7,11 +7,11 @@
+ #include <string> // string
+ #include <utility> // move
+ 
+-#include "detail/exceptions.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/input/input_adapters.hpp"
+-#include "detail/input/lexer.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/input/input_adapters.hpp>
++#include <nlohmann/detail/input/lexer.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/iterators/internal_iterator.hpp b/include/nlohmann/detail/iterators/internal_iterator.hpp
+similarity index 91%
+rename from develop/detail/iterators/internal_iterator.hpp
+rename to include/nlohmann/detail/iterators/internal_iterator.hpp
+index b65b33d32e..d9b8fb2947 100644
+--- a/develop/detail/iterators/internal_iterator.hpp
++++ b/include/nlohmann/detail/iterators/internal_iterator.hpp
+@@ -1,6 +1,6 @@
+ #pragma once
+ 
+-#include "detail/iterators/primitive_iterator.hpp"
++#include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/iterators/iter_impl.hpp b/include/nlohmann/detail/iterators/iter_impl.hpp
+similarity index 98%
+rename from develop/detail/iterators/iter_impl.hpp
+rename to include/nlohmann/detail/iterators/iter_impl.hpp
+index 2934389bce..52ede17be1 100644
+--- a/develop/detail/iterators/iter_impl.hpp
++++ b/include/nlohmann/detail/iterators/iter_impl.hpp
+@@ -4,12 +4,12 @@
+ #include <iterator> // iterator, random_access_iterator_tag, bidirectional_iterator_tag, advance, next
+ #include <type_traits> // conditional, is_const, remove_const
+ 
+-#include "detail/exceptions.hpp"
+-#include "detail/iterators/internal_iterator.hpp"
+-#include "detail/iterators/primitive_iterator.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/meta.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/iterators/internal_iterator.hpp>
++#include <nlohmann/detail/iterators/primitive_iterator.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/meta.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/iterators/iteration_proxy.hpp b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+similarity index 98%
+rename from develop/detail/iterators/iteration_proxy.hpp
+rename to include/nlohmann/detail/iterators/iteration_proxy.hpp
+index 1a69954211..7547d038a5 100644
+--- a/develop/detail/iterators/iteration_proxy.hpp
++++ b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+@@ -3,7 +3,7 @@
+ #include <cstddef> // size_t
+ #include <string> // string, to_string
+ 
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/iterators/json_reverse_iterator.hpp b/include/nlohmann/detail/iterators/json_reverse_iterator.hpp
+similarity index 100%
+rename from develop/detail/iterators/json_reverse_iterator.hpp
+rename to include/nlohmann/detail/iterators/json_reverse_iterator.hpp
+diff --git a/develop/detail/iterators/primitive_iterator.hpp b/include/nlohmann/detail/iterators/primitive_iterator.hpp
+similarity index 100%
+rename from develop/detail/iterators/primitive_iterator.hpp
+rename to include/nlohmann/detail/iterators/primitive_iterator.hpp
+diff --git a/develop/detail/json_pointer.hpp b/include/nlohmann/detail/json_pointer.hpp
+similarity index 99%
+rename from develop/detail/json_pointer.hpp
+rename to include/nlohmann/detail/json_pointer.hpp
+index 9cbbfb36cb..fce8001a52 100644
+--- a/develop/detail/json_pointer.hpp
++++ b/include/nlohmann/detail/json_pointer.hpp
+@@ -5,9 +5,9 @@
+ #include <string> // string
+ #include <vector> // vector
+ 
+-#include "detail/macro_scope.hpp"
+-#include "detail/exceptions.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/json_ref.hpp b/include/nlohmann/detail/json_ref.hpp
+similarity index 100%
+rename from develop/detail/json_ref.hpp
+rename to include/nlohmann/detail/json_ref.hpp
+diff --git a/develop/detail/macro_scope.hpp b/include/nlohmann/detail/macro_scope.hpp
+similarity index 100%
+rename from develop/detail/macro_scope.hpp
+rename to include/nlohmann/detail/macro_scope.hpp
+diff --git a/develop/detail/macro_unscope.hpp b/include/nlohmann/detail/macro_unscope.hpp
+similarity index 100%
+rename from develop/detail/macro_unscope.hpp
+rename to include/nlohmann/detail/macro_unscope.hpp
+diff --git a/develop/detail/meta.hpp b/include/nlohmann/detail/meta.hpp
+similarity index 99%
+rename from develop/detail/meta.hpp
+rename to include/nlohmann/detail/meta.hpp
+index 585b8d4493..49f1069f4f 100644
+--- a/develop/detail/meta.hpp
++++ b/include/nlohmann/detail/meta.hpp
+@@ -6,8 +6,8 @@
+ #include <type_traits> // conditional, enable_if, false_type, integral_constant, is_constructible, is_integral, is_same, remove_cv, remove_reference, true_type
+ #include <utility> // declval
+ 
+-#include "json_fwd.hpp"
+-#include "detail/macro_scope.hpp"
++#include <nlohmann/json_fwd.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/output/binary_writer.hpp b/include/nlohmann/detail/output/binary_writer.hpp
+similarity index 99%
+rename from develop/detail/output/binary_writer.hpp
+rename to include/nlohmann/detail/output/binary_writer.hpp
+index fdf9a21616..10183262c2 100644
+--- a/develop/detail/output/binary_writer.hpp
++++ b/include/nlohmann/detail/output/binary_writer.hpp
+@@ -6,8 +6,8 @@
+ #include <cstring> // memcpy
+ #include <limits> // numeric_limits
+ 
+-#include "detail/input/binary_reader.hpp"
+-#include "detail/output/output_adapters.hpp"
++#include <nlohmann/detail/input/binary_reader.hpp>
++#include <nlohmann/detail/output/output_adapters.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/output/output_adapters.hpp b/include/nlohmann/detail/output/output_adapters.hpp
+similarity index 100%
+rename from develop/detail/output/output_adapters.hpp
+rename to include/nlohmann/detail/output/output_adapters.hpp
+diff --git a/develop/detail/output/serializer.hpp b/include/nlohmann/detail/output/serializer.hpp
+similarity index 98%
+rename from develop/detail/output/serializer.hpp
+rename to include/nlohmann/detail/output/serializer.hpp
+index 5ad4796cee..a644264449 100644
+--- a/develop/detail/output/serializer.hpp
++++ b/include/nlohmann/detail/output/serializer.hpp
+@@ -16,12 +16,12 @@
+ #include <sstream> // stringstream
+ #include <type_traits> // is_same
+ 
+-#include "detail/exceptions.hpp"
+-#include "detail/conversions/to_chars.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/meta.hpp"
+-#include "detail/output/output_adapters.hpp"
+-#include "detail/value_t.hpp"
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/conversions/to_chars.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/meta.hpp>
++#include <nlohmann/detail/output/output_adapters.hpp>
++#include <nlohmann/detail/value_t.hpp>
+ 
+ namespace nlohmann
+ {
+diff --git a/develop/detail/value_t.hpp b/include/nlohmann/detail/value_t.hpp
+similarity index 100%
+rename from develop/detail/value_t.hpp
+rename to include/nlohmann/detail/value_t.hpp
+diff --git a/develop/json.hpp b/include/nlohmann/json.hpp
+similarity index 99%
+rename from develop/json.hpp
+rename to include/nlohmann/json.hpp
+index e1e6d3fd37..0ab7d007c0 100644
+--- a/develop/json.hpp
++++ b/include/nlohmann/json.hpp
+@@ -45,28 +45,28 @@ SOFTWARE.
+ #include <string> // string, stoi, to_string
+ #include <utility> // declval, forward, move, pair, swap
+ 
+-#include "json_fwd.hpp"
+-#include "detail/macro_scope.hpp"
+-#include "detail/meta.hpp"
+-#include "detail/exceptions.hpp"
+-#include "detail/value_t.hpp"
+-#include "detail/conversions/from_json.hpp"
+-#include "detail/conversions/to_json.hpp"
+-#include "detail/input/input_adapters.hpp"
+-#include "detail/input/lexer.hpp"
+-#include "detail/input/parser.hpp"
+-#include "detail/iterators/primitive_iterator.hpp"
+-#include "detail/iterators/internal_iterator.hpp"
+-#include "detail/iterators/iter_impl.hpp"
+-#include "detail/iterators/iteration_proxy.hpp"
+-#include "detail/iterators/json_reverse_iterator.hpp"
+-#include "detail/output/output_adapters.hpp"
+-#include "detail/input/binary_reader.hpp"
+-#include "detail/output/binary_writer.hpp"
+-#include "detail/output/serializer.hpp"
+-#include "detail/json_ref.hpp"
+-#include "detail/json_pointer.hpp"
+-#include "adl_serializer.hpp"
++#include <nlohmann/json_fwd.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/meta.hpp>
++#include <nlohmann/detail/exceptions.hpp>
++#include <nlohmann/detail/value_t.hpp>
++#include <nlohmann/detail/conversions/from_json.hpp>
++#include <nlohmann/detail/conversions/to_json.hpp>
++#include <nlohmann/detail/input/input_adapters.hpp>
++#include <nlohmann/detail/input/lexer.hpp>
++#include <nlohmann/detail/input/parser.hpp>
++#include <nlohmann/detail/iterators/primitive_iterator.hpp>
++#include <nlohmann/detail/iterators/internal_iterator.hpp>
++#include <nlohmann/detail/iterators/iter_impl.hpp>
++#include <nlohmann/detail/iterators/iteration_proxy.hpp>
++#include <nlohmann/detail/iterators/json_reverse_iterator.hpp>
++#include <nlohmann/detail/output/output_adapters.hpp>
++#include <nlohmann/detail/input/binary_reader.hpp>
++#include <nlohmann/detail/output/binary_writer.hpp>
++#include <nlohmann/detail/output/serializer.hpp>
++#include <nlohmann/detail/json_ref.hpp>
++#include <nlohmann/detail/json_pointer.hpp>
++#include <nlohmann/adl_serializer.hpp>
+ 
+ /*!
+ @brief namespace for Niels Lohmann
+@@ -7564,6 +7564,6 @@ inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std
+     return nlohmann::json::json_pointer(std::string(s, n));
+ }
+ 
+-#include "detail/macro_unscope.hpp"
++#include <nlohmann/detail/macro_unscope.hpp>
+ 
+ #endif
+diff --git a/develop/json_fwd.hpp b/include/nlohmann/json_fwd.hpp
+similarity index 100%
+rename from develop/json_fwd.hpp
+rename to include/nlohmann/json_fwd.hpp
+diff --git a/src/json.hpp b/single_include/nlohmann/json.hpp
+similarity index 99%
+rename from src/json.hpp
+rename to single_include/nlohmann/json.hpp
+index 7dbce3b812..6c19d1e4bb 100644
+--- a/src/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -45,7 +45,7 @@ SOFTWARE.
+ #include <string> // string, stoi, to_string
+ #include <utility> // declval, forward, move, pair, swap
+ 
+-// #include "json_fwd.hpp"
++// #include <nlohmann/json_fwd.hpp>
+ #ifndef NLOHMANN_JSON_FWD_HPP
+ #define NLOHMANN_JSON_FWD_HPP
+ 
+@@ -111,7 +111,7 @@ using json = basic_json<>;
+ 
+ #endif
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+ // This file contains all internal macro definitions
+@@ -228,7 +228,7 @@ contains a `mapped_type`, whereas `std::vector` fails the test.
+                 std::is_integral<decltype(detect(std::declval<T>()))>::value; \
+     }
+ 
+-// #include "detail/meta.hpp"
++// #include <nlohmann/detail/meta.hpp>
+ 
+ 
+ #include <ciso646> // not
+@@ -237,9 +237,9 @@ contains a `mapped_type`, whereas `std::vector` fails the test.
+ #include <type_traits> // conditional, enable_if, false_type, integral_constant, is_constructible, is_integral, is_same, remove_cv, remove_reference, true_type
+ #include <utility> // declval
+ 
+-// #include "json_fwd.hpp"
++// #include <nlohmann/json_fwd.hpp>
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -490,7 +490,7 @@ constexpr T static_const<T>::value;
+ }
+ }
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+ 
+ #include <exception> // exception
+@@ -821,7 +821,7 @@ class other_error : public exception
+ }
+ }
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ #include <array> // array
+@@ -899,7 +899,7 @@ inline bool operator<(const value_t lhs, const value_t rhs) noexcept
+ }
+ }
+ 
+-// #include "detail/conversions/from_json.hpp"
++// #include <nlohmann/detail/conversions/from_json.hpp>
+ 
+ 
+ #include <algorithm> // transform
+@@ -913,13 +913,13 @@ inline bool operator<(const value_t lhs, const value_t rhs) noexcept
+ #include <utility> // pair, declval
+ #include <valarray> // valarray
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/meta.hpp"
++// #include <nlohmann/detail/meta.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -1220,7 +1220,7 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
+ }
+ }
+ 
+-// #include "detail/conversions/to_json.hpp"
++// #include <nlohmann/detail/conversions/to_json.hpp>
+ 
+ 
+ #include <ciso646> // or, and, not
+@@ -1231,9 +1231,9 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
+-// #include "detail/meta.hpp"
++// #include <nlohmann/detail/meta.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -1562,7 +1562,7 @@ constexpr const auto& to_json = detail::static_const<detail::to_json_fn>::value;
+ }
+ }
+ 
+-// #include "detail/input/input_adapters.hpp"
++// #include <nlohmann/detail/input/input_adapters.hpp>
+ 
+ 
+ #include <algorithm> // min
+@@ -1579,7 +1579,7 @@ constexpr const auto& to_json = detail::static_const<detail::to_json_fn>::value;
+ #include <type_traits> // enable_if, is_base_of, is_pointer, is_integral, remove_pointer
+ #include <utility> // pair, declval
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -1827,7 +1827,7 @@ class input_adapter
+ }
+ }
+ 
+-// #include "detail/input/lexer.hpp"
++// #include <nlohmann/detail/input/lexer.hpp>
+ 
+ 
+ #include <clocale> // localeconv
+@@ -1840,9 +1840,9 @@ class input_adapter
+ #include <string> // char_traits, string
+ #include <vector> // vector
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/input/input_adapters.hpp"
++// #include <nlohmann/detail/input/input_adapters.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -3108,7 +3108,7 @@ class lexer
+ }
+ }
+ 
+-// #include "detail/input/parser.hpp"
++// #include <nlohmann/detail/input/parser.hpp>
+ 
+ 
+ #include <cassert> // assert
+@@ -3118,15 +3118,15 @@ class lexer
+ #include <string> // string
+ #include <utility> // move
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/input/input_adapters.hpp"
++// #include <nlohmann/detail/input/input_adapters.hpp>
+ 
+-// #include "detail/input/lexer.hpp"
++// #include <nlohmann/detail/input/lexer.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -3704,7 +3704,7 @@ class parser
+ }
+ }
+ 
+-// #include "detail/iterators/primitive_iterator.hpp"
++// #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+ 
+ #include <cstddef> // ptrdiff_t
+@@ -3826,10 +3826,10 @@ class primitive_iterator_t
+ }
+ }
+ 
+-// #include "detail/iterators/internal_iterator.hpp"
++// #include <nlohmann/detail/iterators/internal_iterator.hpp>
+ 
+ 
+-// #include "detail/iterators/primitive_iterator.hpp"
++// #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -3854,24 +3854,24 @@ template<typename BasicJsonType> struct internal_iterator
+ }
+ }
+ 
+-// #include "detail/iterators/iter_impl.hpp"
++// #include <nlohmann/detail/iterators/iter_impl.hpp>
+ 
+ 
+ #include <ciso646> // not
+ #include <iterator> // iterator, random_access_iterator_tag, bidirectional_iterator_tag, advance, next
+ #include <type_traits> // conditional, is_const, remove_const
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/iterators/internal_iterator.hpp"
++// #include <nlohmann/detail/iterators/internal_iterator.hpp>
+ 
+-// #include "detail/iterators/primitive_iterator.hpp"
++// #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/meta.hpp"
++// #include <nlohmann/detail/meta.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -4476,13 +4476,13 @@ class iter_impl
+ }
+ }
+ 
+-// #include "detail/iterators/iteration_proxy.hpp"
++// #include <nlohmann/detail/iterators/iteration_proxy.hpp>
+ 
+ 
+ #include <cstddef> // size_t
+ #include <string> // string, to_string
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -4577,7 +4577,7 @@ template<typename IteratorType> class iteration_proxy
+ }
+ }
+ 
+-// #include "detail/iterators/json_reverse_iterator.hpp"
++// #include <nlohmann/detail/iterators/json_reverse_iterator.hpp>
+ 
+ 
+ #include <cstddef> // ptrdiff_t
+@@ -4698,7 +4698,7 @@ class json_reverse_iterator : public std::reverse_iterator<Base>
+ }
+ }
+ 
+-// #include "detail/output/output_adapters.hpp"
++// #include <nlohmann/detail/output/output_adapters.hpp>
+ 
+ 
+ #include <algorithm> // copy
+@@ -4813,7 +4813,7 @@ class output_adapter
+ }
+ }
+ 
+-// #include "detail/input/binary_reader.hpp"
++// #include <nlohmann/detail/input/binary_reader.hpp>
+ 
+ 
+ #include <algorithm> // generate_n
+@@ -4831,13 +4831,13 @@ class output_adapter
+ #include <string> // char_traits, string
+ #include <utility> // make_pair, move
+ 
+-// #include "detail/input/input_adapters.hpp"
++// #include <nlohmann/detail/input/input_adapters.hpp>
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -6180,7 +6180,7 @@ class binary_reader
+ }
+ }
+ 
+-// #include "detail/output/binary_writer.hpp"
++// #include <nlohmann/detail/output/binary_writer.hpp>
+ 
+ 
+ #include <algorithm> // reverse
+@@ -6189,9 +6189,9 @@ class binary_reader
+ #include <cstring> // memcpy
+ #include <limits> // numeric_limits
+ 
+-// #include "detail/input/binary_reader.hpp"
++// #include <nlohmann/detail/input/binary_reader.hpp>
+ 
+-// #include "detail/output/output_adapters.hpp"
++// #include <nlohmann/detail/output/output_adapters.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -7093,7 +7093,7 @@ class binary_writer
+ }
+ }
+ 
+-// #include "detail/output/serializer.hpp"
++// #include <nlohmann/detail/output/serializer.hpp>
+ 
+ 
+ #include <algorithm> // reverse, remove, fill, find, none_of
+@@ -7112,9 +7112,9 @@ class binary_writer
+ #include <sstream> // stringstream
+ #include <type_traits> // is_same
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/conversions/to_chars.hpp"
++// #include <nlohmann/detail/conversions/to_chars.hpp>
+ 
+ 
+ #include <cassert> // assert
+@@ -8211,13 +8211,13 @@ char* to_chars(char* first, char* last, FloatType value)
+ } // namespace detail
+ } // namespace nlohmann
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/meta.hpp"
++// #include <nlohmann/detail/meta.hpp>
+ 
+-// #include "detail/output/output_adapters.hpp"
++// #include <nlohmann/detail/output/output_adapters.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -8830,7 +8830,7 @@ class serializer
+ }
+ }
+ 
+-// #include "detail/json_ref.hpp"
++// #include <nlohmann/detail/json_ref.hpp>
+ 
+ 
+ #include <initializer_list>
+@@ -8895,7 +8895,7 @@ class json_ref
+ }
+ }
+ 
+-// #include "detail/json_pointer.hpp"
++// #include <nlohmann/detail/json_pointer.hpp>
+ 
+ 
+ #include <cassert> // assert
+@@ -8903,11 +8903,11 @@ class json_ref
+ #include <string> // string
+ #include <vector> // vector
+ 
+-// #include "detail/macro_scope.hpp"
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+-// #include "detail/exceptions.hpp"
++// #include <nlohmann/detail/exceptions.hpp>
+ 
+-// #include "detail/value_t.hpp"
++// #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -9596,14 +9596,14 @@ class json_pointer
+ };
+ }
+ 
+-// #include "adl_serializer.hpp"
++// #include <nlohmann/adl_serializer.hpp>
+ 
+ 
+ #include <utility>
+ 
+-// #include "detail/conversions/from_json.hpp"
++// #include <nlohmann/detail/conversions/from_json.hpp>
+ 
+-// #include "detail/conversions/to_json.hpp"
++// #include <nlohmann/detail/conversions/to_json.hpp>
+ 
+ 
+ namespace nlohmann
+@@ -17142,7 +17142,7 @@ inline nlohmann::json::json_pointer operator "" _json_pointer(const char* s, std
+     return nlohmann::json::json_pointer(std::string(s, n));
+ }
+ 
+-// #include "detail/macro_unscope.hpp"
++// #include <nlohmann/detail/macro_unscope.hpp>
+ 
+ 
+ // restore GCC/clang diagnostic settings
+diff --git a/third_party/amalgamate/config.json b/third_party/amalgamate/config.json
+index ce937e65de..32fc21cf47 100644
+--- a/third_party/amalgamate/config.json
++++ b/third_party/amalgamate/config.json
+@@ -1,8 +1,8 @@
+ {
+ 	"project": "JSON for Modern C++",
+-	"target": "src/json.hpp",
++	"target": "single_include/nlohmann/json.hpp",
+ 	"sources": [
+-		"json.hpp"
++		"include/nlohmann/json.hpp"
+ 	],
+-	"include_paths": ["."]
++	"include_paths": ["include"]
+ }

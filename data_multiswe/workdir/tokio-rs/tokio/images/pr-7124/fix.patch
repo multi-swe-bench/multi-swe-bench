@@ -1,0 +1,230 @@
+diff --git a/.cirrus.yml b/.cirrus.yml
+index a7ce0d9d456..6a4e7b8e5af 100644
+--- a/.cirrus.yml
++++ b/.cirrus.yml
+@@ -4,7 +4,7 @@ freebsd_instance:
+   image_family: freebsd-14-1
+ env:
+   RUST_STABLE: stable
+-  RUST_NIGHTLY: nightly-2024-05-05
++  RUST_NIGHTLY: nightly-2025-01-25
+   RUSTFLAGS: -D warnings
+ 
+ # Test FreeBSD in a full VM on cirrus-ci.com.  Test the i686 target too, in the
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index a867a6e105f..f7e9102d7ec 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -16,9 +16,9 @@ env:
+   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
+   # Change to specific Rust release to pin
+   rust_stable: stable
+-  rust_nightly: nightly-2024-05-05
++  rust_nightly: nightly-2025-01-25
+   # Pin a specific miri version
+-  rust_miri_nightly: nightly-2024-10-21
++  rust_miri_nightly: nightly-2025-01-25
+   rust_clippy: '1.77'
+   # When updating this, also update:
+   # - README.md
+@@ -1086,23 +1086,6 @@ jobs:
+         run: cargo check-external-types --all-features
+         working-directory: tokio
+ 
+-  check-unexpected-lints-cfgs:
+-    name: check unexpected lints and cfgs
+-    needs: basics
+-    runs-on: ubuntu-latest
+-    steps:
+-      - uses: actions/checkout@v4
+-      - name: Install Rust ${{ env.rust_nightly }}
+-        uses: dtolnay/rust-toolchain@master
+-        with:
+-          toolchain: ${{ env.rust_nightly }}
+-      - name: don't allow warnings
+-        run: sed -i '/#!\[allow(unknown_lints, unexpected_cfgs)\]/d' */src/lib.rs */tests/*.rs
+-      - name: check for unknown lints and cfgs
+-        run: cargo check --all-features --tests
+-        env:
+-          RUSTFLAGS: -Dwarnings --check-cfg=cfg(loom,tokio_unstable,tokio_taskdump,fuzzing,mio_unsupported_force_poll_poll,tokio_internal_mt_counters,fs,tokio_no_parking_lot,tokio_no_tuning_tests) -Funexpected_cfgs -Funknown_lints
+-
+   check-fuzzing:
+     name: check-fuzzing
+     needs: basics
+diff --git a/Cargo.toml b/Cargo.toml
+index 2238deac71c..c215946f421 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -17,3 +17,15 @@ members = [
+ 
+ [workspace.metadata.spellcheck]
+ config = "spellcheck.toml"
++
++[workspace.lints.rust]
++unexpected_cfgs = { level = "warn", check-cfg = [
++  'cfg(fuzzing)',
++  'cfg(loom)',
++  'cfg(mio_unsupported_force_poll_poll)',
++  'cfg(tokio_internal_mt_counters)',
++  'cfg(tokio_no_parking_lot)',
++  'cfg(tokio_no_tuning_tests)',
++  'cfg(tokio_taskdump)',
++  'cfg(tokio_unstable)',
++] }
+diff --git a/benches/Cargo.toml b/benches/Cargo.toml
+index 44156fcbfb5..de39565b398 100644
+--- a/benches/Cargo.toml
++++ b/benches/Cargo.toml
+@@ -95,3 +95,6 @@ harness = false
+ name = "time_timeout"
+ path = "time_timeout.rs"
+ harness = false
++
++[lints]
++workspace = true
+diff --git a/examples/Cargo.toml b/examples/Cargo.toml
+index 54f2ecb8a4f..84112c08dab 100644
+--- a/examples/Cargo.toml
++++ b/examples/Cargo.toml
+@@ -95,3 +95,6 @@ path = "named-pipe-multi-client.rs"
+ [[example]]
+ name = "dump"
+ path = "dump.rs"
++
++[lints]
++workspace = true
+diff --git a/examples/dump.rs b/examples/dump.rs
+index 6f744713f7c..c7ece458ff8 100644
+--- a/examples/dump.rs
++++ b/examples/dump.rs
+@@ -1,5 +1,3 @@
+-#![allow(unknown_lints, unexpected_cfgs)]
+-
+ //! This example demonstrates tokio's experimental task dumping functionality.
+ //! This application deadlocks. Input CTRL+C to display traces of each task, or
+ //! input CTRL+C twice within 1 second to quit.
+diff --git a/tokio-macros/Cargo.toml b/tokio-macros/Cargo.toml
+index e47e4116049..3305385d94e 100644
+--- a/tokio-macros/Cargo.toml
++++ b/tokio-macros/Cargo.toml
+@@ -31,3 +31,6 @@ tokio = { version = "1.0.0", path = "../tokio", features = ["full"] }
+ 
+ [package.metadata.docs.rs]
+ all-features = true
++
++[lints]
++workspace = true
+diff --git a/tokio-macros/src/lib.rs b/tokio-macros/src/lib.rs
+index 29ea2867cff..32353b3807b 100644
+--- a/tokio-macros/src/lib.rs
++++ b/tokio-macros/src/lib.rs
+@@ -1,4 +1,3 @@
+-#![allow(unknown_lints, unexpected_cfgs)]
+ #![allow(clippy::needless_doctest_main)]
+ #![warn(
+     missing_debug_implementations,
+@@ -211,7 +210,6 @@ use proc_macro::TokenStream;
+ /// This option is only compatible with the `current_thread` runtime.
+ ///
+ /// ```no_run
+-/// # #![allow(unknown_lints, unexpected_cfgs)]
+ /// #[cfg(tokio_unstable)]
+ /// #[tokio::main(flavor = "current_thread", unhandled_panic = "shutdown_runtime")]
+ /// async fn main() {
+@@ -226,7 +224,6 @@ use proc_macro::TokenStream;
+ /// Equivalent code not using `#[tokio::main]`
+ ///
+ /// ```no_run
+-/// # #![allow(unknown_lints, unexpected_cfgs)]
+ /// #[cfg(tokio_unstable)]
+ /// fn main() {
+ ///     tokio::runtime::Builder::new_current_thread()
+@@ -480,7 +477,6 @@ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
+ /// This option is only compatible with the `current_thread` runtime.
+ ///
+ /// ```no_run
+-/// # #![allow(unknown_lints, unexpected_cfgs)]
+ /// #[cfg(tokio_unstable)]
+ /// #[tokio::test(flavor = "current_thread", unhandled_panic = "shutdown_runtime")]
+ /// async fn my_test() {
+@@ -495,7 +491,6 @@ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
+ /// Equivalent code not using `#[tokio::test]`
+ ///
+ /// ```no_run
+-/// # #![allow(unknown_lints, unexpected_cfgs)]
+ /// #[cfg(tokio_unstable)]
+ /// #[test]
+ /// fn my_test() {
+diff --git a/tokio-stream/Cargo.toml b/tokio-stream/Cargo.toml
+index 81d9b9d2022..547d7f5deaf 100644
+--- a/tokio-stream/Cargo.toml
++++ b/tokio-stream/Cargo.toml
+@@ -56,3 +56,6 @@ rustdoc-args = ["--cfg", "docsrs"]
+ # This should allow `docsrs` to be read across projects, so that `tokio-stream`
+ # can pick up stubbed types exported by `tokio`.
+ rustc-args = ["--cfg", "docsrs"]
++
++[lints]
++workspace = true
+diff --git a/tokio-stream/src/lib.rs b/tokio-stream/src/lib.rs
+index f2b463bcb9a..28fa22a2ff6 100644
+--- a/tokio-stream/src/lib.rs
++++ b/tokio-stream/src/lib.rs
+@@ -1,4 +1,3 @@
+-#![allow(unknown_lints, unexpected_cfgs)]
+ #![allow(
+     clippy::cognitive_complexity,
+     clippy::large_enum_variant,
+diff --git a/tokio-util/Cargo.toml b/tokio-util/Cargo.toml
+index d215590d9f2..b5a93dc3b50 100644
+--- a/tokio-util/Cargo.toml
++++ b/tokio-util/Cargo.toml
+@@ -68,3 +68,6 @@ rustc-args = ["--cfg", "docsrs", "--cfg", "tokio_unstable"]
+ 
+ [package.metadata.playground]
+ features = ["full"]
++
++[lints]
++workspace = true
+diff --git a/tokio-util/src/lib.rs b/tokio-util/src/lib.rs
+index 34f69fd14e3..1df4de1b459 100644
+--- a/tokio-util/src/lib.rs
++++ b/tokio-util/src/lib.rs
+@@ -1,4 +1,3 @@
+-#![allow(unknown_lints, unexpected_cfgs)]
+ #![allow(clippy::needless_doctest_main)]
+ #![warn(
+     missing_debug_implementations,
+diff --git a/tokio/Cargo.toml b/tokio/Cargo.toml
+index 86017871680..2b0c1127a71 100644
+--- a/tokio/Cargo.toml
++++ b/tokio/Cargo.toml
+@@ -173,3 +173,6 @@ allowed_external_types = [
+   "bytes::buf::buf_mut::BufMut",
+   "tokio_macros::*",
+ ]
++
++[lints]
++workspace = true
+diff --git a/tokio/src/lib.rs b/tokio/src/lib.rs
+index b85921f31de..a69def93634 100644
+--- a/tokio/src/lib.rs
++++ b/tokio/src/lib.rs
+@@ -1,4 +1,3 @@
+-#![allow(unknown_lints, unexpected_cfgs)]
+ #![allow(
+     clippy::cognitive_complexity,
+     clippy::large_enum_variant,
+diff --git a/tokio/src/runtime/blocking/pool.rs b/tokio/src/runtime/blocking/pool.rs
+index a5f09d936dd..23180dc5245 100644
+--- a/tokio/src/runtime/blocking/pool.rs
++++ b/tokio/src/runtime/blocking/pool.rs
+@@ -128,7 +128,7 @@ pub(crate) struct Task {
+ 
+ #[derive(PartialEq, Eq)]
+ pub(crate) enum Mandatory {
+-    #[cfg_attr(not(fs), allow(dead_code))]
++    #[cfg_attr(not(feature = "fs"), allow(dead_code))]
+     Mandatory,
+     NonMandatory,
+ }

@@ -1,0 +1,523 @@
+diff --git a/pkg/cmd/api/api.go b/pkg/cmd/api/api.go
+index 27e26f0041b..b08c1ec6d8e 100644
+--- a/pkg/cmd/api/api.go
++++ b/pkg/cmd/api/api.go
+@@ -294,6 +294,8 @@ func apiRun(opts *ApiOptions) error {
+ 		host = opts.Hostname
+ 	}
+ 
++	template := export.NewTemplate(opts.IO, opts.Template)
++
+ 	hasNextPage := true
+ 	for hasNextPage {
+ 		resp, err := httpRequest(httpClient, host, method, requestPath, requestBody, requestHeaders)
+@@ -301,7 +303,7 @@ func apiRun(opts *ApiOptions) error {
+ 			return err
+ 		}
+ 
+-		endCursor, err := processResponse(resp, opts, headersOutputStream)
++		endCursor, err := processResponse(resp, opts, headersOutputStream, &template)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -324,10 +326,10 @@ func apiRun(opts *ApiOptions) error {
+ 		}
+ 	}
+ 
+-	return nil
++	return template.End()
+ }
+ 
+-func processResponse(resp *http.Response, opts *ApiOptions, headersOutputStream io.Writer) (endCursor string, err error) {
++func processResponse(resp *http.Response, opts *ApiOptions, headersOutputStream io.Writer, template *export.Template) (endCursor string, err error) {
+ 	if opts.ShowResponseHeaders {
+ 		fmt.Fprintln(headersOutputStream, resp.Proto, resp.Status)
+ 		printHeaders(headersOutputStream, resp.Header, opts.IO.ColorEnabled())
+@@ -365,7 +367,7 @@ func processResponse(resp *http.Response, opts *ApiOptions, headersOutputStream
+ 		}
+ 	} else if opts.Template != "" {
+ 		// TODO: reuse parsed template across pagination invocations
+-		err = export.ExecuteTemplate(opts.IO.Out, responseBody, opts.Template, opts.IO.ColorEnabled())
++		err = template.Execute(responseBody)
+ 		if err != nil {
+ 			return
+ 		}
+diff --git a/pkg/cmd/issue/list/list.go b/pkg/cmd/issue/list/list.go
+index d2e34380b9b..b0efd75b722 100644
+--- a/pkg/cmd/issue/list/list.go
++++ b/pkg/cmd/issue/list/list.go
+@@ -163,7 +163,7 @@ func listRun(opts *ListOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, listResult.Issues, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, listResult.Issues)
+ 	}
+ 
+ 	if isTerminal {
+diff --git a/pkg/cmd/issue/status/status.go b/pkg/cmd/issue/status/status.go
+index 2a8c97ce87f..d68e2223d9b 100644
+--- a/pkg/cmd/issue/status/status.go
++++ b/pkg/cmd/issue/status/status.go
+@@ -100,7 +100,7 @@ func statusRun(opts *StatusOptions) error {
+ 			"assigned":  issuePayload.Assigned.Issues,
+ 			"mentioned": issuePayload.Mentioned.Issues,
+ 		}
+-		return opts.Exporter.Write(opts.IO.Out, data, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, data)
+ 	}
+ 
+ 	out := opts.IO.Out
+diff --git a/pkg/cmd/issue/view/view.go b/pkg/cmd/issue/view/view.go
+index 3c312324c81..8821ba0999b 100644
+--- a/pkg/cmd/issue/view/view.go
++++ b/pkg/cmd/issue/view/view.go
+@@ -112,7 +112,7 @@ func viewRun(opts *ViewOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, issue, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, issue)
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+diff --git a/pkg/cmd/pr/list/list.go b/pkg/cmd/pr/list/list.go
+index 11a365cee0c..b6bce300ef9 100644
+--- a/pkg/cmd/pr/list/list.go
++++ b/pkg/cmd/pr/list/list.go
+@@ -163,7 +163,7 @@ func listRun(opts *ListOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, listResult.PullRequests, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, listResult.PullRequests)
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+diff --git a/pkg/cmd/pr/status/status.go b/pkg/cmd/pr/status/status.go
+index d14ae5ec2ac..d8c458981bf 100644
+--- a/pkg/cmd/pr/status/status.go
++++ b/pkg/cmd/pr/status/status.go
+@@ -119,7 +119,7 @@ func statusRun(opts *StatusOptions) error {
+ 		if prPayload.CurrentPR != nil {
+ 			data["currentBranch"] = prPayload.CurrentPR
+ 		}
+-		return opts.Exporter.Write(opts.IO.Out, data, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, data)
+ 	}
+ 
+ 	out := opts.IO.Out
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index 2c390d412ea..1aa1b589cb6 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -118,7 +118,7 @@ func viewRun(opts *ViewOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, pr, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, pr)
+ 	}
+ 
+ 	if connectedToTerminal {
+diff --git a/pkg/cmd/release/view/view.go b/pkg/cmd/release/view/view.go
+index a7b796bee62..0a3867aeb5b 100644
+--- a/pkg/cmd/release/view/view.go
++++ b/pkg/cmd/release/view/view.go
+@@ -109,7 +109,7 @@ func viewRun(opts *ViewOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, release, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, release)
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+diff --git a/pkg/cmd/repo/list/list.go b/pkg/cmd/repo/list/list.go
+index bb4ad3d531b..98f171c9af1 100644
+--- a/pkg/cmd/repo/list/list.go
++++ b/pkg/cmd/repo/list/list.go
+@@ -141,7 +141,7 @@ func listRun(opts *ListOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, listResult.Repositories, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, listResult.Repositories)
+ 	}
+ 
+ 	cs := opts.IO.ColorScheme()
+diff --git a/pkg/cmd/repo/view/view.go b/pkg/cmd/repo/view/view.go
+index 7e507c18266..e1d90d1082f 100644
+--- a/pkg/cmd/repo/view/view.go
++++ b/pkg/cmd/repo/view/view.go
+@@ -138,7 +138,7 @@ func viewRun(opts *ViewOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	if opts.Exporter != nil {
+-		return opts.Exporter.Write(opts.IO.Out, repo, opts.IO.ColorEnabled())
++		return opts.Exporter.Write(opts.IO, repo)
+ 	}
+ 
+ 	fullName := ghrepo.FullName(toView)
+diff --git a/pkg/cmd/root/help_topic.go b/pkg/cmd/root/help_topic.go
+index d2d9c219a66..ca39b6d2f63 100644
+--- a/pkg/cmd/root/help_topic.go
++++ b/pkg/cmd/root/help_topic.go
+@@ -95,12 +95,30 @@ var HelpTopics = map[string]map[string]string{
+ 			For the syntax of Go templates, see: https://golang.org/pkg/text/template/
+ 
+ 			The following functions are available in templates:
+-			- %[1]scolor <style>, <input>%[1]s: colorize input using https://github.com/mgutz/ansi
+ 			- %[1]sautocolor%[1]s: like %[1]scolor%[1]s, but only emits color to terminals
+-			- %[1]stimefmt <format> <time>%[1]s: formats a timestamp using Go's Time.Format function
+-			- %[1]stimeago <time>%[1]s: renders a timestamp as relative to now
+-			- %[1]spluck <field> <list>%[1]s: collects values of a field from all items in the input
++			- %[1]scolor <style> <input>%[1]s: colorize input using https://github.com/mgutz/ansi
+ 			- %[1]sjoin <sep> <list>%[1]s: joins values in the list using a separator
++			- %[1]spluck <field> <list>%[1]s: collects values of a field from all items in the input
++			- %[1]stablerow <fields>...%[1]s: aligns fields in output vertically as a table
++			- %[1]stablerender%[1]s: renders fields added by tablerow in place
++			- %[1]stimeago <time>%[1]s: renders a timestamp as relative to now
++			- %[1]stimefmt <format> <time>%[1]s: formats a timestamp using Go's Time.Format function
++			- %[1]struncate <length> <input>%[1]s: ensures input fits within length
++
++			EXAMPLES
++			  # format issues as table
++			  $ gh issue list --json number,title --template \
++			    '{{range .}}{{tablerow (printf "#%%v" .number | autocolor "green") .title}}{{end}}'
++			
++			  # format a pull request using multiple tables with headers
++			  $ gh pr view 3519 --json number,title,body,reviews,assignees --template \
++			    '{{printf "#%%v" .number}} {{.title}}
++
++			    {{.body}}
++
++			    {{tablerow "ASSIGNEE" "NAME"}}{{range .assignees}}{{tablerow .login .name}}{{end}}{{tablerender}}
++			    {{tablerow "REVIEWER" "STATE" "COMMENT"}}{{range .reviews}}{{tablerow .author.login .state .body}}{{end}}
++			    '
+ 		`, "`"),
+ 	},
+ }
+diff --git a/pkg/cmdutil/json_flags.go b/pkg/cmdutil/json_flags.go
+index 7343554fce3..48d899b9291 100644
+--- a/pkg/cmdutil/json_flags.go
++++ b/pkg/cmdutil/json_flags.go
+@@ -11,6 +11,7 @@ import (
+ 	"strings"
+ 
+ 	"github.com/cli/cli/pkg/export"
++	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/jsoncolor"
+ 	"github.com/cli/cli/pkg/set"
+ 	"github.com/spf13/cobra"
+@@ -107,7 +108,7 @@ func checkJSONFlags(cmd *cobra.Command) (*exportFormat, error) {
+ 
+ type Exporter interface {
+ 	Fields() []string
+-	Write(w io.Writer, data interface{}, colorEnabled bool) error
++	Write(io *iostreams.IOStreams, data interface{}) error
+ }
+ 
+ type exportFormat struct {
+@@ -123,7 +124,7 @@ func (e *exportFormat) Fields() []string {
+ // Write serializes data into JSON output written to w. If the object passed as data implements exportable,
+ // or if data is a map or slice of exportable object, ExportData() will be called on each object to obtain
+ // raw data for serialization.
+-func (e *exportFormat) Write(w io.Writer, data interface{}, colorEnabled bool) error {
++func (e *exportFormat) Write(ios *iostreams.IOStreams, data interface{}) error {
+ 	buf := bytes.Buffer{}
+ 	encoder := json.NewEncoder(&buf)
+ 	encoder.SetEscapeHTML(false)
+@@ -131,11 +132,12 @@ func (e *exportFormat) Write(w io.Writer, data interface{}, colorEnabled bool) e
+ 		return err
+ 	}
+ 
++	w := ios.Out
+ 	if e.filter != "" {
+ 		return export.FilterJSON(w, &buf, e.filter)
+ 	} else if e.template != "" {
+-		return export.ExecuteTemplate(w, &buf, e.template, colorEnabled)
+-	} else if colorEnabled {
++		return export.ExecuteTemplate(ios, &buf, e.template)
++	} else if ios.ColorEnabled() {
+ 		return jsoncolor.Write(w, &buf, "  ")
+ 	}
+ 
+diff --git a/pkg/export/template.go b/pkg/export/template.go
+index 0e3a11049ae..67e26949d88 100644
+--- a/pkg/export/template.go
++++ b/pkg/export/template.go
+@@ -11,16 +11,32 @@ import (
+ 	"text/template"
+ 	"time"
+ 
++	"github.com/cli/cli/pkg/iostreams"
++	"github.com/cli/cli/pkg/text"
+ 	"github.com/cli/cli/utils"
+ 	"github.com/mgutz/ansi"
+ )
+ 
+-func parseTemplate(tpl string, colorEnabled bool) (*template.Template, error) {
++type Template struct {
++	io           *iostreams.IOStreams
++	tablePrinter utils.TablePrinter
++	template     *template.Template
++	templateStr  string
++}
++
++func NewTemplate(io *iostreams.IOStreams, template string) Template {
++	return Template{
++		io:          io,
++		templateStr: template,
++	}
++}
++
++func (t *Template) parseTemplate(tpl string) (*template.Template, error) {
+ 	now := time.Now()
+ 
+ 	templateFuncs := map[string]interface{}{
+-		"color":     templateColor,
+-		"autocolor": templateColor,
++		"color":     t.color,
++		"autocolor": t.color,
+ 
+ 		"timefmt": func(format, input string) (string, error) {
+ 			t, err := time.Parse(time.RFC3339, input)
+@@ -37,11 +53,14 @@ func parseTemplate(tpl string, colorEnabled bool) (*template.Template, error) {
+ 			return timeAgo(now.Sub(t)), nil
+ 		},
+ 
+-		"pluck": templatePluck,
+-		"join":  templateJoin,
++		"pluck":       templatePluck,
++		"join":        templateJoin,
++		"tablerow":    t.tableRow,
++		"tablerender": t.tableRender,
++		"truncate":    text.Truncate,
+ 	}
+ 
+-	if !colorEnabled {
++	if !t.io.ColorEnabled() {
+ 		templateFuncs["autocolor"] = func(colorName string, input interface{}) (string, error) {
+ 			return jsonScalarToString(input)
+ 		}
+@@ -50,10 +69,16 @@ func parseTemplate(tpl string, colorEnabled bool) (*template.Template, error) {
+ 	return template.New("").Funcs(templateFuncs).Parse(tpl)
+ }
+ 
+-func ExecuteTemplate(w io.Writer, input io.Reader, templateStr string, colorEnabled bool) error {
+-	t, err := parseTemplate(templateStr, colorEnabled)
+-	if err != nil {
+-		return err
++func (t *Template) Execute(input io.Reader) error {
++	w := t.io.Out
++
++	if t.template == nil {
++		template, err := t.parseTemplate(t.templateStr)
++		if err != nil {
++			return err
++		}
++
++		t.template = template
+ 	}
+ 
+ 	jsonData, err := ioutil.ReadAll(input)
+@@ -66,7 +91,15 @@ func ExecuteTemplate(w io.Writer, input io.Reader, templateStr string, colorEnab
+ 		return err
+ 	}
+ 
+-	return t.Execute(w, data)
++	return t.template.Execute(w, data)
++}
++
++func ExecuteTemplate(io *iostreams.IOStreams, input io.Reader, template string) error {
++	t := NewTemplate(io, template)
++	if err := t.Execute(input); err != nil {
++		return err
++	}
++	return t.End()
+ }
+ 
+ func jsonScalarToString(input interface{}) (string, error) {
+@@ -88,7 +121,7 @@ func jsonScalarToString(input interface{}) (string, error) {
+ 	}
+ }
+ 
+-func templateColor(colorName string, input interface{}) (string, error) {
++func (t *Template) color(colorName string, input interface{}) (string, error) {
+ 	text, err := jsonScalarToString(input)
+ 	if err != nil {
+ 		return "", err
+@@ -117,6 +150,40 @@ func templateJoin(sep string, input []interface{}) (string, error) {
+ 	return strings.Join(results, sep), nil
+ }
+ 
++func (t *Template) tableRow(fields ...interface{}) (string, error) {
++	if t.tablePrinter == nil {
++		t.tablePrinter = utils.NewTablePrinterWithOptions(t.io, utils.TablePrinterOptions{IsTTY: true})
++	}
++	for _, e := range fields {
++		s, err := jsonScalarToString(e)
++		if err != nil {
++			return "", fmt.Errorf("failed to write table row: %v", err)
++		}
++		t.tablePrinter.AddField(s, text.TruncateColumn, nil)
++	}
++	t.tablePrinter.EndRow()
++	return "", nil
++}
++
++func (t *Template) tableRender() (string, error) {
++	if t.tablePrinter != nil {
++		err := t.tablePrinter.Render()
++		t.tablePrinter = nil
++		if err != nil {
++			return "", fmt.Errorf("failed to render table: %v", err)
++		}
++	}
++	return "", nil
++}
++
++func (t *Template) End() error {
++	// Finalize any template actions.
++	if _, err := t.tableRender(); err != nil {
++		return err
++	}
++	return nil
++}
++
+ func timeAgo(ago time.Duration) string {
+ 	if ago < time.Minute {
+ 		return "just now"
+diff --git a/pkg/iostreams/iostreams.go b/pkg/iostreams/iostreams.go
+index 8ab4d330df7..166f45860fc 100644
+--- a/pkg/iostreams/iostreams.go
++++ b/pkg/iostreams/iostreams.go
+@@ -21,6 +21,8 @@ import (
+ 	"golang.org/x/term"
+ )
+ 
++const DefaultWidth = 80
++
+ type IOStreams struct {
+ 	In     io.ReadCloser
+ 	Out    io.Writer
+@@ -99,6 +101,10 @@ func (s *IOStreams) TerminalTheme() string {
+ 	return s.terminalTheme
+ }
+ 
++func (s *IOStreams) SetColorEnabled(colorEnabled bool) {
++	s.colorEnabled = colorEnabled
++}
++
+ func (s *IOStreams) SetStdinTTY(isTTY bool) {
+ 	s.stdinTTYOverride = true
+ 	s.stdinIsTTY = isTTY
+@@ -239,12 +245,14 @@ func (s *IOStreams) StopProgressIndicator() {
+ 	s.progressIndicator = nil
+ }
+ 
++// TerminalWidth returns the width of the terminal that stdout is attached to.
++// TODO: investigate whether ProcessTerminalWidth could replace all this.
+ func (s *IOStreams) TerminalWidth() int {
+ 	if s.termWidthOverride > 0 {
+ 		return s.termWidthOverride
+ 	}
+ 
+-	defaultWidth := 80
++	defaultWidth := DefaultWidth
+ 	out := s.Out
+ 	if s.originalOut != nil {
+ 		out = s.originalOut
+@@ -271,6 +279,15 @@ func (s *IOStreams) TerminalWidth() int {
+ 	return defaultWidth
+ }
+ 
++// ProcessTerminalWidth returns the width of the terminal that the process is attached to.
++func (s *IOStreams) ProcessTerminalWidth() int {
++	w, _, err := s.ttySize()
++	if err != nil {
++		return DefaultWidth
++	}
++	return w
++}
++
+ func (s *IOStreams) ForceTerminal(spec string) {
+ 	s.colorEnabled = !EnvColorDisabled()
+ 	s.SetStdoutTTY(true)
+diff --git a/pkg/text/truncate.go b/pkg/text/truncate.go
+index 75b7c6e6387..2de016126a1 100644
+--- a/pkg/text/truncate.go
++++ b/pkg/text/truncate.go
+@@ -1,13 +1,15 @@
+ package text
+ 
+ import (
++	"strings"
++
+ 	"github.com/muesli/reflow/ansi"
+ 	"github.com/muesli/reflow/truncate"
+ )
+ 
+ const (
+ 	ellipsis            = "..."
+-	minWidthForEllipsis = 5
++	minWidthForEllipsis = len(ellipsis) + 2
+ )
+ 
+ // DisplayWidth calculates what the rendered width of a string may be
+@@ -34,3 +36,12 @@ func Truncate(maxWidth int, s string) string {
+ 
+ 	return r
+ }
++
++// TruncateColumn replaces the first new line character with an ellipsis
++// and shortens a string to fit the maximum display width
++func TruncateColumn(maxWidth int, s string) string {
++	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
++		s = s[:i] + ellipsis
++	}
++	return Truncate(maxWidth, s)
++}
+diff --git a/utils/table_printer.go b/utils/table_printer.go
+index 1b083fe8e59..6780e27904c 100644
+--- a/utils/table_printer.go
++++ b/utils/table_printer.go
+@@ -17,11 +17,27 @@ type TablePrinter interface {
+ 	Render() error
+ }
+ 
++type TablePrinterOptions struct {
++	IsTTY bool
++}
++
+ func NewTablePrinter(io *iostreams.IOStreams) TablePrinter {
+-	if io.IsStdoutTTY() {
++	return NewTablePrinterWithOptions(io, TablePrinterOptions{
++		IsTTY: io.IsStdoutTTY(),
++	})
++}
++
++func NewTablePrinterWithOptions(io *iostreams.IOStreams, opts TablePrinterOptions) TablePrinter {
++	if opts.IsTTY {
++		var maxWidth int
++		if io.IsStdoutTTY() {
++			maxWidth = io.TerminalWidth()
++		} else {
++			maxWidth = io.ProcessTerminalWidth()
++		}
+ 		return &ttyTablePrinter{
+ 			out:      io.Out,
+-			maxWidth: io.TerminalWidth(),
++			maxWidth: maxWidth,
+ 		}
+ 	}
+ 	return &tsvTablePrinter{
+@@ -49,7 +65,6 @@ func (t ttyTablePrinter) IsTTY() bool {
+ 	return true
+ }
+ 
+-// Never pass pre-colorized text to AddField; always specify colorFunc. Otherwise, the table printer can't correctly compute the width of its columns.
+ func (t *ttyTablePrinter) AddField(s string, truncateFunc func(int, string) string, colorFunc func(string) string) {
+ 	if truncateFunc == nil {
+ 		truncateFunc = text.Truncate

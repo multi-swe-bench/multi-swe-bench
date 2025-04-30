@@ -1,0 +1,142 @@
+diff --git a/command/title_body_survey.go b/command/title_body_survey.go
+index 0fb39d349a1..253931f4385 100644
+--- a/command/title_body_survey.go
++++ b/command/title_body_survey.go
+@@ -99,7 +99,7 @@ func confirmSubmission(allowPreview bool, allowMetadata bool) (Action, error) {
+ 	}
+ }
+ 
+-func selectTemplate(templatePaths []string) (string, error) {
++func selectTemplate(templatePaths []string) (string, *githubtemplate.Metadata, error) {
+ 	templateResponse := struct {
+ 		Index int
+ 	}{}
+@@ -119,12 +119,17 @@ func selectTemplate(templatePaths []string) (string, error) {
+ 			},
+ 		}
+ 		if err := SurveyAsk(selectQs, &templateResponse); err != nil {
+-			return "", fmt.Errorf("could not prompt: %w", err)
++			return "", nil, fmt.Errorf("could not prompt: %w", err)
+ 		}
+ 	}
+ 
+ 	templateContents := githubtemplate.ExtractContents(templatePaths[templateResponse.Index])
+-	return string(templateContents), nil
++	templateMetadata, err := githubtemplate.ExtractMetadata(templatePaths[templateResponse.Index])
++	if err != nil {
++		return "", nil, err
++	}
++
++	return string(templateContents), templateMetadata, nil
+ }
+ 
+ func titleBodySurvey(cmd *cobra.Command, issueState *issueMetadataState, apiClient *api.Client, repo ghrepo.Interface, providedTitle, providedBody string, defs defaults, templatePaths []string, allowReviewers, allowMetadata bool) error {
+@@ -134,16 +139,19 @@ func titleBodySurvey(cmd *cobra.Command, issueState *issueMetadataState, apiClie
+ 	}
+ 
+ 	issueState.Title = defs.Title
+-	templateContents := ""
++	var templateContents string
++	var templateLabels []string
+ 
+ 	if providedBody == "" {
+ 		if len(templatePaths) > 0 {
+ 			var err error
+-			templateContents, err = selectTemplate(templatePaths)
++			var templateMetadata *githubtemplate.Metadata
++			templateContents, templateMetadata, err = selectTemplate(templatePaths)
+ 			if err != nil {
+ 				return err
+ 			}
+ 			issueState.Body = templateContents
++			templateLabels = templateMetadata.Labels
+ 		} else {
+ 			issueState.Body = defs.Body
+ 		}
+@@ -352,6 +360,8 @@ func titleBodySurvey(cmd *cobra.Command, issueState *issueMetadataState, apiClie
+ 		}
+ 	}
+ 
++	issueState.Labels = append(issueState.Labels, templateLabels...)
++
+ 	issueState.Action = confirmA
+ 	return nil
+ }
+diff --git a/pkg/githubtemplate/github_template.go b/pkg/githubtemplate/github_template.go
+index 89cceda4c22..4551f078e5b 100644
+--- a/pkg/githubtemplate/github_template.go
++++ b/pkg/githubtemplate/github_template.go
+@@ -1,6 +1,7 @@
+ package githubtemplate
+ 
+ import (
++	"errors"
+ 	"io/ioutil"
+ 	"path"
+ 	"regexp"
+@@ -10,6 +11,19 @@ import (
+ 	"gopkg.in/yaml.v3"
+ )
+ 
++// Metadata represents metadata in a frontmatter of issue templates.
++type Metadata struct {
++	// Name is a template names.
++	Name string
++	// Labels is label names that are put when using templates.
++	Labels []string
++}
++
++var (
++	ErrFrontmatterNotFound = errors.New("frontmatter not found")
++	ErrFrontmatterInvalid  = errors.New("frontmatter is invalid")
++)
++
+ // Find returns the list of template file paths
+ func Find(rootDir string, name string) []string {
+ 	results := []string{}
+@@ -78,6 +92,45 @@ func ExtractName(filePath string) string {
+ 	return path.Base(filePath)
+ }
+ 
++// ExtractMetadata returns the label names of the template from YAML front-matter
++func ExtractMetadata(filePath string) (*Metadata, error) {
++	contents, err := ioutil.ReadFile(filePath)
++	if err != nil {
++		return nil, err
++	}
++
++	frontmatterBoundaries := detectFrontmatter(contents)
++	if frontmatterBoundaries[0] != 0 {
++		return nil, ErrFrontmatterNotFound
++	}
++
++	templateData := struct {
++		Name   string
++		Labels string
++	}{}
++	if err := yaml.Unmarshal(contents[0:frontmatterBoundaries[1]], &templateData); err != nil {
++		return nil, err
++	}
++
++	if templateData.Name == "" {
++		return nil, ErrFrontmatterInvalid
++	}
++	if templateData.Labels == "" {
++		return &Metadata{Name: templateData.Name}, nil
++	}
++
++	ss := strings.Split(templateData.Labels, ",")
++	labels := make([]string, 0, len(ss))
++	for _, s := range ss {
++		labels = append(labels, strings.TrimSpace(s))
++	}
++
++	return &Metadata{
++		Name:   templateData.Name,
++		Labels: labels,
++	}, nil
++}
++
+ // ExtractContents returns the template contents without the YAML front-matter
+ func ExtractContents(filePath string) []byte {
+ 	contents, err := ioutil.ReadFile(filePath)

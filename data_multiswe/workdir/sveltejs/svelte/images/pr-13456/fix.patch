@@ -1,0 +1,61 @@
+diff --git a/.changeset/large-rules-hang.md b/.changeset/large-rules-hang.md
+new file mode 100644
+index 000000000000..f018f44cd8af
+--- /dev/null
++++ b/.changeset/large-rules-hang.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: fix accessors and support migration of accessors
+diff --git a/packages/svelte/src/compiler/migrate/index.js b/packages/svelte/src/compiler/migrate/index.js
+index b877d27e5405..966664cfd5cb 100644
+--- a/packages/svelte/src/compiler/migrate/index.js
++++ b/packages/svelte/src/compiler/migrate/index.js
+@@ -12,7 +12,6 @@ import { get_rune } from '../phases/scope.js';
+ import { reset, reset_warning_filter } from '../state.js';
+ import { extract_identifiers } from '../utils/ast.js';
+ import { migrate_svelte_ignore } from '../utils/extract_svelte_ignore.js';
+-import { determine_slot } from '../utils/slot.js';
+ import { validate_component_options } from '../validate-options.js';
+ 
+ const regex_style_tags = /(<style[^>]+>)([\S\s]*?)(<\/style>)/g;
+@@ -54,6 +53,8 @@ export function migrate(source) {
+ 		const analysis = analyze_component(parsed, source, combined_options);
+ 		const indent = guess_indent(source);
+ 
++		str.replaceAll(/(<svelte:options\s.*?\s?)accessors\s?/g, (_, $1) => $1);
++
+ 		for (const content of style_contents) {
+ 			str.overwrite(content[0], content[0] + style_placeholder.length, content[1]);
+ 		}
+@@ -265,6 +266,13 @@ export function migrate(source) {
+ 			);
+ 		}
+ 
++		if (state.props.length > 0 && state.analysis.accessors) {
++			str.appendRight(
++				insertion_point,
++				`\n${indent}export {${state.props.reduce((acc, prop) => (prop.slot_name ? acc : `${acc}\n${indent}\t${prop.local},`), '')}\n${indent}}\n`
++			);
++		}
++
+ 		if (!parsed.instance && need_script) {
+ 			str.appendRight(insertion_point, '\n</script>\n\n');
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index d0e6efc6d8f8..c98135f8e13f 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -276,6 +276,10 @@ export function client_component(analysis, options) {
+ 			}
+ 		}
+ 
++		if (binding?.kind === 'prop' || binding?.kind === 'bindable_prop') {
++			return [getter, b.set(alias ?? name, [b.stmt(b.call(name, b.id('$$value')))])];
++		}
++
+ 		if (binding?.kind === 'state' || binding?.kind === 'raw_state') {
+ 			const value = binding.kind === 'state' ? b.call('$.proxy', b.id('$$value')) : b.id('$$value');
+ 			return [getter, b.set(alias ?? name, [b.stmt(b.call('$.set', b.id(name), value))])];

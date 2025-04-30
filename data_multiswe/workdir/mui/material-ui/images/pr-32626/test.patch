@@ -1,0 +1,44 @@
+diff --git a/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.test.js b/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.test.js
+index 501b3c0e8b105e..f3912b228da8a4 100644
+--- a/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.test.js
++++ b/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.test.js
+@@ -305,4 +305,39 @@ describe('useAutocomplete', () => {
+       expect(input.value).to.equal('free');
+     });
+   });
++
++  it('should allow tuples or arrays as value when multiple=false', () => {
++    const Test = () => {
++      const defaultValue = ['bar'];
++
++      const { getClearProps, getInputProps } = useAutocomplete({
++        defaultValue,
++        disableClearable: false,
++        getOptionLabel: ([val]) => val,
++        isOptionEqualToValue: (option, value) => {
++          if (option === value) {
++            return true;
++          }
++          return option[0] === value[0];
++        },
++        multiple: false,
++        options: [['foo'], defaultValue, ['baz']],
++      });
++
++      return (
++        <div>
++          <input {...getInputProps()} />
++          <button data-testid="button" {...getClearProps()} />;
++        </div>
++      );
++    };
++
++    const { getByTestId } = render(<Test />);
++
++    const button = getByTestId('button');
++
++    expect(() => {
++      fireEvent.click(button);
++    }).not.to.throw();
++  });
+ });

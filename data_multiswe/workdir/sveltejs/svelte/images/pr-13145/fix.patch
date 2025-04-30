@@ -1,0 +1,200 @@
+diff --git a/.changeset/small-icons-carry.md b/.changeset/small-icons-carry.md
+new file mode 100644
+index 000000000000..a5cba17c72be
+--- /dev/null
++++ b/.changeset/small-icons-carry.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: throw warnings when directive is not defined
+diff --git a/packages/svelte/messages/compile-warnings/template.md b/packages/svelte/messages/compile-warnings/template.md
+index 194bd1087da9..953e73b222f3 100644
+--- a/packages/svelte/messages/compile-warnings/template.md
++++ b/packages/svelte/messages/compile-warnings/template.md
+@@ -30,6 +30,10 @@
+ 
+ > `<%name%>` will be treated as an HTML element unless it begins with a capital letter
+ 
++## directive_not_defined
++
++> `%name%` is not defined. Consider declaring, getting it via prop or importing the directive
++
+ ## element_invalid_self_closing_tag
+ 
+ > Self-closing HTML tags for non-void elements are ambiguous — use `<%name% ...></%name%>` rather than `<%name% ... />`
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 95a0989bde5e..aab97e46f677 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -16,6 +16,7 @@ import { hash, is_rune } from '../../../utils.js';
+ import { warn_unused } from './css/css-warn.js';
+ import { extract_svelte_ignore } from '../../utils/extract_svelte_ignore.js';
+ import { ignore_map, ignore_stack, pop_ignore, push_ignore } from '../../state.js';
++import { AnimateDirective } from './visitors/AnimateDirective.js';
+ import { ArrowFunctionExpression } from './visitors/ArrowFunctionExpression.js';
+ import { AssignmentExpression } from './visitors/AssignmentExpression.js';
+ import { Attribute } from './visitors/Attribute.js';
+@@ -63,6 +64,7 @@ import { SvelteWindow } from './visitors/SvelteWindow.js';
+ import { TaggedTemplateExpression } from './visitors/TaggedTemplateExpression.js';
+ import { Text } from './visitors/Text.js';
+ import { TitleElement } from './visitors/TitleElement.js';
++import { TransitionDirective } from './visitors/TransitionDirective.js';
+ import { UpdateExpression } from './visitors/UpdateExpression.js';
+ import { UseDirective } from './visitors/UseDirective.js';
+ import { VariableDeclarator } from './visitors/VariableDeclarator.js';
+@@ -125,6 +127,7 @@ const visitors = {
+ 			pop_ignore();
+ 		}
+ 	},
++	AnimateDirective,
+ 	ArrowFunctionExpression,
+ 	AssignmentExpression,
+ 	Attribute,
+@@ -172,6 +175,7 @@ const visitors = {
+ 	TaggedTemplateExpression,
+ 	Text,
+ 	TitleElement,
++	TransitionDirective,
+ 	UpdateExpression,
+ 	UseDirective,
+ 	VariableDeclarator
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/AnimateDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/AnimateDirective.js
+new file mode 100644
+index 000000000000..236938caa521
+--- /dev/null
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/AnimateDirective.js
+@@ -0,0 +1,13 @@
++/** @import { AST } from '#compiler' */
++/** @import { Context } from '../types' */
++import * as w from '../../../warnings.js';
++
++/**
++ * @param {AST.AnimateDirective} node
++ * @param {Context} context
++ */
++export function AnimateDirective(node, context) {
++	if (!context.state.scope.get(node.name)) {
++		w.directive_not_defined(node, node.name);
++	}
++}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/ClassDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/ClassDirective.js
+index f4aaf77589ed..3c89bca71b1a 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/ClassDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/ClassDirective.js
+@@ -1,10 +1,14 @@
+ /** @import { AST } from '#compiler' */
+ /** @import { Context } from '../types' */
++import * as w from '../../../warnings.js';
+ 
+ /**
+  * @param {AST.ClassDirective} node
+  * @param {Context} context
+  */
+ export function ClassDirective(node, context) {
++	if (node.expression.type === 'Identifier' && !context.state.scope.get(node.expression.name)) {
++		w.directive_not_defined(node, node.expression.name);
++	}
+ 	context.next({ ...context.state, expression: node.metadata.expression });
+ }
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/StyleDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/StyleDirective.js
+index 8910d9eae074..589a8e682720 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/StyleDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/StyleDirective.js
+@@ -1,6 +1,7 @@
+ /** @import { AST } from '#compiler' */
+ /** @import { Context } from '../types' */
+ import * as e from '../../../errors.js';
++import * as w from '../../../warnings.js';
+ import { get_attribute_chunks } from '../../../utils/ast.js';
+ import { mark_subtree_dynamic } from './shared/fragment.js';
+ 
+@@ -21,10 +22,19 @@ export function StyleDirective(node, context) {
+ 			if (binding.kind !== 'normal') {
+ 				node.metadata.expression.has_state = true;
+ 			}
++		} else {
++			w.directive_not_defined(node, node.name);
+ 		}
+ 
+ 		mark_subtree_dynamic(context.path);
+ 	} else {
++		if (
++			!Array.isArray(node.value) &&
++			node.value.expression.type === 'Identifier' &&
++			!context.state.scope.get(node.value.expression.name)
++		) {
++			w.directive_not_defined(node, node.value.expression.name);
++		}
+ 		context.next();
+ 
+ 		for (const chunk of get_attribute_chunks(node.value)) {
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/TransitionDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/TransitionDirective.js
+new file mode 100644
+index 000000000000..89852eb2e35b
+--- /dev/null
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/TransitionDirective.js
+@@ -0,0 +1,13 @@
++/** @import { AST } from '#compiler' */
++/** @import { Context } from '../types' */
++import * as w from '../../../warnings.js';
++
++/**
++ * @param {AST.TransitionDirective} node
++ * @param {Context} context
++ */
++export function TransitionDirective(node, context) {
++	if (!context.state.scope.get(node.name)) {
++		w.directive_not_defined(node, node.name);
++	}
++}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/UseDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/UseDirective.js
+index 76706ad6742e..417afb3b36ea 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/UseDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/UseDirective.js
+@@ -1,12 +1,16 @@
+ /** @import { AST } from '#compiler' */
+ /** @import { Context } from '../types' */
+ import { mark_subtree_dynamic } from './shared/fragment.js';
++import * as w from '../../../warnings.js';
+ 
+ /**
+  * @param {AST.UseDirective} node
+  * @param {Context} context
+  */
+ export function UseDirective(node, context) {
++	if (!context.state.scope.get(node.name)) {
++		w.directive_not_defined(node, node.name);
++	}
+ 	mark_subtree_dynamic(context.path);
+ 	context.next();
+ }
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 1ed5362964f3..346a79950818 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -113,6 +113,7 @@ export const codes = [
+ 	"bind_invalid_each_rest",
+ 	"block_empty",
+ 	"component_name_lowercase",
++	"directive_not_defined",
+ 	"element_invalid_self_closing_tag",
+ 	"event_directive_deprecated",
+ 	"node_invalid_placement_ssr",
+@@ -734,6 +735,15 @@ export function component_name_lowercase(node, name) {
+ 	w(node, "component_name_lowercase", `\`<${name}>\` will be treated as an HTML element unless it begins with a capital letter`);
+ }
+ 
++/**
++ * `%name%` is not defined. Consider declaring, getting it via prop or importing the directive
++ * @param {null | NodeLike} node
++ * @param {string} name
++ */
++export function directive_not_defined(node, name) {
++	w(node, "directive_not_defined", `\`${name}\` is not defined. Consider declaring, getting it via prop or importing the directive`);
++}
++
+ /**
+  * Self-closing HTML tags for non-void elements are ambiguous — use `<%name% ...></%name%>` rather than `<%name% ... />`
+  * @param {null | NodeLike} node

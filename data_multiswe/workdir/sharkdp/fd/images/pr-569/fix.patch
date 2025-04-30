@@ -1,0 +1,156 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index ffd43278c..39b5e14d7 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -12,6 +12,8 @@
+   This can be useful to speed up searches in cases where you know that there are only N results.
+   Using this option is also (slightly) faster than piping to `head -n <count>` where `fd` can only
+   exit when it finds the search results `<count> + 1`.
++- Add new `--min-depth <depth>` and `--exact-depth <depth>` options in addition to the existing option
++  to limit the maximum depth. See #404.
+ - Add the alias `-1` for `--max-results=1`, see #561. (@SimplyDanny).
+ - Support additional ANSI font styles in `LS_COLORS`: faint, slow blink, rapid blink, dimmed, hidden and strikethrough.
+ 
+diff --git a/doc/fd.1 b/doc/fd.1
+index d1334e339..6575c2a4f 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -110,6 +110,12 @@ Limit directory traversal to at most
+ .I d
+ levels of depth. By default, there is no limit on the search depth.
+ .TP
++.BI "\-\-min\-depth " d
++Only show search results starting at the given depth. See also: '--max-depth' and '--exact-depth'.
++.TP
++.BI "\-\-exact\-depth " d
++Only show search results at the exact given depth. This is an alias for '--min-depth <depth> --max-depth <depth>'.
++.TP
+ .BI "\-t, \-\-type " filetype
+ Filter search by type:
+ .RS
+diff --git a/src/app.rs b/src/app.rs
+index 47a71dde1..3b33d0ee9 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -168,10 +168,11 @@ pub fn build_app() -> App<'static, 'static> {
+                 ),
+         )
+         .arg(
+-            Arg::with_name("depth")
++            Arg::with_name("max-depth")
+                 .long("max-depth")
+                 .short("d")
+                 .takes_value(true)
++                .value_name("depth")
+                 .help("Set maximum search depth (default: none)")
+                 .long_help(
+                     "Limit the directory traversal to a given depth. By default, there is no \
+@@ -185,6 +186,29 @@ pub fn build_app() -> App<'static, 'static> {
+                 .hidden(true)
+                 .takes_value(true)
+         )
++        .arg(
++            Arg::with_name("min-depth")
++                .long("min-depth")
++                .takes_value(true)
++                .value_name("depth")
++                .hidden_short_help(true)
++                .long_help(
++                    "Only show search results starting at the given depth. \
++                     See also: '--max-depth' and '--exact-depth'",
++                ),
++        )
++        .arg(
++            Arg::with_name("exact-depth")
++                .long("exact-depth")
++                .takes_value(true)
++                .value_name("depth")
++                .hidden_short_help(true)
++                .conflicts_with_all(&["max-depth", "min-depth"])
++                .long_help(
++                    "Only show search results at the exact given depth. This is an alias for \
++                     '--min-depth <depth> --max-depth <depth>'.",
++                ),
++        )
+         .arg(
+             Arg::with_name("file-type")
+                 .long("type")
+diff --git a/src/main.rs b/src/main.rs
+index 587277853..bf43e4d36 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -226,8 +226,13 @@ fn run() -> Result<ExitCode> {
+         one_file_system: matches.is_present("one-file-system"),
+         null_separator: matches.is_present("null_separator"),
+         max_depth: matches
+-            .value_of("depth")
++            .value_of("max-depth")
+             .or_else(|| matches.value_of("rg-depth"))
++            .or_else(|| matches.value_of("exact-depth"))
++            .and_then(|n| usize::from_str_radix(n, 10).ok()),
++        min_depth: matches
++            .value_of("min-depth")
++            .or_else(|| matches.value_of("exact-depth"))
+             .and_then(|n| usize::from_str_radix(n, 10).ok()),
+         threads: std::cmp::max(
+             matches
+@@ -296,7 +301,13 @@ fn run() -> Result<ExitCode> {
+             .value_of("max-results")
+             .and_then(|n| usize::from_str_radix(n, 10).ok())
+             .filter(|&n| n != 0)
+-            .or_else(|| if matches.is_present("max-one-result") { Some(1) } else { None }),
++            .or_else(|| {
++                if matches.is_present("max-one-result") {
++                    Some(1)
++                } else {
++                    None
++                }
++            }),
+     };
+ 
+     let re = RegexBuilder::new(&pattern_regex)
+diff --git a/src/options.rs b/src/options.rs
+index e7fb44566..3f52516a6 100644
+--- a/src/options.rs
++++ b/src/options.rs
+@@ -40,6 +40,9 @@ pub struct Options {
+     /// all files under subdirectories of the current directory, etc.
+     pub max_depth: Option<usize>,
+ 
++    /// The minimum depth for reported entries, or `None`.
++    pub min_depth: Option<usize>,
++
+     /// The number of threads to use.
+     pub threads: usize,
+ 
+diff --git a/src/walk.rs b/src/walk.rs
+index 2181a41ac..34b862c21 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -283,6 +283,13 @@ impl DirEntry {
+             DirEntry::BrokenSymlink(_) => None,
+         }
+     }
++
++    pub fn depth(&self) -> Option<usize> {
++        match self {
++            DirEntry::Normal(e) => Some(e.depth()),
++            DirEntry::BrokenSymlink(_) => None,
++        }
++    }
+ }
+ 
+ fn spawn_senders(
+@@ -338,6 +345,12 @@ fn spawn_senders(
+                 }
+             };
+ 
++            if let Some(min_depth) = config.min_depth {
++                if entry.depth().map_or(true, |d| d < min_depth) {
++                    return ignore::WalkState::Continue;
++                }
++            }
++
+             // Check the name first, since it doesn't require metadata
+             let entry_path = entry.path();
+ 

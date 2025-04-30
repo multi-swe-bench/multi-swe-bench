@@ -1,0 +1,75 @@
+diff --git a/packages/compiler-core/__tests__/transforms/transformElement.spec.ts b/packages/compiler-core/__tests__/transforms/transformElement.spec.ts
+index 6c2dab9625f..10b9747d1ee 100644
+--- a/packages/compiler-core/__tests__/transforms/transformElement.spec.ts
++++ b/packages/compiler-core/__tests__/transforms/transformElement.spec.ts
+@@ -1284,6 +1284,18 @@ describe('compiler: element transform', () => {
+     })
+   })
+ 
++  test('<math> should be forced into blocks', () => {
++    const ast = parse(`<div><math/></div>`)
++    transform(ast, {
++      nodeTransforms: [transformElement],
++    })
++    expect((ast as any).children[0].children[0].codegenNode).toMatchObject({
++      type: NodeTypes.VNODE_CALL,
++      tag: `"math"`,
++      isBlock: true,
++    })
++  })
++
+   test('force block for runtime custom directive w/ children', () => {
+     const { node } = parseWithElementTransform(`<div v-foo>hello</div>`)
+     expect(node.isBlock).toBe(true)
+diff --git a/packages/runtime-dom/__tests__/nodeOps.spec.ts b/packages/runtime-dom/__tests__/nodeOps.spec.ts
+index e185f14d8dd..ed30e42adee 100644
+--- a/packages/runtime-dom/__tests__/nodeOps.spec.ts
++++ b/packages/runtime-dom/__tests__/nodeOps.spec.ts
+@@ -1,5 +1,6 @@
+-import { nodeOps, svgNS } from '../src/nodeOps'
+-
++import { defineComponent, h, nextTick, ref } from 'vue'
++import { mathmlNS, nodeOps, svgNS } from '../src/nodeOps'
++import { render } from '@vue/runtime-dom'
+ describe('runtime-dom: node-ops', () => {
+   test("the <select>'s multiple attr should be set in createElement", () => {
+     const el = nodeOps.createElement('select', undefined, undefined, {
+@@ -106,5 +107,38 @@ describe('runtime-dom: node-ops', () => {
+       expect(nodes[0]).toBe(parent.firstChild)
+       expect(nodes[1]).toBe(parent.childNodes[parent.childNodes.length - 2])
+     })
++
++    test('The math elements should keep their MathML namespace', async () => {
++      let root = document.createElement('div') as any
++
++      let countRef: any
++      const component = defineComponent({
++        data() {
++          return { value: 0 }
++        },
++        setup() {
++          const count = ref(0)
++          countRef = count
++          return {
++            count,
++          }
++        },
++        template: `
++          <div>
++            <math>
++              <mrow class="bar" v-if="count % 2">Bar</mrow>
++              <msup class="foo" v-else>Foo</msup>
++            </math>
++          </div>
++        `,
++      })
++      render(h(component), root)
++      const foo = root.querySelector('.foo')
++      expect(foo.namespaceURI).toBe(mathmlNS)
++      countRef.value++
++      await nextTick()
++      const bar = root.querySelector('.bar')
++      expect(bar.namespaceURI).toBe(mathmlNS)
++    })
+   })
+ })

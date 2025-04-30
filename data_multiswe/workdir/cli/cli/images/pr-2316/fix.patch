@@ -1,0 +1,1825 @@
+diff --git a/cmd/gh/main.go b/cmd/gh/main.go
+index 7280240796f..39a386092ee 100644
+--- a/cmd/gh/main.go
++++ b/cmd/gh/main.go
+@@ -22,6 +22,7 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/update"
+ 	"github.com/cli/cli/utils"
++	"github.com/mattn/go-colorable"
+ 	"github.com/mgutz/ansi"
+ 	"github.com/spf13/cobra"
+ )
+@@ -120,12 +121,14 @@ func main() {
+ 		}
+ 	}
+ 
++	cs := cmdFactory.IOStreams.ColorScheme()
++
+ 	authCheckEnabled := os.Getenv("GITHUB_TOKEN") == "" &&
+ 		os.Getenv("GITHUB_ENTERPRISE_TOKEN") == "" &&
+ 		cmd != nil && cmdutil.IsAuthCheckEnabled(cmd)
+ 	if authCheckEnabled {
+ 		if !cmdutil.CheckAuth(cfg) {
+-			fmt.Fprintln(stderr, utils.Bold("Welcome to GitHub CLI!"))
++			fmt.Fprintln(stderr, cs.Bold("Welcome to GitHub CLI!"))
+ 			fmt.Fprintln(stderr)
+ 			fmt.Fprintln(stderr, "To authenticate, please run `gh auth login`.")
+ 			fmt.Fprintln(stderr, "You can also set the GITHUB_TOKEN environment variable, if preferred.")
+@@ -247,5 +250,5 @@ func basicClient(currentVersion string) (*api.Client, error) {
+ func apiVerboseLog() api.ClientOption {
+ 	logTraffic := strings.Contains(os.Getenv("DEBUG"), "api")
+ 	colorize := utils.IsTerminal(os.Stderr)
+-	return api.VerboseLog(utils.NewColorable(os.Stderr), logTraffic, colorize)
++	return api.VerboseLog(colorable.NewColorable(os.Stderr), logTraffic, colorize)
+ }
+diff --git a/internal/authflow/flow.go b/internal/authflow/flow.go
+index 1c804931f4c..896895d214c 100644
+--- a/internal/authflow/flow.go
++++ b/internal/authflow/flow.go
+@@ -12,8 +12,7 @@ import (
+ 	"github.com/cli/cli/auth"
+ 	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/browser"
+-	"github.com/cli/cli/utils"
+-	"github.com/mattn/go-colorable"
++	"github.com/cli/cli/pkg/iostreams"
+ )
+ 
+ var (
+@@ -23,12 +22,13 @@ var (
+ 	oauthClientSecret = "34ddeff2b558a23d38fba8a6de74f086ede1cc0b"
+ )
+ 
+-func AuthFlowWithConfig(cfg config.Config, hostname, notice string, additionalScopes []string) (string, error) {
++func AuthFlowWithConfig(cfg config.Config, IO *iostreams.IOStreams, hostname, notice string, additionalScopes []string) (string, error) {
+ 	// TODO this probably shouldn't live in this package. It should probably be in a new package that
+ 	// depends on both iostreams and config.
+-	stderr := colorable.NewColorableStderr()
++	stderr := IO.ErrOut
++	cs := IO.ColorScheme()
+ 
+-	token, userLogin, err := authFlow(hostname, stderr, notice, additionalScopes)
++	token, userLogin, err := authFlow(hostname, IO, notice, additionalScopes)
+ 	if err != nil {
+ 		return "", err
+ 	}
+@@ -48,13 +48,16 @@ func AuthFlowWithConfig(cfg config.Config, hostname, notice string, additionalSc
+ 	}
+ 
+ 	fmt.Fprintf(stderr, "%s Authentication complete. %s to continue...\n",
+-		utils.GreenCheck(), utils.Bold("Press Enter"))
+-	_ = waitForEnter(os.Stdin)
++		cs.SuccessIcon(), cs.Bold("Press Enter"))
++	_ = waitForEnter(IO.In)
+ 
+ 	return token, nil
+ }
+ 
+-func authFlow(oauthHost string, w io.Writer, notice string, additionalScopes []string) (string, string, error) {
++func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, additionalScopes []string) (string, string, error) {
++	w := IO.ErrOut
++	cs := IO.ColorScheme()
++
+ 	var verboseStream io.Writer
+ 	if strings.Contains(os.Getenv("DEBUG"), "oauth") {
+ 		verboseStream = w
+@@ -75,10 +78,10 @@ func authFlow(oauthHost string, w io.Writer, notice string, additionalScopes []s
+ 		HTTPClient:    http.DefaultClient,
+ 		OpenInBrowser: func(url, code string) error {
+ 			if code != "" {
+-				fmt.Fprintf(w, "%s First copy your one-time code: %s\n", utils.Yellow("!"), utils.Bold(code))
++				fmt.Fprintf(w, "%s First copy your one-time code: %s\n", cs.Yellow("!"), cs.Bold(code))
+ 			}
+-			fmt.Fprintf(w, "- %s to open %s in your browser... ", utils.Bold("Press Enter"), oauthHost)
+-			_ = waitForEnter(os.Stdin)
++			fmt.Fprintf(w, "- %s to open %s in your browser... ", cs.Bold("Press Enter"), oauthHost)
++			_ = waitForEnter(IO.In)
+ 
+ 			browseCmd, err := browser.Command(url)
+ 			if err != nil {
+@@ -86,7 +89,7 @@ func authFlow(oauthHost string, w io.Writer, notice string, additionalScopes []s
+ 			}
+ 			err = browseCmd.Run()
+ 			if err != nil {
+-				fmt.Fprintf(w, "%s Failed opening a web browser at %s\n", utils.Red("!"), url)
++				fmt.Fprintf(w, "%s Failed opening a web browser at %s\n", cs.Red("!"), url)
+ 				fmt.Fprintf(w, "  %s\n", err)
+ 				fmt.Fprint(w, "  Please try entering the URL in your browser manually\n")
+ 			}
+diff --git a/pkg/cmd/alias/delete/delete.go b/pkg/cmd/alias/delete/delete.go
+index ccf98ca68cc..a0ff1973b06 100644
+--- a/pkg/cmd/alias/delete/delete.go
++++ b/pkg/cmd/alias/delete/delete.go
+@@ -6,7 +6,6 @@ import (
+ 	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -63,7 +62,7 @@ func deleteRun(opts *DeleteOptions) error {
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+-		redCheck := utils.Red("✓")
++		redCheck := opts.IO.ColorScheme().Red("✓")
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Deleted alias %s; was %s\n", redCheck, opts.Name, expansion)
+ 	}
+ 
+diff --git a/pkg/cmd/alias/set/set.go b/pkg/cmd/alias/set/set.go
+index a9f62847143..294a4bd0ed4 100644
+--- a/pkg/cmd/alias/set/set.go
++++ b/pkg/cmd/alias/set/set.go
+@@ -8,7 +8,6 @@ import (
+ 	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/google/shlex"
+ 	"github.com/spf13/cobra"
+ )
+@@ -84,6 +83,7 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command
+ }
+ 
+ func setRun(opts *SetOptions) error {
++	cs := opts.IO.ColorScheme()
+ 	cfg, err := opts.Config()
+ 	if err != nil {
+ 		return err
+@@ -96,7 +96,7 @@ func setRun(opts *SetOptions) error {
+ 
+ 	isTerminal := opts.IO.IsStdoutTTY()
+ 	if isTerminal {
+-		fmt.Fprintf(opts.IO.ErrOut, "- Adding alias for %s: %s\n", utils.Bold(opts.Name), utils.Bold(opts.Expansion))
++		fmt.Fprintf(opts.IO.ErrOut, "- Adding alias for %s: %s\n", cs.Bold(opts.Name), cs.Bold(opts.Expansion))
+ 	}
+ 
+ 	expansion := opts.Expansion
+@@ -114,13 +114,13 @@ func setRun(opts *SetOptions) error {
+ 		return fmt.Errorf("could not create alias: %s does not correspond to a gh command", expansion)
+ 	}
+ 
+-	successMsg := fmt.Sprintf("%s Added alias.", utils.Green("✓"))
++	successMsg := fmt.Sprintf("%s Added alias.", cs.SuccessIcon())
+ 	if oldExpansion, ok := aliasCfg.Get(opts.Name); ok {
+ 		successMsg = fmt.Sprintf("%s Changed alias %s from %s to %s",
+-			utils.Green("✓"),
+-			utils.Bold(opts.Name),
+-			utils.Bold(oldExpansion),
+-			utils.Bold(expansion),
++			cs.SuccessIcon(),
++			cs.Bold(opts.Name),
++			cs.Bold(oldExpansion),
++			cs.Bold(expansion),
+ 		)
+ 	}
+ 
+diff --git a/pkg/cmd/auth/login/login.go b/pkg/cmd/auth/login/login.go
+index 929d6b61d58..d702d0a1a7c 100644
+--- a/pkg/cmd/auth/login/login.go
++++ b/pkg/cmd/auth/login/login.go
+@@ -16,7 +16,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -228,7 +227,7 @@ func loginRun(opts *LoginOptions) error {
+ 	}
+ 
+ 	if authMode == 0 {
+-		_, err := authflow.AuthFlowWithConfig(cfg, hostname, "", opts.Scopes)
++		_, err := authflow.AuthFlowWithConfig(cfg, opts.IO, hostname, "", opts.Scopes)
+ 		if err != nil {
+ 			return fmt.Errorf("failed to authenticate via web browser: %w", err)
+ 		}
+@@ -258,6 +257,8 @@ func loginRun(opts *LoginOptions) error {
+ 		}
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	gitProtocol := "https"
+ 	if opts.Interactive {
+ 		err = prompt.SurveyAskOne(&survey.Select{
+@@ -279,7 +280,7 @@ func loginRun(opts *LoginOptions) error {
+ 			return err
+ 		}
+ 
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Configured git protocol\n", utils.GreenCheck())
++		fmt.Fprintf(opts.IO.ErrOut, "%s Configured git protocol\n", cs.SuccessIcon())
+ 	}
+ 
+ 	apiClient, err := client.ClientFromCfg(hostname, cfg)
+@@ -302,7 +303,7 @@ func loginRun(opts *LoginOptions) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Logged in as %s\n", utils.GreenCheck(), utils.Bold(username))
++	fmt.Fprintf(opts.IO.ErrOut, "%s Logged in as %s\n", cs.SuccessIcon(), cs.Bold(username))
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/auth/logout/logout.go b/pkg/cmd/auth/logout/logout.go
+index 78a3bb98fac..699de39684f 100644
+--- a/pkg/cmd/auth/logout/logout.go
++++ b/pkg/cmd/auth/logout/logout.go
+@@ -12,7 +12,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -151,8 +150,9 @@ func logoutRun(opts *LogoutOptions) error {
+ 	isTTY := opts.IO.IsStdinTTY() && opts.IO.IsStdoutTTY()
+ 
+ 	if isTTY {
++		cs := opts.IO.ColorScheme()
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Logged out of %s%s\n",
+-			utils.GreenCheck(), utils.Bold(hostname), usernameStr)
++			cs.SuccessIcon(), cs.Bold(hostname), usernameStr)
+ 	}
+ 
+ 	return nil
+diff --git a/pkg/cmd/auth/refresh/refresh.go b/pkg/cmd/auth/refresh/refresh.go
+index e2a7829b441..dd7862f3f64 100644
+--- a/pkg/cmd/auth/refresh/refresh.go
++++ b/pkg/cmd/auth/refresh/refresh.go
+@@ -20,15 +20,15 @@ type RefreshOptions struct {
+ 
+ 	Hostname string
+ 	Scopes   []string
+-	AuthFlow func(config.Config, string, []string) error
++	AuthFlow func(config.Config, *iostreams.IOStreams, string, []string) error
+ }
+ 
+ func NewCmdRefresh(f *cmdutil.Factory, runF func(*RefreshOptions) error) *cobra.Command {
+ 	opts := &RefreshOptions{
+ 		IO:     f.IOStreams,
+ 		Config: f.Config,
+-		AuthFlow: func(cfg config.Config, hostname string, scopes []string) error {
+-			_, err := authflow.AuthFlowWithConfig(cfg, hostname, "", scopes)
++		AuthFlow: func(cfg config.Config, io *iostreams.IOStreams, hostname string, scopes []string) error {
++			_, err := authflow.AuthFlowWithConfig(cfg, io, hostname, "", scopes)
+ 			return err
+ 		},
+ 	}
+@@ -118,5 +118,5 @@ func refreshRun(opts *RefreshOptions) error {
+ 		return err
+ 	}
+ 
+-	return opts.AuthFlow(cfg, hostname, opts.Scopes)
++	return opts.AuthFlow(cfg, opts.IO, hostname, opts.Scopes)
+ }
+diff --git a/pkg/cmd/auth/status/status.go b/pkg/cmd/auth/status/status.go
+index d5be704410e..59603981d16 100644
+--- a/pkg/cmd/auth/status/status.go
++++ b/pkg/cmd/auth/status/status.go
+@@ -10,7 +10,6 @@ import (
+ 	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -64,12 +63,14 @@ func statusRun(opts *StatusOptions) error {
+ 
+ 	stderr := opts.IO.ErrOut
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	statusInfo := map[string][]string{}
+ 
+ 	hostnames, err := cfg.Hosts()
+ 	if len(hostnames) == 0 || err != nil {
+ 		fmt.Fprintf(stderr,
+-			"You are not logged into any GitHub hosts. Run %s to authenticate.\n", utils.Bold("gh auth login"))
++			"You are not logged into any GitHub hosts. Run %s to authenticate.\n", cs.Bold("gh auth login"))
+ 		return cmdutil.SilentError
+ 	}
+ 
+@@ -98,39 +99,39 @@ func statusRun(opts *StatusOptions) error {
+ 		if err != nil {
+ 			var missingScopes *api.MissingScopesError
+ 			if errors.As(err, &missingScopes) {
+-				addMsg("%s %s: the token in %s is %s", utils.Red("X"), hostname, tokenSource, err)
++				addMsg("%s %s: the token in %s is %s", cs.Red("X"), hostname, tokenSource, err)
+ 				if tokenIsWriteable {
+ 					addMsg("- To request missing scopes, run: %s %s\n",
+-						utils.Bold("gh auth refresh -h"),
+-						utils.Bold(hostname))
++						cs.Bold("gh auth refresh -h"),
++						cs.Bold(hostname))
+ 				}
+ 			} else {
+-				addMsg("%s %s: authentication failed", utils.Red("X"), hostname)
+-				addMsg("- The %s token in %s is no longer valid.", utils.Bold(hostname), tokenSource)
++				addMsg("%s %s: authentication failed", cs.Red("X"), hostname)
++				addMsg("- The %s token in %s is no longer valid.", cs.Bold(hostname), tokenSource)
+ 				if tokenIsWriteable {
+ 					addMsg("- To re-authenticate, run: %s %s",
+-						utils.Bold("gh auth login -h"), utils.Bold(hostname))
++						cs.Bold("gh auth login -h"), cs.Bold(hostname))
+ 					addMsg("- To forget about this host, run: %s %s",
+-						utils.Bold("gh auth logout -h"), utils.Bold(hostname))
++						cs.Bold("gh auth logout -h"), cs.Bold(hostname))
+ 				}
+ 			}
+ 			failed = true
+ 		} else {
+ 			username, err := api.CurrentLoginName(apiClient, hostname)
+ 			if err != nil {
+-				addMsg("%s %s: api call failed: %s", utils.Red("X"), hostname, err)
++				addMsg("%s %s: api call failed: %s", cs.Red("X"), hostname, err)
+ 			}
+-			addMsg("%s Logged in to %s as %s (%s)", utils.GreenCheck(), hostname, utils.Bold(username), tokenSource)
++			addMsg("%s Logged in to %s as %s (%s)", cs.SuccessIcon(), hostname, cs.Bold(username), tokenSource)
+ 			proto, _ := cfg.Get(hostname, "git_protocol")
+ 			if proto != "" {
+ 				addMsg("%s Git operations for %s configured to use %s protocol.",
+-					utils.GreenCheck(), hostname, utils.Bold(proto))
++					cs.SuccessIcon(), hostname, cs.Bold(proto))
+ 			}
+ 			tokenDisplay := "*******************"
+ 			if opts.ShowToken {
+ 				tokenDisplay = token
+ 			}
+-			addMsg("%s Token: %s", utils.GreenCheck(), tokenDisplay)
++			addMsg("%s Token: %s", cs.SuccessIcon(), tokenDisplay)
+ 		}
+ 		addMsg("")
+ 
+@@ -143,7 +144,7 @@ func statusRun(opts *StatusOptions) error {
+ 		if !ok {
+ 			continue
+ 		}
+-		fmt.Fprintf(stderr, "%s\n", utils.Bold(hostname))
++		fmt.Fprintf(stderr, "%s\n", cs.Bold(hostname))
+ 		for _, line := range lines {
+ 			fmt.Fprintf(stderr, "  %s\n", line)
+ 		}
+diff --git a/pkg/cmd/gist/create/create.go b/pkg/cmd/gist/create/create.go
+index 85fcb158fbd..dc7d4b25765 100644
+--- a/pkg/cmd/gist/create/create.go
++++ b/pkg/cmd/gist/create/create.go
+@@ -19,7 +19,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -116,8 +115,10 @@ func createRun(opts *CreateOptions) error {
+ 		completionMessage = fmt.Sprintf("Created gist %s", gistName)
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	errOut := opts.IO.ErrOut
+-	fmt.Fprintf(errOut, "%s %s\n", utils.Gray("-"), processMessage)
++	fmt.Fprintf(errOut, "%s %s\n", cs.Gray("-"), processMessage)
+ 
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+@@ -132,10 +133,10 @@ func createRun(opts *CreateOptions) error {
+ 				return fmt.Errorf("This command requires the 'gist' OAuth scope.\nPlease re-authenticate by doing `gh config set -h github.com oauth_token ''` and running the command again.")
+ 			}
+ 		}
+-		return fmt.Errorf("%s Failed to create gist: %w", utils.Red("X"), err)
++		return fmt.Errorf("%s Failed to create gist: %w", cs.Red("X"), err)
+ 	}
+ 
+-	fmt.Fprintf(errOut, "%s %s\n", utils.Green("✓"), completionMessage)
++	fmt.Fprintf(errOut, "%s %s\n", cs.SuccessIcon(), completionMessage)
+ 
+ 	fmt.Fprintln(opts.IO.Out, gist.HTMLURL)
+ 
+diff --git a/pkg/cmd/issue/close/close.go b/pkg/cmd/issue/close/close.go
+index 66314a86d9a..a6aa04bc69e 100644
+--- a/pkg/cmd/issue/close/close.go
++++ b/pkg/cmd/issue/close/close.go
+@@ -10,7 +10,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/issue/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -53,6 +52,8 @@ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Comm
+ }
+ 
+ func closeRun(opts *CloseOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -65,7 +66,7 @@ func closeRun(opts *CloseOptions) error {
+ 	}
+ 
+ 	if issue.Closed {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is already closed\n", utils.Yellow("!"), issue.Number, issue.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is already closed\n", cs.Yellow("!"), issue.Number, issue.Title)
+ 		return nil
+ 	}
+ 
+@@ -74,7 +75,7 @@ func closeRun(opts *CloseOptions) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Closed issue #%d (%s)\n", utils.Red("✔"), issue.Number, issue.Title)
++	fmt.Fprintf(opts.IO.ErrOut, "%s Closed issue #%d (%s)\n", cs.Red("✔"), issue.Number, issue.Title)
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/issue/reopen/reopen.go b/pkg/cmd/issue/reopen/reopen.go
+index 72a05250370..e65e2eceb22 100644
+--- a/pkg/cmd/issue/reopen/reopen.go
++++ b/pkg/cmd/issue/reopen/reopen.go
+@@ -10,7 +10,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/issue/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -53,6 +52,8 @@ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Co
+ }
+ 
+ func reopenRun(opts *ReopenOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -65,7 +66,7 @@ func reopenRun(opts *ReopenOptions) error {
+ 	}
+ 
+ 	if !issue.Closed {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is already open\n", utils.Yellow("!"), issue.Number, issue.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is already open\n", cs.Yellow("!"), issue.Number, issue.Title)
+ 		return nil
+ 	}
+ 
+@@ -74,7 +75,7 @@ func reopenRun(opts *ReopenOptions) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Reopened issue #%d (%s)\n", utils.Green("✔"), issue.Number, issue.Title)
++	fmt.Fprintf(opts.IO.ErrOut, "%s Reopened issue #%d (%s)\n", cs.SuccessIcon(), issue.Number, issue.Title)
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/issue/shared/display.go b/pkg/cmd/issue/shared/display.go
+index 983052f19e6..2e88eea6e02 100644
+--- a/pkg/cmd/issue/shared/display.go
++++ b/pkg/cmd/issue/shared/display.go
+@@ -14,6 +14,7 @@ import (
+ )
+ 
+ func PrintIssues(io *iostreams.IOStreams, prefix string, totalCount int, issues []api.Issue) {
++	cs := io.ColorScheme()
+ 	table := utils.NewTablePrinter(io)
+ 	for _, issue := range issues {
+ 		issueNum := strconv.Itoa(issue.Number)
+@@ -27,14 +28,14 @@ func PrintIssues(io *iostreams.IOStreams, prefix string, totalCount int, issues
+ 		}
+ 		now := time.Now()
+ 		ago := now.Sub(issue.UpdatedAt)
+-		table.AddField(issueNum, nil, prShared.ColorFuncForState(issue.State))
++		table.AddField(issueNum, nil, cs.ColorFromString(prShared.ColorForState(issue.State)))
+ 		if !table.IsTTY() {
+ 			table.AddField(issue.State, nil, nil)
+ 		}
+ 		table.AddField(text.ReplaceExcessiveWhitespace(issue.Title), nil, nil)
+-		table.AddField(labels, nil, utils.Gray)
++		table.AddField(labels, nil, cs.Gray)
+ 		if table.IsTTY() {
+-			table.AddField(utils.FuzzyAgo(ago), nil, utils.Gray)
++			table.AddField(utils.FuzzyAgo(ago), nil, cs.Gray)
+ 		} else {
+ 			table.AddField(issue.UpdatedAt.String(), nil, nil)
+ 		}
+@@ -43,7 +44,7 @@ func PrintIssues(io *iostreams.IOStreams, prefix string, totalCount int, issues
+ 	_ = table.Render()
+ 	remaining := totalCount - len(issues)
+ 	if remaining > 0 {
+-		fmt.Fprintf(io.Out, utils.Gray("%sAnd %d more\n"), prefix, remaining)
++		fmt.Fprintf(io.Out, cs.Gray("%sAnd %d more\n"), prefix, remaining)
+ 	}
+ }
+ 
+diff --git a/pkg/cmd/issue/status/status.go b/pkg/cmd/issue/status/status.go
+index 42ba918231c..218d5d38ae1 100644
+--- a/pkg/cmd/issue/status/status.go
++++ b/pkg/cmd/issue/status/status.go
+@@ -80,28 +80,28 @@ func statusRun(opts *StatusOptions) error {
+ 	fmt.Fprintf(out, "Relevant issues in %s\n", ghrepo.FullName(baseRepo))
+ 	fmt.Fprintln(out, "")
+ 
+-	prShared.PrintHeader(out, "Issues assigned to you")
++	prShared.PrintHeader(opts.IO, "Issues assigned to you")
+ 	if issuePayload.Assigned.TotalCount > 0 {
+ 		issueShared.PrintIssues(opts.IO, "  ", issuePayload.Assigned.TotalCount, issuePayload.Assigned.Issues)
+ 	} else {
+ 		message := "  There are no issues assigned to you"
+-		prShared.PrintMessage(out, message)
++		prShared.PrintMessage(opts.IO, message)
+ 	}
+ 	fmt.Fprintln(out)
+ 
+-	prShared.PrintHeader(out, "Issues mentioning you")
++	prShared.PrintHeader(opts.IO, "Issues mentioning you")
+ 	if issuePayload.Mentioned.TotalCount > 0 {
+ 		issueShared.PrintIssues(opts.IO, "  ", issuePayload.Mentioned.TotalCount, issuePayload.Mentioned.Issues)
+ 	} else {
+-		prShared.PrintMessage(out, "  There are no issues mentioning you")
++		prShared.PrintMessage(opts.IO, "  There are no issues mentioning you")
+ 	}
+ 	fmt.Fprintln(out)
+ 
+-	prShared.PrintHeader(out, "Issues opened by you")
++	prShared.PrintHeader(opts.IO, "Issues opened by you")
+ 	if issuePayload.Authored.TotalCount > 0 {
+ 		issueShared.PrintIssues(opts.IO, "  ", issuePayload.Authored.TotalCount, issuePayload.Authored.Issues)
+ 	} else {
+-		prShared.PrintMessage(out, "  There are no issues opened by you")
++		prShared.PrintMessage(opts.IO, "  There are no issues opened by you")
+ 	}
+ 	fmt.Fprintln(out)
+ 
+diff --git a/pkg/cmd/issue/view/view.go b/pkg/cmd/issue/view/view.go
+index 66156898e7b..f559819e667 100644
+--- a/pkg/cmd/issue/view/view.go
++++ b/pkg/cmd/issue/view/view.go
+@@ -129,11 +129,12 @@ func printHumanIssuePreview(io *iostreams.IOStreams, issue *api.Issue) error {
+ 	out := io.Out
+ 	now := time.Now()
+ 	ago := now.Sub(issue.CreatedAt)
++	cs := io.ColorScheme()
+ 
+ 	// Header (Title and State)
+-	fmt.Fprintln(out, utils.Bold(issue.Title))
+-	fmt.Fprint(out, issueStateTitleWithColor(issue.State))
+-	fmt.Fprintln(out, utils.Gray(fmt.Sprintf(
++	fmt.Fprintln(out, cs.Bold(issue.Title))
++	fmt.Fprint(out, issueStateTitleWithColor(cs, issue.State))
++	fmt.Fprintln(out, cs.Gray(fmt.Sprintf(
+ 		" • %s opened %s • %s",
+ 		issue.Author.Login,
+ 		utils.FuzzyAgo(ago),
+@@ -143,19 +144,19 @@ func printHumanIssuePreview(io *iostreams.IOStreams, issue *api.Issue) error {
+ 	// Metadata
+ 	fmt.Fprintln(out)
+ 	if assignees := issueAssigneeList(*issue); assignees != "" {
+-		fmt.Fprint(out, utils.Bold("Assignees: "))
++		fmt.Fprint(out, cs.Bold("Assignees: "))
+ 		fmt.Fprintln(out, assignees)
+ 	}
+ 	if labels := shared.IssueLabelList(*issue); labels != "" {
+-		fmt.Fprint(out, utils.Bold("Labels: "))
++		fmt.Fprint(out, cs.Bold("Labels: "))
+ 		fmt.Fprintln(out, labels)
+ 	}
+ 	if projects := issueProjectList(*issue); projects != "" {
+-		fmt.Fprint(out, utils.Bold("Projects: "))
++		fmt.Fprint(out, cs.Bold("Projects: "))
+ 		fmt.Fprintln(out, projects)
+ 	}
+ 	if issue.Milestone.Title != "" {
+-		fmt.Fprint(out, utils.Bold("Milestone: "))
++		fmt.Fprint(out, cs.Bold("Milestone: "))
+ 		fmt.Fprintln(out, issue.Milestone.Title)
+ 	}
+ 
+@@ -172,12 +173,12 @@ func printHumanIssuePreview(io *iostreams.IOStreams, issue *api.Issue) error {
+ 	fmt.Fprintln(out)
+ 
+ 	// Footer
+-	fmt.Fprintf(out, utils.Gray("View this issue on GitHub: %s\n"), issue.URL)
++	fmt.Fprintf(out, cs.Gray("View this issue on GitHub: %s\n"), issue.URL)
+ 	return nil
+ }
+ 
+-func issueStateTitleWithColor(state string) string {
+-	colorFunc := prShared.ColorFuncForState(state)
++func issueStateTitleWithColor(cs *iostreams.ColorScheme, state string) string {
++	colorFunc := cs.ColorFromString(prShared.ColorForState(state))
+ 	return colorFunc(strings.Title(strings.ToLower(state)))
+ }
+ 
+diff --git a/pkg/cmd/pr/checks/checks.go b/pkg/cmd/pr/checks/checks.go
+index f267c985478..89ce37ab4a8 100644
+--- a/pkg/cmd/pr/checks/checks.go
++++ b/pkg/cmd/pr/checks/checks.go
+@@ -97,13 +97,15 @@ func checksRun(opts *ChecksOptions) error {
+ 		markColor func(string) string
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	outputs := []output{}
+ 
+ 	for _, c := range pr.Commits.Nodes[0].Commit.StatusCheckRollup.Contexts.Nodes {
+ 		mark := "✓"
+ 		bucket := "pass"
+ 		state := c.State
+-		markColor := utils.Green
++		markColor := cs.Green
+ 		if state == "" {
+ 			if c.Status == "COMPLETED" {
+ 				state = c.Conclusion
+@@ -116,12 +118,12 @@ func checksRun(opts *ChecksOptions) error {
+ 			passing++
+ 		case "ERROR", "FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED":
+ 			mark = "X"
+-			markColor = utils.Red
++			markColor = cs.Red
+ 			failing++
+ 			bucket = "fail"
+ 		case "EXPECTED", "REQUESTED", "QUEUED", "PENDING", "IN_PROGRESS", "STALE":
+ 			mark = "-"
+-			markColor = utils.Yellow
++			markColor = cs.Yellow
+ 			pending++
+ 			bucket = "pending"
+ 		default:
+@@ -206,7 +208,7 @@ func checksRun(opts *ChecksOptions) error {
+ 			"%d failing, %d successful, and %d pending checks",
+ 			failing, passing, pending)
+ 
+-		summary = fmt.Sprintf("%s\n%s", utils.Bold(summary), tallies)
++		summary = fmt.Sprintf("%s\n%s", cs.Bold(summary), tallies)
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+diff --git a/pkg/cmd/pr/close/close.go b/pkg/cmd/pr/close/close.go
+index 7ff257855b9..6b6cc8c9a92 100644
+--- a/pkg/cmd/pr/close/close.go
++++ b/pkg/cmd/pr/close/close.go
+@@ -11,7 +11,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/pr/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -61,6 +60,8 @@ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Comm
+ }
+ 
+ func closeRun(opts *CloseOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -73,10 +74,10 @@ func closeRun(opts *CloseOptions) error {
+ 	}
+ 
+ 	if pr.State == "MERGED" {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) can't be closed because it was already merged", utils.Red("!"), pr.Number, pr.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) can't be closed because it was already merged", cs.Red("!"), pr.Number, pr.Title)
+ 		return cmdutil.SilentError
+ 	} else if pr.Closed {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already closed\n", utils.Yellow("!"), pr.Number, pr.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already closed\n", cs.Yellow("!"), pr.Number, pr.Title)
+ 		return nil
+ 	}
+ 
+@@ -85,7 +86,7 @@ func closeRun(opts *CloseOptions) error {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Closed pull request #%d (%s)\n", utils.Red("✔"), pr.Number, pr.Title)
++	fmt.Fprintf(opts.IO.ErrOut, "%s Closed pull request #%d (%s)\n", cs.Red("✔"), pr.Number, pr.Title)
+ 
+ 	crossRepoPR := pr.HeadRepositoryOwner.Login != baseRepo.RepoOwner()
+ 
+@@ -114,24 +115,24 @@ func closeRun(opts *CloseOptions) error {
+ 			if localBranchExists {
+ 				err = git.DeleteLocalBranch(pr.HeadRefName)
+ 				if err != nil {
+-					err = fmt.Errorf("failed to delete local branch %s: %w", utils.Cyan(pr.HeadRefName), err)
++					err = fmt.Errorf("failed to delete local branch %s: %w", cs.Cyan(pr.HeadRefName), err)
+ 					return err
+ 				}
+ 			}
+ 
+ 			if branchToSwitchTo != "" {
+-				branchSwitchString = fmt.Sprintf(" and switched to branch %s", utils.Cyan(branchToSwitchTo))
++				branchSwitchString = fmt.Sprintf(" and switched to branch %s", cs.Cyan(branchToSwitchTo))
+ 			}
+ 		}
+ 
+ 		if !crossRepoPR {
+ 			err = api.BranchDeleteRemote(apiClient, baseRepo, pr.HeadRefName)
+ 			if err != nil {
+-				err = fmt.Errorf("failed to delete remote branch %s: %w", utils.Cyan(pr.HeadRefName), err)
++				err = fmt.Errorf("failed to delete remote branch %s: %w", cs.Cyan(pr.HeadRefName), err)
+ 				return err
+ 			}
+ 		}
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Deleted branch %s%s\n", utils.Red("✔"), utils.Cyan(pr.HeadRefName), branchSwitchString)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Deleted branch %s%s\n", cs.Red("✔"), cs.Cyan(pr.HeadRefName), branchSwitchString)
+ 	}
+ 
+ 	return nil
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index 38950cb65f0..e2cef9e56d8 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -127,6 +127,8 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ }
+ 
+ func createRun(opts *CreateOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -323,11 +325,11 @@ func createRun(opts *CreateOptions) error {
+ 
+ 		if isTerminal {
+ 			fmt.Fprintf(opts.IO.ErrOut, message,
+-				utils.Cyan(headBranchLabel),
+-				utils.Cyan(baseBranch),
++				cs.Cyan(headBranchLabel),
++				cs.Cyan(baseBranch),
+ 				ghrepo.FullName(baseRepo))
+ 			if (title == "" || body == "") && defaultsErr != nil {
+-				fmt.Fprintf(opts.IO.ErrOut, "%s warning: could not compute title or body defaults: %s\n", utils.Yellow("!"), defaultsErr)
++				fmt.Fprintf(opts.IO.ErrOut, "%s warning: could not compute title or body defaults: %s\n", cs.Yellow("!"), defaultsErr)
+ 			}
+ 		}
+ 	}
+diff --git a/pkg/cmd/pr/list/list.go b/pkg/cmd/pr/list/list.go
+index e4fe318c812..3ed4b1ea158 100644
+--- a/pkg/cmd/pr/list/list.go
++++ b/pkg/cmd/pr/list/list.go
+@@ -145,15 +145,16 @@ func listRun(opts *ListOptions) error {
+ 		fmt.Fprintf(opts.IO.Out, "\n%s\n\n", title)
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
+ 	table := utils.NewTablePrinter(opts.IO)
+ 	for _, pr := range listResult.PullRequests {
+ 		prNum := strconv.Itoa(pr.Number)
+ 		if table.IsTTY() {
+ 			prNum = "#" + prNum
+ 		}
+-		table.AddField(prNum, nil, shared.ColorFuncForPR(pr))
++		table.AddField(prNum, nil, cs.ColorFromString(shared.ColorForPR(pr)))
+ 		table.AddField(text.ReplaceExcessiveWhitespace(pr.Title), nil, nil)
+-		table.AddField(pr.HeadLabel(), nil, utils.Cyan)
++		table.AddField(pr.HeadLabel(), nil, cs.Cyan)
+ 		if !table.IsTTY() {
+ 			table.AddField(prStateWithDraft(&pr), nil, nil)
+ 		}
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index bc22fdac12a..2eafe971216 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -16,7 +16,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -111,6 +110,8 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ }
+ 
+ func mergeRun(opts *MergeOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -123,13 +124,13 @@ func mergeRun(opts *MergeOptions) error {
+ 	}
+ 
+ 	if pr.Mergeable == "CONFLICTING" {
+-		err := fmt.Errorf("%s Pull request #%d (%s) has conflicts and isn't mergeable ", utils.Red("!"), pr.Number, pr.Title)
++		err := fmt.Errorf("%s Pull request #%d (%s) has conflicts and isn't mergeable ", cs.Red("!"), pr.Number, pr.Title)
+ 		return err
+ 	} else if pr.Mergeable == "UNKNOWN" {
+-		err := fmt.Errorf("%s Pull request #%d (%s) can't be merged right now; try again in a few seconds", utils.Red("!"), pr.Number, pr.Title)
++		err := fmt.Errorf("%s Pull request #%d (%s) can't be merged right now; try again in a few seconds", cs.Red("!"), pr.Number, pr.Title)
+ 		return err
+ 	} else if pr.State == "MERGED" {
+-		err := fmt.Errorf("%s Pull request #%d (%s) was already merged", utils.Red("!"), pr.Number, pr.Title)
++		err := fmt.Errorf("%s Pull request #%d (%s) was already merged", cs.Red("!"), pr.Number, pr.Title)
+ 		return err
+ 	}
+ 
+@@ -170,7 +171,7 @@ func mergeRun(opts *MergeOptions) error {
+ 	isTerminal := opts.IO.IsStdoutTTY()
+ 
+ 	if isTerminal {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s %s pull request #%d (%s)\n", utils.Magenta("✔"), action, pr.Number, pr.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s %s pull request #%d (%s)\n", cs.Magenta("✔"), action, pr.Number, pr.Title)
+ 	}
+ 
+ 	if deleteBranch {
+@@ -198,13 +199,13 @@ func mergeRun(opts *MergeOptions) error {
+ 			if localBranchExists {
+ 				err = git.DeleteLocalBranch(pr.HeadRefName)
+ 				if err != nil {
+-					err = fmt.Errorf("failed to delete local branch %s: %w", utils.Cyan(pr.HeadRefName), err)
++					err = fmt.Errorf("failed to delete local branch %s: %w", cs.Cyan(pr.HeadRefName), err)
+ 					return err
+ 				}
+ 			}
+ 
+ 			if branchToSwitchTo != "" {
+-				branchSwitchString = fmt.Sprintf(" and switched to branch %s", utils.Cyan(branchToSwitchTo))
++				branchSwitchString = fmt.Sprintf(" and switched to branch %s", cs.Cyan(branchToSwitchTo))
+ 			}
+ 		}
+ 
+@@ -213,13 +214,13 @@ func mergeRun(opts *MergeOptions) error {
+ 			var httpErr api.HTTPError
+ 			// The ref might have already been deleted by GitHub
+ 			if err != nil && (!errors.As(err, &httpErr) || httpErr.StatusCode != 422) {
+-				err = fmt.Errorf("failed to delete remote branch %s: %w", utils.Cyan(pr.HeadRefName), err)
++				err = fmt.Errorf("failed to delete remote branch %s: %w", cs.Cyan(pr.HeadRefName), err)
+ 				return err
+ 			}
+ 		}
+ 
+ 		if isTerminal {
+-			fmt.Fprintf(opts.IO.ErrOut, "%s Deleted branch %s%s\n", utils.Red("✔"), utils.Cyan(pr.HeadRefName), branchSwitchString)
++			fmt.Fprintf(opts.IO.ErrOut, "%s Deleted branch %s%s\n", cs.Red("✔"), cs.Cyan(pr.HeadRefName), branchSwitchString)
+ 		}
+ 	}
+ 
+diff --git a/pkg/cmd/pr/ready/ready.go b/pkg/cmd/pr/ready/ready.go
+index 933dec0823d..d160eccf4c6 100644
+--- a/pkg/cmd/pr/ready/ready.go
++++ b/pkg/cmd/pr/ready/ready.go
+@@ -12,7 +12,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/pr/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -63,6 +62,8 @@ func NewCmdReady(f *cmdutil.Factory, runF func(*ReadyOptions) error) *cobra.Comm
+ }
+ 
+ func readyRun(opts *ReadyOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -75,10 +76,10 @@ func readyRun(opts *ReadyOptions) error {
+ 	}
+ 
+ 	if pr.Closed {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is closed. Only draft pull requests can be marked as \"ready for review\"", utils.Red("!"), pr.Number)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is closed. Only draft pull requests can be marked as \"ready for review\"", cs.Red("!"), pr.Number)
+ 		return cmdutil.SilentError
+ 	} else if !pr.IsDraft {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is already \"ready for review\"\n", utils.Yellow("!"), pr.Number)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is already \"ready for review\"\n", cs.Yellow("!"), pr.Number)
+ 		return nil
+ 	}
+ 
+@@ -87,7 +88,7 @@ func readyRun(opts *ReadyOptions) error {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is marked as \"ready for review\"\n", utils.Green("✔"), pr.Number)
++	fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d is marked as \"ready for review\"\n", cs.SuccessIcon(), pr.Number)
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/pr/reopen/reopen.go b/pkg/cmd/pr/reopen/reopen.go
+index 78f4a36ecae..afbc1c37f67 100644
+--- a/pkg/cmd/pr/reopen/reopen.go
++++ b/pkg/cmd/pr/reopen/reopen.go
+@@ -10,7 +10,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmd/pr/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -53,6 +52,8 @@ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Co
+ }
+ 
+ func reopenRun(opts *ReopenOptions) error {
++	cs := opts.IO.ColorScheme()
++
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -65,12 +66,12 @@ func reopenRun(opts *ReopenOptions) error {
+ 	}
+ 
+ 	if pr.State == "MERGED" {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) can't be reopened because it was already merged", utils.Red("!"), pr.Number, pr.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) can't be reopened because it was already merged", cs.Red("!"), pr.Number, pr.Title)
+ 		return cmdutil.SilentError
+ 	}
+ 
+ 	if !pr.Closed {
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already open\n", utils.Yellow("!"), pr.Number, pr.Title)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) is already open\n", cs.Yellow("!"), pr.Number, pr.Title)
+ 		return nil
+ 	}
+ 
+@@ -79,7 +80,7 @@ func reopenRun(opts *ReopenOptions) error {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Reopened pull request #%d (%s)\n", utils.Green("✔"), pr.Number, pr.Title)
++	fmt.Fprintf(opts.IO.ErrOut, "%s Reopened pull request #%d (%s)\n", cs.SuccessIcon(), pr.Number, pr.Title)
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/pr/review/review.go b/pkg/cmd/pr/review/review.go
+index 1f0916bf738..6ca69b6763c 100644
+--- a/pkg/cmd/pr/review/review.go
++++ b/pkg/cmd/pr/review/review.go
+@@ -17,7 +17,6 @@ import (
+ 	"github.com/cli/cli/pkg/markdown"
+ 	"github.com/cli/cli/pkg/prompt"
+ 	"github.com/cli/cli/pkg/surveyext"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -172,13 +171,15 @@ func reviewRun(opts *ReviewOptions) error {
+ 		return nil
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	switch reviewData.State {
+ 	case api.ReviewComment:
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Reviewed pull request #%d\n", utils.Gray("-"), pr.Number)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Reviewed pull request #%d\n", cs.Gray("-"), pr.Number)
+ 	case api.ReviewApprove:
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Approved pull request #%d\n", utils.Green("✓"), pr.Number)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Approved pull request #%d\n", cs.SuccessIcon(), pr.Number)
+ 	case api.ReviewRequestChanges:
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Requested changes to pull request #%d\n", utils.Red("+"), pr.Number)
++		fmt.Fprintf(opts.IO.ErrOut, "%s Requested changes to pull request #%d\n", cs.Red("+"), pr.Number)
+ 	}
+ 
+ 	return nil
+diff --git a/pkg/cmd/pr/shared/display.go b/pkg/cmd/pr/shared/display.go
+index 31e7228b620..061fb966408 100644
+--- a/pkg/cmd/pr/shared/display.go
++++ b/pkg/cmd/pr/shared/display.go
+@@ -2,48 +2,49 @@ package shared
+ 
+ import (
+ 	"fmt"
+-	"io"
+ 	"strings"
+ 
+ 	"github.com/cli/cli/api"
++	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/utils"
+ )
+ 
+-func StateTitleWithColor(pr api.PullRequest) string {
+-	prStateColorFunc := ColorFuncForPR(pr)
++func StateTitleWithColor(cs *iostreams.ColorScheme, pr api.PullRequest) string {
++	prStateColorFunc := cs.ColorFromString(ColorForPR(pr))
++
+ 	if pr.State == "OPEN" && pr.IsDraft {
+ 		return prStateColorFunc(strings.Title(strings.ToLower("Draft")))
+ 	}
+ 	return prStateColorFunc(strings.Title(strings.ToLower(pr.State)))
+ }
+ 
+-func ColorFuncForPR(pr api.PullRequest) func(string) string {
++func ColorForPR(pr api.PullRequest) string {
+ 	if pr.State == "OPEN" && pr.IsDraft {
+-		return utils.Gray
++		return "gray"
+ 	}
+-	return ColorFuncForState(pr.State)
++	return ColorForState(pr.State)
+ }
+ 
+-// ColorFuncForState returns a color function for a PR/Issue state
+-func ColorFuncForState(state string) func(string) string {
++// ColorForState returns a color constant for a PR/Issue state
++func ColorForState(state string) string {
+ 	switch state {
+ 	case "OPEN":
+-		return utils.Green
++		return "green"
+ 	case "CLOSED":
+-		return utils.Red
++		return "red"
+ 	case "MERGED":
+-		return utils.Magenta
++		return "magenta"
+ 	default:
+-		return nil
++		return ""
+ 	}
+ }
+ 
+-func PrintHeader(w io.Writer, s string) {
+-	fmt.Fprintln(w, utils.Bold(s))
++func PrintHeader(io *iostreams.IOStreams, s string) {
++	fmt.Fprintln(io.Out, io.ColorScheme().Bold(s))
+ }
+ 
+-func PrintMessage(w io.Writer, s string) {
+-	fmt.Fprintln(w, utils.Gray(s))
++func PrintMessage(io *iostreams.IOStreams, s string) {
++	fmt.Fprintln(io.Out, io.ColorScheme().Gray(s))
+ }
+ 
+ func ListHeader(repoName string, itemName string, matchCount int, totalMatchCount int, hasFilters bool) string {
+diff --git a/pkg/cmd/pr/status/status.go b/pkg/cmd/pr/status/status.go
+index 2c012d7121d..bec49f259eb 100644
+--- a/pkg/cmd/pr/status/status.go
++++ b/pkg/cmd/pr/status/status.go
+@@ -3,7 +3,6 @@ package status
+ import (
+ 	"errors"
+ 	"fmt"
+-	"io"
+ 	"net/http"
+ 	"regexp"
+ 	"strconv"
+@@ -18,7 +17,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/text"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -104,38 +102,39 @@ func statusRun(opts *StatusOptions) error {
+ 	defer opts.IO.StopPager()
+ 
+ 	out := opts.IO.Out
++	cs := opts.IO.ColorScheme()
+ 
+ 	fmt.Fprintln(out, "")
+ 	fmt.Fprintf(out, "Relevant pull requests in %s\n", ghrepo.FullName(baseRepo))
+ 	fmt.Fprintln(out, "")
+ 
+-	shared.PrintHeader(out, "Current branch")
++	shared.PrintHeader(opts.IO, "Current branch")
+ 	currentPR := prPayload.CurrentPR
+ 	if currentPR != nil && currentPR.State != "OPEN" && prPayload.DefaultBranch == currentBranch {
+ 		currentPR = nil
+ 	}
+ 	if currentPR != nil {
+-		printPrs(out, 1, *currentPR)
++		printPrs(opts.IO, 1, *currentPR)
+ 	} else if currentPRHeadRef == "" {
+-		shared.PrintMessage(out, "  There is no current branch")
++		shared.PrintMessage(opts.IO, "  There is no current branch")
+ 	} else {
+-		shared.PrintMessage(out, fmt.Sprintf("  There is no pull request associated with %s", utils.Cyan("["+currentPRHeadRef+"]")))
++		shared.PrintMessage(opts.IO, fmt.Sprintf("  There is no pull request associated with %s", cs.Cyan("["+currentPRHeadRef+"]")))
+ 	}
+ 	fmt.Fprintln(out)
+ 
+-	shared.PrintHeader(out, "Created by you")
++	shared.PrintHeader(opts.IO, "Created by you")
+ 	if prPayload.ViewerCreated.TotalCount > 0 {
+-		printPrs(out, prPayload.ViewerCreated.TotalCount, prPayload.ViewerCreated.PullRequests...)
++		printPrs(opts.IO, prPayload.ViewerCreated.TotalCount, prPayload.ViewerCreated.PullRequests...)
+ 	} else {
+-		shared.PrintMessage(out, "  You have no open pull requests")
++		shared.PrintMessage(opts.IO, "  You have no open pull requests")
+ 	}
+ 	fmt.Fprintln(out)
+ 
+-	shared.PrintHeader(out, "Requesting a code review from you")
++	shared.PrintHeader(opts.IO, "Requesting a code review from you")
+ 	if prPayload.ReviewRequested.TotalCount > 0 {
+-		printPrs(out, prPayload.ReviewRequested.TotalCount, prPayload.ReviewRequested.PullRequests...)
++		printPrs(opts.IO, prPayload.ReviewRequested.TotalCount, prPayload.ReviewRequested.PullRequests...)
+ 	} else {
+-		shared.PrintMessage(out, "  You have no pull requests to review")
++		shared.PrintMessage(opts.IO, "  You have no pull requests to review")
+ 	}
+ 	fmt.Fprintln(out)
+ 
+@@ -179,20 +178,16 @@ func prSelectorForCurrentBranch(baseRepo ghrepo.Interface, prHeadRef string, rem
+ 	return
+ }
+ 
+-func printPrs(w io.Writer, totalCount int, prs ...api.PullRequest) {
++func printPrs(io *iostreams.IOStreams, totalCount int, prs ...api.PullRequest) {
++	w := io.Out
++	cs := io.ColorScheme()
++
+ 	for _, pr := range prs {
+ 		prNumber := fmt.Sprintf("#%d", pr.Number)
+ 
+-		prStateColorFunc := utils.Green
+-		if pr.IsDraft {
+-			prStateColorFunc = utils.Gray
+-		} else if pr.State == "MERGED" {
+-			prStateColorFunc = utils.Magenta
+-		} else if pr.State == "CLOSED" {
+-			prStateColorFunc = utils.Red
+-		}
++		prStateColorFunc := cs.ColorFromString(shared.ColorForPR(pr))
+ 
+-		fmt.Fprintf(w, "  %s  %s %s", prStateColorFunc(prNumber), text.Truncate(50, text.ReplaceExcessiveWhitespace(pr.Title)), utils.Cyan("["+pr.HeadLabel()+"]"))
++		fmt.Fprintf(w, "  %s  %s %s", prStateColorFunc(prNumber), text.Truncate(50, text.ReplaceExcessiveWhitespace(pr.Title)), cs.Cyan("["+pr.HeadLabel()+"]"))
+ 
+ 		checks := pr.ChecksStatus()
+ 		reviews := pr.ReviewStatus()
+@@ -208,14 +203,14 @@ func printPrs(w io.Writer, totalCount int, prs ...api.PullRequest) {
+ 				var summary string
+ 				if checks.Failing > 0 {
+ 					if checks.Failing == checks.Total {
+-						summary = utils.Red("× All checks failing")
++						summary = cs.Red("× All checks failing")
+ 					} else {
+-						summary = utils.Red(fmt.Sprintf("× %d/%d checks failing", checks.Failing, checks.Total))
++						summary = cs.Red(fmt.Sprintf("× %d/%d checks failing", checks.Failing, checks.Total))
+ 					}
+ 				} else if checks.Pending > 0 {
+-					summary = utils.Yellow("- Checks pending")
++					summary = cs.Yellow("- Checks pending")
+ 				} else if checks.Passing == checks.Total {
+-					summary = utils.Green("✓ Checks passing")
++					summary = cs.Green("✓ Checks passing")
+ 				}
+ 				fmt.Fprint(w, summary)
+ 			}
+@@ -226,20 +221,20 @@ func printPrs(w io.Writer, totalCount int, prs ...api.PullRequest) {
+ 			}
+ 
+ 			if reviews.ChangesRequested {
+-				fmt.Fprint(w, utils.Red("+ Changes requested"))
++				fmt.Fprint(w, cs.Red("+ Changes requested"))
+ 			} else if reviews.ReviewRequired {
+-				fmt.Fprint(w, utils.Yellow("- Review required"))
++				fmt.Fprint(w, cs.Yellow("- Review required"))
+ 			} else if reviews.Approved {
+-				fmt.Fprint(w, utils.Green("✓ Approved"))
++				fmt.Fprint(w, cs.Green("✓ Approved"))
+ 			}
+ 		} else {
+-			fmt.Fprintf(w, " - %s", shared.StateTitleWithColor(pr))
++			fmt.Fprintf(w, " - %s", shared.StateTitleWithColor(cs, pr))
+ 		}
+ 
+ 		fmt.Fprint(w, "\n")
+ 	}
+ 	remaining := totalCount - len(prs)
+ 	if remaining > 0 {
+-		fmt.Fprintf(w, utils.Gray("  And %d more\n"), remaining)
++		fmt.Fprintf(w, cs.Gray("  And %d more\n"), remaining)
+ 	}
+ }
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index 4476a84c0de..0e3f4571679 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -3,7 +3,6 @@ package view
+ import (
+ 	"errors"
+ 	"fmt"
+-	"io"
+ 	"net/http"
+ 	"sort"
+ 	"strings"
+@@ -111,11 +110,15 @@ func viewRun(opts *ViewOptions) error {
+ 	if connectedToTerminal {
+ 		return printHumanPrPreview(opts.IO, pr)
+ 	}
+-	return printRawPrPreview(opts.IO.Out, pr)
++
++	return printRawPrPreview(opts.IO, pr)
+ }
+ 
+-func printRawPrPreview(out io.Writer, pr *api.PullRequest) error {
+-	reviewers := prReviewerList(*pr)
++func printRawPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
++	out := io.Out
++	cs := io.ColorScheme()
++
++	reviewers := prReviewerList(*pr, cs)
+ 	assignees := prAssigneeList(*pr)
+ 	labels := prLabelList(*pr)
+ 	projects := prProjectList(*pr)
+@@ -140,10 +143,12 @@ func printRawPrPreview(out io.Writer, pr *api.PullRequest) error {
+ func printHumanPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
+ 	out := io.Out
+ 
++	cs := io.ColorScheme()
++
+ 	// Header (Title and State)
+-	fmt.Fprintln(out, utils.Bold(pr.Title))
+-	fmt.Fprintf(out, "%s", shared.StateTitleWithColor(*pr))
+-	fmt.Fprintln(out, utils.Gray(fmt.Sprintf(
++	fmt.Fprintln(out, cs.Bold(pr.Title))
++	fmt.Fprintf(out, "%s", shared.StateTitleWithColor(cs, *pr))
++	fmt.Fprintln(out, cs.Gray(fmt.Sprintf(
+ 		" • %s wants to merge %s into %s from %s",
+ 		pr.Author.Login,
+ 		utils.Pluralize(pr.Commits.TotalCount, "commit"),
+@@ -153,24 +158,24 @@ func printHumanPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
+ 	fmt.Fprintln(out)
+ 
+ 	// Metadata
+-	if reviewers := prReviewerList(*pr); reviewers != "" {
+-		fmt.Fprint(out, utils.Bold("Reviewers: "))
++	if reviewers := prReviewerList(*pr, cs); reviewers != "" {
++		fmt.Fprint(out, cs.Bold("Reviewers: "))
+ 		fmt.Fprintln(out, reviewers)
+ 	}
+ 	if assignees := prAssigneeList(*pr); assignees != "" {
+-		fmt.Fprint(out, utils.Bold("Assignees: "))
++		fmt.Fprint(out, cs.Bold("Assignees: "))
+ 		fmt.Fprintln(out, assignees)
+ 	}
+ 	if labels := prLabelList(*pr); labels != "" {
+-		fmt.Fprint(out, utils.Bold("Labels: "))
++		fmt.Fprint(out, cs.Bold("Labels: "))
+ 		fmt.Fprintln(out, labels)
+ 	}
+ 	if projects := prProjectList(*pr); projects != "" {
+-		fmt.Fprint(out, utils.Bold("Projects: "))
++		fmt.Fprint(out, cs.Bold("Projects: "))
+ 		fmt.Fprintln(out, projects)
+ 	}
+ 	if pr.Milestone.Title != "" {
+-		fmt.Fprint(out, utils.Bold("Milestone: "))
++		fmt.Fprint(out, cs.Bold("Milestone: "))
+ 		fmt.Fprintln(out, pr.Milestone.Title)
+ 	}
+ 
+@@ -187,7 +192,7 @@ func printHumanPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
+ 	fmt.Fprintln(out)
+ 
+ 	// Footer
+-	fmt.Fprintf(out, utils.Gray("View this pull request on GitHub: %s\n"), pr.URL)
++	fmt.Fprintf(out, cs.Gray("View this pull request on GitHub: %s\n"), pr.URL)
+ 	return nil
+ }
+ 
+@@ -205,43 +210,39 @@ type reviewerState struct {
+ 	State string
+ }
+ 
+-// colorFuncForReviewerState returns a color function for a reviewer state
+-func colorFuncForReviewerState(state string) func(string) string {
+-	switch state {
+-	case requestedReviewState:
+-		return utils.Yellow
+-	case approvedReviewState:
+-		return utils.Green
+-	case changesRequestedReviewState:
+-		return utils.Red
+-	case commentedReviewState:
+-		return func(str string) string { return str } // Do nothing
+-	default:
+-		return nil
+-	}
+-}
+-
+ // formattedReviewerState formats a reviewerState with state color
+-func formattedReviewerState(reviewer *reviewerState) string {
++func formattedReviewerState(cs *iostreams.ColorScheme, reviewer *reviewerState) string {
+ 	state := reviewer.State
+ 	if state == dismissedReviewState {
+ 		// Show "DISMISSED" review as "COMMENTED", since "dimissed" only makes
+ 		// sense when displayed in an events timeline but not in the final tally.
+ 		state = commentedReviewState
+ 	}
+-	stateColorFunc := colorFuncForReviewerState(state)
+-	return fmt.Sprintf("%s (%s)", reviewer.Name, stateColorFunc(strings.ReplaceAll(strings.Title(strings.ToLower(state)), "_", " ")))
++
++	var colorFunc func(string) string
++	switch state {
++	case requestedReviewState:
++		colorFunc = cs.Yellow
++	case approvedReviewState:
++		colorFunc = cs.Green
++	case changesRequestedReviewState:
++		colorFunc = cs.Red
++	default:
++		colorFunc = func(str string) string { return str } // Do nothing
++	}
++
++	return fmt.Sprintf("%s (%s)", reviewer.Name, colorFunc(strings.ReplaceAll(strings.Title(strings.ToLower(state)), "_", " ")))
+ }
+ 
+ // prReviewerList generates a reviewer list with their last state
+-func prReviewerList(pr api.PullRequest) string {
++func prReviewerList(pr api.PullRequest, cs *iostreams.ColorScheme) string {
+ 	reviewerStates := parseReviewers(pr)
+ 	reviewers := make([]string, 0, len(reviewerStates))
+ 
+ 	sortReviewerStates(reviewerStates)
+ 
+ 	for _, reviewer := range reviewerStates {
+-		reviewers = append(reviewers, formattedReviewerState(reviewer))
++		reviewers = append(reviewers, formattedReviewerState(cs, reviewer))
+ 	}
+ 
+ 	reviewerList := strings.Join(reviewers, ", ")
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index 77ddcaf3334..50c4a4a8fac 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -18,7 +18,6 @@ import (
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -246,11 +245,11 @@ func createRun(opts *CreateOptions) error {
+ 
+ 		stderr := opts.IO.ErrOut
+ 		stdout := opts.IO.Out
+-		greenCheck := utils.Green("✓")
++		cs := opts.IO.ColorScheme()
+ 		isTTY := opts.IO.IsStdoutTTY()
+ 
+ 		if isTTY {
+-			fmt.Fprintf(stderr, "%s Created repository %s on GitHub\n", greenCheck, ghrepo.FullName(repo))
++			fmt.Fprintf(stderr, "%s Created repository %s on GitHub\n", cs.SuccessIcon(), ghrepo.FullName(repo))
+ 		} else {
+ 			fmt.Fprintln(stdout, repo.URL)
+ 		}
+@@ -272,7 +271,7 @@ func createRun(opts *CreateOptions) error {
+ 				return err
+ 			}
+ 			if isTTY {
+-				fmt.Fprintf(stderr, "%s Added remote %s\n", greenCheck, remoteURL)
++				fmt.Fprintf(stderr, "%s Added remote %s\n", cs.SuccessIcon(), remoteURL)
+ 			}
+ 		} else if opts.IO.CanPrompt() {
+ 			doSetup := createLocalDirectory
+@@ -300,7 +299,7 @@ func createRun(opts *CreateOptions) error {
+ 					return err
+ 				}
+ 
+-				fmt.Fprintf(stderr, "%s Initialized repository in './%s/'\n", utils.GreenCheck(), path)
++				fmt.Fprintf(stderr, "%s Initialized repository in './%s/'\n", cs.SuccessIcon(), path)
+ 			}
+ 		}
+ 
+diff --git a/pkg/cmd/repo/credits/credits.go b/pkg/cmd/repo/credits/credits.go
+index c69ce1f3ec6..ff6e44b5bc3 100644
+--- a/pkg/cmd/repo/credits/credits.go
++++ b/pkg/cmd/repo/credits/credits.go
+@@ -154,6 +154,7 @@ func creditsRun(opts *CreditsOptions) error {
+ 	static := opts.Static || isWindows
+ 
+ 	out := opts.IO.Out
++	cs := opts.IO.ColorScheme()
+ 
+ 	if isTTY && static {
+ 		fmt.Fprintln(out, "THANK YOU CONTRIBUTORS!!! <3")
+@@ -167,7 +168,7 @@ func creditsRun(opts *CreditsOptions) error {
+ 		}
+ 
+ 		if isTTY && !static {
+-			logins = append(logins, getColor(x)(c.Login))
++			logins = append(logins, cs.ColorFromString(getColor(x))(c.Login))
+ 		} else {
+ 			fmt.Fprintf(out, "%s\n", c.Login)
+ 		}
+@@ -183,14 +184,13 @@ func creditsRun(opts *CreditsOptions) error {
+ 
+ 	thankLines := strings.Split(thankYou, "\n")
+ 	for x, tl := range thankLines {
+-		lines = append(lines, getColor(x)(tl))
++		lines = append(lines, cs.ColorFromString(getColor(x))(tl))
+ 	}
+ 	lines = append(lines, "")
+ 	lines = append(lines, logins...)
+ 	lines = append(lines, "( <3 press ctrl-c to quit <3 )")
+ 
+ 	termWidth, termHeight, err := utils.TerminalSize(out)
+-	//termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -277,14 +277,14 @@ func twinkle(starLine string) string {
+ 	return starLine
+ }
+ 
+-func getColor(x int) func(string) string {
+-	rainbow := []func(string) string{
+-		utils.Magenta,
+-		utils.Red,
+-		utils.Yellow,
+-		utils.Green,
+-		utils.Cyan,
+-		utils.Blue,
++func getColor(x int) string {
++	rainbow := []string{
++		"magenta",
++		"red",
++		"yellow",
++		"green",
++		"cyan",
++		"blue",
+ 	}
+ 
+ 	ix := x % len(rainbow)
+diff --git a/pkg/cmd/repo/fork/fork.go b/pkg/cmd/repo/fork/fork.go
+index b22e2501c0a..ddb376a176f 100644
+--- a/pkg/cmd/repo/fork/fork.go
++++ b/pkg/cmd/repo/fork/fork.go
+@@ -125,14 +125,15 @@ func forkRun(opts *ForkOptions) error {
+ 
+ 	connectedToTerminal := opts.IO.IsStdoutTTY() && opts.IO.IsStderrTTY() && opts.IO.IsStdinTTY()
+ 
++	cs := opts.IO.ColorScheme()
+ 	stderr := opts.IO.ErrOut
+ 	s := utils.Spinner(stderr)
+ 	stopSpinner := func() {}
+ 
+ 	if connectedToTerminal {
+-		loading := utils.Gray("Forking ") + utils.Bold(utils.Gray(ghrepo.FullName(repoToFork))) + utils.Gray("...")
++		loading := cs.Gray("Forking ") + cs.Bold(cs.Gray(ghrepo.FullName(repoToFork))) + cs.Gray("...")
+ 		s.Suffix = " " + loading
+-		s.FinalMSG = utils.Gray(fmt.Sprintf("- %s\n", loading))
++		s.FinalMSG = cs.Gray(fmt.Sprintf("- %s\n", loading))
+ 		utils.StartSpinner(s)
+ 		stopSpinner = func() {
+ 			utils.StopSpinner(s)
+@@ -163,8 +164,8 @@ func forkRun(opts *ForkOptions) error {
+ 	if createdAgo > time.Minute {
+ 		if connectedToTerminal {
+ 			fmt.Fprintf(stderr, "%s %s %s\n",
+-				utils.Yellow("!"),
+-				utils.Bold(ghrepo.FullName(forkedRepo)),
++				cs.Yellow("!"),
++				cs.Bold(ghrepo.FullName(forkedRepo)),
+ 				"already exists")
+ 		} else {
+ 			fmt.Fprintf(stderr, "%s already exists", ghrepo.FullName(forkedRepo))
+@@ -172,7 +173,7 @@ func forkRun(opts *ForkOptions) error {
+ 		}
+ 	} else {
+ 		if connectedToTerminal {
+-			fmt.Fprintf(stderr, "%s Created fork %s\n", utils.GreenCheck(), utils.Bold(ghrepo.FullName(forkedRepo)))
++			fmt.Fprintf(stderr, "%s Created fork %s\n", cs.SuccessIcon(), cs.Bold(ghrepo.FullName(forkedRepo)))
+ 		}
+ 	}
+ 
+@@ -196,7 +197,7 @@ func forkRun(opts *ForkOptions) error {
+ 		}
+ 		if remote, err := remotes.FindByRepo(forkedRepo.RepoOwner(), forkedRepo.RepoName()); err == nil {
+ 			if connectedToTerminal {
+-				fmt.Fprintf(stderr, "%s Using existing remote %s\n", utils.GreenCheck(), utils.Bold(remote.Name))
++				fmt.Fprintf(stderr, "%s Using existing remote %s\n", cs.SuccessIcon(), cs.Bold(remote.Name))
+ 			}
+ 			return nil
+ 		}
+@@ -223,7 +224,7 @@ func forkRun(opts *ForkOptions) error {
+ 					return err
+ 				}
+ 				if connectedToTerminal {
+-					fmt.Fprintf(stderr, "%s Renamed %s remote to %s\n", utils.GreenCheck(), utils.Bold(remoteName), utils.Bold(renameTarget))
++					fmt.Fprintf(stderr, "%s Renamed %s remote to %s\n", cs.SuccessIcon(), cs.Bold(remoteName), cs.Bold(renameTarget))
+ 				}
+ 			}
+ 
+@@ -235,7 +236,7 @@ func forkRun(opts *ForkOptions) error {
+ 			}
+ 
+ 			if connectedToTerminal {
+-				fmt.Fprintf(stderr, "%s Added remote %s\n", utils.GreenCheck(), utils.Bold(remoteName))
++				fmt.Fprintf(stderr, "%s Added remote %s\n", cs.SuccessIcon(), cs.Bold(remoteName))
+ 			}
+ 		}
+ 	} else {
+@@ -260,7 +261,7 @@ func forkRun(opts *ForkOptions) error {
+ 			}
+ 
+ 			if connectedToTerminal {
+-				fmt.Fprintf(stderr, "%s Cloned fork\n", utils.GreenCheck())
++				fmt.Fprintf(stderr, "%s Cloned fork\n", cs.SuccessIcon())
+ 			}
+ 		}
+ 	}
+diff --git a/pkg/cmd/repo/garden/garden.go b/pkg/cmd/repo/garden/garden.go
+index 8ab34759496..99bf26f71a4 100644
+--- a/pkg/cmd/repo/garden/garden.go
++++ b/pkg/cmd/repo/garden/garden.go
+@@ -4,7 +4,6 @@ import (
+ 	"bytes"
+ 	"errors"
+ 	"fmt"
+-	"io"
+ 	"math/rand"
+ 	"net/http"
+ 	"os"
+@@ -122,6 +121,7 @@ func NewCmdGarden(f *cmdutil.Factory, runF func(*GardenOptions) error) *cobra.Co
+ }
+ 
+ func gardenRun(opts *GardenOptions) error {
++	cs := opts.IO.ColorScheme()
+ 	out := opts.IO.Out
+ 
+ 	if runtime.GOOS == "windows" {
+@@ -201,7 +201,7 @@ func gardenRun(opts *GardenOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	player := &Player{0, 0, utils.Bold("@"), geo, 0}
++	player := &Player{0, 0, cs.Bold("@"), geo, 0}
+ 
+ 	garden := plantGarden(commits, geo)
+ 	if len(garden) < geo.Height {
+@@ -213,7 +213,7 @@ func gardenRun(opts *GardenOptions) error {
+ 		geo.Width = 0
+ 	}
+ 	clear(opts.IO)
+-	drawGarden(out, garden, player)
++	drawGarden(opts.IO, garden, player)
+ 
+ 	// thanks stackoverflow https://stackoverflow.com/a/17278776
+ 	_ = exec.Command("stty", sttyFileArg, "/dev/tty", "cbreak", "min", "1").Run()
+@@ -224,7 +224,7 @@ func gardenRun(opts *GardenOptions) error {
+ 		fmt.Fprint(out, "\033[?25h")
+ 		_ = exec.Command("stty", sttyFileArg, "/dev/tty", strings.TrimSpace(string(oldTTYSettings))).Run()
+ 		fmt.Fprintln(out)
+-		fmt.Fprintln(out, utils.Bold("You turn and walk away from the wildflower garden..."))
++		fmt.Fprintln(out, cs.Bold("You turn and walk away from the wildflower garden..."))
+ 	}
+ 
+ 	c := make(chan os.Signal)
+@@ -312,7 +312,7 @@ func gardenRun(opts *GardenOptions) error {
+ 		fmt.Fprintln(out)
+ 		fmt.Fprintln(out)
+ 
+-		fmt.Fprint(out, utils.Bold(sl))
++		fmt.Fprint(out, cs.Bold(sl))
+ 	}
+ 
+ 	walkAway()
+@@ -423,7 +423,10 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
+ 	return garden
+ }
+ 
+-func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
++func drawGarden(io *iostreams.IOStreams, garden [][]*Cell, player *Player) {
++	out := io.Out
++	cs := io.ColorScheme()
++
+ 	fmt.Fprint(out, "\033[?25l") // hide cursor. it needs to be restored at command exit.
+ 	sl := ""
+ 	for y, gardenRow := range garden {
+@@ -432,7 +435,7 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
+ 			underPlayer := (player.X == x && player.Y == y)
+ 			if underPlayer {
+ 				sl = gardenCell.StatusLine
+-				char = utils.Bold(player.Char)
++				char = cs.Bold(player.Char)
+ 
+ 				if strings.Contains(gardenCell.StatusLine, "stream") {
+ 					player.ShoeMoistureContent = 5
+@@ -447,7 +450,7 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
+ 	}
+ 
+ 	fmt.Println()
+-	fmt.Fprintln(out, utils.Bold(sl))
++	fmt.Fprintln(out, cs.Bold(sl))
+ }
+ 
+ func statusLine(garden [][]*Cell, player *Player) string {
+diff --git a/pkg/cmd/repo/view/view.go b/pkg/cmd/repo/view/view.go
+index 6cb978e5e3e..629f49f8ddd 100644
+--- a/pkg/cmd/repo/view/view.go
++++ b/pkg/cmd/repo/view/view.go
+@@ -151,9 +151,11 @@ func viewRun(opts *ViewOptions) error {
+ 		return err
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	var readmeContent string
+ 	if readme == nil {
+-		readmeContent = utils.Gray("This repository does not have a README")
++		readmeContent = cs.Gray("This repository does not have a README")
+ 	} else if isMarkdownFile(readme.Filename) {
+ 		var err error
+ 		style := markdown.GetStyle(opts.IO.TerminalTheme())
+@@ -168,7 +170,7 @@ func viewRun(opts *ViewOptions) error {
+ 
+ 	description := repo.Description
+ 	if description == "" {
+-		description = utils.Gray("No description provided")
++		description = cs.Gray("No description provided")
+ 	}
+ 
+ 	repoData := struct {
+@@ -177,10 +179,10 @@ func viewRun(opts *ViewOptions) error {
+ 		Readme      string
+ 		View        string
+ 	}{
+-		FullName:    utils.Bold(fullName),
++		FullName:    cs.Bold(fullName),
+ 		Description: description,
+ 		Readme:      readmeContent,
+-		View:        utils.Gray(fmt.Sprintf("View this repository on GitHub: %s", openURL)),
++		View:        cs.Gray(fmt.Sprintf("View this repository on GitHub: %s", openURL)),
+ 	}
+ 
+ 	err = tmpl.Execute(stdout, repoData)
+diff --git a/pkg/cmd/root/help.go b/pkg/cmd/root/help.go
+index ae57c1328a4..a3be5a27a6b 100644
+--- a/pkg/cmd/root/help.go
++++ b/pkg/cmd/root/help.go
+@@ -6,8 +6,8 @@ import (
+ 	"strings"
+ 
+ 	"github.com/cli/cli/pkg/cmdutil"
++	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/text"
+-	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ 	"github.com/spf13/pflag"
+ )
+@@ -80,7 +80,7 @@ func isRootCmd(command *cobra.Command) bool {
+ 	return command != nil && !command.HasParent()
+ }
+ 
+-func rootHelpFunc(command *cobra.Command, args []string) {
++func rootHelpFunc(cs *iostreams.ColorScheme, command *cobra.Command, args []string) {
+ 	if isRootCmd(command.Parent()) && len(args) >= 2 && args[1] != "--help" && args[1] != "-h" {
+ 		nestedSuggestFunc(command, args[1])
+ 		hasFailed = true
+@@ -158,7 +158,7 @@ Read the manual at https://cli.github.com/manual`})
+ 	for _, e := range helpEntries {
+ 		if e.Title != "" {
+ 			// If there is a title, add indentation to each line in the body
+-			fmt.Fprintln(out, utils.Bold(e.Title))
++			fmt.Fprintln(out, cs.Bold(e.Title))
+ 			fmt.Fprintln(out, text.Indent(strings.Trim(e.Body, "\r\n"), "  "))
+ 		} else {
+ 			// If there is no title print the body as is
+diff --git a/pkg/cmd/root/root.go b/pkg/cmd/root/root.go
+index d1b5d9a9dad..906223d15c4 100644
+--- a/pkg/cmd/root/root.go
++++ b/pkg/cmd/root/root.go
+@@ -50,8 +50,14 @@ func NewCmdRoot(f *cmdutil.Factory, version, buildDate string) *cobra.Command {
+ 	cmd.SetOut(f.IOStreams.Out)
+ 	cmd.SetErr(f.IOStreams.ErrOut)
+ 
++	cs := f.IOStreams.ColorScheme()
++
++	helpHelper := func(command *cobra.Command, args []string) {
++		rootHelpFunc(cs, command, args)
++	}
++
+ 	cmd.PersistentFlags().Bool("help", false, "Show help for command")
+-	cmd.SetHelpFunc(rootHelpFunc)
++	cmd.SetHelpFunc(helpHelper)
+ 	cmd.SetUsageFunc(rootUsageFunc)
+ 	cmd.SetFlagErrorFunc(rootFlagErrrorFunc)
+ 
+diff --git a/pkg/iostreams/color.go b/pkg/iostreams/color.go
+index 2efe93c8b39..7e429e407bc 100644
+--- a/pkg/iostreams/color.go
++++ b/pkg/iostreams/color.go
+@@ -121,3 +121,32 @@ func (c *ColorScheme) SuccessIcon() string {
+ func (c *ColorScheme) WarningIcon() string {
+ 	return c.Yellow("!")
+ }
++
++func (c *ColorScheme) ColorFromString(s string) func(string) string {
++	s = strings.ToLower(s)
++	var fn func(string) string
++	switch s {
++	case "bold":
++		fn = c.Bold
++	case "red":
++		fn = c.Red
++	case "yellow":
++		fn = c.Yellow
++	case "green":
++		fn = c.Green
++	case "gray":
++		fn = c.Gray
++	case "magenta":
++		fn = c.Magenta
++	case "cyan":
++		fn = c.Cyan
++	case "blue":
++		fn = c.Blue
++	default:
++		fn = func(s string) string {
++			return s
++		}
++	}
++
++	return fn
++}
+diff --git a/utils/color.go b/utils/color.go
+deleted file mode 100644
+index 3e875acc45f..00000000000
+--- a/utils/color.go
++++ /dev/null
+@@ -1,57 +0,0 @@
+-package utils
+-
+-import (
+-	"fmt"
+-	"io"
+-	"os"
+-
+-	"github.com/cli/cli/pkg/iostreams"
+-	"github.com/mattn/go-colorable"
+-	"github.com/mgutz/ansi"
+-)
+-
+-var (
+-	// Outputs ANSI color if stdout is a tty
+-	Magenta = makeColorFunc("magenta")
+-	Cyan    = makeColorFunc("cyan")
+-	Red     = makeColorFunc("red")
+-	Yellow  = makeColorFunc("yellow")
+-	Blue    = makeColorFunc("blue")
+-	Green   = makeColorFunc("green")
+-	Gray    = makeColorFunc("black+h")
+-	Bold    = makeColorFunc("default+b")
+-)
+-
+-// NewColorable returns an output stream that handles ANSI color sequences on Windows
+-func NewColorable(w io.Writer) io.Writer {
+-	if f, isFile := w.(*os.File); isFile {
+-		return colorable.NewColorable(f)
+-	}
+-	return w
+-}
+-
+-func makeColorFunc(color string) func(string) string {
+-	cf := ansi.ColorFunc(color)
+-	return func(arg string) string {
+-		if isColorEnabled() {
+-			if color == "black+h" && iostreams.Is256ColorSupported() {
+-				return fmt.Sprintf("\x1b[%d;5;%dm%s\x1b[m", 38, 242, arg)
+-			}
+-			return cf(arg)
+-		}
+-		return arg
+-	}
+-}
+-
+-func isColorEnabled() bool {
+-	if iostreams.EnvColorForced() {
+-		return true
+-	}
+-
+-	if iostreams.EnvColorDisabled() {
+-		return false
+-	}
+-
+-	// TODO ignores cmd.OutOrStdout
+-	return IsTerminal(os.Stdout)
+-}
+diff --git a/utils/utils.go b/utils/utils.go
+index 69e48c15035..602b8ab1e3e 100644
+--- a/utils/utils.go
++++ b/utils/utils.go
+@@ -97,15 +97,3 @@ func DisplayURL(urlStr string) string {
+ 	}
+ 	return u.Hostname() + u.Path
+ }
+-
+-func GreenCheck() string {
+-	return Green("✓")
+-}
+-
+-func YellowDash() string {
+-	return Yellow("-")
+-}
+-
+-func RedX() string {
+-	return Red("X")
+-}

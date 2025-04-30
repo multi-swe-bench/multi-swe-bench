@@ -1,0 +1,61 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Inner.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Inner.svelte
+new file mode 100644
+index 000000000000..c1f1b4ef1973
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Inner.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let { object = $bindable() } = $props();
++</script>
++
++<button onclick={() => object.count += 1}>
++	clicks: {object.count}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Outer.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Outer.svelte
+new file mode 100644
+index 000000000000..a49a7392846a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/Outer.svelte
+@@ -0,0 +1,5 @@
++<script>
++	let { children } = $props();
++</script>
++
++{@render children?.()}
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/_config.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/_config.js
+new file mode 100644
+index 000000000000..8f9cf55514ab
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/_config.js
+@@ -0,0 +1,11 @@
++import { test } from '../../test';
++
++export default test({
++	html: `<button>clicks: 0</button>`,
++
++	compileOptions: {
++		dev: true
++	},
++
++	warnings: []
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/main.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/main.svelte
+new file mode 100644
+index 000000000000..c742708b3453
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-5/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++	import Outer from './Outer.svelte';
++	import Inner from './Inner.svelte';
++
++	let object = $state({ count: 0 });
++	let test = $state(true);
++</script>
++
++<Outer>
++	<!-- check that render effects inside slotted content doesn't mess with ownership validation -->
++	{#if test}
++		<Inner bind:object />
++	{/if}
++</Outer>

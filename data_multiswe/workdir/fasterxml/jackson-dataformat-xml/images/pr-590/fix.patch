@@ -1,0 +1,55 @@
+diff --git a/release-notes/VERSION-2.x b/release-notes/VERSION-2.x
+index 96bd89247..a43128fee 100644
+--- a/release-notes/VERSION-2.x
++++ b/release-notes/VERSION-2.x
+@@ -4,6 +4,11 @@ Project: jackson-dataformat-xml
+ === Releases ===
+ ------------------------------------------------------------------------
+ 
++Not yet released
++
++#578: `XmlMapper` serializes `@JsonAppend` property twice
++ (reported by @stepince)
++
+ 2.15.0-rc2 (28-Mar-2023)
+ 
+ #286: Conflict between `@JsonIdentityInfo` and Unwrapped Lists
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
+index f2b375550..8080d540f 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/JacksonXmlAnnotationIntrospector.java
+@@ -1,12 +1,14 @@
+ package com.fasterxml.jackson.dataformat.xml;
+ 
+ import java.lang.annotation.Annotation;
++import java.util.List;
+ 
+ import com.fasterxml.jackson.annotation.JsonProperty;
+ import com.fasterxml.jackson.databind.PropertyName;
+ import com.fasterxml.jackson.databind.cfg.MapperConfig;
+ import com.fasterxml.jackson.databind.introspect.*;
+ import com.fasterxml.jackson.databind.jsontype.impl.StdTypeResolverBuilder;
++import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
+ import com.fasterxml.jackson.dataformat.xml.annotation.*;
+ 
+ /**
+@@ -124,6 +126,19 @@ public String findNamespace(MapperConfig<?> config, Annotated ann)
+         return null;
+     }
+ 
++    /**
++     * Due to issue [dataformat-xml#578] need to suppress calls to this method
++     * to avoid duplicate virtual properties from being added. Not elegant
++     * but .. works.
++     *
++     * @since 2.15
++     */
++    @Override
++    public void findAndAddVirtualProperties(MapperConfig<?> config, AnnotatedClass ac,
++            List<BeanPropertyWriter> properties) {
++        return;
++    }
++
+     /*
+     /**********************************************************************
+     /* XmlAnnotationIntrospector, isXxx methods

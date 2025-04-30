@@ -1,0 +1,38 @@
+diff --git a/pkg/export/filter.go b/pkg/export/filter.go
+index 6a5e0e82e1e..8480e22f893 100644
+--- a/pkg/export/filter.go
++++ b/pkg/export/filter.go
+@@ -4,6 +4,7 @@ import (
+ 	"encoding/json"
+ 	"fmt"
+ 	"io"
++	"os"
+ 
+ 	"github.com/itchyny/gojq"
+ )
+@@ -14,6 +15,16 @@ func FilterJSON(w io.Writer, input io.Reader, queryStr string) error {
+ 		return err
+ 	}
+ 
++	code, err := gojq.Compile(
++		query,
++		gojq.WithEnvironLoader(func() []string {
++			return os.Environ()
++		}))
++
++	if err != nil {
++		return err
++	}
++
+ 	jsonData, err := io.ReadAll(input)
+ 	if err != nil {
+ 		return err
+@@ -25,7 +36,7 @@ func FilterJSON(w io.Writer, input io.Reader, queryStr string) error {
+ 		return err
+ 	}
+ 
+-	iter := query.Run(responseData)
++	iter := code.Run(responseData)
+ 	for {
+ 		v, ok := iter.Next()
+ 		if !ok {

@@ -1,0 +1,57 @@
+diff --git a/.changeset/good-buses-reply.md b/.changeset/good-buses-reply.md
+new file mode 100644
+index 000000000000..e760523f96ce
+--- /dev/null
++++ b/.changeset/good-buses-reply.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++feat: allow dynamic `type` attribute with `bind:value`
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 27f61bf634cc..67d45226f334 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -435,7 +435,10 @@ const validation = {
+ 						parent.attributes.find((a) => a.type === 'Attribute' && a.name === 'type')
+ 					);
+ 					if (type && !is_text_attribute(type)) {
+-						error(type, 'invalid-type-attribute');
++						if (node.name !== 'value' || type.value === true) {
++							error(type, 'invalid-type-attribute');
++						}
++						return; // bind:value can handle dynamic `type` attributes
+ 					}
+ 
+ 					if (node.name === 'checked' && type?.value[0].data !== 'checkbox') {
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index 97cb748baea8..3d8d855e86bb 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -1018,6 +1018,12 @@ export function selected(dom) {
+  */
+ export function bind_value(dom, get_value, update) {
+ 	dom.addEventListener('input', () => {
++		if (DEV && dom.type === 'checkbox') {
++			throw new Error(
++				'Using bind:value together with a checkbox input is not allowed. Use bind:checked instead'
++			);
++		}
++
+ 		/** @type {any} */
+ 		let value = dom.value;
+ 		if (is_numberlike_input(dom)) {
+@@ -1027,6 +1033,12 @@ export function bind_value(dom, get_value, update) {
+ 	});
+ 
+ 	render_effect(() => {
++		if (DEV && dom.type === 'checkbox') {
++			throw new Error(
++				'Using bind:value together with a checkbox input is not allowed. Use bind:checked instead'
++			);
++		}
++
+ 		const value = get_value();
+ 		// @ts-ignore
+ 		dom.__value = value;

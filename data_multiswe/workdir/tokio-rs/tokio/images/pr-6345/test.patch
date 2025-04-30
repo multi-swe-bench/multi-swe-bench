@@ -1,0 +1,98 @@
+diff --git a/tokio/tests/io_async_fd.rs b/tokio/tests/io_async_fd.rs
+index 1fb203a6524..6f8a10aefbc 100644
+--- a/tokio/tests/io_async_fd.rs
++++ b/tokio/tests/io_async_fd.rs
+@@ -18,6 +18,7 @@ use nix::unistd::{close, read, write};
+ use futures::poll;
+ 
+ use tokio::io::unix::{AsyncFd, AsyncFdReadyGuard};
++use tokio::io::Interest;
+ use tokio_test::{assert_err, assert_pending};
+ 
+ struct TestWaker {
+@@ -834,3 +835,32 @@ async fn await_error_readiness_invalid_address() {
+     let guard = fd.ready(Interest::ERROR).await.unwrap();
+     assert_eq!(guard.ready(), Ready::ERROR);
+ }
++
++#[derive(Debug, PartialEq, Eq)]
++struct InvalidSource;
++
++impl AsRawFd for InvalidSource {
++    fn as_raw_fd(&self) -> RawFd {
++        -1
++    }
++}
++
++#[tokio::test]
++async fn try_new() {
++    let original = Arc::new(InvalidSource);
++
++    let error = AsyncFd::try_new(original.clone()).unwrap_err();
++    let (returned, _cause) = error.into_parts();
++
++    assert!(Arc::ptr_eq(&original, &returned));
++}
++
++#[tokio::test]
++async fn try_with_interest() {
++    let original = Arc::new(InvalidSource);
++
++    let error = AsyncFd::try_with_interest(original.clone(), Interest::READABLE).unwrap_err();
++    let (returned, _cause) = error.into_parts();
++
++    assert!(Arc::ptr_eq(&original, &returned));
++}
+diff --git a/tokio/tests/io_panic.rs b/tokio/tests/io_panic.rs
+index b2cbad2751d..9e4cda21f3b 100644
+--- a/tokio/tests/io_panic.rs
++++ b/tokio/tests/io_panic.rs
+@@ -175,3 +175,48 @@ fn async_fd_with_interest_panic_caller() -> Result<(), Box<dyn Error>> {
+ 
+     Ok(())
+ }
++
++#[test]
++#[cfg(unix)]
++fn async_fd_try_new_panic_caller() -> Result<(), Box<dyn Error>> {
++    use tokio::io::unix::AsyncFd;
++    use tokio::runtime::Builder;
++
++    let panic_location_file = test_panic(|| {
++        // Runtime without `enable_io` so it has no IO driver set.
++        let rt = Builder::new_current_thread().build().unwrap();
++        rt.block_on(async {
++            let fd = unix::MockFd;
++
++            let _ = AsyncFd::try_new(fd);
++        });
++    });
++
++    // The panic location should be in this file
++    assert_eq!(&panic_location_file.unwrap(), file!());
++
++    Ok(())
++}
++
++#[test]
++#[cfg(unix)]
++fn async_fd_try_with_interest_panic_caller() -> Result<(), Box<dyn Error>> {
++    use tokio::io::unix::AsyncFd;
++    use tokio::io::Interest;
++    use tokio::runtime::Builder;
++
++    let panic_location_file = test_panic(|| {
++        // Runtime without `enable_io` so it has no IO driver set.
++        let rt = Builder::new_current_thread().build().unwrap();
++        rt.block_on(async {
++            let fd = unix::MockFd;
++
++            let _ = AsyncFd::try_with_interest(fd, Interest::READABLE);
++        });
++    });
++
++    // The panic location should be in this file
++    assert_eq!(&panic_location_file.unwrap(), file!());
++
++    Ok(())
++}

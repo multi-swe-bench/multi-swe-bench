@@ -1,0 +1,33 @@
+diff --git a/.changeset/bright-needles-pretend.md b/.changeset/bright-needles-pretend.md
+new file mode 100644
+index 000000000000..03bb20e4f1dd
+--- /dev/null
++++ b/.changeset/bright-needles-pretend.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: abort outro when intro starts
+diff --git a/packages/svelte/src/internal/client/dom/elements/transitions.js b/packages/svelte/src/internal/client/dom/elements/transitions.js
+index c2fbeface1a6..cc9669288150 100644
+--- a/packages/svelte/src/internal/client/dom/elements/transitions.js
++++ b/packages/svelte/src/internal/client/dom/elements/transitions.js
+@@ -190,6 +190,9 @@ export function transition(flags, element, get_fn, get_params) {
+ 		in() {
+ 			element.inert = inert;
+ 
++			// abort the outro to prevent overlap with the intro
++			outro?.abort();
++
+ 			if (is_intro) {
+ 				dispatch_event(element, 'introstart');
+ 				intro = animate(element, get_options(), outro, 1, () => {
+@@ -197,7 +200,6 @@ export function transition(flags, element, get_fn, get_params) {
+ 					intro = current_options = undefined;
+ 				});
+ 			} else {
+-				outro?.abort();
+ 				reset?.();
+ 			}
+ 		},

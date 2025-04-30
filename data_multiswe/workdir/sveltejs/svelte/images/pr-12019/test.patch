@@ -1,0 +1,256 @@
+diff --git a/packages/svelte/tests/migrate/samples/event-handlers/input.svelte b/packages/svelte/tests/migrate/samples/event-handlers/input.svelte
+index a3cbe7288977..888e0e9d0546 100644
+--- a/packages/svelte/tests/migrate/samples/event-handlers/input.svelte
++++ b/packages/svelte/tests/migrate/samples/event-handlers/input.svelte
+@@ -1,5 +1,7 @@
+ <button on:click={() => console.log('hi')} on:click>click me</button>
+-<button on:click={() => console.log('before')} on:click on:click={() => console.log('after')}>click me</button>
++<button on:click={() => console.log('before')} on:click on:click={() => console.log('after')}
++	>click me</button
++>
+ <button on:click on:click={foo}>click me</button>
+ <button on:click>click me</button>
+ 
+@@ -9,6 +11,7 @@
+ <button on:custom-event-bubble>click me</button>
+ 
+ <button on:click|preventDefault={() => ''}>click me</button>
++<button on:click|preventDefault={() => (searching = true)}>click me</button>
+ <button on:click|stopPropagation={() => {}}>click me</button>
+ <button on:click|stopImmediatePropagation={() => ''}>click me</button>
+ <button on:click|capture={() => ''}>click me</button>
+diff --git a/packages/svelte/tests/migrate/samples/event-handlers/output.svelte b/packages/svelte/tests/migrate/samples/event-handlers/output.svelte
+index 94103938a2a2..c58da6052626 100644
+--- a/packages/svelte/tests/migrate/samples/event-handlers/output.svelte
++++ b/packages/svelte/tests/migrate/samples/event-handlers/output.svelte
+@@ -13,7 +13,9 @@
+ 
+ 	onclick?.(event);
+ 	console.log('after')
+-}}>click me</button>
++}}
++	>click me</button
++>
+ <button  onclick={(event) => {
+ 	onclick?.(event);
+ 
+@@ -30,6 +32,10 @@
+ 	event.preventDefault();
+ 	''
+ }}>click me</button>
++<button onclick={(event) => {
++	event.preventDefault();
++	searching = true
++}}>click me</button>
+ <button onclick={(event) => {
+ 	event.stopPropagation();
+ 	
+diff --git a/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte b/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte
+index 76d25afb08bc..c697083b288b 100644
+--- a/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte
++++ b/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte
+@@ -1,5 +1,7 @@
+ <script lang="ts">
+-	interface Props { class?: string }
++	interface Props {
++		class?: string;
++	}
+ 
+ 	let { class: klass = '' }: Props = $props();
+ 	
+diff --git a/packages/svelte/tests/migrate/samples/props-ts/input.svelte b/packages/svelte/tests/migrate/samples/props-ts/input.svelte
+index 373863064913..513e5f635854 100644
+--- a/packages/svelte/tests/migrate/samples/props-ts/input.svelte
++++ b/packages/svelte/tests/migrate/samples/props-ts/input.svelte
+@@ -1,8 +1,9 @@
+ <script lang="ts">
+-    export let readonly: number;
+-    export let optional = 'foo';
+-    export let binding: string;
+-    export let bindingOptional: string | undefined = 'bar';
++	/** some comment */
++	export let readonly: number;
++	export let optional = 'foo';
++	export let binding: string;
++	export let bindingOptional: string | undefined = 'bar';
+ </script>
+ 
+ {readonly}
+diff --git a/packages/svelte/tests/migrate/samples/props-ts/output.svelte b/packages/svelte/tests/migrate/samples/props-ts/output.svelte
+index 441d48b82359..9f9d4b503fab 100644
+--- a/packages/svelte/tests/migrate/samples/props-ts/output.svelte
++++ b/packages/svelte/tests/migrate/samples/props-ts/output.svelte
+@@ -1,17 +1,19 @@
+ <script lang="ts">
+-    interface Props {
+-        readonly: number,
+-        optional?: string,
+-        binding: string,
+-        bindingOptional?: string | undefined
+-    }
++	
++	interface Props {
++		/** some comment */
++		readonly: number;
++		optional?: string;
++		binding: string;
++		bindingOptional?: string | undefined;
++	}
+ 
+-    let {
+-        readonly,
+-        optional = 'foo',
+-        binding = $bindable(),
+-        bindingOptional = $bindable('bar')
+-    }: Props = $props();
++	let {
++		readonly,
++		optional = 'foo',
++		binding = $bindable(),
++		bindingOptional = $bindable('bar')
++	}: Props = $props();
+ </script>
+ 
+ {readonly}
+diff --git a/packages/svelte/tests/migrate/samples/props/input.svelte b/packages/svelte/tests/migrate/samples/props/input.svelte
+index b29e9be48022..f8718ef6d31a 100644
+--- a/packages/svelte/tests/migrate/samples/props/input.svelte
++++ b/packages/svelte/tests/migrate/samples/props/input.svelte
+@@ -1,8 +1,9 @@
+ <script>
+-    export let readonly;
+-    export let optional = 'foo';
+-    export let binding;
+-    export let bindingOptional = 'bar';
++	/** @type {Record<string, { href: string; title: string; }[]>} */
++	export let readonly;
++	export let optional = 'foo';
++	export let binding;
++	export let bindingOptional = 'bar';
+ </script>
+ 
+ {readonly}
+diff --git a/packages/svelte/tests/migrate/samples/props/output.svelte b/packages/svelte/tests/migrate/samples/props/output.svelte
+index 5dacd500b6df..346489e45698 100644
+--- a/packages/svelte/tests/migrate/samples/props/output.svelte
++++ b/packages/svelte/tests/migrate/samples/props/output.svelte
+@@ -1,11 +1,12 @@
+ <script>
+-    /** @type {{readonly: any, optional?: string, binding: any, bindingOptional?: string}} */
+-    let {
+-        readonly,
+-        optional = 'foo',
+-        binding = $bindable(),
+-        bindingOptional = $bindable('bar')
+-    } = $props();
++	
++	/** @type {{readonly: Record<string, { href: string; title: string; }[]>, optional?: string, binding: any, bindingOptional?: string}} */
++	let {
++		readonly,
++		optional = 'foo',
++		binding = $bindable(),
++		bindingOptional = $bindable('bar')
++	} = $props();
+ </script>
+ 
+ {readonly}
+diff --git a/packages/svelte/tests/migrate/samples/slots-below-imports/input.svelte b/packages/svelte/tests/migrate/samples/slots-below-imports/input.svelte
+new file mode 100644
+index 000000000000..1a3d373c8f23
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots-below-imports/input.svelte
+@@ -0,0 +1,6 @@
++<script>
++	import Foo from './Foo.svelte';
++</script>
++
++<slot />
++<Foo />
+diff --git a/packages/svelte/tests/migrate/samples/slots-below-imports/output.svelte b/packages/svelte/tests/migrate/samples/slots-below-imports/output.svelte
+new file mode 100644
+index 000000000000..a4f3194b9cee
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots-below-imports/output.svelte
+@@ -0,0 +1,8 @@
++<script>
++	import Foo from './Foo.svelte';
++	/** @type {{children?: import('svelte').Snippet}} */
++	let { children } = $props();
++</script>
++
++{@render children?.()}
++<Foo />
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/slots-multiple/input.svelte b/packages/svelte/tests/migrate/samples/slots-multiple/input.svelte
+new file mode 100644
+index 000000000000..91c191990dcb
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots-multiple/input.svelte
+@@ -0,0 +1,5 @@
++<button><slot /></button>
++<button><slot /></button>
++
++<slot name="dashed-name" />
++<slot name="dashed-name" />
+diff --git a/packages/svelte/tests/migrate/samples/slots-multiple/output.svelte b/packages/svelte/tests/migrate/samples/slots-multiple/output.svelte
+new file mode 100644
+index 000000000000..5e561dd09f9d
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots-multiple/output.svelte
+@@ -0,0 +1,10 @@
++<script>
++	/** @type {{children?: import('svelte').Snippet, dashed_name?: import('svelte').Snippet}} */
++	let { children, dashed_name } = $props();
++</script>
++
++<button>{@render children?.()}</button>
++<button>{@render children?.()}</button>
++
++{@render dashed_name?.()}
++{@render dashed_name?.()}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/slots/input.svelte b/packages/svelte/tests/migrate/samples/slots/input.svelte
+index e71004fcfed6..cc1fbd1f989e 100644
+--- a/packages/svelte/tests/migrate/samples/slots/input.svelte
++++ b/packages/svelte/tests/migrate/samples/slots/input.svelte
+@@ -4,4 +4,9 @@
+ 	<slot name="foo" {foo} />
+ {/if}
+ 
+-<slot name="dashed-name" />
+\ No newline at end of file
++{#if $$slots.bar}
++	{$$slots}
++	<slot name="bar" />
++{/if}
++
++<slot name="dashed-name" />
+diff --git a/packages/svelte/tests/migrate/samples/slots/output.svelte b/packages/svelte/tests/migrate/samples/slots/output.svelte
+index 790be7e3a196..9f3059d39d0a 100644
+--- a/packages/svelte/tests/migrate/samples/slots/output.svelte
++++ b/packages/svelte/tests/migrate/samples/slots/output.svelte
+@@ -1,6 +1,11 @@
+ <script>
+-	/** @type {{children?: import('svelte').Snippet, foo_1?: import('svelte').Snippet<[any]>, dashed_name?: import('svelte').Snippet}} */
+-	let { children, foo_1, dashed_name } = $props();
++	/** @type {{children?: import('svelte').Snippet, foo_1?: import('svelte').Snippet<[any]>, bar?: import('svelte').Snippet, dashed_name?: import('svelte').Snippet}} */
++	let {
++		children,
++		foo_1,
++		bar,
++		dashed_name
++	} = $props();
+ </script>
+ 
+ <button>{@render children?.()}</button>
+@@ -9,4 +14,9 @@
+ 	{@render foo_1?.({ foo, })}
+ {/if}
+ 
++{#if bar}
++	{$$slots}
++	{@render bar?.()}
++{/if}
++
+ {@render dashed_name?.()}
+\ No newline at end of file

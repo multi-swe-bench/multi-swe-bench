@@ -1,0 +1,71 @@
+diff --git a/pkg/cmd/auth/shared/login_flow.go b/pkg/cmd/auth/shared/login_flow.go
+index 4f14e2ea671..f2c0fd6fb72 100644
+--- a/pkg/cmd/auth/shared/login_flow.go
++++ b/pkg/cmd/auth/shared/login_flow.go
+@@ -14,6 +14,8 @@ import (
+ 	"github.com/cli/cli/v2/pkg/prompt"
+ )
+ 
++const defaultSSHKeyTitle = "GitHub CLI"
++
+ type iconfig interface {
+ 	Get(string, string) (string, error)
+ 	Set(string, string, string) error
+@@ -68,6 +70,7 @@ func Login(opts *LoginOptions) error {
+ 	}
+ 
+ 	var keyToUpload string
++	keyTitle := defaultSSHKeyTitle
+ 	if opts.Interactive && gitProtocol == "ssh" {
+ 		pubKeys, err := opts.sshContext.localPublicKeys()
+ 		if err != nil {
+@@ -93,9 +96,18 @@ func Login(opts *LoginOptions) error {
+ 				return err
+ 			}
+ 		}
+-	}
+-	if keyToUpload != "" {
+-		additionalScopes = append(additionalScopes, "admin:public_key")
++
++		if keyToUpload != "" {
++			err := prompt.SurveyAskOne(&survey.Input{
++				Message: "Title for your SSH key:",
++				Default: defaultSSHKeyTitle,
++			}, &keyTitle)
++			if err != nil {
++				return fmt.Errorf("could not prompt: %w", err)
++			}
++
++			additionalScopes = append(additionalScopes, "admin:public_key")
++		}
+ 	}
+ 
+ 	var authMode int
+@@ -187,7 +199,7 @@ func Login(opts *LoginOptions) error {
+ 	}
+ 
+ 	if keyToUpload != "" {
+-		err := sshKeyUpload(httpClient, hostname, keyToUpload)
++		err := sshKeyUpload(httpClient, hostname, keyToUpload, keyTitle)
+ 		if err != nil {
+ 			return err
+ 		}
+diff --git a/pkg/cmd/auth/shared/ssh_keys.go b/pkg/cmd/auth/shared/ssh_keys.go
+index 97f5174e441..4a8914a2ca1 100644
+--- a/pkg/cmd/auth/shared/ssh_keys.go
++++ b/pkg/cmd/auth/shared/ssh_keys.go
+@@ -108,12 +108,12 @@ func (c *sshContext) generateSSHKey() (string, error) {
+ 	return keyFile + ".pub", run.PrepareCmd(keygenCmd).Run()
+ }
+ 
+-func sshKeyUpload(httpClient *http.Client, hostname, keyFile string) error {
++func sshKeyUpload(httpClient *http.Client, hostname, keyFile string, title string) error {
+ 	f, err := os.Open(keyFile)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	defer f.Close()
+ 
+-	return add.SSHKeyUpload(httpClient, hostname, f, "GitHub CLI")
++	return add.SSHKeyUpload(httpClient, hostname, f, title)
+ }

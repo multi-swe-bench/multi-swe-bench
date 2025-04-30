@@ -1,0 +1,114 @@
+diff --git a/pkg/cmd/gist/delete/delete.go b/pkg/cmd/gist/delete/delete.go
+new file mode 100644
+index 00000000000..03ddc6e46d1
+--- /dev/null
++++ b/pkg/cmd/gist/delete/delete.go
+@@ -0,0 +1,88 @@
++package delete
++
++import (
++	"fmt"
++	"github.com/cli/cli/api"
++	"github.com/cli/cli/internal/ghinstance"
++	"github.com/cli/cli/pkg/cmd/gist/shared"
++	"github.com/cli/cli/pkg/cmdutil"
++	"github.com/cli/cli/pkg/iostreams"
++	"github.com/spf13/cobra"
++	"net/http"
++	"strings"
++)
++
++type DeleteOptions struct {
++	IO         *iostreams.IOStreams
++	HttpClient func() (*http.Client, error)
++
++	Selector string
++}
++
++func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
++	opts := DeleteOptions{
++		IO:         f.IOStreams,
++		HttpClient: f.HttpClient,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "delete {<gist ID> | <gist URL>}",
++		Short: "Delete a gist",
++		Args:  cobra.ExactArgs(1),
++		RunE: func(c *cobra.Command, args []string) error {
++			opts.Selector = args[0]
++			if runF != nil {
++				return runF(&opts)
++			}
++			return deleteRun(&opts)
++		},
++	}
++	return cmd
++}
++
++func deleteRun(opts *DeleteOptions) error {
++	gistID := opts.Selector
++
++	if strings.Contains(gistID, "/") {
++		id, err := shared.GistIDFromURL(gistID)
++		if err != nil {
++			return err
++		}
++		gistID = id
++	}
++	client, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++
++	apiClient := api.NewClientFromHTTP(client)
++
++	gist, err := shared.GetGist(client, ghinstance.OverridableDefault(), gistID)
++	if err != nil {
++		return err
++	}
++	username, err := api.CurrentLoginName(apiClient, ghinstance.OverridableDefault())
++	if err != nil {
++		return err
++	}
++
++	if username != gist.Owner.Login {
++		return fmt.Errorf("You do not own this gist.")
++	}
++
++	err = deleteGist(apiClient, ghinstance.OverridableDefault(), gistID)
++	if err != nil {
++		return err
++	}
++
++	return nil
++}
++
++func deleteGist(apiClient *api.Client, hostname string, gistID string) error {
++	path := "gists/" + gistID
++	err := apiClient.REST(hostname, "DELETE", path, nil, nil)
++	if err != nil {
++		return err
++	}
++	return nil
++}
+diff --git a/pkg/cmd/gist/gist.go b/pkg/cmd/gist/gist.go
+index 41808f4b489..470209e7c43 100644
+--- a/pkg/cmd/gist/gist.go
++++ b/pkg/cmd/gist/gist.go
+@@ -3,6 +3,7 @@ package gist
+ import (
+ 	"github.com/MakeNowJust/heredoc"
+ 	gistCreateCmd "github.com/cli/cli/pkg/cmd/gist/create"
++	gistDeleteCmd "github.com/cli/cli/pkg/cmd/gist/delete"
+ 	gistEditCmd "github.com/cli/cli/pkg/cmd/gist/edit"
+ 	gistListCmd "github.com/cli/cli/pkg/cmd/gist/list"
+ 	gistViewCmd "github.com/cli/cli/pkg/cmd/gist/view"
+@@ -29,6 +30,7 @@ func NewCmdGist(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(gistListCmd.NewCmdList(f, nil))
+ 	cmd.AddCommand(gistViewCmd.NewCmdView(f, nil))
+ 	cmd.AddCommand(gistEditCmd.NewCmdEdit(f, nil))
++	cmd.AddCommand(gistDeleteCmd.NewCmdDelete(f, nil))
+ 
+ 	return cmd
+ }

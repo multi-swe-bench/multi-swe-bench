@@ -1,0 +1,69 @@
+diff --git a/pkg/cmd/pr/merge/http.go b/pkg/cmd/pr/merge/http.go
+index 217290d9de9..c96a8054e56 100644
+--- a/pkg/cmd/pr/merge/http.go
++++ b/pkg/cmd/pr/merge/http.go
+@@ -20,13 +20,14 @@ const (
+ )
+ 
+ type mergePayload struct {
+-	repo          ghrepo.Interface
+-	pullRequestID string
+-	method        PullRequestMergeMethod
+-	auto          bool
+-	commitSubject string
+-	commitBody    string
+-	setCommitBody bool
++	repo              ghrepo.Interface
++	pullRequestID     string
++	method            PullRequestMergeMethod
++	auto              bool
++	commitSubject     string
++	commitBody        string
++	commitAuthorEmail string
++	setCommitBody     bool
+ }
+ 
+ // TODO: drop after githubv4 gets updated
+@@ -59,6 +60,10 @@ func mergePullRequest(client *http.Client, payload mergePayload) error {
+ 		commitBody := githubv4.String(payload.commitBody)
+ 		input.CommitBody = &commitBody
+ 	}
++	if payload.commitAuthorEmail != "" {
++		authorEmail := githubv4.String(payload.commitAuthorEmail)
++		input.AuthorEmail = &authorEmail
++	}
+ 
+ 	variables := map[string]interface{}{
+ 		"input": input,
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index e13d08b7a73..5ca2e9f7ab6 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -228,14 +228,20 @@ func mergeRun(opts *MergeOptions) error {
+ 	}
+ 
+ 	if !isPRAlreadyMerged {
++
++		// ignore error, since git.Config will return "" for
++		// authorEmail if any error occurs
++		authorEmail, _ := git.Config("user.email")
++
+ 		payload := mergePayload{
+-			repo:          baseRepo,
+-			pullRequestID: pr.ID,
+-			method:        opts.MergeMethod,
+-			auto:          autoMerge,
+-			commitSubject: opts.Subject,
+-			commitBody:    opts.Body,
+-			setCommitBody: opts.BodySet,
++			repo:              baseRepo,
++			pullRequestID:     pr.ID,
++			method:            opts.MergeMethod,
++			auto:              autoMerge,
++			commitSubject:     opts.Subject,
++			commitBody:        opts.Body,
++			commitAuthorEmail: authorEmail,
++			setCommitBody:     opts.BodySet,
+ 		}
+ 
+ 		if opts.InteractiveMode {

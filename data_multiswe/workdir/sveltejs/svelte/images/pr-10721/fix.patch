@@ -1,0 +1,49 @@
+diff --git a/.changeset/eleven-cycles-applaud.md b/.changeset/eleven-cycles-applaud.md
+new file mode 100644
+index 000000000000..3e73a89252e9
+--- /dev/null
++++ b/.changeset/eleven-cycles-applaud.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++breaking: preserve slots inside templates with a shadowrootmode attribute
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/element.js b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+index f40bccd44421..16960e9721e6 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/element.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+@@ -51,6 +51,23 @@ function parent_is_head(stack) {
+ 	return false;
+ }
+ 
++/** @param {import('#compiler').TemplateNode[]} stack */
++function parent_is_shadowroot_template(stack) {
++	// https://developer.chrome.com/docs/css-ui/declarative-shadow-dom#building_a_declarative_shadow_root
++	let i = stack.length;
++	while (i--) {
++		if (
++			stack[i].type === 'RegularElement' &&
++			/** @type {import('#compiler').RegularElement} */ (stack[i]).attributes.some(
++				(a) => a.type === 'Attribute' && a.name === 'shadowrootmode'
++			)
++		) {
++			return true;
++		}
++	}
++	return false;
++}
++
+ const regex_closing_textarea_tag = /^<\/textarea(\s[^>]*)?>/i;
+ const regex_closing_comment = /-->/;
+ const regex_capital_letter = /[A-Z]/;
+@@ -112,7 +129,8 @@ export default function tag(parser) {
+ 			? 'Component'
+ 			: name === 'title' && parent_is_head(parser.stack)
+ 				? 'TitleElement'
+-				: name === 'slot'
++				: // TODO Svelte 6/7: once slots are removed in favor of snippets, always keep slot as a regular element
++					name === 'slot' && !parent_is_shadowroot_template(parser.stack)
+ 					? 'SlotElement'
+ 					: 'RegularElement';
+ 

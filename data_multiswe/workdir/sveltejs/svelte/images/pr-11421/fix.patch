@@ -1,0 +1,32 @@
+diff --git a/.changeset/ninety-dots-train.md b/.changeset/ninety-dots-train.md
+new file mode 100644
+index 000000000000..2afde212b1d2
+--- /dev/null
++++ b/.changeset/ninety-dots-train.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: detect style shorthands as stateful variables in legacy mode
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 7a55c575ff77..64d35f398930 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -870,6 +870,16 @@ const legacy_scope_tweaker = {
+ 				}
+ 			}
+ 		}
++	},
++	StyleDirective(node, { state }) {
++		// the case for node.value different from true is already covered by the Identifier visitor
++		if (node.value === true) {
++			// get the binding for node.name and change the binding to state
++			let binding = state.scope.get(node.name);
++			if (binding?.mutated && binding.kind === 'normal') {
++				binding.kind = 'state';
++			}
++		}
+ 	}
+ };
+ 

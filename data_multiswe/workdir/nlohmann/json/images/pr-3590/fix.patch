@@ -1,0 +1,2871 @@
+diff --git a/Makefile b/Makefile
+index 972f7f5eee..d027671539 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,6 +15,9 @@ SED:=$(shell command -v gsed || which sed)
+ # the list of sources in the include folder
+ SRCS=$(shell find include -type f | sort)
+ 
++# the list of sources in the tests folder
++TESTS_SRCS=$(shell find tests -type f \( -name '*.hpp' -o -name '*.cpp' -o -name '*.cu' \) -not -path 'tests/thirdparty/*' | sort)
++
+ # the single header (amalgamated from the source files)
+ AMALGAMATED_FILE=single_include/nlohmann/json.hpp
+ 
+@@ -159,11 +162,11 @@ pretty:
+ 	    --preserve-date \
+ 	    --suffix=none \
+ 	    --formatted \
+-	   $(SRCS) $(AMALGAMATED_FILE) tests/src/*.cpp tests/src/*.hpp tests/benchmarks/src/benchmarks.cpp docs/examples/*.cpp
++	   $(SRCS) $(TESTS_SRCS) $(AMALGAMATED_FILE) docs/examples/*.cpp
+ 
+ # call the Clang-Format on all source files
+ pretty_format:
+-	for FILE in $(SRCS) $(AMALGAMATED_FILE) tests/src/*.cpp tests/src/*.hpp benchmarks/src/benchmarks.cpp docs/examples/*.cpp; do echo $$FILE; clang-format -i $$FILE; done
++	for FILE in $(SRCS) $(TESTS_SRCS) $(AMALGAMATED_FILE) docs/examples/*.cpp; do echo $$FILE; clang-format -i $$FILE; done
+ 
+ # create single header file
+ amalgamate: $(AMALGAMATED_FILE)
+diff --git a/docs/mkdocs/docs/api/macros/index.md b/docs/mkdocs/docs/api/macros/index.md
+index d95869b936..06a65cb4d6 100644
+--- a/docs/mkdocs/docs/api/macros/index.md
++++ b/docs/mkdocs/docs/api/macros/index.md
+@@ -27,6 +27,11 @@ header. See also the [macro overview page](../../features/macros.md).
+ - [**JSON_SKIP_LIBRARY_VERSION_CHECK**](json_skip_library_version_check.md) - skip library version check
+ - [**NLOHMANN_JSON_VERSION_MAJOR**<br>**NLOHMANN_JSON_VERSION_MINOR**<br>**NLOHMANN_JSON_VERSION_PATCH**](nlohmann_json_version_major.md) - library version information
+ 
++## Library namespace
++
++- [**NLOHMANN_JSON_NAMESPACE**](nlohmann_json_namespace.md) - full name of the `nlohmann` namespace
++- [**NLOHMANN_JSON_NAMESPACE_BEGIN**<br>**NLOHMANN_JSON_NAMESPACE_END**](nlohmann_json_namespace_begin.md) - open and close the library namespace
++
+ ## Type conversions
+ 
+ - [**JSON_DISABLE_ENUM_SERIALIZATION**](json_disable_enum_serialization.md) - switch off default serialization/deserialization functions for enums
+diff --git a/docs/mkdocs/docs/api/macros/json_diagnostics.md b/docs/mkdocs/docs/api/macros/json_diagnostics.md
+index d42025092c..c6a4dac3f4 100644
+--- a/docs/mkdocs/docs/api/macros/json_diagnostics.md
++++ b/docs/mkdocs/docs/api/macros/json_diagnostics.md
+@@ -26,11 +26,16 @@ When the macro is not defined, the library will define it to its default value.
+ 
+ ## Notes
+ 
+-!!! danger "ABI incompatibility"
++!!! note "ABI compatibility"
+ 
+-    As this macro changes the definition of the `basic_json` object, it MUST be defined in the same way globally, even
+-    across different compilation units: `basic_json` objects with differently defined `JSON_DIAGNOSTICS` macros are
+-    not compatible!
++    As of version 3.11.0, this macro is no longer required to be defined consistently throughout a codebase to avoid
++    One Definition Rule (ODR) violations, as the value of this macro is encoded in the namespace, resulting in distinct
++    symbol names. 
++    
++    This allows different parts of a codebase to use different versions or configurations of this library without
++    causing improper behavior.
++    
++    Where possible, it is still recommended that all code define this the same way for maximum interoperability.
+ 
+ ## Examples
+ 
+@@ -65,3 +70,4 @@ When the macro is not defined, the library will define it to its default value.
+ ## Version history
+ 
+ - Added in version 3.10.0.
++- As of version 3.11.0 the definition is allowed to vary between translation units.
+diff --git a/docs/mkdocs/docs/api/macros/nlohmann_json_namespace.md b/docs/mkdocs/docs/api/macros/nlohmann_json_namespace.md
+new file mode 100644
+index 0000000000..d76bffb812
+--- /dev/null
++++ b/docs/mkdocs/docs/api/macros/nlohmann_json_namespace.md
+@@ -0,0 +1,26 @@
++# NLOHMANN_JSON_NAMESPACE
++
++```cpp
++#define NLOHMANN_JSON_NAMESPACE
++```
++
++This macro evaluates to the full name of the `nlohmann` namespace, including
++the name of a versioned and ABI-tagged inline namespace. Use this macro to
++unambiguously refer to the `nlohmann` namespace.
++
++## Default definition
++
++The default value consists of a prefix, a version string, and optional ABI tags
++depending on whether ABI-affecting macros are defined (e.g.,
++[`JSON_DIAGNOSTICS`](json_diagnostics.md), and
++[`JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON`](json_use_legacy_discarded_value_comparison.md)).
++
++When the macro is not defined, the library will define it to its default value.
++
++## See also
++
++- [`NLOHMANN_JSON_NAMESPACE_BEGIN, NLOHMANN_JSON_NAMESPACE_END`](nlohmann_json_namespace_begin.md)
++
++## Version history
++
++- Added in version 3.11.0.
+diff --git a/docs/mkdocs/docs/api/macros/nlohmann_json_namespace_begin.md b/docs/mkdocs/docs/api/macros/nlohmann_json_namespace_begin.md
+new file mode 100644
+index 0000000000..83844b502c
+--- /dev/null
++++ b/docs/mkdocs/docs/api/macros/nlohmann_json_namespace_begin.md
+@@ -0,0 +1,40 @@
++# NLOHMANN_JSON_NAMESPACE_BEGIN, NLOHMANN_JSON_NAMESPACE_END
++
++```cpp
++#define NLOHMANN_JSON_NAMESPACE_BEGIN  // (1)
++#define NLOHMANN_JSON_NAMESPACE_END    // (2)
++```
++
++These macros can be used to open and close the `nlohmann` namespace. They
++include an inline namespace used to differentiate symbols when linking multiple
++versions (including different ABI-affecting macros) of this library.
++
++1. Opens the namespace.
++    ```cpp
++    namespace nlohmann
++    {
++    inline namespace json_v3_11_0
++    {
++    ```
++
++2. Closes the namespace.
++    ```cpp
++    }  // namespace nlohmann
++    }  // json_v3_11_0
++    ```
++
++## Default definition
++
++The default definitions open and close the `nlohmann` as well as an inline
++namespace.
++
++When these macros are not defined, the library will define them to their
++default definitions.
++
++## See also
++
++- [NLOHMANN_JSON_NAMESPACE](nlohmann_json_namespace.md)
++
++## Version history
++
++- Added in version 3.11.0.
+diff --git a/docs/mkdocs/docs/features/arbitrary_types.md b/docs/mkdocs/docs/features/arbitrary_types.md
+index 49a541ef5c..a539ad8159 100644
+--- a/docs/mkdocs/docs/features/arbitrary_types.md
++++ b/docs/mkdocs/docs/features/arbitrary_types.md
+@@ -155,30 +155,35 @@ To solve this, you need to add a specialization of `adl_serializer` to the `nloh
+ 
+ ```cpp
+ // partial specialization (full specialization works too)
+-namespace nlohmann {
+-    template <typename T>
+-    struct adl_serializer<boost::optional<T>> {
+-        static void to_json(json& j, const boost::optional<T>& opt) {
+-            if (opt == boost::none) {
+-                j = nullptr;
+-            } else {
+-              j = *opt; // this will call adl_serializer<T>::to_json which will
+-                        // find the free function to_json in T's namespace!
+-            }
++NLOHMANN_JSON_NAMESPACE_BEGIN
++template <typename T>
++struct adl_serializer<boost::optional<T>> {
++    static void to_json(json& j, const boost::optional<T>& opt) {
++        if (opt == boost::none) {
++            j = nullptr;
++        } else {
++            j = *opt; // this will call adl_serializer<T>::to_json which will
++                      // find the free function to_json in T's namespace!
+         }
++    }
+ 
+-        static void from_json(const json& j, boost::optional<T>& opt) {
+-            if (j.is_null()) {
+-                opt = boost::none;
+-            } else {
+-                opt = j.get<T>(); // same as above, but with
+-                                  // adl_serializer<T>::from_json
+-            }
++    static void from_json(const json& j, boost::optional<T>& opt) {
++        if (j.is_null()) {
++            opt = boost::none;
++        } else {
++            opt = j.get<T>(); // same as above, but with
++                              // adl_serializer<T>::from_json
+         }
+-    };
+-}
++    }
++};
++NLOHMANN_JSON_NAMESPACE_END
+ ```
+ 
++!!! note "ABI compatibility"
++
++    Use [`NLOHMANN_JSON_NAMESPACE_BEGIN`](../api/macros/nlohmann_json_namespace_begin.md) and `NLOHMANN_JSON_NAMESPACE_END`
++    instead of `#!cpp namespace nlohmann { }` in code which may be linked with different versions of this library.
++
+ ## How can I use `get()` for non-default constructible/non-copyable types?
+ 
+ There is a way, if your type is [MoveConstructible](https://en.cppreference.com/w/cpp/named_req/MoveConstructible). You will need to specialize the `adl_serializer` as well, but with a special `from_json` overload:
+diff --git a/docs/mkdocs/mkdocs.yml b/docs/mkdocs/mkdocs.yml
+index 8b7dc4762b..6d2889c844 100644
+--- a/docs/mkdocs/mkdocs.yml
++++ b/docs/mkdocs/mkdocs.yml
+@@ -264,6 +264,9 @@ nav:
+         - 'NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT': api/macros/nlohmann_define_type_intrusive.md
+         - 'NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE': api/macros/nlohmann_define_type_non_intrusive.md
+         - 'NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT': api/macros/nlohmann_define_type_non_intrusive.md
++        - 'NLOHMANN_JSON_NAMESPACE': api/macros/nlohmann_json_namespace.md
++        - 'NLOHMANN_JSON_NAMESPACE_BEGIN': api/macros/nlohmann_json_namespace_begin.md
++        - 'NLOHMANN_JSON_NAMESPACE_END': api/macros/nlohmann_json_namespace_begin.md
+         - 'NLOHMANN_JSON_SERIALIZE_ENUM': api/macros/nlohmann_json_serialize_enum.md
+         - 'NLOHMANN_JSON_VERSION_MAJOR': api/macros/nlohmann_json_version_major.md
+         - 'NLOHMANN_JSON_VERSION_MINOR': api/macros/nlohmann_json_version_major.md
+diff --git a/include/nlohmann/adl_serializer.hpp b/include/nlohmann/adl_serializer.hpp
+index 835a102aab..cd1459a325 100644
+--- a/include/nlohmann/adl_serializer.hpp
++++ b/include/nlohmann/adl_serializer.hpp
+@@ -8,16 +8,14 @@
+ 
+ #pragma once
+ 
+-#include <type_traits>
+ #include <utility>
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/conversions/from_json.hpp>
+ #include <nlohmann/detail/conversions/to_json.hpp>
+ #include <nlohmann/detail/meta/identity_tag.hpp>
+-#include <nlohmann/detail/meta/type_traits.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @sa https://json.nlohmann.me/api/adl_serializer/
+ template<typename ValueType, typename>
+@@ -53,4 +51,5 @@ struct adl_serializer
+         ::nlohmann::to_json(j, std::forward<TargetType>(val));
+     }
+ };
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/byte_container_with_subtype.hpp b/include/nlohmann/byte_container_with_subtype.hpp
+index c78772ef14..8440d90d54 100644
+--- a/include/nlohmann/byte_container_with_subtype.hpp
++++ b/include/nlohmann/byte_container_with_subtype.hpp
+@@ -12,8 +12,9 @@
+ #include <tuple> // tie
+ #include <utility> // move
+ 
+-namespace nlohmann
+-{
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @brief an internal type for a backed binary type
+ /// @sa https://json.nlohmann.me/api/byte_container_with_subtype/
+@@ -99,4 +100,4 @@ class byte_container_with_subtype : public BinaryType
+     bool m_has_subtype = false;
+ };
+ 
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/abi_macros.hpp b/include/nlohmann/detail/abi_macros.hpp
+new file mode 100644
+index 0000000000..d308637a50
+--- /dev/null
++++ b/include/nlohmann/detail/abi_macros.hpp
+@@ -0,0 +1,71 @@
++#pragma once
++
++// This file contains all macro definitions affecting or depending on the ABI
++
++#ifndef JSON_SKIP_LIBRARY_VERSION_CHECK
++    #if defined(NLOHMANN_JSON_VERSION_MAJOR) && defined(NLOHMANN_JSON_VERSION_MINOR) && defined(NLOHMANN_JSON_VERSION_PATCH)
++        #if NLOHMANN_JSON_VERSION_MAJOR != 3 || NLOHMANN_JSON_VERSION_MINOR != 10 || NLOHMANN_JSON_VERSION_PATCH != 5
++            #warning "Already included a different version of the library!"
++        #endif
++    #endif
++#endif
++
++#define NLOHMANN_JSON_VERSION_MAJOR 3   // NOLINT(modernize-macro-to-enum)
++#define NLOHMANN_JSON_VERSION_MINOR 10  // NOLINT(modernize-macro-to-enum)
++#define NLOHMANN_JSON_VERSION_PATCH 5   // NOLINT(modernize-macro-to-enum)
++
++#ifndef JSON_DIAGNOSTICS
++    #define JSON_DIAGNOSTICS 0
++#endif
++
++#ifndef JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
++    #define JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON 0
++#endif
++
++#if JSON_DIAGNOSTICS
++    #define NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS _diag
++#else
++    #define NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS
++#endif
++
++#if JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
++    #define NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON _ldvcmp
++#else
++    #define NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON
++#endif
++
++#define NLOHMANN_JSON_ABI_PREFIX_EX(major, minor, patch) \
++    json_v ## major ## _ ## minor ## _ ## patch
++#define NLOHMANN_JSON_ABI_PREFIX(major, minor, patch) \
++    NLOHMANN_JSON_ABI_PREFIX_EX(major, minor, patch)
++
++#define NLOHMANN_JSON_ABI_CONCAT_EX(a, b, c) a ## b ## c
++#define NLOHMANN_JSON_ABI_CONCAT(a, b, c) \
++    NLOHMANN_JSON_ABI_CONCAT_EX(a, b, c)
++
++#define NLOHMANN_JSON_ABI_STRING                                    \
++    NLOHMANN_JSON_ABI_CONCAT(                                       \
++            NLOHMANN_JSON_ABI_PREFIX(                               \
++                    NLOHMANN_JSON_VERSION_MAJOR,                    \
++                    NLOHMANN_JSON_VERSION_MINOR,                    \
++                    NLOHMANN_JSON_VERSION_PATCH),                   \
++            NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS,                      \
++            NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON)
++
++#ifndef NLOHMANN_JSON_NAMESPACE
++    #define NLOHMANN_JSON_NAMESPACE nlohmann::NLOHMANN_JSON_ABI_STRING
++#endif
++
++#ifndef NLOHMANN_JSON_NAMESPACE_BEGIN
++#define NLOHMANN_JSON_NAMESPACE_BEGIN         \
++    namespace nlohmann                        \
++    {                                         \
++    inline namespace NLOHMANN_JSON_ABI_STRING \
++    {
++#endif
++
++#ifndef NLOHMANN_JSON_NAMESPACE_END
++#define NLOHMANN_JSON_NAMESPACE_END \
++    }  /* namespace (abi_string) */ \
++    }  /* namespace nlohmann */
++#endif
+diff --git a/include/nlohmann/detail/conversions/from_json.hpp b/include/nlohmann/detail/conversions/from_json.hpp
+index af2abddbf0..355cf9acfb 100644
+--- a/include/nlohmann/detail/conversions/from_json.hpp
++++ b/include/nlohmann/detail/conversions/from_json.hpp
+@@ -24,28 +24,15 @@
+ #include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ #include <nlohmann/detail/meta/identity_tag.hpp>
++#include <nlohmann/detail/meta/std_fs.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/string_concat.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-#if JSON_HAS_EXPERIMENTAL_FILESYSTEM
+-#include <experimental/filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::experimental::filesystem;
+-} // namespace nlohmann::detail
+-#elif JSON_HAS_FILESYSTEM
+-#include <filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::filesystem;
+-} // namespace nlohmann::detail
+-#endif
+-
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename BasicJsonType>
+ inline void from_json(const BasicJsonType& j, typename std::nullptr_t& n)
+ {
+@@ -491,6 +478,7 @@ struct from_json_fn
+         return from_json(j, std::forward<T>(val));
+     }
+ };
++
+ }  // namespace detail
+ 
+ #ifndef JSON_HAS_CPP_17
+@@ -503,6 +491,7 @@ namespace // NOLINT(cert-dcl59-cpp,fuchsia-header-anon-namespaces,google-build-n
+ JSON_INLINE_VARIABLE constexpr const auto& from_json = // NOLINT(misc-definitions-in-headers)
+     detail::static_const<detail::from_json_fn>::value;
+ #ifndef JSON_HAS_CPP_17
+-} // namespace
++}  // namespace
+ #endif
+-} // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/conversions/to_chars.hpp b/include/nlohmann/detail/conversions/to_chars.hpp
+index fb457311cb..87655c2aed 100644
+--- a/include/nlohmann/detail/conversions/to_chars.hpp
++++ b/include/nlohmann/detail/conversions/to_chars.hpp
+@@ -18,8 +18,7 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -1048,7 +1047,7 @@ inline char* format_buffer(char* buf, int len, int decimal_exponent,
+     return append_exponent(buf, n - 1);
+ }
+ 
+-} // namespace dtoa_impl
++}  // namespace dtoa_impl
+ 
+ /*!
+ @brief generates a decimal representation of the floating-point number value in [first, last).
+@@ -1115,5 +1114,5 @@ char* to_chars(char* first, const char* last, FloatType value)
+     return dtoa_impl::format_buffer(first, len, decimal_exponent, kMinExp, kMaxExp);
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/conversions/to_json.hpp b/include/nlohmann/detail/conversions/to_json.hpp
+index 2dc45d624f..bd70bfaff1 100644
+--- a/include/nlohmann/detail/conversions/to_json.hpp
++++ b/include/nlohmann/detail/conversions/to_json.hpp
+@@ -17,30 +17,17 @@
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
+-#include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/iterators/iteration_proxy.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
++#include <nlohmann/detail/meta/std_fs.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-#if JSON_HAS_EXPERIMENTAL_FILESYSTEM
+-#include <experimental/filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::experimental::filesystem;
+-} // namespace nlohmann::detail
+-#elif JSON_HAS_FILESYSTEM
+-#include <filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::filesystem;
+-} // namespace nlohmann::detail
+-#endif
+-
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ //////////////////
+ // constructors //
+ //////////////////
+@@ -447,6 +434,7 @@ namespace // NOLINT(cert-dcl59-cpp,fuchsia-header-anon-namespaces,google-build-n
+ JSON_INLINE_VARIABLE constexpr const auto& to_json = // NOLINT(misc-definitions-in-headers)
+     detail::static_const<detail::to_json_fn>::value;
+ #ifndef JSON_HAS_CPP_17
+-} // namespace
++}  // namespace
+ #endif
+-} // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/exceptions.hpp b/include/nlohmann/detail/exceptions.hpp
+index 4c8f83f20b..dc36dacb5b 100644
+--- a/include/nlohmann/detail/exceptions.hpp
++++ b/include/nlohmann/detail/exceptions.hpp
+@@ -23,10 +23,10 @@
+ #include <nlohmann/detail/string_concat.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ////////////////
+ // exceptions //
+ ////////////////
+@@ -252,4 +252,4 @@ class other_error : public exception
+ };
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/hash.hpp b/include/nlohmann/detail/hash.hpp
+index 923e37762e..09a01cece1 100644
+--- a/include/nlohmann/detail/hash.hpp
++++ b/include/nlohmann/detail/hash.hpp
+@@ -12,11 +12,10 @@
+ #include <cstddef> // size_t
+ #include <functional> // hash
+ 
+-#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -127,4 +126,4 @@ std::size_t hash(const BasicJsonType& j)
+ }
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/binary_reader.hpp b/include/nlohmann/detail/input/binary_reader.hpp
+index c6363b7d08..cb16f49809 100644
+--- a/include/nlohmann/detail/input/binary_reader.hpp
++++ b/include/nlohmann/detail/input/binary_reader.hpp
+@@ -32,8 +32,7 @@
+ #include <nlohmann/detail/string_concat.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -2969,5 +2968,6 @@ class binary_reader
+     /// the SAX parser
+     json_sax_t* sax = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/input_adapters.hpp b/include/nlohmann/detail/input/input_adapters.hpp
+index a034a6df68..ce4d4a8028 100644
+--- a/include/nlohmann/detail/input/input_adapters.hpp
++++ b/include/nlohmann/detail/input/input_adapters.hpp
+@@ -26,10 +26,10 @@
+ #include <nlohmann/detail/iterators/iterator_traits.hpp>
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// the supported input formats
+ enum class input_format_t { json, cbor, msgpack, ubjson, bson, bjdata };
+ 
+@@ -410,7 +410,7 @@ struct container_input_adapter_factory< ContainerType,
+ }
+        };
+ 
+-} // namespace container_input_adapter_factory_impl
++}  // namespace container_input_adapter_factory_impl
+ 
+ template<typename ContainerType>
+ typename container_input_adapter_factory_impl::container_input_adapter_factory<ContainerType>::adapter_type input_adapter(const ContainerType& container)
+@@ -489,5 +489,6 @@ class span_input_adapter
+   private:
+     contiguous_bytes_input_adapter ia;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/json_sax.hpp b/include/nlohmann/detail/input/json_sax.hpp
+index 03da50e90c..c311910424 100644
+--- a/include/nlohmann/detail/input/json_sax.hpp
++++ b/include/nlohmann/detail/input/json_sax.hpp
+@@ -17,8 +17,7 @@
+ #include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/string_concat.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /*!
+ @brief SAX interface
+@@ -724,6 +723,6 @@ class json_sax_acceptor
+         return false;
+     }
+ };
+-}  // namespace detail
+ 
+-}  // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/lexer.hpp b/include/nlohmann/detail/input/lexer.hpp
+index b115c316a5..d3b769e76c 100644
+--- a/include/nlohmann/detail/input/lexer.hpp
++++ b/include/nlohmann/detail/input/lexer.hpp
+@@ -22,10 +22,10 @@
+ #include <nlohmann/detail/input/position_t.hpp>
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////
+ // lexer //
+ ///////////
+@@ -1627,5 +1627,6 @@ class lexer : public lexer_base<BasicJsonType>
+     /// the decimal point
+     const char_int_type decimal_point_char = '.';
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/parser.hpp b/include/nlohmann/detail/input/parser.hpp
+index 8b9925743a..1b913192ee 100644
+--- a/include/nlohmann/detail/input/parser.hpp
++++ b/include/nlohmann/detail/input/parser.hpp
+@@ -24,8 +24,7 @@
+ #include <nlohmann/detail/string_concat.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ ////////////
+@@ -505,4 +504,4 @@ class parser
+ };
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/input/position_t.hpp b/include/nlohmann/detail/input/position_t.hpp
+index 4cf4fd11d8..b422e3ee13 100644
+--- a/include/nlohmann/detail/input/position_t.hpp
++++ b/include/nlohmann/detail/input/position_t.hpp
+@@ -10,10 +10,12 @@
+ 
+ #include <cstddef> // size_t
+ 
+-namespace nlohmann
+-{
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// struct to capture the start position of the current token
+ struct position_t
+ {
+@@ -31,5 +33,5 @@ struct position_t
+     }
+ };
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/iterators/internal_iterator.hpp b/include/nlohmann/detail/iterators/internal_iterator.hpp
+index 317e0c9b25..9c46658995 100644
+--- a/include/nlohmann/detail/iterators/internal_iterator.hpp
++++ b/include/nlohmann/detail/iterators/internal_iterator.hpp
+@@ -8,12 +8,13 @@
+ 
+ #pragma once
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /*!
+ @brief an iterator value
+ 
+@@ -29,5 +30,6 @@ template<typename BasicJsonType> struct internal_iterator
+     /// generic iterator for all other types
+     primitive_iterator_t primitive_iterator {};
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/iterators/iter_impl.hpp b/include/nlohmann/detail/iterators/iter_impl.hpp
+index c55197d7a1..84dfa3ecf7 100644
+--- a/include/nlohmann/detail/iterators/iter_impl.hpp
++++ b/include/nlohmann/detail/iterators/iter_impl.hpp
+@@ -19,10 +19,10 @@
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ // forward declare, to be able to friend it later on
+ template<typename IteratorType> class iteration_proxy;
+ template<typename IteratorType> class iteration_proxy_value;
+@@ -746,5 +746,6 @@ class iter_impl // NOLINT(cppcoreguidelines-special-member-functions,hicpp-speci
+     /// the actual iterator of the associated instance
+     internal_iterator<typename std::remove_const<BasicJsonType>::type> m_it {};
+ };
+-} // namespace detail
+-} // namespace nlohmann
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/iterators/iteration_proxy.hpp b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+index 5f50100806..36669ac2cc 100644
+--- a/include/nlohmann/detail/iterators/iteration_proxy.hpp
++++ b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+@@ -18,13 +18,14 @@
+     #include <ranges> // enable_borrowed_range
+ #endif
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename string_type>
+ void int_to_string( string_type& target, std::size_t value )
+ {
+@@ -201,8 +202,9 @@ auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decl
+ {
+     return i.value();
+ }
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // The Addition to the STD Namespace is required to add
+ // Structured Bindings Support to the iteration_proxy_value class
+@@ -210,6 +212,7 @@ auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decl
+ // And see https://github.com/nlohmann/json/pull/1391
+ namespace std
+ {
++
+ #if defined(__clang__)
+     // Fix: https://github.com/nlohmann/json/issues/1401
+     #pragma clang diagnostic push
+@@ -230,7 +233,8 @@ class tuple_element<N, ::nlohmann::detail::iteration_proxy_value<IteratorType >>
+ #if defined(__clang__)
+     #pragma clang diagnostic pop
+ #endif
+-} // namespace std
++
++}  // namespace std
+ 
+ #if JSON_HAS_RANGES
+     template <typename IteratorType>
+diff --git a/include/nlohmann/detail/iterators/iterator_traits.hpp b/include/nlohmann/detail/iterators/iterator_traits.hpp
+index e803786df1..ffd44dd73a 100644
+--- a/include/nlohmann/detail/iterators/iterator_traits.hpp
++++ b/include/nlohmann/detail/iterators/iterator_traits.hpp
+@@ -10,13 +10,14 @@
+ 
+ #include <iterator> // random_access_iterator_tag
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/meta/void_t.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename It, typename = void>
+ struct iterator_types {};
+ 
+@@ -55,5 +56,6 @@ struct iterator_traits<T*, enable_if_t<std::is_object<T>::value>>
+     using pointer = T*;
+     using reference = T&;
+ };
+-} // namespace detail
+-} // namespace nlohmann
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/iterators/json_reverse_iterator.hpp b/include/nlohmann/detail/iterators/json_reverse_iterator.hpp
+index ccc68184dc..6afe19a1eb 100644
+--- a/include/nlohmann/detail/iterators/json_reverse_iterator.hpp
++++ b/include/nlohmann/detail/iterators/json_reverse_iterator.hpp
+@@ -12,10 +12,12 @@
+ #include <iterator> // reverse_iterator
+ #include <utility> // declval
+ 
+-namespace nlohmann
+-{
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ //////////////////////
+ // reverse_iterator //
+ //////////////////////
+@@ -123,5 +125,6 @@ class json_reverse_iterator : public std::reverse_iterator<Base>
+         return it.operator * ();
+     }
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/iterators/primitive_iterator.hpp b/include/nlohmann/detail/iterators/primitive_iterator.hpp
+index 262689d359..b47cf01f48 100644
+--- a/include/nlohmann/detail/iterators/primitive_iterator.hpp
++++ b/include/nlohmann/detail/iterators/primitive_iterator.hpp
+@@ -13,10 +13,10 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /*
+ @brief an iterator for primitive JSON types
+ 
+@@ -127,5 +127,6 @@ class primitive_iterator_t
+         return *this;
+     }
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/json_pointer.hpp b/include/nlohmann/detail/json_pointer.hpp
+index 79776bcc6b..2aa68efadb 100644
+--- a/include/nlohmann/detail/json_pointer.hpp
++++ b/include/nlohmann/detail/json_pointer.hpp
+@@ -27,8 +27,7 @@
+ #include <nlohmann/detail/string_escape.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @brief JSON Pointer defines a string syntax for identifying a specific value within a JSON document
+ /// @sa https://json.nlohmann.me/api/json_pointer/
+@@ -897,4 +896,5 @@ inline bool operator!=(json_pointer<RefStringTypeLhs> const& lhs,
+ {
+     return !(lhs == rhs);
+ }
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/json_ref.hpp b/include/nlohmann/detail/json_ref.hpp
+index d2aa83296d..026f8e1135 100644
+--- a/include/nlohmann/detail/json_ref.hpp
++++ b/include/nlohmann/detail/json_ref.hpp
+@@ -11,12 +11,13 @@
+ #include <initializer_list>
+ #include <utility>
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename BasicJsonType>
+ class json_ref
+ {
+@@ -72,5 +73,6 @@ class json_ref
+     mutable value_type owned_value = nullptr;
+     value_type const* value_ref = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/macro_scope.hpp b/include/nlohmann/detail/macro_scope.hpp
+index d3b30bacee..420b549e80 100644
+--- a/include/nlohmann/detail/macro_scope.hpp
++++ b/include/nlohmann/detail/macro_scope.hpp
+@@ -9,12 +9,14 @@
+ #pragma once
+ 
+ #include <utility> // declval, pair
+-#include <nlohmann/thirdparty/hedley/hedley.hpp>
+ #include <nlohmann/detail/meta/detected.hpp>
++#include <nlohmann/thirdparty/hedley/hedley.hpp>
+ 
+-// This file contains all internal macro definitions
++// This file contains all internal macro definitions (except those affecting ABI)
+ // You MUST include macro_unscope.hpp at the end of json.hpp to undef all of them
+ 
++#include <nlohmann/detail/abi_macros.hpp>
++
+ // exclude unsupported compilers
+ #if !defined(JSON_SKIP_UNSUPPORTED_COMPILER_CHECK)
+     #if defined(__clang__)
+@@ -457,14 +459,6 @@
+     #define JSON_EXPLICIT explicit
+ #endif
+ 
+-#ifndef JSON_DIAGNOSTICS
+-    #define JSON_DIAGNOSTICS 0
+-#endif
+-
+-#ifndef JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
+-    #define JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON 0
+-#endif
+-
+ #ifndef JSON_DISABLE_ENUM_SERIALIZATION
+     #define JSON_DISABLE_ENUM_SERIALIZATION 0
+ #endif
+diff --git a/include/nlohmann/detail/meta/call_std/begin.hpp b/include/nlohmann/detail/meta/call_std/begin.hpp
+index 62bc56a2f9..b8602e48ab 100644
+--- a/include/nlohmann/detail/meta/call_std/begin.hpp
++++ b/include/nlohmann/detail/meta/call_std/begin.hpp
+@@ -10,7 +10,8 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
++
+ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(begin);
+-} // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/call_std/end.hpp b/include/nlohmann/detail/meta/call_std/end.hpp
+index 2392455672..845c261828 100644
+--- a/include/nlohmann/detail/meta/call_std/end.hpp
++++ b/include/nlohmann/detail/meta/call_std/end.hpp
+@@ -10,7 +10,8 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
++
+ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(end);
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/cpp_future.hpp b/include/nlohmann/detail/meta/cpp_future.hpp
+index 757d7d9f99..de3b7d4a81 100644
+--- a/include/nlohmann/detail/meta/cpp_future.hpp
++++ b/include/nlohmann/detail/meta/cpp_future.hpp
+@@ -15,8 +15,7 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -164,4 +163,4 @@ struct static_const
+ #endif
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/detected.hpp b/include/nlohmann/detail/meta/detected.hpp
+index 8d7e560bc7..0a6bc5311c 100644
+--- a/include/nlohmann/detail/meta/detected.hpp
++++ b/include/nlohmann/detail/meta/detected.hpp
+@@ -12,11 +12,11 @@
+ 
+ #include <nlohmann/detail/meta/void_t.hpp>
+ 
+-// https://en.cppreference.com/w/cpp/experimental/is_detected
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
++// https://en.cppreference.com/w/cpp/experimental/is_detected
+ struct nonesuch
+ {
+     nonesuch() = delete;
+@@ -65,5 +65,6 @@ using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
+ template<class To, template<class...> class Op, class... Args>
+ using is_detected_convertible =
+     std::is_convertible<detected_t<Op, Args...>, To>;
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/identity_tag.hpp b/include/nlohmann/detail/meta/identity_tag.hpp
+index 4c4ac2fc08..68cfdeecef 100644
+--- a/include/nlohmann/detail/meta/identity_tag.hpp
++++ b/include/nlohmann/detail/meta/identity_tag.hpp
+@@ -8,11 +8,14 @@
+ 
+ #pragma once
+ 
+-namespace nlohmann
+-{
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ // dispatching helper struct
+ template <class T> struct identity_tag {};
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/is_sax.hpp b/include/nlohmann/detail/meta/is_sax.hpp
+index 1c74eabf07..705ff86046 100644
+--- a/include/nlohmann/detail/meta/is_sax.hpp
++++ b/include/nlohmann/detail/meta/is_sax.hpp
+@@ -12,13 +12,14 @@
+ #include <utility> // declval
+ #include <string> // string
+ 
++#include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/meta/detected.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename T>
+ using null_function_t = decltype(std::declval<T&>().null());
+ 
+@@ -153,5 +154,6 @@ struct is_sax_static_asserts
+         "Missing/invalid function: bool parse_error(std::size_t, const "
+         "std::string&, const exception&)");
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/std_fs.hpp b/include/nlohmann/detail/meta/std_fs.hpp
+new file mode 100644
+index 0000000000..edf7bdaff2
+--- /dev/null
++++ b/include/nlohmann/detail/meta/std_fs.hpp
+@@ -0,0 +1,21 @@
++#pragma once
++
++#include <nlohmann/detail/macro_scope.hpp>
++
++#if JSON_HAS_EXPERIMENTAL_FILESYSTEM
++#include <experimental/filesystem>
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++namespace std_fs = std::experimental::filesystem;
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++#elif JSON_HAS_FILESYSTEM
++#include <filesystem>
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++namespace std_fs = std::filesystem;
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++#endif
+diff --git a/include/nlohmann/detail/meta/type_traits.hpp b/include/nlohmann/detail/meta/type_traits.hpp
+index 796d5b0cda..978df9f29f 100644
+--- a/include/nlohmann/detail/meta/type_traits.hpp
++++ b/include/nlohmann/detail/meta/type_traits.hpp
+@@ -13,17 +13,15 @@
+ #include <utility> // declval
+ #include <tuple> // tuple
+ 
+-#include <nlohmann/detail/macro_scope.hpp>
+-
+ #include <nlohmann/detail/iterators/iterator_traits.hpp>
++#include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/meta/call_std/begin.hpp>
+ #include <nlohmann/detail/meta/call_std/end.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ #include <nlohmann/detail/meta/detected.hpp>
+ #include <nlohmann/json_fwd.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ /*!
+ @brief detail namespace with internal helper functions
+ 
+@@ -34,6 +32,7 @@ implementations of some @ref basic_json methods, and meta-programming helpers.
+ */
+ namespace detail
+ {
++
+ /////////////
+ // helpers //
+ /////////////
+@@ -686,4 +685,4 @@ inline constexpr bool value_in_range_of(T val)
+ }
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/meta/void_t.hpp b/include/nlohmann/detail/meta/void_t.hpp
+index 5d6f65eb59..8c486a2a99 100644
+--- a/include/nlohmann/detail/meta/void_t.hpp
++++ b/include/nlohmann/detail/meta/void_t.hpp
+@@ -8,14 +8,17 @@
+ 
+ #pragma once
+ 
+-namespace nlohmann
+-{
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename ...Ts> struct make_void
+ {
+     using type = void;
+ };
+ template<typename ...Ts> using void_t = typename make_void<Ts...>::type;
+-} // namespace detail
+-}  // namespace nlohmann
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/output/binary_writer.hpp b/include/nlohmann/detail/output/binary_writer.hpp
+index 3501b410c9..b2c35b88cf 100644
+--- a/include/nlohmann/detail/output/binary_writer.hpp
++++ b/include/nlohmann/detail/output/binary_writer.hpp
+@@ -24,10 +24,10 @@
+ #include <nlohmann/detail/output/output_adapters.hpp>
+ #include <nlohmann/detail/string_concat.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////
+ // binary writer //
+ ///////////////////
+@@ -1833,5 +1833,6 @@ class binary_writer
+     /// the output
+     output_adapter_t<CharType> oa = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/output/output_adapters.hpp b/include/nlohmann/detail/output/output_adapters.hpp
+index 134bd9aabf..5f0e870226 100644
+--- a/include/nlohmann/detail/output/output_adapters.hpp
++++ b/include/nlohmann/detail/output/output_adapters.hpp
+@@ -22,10 +22,10 @@
+ 
+ #include <nlohmann/detail/macro_scope.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// abstract output adapter interface
+ template<typename CharType> struct output_adapter_protocol
+ {
+@@ -142,5 +142,6 @@ class output_adapter
+   private:
+     output_adapter_t<CharType> oa = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/output/serializer.hpp b/include/nlohmann/detail/output/serializer.hpp
+index 0f8f320f65..19d5cc434d 100644
+--- a/include/nlohmann/detail/output/serializer.hpp
++++ b/include/nlohmann/detail/output/serializer.hpp
+@@ -31,10 +31,10 @@
+ #include <nlohmann/detail/string_concat.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////
+ // serialization //
+ ///////////////////
+@@ -983,5 +983,6 @@ class serializer
+     /// error_handler how to react on decoding errors
+     const error_handler_t error_handler;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/string_concat.hpp b/include/nlohmann/detail/string_concat.hpp
+index 4f128ceab8..d1d886d351 100644
+--- a/include/nlohmann/detail/string_concat.hpp
++++ b/include/nlohmann/detail/string_concat.hpp
+@@ -15,8 +15,7 @@
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ #include <nlohmann/detail/meta/detected.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -143,5 +142,5 @@ inline OutStringType concat(Args && ... args)
+     return str;
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/string_escape.hpp b/include/nlohmann/detail/string_escape.hpp
+index 467e19d50b..5040dc7557 100644
+--- a/include/nlohmann/detail/string_escape.hpp
++++ b/include/nlohmann/detail/string_escape.hpp
+@@ -8,10 +8,9 @@
+ 
+ #pragma once
+ 
+-#include <nlohmann/detail/macro_scope.hpp>
++#include <nlohmann/detail/abi_macros.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -69,5 +68,5 @@ static void unescape(StringType& s)
+     replace_substring(s, StringType{"~0"}, StringType{"~"});
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/detail/value_t.hpp b/include/nlohmann/detail/value_t.hpp
+index bdf4ad7f9b..e11187c6cb 100644
+--- a/include/nlohmann/detail/value_t.hpp
++++ b/include/nlohmann/detail/value_t.hpp
+@@ -18,10 +18,10 @@
+     #include <compare> // partial_ordering
+ #endif
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////////////
+ // JSON type enumeration //
+ ///////////////////////////
+@@ -113,5 +113,6 @@ inline bool operator<(const value_t lhs, const value_t rhs) noexcept
+     return std::is_lt(lhs <=> rhs); // *NOPAD*
+ }
+ #endif
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/json.hpp b/include/nlohmann/json.hpp
+index 24812fde5a..cdf52b36d0 100644
+--- a/include/nlohmann/json.hpp
++++ b/include/nlohmann/json.hpp
+@@ -18,18 +18,6 @@
+ #ifndef INCLUDE_NLOHMANN_JSON_HPP_
+ #define INCLUDE_NLOHMANN_JSON_HPP_
+ 
+-#ifndef JSON_SKIP_LIBRARY_VERSION_CHECK
+-    #if defined(NLOHMANN_JSON_VERSION_MAJOR) && defined(NLOHMANN_JSON_VERSION_MINOR) && defined(NLOHMANN_JSON_VERSION_PATCH)
+-        #if NLOHMANN_JSON_VERSION_MAJOR != 3 || NLOHMANN_JSON_VERSION_MINOR != 10 || NLOHMANN_JSON_VERSION_PATCH != 5
+-            #warning "Already included a different version of the library!"
+-        #endif
+-    #endif
+-#endif
+-
+-#define NLOHMANN_JSON_VERSION_MAJOR 3   // NOLINT(modernize-macro-to-enum)
+-#define NLOHMANN_JSON_VERSION_MINOR 10  // NOLINT(modernize-macro-to-enum)
+-#define NLOHMANN_JSON_VERSION_PATCH 5   // NOLINT(modernize-macro-to-enum)
+-
+ #include <algorithm> // all_of, find, for_each
+ #include <cstddef> // nullptr_t, ptrdiff_t, size_t
+ #include <functional> // hash, less
+@@ -83,8 +71,7 @@
+ @see https://github.com/nlohmann
+ @since version 1.0.0
+ */
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /*!
+ @brief a class to store JSON values
+@@ -5086,7 +5073,7 @@ std::string to_string(const NLOHMANN_BASIC_JSON_TPL& j)
+     return j.dump();
+ }
+ 
+-} // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ ///////////////////////
+ // nonmember support //
+@@ -5140,7 +5127,7 @@ inline void swap(nlohmann::NLOHMANN_BASIC_JSON_TPL& j1, nlohmann::NLOHMANN_BASIC
+ 
+ #endif
+ 
+-} // namespace std
++}  // namespace std
+ 
+ /// @brief user-defined string literal for JSON values
+ /// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
+diff --git a/include/nlohmann/json_fwd.hpp b/include/nlohmann/json_fwd.hpp
+index f3fb3f7970..f2b261d901 100644
+--- a/include/nlohmann/json_fwd.hpp
++++ b/include/nlohmann/json_fwd.hpp
+@@ -15,13 +15,15 @@
+ #include <string> // string
+ #include <vector> // vector
+ 
++#include <nlohmann/detail/abi_macros.hpp>
++
+ /*!
+ @brief namespace for Niels Lohmann
+ @see https://github.com/nlohmann
+ @since version 1.0.0
+ */
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
++
+ /*!
+ @brief default JSONSerializer template argument
+ 
+@@ -67,6 +69,6 @@ struct ordered_map;
+ /// @sa https://json.nlohmann.me/api/ordered_json/
+ using ordered_json = basic_json<nlohmann::ordered_map>;
+ 
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ #endif  // INCLUDE_NLOHMANN_JSON_FWD_HPP_
+diff --git a/include/nlohmann/ordered_map.hpp b/include/nlohmann/ordered_map.hpp
+index 76c1d50777..449fa77815 100644
+--- a/include/nlohmann/ordered_map.hpp
++++ b/include/nlohmann/ordered_map.hpp
+@@ -20,8 +20,7 @@
+ #include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// ordered_map: a minimal map-like container that preserves insertion order
+ /// for use within nlohmann::basic_json<ordered_map>
+@@ -357,4 +356,4 @@ template <class Key, class T, class IgnoredLess = std::less<Key>,
+     JSON_NO_UNIQUE_ADDRESS key_compare m_compare = key_compare();
+ };
+ 
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/single_include/nlohmann/json.hpp b/single_include/nlohmann/json.hpp
+index 3341f02863..bfecbd1a90 100644
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -18,18 +18,6 @@
+ #ifndef INCLUDE_NLOHMANN_JSON_HPP_
+ #define INCLUDE_NLOHMANN_JSON_HPP_
+ 
+-#ifndef JSON_SKIP_LIBRARY_VERSION_CHECK
+-    #if defined(NLOHMANN_JSON_VERSION_MAJOR) && defined(NLOHMANN_JSON_VERSION_MINOR) && defined(NLOHMANN_JSON_VERSION_PATCH)
+-        #if NLOHMANN_JSON_VERSION_MAJOR != 3 || NLOHMANN_JSON_VERSION_MINOR != 10 || NLOHMANN_JSON_VERSION_PATCH != 5
+-            #warning "Already included a different version of the library!"
+-        #endif
+-    #endif
+-#endif
+-
+-#define NLOHMANN_JSON_VERSION_MAJOR 3   // NOLINT(modernize-macro-to-enum)
+-#define NLOHMANN_JSON_VERSION_MINOR 10  // NOLINT(modernize-macro-to-enum)
+-#define NLOHMANN_JSON_VERSION_PATCH 5   // NOLINT(modernize-macro-to-enum)
+-
+ #include <algorithm> // all_of, find, for_each
+ #include <cstddef> // nullptr_t, ptrdiff_t, size_t
+ #include <functional> // hash, less
+@@ -55,9 +43,81 @@
+ 
+ 
+ 
+-#include <type_traits>
+ #include <utility>
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++// This file contains all macro definitions affecting or depending on the ABI
++
++#ifndef JSON_SKIP_LIBRARY_VERSION_CHECK
++    #if defined(NLOHMANN_JSON_VERSION_MAJOR) && defined(NLOHMANN_JSON_VERSION_MINOR) && defined(NLOHMANN_JSON_VERSION_PATCH)
++        #if NLOHMANN_JSON_VERSION_MAJOR != 3 || NLOHMANN_JSON_VERSION_MINOR != 10 || NLOHMANN_JSON_VERSION_PATCH != 5
++            #warning "Already included a different version of the library!"
++        #endif
++    #endif
++#endif
++
++#define NLOHMANN_JSON_VERSION_MAJOR 3   // NOLINT(modernize-macro-to-enum)
++#define NLOHMANN_JSON_VERSION_MINOR 10  // NOLINT(modernize-macro-to-enum)
++#define NLOHMANN_JSON_VERSION_PATCH 5   // NOLINT(modernize-macro-to-enum)
++
++#ifndef JSON_DIAGNOSTICS
++    #define JSON_DIAGNOSTICS 0
++#endif
++
++#ifndef JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
++    #define JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON 0
++#endif
++
++#if JSON_DIAGNOSTICS
++    #define NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS _diag
++#else
++    #define NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS
++#endif
++
++#if JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
++    #define NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON _ldvcmp
++#else
++    #define NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON
++#endif
++
++#define NLOHMANN_JSON_ABI_PREFIX_EX(major, minor, patch) \
++    json_v ## major ## _ ## minor ## _ ## patch
++#define NLOHMANN_JSON_ABI_PREFIX(major, minor, patch) \
++    NLOHMANN_JSON_ABI_PREFIX_EX(major, minor, patch)
++
++#define NLOHMANN_JSON_ABI_CONCAT_EX(a, b, c) a ## b ## c
++#define NLOHMANN_JSON_ABI_CONCAT(a, b, c) \
++    NLOHMANN_JSON_ABI_CONCAT_EX(a, b, c)
++
++#define NLOHMANN_JSON_ABI_STRING                                    \
++    NLOHMANN_JSON_ABI_CONCAT(                                       \
++            NLOHMANN_JSON_ABI_PREFIX(                               \
++                    NLOHMANN_JSON_VERSION_MAJOR,                    \
++                    NLOHMANN_JSON_VERSION_MINOR,                    \
++                    NLOHMANN_JSON_VERSION_PATCH),                   \
++            NLOHMANN_JSON_ABI_TAG_DIAGNOSTICS,                      \
++            NLOHMANN_JSON_ABI_TAG_LEGACY_DISCARDED_VALUE_COMPARISON)
++
++#ifndef NLOHMANN_JSON_NAMESPACE
++    #define NLOHMANN_JSON_NAMESPACE nlohmann::NLOHMANN_JSON_ABI_STRING
++#endif
++
++#ifndef NLOHMANN_JSON_NAMESPACE_BEGIN
++#define NLOHMANN_JSON_NAMESPACE_BEGIN         \
++    namespace nlohmann                        \
++    {                                         \
++    inline namespace NLOHMANN_JSON_ABI_STRING \
++    {
++#endif
++
++#ifndef NLOHMANN_JSON_NAMESPACE_END
++#define NLOHMANN_JSON_NAMESPACE_END \
++    }  /* namespace (abi_string) */ \
++    }  /* namespace nlohmann */
++#endif
++
+ // #include <nlohmann/detail/conversions/from_json.hpp>
+ //     __ _____ _____ _____
+ //  __|  |   __|     |   | |  JSON for Modern C++
+@@ -126,6 +186,104 @@
+ 
+ 
+ #include <utility> // declval, pair
++// #include <nlohmann/detail/meta/detected.hpp>
++//     __ _____ _____ _____
++//  __|  |   __|     |   | |  JSON for Modern C++
++// |  |  |__   |  |  | | | |  version 3.10.5
++// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
++//
++// SPDX-FileCopyrightText: 2013-2022 Niels Lohmann <https://nlohmann.me>
++// SPDX-License-Identifier: MIT
++
++
++
++#include <type_traits>
++
++// #include <nlohmann/detail/meta/void_t.hpp>
++//     __ _____ _____ _____
++//  __|  |   __|     |   | |  JSON for Modern C++
++// |  |  |__   |  |  | | | |  version 3.10.5
++// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
++//
++// SPDX-FileCopyrightText: 2013-2022 Niels Lohmann <https://nlohmann.me>
++// SPDX-License-Identifier: MIT
++
++
++
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++
++template<typename ...Ts> struct make_void
++{
++    using type = void;
++};
++template<typename ...Ts> using void_t = typename make_void<Ts...>::type;
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++
++// https://en.cppreference.com/w/cpp/experimental/is_detected
++struct nonesuch
++{
++    nonesuch() = delete;
++    ~nonesuch() = delete;
++    nonesuch(nonesuch const&) = delete;
++    nonesuch(nonesuch const&&) = delete;
++    void operator=(nonesuch const&) = delete;
++    void operator=(nonesuch&&) = delete;
++};
++
++template<class Default,
++         class AlwaysVoid,
++         template<class...> class Op,
++         class... Args>
++struct detector
++{
++    using value_t = std::false_type;
++    using type = Default;
++};
++
++template<class Default, template<class...> class Op, class... Args>
++struct detector<Default, void_t<Op<Args...>>, Op, Args...>
++{
++    using value_t = std::true_type;
++    using type = Op<Args...>;
++};
++
++template<template<class...> class Op, class... Args>
++using is_detected = typename detector<nonesuch, void, Op, Args...>::value_t;
++
++template<template<class...> class Op, class... Args>
++struct is_detected_lazy : is_detected<Op, Args...> { };
++
++template<template<class...> class Op, class... Args>
++using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
++
++template<class Default, template<class...> class Op, class... Args>
++using detected_or = detector<Default, void, Op, Args...>;
++
++template<class Default, template<class...> class Op, class... Args>
++using detected_or_t = typename detected_or<Default, Op, Args...>::type;
++
++template<class Expected, template<class...> class Op, class... Args>
++using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
++
++template<class To, template<class...> class Op, class... Args>
++using is_detected_convertible =
++    std::is_convertible<detected_t<Op, Args...>, To>;
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++
+ // #include <nlohmann/thirdparty/hedley/hedley.hpp>
+ 
+ 
+@@ -2173,102 +2331,12 @@ JSON_HEDLEY_DIAGNOSTIC_POP
+ 
+ #endif /* !defined(JSON_HEDLEY_VERSION) || (JSON_HEDLEY_VERSION < X) */
+ 
+-// #include <nlohmann/detail/meta/detected.hpp>
+-//     __ _____ _____ _____
+-//  __|  |   __|     |   | |  JSON for Modern C++
+-// |  |  |__   |  |  | | | |  version 3.10.5
+-// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
+-//
+-// SPDX-FileCopyrightText: 2013-2022 Niels Lohmann <https://nlohmann.me>
+-// SPDX-License-Identifier: MIT
+-
+-
+-
+-#include <type_traits>
+-
+-// #include <nlohmann/detail/meta/void_t.hpp>
+-//     __ _____ _____ _____
+-//  __|  |   __|     |   | |  JSON for Modern C++
+-// |  |  |__   |  |  | | | |  version 3.10.5
+-// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
+-//
+-// SPDX-FileCopyrightText: 2013-2022 Niels Lohmann <https://nlohmann.me>
+-// SPDX-License-Identifier: MIT
+-
+-
+-
+-namespace nlohmann
+-{
+-namespace detail
+-{
+-template<typename ...Ts> struct make_void
+-{
+-    using type = void;
+-};
+-template<typename ...Ts> using void_t = typename make_void<Ts...>::type;
+-} // namespace detail
+-}  // namespace nlohmann
+-
+-
+-// https://en.cppreference.com/w/cpp/experimental/is_detected
+-namespace nlohmann
+-{
+-namespace detail
+-{
+-struct nonesuch
+-{
+-    nonesuch() = delete;
+-    ~nonesuch() = delete;
+-    nonesuch(nonesuch const&) = delete;
+-    nonesuch(nonesuch const&&) = delete;
+-    void operator=(nonesuch const&) = delete;
+-    void operator=(nonesuch&&) = delete;
+-};
+-
+-template<class Default,
+-         class AlwaysVoid,
+-         template<class...> class Op,
+-         class... Args>
+-struct detector
+-{
+-    using value_t = std::false_type;
+-    using type = Default;
+-};
+-
+-template<class Default, template<class...> class Op, class... Args>
+-struct detector<Default, void_t<Op<Args...>>, Op, Args...>
+-{
+-    using value_t = std::true_type;
+-    using type = Op<Args...>;
+-};
+-
+-template<template<class...> class Op, class... Args>
+-using is_detected = typename detector<nonesuch, void, Op, Args...>::value_t;
+-
+-template<template<class...> class Op, class... Args>
+-struct is_detected_lazy : is_detected<Op, Args...> { };
+-
+-template<template<class...> class Op, class... Args>
+-using detected_t = typename detector<nonesuch, void, Op, Args...>::type;
+-
+-template<class Default, template<class...> class Op, class... Args>
+-using detected_or = detector<Default, void, Op, Args...>;
+-
+-template<class Default, template<class...> class Op, class... Args>
+-using detected_or_t = typename detected_or<Default, Op, Args...>::type;
+ 
+-template<class Expected, template<class...> class Op, class... Args>
+-using is_detected_exact = std::is_same<Expected, detected_t<Op, Args...>>;
+-
+-template<class To, template<class...> class Op, class... Args>
+-using is_detected_convertible =
+-    std::is_convertible<detected_t<Op, Args...>, To>;
+-}  // namespace detail
+-}  // namespace nlohmann
++// This file contains all internal macro definitions (except those affecting ABI)
++// You MUST include macro_unscope.hpp at the end of json.hpp to undef all of them
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
+ 
+-// This file contains all internal macro definitions
+-// You MUST include macro_unscope.hpp at the end of json.hpp to undef all of them
+ 
+ // exclude unsupported compilers
+ #if !defined(JSON_SKIP_UNSUPPORTED_COMPILER_CHECK)
+@@ -2712,14 +2780,6 @@ using is_detected_convertible =
+     #define JSON_EXPLICIT explicit
+ #endif
+ 
+-#ifndef JSON_DIAGNOSTICS
+-    #define JSON_DIAGNOSTICS 0
+-#endif
+-
+-#ifndef JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON
+-    #define JSON_USE_LEGACY_DISCARDED_VALUE_COMPARISON 0
+-#endif
+-
+ #ifndef JSON_DISABLE_ENUM_SERIALIZATION
+     #define JSON_DISABLE_ENUM_SERIALIZATION 0
+ #endif
+@@ -2728,10 +2788,10 @@ using is_detected_convertible =
+     #include <compare> // partial_ordering
+ #endif
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////////////
+ // JSON type enumeration //
+ ///////////////////////////
+@@ -2823,8 +2883,9 @@ inline bool operator<(const value_t lhs, const value_t rhs) noexcept
+     return std::is_lt(lhs <=> rhs); // *NOPAD*
+ }
+ #endif
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/string_escape.hpp>
+ //     __ _____ _____ _____
+@@ -2837,11 +2898,10 @@ inline bool operator<(const value_t lhs, const value_t rhs) noexcept
+ 
+ 
+ 
+-// #include <nlohmann/detail/macro_scope.hpp>
++// #include <nlohmann/detail/abi_macros.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -2899,8 +2959,8 @@ static void unescape(StringType& s)
+     replace_substring(s, StringType{"~0"}, StringType{"~"});
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/input/position_t.hpp>
+ //     __ _____ _____ _____
+@@ -2915,10 +2975,13 @@ static void unescape(StringType& s)
+ 
+ #include <cstddef> // size_t
+ 
+-namespace nlohmann
+-{
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// struct to capture the start position of the current token
+ struct position_t
+ {
+@@ -2936,8 +2999,8 @@ struct position_t
+     }
+ };
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+@@ -2960,8 +3023,7 @@ struct position_t
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -3109,7 +3171,7 @@ struct static_const
+ #endif
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ //     __ _____ _____ _____
+@@ -3127,9 +3189,6 @@ struct static_const
+ #include <utility> // declval
+ #include <tuple> // tuple
+ 
+-// #include <nlohmann/detail/macro_scope.hpp>
+-
+-
+ // #include <nlohmann/detail/iterators/iterator_traits.hpp>
+ //     __ _____ _____ _____
+ //  __|  |   __|     |   | |  JSON for Modern C++
+@@ -3143,15 +3202,17 @@ struct static_const
+ 
+ #include <iterator> // random_access_iterator_tag
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
+ // #include <nlohmann/detail/meta/void_t.hpp>
+ 
+ // #include <nlohmann/detail/meta/cpp_future.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename It, typename = void>
+ struct iterator_types {};
+ 
+@@ -3190,8 +3251,11 @@ struct iterator_traits<T*, enable_if_t<std::is_object<T>::value>>
+     using pointer = T*;
+     using reference = T&;
+ };
+-} // namespace detail
+-} // namespace nlohmann
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+ // #include <nlohmann/detail/meta/call_std/begin.hpp>
+ //     __ _____ _____ _____
+@@ -3207,10 +3271,11 @@ struct iterator_traits<T*, enable_if_t<std::is_object<T>::value>>
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
++
+ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(begin);
+-} // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/meta/call_std/end.hpp>
+ //     __ _____ _____ _____
+@@ -3226,10 +3291,11 @@ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(begin);
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
++
+ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(end);
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/meta/cpp_future.hpp>
+ 
+@@ -3245,73 +3311,75 @@ NLOHMANN_CAN_CALL_STD_FUNC_IMPL(end);
+ // SPDX-License-Identifier: MIT
+ 
+ #ifndef INCLUDE_NLOHMANN_JSON_FWD_HPP_
+-#define INCLUDE_NLOHMANN_JSON_FWD_HPP_
++    #define INCLUDE_NLOHMANN_JSON_FWD_HPP_
+ 
+-#include <cstdint> // int64_t, uint64_t
+-#include <map> // map
+-#include <memory> // allocator
+-#include <string> // string
+-#include <vector> // vector
++    #include <cstdint> // int64_t, uint64_t
++    #include <map> // map
++    #include <memory> // allocator
++    #include <string> // string
++    #include <vector> // vector
+ 
+-/*!
+-@brief namespace for Niels Lohmann
+-@see https://github.com/nlohmann
+-@since version 1.0.0
+-*/
+-namespace nlohmann
+-{
+-/*!
+-@brief default JSONSerializer template argument
++    // #include <nlohmann/detail/abi_macros.hpp>
+ 
+-This serializer ignores the template arguments and uses ADL
+-([argument-dependent lookup](https://en.cppreference.com/w/cpp/language/adl))
+-for serialization.
+-*/
+-template<typename T = void, typename SFINAE = void>
+-struct adl_serializer;
+-
+-/// a class to store JSON values
+-/// @sa https://json.nlohmann.me/api/basic_json/
+-template<template<typename U, typename V, typename... Args> class ObjectType =
+-         std::map,
+-         template<typename U, typename... Args> class ArrayType = std::vector,
+-         class StringType = std::string, class BooleanType = bool,
+-         class NumberIntegerType = std::int64_t,
+-         class NumberUnsignedType = std::uint64_t,
+-         class NumberFloatType = double,
+-         template<typename U> class AllocatorType = std::allocator,
+-         template<typename T, typename SFINAE = void> class JSONSerializer =
+-         adl_serializer,
+-         class BinaryType = std::vector<std::uint8_t>>
+-class basic_json;
+ 
+-/// @brief JSON Pointer defines a string syntax for identifying a specific value within a JSON document
+-/// @sa https://json.nlohmann.me/api/json_pointer/
+-template<typename BasicJsonType>
+-class json_pointer;
++    /*!
++    @brief namespace for Niels Lohmann
++    @see https://github.com/nlohmann
++    @since version 1.0.0
++    */
++    NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+-/*!
+-@brief default specialization
+-@sa https://json.nlohmann.me/api/json/
+-*/
+-using json = basic_json<>;
++    /*!
++    @brief default JSONSerializer template argument
++
++    This serializer ignores the template arguments and uses ADL
++    ([argument-dependent lookup](https://en.cppreference.com/w/cpp/language/adl))
++    for serialization.
++    */
++    template<typename T = void, typename SFINAE = void>
++    struct adl_serializer;
++
++    /// a class to store JSON values
++    /// @sa https://json.nlohmann.me/api/basic_json/
++    template<template<typename U, typename V, typename... Args> class ObjectType =
++    std::map,
++    template<typename U, typename... Args> class ArrayType = std::vector,
++    class StringType = std::string, class BooleanType = bool,
++    class NumberIntegerType = std::int64_t,
++    class NumberUnsignedType = std::uint64_t,
++    class NumberFloatType = double,
++    template<typename U> class AllocatorType = std::allocator,
++    template<typename T, typename SFINAE = void> class JSONSerializer =
++    adl_serializer,
++    class BinaryType = std::vector<std::uint8_t>>
++    class basic_json;
++
++    /// @brief JSON Pointer defines a string syntax for identifying a specific value within a JSON document
++    /// @sa https://json.nlohmann.me/api/json_pointer/
++    template<typename BasicJsonType>
++    class json_pointer;
+ 
+-/// @brief a minimal map-like container that preserves insertion order
+-/// @sa https://json.nlohmann.me/api/ordered_map/
+-template<class Key, class T, class IgnoredLess, class Allocator>
+-struct ordered_map;
++    /*!
++    @brief default specialization
++    @sa https://json.nlohmann.me/api/json/
++    */
++    using json = basic_json<>;
+ 
+-/// @brief specialization that maintains the insertion order of object keys
+-/// @sa https://json.nlohmann.me/api/ordered_json/
+-using ordered_json = basic_json<nlohmann::ordered_map>;
++    /// @brief a minimal map-like container that preserves insertion order
++    /// @sa https://json.nlohmann.me/api/ordered_map/
++    template<class Key, class T, class IgnoredLess, class Allocator>
++    struct ordered_map;
+ 
+-}  // namespace nlohmann
++    /// @brief specialization that maintains the insertion order of object keys
++    /// @sa https://json.nlohmann.me/api/ordered_json/
++    using ordered_json = basic_json<nlohmann::ordered_map>;
++
++    NLOHMANN_JSON_NAMESPACE_END
+ 
+ #endif  // INCLUDE_NLOHMANN_JSON_FWD_HPP_
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ /*!
+ @brief detail namespace with internal helper functions
+ 
+@@ -3322,6 +3390,7 @@ implementations of some @ref basic_json methods, and meta-programming helpers.
+ */
+ namespace detail
+ {
++
+ /////////////
+ // helpers //
+ /////////////
+@@ -3974,7 +4043,7 @@ inline constexpr bool value_in_range_of(T val)
+ }
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/string_concat.hpp>
+ //     __ _____ _____ _____
+@@ -3996,8 +4065,7 @@ inline constexpr bool value_in_range_of(T val)
+ // #include <nlohmann/detail/meta/detected.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -4124,15 +4192,15 @@ inline OutStringType concat(Args && ... args)
+     return str;
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ////////////////
+ // exceptions //
+ ////////////////
+@@ -4358,7 +4426,7 @@ class other_error : public exception
+ };
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+@@ -4375,40 +4443,54 @@ class other_error : public exception
+ 
+ 
+ 
+-namespace nlohmann
+-{
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ // dispatching helper struct
+ template <class T> struct identity_tag {};
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+-// #include <nlohmann/detail/meta/type_traits.hpp>
++// #include <nlohmann/detail/meta/std_fs.hpp>
+ 
+-// #include <nlohmann/detail/string_concat.hpp>
+ 
+-// #include <nlohmann/detail/value_t.hpp>
++// #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+ #if JSON_HAS_EXPERIMENTAL_FILESYSTEM
+ #include <experimental/filesystem>
+-namespace nlohmann::detail
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
+ {
+ namespace std_fs = std::experimental::filesystem;
+-} // namespace nlohmann::detail
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ #elif JSON_HAS_FILESYSTEM
+ #include <filesystem>
+-namespace nlohmann::detail
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
+ {
+ namespace std_fs = std::filesystem;
+-} // namespace nlohmann::detail
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ #endif
+ 
+-namespace nlohmann
+-{
++// #include <nlohmann/detail/meta/type_traits.hpp>
++
++// #include <nlohmann/detail/string_concat.hpp>
++
++// #include <nlohmann/detail/value_t.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename BasicJsonType>
+ inline void from_json(const BasicJsonType& j, typename std::nullptr_t& n)
+ {
+@@ -4854,6 +4936,7 @@ struct from_json_fn
+         return from_json(j, std::forward<T>(val));
+     }
+ };
++
+ }  // namespace detail
+ 
+ #ifndef JSON_HAS_CPP_17
+@@ -4866,9 +4949,10 @@ namespace // NOLINT(cert-dcl59-cpp,fuchsia-header-anon-namespaces,google-build-n
+ JSON_INLINE_VARIABLE constexpr const auto& from_json = // NOLINT(misc-definitions-in-headers)
+     detail::static_const<detail::from_json_fn>::value;
+ #ifndef JSON_HAS_CPP_17
+-} // namespace
++}  // namespace
+ #endif
+-} // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/conversions/to_json.hpp>
+ //     __ _____ _____ _____
+@@ -4890,8 +4974,6 @@ JSON_INLINE_VARIABLE constexpr const auto& from_json = // NOLINT(misc-definition
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
+-// #include <nlohmann/detail/macro_scope.hpp>
+-
+ // #include <nlohmann/detail/iterators/iteration_proxy.hpp>
+ //     __ _____ _____ _____
+ //  __|  |   __|     |   | |  JSON for Modern C++
+@@ -4913,15 +4995,17 @@ JSON_INLINE_VARIABLE constexpr const auto& from_json = // NOLINT(misc-definition
+     #include <ranges> // enable_borrowed_range
+ #endif
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename string_type>
+ void int_to_string( string_type& target, std::size_t value )
+ {
+@@ -5098,8 +5182,9 @@ auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decl
+ {
+     return i.value();
+ }
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // The Addition to the STD Namespace is required to add
+ // Structured Bindings Support to the iteration_proxy_value class
+@@ -5107,6 +5192,7 @@ auto get(const nlohmann::detail::iteration_proxy_value<IteratorType>& i) -> decl
+ // And see https://github.com/nlohmann/json/pull/1391
+ namespace std
+ {
++
+ #if defined(__clang__)
+     // Fix: https://github.com/nlohmann/json/issues/1401
+     #pragma clang diagnostic push
+@@ -5127,38 +5213,29 @@ class tuple_element<N, ::nlohmann::detail::iteration_proxy_value<IteratorType >>
+ #if defined(__clang__)
+     #pragma clang diagnostic pop
+ #endif
+-} // namespace std
++
++}  // namespace std
+ 
+ #if JSON_HAS_RANGES
+     template <typename IteratorType>
+     inline constexpr bool ::std::ranges::enable_borrowed_range<::nlohmann::detail::iteration_proxy<IteratorType>> = true;
+ #endif
+ 
++// #include <nlohmann/detail/macro_scope.hpp>
++
+ // #include <nlohmann/detail/meta/cpp_future.hpp>
+ 
++// #include <nlohmann/detail/meta/std_fs.hpp>
++
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-#if JSON_HAS_EXPERIMENTAL_FILESYSTEM
+-#include <experimental/filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::experimental::filesystem;
+-} // namespace nlohmann::detail
+-#elif JSON_HAS_FILESYSTEM
+-#include <filesystem>
+-namespace nlohmann::detail
+-{
+-namespace std_fs = std::filesystem;
+-} // namespace nlohmann::detail
+-#endif
+-
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ //////////////////
+ // constructors //
+ //////////////////
+@@ -5565,17 +5642,15 @@ namespace // NOLINT(cert-dcl59-cpp,fuchsia-header-anon-namespaces,google-build-n
+ JSON_INLINE_VARIABLE constexpr const auto& to_json = // NOLINT(misc-definitions-in-headers)
+     detail::static_const<detail::to_json_fn>::value;
+ #ifndef JSON_HAS_CPP_17
+-} // namespace
++}  // namespace
+ #endif
+-} // namespace nlohmann
+ 
+-// #include <nlohmann/detail/meta/identity_tag.hpp>
++NLOHMANN_JSON_NAMESPACE_END
+ 
+-// #include <nlohmann/detail/meta/type_traits.hpp>
++// #include <nlohmann/detail/meta/identity_tag.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @sa https://json.nlohmann.me/api/adl_serializer/
+ template<typename ValueType, typename>
+@@ -5611,7 +5686,8 @@ struct adl_serializer
+         ::nlohmann::to_json(j, std::forward<TargetType>(val));
+     }
+ };
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/byte_container_with_subtype.hpp>
+ //     __ _____ _____ _____
+@@ -5628,8 +5704,10 @@ struct adl_serializer
+ #include <tuple> // tie
+ #include <utility> // move
+ 
+-namespace nlohmann
+-{
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @brief an internal type for a backed binary type
+ /// @sa https://json.nlohmann.me/api/byte_container_with_subtype/
+@@ -5715,7 +5793,7 @@ class byte_container_with_subtype : public BinaryType
+     bool m_has_subtype = false;
+ };
+ 
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/conversions/from_json.hpp>
+ 
+@@ -5738,13 +5816,12 @@ class byte_container_with_subtype : public BinaryType
+ #include <cstddef> // size_t
+ #include <functional> // hash
+ 
+-// #include <nlohmann/detail/macro_scope.hpp>
++// #include <nlohmann/detail/abi_macros.hpp>
+ 
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -5855,7 +5932,7 @@ std::size_t hash(const BasicJsonType& j)
+ }
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/input/binary_reader.hpp>
+ //     __ _____ _____ _____
+@@ -5915,10 +5992,10 @@ std::size_t hash(const BasicJsonType& j)
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// the supported input formats
+ enum class input_format_t { json, cbor, msgpack, ubjson, bson, bjdata };
+ 
+@@ -6299,7 +6376,7 @@ struct container_input_adapter_factory< ContainerType,
+ }
+        };
+ 
+-} // namespace container_input_adapter_factory_impl
++}  // namespace container_input_adapter_factory_impl
+ 
+ template<typename ContainerType>
+ typename container_input_adapter_factory_impl::container_input_adapter_factory<ContainerType>::adapter_type input_adapter(const ContainerType& container)
+@@ -6378,8 +6455,9 @@ class span_input_adapter
+   private:
+     contiguous_bytes_input_adapter ia;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/input/json_sax.hpp>
+ //     __ _____ _____ _____
+@@ -6404,8 +6482,7 @@ class span_input_adapter
+ // #include <nlohmann/detail/string_concat.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /*!
+ @brief SAX interface
+@@ -7111,9 +7188,9 @@ class json_sax_acceptor
+         return false;
+     }
+ };
+-}  // namespace detail
+ 
+-}  // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/input/lexer.hpp>
+ //     __ _____ _____ _____
+@@ -7143,10 +7220,10 @@ class json_sax_acceptor
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////
+ // lexer //
+ ///////////
+@@ -8748,8 +8825,9 @@ class lexer : public lexer_base<BasicJsonType>
+     /// the decimal point
+     const char_int_type decimal_point_char = '.';
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+@@ -8768,15 +8846,17 @@ class lexer : public lexer_base<BasicJsonType>
+ #include <utility> // declval
+ #include <string> // string
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
+ // #include <nlohmann/detail/meta/detected.hpp>
+ 
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename T>
+ using null_function_t = decltype(std::declval<T&>().null());
+ 
+@@ -8911,8 +8991,9 @@ struct is_sax_static_asserts
+         "Missing/invalid function: bool parse_error(std::size_t, const "
+         "std::string&, const exception&)");
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+@@ -8921,8 +9002,7 @@ struct is_sax_static_asserts
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -11858,8 +11938,9 @@ class binary_reader
+     /// the SAX parser
+     json_sax_t* sax = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/input/input_adapters.hpp>
+ 
+@@ -11900,8 +11981,7 @@ class binary_reader
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ ////////////
+@@ -12381,7 +12461,7 @@ class parser
+ };
+ 
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/iterators/internal_iterator.hpp>
+ //     __ _____ _____ _____
+@@ -12394,6 +12474,8 @@ class parser
+ 
+ 
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
+ // #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ //     __ _____ _____ _____
+ //  __|  |   __|     |   | |  JSON for Modern C++
+@@ -12411,10 +12493,10 @@ class parser
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /*
+ @brief an iterator for primitive JSON types
+ 
+@@ -12525,14 +12607,15 @@ class primitive_iterator_t
+         return *this;
+     }
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /*!
+ @brief an iterator value
+ 
+@@ -12548,8 +12631,9 @@ template<typename BasicJsonType> struct internal_iterator
+     /// generic iterator for all other types
+     primitive_iterator_t primitive_iterator {};
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/iterators/iter_impl.hpp>
+ //     __ _____ _____ _____
+@@ -12580,10 +12664,10 @@ template<typename BasicJsonType> struct internal_iterator
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ // forward declare, to be able to friend it later on
+ template<typename IteratorType> class iteration_proxy;
+ template<typename IteratorType> class iteration_proxy_value;
+@@ -13307,8 +13391,9 @@ class iter_impl // NOLINT(cppcoreguidelines-special-member-functions,hicpp-speci
+     /// the actual iterator of the associated instance
+     internal_iterator<typename std::remove_const<BasicJsonType>::type> m_it {};
+ };
+-} // namespace detail
+-} // namespace nlohmann
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/iterators/iteration_proxy.hpp>
+ 
+@@ -13327,10 +13412,13 @@ class iter_impl // NOLINT(cppcoreguidelines-special-member-functions,hicpp-speci
+ #include <iterator> // reverse_iterator
+ #include <utility> // declval
+ 
+-namespace nlohmann
+-{
++// #include <nlohmann/detail/abi_macros.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ //////////////////////
+ // reverse_iterator //
+ //////////////////////
+@@ -13438,8 +13526,9 @@ class json_reverse_iterator : public std::reverse_iterator<Base>
+         return it.operator * ();
+     }
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/iterators/primitive_iterator.hpp>
+ 
+@@ -13478,8 +13567,7 @@ class json_reverse_iterator : public std::reverse_iterator<Base>
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// @brief JSON Pointer defines a string syntax for identifying a specific value within a JSON document
+ /// @sa https://json.nlohmann.me/api/json_pointer/
+@@ -14348,7 +14436,8 @@ inline bool operator!=(json_pointer<RefStringTypeLhs> const& lhs,
+ {
+     return !(lhs == rhs);
+ }
+-}  // namespace nlohmann
++
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/json_ref.hpp>
+ //     __ _____ _____ _____
+@@ -14364,13 +14453,15 @@ inline bool operator!=(json_pointer<RefStringTypeLhs> const& lhs,
+ #include <initializer_list>
+ #include <utility>
+ 
++// #include <nlohmann/detail/abi_macros.hpp>
++
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ template<typename BasicJsonType>
+ class json_ref
+ {
+@@ -14426,8 +14517,9 @@ class json_ref
+     mutable value_type owned_value = nullptr;
+     value_type const* value_ref = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+@@ -14491,10 +14583,10 @@ class json_ref
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ /// abstract output adapter interface
+ template<typename CharType> struct output_adapter_protocol
+ {
+@@ -14611,16 +14703,17 @@ class output_adapter
+   private:
+     output_adapter_t<CharType> oa = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/string_concat.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////
+ // binary writer //
+ ///////////////////
+@@ -16426,8 +16519,9 @@ class binary_writer
+     /// the output
+     output_adapter_t<CharType> oa = nullptr;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/output/output_adapters.hpp>
+ 
+@@ -16478,8 +16572,7 @@ class binary_writer
+ // #include <nlohmann/detail/macro_scope.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+@@ -17508,7 +17601,7 @@ inline char* format_buffer(char* buf, int len, int decimal_exponent,
+     return append_exponent(buf, n - 1);
+ }
+ 
+-} // namespace dtoa_impl
++}  // namespace dtoa_impl
+ 
+ /*!
+ @brief generates a decimal representation of the floating-point number value in [first, last).
+@@ -17575,8 +17668,8 @@ char* to_chars(char* first, const char* last, FloatType value)
+     return dtoa_impl::format_buffer(first, len, decimal_exponent, kMinExp, kMaxExp);
+ }
+ 
+-} // namespace detail
+-} // namespace nlohmann
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/exceptions.hpp>
+ 
+@@ -17593,10 +17686,10 @@ char* to_chars(char* first, const char* last, FloatType value)
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
++
+ ///////////////////
+ // serialization //
+ ///////////////////
+@@ -18545,8 +18638,9 @@ class serializer
+     /// error_handler how to react on decoding errors
+     const error_handler_t error_handler;
+ };
++
+ }  // namespace detail
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+@@ -18577,8 +18671,7 @@ class serializer
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+ 
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /// ordered_map: a minimal map-like container that preserves insertion order
+ /// for use within nlohmann::basic_json<ordered_map>
+@@ -18914,7 +19007,7 @@ template <class Key, class T, class IgnoredLess = std::less<Key>,
+     JSON_NO_UNIQUE_ADDRESS key_compare m_compare = key_compare();
+ };
+ 
+-}  // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ 
+ #if defined(JSON_HAS_CPP_17)
+@@ -18927,8 +19020,7 @@ template <class Key, class T, class IgnoredLess = std::less<Key>,
+ @see https://github.com/nlohmann
+ @since version 1.0.0
+ */
+-namespace nlohmann
+-{
++NLOHMANN_JSON_NAMESPACE_BEGIN
+ 
+ /*!
+ @brief a class to store JSON values
+@@ -23930,7 +24022,7 @@ std::string to_string(const NLOHMANN_BASIC_JSON_TPL& j)
+     return j.dump();
+ }
+ 
+-} // namespace nlohmann
++NLOHMANN_JSON_NAMESPACE_END
+ 
+ ///////////////////////
+ // nonmember support //
+@@ -23984,7 +24076,7 @@ inline void swap(nlohmann::NLOHMANN_BASIC_JSON_TPL& j1, nlohmann::NLOHMANN_BASIC
+ 
+ #endif
+ 
+-} // namespace std
++}  // namespace std
+ 
+ /// @brief user-defined string literal for JSON values
+ /// @sa https://json.nlohmann.me/api/basic_json/operator_literal_json/
+diff --git a/tools/gdb_pretty_printer/README.md b/tools/gdb_pretty_printer/README.md
+index f5f61927b0..c1a3651d4f 100644
+--- a/tools/gdb_pretty_printer/README.md
++++ b/tools/gdb_pretty_printer/README.md
+@@ -50,7 +50,8 @@ File [nlohmann-json.py](nlohmann-json.py) contains a pretty printer for GDB for
+     }
+     ```
+ 
+-Tested with GDB 9.2. See [#1952](https://github.com/nlohmann/json/issues/1952) for more information. Please post questions there.
++Requires Python 3.9+. Last tested with GDB 12.1.
++See [#1952](https://github.com/nlohmann/json/issues/1952) for more information. Please post questions there.
+ 
+ ## Copyright
+ 
+diff --git a/tools/gdb_pretty_printer/nlohmann-json.py b/tools/gdb_pretty_printer/nlohmann-json.py
+index c85a383b03..774756de79 100644
+--- a/tools/gdb_pretty_printer/nlohmann-json.py
++++ b/tools/gdb_pretty_printer/nlohmann-json.py
+@@ -1,5 +1,7 @@
+ import gdb
++import re
+ 
++ns_pattern = re.compile(r'nlohmann::json_v(?P<v_major>\d+)_(?P<v_minor>\d+)_(?P<v_patch>\d+)(?P<tags>\w*)::(?P<name>.+)')
+ class JsonValuePrinter:
+     "Print a json-value"
+ 
+@@ -12,12 +14,14 @@ def to_string(self):
+         return self.val
+ 
+ def json_lookup_function(val):
+-    name = val.type.strip_typedefs().name
+-    if name and name.startswith("nlohmann::basic_json<") and name.endswith(">"):
+-        t = str(val['m_type'])
+-        if t.startswith("nlohmann::detail::value_t::"):
++    m = ns_pattern.fullmatch(val.type.strip_typedefs().name)
++    name = m.group('name')
++    if name and name.startswith('basic_json<') and name.endswith('>'):
++        m = ns_pattern.fullmatch(str(val['m_type']))
++        t = m.group('name')
++        if t and t.startswith('detail::value_t::'):
+             try:
+-                union_val = val['m_value'][t[27:]]
++                union_val = val['m_value'][t.removeprefix('detail::value_t::')]
+                 if union_val.type.code == gdb.TYPE_CODE_PTR:
+                     return gdb.default_visualizer(union_val.dereference())
+                 else:

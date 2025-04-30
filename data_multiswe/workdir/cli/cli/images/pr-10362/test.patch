@@ -1,0 +1,726 @@
+diff --git a/pkg/cmd/repo/autolink/create/create_test.go b/pkg/cmd/repo/autolink/create/create_test.go
+index 477d28da9e4..fe357f2ee83 100644
+--- a/pkg/cmd/repo/autolink/create/create_test.go
++++ b/pkg/cmd/repo/autolink/create/create_test.go
+@@ -92,11 +92,11 @@ func TestNewCmdCreate(t *testing.T) {
+ 	}
+ }
+ 
+-type stubAutoLinkCreator struct {
++type stubAutolinkCreator struct {
+ 	err error
+ }
+ 
+-func (g stubAutoLinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error) {
++func (g stubAutolinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error) {
+ 	if g.err != nil {
+ 		return nil, g.err
+ 	}
+@@ -119,7 +119,7 @@ func TestCreateRun(t *testing.T) {
+ 	tests := []struct {
+ 		name        string
+ 		opts        *createOptions
+-		stubCreator stubAutoLinkCreator
++		stubCreator stubAutolinkCreator
+ 		expectedErr error
+ 		errMsg      string
+ 		wantStdout  string
+@@ -131,7 +131,7 @@ func TestCreateRun(t *testing.T) {
+ 				KeyPrefix:   "TICKET-",
+ 				URLTemplate: "https://example.com/TICKET?query=<num>",
+ 			},
+-			stubCreator: stubAutoLinkCreator{},
++			stubCreator: stubAutolinkCreator{},
+ 			wantStdout:  "✓ Created repository autolink 1 on OWNER/REPO\n",
+ 		},
+ 		{
+@@ -141,7 +141,7 @@ func TestCreateRun(t *testing.T) {
+ 				URLTemplate: "https://example.com/TICKET?query=<num>",
+ 				Numeric:     true,
+ 			},
+-			stubCreator: stubAutoLinkCreator{},
++			stubCreator: stubAutolinkCreator{},
+ 			wantStdout:  "✓ Created repository autolink 1 on OWNER/REPO\n",
+ 		},
+ 		{
+@@ -150,7 +150,7 @@ func TestCreateRun(t *testing.T) {
+ 				KeyPrefix:   "TICKET-",
+ 				URLTemplate: "https://example.com/TICKET?query=<num>",
+ 			},
+-			stubCreator: stubAutoLinkCreator{err: testAutolinkClientCreateError{}},
++			stubCreator: stubAutolinkCreator{err: testAutolinkClientCreateError{}},
+ 			expectedErr: testAutolinkClientCreateError{},
+ 			errMsg:      fmt.Sprint("error creating autolink: ", testAutolinkClientCreateError{}.Error()),
+ 		},
+diff --git a/pkg/cmd/repo/autolink/create/http_test.go b/pkg/cmd/repo/autolink/create/http_test.go
+index 9ef5e0da5ae..f5e2f53656d 100644
+--- a/pkg/cmd/repo/autolink/create/http_test.go
++++ b/pkg/cmd/repo/autolink/create/http_test.go
+@@ -13,7 +13,7 @@ import (
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+-func TestAutoLinkCreator_Create(t *testing.T) {
++func TestAutolinkCreator_Create(t *testing.T) {
+ 	repo := ghrepo.New("OWNER", "REPO")
+ 
+ 	tests := []struct {
+diff --git a/pkg/cmd/repo/autolink/delete/delete_test.go b/pkg/cmd/repo/autolink/delete/delete_test.go
+new file mode 100644
+index 00000000000..7606ebe333e
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/delete/delete_test.go
+@@ -0,0 +1,335 @@
++package delete
++
++import (
++	"bytes"
++	"errors"
++	"net/http"
++	"testing"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/internal/browser"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/internal/prompter"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/shared"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/google/shlex"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func TestNewCmdDelete(t *testing.T) {
++	tests := []struct {
++		name    string
++		input   string
++		output  deleteOptions
++		isTTY   bool
++		wantErr bool
++		errMsg  string
++	}{
++		{
++			name:    "no argument",
++			input:   "",
++			isTTY:   true,
++			wantErr: true,
++			errMsg:  "accepts 1 arg(s), received 0",
++		},
++		{
++			name:   "id provided",
++			input:  "123",
++			isTTY:  true,
++			output: deleteOptions{ID: "123"},
++		},
++		{
++			name:   "yes flag",
++			input:  "123 --yes",
++			isTTY:  true,
++			output: deleteOptions{ID: "123", Confirmed: true},
++		},
++		{
++			name:   "non-TTY",
++			input:  "123 --yes",
++			isTTY:  false,
++			output: deleteOptions{ID: "123", Confirmed: true},
++		},
++		{
++			name:    "non-TTY missing yes flag",
++			input:   "123",
++			isTTY:   false,
++			wantErr: true,
++			errMsg:  "--yes required when not running interactively",
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			ios, _, _, _ := iostreams.Test()
++
++			ios.SetStdinTTY(tt.isTTY)
++			ios.SetStdoutTTY(tt.isTTY)
++			ios.SetStderrTTY(tt.isTTY)
++
++			f := &cmdutil.Factory{
++				IOStreams: ios,
++			}
++			f.HttpClient = func() (*http.Client, error) {
++				return &http.Client{}, nil
++			}
++
++			argv, err := shlex.Split(tt.input)
++			require.NoError(t, err)
++
++			var gotOpts *deleteOptions
++			cmd := NewCmdDelete(f, func(opts *deleteOptions) error {
++				gotOpts = opts
++				return nil
++			})
++
++			cmd.SetArgs(argv)
++			cmd.SetIn(&bytes.Buffer{})
++			cmd.SetOut(&bytes.Buffer{})
++			cmd.SetErr(&bytes.Buffer{})
++
++			_, err = cmd.ExecuteC()
++			if tt.wantErr {
++				require.EqualError(t, err, tt.errMsg)
++			} else {
++				require.NoError(t, err)
++				assert.Equal(t, tt.output.ID, gotOpts.ID)
++				assert.Equal(t, tt.output.Confirmed, gotOpts.Confirmed)
++			}
++		})
++	}
++}
++
++type stubAutolinkDeleter struct {
++	err error
++}
++
++func (d *stubAutolinkDeleter) Delete(repo ghrepo.Interface, id string) error {
++	return d.err
++}
++
++type stubAutolinkViewer struct {
++	autolink *shared.Autolink
++	err      error
++}
++
++func (g stubAutolinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolink, error) {
++	return g.autolink, g.err
++}
++
++var errTestPrompt = errors.New("prompt error")
++var errTestAutolinkClientView = errors.New("autolink client view error")
++var errTestAutolinkClientDelete = errors.New("autolink client delete error")
++
++func TestDeleteRun(t *testing.T) {
++	tests := []struct {
++		name          string
++		opts          *deleteOptions
++		isTTY         bool
++		stubDeleter   stubAutolinkDeleter
++		stubViewer    stubAutolinkViewer
++		prompterStubs func(*prompter.PrompterMock)
++
++		wantStdout     string
++		expectedErr    error
++		expectedErrMsg string
++	}{
++		{
++			name: "delete",
++			opts: &deleteOptions{
++				ID: "123",
++			},
++			isTTY: true,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				},
++			},
++			stubDeleter: stubAutolinkDeleter{
++				err: nil,
++			},
++			prompterStubs: func(pm *prompter.PrompterMock) {
++				pm.ConfirmDeletionFunc = func(_ string) error {
++					return nil
++				}
++			},
++			wantStdout: heredoc.Doc(`
++				Autolink 123 has key prefix TICKET-.
++				✓ Autolink 123 deleted from OWNER/REPO
++			`),
++		},
++		{
++			name: "delete with confirm flag",
++			opts: &deleteOptions{
++				ID:        "123",
++				Confirmed: true,
++			},
++			isTTY: true,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				},
++			},
++			stubDeleter: stubAutolinkDeleter{},
++			wantStdout:  "✓ Autolink 123 deleted from OWNER/REPO\n",
++		},
++		{
++			name: "confirmation fails",
++			opts: &deleteOptions{
++				ID: "123",
++			},
++			isTTY: true,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				},
++			},
++			stubDeleter: stubAutolinkDeleter{},
++			prompterStubs: func(pm *prompter.PrompterMock) {
++				pm.ConfirmDeletionFunc = func(_ string) error {
++					return errTestPrompt
++				}
++			},
++			expectedErr:    errTestPrompt,
++			expectedErrMsg: errTestPrompt.Error(),
++			wantStdout:     "Autolink 123 has key prefix TICKET-.\n",
++		},
++		{
++			name: "view error",
++			opts: &deleteOptions{
++				ID: "123",
++			},
++			isTTY: true,
++			stubViewer: stubAutolinkViewer{
++				err: errTestAutolinkClientView,
++			},
++			stubDeleter:    stubAutolinkDeleter{},
++			expectedErr:    errTestAutolinkClientView,
++			expectedErrMsg: "error deleting autolink: autolink client view error",
++		},
++		{
++			name: "delete error",
++			opts: &deleteOptions{
++				ID: "123",
++			},
++			isTTY: true,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				},
++			},
++			stubDeleter: stubAutolinkDeleter{
++				err: errTestAutolinkClientDelete,
++			},
++			prompterStubs: func(pm *prompter.PrompterMock) {
++				pm.ConfirmDeletionFunc = func(_ string) error {
++					return nil
++				}
++			},
++			expectedErr:    errTestAutolinkClientDelete,
++			expectedErrMsg: errTestAutolinkClientDelete.Error(),
++			wantStdout:     "Autolink 123 has key prefix TICKET-.\n",
++		},
++		{
++			name: "no TTY",
++			opts: &deleteOptions{
++				ID:        "123",
++				Confirmed: true,
++			},
++			isTTY: false,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				}},
++			stubDeleter: stubAutolinkDeleter{},
++			wantStdout:  "",
++		},
++		{
++			name: "no TTY view error",
++			opts: &deleteOptions{
++				ID: "123",
++			},
++			isTTY: false,
++			stubViewer: stubAutolinkViewer{
++				err: errTestAutolinkClientView,
++			},
++			stubDeleter:    stubAutolinkDeleter{},
++			expectedErr:    errTestAutolinkClientView,
++			expectedErrMsg: "error deleting autolink: autolink client view error",
++		},
++		{
++			name: "no TTY delete error",
++			opts: &deleteOptions{
++				ID:        "123",
++				Confirmed: true,
++			},
++			isTTY: false,
++			stubViewer: stubAutolinkViewer{
++				autolink: &shared.Autolink{
++					ID:             123,
++					KeyPrefix:      "TICKET-",
++					URLTemplate:    "https://example.com/TICKET?query=<num>",
++					IsAlphanumeric: true,
++				},
++			},
++			stubDeleter: stubAutolinkDeleter{
++				err: errTestAutolinkClientDelete,
++			},
++			expectedErr:    errTestAutolinkClientDelete,
++			expectedErrMsg: errTestAutolinkClientDelete.Error(),
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			ios, _, stdout, _ := iostreams.Test()
++
++			ios.SetStdinTTY(tt.isTTY)
++			ios.SetStdoutTTY(tt.isTTY)
++
++			opts := tt.opts
++			opts.IO = ios
++			opts.Browser = &browser.Stub{}
++
++			opts.IO = ios
++			opts.BaseRepo = func() (ghrepo.Interface, error) { return ghrepo.New("OWNER", "REPO"), nil }
++
++			opts.AutolinkDeleteClient = &tt.stubDeleter
++			opts.AutolinkViewClient = &tt.stubViewer
++
++			pm := &prompter.PrompterMock{}
++			if tt.prompterStubs != nil {
++				tt.prompterStubs(pm)
++			}
++			tt.opts.Prompter = pm
++
++			err := deleteRun(opts)
++
++			if tt.expectedErr != nil {
++				require.Error(t, err, "expected error but got none")
++				assert.ErrorIs(t, err, tt.expectedErr, "unexpected error")
++				assert.Equal(t, tt.expectedErrMsg, err.Error(), "unexpected error message")
++			} else {
++				require.NoError(t, err)
++			}
++
++			assert.Equal(t, tt.wantStdout, stdout.String(), "unexpected stdout")
++		})
++	}
++}
+diff --git a/pkg/cmd/repo/autolink/delete/http_test.go b/pkg/cmd/repo/autolink/delete/http_test.go
+new file mode 100644
+index 00000000000..a2676178db4
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/delete/http_test.go
+@@ -0,0 +1,73 @@
++package delete
++
++import (
++	"fmt"
++	"net/http"
++	"testing"
++
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/httpmock"
++	"github.com/stretchr/testify/require"
++)
++
++func TestAutolinkDeleter_Delete(t *testing.T) {
++	repo := ghrepo.New("OWNER", "REPO")
++
++	tests := []struct {
++		name         string
++		id           string
++		stubStatus   int
++		stubRespJSON string
++
++		expectErr      bool
++		expectedErrMsg string
++	}{
++		{
++			name:       "204 successful delete",
++			id:         "123",
++			stubStatus: http.StatusNoContent,
++		},
++		{
++			name:           "404 repo or autolink not found",
++			id:             "123",
++			stubStatus:     http.StatusNotFound,
++			stubRespJSON:   `{}`, // API response not used in output
++			expectErr:      true,
++			expectedErrMsg: "error deleting autolink: HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
++		},
++		{
++			name:           "500 unexpected error",
++			id:             "123",
++			stubRespJSON:   `{"messsage": "arbitrary error"}`,
++			stubStatus:     http.StatusInternalServerError,
++			expectErr:      true,
++			expectedErrMsg: "HTTP 500 (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			reg := &httpmock.Registry{}
++			reg.Register(
++				httpmock.REST(
++					http.MethodDelete,
++					fmt.Sprintf("repos/%s/%s/autolinks/%s", repo.RepoOwner(), repo.RepoName(), tt.id),
++				),
++				httpmock.StatusJSONResponse(tt.stubStatus, tt.stubRespJSON),
++			)
++			defer reg.Verify(t)
++
++			autolinkDeleter := &AutolinkDeleter{
++				HTTPClient: &http.Client{Transport: reg},
++			}
++
++			err := autolinkDeleter.Delete(repo, tt.id)
++
++			if tt.expectErr {
++				require.EqualError(t, err, tt.expectedErrMsg)
++			} else {
++				require.NoError(t, err)
++			}
++		})
++	}
++}
+diff --git a/pkg/cmd/repo/autolink/list/http_test.go b/pkg/cmd/repo/autolink/list/http_test.go
+index 65289c419b7..065444a89b3 100644
+--- a/pkg/cmd/repo/autolink/list/http_test.go
++++ b/pkg/cmd/repo/autolink/list/http_test.go
+@@ -23,7 +23,7 @@ func TestAutolinkLister_List(t *testing.T) {
+ 			name:   "no autolinks",
+ 			repo:   ghrepo.New("OWNER", "REPO"),
+ 			resp:   []shared.Autolink{},
+-			status: 200,
++			status: http.StatusOK,
+ 		},
+ 		{
+ 			name: "two autolinks",
+@@ -42,12 +42,12 @@ func TestAutolinkLister_List(t *testing.T) {
+ 					URLTemplate:    "https://example2.com",
+ 				},
+ 			},
+-			status: 200,
++			status: http.StatusOK,
+ 		},
+ 		{
+ 			name:   "http error",
+ 			repo:   ghrepo.New("OWNER", "REPO"),
+-			status: 404,
++			status: http.StatusNotFound,
+ 		},
+ 	}
+ 
+@@ -64,7 +64,7 @@ func TestAutolinkLister_List(t *testing.T) {
+ 				HTTPClient: &http.Client{Transport: reg},
+ 			}
+ 			autolinks, err := autolinkLister.List(tt.repo)
+-			if tt.status == 404 {
++			if tt.status == http.StatusNotFound {
+ 				require.Error(t, err)
+ 				assert.Equal(t, "error getting autolinks: HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/repos/OWNER/REPO/autolinks)", err.Error())
+ 			} else {
+diff --git a/pkg/cmd/repo/autolink/list/list_test.go b/pkg/cmd/repo/autolink/list/list_test.go
+index 1e4d73ab801..81acfbbdff3 100644
+--- a/pkg/cmd/repo/autolink/list/list_test.go
++++ b/pkg/cmd/repo/autolink/list/list_test.go
+@@ -96,12 +96,12 @@ func TestNewCmdList(t *testing.T) {
+ 	}
+ }
+ 
+-type stubAutoLinkLister struct {
++type stubAutolinkLister struct {
+ 	autolinks []shared.Autolink
+ 	err       error
+ }
+ 
+-func (g stubAutoLinkLister) List(repo ghrepo.Interface) ([]shared.Autolink, error) {
++func (g stubAutolinkLister) List(repo ghrepo.Interface) ([]shared.Autolink, error) {
+ 	return g.autolinks, g.err
+ }
+ 
+@@ -116,7 +116,7 @@ func TestListRun(t *testing.T) {
+ 		name        string
+ 		opts        *listOptions
+ 		isTTY       bool
+-		stubLister  stubAutoLinkLister
++		stubLister  stubAutolinkLister
+ 		expectedErr error
+ 		wantStdout  string
+ 		wantStderr  string
+@@ -125,7 +125,7 @@ func TestListRun(t *testing.T) {
+ 			name:  "list tty",
+ 			opts:  &listOptions{},
+ 			isTTY: true,
+-			stubLister: stubAutoLinkLister{
++			stubLister: stubAutolinkLister{
+ 				autolinks: []shared.Autolink{
+ 					{
+ 						ID:             1,
+@@ -161,7 +161,7 @@ func TestListRun(t *testing.T) {
+ 				}(),
+ 			},
+ 			isTTY: true,
+-			stubLister: stubAutoLinkLister{
++			stubLister: stubAutolinkLister{
+ 				autolinks: []shared.Autolink{
+ 					{
+ 						ID:             1,
+@@ -184,7 +184,7 @@ func TestListRun(t *testing.T) {
+ 			name:  "list non-tty",
+ 			opts:  &listOptions{},
+ 			isTTY: false,
+-			stubLister: stubAutoLinkLister{
++			stubLister: stubAutolinkLister{
+ 				autolinks: []shared.Autolink{
+ 					{
+ 						ID:             1,
+@@ -210,7 +210,7 @@ func TestListRun(t *testing.T) {
+ 			name:  "no results",
+ 			opts:  &listOptions{},
+ 			isTTY: true,
+-			stubLister: stubAutoLinkLister{
++			stubLister: stubAutolinkLister{
+ 				autolinks: []shared.Autolink{},
+ 			},
+ 			expectedErr: cmdutil.NewNoResultsError("no autolinks found in OWNER/REPO"),
+@@ -220,7 +220,7 @@ func TestListRun(t *testing.T) {
+ 			name:  "client error",
+ 			opts:  &listOptions{},
+ 			isTTY: true,
+-			stubLister: stubAutoLinkLister{
++			stubLister: stubAutolinkLister{
+ 				autolinks: []shared.Autolink{},
+ 				err:       testAutolinkClientListError{},
+ 			},
+diff --git a/pkg/cmd/repo/autolink/view/http_test.go b/pkg/cmd/repo/autolink/view/http_test.go
+index 5bfe9369fc6..b792c975051 100644
+--- a/pkg/cmd/repo/autolink/view/http_test.go
++++ b/pkg/cmd/repo/autolink/view/http_test.go
+@@ -28,7 +28,7 @@ func TestAutolinkViewer_View(t *testing.T) {
+ 		{
+ 			name:       "200 successful alphanumeric view",
+ 			id:         "123",
+-			stubStatus: 200,
++			stubStatus: http.StatusOK,
+ 			stubRespJSON: `{
+ 				"id": 123,
+ 				"key_prefix": "TICKET-",
+@@ -45,7 +45,7 @@ func TestAutolinkViewer_View(t *testing.T) {
+ 		{
+ 			name:       "200 successful numeric view",
+ 			id:         "123",
+-			stubStatus: 200,
++			stubStatus: http.StatusOK,
+ 			stubRespJSON: `{
+ 				"id": 123,
+ 				"key_prefix": "TICKET-",
+@@ -62,14 +62,14 @@ func TestAutolinkViewer_View(t *testing.T) {
+ 		{
+ 			name:       "404 repo or autolink not found",
+ 			id:         "123",
+-			stubStatus: 404,
++			stubStatus: http.StatusNotFound,
+ 			stubRespJSON: `{
+ 				"message": "Not Found",
+ 				"documentation_url": "https://docs.github.com/rest/repos/autolinks#get-an-autolink-reference-of-a-repository",
+ 				"status": "404"
+ 			}`,
+ 			expectErr:      true,
+-			expectedErrMsg: "HTTP 404: Either no autolink with this ID exists for this repository or you are missing admin rights to the repository. (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
++			expectedErrMsg: "HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/repos/OWNER/REPO/autolinks/123)",
+ 		},
+ 	}
+ 
+@@ -85,11 +85,11 @@ func TestAutolinkViewer_View(t *testing.T) {
+ 			)
+ 			defer reg.Verify(t)
+ 
+-			autolinkCreator := &AutolinkViewer{
++			autolinkViewer := &AutolinkViewer{
+ 				HTTPClient: &http.Client{Transport: reg},
+ 			}
+ 
+-			autolink, err := autolinkCreator.View(repo, tt.id)
++			autolink, err := autolinkViewer.View(repo, tt.id)
+ 
+ 			if tt.expectErr {
+ 				require.EqualError(t, err, tt.expectedErrMsg)
+diff --git a/pkg/cmd/repo/autolink/view/view_test.go b/pkg/cmd/repo/autolink/view/view_test.go
+index bc0a1bf7f32..4192822eae2 100644
+--- a/pkg/cmd/repo/autolink/view/view_test.go
++++ b/pkg/cmd/repo/autolink/view/view_test.go
+@@ -49,13 +49,12 @@ func TestNewCmdView(t *testing.T) {
+ 		{
+ 			name:         "json flag",
+ 			input:        "123 --json id",
+-			output:       viewOptions{},
++			output:       viewOptions{ID: "123"},
+ 			wantExporter: true,
+ 		},
+ 		{
+ 			name:    "invalid json flag",
+ 			input:   "123 --json invalid",
+-			output:  viewOptions{},
+ 			wantErr: true,
+ 			errMsg:  "Unknown JSON field: \"invalid\"\nAvailable fields:\n  id\n  isAlphanumeric\n  keyPrefix\n  urlTemplate",
+ 		},
+@@ -91,17 +90,18 @@ func TestNewCmdView(t *testing.T) {
+ 			} else {
+ 				require.NoError(t, err)
+ 				assert.Equal(t, tt.wantExporter, gotOpts.Exporter != nil)
++				assert.Equal(t, tt.output.ID, gotOpts.ID)
+ 			}
+ 		})
+ 	}
+ }
+ 
+-type stubAutoLinkViewer struct {
++type stubAutolinkViewer struct {
+ 	autolink *shared.Autolink
+ 	err      error
+ }
+ 
+-func (g stubAutoLinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolink, error) {
++func (g stubAutolinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolink, error) {
+ 	return g.autolink, g.err
+ }
+ 
+@@ -115,7 +115,7 @@ func TestViewRun(t *testing.T) {
+ 	tests := []struct {
+ 		name        string
+ 		opts        *viewOptions
+-		stubViewer  stubAutoLinkViewer
++		stubViewer  stubAutolinkViewer
+ 		expectedErr error
+ 		wantStdout  string
+ 	}{
+@@ -124,7 +124,7 @@ func TestViewRun(t *testing.T) {
+ 			opts: &viewOptions{
+ 				ID: "1",
+ 			},
+-			stubViewer: stubAutoLinkViewer{
++			stubViewer: stubAutolinkViewer{
+ 				autolink: &shared.Autolink{
+ 					ID:             1,
+ 					KeyPrefix:      "TICKET-",
+@@ -150,7 +150,7 @@ func TestViewRun(t *testing.T) {
+ 					return exporter
+ 				}(),
+ 			},
+-			stubViewer: stubAutoLinkViewer{
++			stubViewer: stubAutolinkViewer{
+ 				autolink: &shared.Autolink{
+ 					ID:             1,
+ 					KeyPrefix:      "TICKET-",
+@@ -163,7 +163,7 @@ func TestViewRun(t *testing.T) {
+ 		{
+ 			name: "client error",
+ 			opts: &viewOptions{},
+-			stubViewer: stubAutoLinkViewer{
++			stubViewer: stubAutolinkViewer{
+ 				autolink: nil,
+ 				err:      testAutolinkClientViewError{},
+ 			},

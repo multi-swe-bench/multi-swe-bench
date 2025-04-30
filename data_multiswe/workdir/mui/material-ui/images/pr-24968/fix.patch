@@ -1,0 +1,213 @@
+diff --git a/docs/pages/api-docs/slider-unstyled.json b/docs/pages/api-docs/slider-unstyled.json
+index d7983999ba287c..c9a79c141d02c9 100644
+--- a/docs/pages/api-docs/slider-unstyled.json
++++ b/docs/pages/api-docs/slider-unstyled.json
+@@ -64,6 +64,7 @@
+       "marked",
+       "vertical",
+       "disabled",
++      "dragging",
+       "rail",
+       "track",
+       "trackFalse",
+@@ -85,6 +86,7 @@
+       "marked": "MuiSlider-marked",
+       "vertical": "MuiSlider-vertical",
+       "disabled": "Mui-disabled",
++      "dragging": "MuiSlider-dragging",
+       "rail": "MuiSlider-rail",
+       "track": "MuiSlider-track",
+       "trackFalse": "MuiSlider-trackFalse",
+diff --git a/docs/pages/api-docs/slider.json b/docs/pages/api-docs/slider.json
+index 008b9e499e4711..a1208617183d9b 100644
+--- a/docs/pages/api-docs/slider.json
++++ b/docs/pages/api-docs/slider.json
+@@ -69,6 +69,7 @@
+       "marked",
+       "vertical",
+       "disabled",
++      "dragging",
+       "rail",
+       "track",
+       "trackFalse",
+diff --git a/docs/translations/api-docs/slider-unstyled/slider-unstyled.json b/docs/translations/api-docs/slider-unstyled/slider-unstyled.json
+index 277abab7fa74b8..60d3604fdd7615 100644
+--- a/docs/translations/api-docs/slider-unstyled/slider-unstyled.json
++++ b/docs/translations/api-docs/slider-unstyled/slider-unstyled.json
+@@ -44,6 +44,11 @@
+       "nodeName": "the root and thumb element",
+       "conditions": "<code>disabled={true}</code>"
+     },
++    "dragging": {
++      "description": "Pseudo-class applied to {{nodeName}} if {{conditions}}.",
++      "nodeName": "the root",
++      "conditions": "a thumb is being dragged"
++    },
+     "rail": {
+       "description": "Class name applied to {{nodeName}}.",
+       "nodeName": "the rail element"
+diff --git a/docs/translations/api-docs/slider/slider.json b/docs/translations/api-docs/slider/slider.json
+index 71759200fb527b..9e570c58865900 100644
+--- a/docs/translations/api-docs/slider/slider.json
++++ b/docs/translations/api-docs/slider/slider.json
+@@ -46,6 +46,11 @@
+       "nodeName": "the root and thumb element",
+       "conditions": "<code>disabled={true}</code>"
+     },
++    "dragging": {
++      "description": "Pseudo-class applied to {{nodeName}} if {{conditions}}.",
++      "nodeName": "the root",
++      "conditions": "a thumb is being dragged"
++    },
+     "rail": {
+       "description": "Class name applied to {{nodeName}}.",
+       "nodeName": "the rail element"
+diff --git a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
+index 97dfb86e28dd1a..36776195feae5c 100644
+--- a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
++++ b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
+@@ -39,6 +39,8 @@ export interface SliderUnstyledTypeMap<P = {}, D extends React.ElementType = 'sp
+       vertical?: string;
+       /** Pseudo-class applied to the root and thumb element if `disabled={true}`. */
+       disabled?: string;
++      /** Pseudo-class applied to the root if a thumb is being dragged. */
++      dragging?: string;
+       /** Class name applied to the rail element. */
+       rail?: string;
+       /** Class name applied to the track element. */
+diff --git a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
+index c2f3e72f2e0daa..2274de88eb0302 100644
+--- a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
++++ b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
+@@ -16,6 +16,8 @@ import composeClasses from '../composeClasses';
+ import { getSliderUtilityClass } from './sliderUnstyledClasses';
+ import SliderValueLabelUnstyled from './SliderValueLabelUnstyled';
+ 
++const INTENTIONAL_DRAG_COUNT_THRESHOLD = 2;
++
+ function asc(a, b) {
+   return a - b;
+ }
+@@ -151,12 +153,13 @@ function doesSupportTouchActionNone() {
+ }
+ 
+ const useUtilityClasses = (styleProps) => {
+-  const { disabled, marked, orientation, track, classes } = styleProps;
++  const { disabled, dragging, marked, orientation, track, classes } = styleProps;
+ 
+   const slots = {
+     root: [
+       'root',
+       disabled && 'disabled',
++      dragging && 'dragging',
+       marked && 'marked',
+       orientation === 'vertical' && 'vertical',
+       track === 'inverted' && 'trackInverted',
+@@ -220,6 +223,8 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+   // - The active state isn't transferred when inversing a range slider.
+   const [active, setActive] = React.useState(-1);
+   const [open, setOpen] = React.useState(-1);
++  const [dragging, setDragging] = React.useState(false);
++  const moveCount = React.useRef(0);
+ 
+   const [valueDerived, setValueState] = useControlled({
+     controlled: valueProp,
+@@ -415,6 +420,8 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+       return;
+     }
+ 
++    moveCount.current += 1;
++
+     // Cancel move in case some other element consumed a mouseup event and it was not fired.
+     if (nativeEvent.type === 'mousemove' && nativeEvent.buttons === 0) {
+       // eslint-disable-next-line @typescript-eslint/no-use-before-define
+@@ -432,6 +439,10 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+     focusThumb({ sliderRef, activeIndex, setActive });
+     setValueState(newValue);
+ 
++    if (!dragging && moveCount.current > INTENTIONAL_DRAG_COUNT_THRESHOLD) {
++      setDragging(true);
++    }
++
+     if (handleChange) {
+       handleChange(nativeEvent, newValue);
+     }
+@@ -439,6 +450,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+ 
+   const handleTouchEnd = useEventCallback((nativeEvent) => {
+     const finger = trackFinger(nativeEvent, touchId);
++    setDragging(false);
+ 
+     if (!finger) {
+       return;
+@@ -482,6 +494,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+       handleChange(nativeEvent, newValue);
+     }
+ 
++    moveCount.current = 0;
+     const doc = ownerDocument(sliderRef.current);
+     doc.addEventListener('touchmove', handleTouchMove);
+     doc.addEventListener('touchend', handleTouchEnd);
+@@ -538,6 +551,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+       handleChange(event, newValue);
+     }
+ 
++    moveCount.current = 0;
+     const doc = ownerDocument(sliderRef.current);
+     doc.addEventListener('mousemove', handleTouchMove);
+     doc.addEventListener('mouseup', handleTouchEnd);
+@@ -577,6 +591,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+     ...props,
+     classes: {},
+     disabled,
++    dragging,
+     max,
+     min,
+     orientation,
+diff --git a/packages/material-ui-unstyled/src/SliderUnstyled/sliderUnstyledClasses.js b/packages/material-ui-unstyled/src/SliderUnstyled/sliderUnstyledClasses.js
+index ebfc3820ec4135..91ebf6acbe84ea 100644
+--- a/packages/material-ui-unstyled/src/SliderUnstyled/sliderUnstyledClasses.js
++++ b/packages/material-ui-unstyled/src/SliderUnstyled/sliderUnstyledClasses.js
+@@ -10,6 +10,7 @@ const sliderUnstyledClasses = generateUtilityClasses('MuiSlider', [
+   'active',
+   'focusVisible',
+   'disabled',
++  'dragging',
+   'marked',
+   'vertical',
+   'trackInverted',
+diff --git a/packages/material-ui/src/Slider/Slider.js b/packages/material-ui/src/Slider/Slider.js
+index 93994f67aa4a5e..ff1f61389903ad 100644
+--- a/packages/material-ui/src/Slider/Slider.js
++++ b/packages/material-ui/src/Slider/Slider.js
+@@ -122,6 +122,11 @@ export const SliderRoot = experimentalStyled(
+     transform: 'rotate(45deg)',
+     textAlign: 'center',
+   },
++  [`&.${sliderClasses.dragging}`]: {
++    [`& .${sliderClasses.thumb}, & .${sliderClasses.track}`]: {
++      transition: 'none',
++    },
++  },
+ }));
+ 
+ export const SliderRail = experimentalStyled(
+@@ -155,6 +160,9 @@ export const SliderTrack = experimentalStyled(
+   height: 2,
+   borderRadius: 1,
+   backgroundColor: 'currentColor',
++  transition: theme.transitions.create(['left', 'width'], {
++    duration: theme.transitions.duration.shortest,
++  }),
+   ...(styleProps.orientation === 'vertical' && {
+     width: 2,
+   }),
+@@ -187,7 +195,7 @@ export const SliderThumb = experimentalStyled(
+   display: 'flex',
+   alignItems: 'center',
+   justifyContent: 'center',
+-  transition: theme.transitions.create(['box-shadow'], {
++  transition: theme.transitions.create(['box-shadow', 'left'], {
+     duration: theme.transitions.duration.shortest,
+   }),
+   '&::after': {

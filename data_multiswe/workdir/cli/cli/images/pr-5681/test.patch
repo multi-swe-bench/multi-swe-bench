@@ -1,0 +1,286 @@
+diff --git a/pkg/cmd/pr/checks/checks_test.go b/pkg/cmd/pr/checks/checks_test.go
+index 673c0989142..7fbe0d96a57 100644
+--- a/pkg/cmd/pr/checks/checks_test.go
++++ b/pkg/cmd/pr/checks/checks_test.go
+@@ -103,77 +103,87 @@ func Test_checksRun(t *testing.T) {
+ 		name    string
+ 		fixture string
+ 		prJSON  string
+-		nontty  bool
++		tty     bool
++		watch   bool
+ 		wantOut string
+ 		wantErr string
+ 	}{
+ 		{
+ 			name:    "no commits",
+ 			prJSON:  `{ "number": 123 }`,
++			tty:     true,
+ 			wantOut: "",
+ 			wantErr: "no commit found on the pull request",
+ 		},
+ 		{
+ 			name:    "no checks",
+ 			prJSON:  `{ "number": 123, "statusCheckRollup": { "nodes": [{"commit": {"oid": "abc"}}]}, "headRefName": "master" }`,
++			tty:     true,
+ 			wantOut: "",
+ 			wantErr: "no checks reported on the 'master' branch",
+ 		},
+ 		{
+ 			name:    "some failing",
+ 			fixture: "./fixtures/someFailing.json",
++			tty:     true,
+ 			wantOut: "Some checks were not successful\n1 failing, 1 successful, 0 skipped, and 1 pending checks\n\nX  sad tests   1m26s  sweet link\n✓  cool tests  1m26s  sweet link\n*  slow tests  1m26s  sweet link\n",
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+ 			name:    "some pending",
+ 			fixture: "./fixtures/somePending.json",
++			tty:     true,
+ 			wantOut: "Some checks are still pending\n0 failing, 2 successful, 0 skipped, and 1 pending checks\n\n✓  cool tests  1m26s  sweet link\n✓  rad tests   1m26s  sweet link\n*  slow tests  1m26s  sweet link\n",
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+ 			name:    "all passing",
+ 			fixture: "./fixtures/allPassing.json",
++			tty:     true,
+ 			wantOut: "All checks were successful\n0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests  1m26s  sweet link\n✓  cool tests     1m26s  sweet link\n✓  rad tests      1m26s  sweet link\n",
+ 			wantErr: "",
+ 		},
++		{
++			name:    "watch all passing",
++			fixture: "./fixtures/allPassing.json",
++			tty:     true,
++			watch:   true,
++			wantOut: "\x1b[?1049hAll checks were successful\n0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests  1m26s  sweet link\n✓  cool tests     1m26s  sweet link\n✓  rad tests      1m26s  sweet link\n\x1b[?1049lAll checks were successful\n0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests  1m26s  sweet link\n✓  cool tests     1m26s  sweet link\n✓  rad tests      1m26s  sweet link\n",
++			wantErr: "",
++		},
+ 		{
+ 			name:    "with statuses",
+ 			fixture: "./fixtures/withStatuses.json",
++			tty:     true,
+ 			wantOut: "Some checks were not successful\n1 failing, 2 successful, 0 skipped, and 0 pending checks\n\nX  a status           sweet link\n✓  cool tests  1m26s  sweet link\n✓  rad tests   1m26s  sweet link\n",
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+ 			name:    "no checks",
+-			nontty:  true,
+ 			prJSON:  `{ "number": 123, "statusCheckRollup": { "nodes": [{"commit": {"oid": "abc"}}]}, "headRefName": "master" }`,
+ 			wantOut: "",
+ 			wantErr: "no checks reported on the 'master' branch",
+ 		},
+ 		{
+ 			name:    "some failing",
+-			nontty:  true,
+ 			fixture: "./fixtures/someFailing.json",
+ 			wantOut: "sad tests\tfail\t1m26s\tsweet link\ncool tests\tpass\t1m26s\tsweet link\nslow tests\tpending\t1m26s\tsweet link\n",
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+ 			name:    "some pending",
+-			nontty:  true,
+ 			fixture: "./fixtures/somePending.json",
+ 			wantOut: "cool tests\tpass\t1m26s\tsweet link\nrad tests\tpass\t1m26s\tsweet link\nslow tests\tpending\t1m26s\tsweet link\n",
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+ 			name:    "all passing",
+-			nontty:  true,
+ 			fixture: "./fixtures/allPassing.json",
+ 			wantOut: "awesome tests\tpass\t1m26s\tsweet link\ncool tests\tpass\t1m26s\tsweet link\nrad tests\tpass\t1m26s\tsweet link\n",
+ 			wantErr: "",
+ 		},
+ 		{
+ 			name:    "with statuses",
+-			nontty:  true,
+ 			fixture: "./fixtures/withStatuses.json",
+ 			wantOut: "a status\tfail\t0\tsweet link\ncool tests\tpass\t1m26s\tsweet link\nrad tests\tpass\t1m26s\tsweet link\n",
+ 			wantErr: "SilentError",
+@@ -181,6 +191,7 @@ func Test_checksRun(t *testing.T) {
+ 		{
+ 			name:    "some skipped",
+ 			fixture: "./fixtures/someSkipping.json",
++			tty:     true,
+ 			wantOut: "All checks were successful\n0 failing, 1 successful, 2 skipped, and 0 pending checks\n\n✓  cool tests  1m26s  sweet link\n-  rad tests   1m26s  sweet link\n-  skip tests  1m26s  sweet link\n",
+ 			wantErr: "",
+ 		},
+@@ -189,7 +200,8 @@ func Test_checksRun(t *testing.T) {
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			ios, _, stdout, _ := iostreams.Test()
+-			ios.SetStdoutTTY(!tt.nontty)
++			ios.SetStdoutTTY(tt.tty)
++			ios.SetAlternateScreenBufferEnabled(tt.tty)
+ 
+ 			var response *api.PullRequest
+ 			var jsonReader io.Reader
+@@ -208,6 +220,7 @@ func Test_checksRun(t *testing.T) {
+ 				IO:          ios,
+ 				SelectorArg: "123",
+ 				Finder:      shared.NewMockFinder("123", response, ghrepo.New("OWNER", "REPO")),
++				Watch:       tt.watch,
+ 			}
+ 
+ 			err := checksRun(opts)
+diff --git a/pkg/cmd/run/watch/watch_test.go b/pkg/cmd/run/watch/watch_test.go
+index 707b39eee9c..fdbcf393d35 100644
+--- a/pkg/cmd/run/watch/watch_test.go
++++ b/pkg/cmd/run/watch/watch_test.go
+@@ -4,7 +4,6 @@ import (
+ 	"bytes"
+ 	"io"
+ 	"net/http"
+-	"runtime"
+ 	"testing"
+ 	"time"
+ 
+@@ -167,16 +166,14 @@ func TestWatchRun(t *testing.T) {
+ 	}
+ 
+ 	tests := []struct {
+-		name        string
+-		httpStubs   func(*httpmock.Registry)
+-		askStubs    func(*prompt.AskStubber)
+-		opts        *WatchOptions
+-		tty         bool
+-		wantErr     bool
+-		errMsg      string
+-		wantOut     string
+-		onlyWindows bool
+-		skipWindows bool
++		name      string
++		httpStubs func(*httpmock.Registry)
++		askStubs  func(*prompt.AskStubber)
++		opts      *WatchOptions
++		tty       bool
++		wantErr   bool
++		errMsg    string
++		wantOut   string
+ 	}{
+ 		{
+ 			name: "run ID provided run already completed",
+@@ -225,24 +222,8 @@ func TestWatchRun(t *testing.T) {
+ 			},
+ 		},
+ 		{
+-			name:        "interval respected",
+-			skipWindows: true,
+-			tty:         true,
+-			opts: &WatchOptions{
+-				Interval: 0,
+-				Prompt:   true,
+-			},
+-			httpStubs: successfulRunStubs,
+-			askStubs: func(as *prompt.AskStubber) {
+-				as.StubPrompt("Select a workflow run").
+-					AssertOptions([]string{"* cool commit, run (trunk) Feb 23, 2021", "* cool commit, more runs (trunk) Feb 23, 2021"}).
+-					AnswerWith("* cool commit, more runs (trunk) Feb 23, 2021")
+-			},
+-			wantOut: "\x1b[2J\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n✓ trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\n✓ Run more runs (2) completed with 'success'\n",
+-		},
+-		{
+-			name:        "interval respected, windows",
+-			onlyWindows: true,
++			name: "interval respected",
++			tty:  true,
+ 			opts: &WatchOptions{
+ 				Interval: 0,
+ 				Prompt:   true,
+@@ -253,30 +234,11 @@ func TestWatchRun(t *testing.T) {
+ 					AssertOptions([]string{"* cool commit, run (trunk) Feb 23, 2021", "* cool commit, more runs (trunk) Feb 23, 2021"}).
+ 					AnswerWith("* cool commit, more runs (trunk) Feb 23, 2021")
+ 			},
+-			wantOut: "\x1b[2J\x1b[2JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\x1b[2JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n✓ trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n",
+-		},
+-		{
+-			name:        "exit status respected",
+-			tty:         true,
+-			skipWindows: true,
+-			opts: &WatchOptions{
+-				Interval:   0,
+-				Prompt:     true,
+-				ExitStatus: true,
+-			},
+-			httpStubs: failedRunStubs,
+-			askStubs: func(as *prompt.AskStubber) {
+-				as.StubPrompt("Select a workflow run").
+-					AssertOptions([]string{"* cool commit, run (trunk) Feb 23, 2021", "* cool commit, more runs (trunk) Feb 23, 2021"}).
+-					AnswerWith("* cool commit, more runs (trunk) Feb 23, 2021")
+-			},
+-			wantOut: "\x1b[2J\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\n\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\nX trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nX Run more runs (2) completed with 'failure'\n",
+-			wantErr: true,
+-			errMsg:  "SilentError",
++			wantOut: "\x1b[?1049h\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\x1b[?1049l✓ trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\n✓ Run more runs (2) completed with 'success'\n",
+ 		},
+ 		{
+-			name:        "exit status respected, windows",
+-			onlyWindows: true,
++			name: "exit status respected",
++			tty:  true,
+ 			opts: &WatchOptions{
+ 				Interval:   0,
+ 				Prompt:     true,
+@@ -288,21 +250,13 @@ func TestWatchRun(t *testing.T) {
+ 					AssertOptions([]string{"* cool commit, run (trunk) Feb 23, 2021", "* cool commit, more runs (trunk) Feb 23, 2021"}).
+ 					AnswerWith("* cool commit, more runs (trunk) Feb 23, 2021")
+ 			},
+-			wantOut: "\x1b[2J\x1b[2JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\n\x1b[2JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\nX trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n",
++			wantOut: "\x1b[?1049h\x1b[0;0H\x1b[JRefreshing run status every 0 seconds. Press Ctrl+C to quit.\n\n* trunk more runs · 2\nTriggered via push about 59 minutes ago\n\n\x1b[?1049lX trunk more runs · 2\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nX Run more runs (2) completed with 'failure'\n",
+ 			wantErr: true,
+ 			errMsg:  "SilentError",
+ 		},
+ 	}
+ 
+ 	for _, tt := range tests {
+-		if runtime.GOOS == "windows" {
+-			if tt.skipWindows {
+-				continue
+-			}
+-		} else if tt.onlyWindows {
+-			continue
+-		}
+-
+ 		reg := &httpmock.Registry{}
+ 		tt.httpStubs(reg)
+ 		tt.opts.HttpClient = func() (*http.Client, error) {
+@@ -316,6 +270,7 @@ func TestWatchRun(t *testing.T) {
+ 
+ 		ios, _, stdout, _ := iostreams.Test()
+ 		ios.SetStdoutTTY(tt.tty)
++		ios.SetAlternateScreenBufferEnabled(tt.tty)
+ 		tt.opts.IO = ios
+ 		tt.opts.BaseRepo = func() (ghrepo.Interface, error) {
+ 			return ghrepo.FromFullName("OWNER/REPO")
+diff --git a/pkg/iostreams/iostreams_test.go b/pkg/iostreams/iostreams_test.go
+index fc4ead08b60..6b3aa50260e 100644
+--- a/pkg/iostreams/iostreams_test.go
++++ b/pkg/iostreams/iostreams_test.go
+@@ -2,6 +2,7 @@ package iostreams
+ 
+ import (
+ 	"errors"
++	"fmt"
+ 	"testing"
+ )
+ 
+@@ -66,3 +67,20 @@ func TestIOStreams_ForceTerminal(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestStopAlternateScreenBuffer(t *testing.T) {
++	ios, _, stdout, _ := Test()
++	ios.SetAlternateScreenBufferEnabled(true)
++
++	ios.StartAlternateScreenBuffer()
++	fmt.Fprint(ios.Out, "test")
++	ios.StopAlternateScreenBuffer()
++
++	// Stopping a subsequent time should no-op.
++	ios.StopAlternateScreenBuffer()
++
++	const want = "\x1b[?1049htest\x1b[?1049l"
++	if got := stdout.String(); got != want {
++		t.Errorf("after IOStreams.StopAlternateScreenBuffer() got %q, want %q", got, want)
++	}
++}

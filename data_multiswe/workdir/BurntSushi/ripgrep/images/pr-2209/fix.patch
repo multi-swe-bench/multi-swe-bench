@@ -1,0 +1,85 @@
+diff --git a/crates/printer/src/util.rs b/crates/printer/src/util.rs
+index 434deec7c..73a299640 100644
+--- a/crates/printer/src/util.rs
++++ b/crates/printer/src/util.rs
+@@ -82,26 +82,26 @@ impl<M: Matcher> Replacer<M> {
+             dst.clear();
+             matches.clear();
+ 
+-            matcher
+-                .replace_with_captures_at(
+-                    subject,
+-                    range.start,
+-                    caps,
+-                    dst,
+-                    |caps, dst| {
+-                        let start = dst.len();
+-                        caps.interpolate(
+-                            |name| matcher.capture_index(name),
+-                            subject,
+-                            replacement,
+-                            dst,
+-                        );
+-                        let end = dst.len();
+-                        matches.push(Match::new(start, end));
+-                        true
+-                    },
+-                )
+-                .map_err(io::Error::error_message)?;
++            replace_with_captures_in_context(
++                matcher,
++                subject,
++                range.clone(),
++                caps,
++                dst,
++                |caps, dst| {
++                    let start = dst.len();
++                    caps.interpolate(
++                        |name| matcher.capture_index(name),
++                        subject,
++                        replacement,
++                        dst,
++                    );
++                    let end = dst.len();
++                    matches.push(Match::new(start, end));
++                    true
++                },
++            )
++            .map_err(io::Error::error_message)?;
+         }
+         Ok(())
+     }
+@@ -458,3 +458,33 @@ pub fn trim_line_terminator(
+         *line = line.with_end(end);
+     }
+ }
++
++/// Like `Matcher::replace_with_captures_at`, but accepts an end bound.
++///
++/// See also: `find_iter_at_in_context` for why we need this.
++fn replace_with_captures_in_context<M, F>(
++    matcher: M,
++    bytes: &[u8],
++    range: std::ops::Range<usize>,
++    caps: &mut M::Captures,
++    dst: &mut Vec<u8>,
++    mut append: F,
++) -> Result<(), M::Error>
++where
++    M: Matcher,
++    F: FnMut(&M::Captures, &mut Vec<u8>) -> bool,
++{
++    let mut last_match = range.start;
++    matcher.captures_iter_at(bytes, range.start, caps, |caps| {
++        let m = caps.get(0).unwrap();
++        if m.start() >= range.end {
++            return false;
++        }
++        dst.extend(&bytes[last_match..m.start()]);
++        last_match = m.end();
++        append(caps, dst)
++    })?;
++    let end = std::cmp::min(bytes.len(), range.end);
++    dst.extend(&bytes[last_match..end]);
++    Ok(())
++}

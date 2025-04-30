@@ -1,0 +1,351 @@
+diff --git a/docs/data/base/components/select/UnstyledSelectIntroduction.js b/docs/data/base/components/select/UnstyledSelectIntroduction.js
+index 9ede0e7f9f10a9..c7bd14ca76a68a 100644
+--- a/docs/data/base/components/select/UnstyledSelectIntroduction.js
++++ b/docs/data/base/components/select/UnstyledSelectIntroduction.js
+@@ -83,6 +83,7 @@ Button.propTypes = {
+     defaultValue: PropTypes.any,
+     disabled: PropTypes.bool.isRequired,
+     focusVisible: PropTypes.bool.isRequired,
++    getOptionAsString: PropTypes.func,
+     getSerializedValue: PropTypes.func,
+     listboxId: PropTypes.string,
+     listboxOpen: PropTypes.bool,
+@@ -91,7 +92,6 @@ Button.propTypes = {
+     onChange: PropTypes.func,
+     onListboxOpenChange: PropTypes.func,
+     open: PropTypes.bool.isRequired,
+-    optionStringifier: PropTypes.func,
+     renderValue: PropTypes.func,
+     slotProps: PropTypes.shape({
+       listbox: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
+diff --git a/docs/pages/base/api/select.json b/docs/pages/base/api/select.json
+index e1a504d980046d..93ce757158b52b 100644
+--- a/docs/pages/base/api/select.json
++++ b/docs/pages/base/api/select.json
+@@ -4,6 +4,7 @@
+     "defaultListboxOpen": { "type": { "name": "bool" }, "default": "false" },
+     "defaultValue": { "type": { "name": "any" } },
+     "disabled": { "type": { "name": "bool" }, "default": "false" },
++    "getOptionAsString": { "type": { "name": "func" }, "default": "defaultOptionStringifier" },
+     "getSerializedValue": { "type": { "name": "func" } },
+     "listboxId": { "type": { "name": "string" } },
+     "listboxOpen": { "type": { "name": "bool" }, "default": "undefined" },
+@@ -11,7 +12,6 @@
+     "name": { "type": { "name": "string" } },
+     "onChange": { "type": { "name": "func" } },
+     "onListboxOpenChange": { "type": { "name": "func" } },
+-    "optionStringifier": { "type": { "name": "func" }, "default": "defaultOptionStringifier" },
+     "renderValue": { "type": { "name": "func" } },
+     "slotProps": {
+       "type": {
+diff --git a/docs/pages/base/api/use-select.json b/docs/pages/base/api/use-select.json
+index c3cfcd10f69cb2..de937ae0b9e90f 100644
+--- a/docs/pages/base/api/use-select.json
++++ b/docs/pages/base/api/use-select.json
+@@ -11,6 +11,13 @@
+       }
+     },
+     "disabled": { "type": { "name": "boolean", "description": "boolean" }, "default": "false" },
++    "getOptionAsString": {
++      "type": {
++        "name": "(option: SelectOption&lt;OptionValue&gt;) =&gt; string",
++        "description": "(option: SelectOption&lt;OptionValue&gt;) =&gt; string"
++      },
++      "default": "defaultOptionStringifier"
++    },
+     "listboxId": { "type": { "name": "string", "description": "string" } },
+     "listboxRef": {
+       "type": { "name": "React.Ref&lt;Element&gt;", "description": "React.Ref&lt;Element&gt;" }
+@@ -18,14 +25,14 @@
+     "multiple": { "type": { "name": "Multiple", "description": "Multiple" }, "default": "false" },
+     "onChange": {
+       "type": {
+-        "name": "(e: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null, value: SelectValue&lt;OptionValue, Multiple&gt;) =&gt; void",
+-        "description": "(e: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null, value: SelectValue&lt;OptionValue, Multiple&gt;) =&gt; void"
++        "name": "(event: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null, value: SelectValue&lt;OptionValue, Multiple&gt;) =&gt; void",
++        "description": "(event: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null, value: SelectValue&lt;OptionValue, Multiple&gt;) =&gt; void"
+       }
+     },
+     "onHighlightChange": {
+       "type": {
+-        "name": "(e: React.MouseEvent&lt;Element, MouseEvent&gt; | React.KeyboardEvent&lt;Element&gt; | React.FocusEvent&lt;Element, Element&gt; | null, highlighted: OptionValue | null) =&gt; void",
+-        "description": "(e: React.MouseEvent&lt;Element, MouseEvent&gt; | React.KeyboardEvent&lt;Element&gt; | React.FocusEvent&lt;Element, Element&gt; | null, highlighted: OptionValue | null) =&gt; void"
++        "name": "(event: React.MouseEvent&lt;Element, MouseEvent&gt; | React.KeyboardEvent&lt;Element&gt; | React.FocusEvent&lt;Element, Element&gt; | null, highlighted: OptionValue | null) =&gt; void",
++        "description": "(event: React.MouseEvent&lt;Element, MouseEvent&gt; | React.KeyboardEvent&lt;Element&gt; | React.FocusEvent&lt;Element, Element&gt; | null, highlighted: OptionValue | null) =&gt; void"
+       }
+     },
+     "onOpenChange": {
+@@ -38,13 +45,6 @@
+         "description": "SelectOptionDefinition&lt;OptionValue&gt;[]"
+       }
+     },
+-    "optionStringifier": {
+-      "type": {
+-        "name": "(option: SelectOption&lt;OptionValue&gt;) =&gt; string",
+-        "description": "(option: SelectOption&lt;OptionValue&gt;) =&gt; string"
+-      },
+-      "default": "defaultOptionStringifier"
+-    },
+     "value": {
+       "type": {
+         "name": "SelectValue&lt;OptionValue, Multiple&gt;",
+diff --git a/docs/translations/api-docs-base/select/select.json b/docs/translations/api-docs-base/select/select.json
+index 368c5541442947..6e6f0502e5cfb4 100644
+--- a/docs/translations/api-docs-base/select/select.json
++++ b/docs/translations/api-docs-base/select/select.json
+@@ -5,6 +5,7 @@
+     "defaultListboxOpen": "If <code>true</code>, the select will be initially open.",
+     "defaultValue": "The default selected value. Use when the component is not controlled.",
+     "disabled": "If <code>true</code>, the select is disabled.",
++    "getOptionAsString": "A function used to convert the option label to a string. It&#39;s useful when labels are elements and need to be converted to plain text to enable navigation using character keys on a keyboard.",
+     "getSerializedValue": "A function to convert the currently selected value to a string. Used to set a value of a hidden input associated with the select, so that the selected value can be posted with a form.",
+     "listboxId": "<code>id</code> attribute of the listbox element.",
+     "listboxOpen": "Controls the open state of the select&#39;s listbox.",
+@@ -12,7 +13,6 @@
+     "name": "Name of the element. For example used by the server to identify the fields in form submits. If the name is provided, the component will render a hidden input element that can be submitted to a server.",
+     "onChange": "Callback fired when an option is selected.",
+     "onListboxOpenChange": "Callback fired when the component requests to be opened. Use in controlled mode (see listboxOpen).",
+-    "optionStringifier": "A function used to convert the option label to a string. It&#39;s useful when labels are elements and need to be converted to plain text to enable navigation using character keys on a keyboard.",
+     "renderValue": "Function that customizes the rendering of the selected value.",
+     "slotProps": "The props used for each slot inside the Input.",
+     "slots": "The components used for each slot inside the Select. Either a string to use a HTML element or a component. See <a href=\"#slots\">Slots API</a> below for more details.",
+diff --git a/docs/translations/api-docs/use-select/use-select.json b/docs/translations/api-docs/use-select/use-select.json
+index ec626227399f64..75fb0f4fc2b414 100644
+--- a/docs/translations/api-docs/use-select/use-select.json
++++ b/docs/translations/api-docs/use-select/use-select.json
+@@ -5,6 +5,7 @@
+     "defaultOpen": "If <code>true</code>, the select will be open by default.",
+     "defaultValue": "The default selected value. Use when the component is not controlled.",
+     "disabled": "If <code>true</code>, the select is disabled.",
++    "getOptionAsString": "A function used to convert the option label to a string.\nThis is useful when labels are elements and need to be converted to plain text\nto enable keyboard navigation with character keys.",
+     "listboxId": "The <code>id</code> attribute of the listbox element.",
+     "listboxRef": "The ref of the listbox element.",
+     "multiple": "If <code>true</code>, the end user can select multiple values.\nThis affects the type of the <code>value</code>, <code>defaultValue</code>, and <code>onChange</code> props.",
+@@ -13,7 +14,6 @@
+     "onOpenChange": "Callback fired when the listbox is opened or closed.",
+     "open": "Controls the open state of the select's listbox.\nThis is the controlled equivalent of the <code>defaultOpen</code> prop.",
+     "options": "An alternative way to specify the options.\nIf this parameter is set, options defined as JSX children are ignored.",
+-    "optionStringifier": "A function used to convert the option label to a string.\nThis is useful when labels are elements and need to be converted to plain text\nto enable keyboard navigation with character keys.",
+     "value": "The selected value.\nSet to <code>null</code> to deselect all options."
+   },
+   "returnValueDescriptions": {
+diff --git a/packages/mui-base/src/Select/Select.tsx b/packages/mui-base/src/Select/Select.tsx
+index 8fdf9b4a3c55f8..61588e7ba5c961 100644
+--- a/packages/mui-base/src/Select/Select.tsx
++++ b/packages/mui-base/src/Select/Select.tsx
+@@ -114,7 +114,7 @@ const Select = React.forwardRef(function Select<
+     name,
+     onChange,
+     onListboxOpenChange,
+-    optionStringifier = defaultOptionStringifier,
++    getOptionAsString = defaultOptionStringifier,
+     renderValue: renderValueProp,
+     slotProps = {},
+     slots = {},
+@@ -165,7 +165,7 @@ const Select = React.forwardRef(function Select<
+     open: listboxOpenProp,
+     onChange,
+     onOpenChange: onListboxOpenChange,
+-    optionStringifier,
++    getOptionAsString,
+     value: valueProp,
+   });
+ 
+@@ -278,6 +278,14 @@ Select.propTypes /* remove-proptypes */ = {
+    * @default false
+    */
+   disabled: PropTypes.bool,
++  /**
++   * A function used to convert the option label to a string.
++   * It's useful when labels are elements and need to be converted to plain text
++   * to enable navigation using character keys on a keyboard.
++   *
++   * @default defaultOptionStringifier
++   */
++  getOptionAsString: PropTypes.func,
+   /**
+    * A function to convert the currently selected value to a string.
+    * Used to set a value of a hidden input associated with the select,
+@@ -314,14 +322,6 @@ Select.propTypes /* remove-proptypes */ = {
+    * Use in controlled mode (see listboxOpen).
+    */
+   onListboxOpenChange: PropTypes.func,
+-  /**
+-   * A function used to convert the option label to a string.
+-   * It's useful when labels are elements and need to be converted to plain text
+-   * to enable navigation using character keys on a keyboard.
+-   *
+-   * @default defaultOptionStringifier
+-   */
+-  optionStringifier: PropTypes.func,
+   /**
+    * Function that customizes the rendering of the selected value.
+    */
+diff --git a/packages/mui-base/src/Select/Select.types.ts b/packages/mui-base/src/Select/Select.types.ts
+index 6df6757d786460..7b2fcd9b340912 100644
+--- a/packages/mui-base/src/Select/Select.types.ts
++++ b/packages/mui-base/src/Select/Select.types.ts
+@@ -79,7 +79,7 @@ export interface SelectOwnProps<OptionValue extends {}, Multiple extends boolean
+    *
+    * @default defaultOptionStringifier
+    */
+-  optionStringifier?: (option: SelectOption<OptionValue>) => string;
++  getOptionAsString?: (option: SelectOption<OptionValue>) => string;
+   /**
+    * Function that customizes the rendering of the selected value.
+    */
+diff --git a/packages/mui-base/src/useList/listReducer.ts b/packages/mui-base/src/useList/listReducer.ts
+index e19db122dd0984..cb210a6449f617 100644
+--- a/packages/mui-base/src/useList/listReducer.ts
++++ b/packages/mui-base/src/useList/listReducer.ts
+@@ -352,7 +352,7 @@ function handleTextNavigation<ItemValue, State extends ListState<ItemValue>>(
+   searchString: string,
+   context: ListActionContext<ItemValue>,
+ ): State {
+-  const { items, isItemDisabled, disabledItemsFocusable, itemStringifier } = context;
++  const { items, isItemDisabled, disabledItemsFocusable, getItemAsString } = context;
+ 
+   const startWithCurrentItem = searchString.length > 1;
+ 
+@@ -367,7 +367,7 @@ function handleTextNavigation<ItemValue, State extends ListState<ItemValue>>(
+     }
+ 
+     if (
+-      textCriteriaMatches(nextItem, searchString, itemStringifier) &&
++      textCriteriaMatches(nextItem, searchString, getItemAsString) &&
+       (!isItemDisabled(nextItem, items.indexOf(nextItem)) || disabledItemsFocusable)
+     ) {
+       // The nextItem is the element to be highlighted
+diff --git a/packages/mui-base/src/useList/useList.ts b/packages/mui-base/src/useList/useList.ts
+index e6867f00575214..bc73c07b2389aa 100644
+--- a/packages/mui-base/src/useList/useList.ts
++++ b/packages/mui-base/src/useList/useList.ts
+@@ -79,7 +79,7 @@ function useList<
+     onStateChange = NOOP,
+     items,
+     itemComparer = defaultItemComparer,
+-    itemStringifier = defaultItemStringifier,
++    getItemAsString = defaultItemStringifier,
+     onChange,
+     onHighlightChange,
+     orientation = 'vertical',
+@@ -174,7 +174,7 @@ function useList<
+       isItemDisabled,
+       itemComparer,
+       items,
+-      itemStringifier,
++      getItemAsString,
+       onHighlightChange: handleHighlightChange,
+       orientation,
+       pageSize,
+@@ -188,7 +188,7 @@ function useList<
+     isItemDisabled,
+     itemComparer,
+     items,
+-    itemStringifier,
++    getItemAsString,
+     handleHighlightChange,
+     orientation,
+     pageSize,
+diff --git a/packages/mui-base/src/useList/useList.types.ts b/packages/mui-base/src/useList/useList.types.ts
+index 50c0e8f8065d71..b3c7aa44506116 100644
+--- a/packages/mui-base/src/useList/useList.types.ts
++++ b/packages/mui-base/src/useList/useList.types.ts
+@@ -13,10 +13,10 @@ type ListActionContextRequiredKeys =
+   | 'disabledItemsFocusable'
+   | 'disableListWrap'
+   | 'focusManagement'
++  | 'getItemAsString'
+   | 'isItemDisabled'
+   | 'itemComparer'
+   | 'items'
+-  | 'itemStringifier'
+   | 'orientation'
+   | 'pageSize'
+   | 'selectionMode';
+@@ -177,7 +177,7 @@ export interface UseListParameters<
+    * A function that converts an object to its string representation
+    * @default (o) => o
+    */
+-  itemStringifier?: (option: ItemValue) => string | undefined;
++  getItemAsString?: (option: ItemValue) => string | undefined;
+   /**
+    * Array of list items.
+    */
+diff --git a/packages/mui-base/src/useMenu/useMenu.ts b/packages/mui-base/src/useMenu/useMenu.ts
+index ca8940f761b38f..63eeb37f1fb738 100644
+--- a/packages/mui-base/src/useMenu/useMenu.ts
++++ b/packages/mui-base/src/useMenu/useMenu.ts
+@@ -80,7 +80,7 @@ export default function useMenu(parameters: UseMenuParameters = {}): UseMenuRetu
+     }),
+     isItemDisabled: (id) => subitems?.get(id)?.disabled || false,
+     items: subitemKeys,
+-    itemStringifier: (id: string) =>
++    getItemAsString: (id: string) =>
+       subitems.get(id)?.label || subitems.get(id)?.ref.current?.innerText,
+     rootRef: handleRef,
+     onStateChange: stateChangeHandler,
+diff --git a/packages/mui-base/src/useSelect/useSelect.ts b/packages/mui-base/src/useSelect/useSelect.ts
+index 066e33023d6833..242d323c4f2422 100644
+--- a/packages/mui-base/src/useSelect/useSelect.ts
++++ b/packages/mui-base/src/useSelect/useSelect.ts
+@@ -50,7 +50,7 @@ function useSelect<OptionValue, Multiple extends boolean = false>(
+     onOpenChange,
+     open: openProp,
+     options: optionsParam,
+-    optionStringifier = defaultOptionStringifier,
++    getOptionAsString = defaultOptionStringifier,
+     value: valueProp,
+   } = props;
+ 
+@@ -147,9 +147,9 @@ function useSelect<OptionValue, Multiple extends boolean = false>(
+         return '';
+       }
+ 
+-      return optionStringifier(option);
++      return getOptionAsString(option);
+     },
+-    [options, optionStringifier],
++    [options, getOptionAsString],
+   );
+ 
+   const controlledState = React.useMemo(
+@@ -229,7 +229,7 @@ function useSelect<OptionValue, Multiple extends boolean = false>(
+     onStateChange: handleStateChange,
+     reducerActionContext: React.useMemo(() => ({ multiple }), [multiple]),
+     items: optionValues,
+-    itemStringifier: stringifyOption,
++    getItemAsString: stringifyOption,
+     selectionMode: multiple ? 'multiple' : 'single',
+     stateReducer: selectReducer,
+   };
+diff --git a/packages/mui-base/src/useSelect/useSelect.types.ts b/packages/mui-base/src/useSelect/useSelect.types.ts
+index 674822809f6705..f5791f61a832c8 100644
+--- a/packages/mui-base/src/useSelect/useSelect.types.ts
++++ b/packages/mui-base/src/useSelect/useSelect.types.ts
+@@ -57,14 +57,14 @@ export interface UseSelectParameters<OptionValue, Multiple extends boolean = fal
+    * Callback fired when an option is selected.
+    */
+   onChange?: (
+-    e: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null,
++    event: React.MouseEvent | React.KeyboardEvent | React.FocusEvent | null,
+     value: SelectValue<OptionValue, Multiple>,
+   ) => void;
+   /**
+    * Callback fired when an option is highlighted.
+    */
+   onHighlightChange?: (
+-    e:
++    event:
+       | React.MouseEvent<Element, MouseEvent>
+       | React.KeyboardEvent<Element>
+       | React.FocusEvent<Element, Element>
+@@ -92,7 +92,7 @@ export interface UseSelectParameters<OptionValue, Multiple extends boolean = fal
+    *
+    * @default defaultOptionStringifier
+    */
+-  optionStringifier?: (option: SelectOption<OptionValue>) => string;
++  getOptionAsString?: (option: SelectOption<OptionValue>) => string;
+   /**
+    * The selected value.
+    * Set to `null` to deselect all options.

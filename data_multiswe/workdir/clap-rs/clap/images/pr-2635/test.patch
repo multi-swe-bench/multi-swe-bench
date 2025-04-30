@@ -1,0 +1,99 @@
+diff --git a/clap_derive/tests/arg_enum.rs b/clap_derive/tests/arg_enum.rs
+index fd927fd85ad..cbffaa41684 100644
+--- a/clap_derive/tests/arg_enum.rs
++++ b/clap_derive/tests/arg_enum.rs
+@@ -60,7 +60,7 @@ fn default_value() {
+ 
+     #[derive(Clap, PartialEq, Debug)]
+     struct Opt {
+-        #[clap(arg_enum, default_value)]
++        #[clap(arg_enum, default_value_t)]
+         arg: ArgChoice,
+     }
+ 
+diff --git a/clap_derive/tests/default_value.rs b/clap_derive/tests/default_value.rs
+index 6666ac589bd..f6de63a1836 100644
+--- a/clap_derive/tests/default_value.rs
++++ b/clap_derive/tests/default_value.rs
+@@ -5,10 +5,38 @@ mod utils;
+ use utils::*;
+ 
+ #[test]
+-fn auto_default_value() {
++fn default_value() {
+     #[derive(Clap, PartialEq, Debug)]
+     struct Opt {
+-        #[clap(default_value)]
++        #[clap(default_value = "3")]
++        arg: i32,
++    }
++    assert_eq!(Opt { arg: 3 }, Opt::parse_from(&["test"]));
++    assert_eq!(Opt { arg: 1 }, Opt::parse_from(&["test", "1"]));
++
++    let help = get_long_help::<Opt>();
++    assert!(help.contains("[default: 3]"));
++}
++
++#[test]
++fn default_value_t() {
++    #[derive(Clap, PartialEq, Debug)]
++    struct Opt {
++        #[clap(default_value_t = 3)]
++        arg: i32,
++    }
++    assert_eq!(Opt { arg: 3 }, Opt::parse_from(&["test"]));
++    assert_eq!(Opt { arg: 1 }, Opt::parse_from(&["test", "1"]));
++
++    let help = get_long_help::<Opt>();
++    assert!(help.contains("[default: 3]"));
++}
++
++#[test]
++fn auto_default_value_t() {
++    #[derive(Clap, PartialEq, Debug)]
++    struct Opt {
++        #[clap(default_value_t)]
+         arg: i32,
+     }
+     assert_eq!(Opt { arg: 0 }, Opt::parse_from(&["test"]));
+diff --git a/clap_derive/tests/ui/default_value_wo_value_removed.rs b/clap_derive/tests/ui/default_value_wo_value_removed.rs
+new file mode 100644
+index 00000000000..71885e8d7ac
+--- /dev/null
++++ b/clap_derive/tests/ui/default_value_wo_value_removed.rs
+@@ -0,0 +1,21 @@
++// Copyright 2018 Guillaume Pinot (@TeXitoi) <texitoi@texitoi.eu>
++//
++// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
++// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
++// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
++// option. This file may not be copied, modified, or distributed
++// except according to those terms.
++
++use clap::Clap;
++
++#[derive(Clap, Debug)]
++#[clap(name = "basic")]
++struct Opt {
++    #[clap(default_value)]
++    value: i32,
++}
++
++fn main() {
++    let opt = Opt::parse();
++    println!("{:?}", opt);
++}
+diff --git a/clap_derive/tests/ui/default_value_wo_value_removed.stderr b/clap_derive/tests/ui/default_value_wo_value_removed.stderr
+new file mode 100644
+index 00000000000..821ebc53d12
+--- /dev/null
++++ b/clap_derive/tests/ui/default_value_wo_value_removed.stderr
+@@ -0,0 +1,8 @@
++error: `#[clap(default_value)` attribute (without a value) has been replaced by `#[clap(default_value_t)]`.
++
++  = help: Change the attribute to `#[clap(default_value_t)]`
++
++  --> $DIR/default_value_wo_value_removed.rs:14:12
++   |
++14 |     #[clap(default_value)]
++   |            ^^^^^^^^^^^^^

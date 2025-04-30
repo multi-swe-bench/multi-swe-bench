@@ -1,0 +1,234 @@
+diff --git a/api/index.js b/api/index.js
+index 392b6943cfdc3..94f734cf755a1 100644
+--- a/api/index.js
++++ b/api/index.js
+@@ -18,7 +18,9 @@ module.exports = async (req, res) => {
+   } = req.query;
+   let stats;
+ 
++  res.setHeader("Cache-Control", "public, max-age=1800");
+   res.setHeader("Content-Type", "image/svg+xml");
++
+   try {
+     stats = await fetchStats(username);
+   } catch (err) {
+diff --git a/api/pin.js b/api/pin.js
+index 2d69c0e75daee..8659c5048e915 100644
+--- a/api/pin.js
++++ b/api/pin.js
+@@ -14,6 +14,8 @@ module.exports = async (req, res) => {
+   } = req.query;
+ 
+   let repoData;
++  
++  res.setHeader("Cache-Control", "public, max-age=1800");
+   res.setHeader("Content-Type", "image/svg+xml");
+ 
+   try {
+diff --git a/src/fetchRepo.js b/src/fetchRepo.js
+index c7b7c3e3f5fd9..710061ee371eb 100644
+--- a/src/fetchRepo.js
++++ b/src/fetchRepo.js
+@@ -1,12 +1,10 @@
+ const { request } = require("./utils");
++const retryer = require("./retryer");
+ 
+-async function fetchRepo(username, reponame) {
+-  if (!username || !reponame) {
+-    throw new Error("Invalid username or reponame");
+-  }
+-
+-  const res = await request({
+-    query: `
++const fetcher = (variables, token) => {
++  return request(
++    {
++      query: `
+       fragment RepoInfo on Repository {
+         name
+         stargazers {
+@@ -33,11 +31,20 @@ async function fetchRepo(username, reponame) {
+         }
+       }
+     `,
+-    variables: {
+-      login: username,
+-      repo: reponame,
++      variables,
+     },
+-  });
++    {
++      Authorization: `bearer ${token}`,
++    }
++  );
++};
++
++async function fetchRepo(username, reponame) {
++  if (!username || !reponame) {
++    throw new Error("Invalid username or reponame");
++  }
++
++  let res = await retryer(fetcher, { login: username, repo: reponame });
+ 
+   const data = res.data.data;
+ 
+diff --git a/src/fetchStats.js b/src/fetchStats.js
+index dc2859022dd4a..f8bb715855492 100644
+--- a/src/fetchStats.js
++++ b/src/fetchStats.js
+@@ -1,26 +1,26 @@
+ const { request } = require("./utils");
++const retryer = require("./retryer");
+ const calculateRank = require("./calculateRank");
+ require("dotenv").config();
+ 
+-async function fetchStats(username) {
+-  if (!username) throw Error("Invalid username");
+-
+-  const res = await request({
+-    query: `
++const fetcher = (variables, token) => {
++  return request(
++    {
++      query: `
+       query userInfo($login: String!) {
+         user(login: $login) {
+           name
+           login
+-          repositoriesContributedTo(first: 100, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
+-            totalCount
+-          }
+           contributionsCollection {
+             totalCommitContributions
+           }
+-          pullRequests(first: 100) {
++          repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
++            totalCount
++          }
++          pullRequests(first: 1) {
+             totalCount
+           }
+-          issues(first: 100) {
++          issues(first: 1) {
+             totalCount
+           }
+           followers {
+@@ -36,9 +36,17 @@ async function fetchStats(username) {
+           }
+         }
+       }
+-    `,
+-    variables: { login: username },
+-  });
++      `,
++      variables,
++    },
++    {
++      Authorization: `bearer ${token}`,
++    }
++  );
++};
++
++async function fetchStats(username) {
++  if (!username) throw Error("Invalid username");
+ 
+   const stats = {
+     name: "",
+@@ -47,12 +55,14 @@ async function fetchStats(username) {
+     totalIssues: 0,
+     totalStars: 0,
+     contributedTo: 0,
+-    rank: "C",
++    rank: { level: "C", score: 0 },
+   };
+ 
++  let res = await retryer(fetcher, { login: username });
++
+   if (res.data.errors) {
+     console.log(res.data.errors);
+-    throw Error("Could not fetch user");
++    throw Error(res.data.errors[0].message || "Could not fetch user");
+   }
+ 
+   const user = res.data.data.user;
+diff --git a/src/retryer.js b/src/retryer.js
+new file mode 100644
+index 0000000000000..b62bd8abb7a4d
+--- /dev/null
++++ b/src/retryer.js
+@@ -0,0 +1,43 @@
++const retryer = async (fetcher, variables, retries = 0) => {
++  if (retries > 7) {
++    throw new Error("Maximum retries exceeded");
++  }
++  try {
++    console.log(`Trying PAT_${retries + 1}`);
++
++    // try to fetch with the first token since RETRIES is 0 index i'm adding +1
++    let response = await fetcher(
++      variables,
++      process.env[`PAT_${retries + 1}`],
++      retries
++    );
++
++    // prettier-ignore
++    const isRateExceeded = response.data.errors && response.data.errors[0].type === "RATE_LIMITED";
++
++    // if rate limit is hit increase the RETRIES and recursively call the retryer
++    // with username, and current RETRIES
++    if (isRateExceeded) {
++      console.log(`PAT_${retries + 1} Failed`);
++      retries++;
++      // directly return from the function
++      return retryer(fetcher, variables, retries);
++    }
++
++    // finally return the response
++    return response;
++  } catch (err) {
++    // prettier-ignore
++    // also checking for bad credentials if any tokens gets invalidated
++    const isBadCredential = err.response.data && err.response.data.message === "Bad credentials";
++
++    if (isBadCredential) {
++      console.log(`PAT_${retries + 1} Failed`);
++      retries++;
++      // directly return from the function
++      return retryer(fetcher, variables, retries);
++    }
++  }
++};
++
++module.exports = retryer;
+diff --git a/src/utils.js b/src/utils.js
+index 470a9e83c9f27..b6b74f5ac2a05 100644
+--- a/src/utils.js
++++ b/src/utils.js
+@@ -33,13 +33,13 @@ function isValidHexColor(hexColor) {
+   ).test(hexColor);
+ }
+ 
+-function request(data) {
++function request(data, headers) {
+   return new Promise((resolve, reject) => {
+     axios({
+       url: "https://api.github.com/graphql",
+       method: "post",
+       headers: {
+-        Authorization: `bearer ${process.env.GITHUB_TOKEN}`,
++        ...headers,
+       },
+       data,
+     })
+@@ -48,4 +48,10 @@ function request(data) {
+   });
+ }
+ 
+-module.exports = { renderError, kFormatter, encodeHTML, isValidHexColor, request };
++module.exports = {
++  renderError,
++  kFormatter,
++  encodeHTML,
++  isValidHexColor,
++  request,
++};

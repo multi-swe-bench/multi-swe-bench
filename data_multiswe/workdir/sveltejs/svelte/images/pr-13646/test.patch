@@ -1,0 +1,77 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/transition-component/Foo.svelte b/packages/svelte/tests/runtime-runes/samples/transition-component/Foo.svelte
+new file mode 100644
+index 000000000000..eef87a1ec5ef
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/transition-component/Foo.svelte
+@@ -0,0 +1,13 @@
++<script>
++	function fade(_) {
++		return {
++			duration: 100,
++			css: (t) => `opacity: ${t}`
++		};
++	}
++
++
++</script>
++
++<p transition:fade>foo</p>
++
+diff --git a/packages/svelte/tests/runtime-runes/samples/transition-component/_config.js b/packages/svelte/tests/runtime-runes/samples/transition-component/_config.js
+new file mode 100644
+index 000000000000..414a8b0cc23b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/transition-component/_config.js
+@@ -0,0 +1,32 @@
++import { flushSync } from '../../../../src/index-client.js';
++import { test } from '../../test';
++
++/**
++ * $.component() should not break transition
++ * https://github.com/sveltejs/svelte/issues/13645
++ */
++export default test({
++	test({ assert, raf, target }) {
++		const btn = target.querySelector('button');
++
++		// in
++		btn?.click();
++		flushSync();
++		assert.htmlEqual(
++			target.innerHTML,
++			'<button>toggle</button><p style="opacity: 0;">foo</p><p style="opacity: 0;">foo</p>'
++		);
++
++		raf.tick(50);
++		assert.htmlEqual(
++			target.innerHTML,
++			'<button>toggle</button><p style="opacity: 0.5;">foo</p><p style="opacity: 0.5;">foo</p>'
++		);
++
++		raf.tick(100);
++		assert.htmlEqual(
++			target.innerHTML,
++			'<button>toggle</button><p style="">foo</p><p style="">foo</p>'
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/transition-component/main.svelte b/packages/svelte/tests/runtime-runes/samples/transition-component/main.svelte
+new file mode 100644
+index 000000000000..1dd29e767bcb
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/transition-component/main.svelte
+@@ -0,0 +1,13 @@
++<script>
++	import Foo from './Foo.svelte';
++	const Comp = { Foo };
++
++	let visible = $state(false);
++</script>
++
++<button onclick={() => (visible = !visible)}>toggle</button>
++
++{#if visible}
++	<Foo />
++	<Comp.Foo />
++{/if}
+\ No newline at end of file

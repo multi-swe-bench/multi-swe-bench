@@ -1,0 +1,390 @@
+diff --git a/packages/compiler-core/src/babelUtils.ts b/packages/compiler-core/src/babelUtils.ts
+index 4b8f4182d2c..3c115f5aff4 100644
+--- a/packages/compiler-core/src/babelUtils.ts
++++ b/packages/compiler-core/src/babelUtils.ts
+@@ -21,7 +21,7 @@ export function walkIdentifiers(
+   ) => void,
+   includeAll = false,
+   parentStack: Node[] = [],
+-  knownIds: Record<string, number> = Object.create(null)
++  knownIds: Record<string, number> = Object.create({})
+ ) {
+   if (__BROWSER__) {
+     return
+diff --git a/packages/compiler-core/src/transform.ts b/packages/compiler-core/src/transform.ts
+index 4d9e8c6ed49..b377b20f673 100644
+--- a/packages/compiler-core/src/transform.ts
++++ b/packages/compiler-core/src/transform.ts
+@@ -184,7 +184,7 @@ export function createTransformContext(
+     constantCache: new Map(),
+     temps: 0,
+     cached: 0,
+-    identifiers: Object.create(null),
++    identifiers: Object.create({}),
+     scopes: {
+       vFor: 0,
+       vSlot: 0,
+diff --git a/packages/compiler-sfc/src/compileScript.ts b/packages/compiler-sfc/src/compileScript.ts
+index 6f096ff3e04..89129581974 100644
+--- a/packages/compiler-sfc/src/compileScript.ts
++++ b/packages/compiler-sfc/src/compileScript.ts
+@@ -191,8 +191,8 @@ export function compileScript(
+ 
+   // metadata that needs to be returned
+   // const ctx.bindingMetadata: BindingMetadata = {}
+-  const scriptBindings: Record<string, BindingTypes> = Object.create(null)
+-  const setupBindings: Record<string, BindingTypes> = Object.create(null)
++  const scriptBindings: Record<string, BindingTypes> = Object.create({})
++  const setupBindings: Record<string, BindingTypes> = Object.create({})
+ 
+   let defaultExport: Node | undefined
+   let hasAwait = false
+diff --git a/packages/compiler-sfc/src/script/context.ts b/packages/compiler-sfc/src/script/context.ts
+index af2dee16568..419b457d48e 100644
+--- a/packages/compiler-sfc/src/script/context.ts
++++ b/packages/compiler-sfc/src/script/context.ts
+@@ -25,7 +25,7 @@ export class ScriptCompileContext {
+   // import / type analysis
+   scope?: TypeScope
+   globalScopes?: TypeScope[]
+-  userImports: Record<string, ImportBinding> = Object.create(null)
++  userImports: Record<string, ImportBinding> = Object.create({})
+ 
+   // macros presence check
+   hasDefinePropsCall = false
+@@ -42,7 +42,7 @@ export class ScriptCompileContext {
+   propsRuntimeDecl: Node | undefined
+   propsTypeDecl: Node | undefined
+   propsDestructureDecl: ObjectPattern | undefined
+-  propsDestructuredBindings: PropsDestructureBindings = Object.create(null)
++  propsDestructuredBindings: PropsDestructureBindings = Object.create({})
+   propsDestructureRestId: string | undefined
+   propsRuntimeDefaults: Node | undefined
+ 
+diff --git a/packages/compiler-sfc/src/script/definePropsDestructure.ts b/packages/compiler-sfc/src/script/definePropsDestructure.ts
+index 1584913855a..0021e8892ea 100644
+--- a/packages/compiler-sfc/src/script/definePropsDestructure.ts
++++ b/packages/compiler-sfc/src/script/definePropsDestructure.ts
+@@ -113,7 +113,7 @@ export function transformDestructuredProps(
+   let currentScope: Scope = rootScope
+   const excludedIds = new WeakSet<Identifier>()
+   const parentStack: Node[] = []
+-  const propsLocalToPublicMap: Record<string, string> = Object.create(null)
++  const propsLocalToPublicMap: Record<string, string> = Object.create({})
+ 
+   for (const key in ctx.propsDestructuredBindings) {
+     const { local } = ctx.propsDestructuredBindings[key]
+diff --git a/packages/compiler-sfc/src/script/resolveType.ts b/packages/compiler-sfc/src/script/resolveType.ts
+index d30150a82d5..f6ba8d5ccab 100644
+--- a/packages/compiler-sfc/src/script/resolveType.ts
++++ b/packages/compiler-sfc/src/script/resolveType.ts
+@@ -85,14 +85,14 @@ export class TypeScope {
+     public filename: string,
+     public source: string,
+     public offset: number = 0,
+-    public imports: Record<string, Import> = Object.create(null),
+-    public types: Record<string, ScopeTypeNode> = Object.create(null),
+-    public declares: Record<string, ScopeTypeNode> = Object.create(null)
++    public imports: Record<string, Import> = Object.create({}),
++    public types: Record<string, ScopeTypeNode> = Object.create({}),
++    public declares: Record<string, ScopeTypeNode> = Object.create({})
+   ) {}
+ 
+-  resolvedImportSources: Record<string, string> = Object.create(null)
+-  exportedTypes: Record<string, ScopeTypeNode> = Object.create(null)
+-  exportedDeclares: Record<string, ScopeTypeNode> = Object.create(null)
++  resolvedImportSources: Record<string, string> = Object.create({})
++  exportedTypes: Record<string, ScopeTypeNode> = Object.create({})
++  exportedDeclares: Record<string, ScopeTypeNode> = Object.create({})
+ }
+ 
+ export interface MaybeWithScope {
+@@ -1280,7 +1280,7 @@ function attachNamespace(
+ }
+ 
+ export function recordImports(body: Statement[]) {
+-  const imports: TypeScope['imports'] = Object.create(null)
++  const imports: TypeScope['imports'] = Object.create({})
+   for (const s of body) {
+     recordImport(s, imports)
+   }
+diff --git a/packages/compiler-sfc/src/style/pluginScoped.ts b/packages/compiler-sfc/src/style/pluginScoped.ts
+index 1dcc248ad71..62af6a09121 100644
+--- a/packages/compiler-sfc/src/style/pluginScoped.ts
++++ b/packages/compiler-sfc/src/style/pluginScoped.ts
+@@ -6,7 +6,7 @@ const animationNameRE = /^(-\w+-)?animation-name$/
+ const animationRE = /^(-\w+-)?animation$/
+ 
+ const scopedPlugin: PluginCreator<string> = (id = '') => {
+-  const keyframes = Object.create(null)
++  const keyframes = Object.create({})
+   const shortId = id.replace(/^data-v-/, '')
+ 
+   return {
+diff --git a/packages/reactivity-transform/src/reactivityTransform.ts b/packages/reactivity-transform/src/reactivityTransform.ts
+index c0e2d1b6897..4a6261e4cd6 100644
+--- a/packages/reactivity-transform/src/reactivityTransform.ts
++++ b/packages/reactivity-transform/src/reactivityTransform.ts
+@@ -140,7 +140,7 @@ export function transformAST(
+ } {
+   warnExperimental()
+ 
+-  const userImports: Record<string, ImportBinding> = Object.create(null)
++  const userImports: Record<string, ImportBinding> = Object.create({})
+   for (const node of ast.body) {
+     if (node.type !== 'ImportDeclaration') continue
+     walkImportDeclaration(node)
+@@ -181,7 +181,7 @@ export function transformAST(
+   let escapeScope: CallExpression | undefined // inside $$()
+   const excludedIds = new WeakSet<Identifier>()
+   const parentStack: Node[] = []
+-  const propsLocalToPublicMap: Record<string, string> = Object.create(null)
++  const propsLocalToPublicMap: Record<string, string> = Object.create({})
+ 
+   if (knownRefs) {
+     for (const key of knownRefs) {
+diff --git a/packages/runtime-core/src/apiCreateApp.ts b/packages/runtime-core/src/apiCreateApp.ts
+index ec45611ddf8..e030d75e0de 100644
+--- a/packages/runtime-core/src/apiCreateApp.ts
++++ b/packages/runtime-core/src/apiCreateApp.ts
+@@ -182,7 +182,7 @@ export function createAppContext(): AppContext {
+     mixins: [],
+     components: {},
+     directives: {},
+-    provides: Object.create(null),
++    provides: Object.create({}),
+     optionsCache: new WeakMap(),
+     propsCache: new WeakMap(),
+     emitsCache: new WeakMap()
+diff --git a/packages/runtime-core/src/compat/compatConfig.ts b/packages/runtime-core/src/compat/compatConfig.ts
+index 88b58fdfab0..7a35bb42239 100644
+--- a/packages/runtime-core/src/compat/compatConfig.ts
++++ b/packages/runtime-core/src/compat/compatConfig.ts
+@@ -425,8 +425,8 @@ export const deprecationData: Record<DeprecationTypes, DeprecationData> = {
+   }
+ }
+ 
+-const instanceWarned: Record<string, true> = Object.create(null)
+-const warnCount: Record<string, number> = Object.create(null)
++const instanceWarned: Record<string, true> = Object.create({})
++const warnCount: Record<string, number> = Object.create({})
+ 
+ // test only
+ let warningEnabled = true
+diff --git a/packages/runtime-core/src/compat/global.ts b/packages/runtime-core/src/compat/global.ts
+index 9f1a6d1cd12..1fe8b0c88d1 100644
+--- a/packages/runtime-core/src/compat/global.ts
++++ b/packages/runtime-core/src/compat/global.ts
+@@ -251,7 +251,7 @@ export function createCompatVue(
+       mergeBase[key] = isArray(superValue)
+         ? superValue.slice()
+         : isObject(superValue)
+-        ? extend(Object.create(null), superValue)
++        ? extend(Object.create({}), superValue)
+         : superValue
+     }
+ 
+@@ -629,7 +629,7 @@ function defineReactive(obj: any, key: string, val: any) {
+   if (i && obj === i.proxy) {
+     // target is a Vue instance - define on instance.ctx
+     defineReactiveSimple(i.ctx, key, val)
+-    i.accessCache = Object.create(null)
++    i.accessCache = Object.create({})
+   } else if (isReactive(obj)) {
+     obj[key] = val
+   } else {
+diff --git a/packages/runtime-core/src/compat/instanceEventEmitter.ts b/packages/runtime-core/src/compat/instanceEventEmitter.ts
+index b314f686c4e..4f8dd95b489 100644
+--- a/packages/runtime-core/src/compat/instanceEventEmitter.ts
++++ b/packages/runtime-core/src/compat/instanceEventEmitter.ts
+@@ -17,7 +17,7 @@ export function getRegistry(
+ ): EventRegistry {
+   let events = eventRegistryMap.get(instance)
+   if (!events) {
+-    eventRegistryMap.set(instance, (events = Object.create(null)))
++    eventRegistryMap.set(instance, (events = Object.create({})))
+   }
+   return events!
+ }
+@@ -68,7 +68,7 @@ export function off(
+   const vm = instance.proxy
+   // all
+   if (!event) {
+-    eventRegistryMap.set(instance, Object.create(null))
++    eventRegistryMap.set(instance, Object.create({}))
+     return vm
+   }
+   // array of events
+diff --git a/packages/runtime-core/src/component.ts b/packages/runtime-core/src/component.ts
+index e68a8560bff..b71947e779b 100644
+--- a/packages/runtime-core/src/component.ts
++++ b/packages/runtime-core/src/component.ts
+@@ -704,7 +704,7 @@ function setupStatefulComponent(
+     }
+   }
+   // 0. create render proxy property access cache
+-  instance.accessCache = Object.create(null)
++  instance.accessCache = Object.create({})
+   // 1. create public instance / render proxy
+   // also mark it raw so it's never observed
+   instance.proxy = markRaw(new Proxy(instance.ctx, PublicInstanceProxyHandlers))
+diff --git a/packages/runtime-core/src/componentOptions.ts b/packages/runtime-core/src/componentOptions.ts
+index de4d304448a..82c8b2a0ea3 100644
+--- a/packages/runtime-core/src/componentOptions.ts
++++ b/packages/runtime-core/src/componentOptions.ts
+@@ -595,7 +595,7 @@ const enum OptionTypes {
+ }
+ 
+ function createDuplicateChecker() {
+-  const cache = Object.create(null)
++  const cache = Object.create({})
+   return (type: OptionTypes, key: string) => {
+     if (cache[key]) {
+       warn(`${type} property "${key}" is already defined in ${cache[key]}.`)
+@@ -1130,7 +1130,7 @@ function mergeAsArray<T = Function>(to: T[] | T | undefined, from: T | T[]) {
+ }
+ 
+ function mergeObjectOptions(to: Object | undefined, from: Object | undefined) {
+-  return to ? extend(Object.create(null), to, from) : from
++  return to ? extend(Object.create({}), to, from) : from
+ }
+ 
+ function mergeEmitsOrPropsOptions(
+@@ -1150,7 +1150,7 @@ function mergeEmitsOrPropsOptions(
+       return [...new Set([...to, ...from])]
+     }
+     return extend(
+-      Object.create(null),
++      Object.create({}),
+       normalizePropsOrEmits(to),
+       normalizePropsOrEmits(from ?? {})
+     )
+@@ -1165,7 +1165,7 @@ function mergeWatchOptions(
+ ) {
+   if (!to) return from
+   if (!from) return to
+-  const merged = extend(Object.create(null), to)
++  const merged = extend(Object.create({}), to)
+   for (const key in from) {
+     merged[key] = mergeAsArray(to[key], from[key])
+   }
+diff --git a/packages/runtime-core/src/componentProps.ts b/packages/runtime-core/src/componentProps.ts
+index 4d402789555..87a0cada45f 100644
+--- a/packages/runtime-core/src/componentProps.ts
++++ b/packages/runtime-core/src/componentProps.ts
+@@ -197,7 +197,7 @@ export function initProps(
+   const attrs: Data = {}
+   def(attrs, InternalObjectKey, 1)
+ 
+-  instance.propsDefaults = Object.create(null)
++  instance.propsDefaults = Object.create({})
+ 
+   setFullProps(instance, rawProps, props, attrs)
+ 
+diff --git a/packages/runtime-core/src/componentPublicInstance.ts b/packages/runtime-core/src/componentPublicInstance.ts
+index 78a9acd147f..956e7203450 100644
+--- a/packages/runtime-core/src/componentPublicInstance.ts
++++ b/packages/runtime-core/src/componentPublicInstance.ts
+@@ -257,7 +257,7 @@ const getPublicInstance = (
+ export const publicPropertiesMap: PublicPropertiesMap =
+   // Move PURE marker to new line to workaround compiler discarding it
+   // due to type annotation
+-  /*#__PURE__*/ extend(Object.create(null), {
++  /*#__PURE__*/ extend(Object.create({}), {
+     $: i => i,
+     $el: i => i.vnode.el,
+     $data: i => i.data,
+diff --git a/packages/runtime-core/src/components/BaseTransition.ts b/packages/runtime-core/src/components/BaseTransition.ts
+index a4e862335eb..621025c6fdd 100644
+--- a/packages/runtime-core/src/components/BaseTransition.ts
++++ b/packages/runtime-core/src/components/BaseTransition.ts
+@@ -296,7 +296,7 @@ function getLeavingNodesForType(
+   const { leavingVNodes } = state
+   let leavingVNodesCache = leavingVNodes.get(vnode.type)!
+   if (!leavingVNodesCache) {
+-    leavingVNodesCache = Object.create(null)
++    leavingVNodesCache = Object.create({})
+     leavingVNodes.set(vnode.type, leavingVNodesCache)
+   }
+   return leavingVNodesCache
+diff --git a/packages/runtime-dom/src/apiCustomElement.ts b/packages/runtime-dom/src/apiCustomElement.ts
+index 1e551cc05da..ea90f72335b 100644
+--- a/packages/runtime-dom/src/apiCustomElement.ts
++++ b/packages/runtime-dom/src/apiCustomElement.ts
+@@ -251,9 +251,8 @@ export class VueElement extends BaseClass {
+             if (key in this._props) {
+               this._props[key] = toNumber(this._props[key])
+             }
+-            ;(numberProps || (numberProps = Object.create(null)))[
+-              camelize(key)
+-            ] = true
++            ;(numberProps || (numberProps = Object.create({})))[camelize(key)] =
++              true
+           }
+         }
+       }
+diff --git a/packages/server-renderer/src/helpers/ssrCompile.ts b/packages/server-renderer/src/helpers/ssrCompile.ts
+index 722997c1a98..c2bdc99f6af 100644
+--- a/packages/server-renderer/src/helpers/ssrCompile.ts
++++ b/packages/server-renderer/src/helpers/ssrCompile.ts
+@@ -13,7 +13,7 @@ type SSRRenderFunction = (
+   parentInstance: ComponentInternalInstance
+ ) => void
+ 
+-const compileCache: Record<string, SSRRenderFunction> = Object.create(null)
++const compileCache: Record<string, SSRRenderFunction> = Object.create({})
+ 
+ export function ssrCompile(
+   template: string,
+diff --git a/packages/shared/src/general.ts b/packages/shared/src/general.ts
+index 6efaf52524f..d1958516145 100644
+--- a/packages/shared/src/general.ts
++++ b/packages/shared/src/general.ts
+@@ -84,7 +84,7 @@ export const isBuiltInDirective = /*#__PURE__*/ makeMap(
+ )
+ 
+ const cacheStringFunction = <T extends (str: string) => string>(fn: T): T => {
+-  const cache: Record<string, string> = Object.create(null)
++  const cache: Record<string, string> = Object.create({})
+   return ((str: string) => {
+     const hit = cache[str]
+     return hit || (cache[str] = fn(str))
+diff --git a/packages/shared/src/makeMap.ts b/packages/shared/src/makeMap.ts
+index b598704c673..826b6bd6f9b 100644
+--- a/packages/shared/src/makeMap.ts
++++ b/packages/shared/src/makeMap.ts
+@@ -9,7 +9,7 @@ export function makeMap(
+   str: string,
+   expectsLowerCase?: boolean
+ ): (key: string) => boolean {
+-  const map: Record<string, boolean> = Object.create(null)
++  const map: Record<string, boolean> = Object.create({})
+   const list: Array<string> = str.split(',')
+   for (let i = 0; i < list.length; i++) {
+     map[list[i]] = true
+diff --git a/packages/vue-compat/src/index.ts b/packages/vue-compat/src/index.ts
+index 642ecd20d11..171b99ba589 100644
+--- a/packages/vue-compat/src/index.ts
++++ b/packages/vue-compat/src/index.ts
+@@ -11,7 +11,7 @@ import {
+   warnDeprecation
+ } from '../../runtime-core/src/compat/compatConfig'
+ 
+-const compileCache: Record<string, RenderFunction> = Object.create(null)
++const compileCache: Record<string, RenderFunction> = Object.create({})
+ 
+ function compileToFunction(
+   template: string | HTMLElement,
+diff --git a/packages/vue/src/index.ts b/packages/vue/src/index.ts
+index 8215be7476e..20f7490a09a 100644
+--- a/packages/vue/src/index.ts
++++ b/packages/vue/src/index.ts
+@@ -11,7 +11,7 @@ if (__DEV__) {
+   initDev()
+ }
+ 
+-const compileCache: Record<string, RenderFunction> = Object.create(null)
++const compileCache: Record<string, RenderFunction> = Object.create({})
+ 
+ function compileToFunction(
+   template: string | HTMLElement,

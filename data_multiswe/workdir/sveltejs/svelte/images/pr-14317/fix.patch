@@ -1,0 +1,33 @@
+diff --git a/.changeset/rotten-turkeys-sniff.md b/.changeset/rotten-turkeys-sniff.md
+new file mode 100644
+index 000000000000..53fb5bd66327
+--- /dev/null
++++ b/.changeset/rotten-turkeys-sniff.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: mark subtree dynamic for img with loading attribute
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/Attribute.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/Attribute.js
+index 6931f873fbf7..ca0ea55d1fb0 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/Attribute.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/Attribute.js
+@@ -18,9 +18,14 @@ export function Attribute(node, context) {
+ 
+ 	const parent = /** @type {SvelteNode} */ (context.path.at(-1));
+ 
+-	// special case
+-	if (node.name === 'value') {
+-		if (parent.type === 'RegularElement' && parent.name === 'option') {
++	if (parent.type === 'RegularElement') {
++		// special case <option value="" />
++		if (node.name === 'value' && parent.name === 'option') {
++			mark_subtree_dynamic(context.path);
++		}
++
++		// special case <img loading="lazy" />
++		if (node.name === 'loading' && parent.name === 'img') {
+ 			mark_subtree_dynamic(context.path);
+ 		}
+ 	}

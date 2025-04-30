@@ -1,0 +1,89 @@
+diff --git a/pkg/cmd/workflow/enable/enable_test.go b/pkg/cmd/workflow/enable/enable_test.go
+index fb0e703bb20..1a3a72584f8 100644
+--- a/pkg/cmd/workflow/enable/enable_test.go
++++ b/pkg/cmd/workflow/enable/enable_test.go
+@@ -180,6 +180,35 @@ func TestEnableRun(t *testing.T) {
+ 			},
+ 			wantOut: "✓ Enabled a disabled workflow\n",
+ 		},
++		{
++			name: "tty name arg inactivity workflow",
++			opts: &EnableOptions{
++				Selector: "a disabled inactivity workflow",
++			},
++			tty: true,
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(
++					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/a disabled inactivity workflow"),
++					httpmock.StatusStringResponse(404, "not found"))
++				reg.Register(
++					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows"),
++					httpmock.JSONResponse(shared.WorkflowsPayload{
++						Workflows: []shared.Workflow{
++							shared.AWorkflow,
++							shared.DisabledInactivityWorkflow,
++							shared.UniqueDisabledWorkflow,
++							shared.AnotherWorkflow,
++						},
++					}))
++				reg.Register(
++					httpmock.REST("PUT", "repos/OWNER/REPO/actions/workflows/1206/enable"),
++					httpmock.StatusStringResponse(204, "{}"))
++			},
++			askStubs: func(as *prompt.AskStubber) {
++				as.StubOne(1)
++			},
++			wantOut: "✓ Enabled a disabled inactivity workflow\n",
++		},
+ 		{
+ 			name: "tty ID arg",
+ 			opts: &EnableOptions{
+@@ -238,6 +267,30 @@ func TestEnableRun(t *testing.T) {
+ 					httpmock.StatusStringResponse(204, "{}"))
+ 			},
+ 		},
++		{
++			name: "nontty name arg inactivity workflow",
++			opts: &EnableOptions{
++				Selector: "a disabled inactivity workflow",
++			},
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(
++					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows/a disabled inactivity workflow"),
++					httpmock.StatusStringResponse(404, "not found"))
++				reg.Register(
++					httpmock.REST("GET", "repos/OWNER/REPO/actions/workflows"),
++					httpmock.JSONResponse(shared.WorkflowsPayload{
++						Workflows: []shared.Workflow{
++							shared.AWorkflow,
++							shared.DisabledInactivityWorkflow,
++							shared.UniqueDisabledWorkflow,
++							shared.AnotherWorkflow,
++						},
++					}))
++				reg.Register(
++					httpmock.REST("PUT", "repos/OWNER/REPO/actions/workflows/1206/enable"),
++					httpmock.StatusStringResponse(204, "{}"))
++			},
++		},
+ 		{
+ 			name: "nontty name arg nonunique",
+ 			opts: &EnableOptions{
+diff --git a/pkg/cmd/workflow/shared/test.go b/pkg/cmd/workflow/shared/test.go
+index deb02e8c7ae..dab67394fd8 100644
+--- a/pkg/cmd/workflow/shared/test.go
++++ b/pkg/cmd/workflow/shared/test.go
+@@ -15,6 +15,13 @@ var DisabledWorkflow = Workflow{
+ 	State: DisabledManually,
+ }
+ 
++var DisabledInactivityWorkflow = Workflow{
++	Name:  "a disabled inactivity workflow",
++	ID:    1206,
++	Path:  ".github/workflows/disabledInactivity.yml",
++	State: DisabledInactivity,
++}
++
+ var AnotherDisabledWorkflow = Workflow{
+ 	Name:  "a disabled workflow",
+ 	ID:    1213,

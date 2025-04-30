@@ -1,0 +1,459 @@
+diff --git a/doc/zstd_manual.html b/doc/zstd_manual.html
+index 83b75fd868d..1c298726ca1 100644
+--- a/doc/zstd_manual.html
++++ b/doc/zstd_manual.html
+@@ -703,40 +703,53 @@ <h3>Buffer-less streaming compression functions</h3><pre></pre><b><pre>size_t ZS
+   A ZSTD_DCtx object can be re-used multiple times.
+ 
+   First typical operation is to retrieve frame parameters, using ZSTD_getFrameHeader().
+-  It fills a ZSTD_frameHeader structure with important information to correctly decode the frame,
+-  such as minimum rolling buffer size to allocate to decompress data (`windowSize`),
+-  and the dictionary ID in use.
+-  (Note : content size is optional, it may not be present. 0 means : content size unknown).
+-  Note that these values could be wrong, either because of data malformation, or because an attacker is spoofing deliberate false information.
+-  As a consequence, check that values remain within valid application range, especially `windowSize`, before allocation.
+-  Each application can set its own limit, depending on local restrictions.
+-  For extended interoperability, it is recommended to support windowSize of at least 8 MB.
+   Frame header is extracted from the beginning of compressed frame, so providing only the frame's beginning is enough.
+   Data fragment must be large enough to ensure successful decoding.
+-  `ZSTD_frameHeaderSize_max` bytes is guaranteed to always be large enough.
++ `ZSTD_frameHeaderSize_max` bytes is guaranteed to always be large enough.
+   @result : 0 : successful decoding, the `ZSTD_frameHeader` structure is correctly filled.
+            >0 : `srcSize` is too small, please provide at least @result bytes on next attempt.
+            errorCode, which can be tested using ZSTD_isError().
+ 
+-  Start decompression, with ZSTD_decompressBegin().
++  It fills a ZSTD_frameHeader structure with important information to correctly decode the frame,
++  such as the dictionary ID, content size, or maximum back-reference distance (`windowSize`).
++  Note that these values could be wrong, either because of data corruption, or because a 3rd party deliberately spoofs false information.
++  As a consequence, check that values remain within valid application range.
++  For example, do not allocate memory blindly, check that `windowSize` is within expectation.
++  Each application can set its own limits, depending on local restrictions.
++  For extended interoperability, it is recommended to support `windowSize` of at least 8 MB.
++
++  ZSTD_decompressContinue() needs previous data blocks during decompression, up to `windowSize` bytes.
++  ZSTD_decompressContinue() is very sensitive to contiguity,
++  if 2 blocks don't follow each other, make sure that either the compressor breaks contiguity at the same place,
++  or that previous contiguous segment is large enough to properly handle maximum back-reference distance.
++  There are multiple ways to guarantee this condition.
++
++  The most memory efficient way is to use a round buffer of sufficient size.
++  Sufficient size is determined by invoking ZSTD_decodingBufferSize_min(),
++  which can @return an error code if required value is too large for current system (in 32-bits mode).
++  In a round buffer methodology, ZSTD_decompressContinue() decompresses each block next to previous one,
++  up to the moment there is not enough room left in the buffer to guarantee decoding another full block,
++  which maximum size is provided in `ZSTD_frameHeader` structure, field `blockSizeMax`.
++  At which point, decoding can resume from the beginning of the buffer.
++  Note that already decoded data stored in the buffer should be flushed before being overwritten.
++
++  There are alternatives possible, for example using two or more buffers of size `windowSize` each, though they consume more memory.
++
++  Finally, if you control the compression process, you can also ignore all buffer size rules,
++  as long as the encoder and decoder progress in "lock-step",
++  aka use exactly the same buffer sizes, break contiguity at the same place, etc.
++
++  Once buffers are setup, start decompression, with ZSTD_decompressBegin().
+   If decompression requires a dictionary, use ZSTD_decompressBegin_usingDict() or ZSTD_decompressBegin_usingDDict().
+-  Alternatively, you can copy a prepared context, using ZSTD_copyDCtx().
+ 
+   Then use ZSTD_nextSrcSizeToDecompress() and ZSTD_decompressContinue() alternatively.
+   ZSTD_nextSrcSizeToDecompress() tells how many bytes to provide as 'srcSize' to ZSTD_decompressContinue().
+   ZSTD_decompressContinue() requires this _exact_ amount of bytes, or it will fail.
+ 
+-  @result of ZSTD_decompressContinue() is the number of bytes regenerated within 'dst' (necessarily <= dstCapacity).
+-  It can be zero, which is not an error; it just means ZSTD_decompressContinue() has decoded some metadata item.
++ @result of ZSTD_decompressContinue() is the number of bytes regenerated within 'dst' (necessarily <= dstCapacity).
++  It can be zero : it just means ZSTD_decompressContinue() has decoded some metadata item.
+   It can also be an error code, which can be tested with ZSTD_isError().
+ 
+-  ZSTD_decompressContinue() needs previous data blocks during decompression, up to `windowSize`.
+-  They should preferably be located contiguously, prior to current block.
+-  Alternatively, a round buffer of sufficient size is also possible. Sufficient size is determined by frame parameters.
+-  ZSTD_decompressContinue() is very sensitive to contiguity,
+-  if 2 blocks don't follow each other, make sure that either the compressor breaks contiguity at the same place,
+-  or that previous contiguous segment is large enough to properly handle maximum back-reference.
+-
+   A frame is fully decoded when ZSTD_nextSrcSizeToDecompress() returns zero.
+   Context can then be reset to start a new decompression.
+ 
+@@ -746,32 +759,27 @@ <h3>Buffer-less streaming compression functions</h3><pre></pre><b><pre>size_t ZS
+   == Special case : skippable frames 
+ 
+   Skippable frames allow integration of user-defined data into a flow of concatenated frames.
+-  Skippable frames will be ignored (skipped) by a decompressor. The format of skippable frames is as follows :
++  Skippable frames will be ignored (skipped) by decompressor.
++  The format of skippable frames is as follows :
+   a) Skippable frame ID - 4 Bytes, Little endian format, any value from 0x184D2A50 to 0x184D2A5F
+   b) Frame Size - 4 Bytes, Little endian format, unsigned 32-bits
+   c) Frame Content - any content (User Data) of length equal to Frame Size
+-  For skippable frames ZSTD_decompressContinue() always returns 0.
+-  For skippable frames ZSTD_getFrameHeader() returns fparamsPtr->windowLog==0 what means that a frame is skippable.
+-    Note : If fparamsPtr->frameContentSize==0, it is ambiguous: the frame might actually be a Zstd encoded frame with no content.
+-           For purposes of decompression, it is valid in both cases to skip the frame using
+-           ZSTD_findFrameCompressedSize to find its size in bytes.
+-  It also returns Frame Size as fparamsPtr->frameContentSize.
++  For skippable frames ZSTD_getFrameHeader() returns zfhPtr->frameType==ZSTD_skippableFrame.
++  For skippable frames ZSTD_decompressContinue() always returns 0 : it only skips the content.
+ <BR></pre>
+ 
+ <h3>Buffer-less streaming decompression functions</h3><pre></pre><b><pre>typedef enum { ZSTD_frame, ZSTD_skippableFrame } ZSTD_frameType_e;
+ typedef struct {
+-    unsigned long long frameContentSize; </b>/* ZSTD_CONTENTSIZE_UNKNOWN means this field is not available. 0 means "empty" */<b>
++    unsigned long long frameContentSize; </b>/* if == ZSTD_CONTENTSIZE_UNKNOWN, it means this field is not available. 0 means "empty" */<b>
+     unsigned long long windowSize;       </b>/* can be very large, up to <= frameContentSize */<b>
++    unsigned blockSizeMax;
+     ZSTD_frameType_e frameType;          </b>/* if == ZSTD_skippableFrame, frameContentSize is the size of skippable content */<b>
+     unsigned headerSize;
+     unsigned dictID;
+     unsigned checksumFlag;
+ } ZSTD_frameHeader;
+ size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize);   </b>/**< doesn't consume input */<b>
+-size_t ZSTD_decompressBegin(ZSTD_DCtx* dctx);
+-size_t ZSTD_decompressBegin_usingDict(ZSTD_DCtx* dctx, const void* dict, size_t dictSize);
+-size_t ZSTD_decompressBegin_usingDDict(ZSTD_DCtx* dctx, const ZSTD_DDict* ddict);
+-void   ZSTD_copyDCtx(ZSTD_DCtx* dctx, const ZSTD_DCtx* preparedDCtx);
++size_t ZSTD_decodingBufferSize_min(unsigned long long windowSize, unsigned long long frameContentSize);  </b>/**< when frame content size is not known, pass in frameContentSize == ZSTD_CONTENTSIZE_UNKNOWN */<b>
+ </pre></b><BR>
+ <pre><b>typedef enum { ZSTDnit_frameHeader, ZSTDnit_blockHeader, ZSTDnit_block, ZSTDnit_lastBlock, ZSTDnit_checksum, ZSTDnit_skippableFrame } ZSTD_nextInputType_e;
+ </b></pre><BR>
+@@ -1034,7 +1042,7 @@ <h3>New advanced API (experimental, and compression only)</h3><pre></pre><b><pre
+ <h3>Raw zstd block functions</h3><pre></pre><b><pre>size_t ZSTD_getBlockSize   (const ZSTD_CCtx* cctx);
+ size_t ZSTD_compressBlock  (ZSTD_CCtx* cctx, void* dst, size_t dstCapacity, const void* src, size_t srcSize);
+ size_t ZSTD_decompressBlock(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, const void* src, size_t srcSize);
+-size_t ZSTD_insertBlock(ZSTD_DCtx* dctx, const void* blockStart, size_t blockSize);  </b>/**< insert block into `dctx` history. Useful for uncompressed blocks */<b>
++size_t ZSTD_insertBlock(ZSTD_DCtx* dctx, const void* blockStart, size_t blockSize);  </b>/**< insert uncompressed block into `dctx` history. Useful for multi-blocks decompression */<b>
+ </pre></b><BR>
+ </html>
+ </body>
+diff --git a/lib/decompress/zstd_decompress.c b/lib/decompress/zstd_decompress.c
+index 00e2fb4a25d..aa4c58d91e1 100644
+--- a/lib/decompress/zstd_decompress.c
++++ b/lib/decompress/zstd_decompress.c
+@@ -102,7 +102,8 @@ struct ZSTD_DCtx_s
+     const void* dictEnd;          /* end of previous segment */
+     size_t expected;
+     ZSTD_frameHeader fParams;
+-    blockType_e bType;   /* used in ZSTD_decompressContinue(), to transfer blockType between header decoding and block decoding stages */
++    U64 decodedSize;
++    blockType_e bType;            /* used in ZSTD_decompressContinue(), store blockType between block header decoding and block decompression stages */
+     ZSTD_dStage stage;
+     U32 litEntropy;
+     U32 fseEntropy;
+@@ -127,7 +128,6 @@ struct ZSTD_DCtx_s
+     size_t outBuffSize;
+     size_t outStart;
+     size_t outEnd;
+-    size_t blockSize;
+     size_t lhSize;
+     void* legacyContext;
+     U32 previousLegacyVersion;
+@@ -153,6 +153,7 @@ size_t ZSTD_decompressBegin(ZSTD_DCtx* dctx)
+ {
+     dctx->expected = ZSTD_frameHeaderSize_prefix;
+     dctx->stage = ZSTDds_getFrameHeaderSize;
++    dctx->decodedSize = 0;
+     dctx->previousDstEnd = NULL;
+     dctx->base = NULL;
+     dctx->vBase = NULL;
+@@ -172,13 +173,13 @@ size_t ZSTD_decompressBegin(ZSTD_DCtx* dctx)
+ static void ZSTD_initDCtx_internal(ZSTD_DCtx* dctx)
+ {
+     ZSTD_decompressBegin(dctx);   /* cannot fail */
+-    dctx->staticSize = 0;
++    dctx->staticSize  = 0;
+     dctx->maxWindowSize = ZSTD_MAXWINDOWSIZE_DEFAULT;
+-    dctx->ddict   = NULL;
+-    dctx->ddictLocal = NULL;
+-    dctx->inBuff  = NULL;
+-    dctx->inBuffSize = 0;
+-    dctx->outBuffSize= 0;
++    dctx->ddict       = NULL;
++    dctx->ddictLocal  = NULL;
++    dctx->inBuff      = NULL;
++    dctx->inBuffSize  = 0;
++    dctx->outBuffSize = 0;
+     dctx->streamStage = zdss_init;
+ }
+ 
+@@ -297,7 +298,6 @@ size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t src
+             memset(zfhPtr, 0, sizeof(*zfhPtr));
+             zfhPtr->frameContentSize = MEM_readLE32((const char *)src + 4);
+             zfhPtr->frameType = ZSTD_skippableFrame;
+-            zfhPtr->windowSize = 0;
+             return 0;
+         }
+         return ERROR(prefix_unknown);
+@@ -350,6 +350,7 @@ size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t src
+         zfhPtr->frameType = ZSTD_frame;
+         zfhPtr->frameContentSize = frameContentSize;
+         zfhPtr->windowSize = windowSize;
++        zfhPtr->blockSizeMax = (unsigned) MIN(windowSize, ZSTD_BLOCKSIZE_MAX);
+         zfhPtr->dictID = dictID;
+         zfhPtr->checksumFlag = checksumFlag;
+     }
+@@ -1771,9 +1772,16 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, c
+                 return ERROR(corruption_detected);
+             }
+             if (ZSTD_isError(rSize)) return rSize;
++            DEBUGLOG(5, "decoded size from block : %u", (U32)rSize);
++            dctx->decodedSize += rSize;
+             if (dctx->fParams.checksumFlag) XXH64_update(&dctx->xxhState, dst, rSize);
+ 
+             if (dctx->stage == ZSTDds_decompressLastBlock) {   /* end of frame */
++                DEBUGLOG(4, "decoded size from frame : %u", (U32)dctx->decodedSize);
++                if (dctx->fParams.frameContentSize != ZSTD_CONTENTSIZE_UNKNOWN) {
++                    if (dctx->decodedSize != dctx->fParams.frameContentSize) {
++                        return ERROR(corruption_detected);
++                }   }
+                 if (dctx->fParams.checksumFlag) {  /* another round for frame checksum */
+                     dctx->expected = 4;
+                     dctx->stage = ZSTDds_checkChecksum;
+@@ -1789,8 +1797,11 @@ size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, c
+             return rSize;
+         }
+     case ZSTDds_checkChecksum:
++        DEBUGLOG(4, "case ZSTDds_checkChecksum");
++        assert(srcSize == 4);  /* guaranteed by dctx->expected */
+         {   U32 const h32 = (U32)XXH64_digest(&dctx->xxhState);
+-            U32 const check32 = MEM_readLE32(src);   /* srcSize == 4, guaranteed by dctx->expected */
++            U32 const check32 = MEM_readLE32(src);
++            DEBUGLOG(4, "calculated %08X :: %08X read", h32, check32);
+             if (check32 != h32) return ERROR(checksum_wrong);
+             dctx->expected = 0;
+             dctx->stage = ZSTDds_getFrameHeaderSize;
+@@ -2117,7 +2128,7 @@ unsigned ZSTD_getDictID_fromDDict(const ZSTD_DDict* ddict)
+  *  ZSTD_getFrameHeader(), which will provide a more precise error code. */
+ unsigned ZSTD_getDictID_fromFrame(const void* src, size_t srcSize)
+ {
+-    ZSTD_frameHeader zfp = { 0, 0, ZSTD_frame, 0, 0, 0 };
++    ZSTD_frameHeader zfp = { 0, 0, 0, ZSTD_frame, 0, 0, 0 };
+     size_t const hError = ZSTD_getFrameHeader(&zfp, src, srcSize);
+     if (ZSTD_isError(hError)) return 0;
+     return zfp.dictID;
+@@ -2224,17 +2235,27 @@ size_t ZSTD_sizeof_DStream(const ZSTD_DStream* zds)
+     return ZSTD_sizeof_DCtx(zds);
+ }
+ 
++size_t ZSTD_decodingBufferSize_min(unsigned long long windowSize, unsigned long long frameContentSize)
++{
++    size_t const blockSize = (size_t) MIN(windowSize, ZSTD_BLOCKSIZE_MAX);
++    unsigned long long const neededRBSize = windowSize + blockSize + (WILDCOPY_OVERLENGTH * 2);
++    unsigned long long const neededSize = MIN(frameContentSize, neededRBSize);
++    size_t const minRBSize = (size_t) neededSize;
++    if ((unsigned long long)minRBSize != neededSize) return ERROR(frameParameter_windowTooLarge);
++    return minRBSize;
++}
++
+ size_t ZSTD_estimateDStreamSize(size_t windowSize)
+ {
+     size_t const blockSize = MIN(windowSize, ZSTD_BLOCKSIZE_MAX);
+     size_t const inBuffSize = blockSize;  /* no block can be larger */
+-    size_t const outBuffSize = windowSize + blockSize + (WILDCOPY_OVERLENGTH * 2);
++    size_t const outBuffSize = ZSTD_decodingBufferSize_min(windowSize, ZSTD_CONTENTSIZE_UNKNOWN);
+     return ZSTD_estimateDCtxSize() + inBuffSize + outBuffSize;
+ }
+ 
+ ZSTDLIB_API size_t ZSTD_estimateDStreamSize_fromFrame(const void* src, size_t srcSize)
+ {
+-    U32 const windowSizeMax = 1U << ZSTD_WINDOWLOG_MAX;
++    U32 const windowSizeMax = 1U << ZSTD_WINDOWLOG_MAX;   /* note : should be user-selectable */
+     ZSTD_frameHeader zfh;
+     size_t const err = ZSTD_getFrameHeader(&zfh, src, srcSize);
+     if (ZSTD_isError(err)) return err;
+@@ -2350,15 +2371,14 @@ size_t ZSTD_decompressStream(ZSTD_DStream* zds, ZSTD_outBuffer* output, ZSTD_inB
+             if (zds->fParams.windowSize > zds->maxWindowSize) return ERROR(frameParameter_windowTooLarge);
+ 
+             /* Adapt buffer sizes to frame header instructions */
+-            {   size_t const blockSize = (size_t)(MIN(zds->fParams.windowSize, ZSTD_BLOCKSIZE_MAX));
+-                size_t const neededOutSize = (size_t)(zds->fParams.windowSize + blockSize + WILDCOPY_OVERLENGTH * 2);
+-                zds->blockSize = blockSize;
+-                if ((zds->inBuffSize < blockSize) || (zds->outBuffSize < neededOutSize)) {
+-                    size_t const bufferSize = blockSize + neededOutSize;
++            {   size_t const neededInBuffSize = MAX(zds->fParams.blockSizeMax, 4 /* frame checksum */);
++                size_t const neededOutBuffSize = ZSTD_decodingBufferSize_min(zds->fParams.windowSize, zds->fParams.frameContentSize);
++                if ((zds->inBuffSize < neededInBuffSize) || (zds->outBuffSize < neededOutBuffSize)) {
++                    size_t const bufferSize = neededInBuffSize + neededOutBuffSize;
+                     DEBUGLOG(4, "inBuff  : from %u to %u",
+-                                (U32)zds->inBuffSize, (U32)blockSize);
++                                (U32)zds->inBuffSize, (U32)neededInBuffSize);
+                     DEBUGLOG(4, "outBuff : from %u to %u",
+-                                (U32)zds->outBuffSize, (U32)neededOutSize);
++                                (U32)zds->outBuffSize, (U32)neededOutBuffSize);
+                     if (zds->staticSize) {  /* static DCtx */
+                         DEBUGLOG(4, "staticSize : %u", (U32)zds->staticSize);
+                         assert(zds->staticSize >= sizeof(ZSTD_DCtx));  /* controlled at init */
+@@ -2371,9 +2391,9 @@ size_t ZSTD_decompressStream(ZSTD_DStream* zds, ZSTD_outBuffer* output, ZSTD_inB
+                         zds->inBuff = (char*)ZSTD_malloc(bufferSize, zds->customMem);
+                         if (zds->inBuff == NULL) return ERROR(memory_allocation);
+                     }
+-                    zds->inBuffSize = blockSize;
++                    zds->inBuffSize = neededInBuffSize;
+                     zds->outBuff = zds->inBuff + zds->inBuffSize;
+-                    zds->outBuffSize = neededOutSize;
++                    zds->outBuffSize = neededOutBuffSize;
+             }   }
+             zds->streamStage = zdss_read;
+             /* fall-through */
+@@ -2431,8 +2451,13 @@ size_t ZSTD_decompressStream(ZSTD_DStream* zds, ZSTD_outBuffer* output, ZSTD_inB
+                 zds->outStart += flushedSize;
+                 if (flushedSize == toFlushSize) {  /* flush completed */
+                     zds->streamStage = zdss_read;
+-                    if (zds->outStart + zds->blockSize > zds->outBuffSize)
++                    if ( (zds->outBuffSize < zds->fParams.frameContentSize)
++                      && (zds->outStart + zds->fParams.blockSizeMax > zds->outBuffSize) ) {
++                        DEBUGLOG(5, "restart filling outBuff from beginning (left:%i, needed:%u)",
++                                (int)(zds->outBuffSize - zds->outStart),
++                                (U32)zds->fParams.blockSizeMax);
+                         zds->outStart = zds->outEnd = 0;
++                    }
+                     break;
+             }   }
+             /* cannot complete flush */
+diff --git a/lib/zstd.h b/lib/zstd.h
+index 8817ef94542..7695776f594 100644
+--- a/lib/zstd.h
++++ b/lib/zstd.h
+@@ -812,40 +812,53 @@ ZSTDLIB_API size_t ZSTD_compressEnd(ZSTD_CCtx* cctx, void* dst, size_t dstCapaci
+   A ZSTD_DCtx object can be re-used multiple times.
+ 
+   First typical operation is to retrieve frame parameters, using ZSTD_getFrameHeader().
+-  It fills a ZSTD_frameHeader structure with important information to correctly decode the frame,
+-  such as minimum rolling buffer size to allocate to decompress data (`windowSize`),
+-  and the dictionary ID in use.
+-  (Note : content size is optional, it may not be present. 0 means : content size unknown).
+-  Note that these values could be wrong, either because of data malformation, or because an attacker is spoofing deliberate false information.
+-  As a consequence, check that values remain within valid application range, especially `windowSize`, before allocation.
+-  Each application can set its own limit, depending on local restrictions.
+-  For extended interoperability, it is recommended to support windowSize of at least 8 MB.
+   Frame header is extracted from the beginning of compressed frame, so providing only the frame's beginning is enough.
+   Data fragment must be large enough to ensure successful decoding.
+-  `ZSTD_frameHeaderSize_max` bytes is guaranteed to always be large enough.
++ `ZSTD_frameHeaderSize_max` bytes is guaranteed to always be large enough.
+   @result : 0 : successful decoding, the `ZSTD_frameHeader` structure is correctly filled.
+            >0 : `srcSize` is too small, please provide at least @result bytes on next attempt.
+            errorCode, which can be tested using ZSTD_isError().
+ 
+-  Start decompression, with ZSTD_decompressBegin().
++  It fills a ZSTD_frameHeader structure with important information to correctly decode the frame,
++  such as the dictionary ID, content size, or maximum back-reference distance (`windowSize`).
++  Note that these values could be wrong, either because of data corruption, or because a 3rd party deliberately spoofs false information.
++  As a consequence, check that values remain within valid application range.
++  For example, do not allocate memory blindly, check that `windowSize` is within expectation.
++  Each application can set its own limits, depending on local restrictions.
++  For extended interoperability, it is recommended to support `windowSize` of at least 8 MB.
++
++  ZSTD_decompressContinue() needs previous data blocks during decompression, up to `windowSize` bytes.
++  ZSTD_decompressContinue() is very sensitive to contiguity,
++  if 2 blocks don't follow each other, make sure that either the compressor breaks contiguity at the same place,
++  or that previous contiguous segment is large enough to properly handle maximum back-reference distance.
++  There are multiple ways to guarantee this condition.
++
++  The most memory efficient way is to use a round buffer of sufficient size.
++  Sufficient size is determined by invoking ZSTD_decodingBufferSize_min(),
++  which can @return an error code if required value is too large for current system (in 32-bits mode).
++  In a round buffer methodology, ZSTD_decompressContinue() decompresses each block next to previous one,
++  up to the moment there is not enough room left in the buffer to guarantee decoding another full block,
++  which maximum size is provided in `ZSTD_frameHeader` structure, field `blockSizeMax`.
++  At which point, decoding can resume from the beginning of the buffer.
++  Note that already decoded data stored in the buffer should be flushed before being overwritten.
++
++  There are alternatives possible, for example using two or more buffers of size `windowSize` each, though they consume more memory.
++
++  Finally, if you control the compression process, you can also ignore all buffer size rules,
++  as long as the encoder and decoder progress in "lock-step",
++  aka use exactly the same buffer sizes, break contiguity at the same place, etc.
++
++  Once buffers are setup, start decompression, with ZSTD_decompressBegin().
+   If decompression requires a dictionary, use ZSTD_decompressBegin_usingDict() or ZSTD_decompressBegin_usingDDict().
+-  Alternatively, you can copy a prepared context, using ZSTD_copyDCtx().
+ 
+   Then use ZSTD_nextSrcSizeToDecompress() and ZSTD_decompressContinue() alternatively.
+   ZSTD_nextSrcSizeToDecompress() tells how many bytes to provide as 'srcSize' to ZSTD_decompressContinue().
+   ZSTD_decompressContinue() requires this _exact_ amount of bytes, or it will fail.
+ 
+-  @result of ZSTD_decompressContinue() is the number of bytes regenerated within 'dst' (necessarily <= dstCapacity).
+-  It can be zero, which is not an error; it just means ZSTD_decompressContinue() has decoded some metadata item.
++ @result of ZSTD_decompressContinue() is the number of bytes regenerated within 'dst' (necessarily <= dstCapacity).
++  It can be zero : it just means ZSTD_decompressContinue() has decoded some metadata item.
+   It can also be an error code, which can be tested with ZSTD_isError().
+ 
+-  ZSTD_decompressContinue() needs previous data blocks during decompression, up to `windowSize`.
+-  They should preferably be located contiguously, prior to current block.
+-  Alternatively, a round buffer of sufficient size is also possible. Sufficient size is determined by frame parameters.
+-  ZSTD_decompressContinue() is very sensitive to contiguity,
+-  if 2 blocks don't follow each other, make sure that either the compressor breaks contiguity at the same place,
+-  or that previous contiguous segment is large enough to properly handle maximum back-reference.
+-
+   A frame is fully decoded when ZSTD_nextSrcSizeToDecompress() returns zero.
+   Context can then be reset to start a new decompression.
+ 
+@@ -855,36 +868,38 @@ ZSTDLIB_API size_t ZSTD_compressEnd(ZSTD_CCtx* cctx, void* dst, size_t dstCapaci
+   == Special case : skippable frames ==
+ 
+   Skippable frames allow integration of user-defined data into a flow of concatenated frames.
+-  Skippable frames will be ignored (skipped) by a decompressor. The format of skippable frames is as follows :
++  Skippable frames will be ignored (skipped) by decompressor.
++  The format of skippable frames is as follows :
+   a) Skippable frame ID - 4 Bytes, Little endian format, any value from 0x184D2A50 to 0x184D2A5F
+   b) Frame Size - 4 Bytes, Little endian format, unsigned 32-bits
+   c) Frame Content - any content (User Data) of length equal to Frame Size
+-  For skippable frames ZSTD_decompressContinue() always returns 0.
+-  For skippable frames ZSTD_getFrameHeader() returns fparamsPtr->windowLog==0 what means that a frame is skippable.
+-    Note : If fparamsPtr->frameContentSize==0, it is ambiguous: the frame might actually be a Zstd encoded frame with no content.
+-           For purposes of decompression, it is valid in both cases to skip the frame using
+-           ZSTD_findFrameCompressedSize to find its size in bytes.
+-  It also returns Frame Size as fparamsPtr->frameContentSize.
++  For skippable frames ZSTD_getFrameHeader() returns zfhPtr->frameType==ZSTD_skippableFrame.
++  For skippable frames ZSTD_decompressContinue() always returns 0 : it only skips the content.
+ */
+ 
+ /*=====   Buffer-less streaming decompression functions  =====*/
+ typedef enum { ZSTD_frame, ZSTD_skippableFrame } ZSTD_frameType_e;
+ typedef struct {
+-    unsigned long long frameContentSize; /* ZSTD_CONTENTSIZE_UNKNOWN means this field is not available. 0 means "empty" */
++    unsigned long long frameContentSize; /* if == ZSTD_CONTENTSIZE_UNKNOWN, it means this field is not available. 0 means "empty" */
+     unsigned long long windowSize;       /* can be very large, up to <= frameContentSize */
++    unsigned blockSizeMax;
+     ZSTD_frameType_e frameType;          /* if == ZSTD_skippableFrame, frameContentSize is the size of skippable content */
+     unsigned headerSize;
+     unsigned dictID;
+     unsigned checksumFlag;
+ } ZSTD_frameHeader;
+ ZSTDLIB_API size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize);   /**< doesn't consume input */
++ZSTDLIB_API size_t ZSTD_decodingBufferSize_min(unsigned long long windowSize, unsigned long long frameContentSize);  /**< when frame content size is not known, pass in frameContentSize == ZSTD_CONTENTSIZE_UNKNOWN */
++
+ ZSTDLIB_API size_t ZSTD_decompressBegin(ZSTD_DCtx* dctx);
+ ZSTDLIB_API size_t ZSTD_decompressBegin_usingDict(ZSTD_DCtx* dctx, const void* dict, size_t dictSize);
+ ZSTDLIB_API size_t ZSTD_decompressBegin_usingDDict(ZSTD_DCtx* dctx, const ZSTD_DDict* ddict);
+-ZSTDLIB_API void   ZSTD_copyDCtx(ZSTD_DCtx* dctx, const ZSTD_DCtx* preparedDCtx);
+ 
+ ZSTDLIB_API size_t ZSTD_nextSrcSizeToDecompress(ZSTD_DCtx* dctx);
+ ZSTDLIB_API size_t ZSTD_decompressContinue(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, const void* src, size_t srcSize);
++
++/* misc */
++ZSTDLIB_API void   ZSTD_copyDCtx(ZSTD_DCtx* dctx, const ZSTD_DCtx* preparedDCtx);
+ typedef enum { ZSTDnit_frameHeader, ZSTDnit_blockHeader, ZSTDnit_block, ZSTDnit_lastBlock, ZSTDnit_checksum, ZSTDnit_skippableFrame } ZSTD_nextInputType_e;
+ ZSTDLIB_API ZSTD_nextInputType_e ZSTD_nextInputType(ZSTD_DCtx* dctx);
+ 
+@@ -1188,7 +1203,7 @@ ZSTDLIB_API size_t ZSTD_CCtx_setParametersUsingCCtxParams(
+ ZSTDLIB_API size_t ZSTD_getBlockSize   (const ZSTD_CCtx* cctx);
+ ZSTDLIB_API size_t ZSTD_compressBlock  (ZSTD_CCtx* cctx, void* dst, size_t dstCapacity, const void* src, size_t srcSize);
+ ZSTDLIB_API size_t ZSTD_decompressBlock(ZSTD_DCtx* dctx, void* dst, size_t dstCapacity, const void* src, size_t srcSize);
+-ZSTDLIB_API size_t ZSTD_insertBlock(ZSTD_DCtx* dctx, const void* blockStart, size_t blockSize);  /**< insert block into `dctx` history. Useful for uncompressed blocks */
++ZSTDLIB_API size_t ZSTD_insertBlock(ZSTD_DCtx* dctx, const void* blockStart, size_t blockSize);  /**< insert uncompressed block into `dctx` history. Useful for multi-blocks decompression */
+ 
+ 
+ #endif   /* ZSTD_H_ZSTD_STATIC_LINKING_ONLY */
+diff --git a/zlibWrapper/Makefile b/zlibWrapper/Makefile
+index 4e8fb4a329b..c1896f8b80a 100644
+--- a/zlibWrapper/Makefile
++++ b/zlibWrapper/Makefile
+@@ -34,7 +34,7 @@ EXT =
+ endif
+ 
+ 
+-all: clean fitblk example zwrapbench minigzip
++all: fitblk example zwrapbench minigzip
+ 
+ test: example fitblk example_zstd fitblk_zstd zwrapbench minigzip minigzip_zstd
+ 	./example

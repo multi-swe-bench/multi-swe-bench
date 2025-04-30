@@ -1,0 +1,84 @@
+diff --git a/git/git.go b/git/git.go
+index 9a9c4b76ddd..684b00c10b4 100644
+--- a/git/git.go
++++ b/git/git.go
+@@ -180,6 +180,33 @@ func Commits(baseRef, headRef string) ([]*Commit, error) {
+ 	return commits, nil
+ }
+ 
++func LastCommit() (*Commit, error) {
++	logCmd, err := GitCommand("-c", "log.ShowSignature=false", "log", "--pretty=format:%H,%s", "-1")
++	if err != nil {
++		return nil, err
++	}
++
++	output, err := run.PrepareCmd(logCmd).Output()
++	if err != nil {
++		return nil, err
++	}
++
++	lines := outputLines(output)
++	if len(lines) != 1 {
++		return nil, ErrNotOnAnyBranch
++	}
++
++	split := strings.SplitN(lines[0], ",", 2)
++	if len(split) != 2 {
++		return nil, ErrNotOnAnyBranch
++	}
++
++	return &Commit{
++		Sha:   split[0],
++		Title: split[1],
++	}, nil
++}
++
+ func CommitBody(sha string) (string, error) {
+ 	showCmd, err := GitCommand("-c", "log.ShowSignature=false", "show", "-s", "--pretty=format:%b", sha)
+ 	if err != nil {
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index 6626c3bc102..4c8c946c0c8 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -131,6 +131,16 @@ func mergeRun(opts *MergeOptions) error {
+ 		return err
+ 	}
+ 
++	if opts.SelectorArg == "" {
++		localBranchLastCommit, err := git.LastCommit()
++		if err == nil {
++			if localBranchLastCommit.Sha != pr.Commits.Nodes[0].Commit.Oid {
++				fmt.Fprintf(opts.IO.ErrOut,
++					"%s Pull request #%d (%s) has diverged from local branch\n", cs.Yellow("!"), pr.Number, pr.Title)
++			}
++		}
++	}
++
+ 	if pr.Mergeable == "CONFLICTING" {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Pull request #%d (%s) has conflicts and isn't mergeable\n", cs.Red("!"), pr.Number, pr.Title)
+ 		return cmdutil.SilentError
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByBranch.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByBranch.json
+index 73a64ca1c26..15842a7b9a0 100644
+--- a/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByBranch.json
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByBranch.json
+@@ -116,6 +116,13 @@
+               "login": "OWNER"
+             },
+             "commits": {
++              "nodes": [
++                {
++                  "commit": {
++                    "oid": "123456789"
++                  }
++                }
++              ],
+               "totalCount": 8
+             },
+             "isCrossRepository": false,
+@@ -125,4 +132,4 @@
+       }
+     }
+   }
+-}
+\ No newline at end of file
++}

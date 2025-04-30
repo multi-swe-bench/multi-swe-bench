@@ -1,0 +1,52 @@
+diff --git a/docs/content/manual/manual.yml b/docs/content/manual/manual.yml
+index 6382d8354a..e6edbc7ba0 100644
+--- a/docs/content/manual/manual.yml
++++ b/docs/content/manual/manual.yml
+@@ -1048,10 +1048,11 @@ sections:
+       - title: "`pick(pathexps)`"
+         body: |
+ 
+-          Emit the projection of the input object or array defined by the specified
+-          sequence of path expressions, such that if p is any one of these specifications,
+-          then `(. | p)` will evaluate to the same value as `(. | pick(pathexps) | p)`.
+-          For arrays, negative indices and .[m:n] specifications should not be used.
++          Emit the projection of the input object or array defined by the
++          specified sequence of path expressions, such that if `p` is any
++          one of these specifications, then `(. | p)` will evaluate to the
++          same value as `(. | pick(pathexps) | p)`. For arrays, negative
++          indices and `.[m:n]` specifications should not be used.
+ 
+         examples:
+           - program: 'pick(.a, .b.c, .x)'
+diff --git a/jq.1.prebuilt b/jq.1.prebuilt
+index f386b49ce8..162881c11b 100644
+--- a/jq.1.prebuilt
++++ b/jq.1.prebuilt
+@@ -1050,7 +1050,7 @@ jq \'map_values(\. // empty)\'
+ .IP "" 0
+ .
+ .SS "pick(pathexps)"
+-Emit the projection of the input object or array defined by the specified sequence of path expressions, such that if p is any one of these specifications, then \fB(\. | p)\fR will evaluate to the same value as \fB(\. | pick(pathexps) | p)\fR\. For arrays, negative indices and \.[m:n] specifications should not be used\.
++Emit the projection of the input object or array defined by the specified sequence of path expressions, such that if \fBp\fR is any one of these specifications, then \fB(\. | p)\fR will evaluate to the same value as \fB(\. | pick(pathexps) | p)\fR\. For arrays, negative indices and \fB\.[m:n]\fR specifications should not be used\.
+ .
+ .IP "" 4
+ .
+diff --git a/src/execute.c b/src/execute.c
+index ae92c37317..367819e8a9 100644
+--- a/src/execute.c
++++ b/src/execute.c
+@@ -694,14 +694,6 @@ jv jq_next(jq_state *jq) {
+         set_error(jq, jv_invalid_with_msg(msg));
+         goto do_backtrack;
+       }
+-      // $array | .[-1]
+-      if (jv_get_kind(k) == JV_KIND_NUMBER && jv_get_kind(t) == JV_KIND_ARRAY) {
+-        int idx = jv_number_value(k);
+-        if (idx < 0) {
+-          jv_free(k);
+-          k = jv_number(jv_array_length(jv_copy(t)) + idx);
+-        }
+-      }
+       jv v = jv_get(t, jv_copy(k));
+       if (jv_is_valid(v)) {
+         path_append(jq, k, jv_copy(v));

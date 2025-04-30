@@ -1,0 +1,187 @@
+diff --git a/api/client.go b/api/client.go
+index 1c8c1eaa203..74a5a041745 100644
+--- a/api/client.go
++++ b/api/client.go
+@@ -7,6 +7,7 @@ import (
+ 	"io"
+ 	"io/ioutil"
+ 	"net/http"
++	"net/url"
+ 	"regexp"
+ 	"strings"
+ 
+@@ -154,7 +155,21 @@ func (gr GraphQLErrorResponse) Error() string {
+ 	for _, e := range gr.Errors {
+ 		errorMessages = append(errorMessages, e.Message)
+ 	}
+-	return fmt.Sprintf("graphql error: '%s'", strings.Join(errorMessages, ", "))
++	return fmt.Sprintf("GraphQL error: %s", strings.Join(errorMessages, "\n"))
++}
++
++// HTTPError is an error returned by a failed API call
++type HTTPError struct {
++	StatusCode int
++	RequestURL *url.URL
++	Message    string
++}
++
++func (err HTTPError) Error() string {
++	if err.Message != "" {
++		return fmt.Sprintf("HTTP %d: %s (%s)", err.StatusCode, err.Message, err.RequestURL)
++	}
++	return fmt.Sprintf("HTTP %d (%s)", err.StatusCode, err.RequestURL)
+ }
+ 
+ // Returns whether or not scopes are present, appID, and error
+@@ -283,22 +298,25 @@ func handleResponse(resp *http.Response, data interface{}) error {
+ }
+ 
+ func handleHTTPError(resp *http.Response) error {
+-	var message string
+-	var parsedBody struct {
+-		Message string `json:"message"`
++	httpError := HTTPError{
++		StatusCode: resp.StatusCode,
++		RequestURL: resp.Request.URL,
+ 	}
++
+ 	body, err := ioutil.ReadAll(resp.Body)
+ 	if err != nil {
+-		return err
++		httpError.Message = err.Error()
++		return httpError
+ 	}
+-	err = json.Unmarshal(body, &parsedBody)
+-	if err != nil {
+-		message = string(body)
+-	} else {
+-		message = parsedBody.Message
++
++	var parsedBody struct {
++		Message string `json:"message"`
++	}
++	if err := json.Unmarshal(body, &parsedBody); err == nil {
++		httpError.Message = parsedBody.Message
+ 	}
+ 
+-	return fmt.Errorf("http error, '%s' failed (%d): '%s'", resp.Request.URL, resp.StatusCode, message)
++	return httpError
+ }
+ 
+ var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 00d01661af4..56582d0e36b 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -1011,11 +1011,8 @@ func PullRequestReady(client *Client, repo ghrepo.Interface, pr *PullRequest) er
+ }
+ 
+ func BranchDeleteRemote(client *Client, repo ghrepo.Interface, branch string) error {
+-	var response struct {
+-		NodeID string `json:"node_id"`
+-	}
+ 	path := fmt.Sprintf("repos/%s/%s/git/refs/heads/%s", repo.RepoOwner(), repo.RepoName(), branch)
+-	return client.REST("DELETE", path, nil, &response)
++	return client.REST("DELETE", path, nil, nil)
+ }
+ 
+ func min(a, b int) int {
+diff --git a/command/pr.go b/command/pr.go
+index 2068a10e8ad..d1720ca428c 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -523,7 +523,9 @@ func prMerge(cmd *cobra.Command, args []string) error {
+ 
+ 		if !crossRepoPR {
+ 			err = api.BranchDeleteRemote(apiClient, baseRepo, pr.HeadRefName)
+-			if err != nil {
++			var httpErr api.HTTPError
++			// The ref might have already been deleted by GitHub
++			if err != nil && (!errors.As(err, &httpErr) || httpErr.StatusCode != 422) {
+ 				err = fmt.Errorf("failed to delete remote branch %s: %w", utils.Cyan(pr.HeadRefName), err)
+ 				return err
+ 			}
+diff --git a/pkg/httpmock/legacy.go b/pkg/httpmock/legacy.go
+index 9474c3dd8ff..9402c21c74b 100644
+--- a/pkg/httpmock/legacy.go
++++ b/pkg/httpmock/legacy.go
+@@ -12,19 +12,19 @@ import (
+ // TODO: clean up methods in this file when there are no more callers
+ 
+ func (r *Registry) StubResponse(status int, body io.Reader) {
+-	r.Register(MatchAny, func(*http.Request) (*http.Response, error) {
+-		return httpResponse(status, body), nil
++	r.Register(MatchAny, func(req *http.Request) (*http.Response, error) {
++		return httpResponse(status, req, body), nil
+ 	})
+ }
+ 
+ func (r *Registry) StubWithFixture(status int, fixtureFileName string) func() {
+ 	fixturePath := path.Join("../test/fixtures/", fixtureFileName)
+ 	fixtureFile, err := os.Open(fixturePath)
+-	r.Register(MatchAny, func(*http.Request) (*http.Response, error) {
++	r.Register(MatchAny, func(req *http.Request) (*http.Response, error) {
+ 		if err != nil {
+ 			return nil, err
+ 		}
+-		return httpResponse(200, fixtureFile), nil
++		return httpResponse(200, req, fixtureFile), nil
+ 	})
+ 	return func() {
+ 		if err == nil {
+diff --git a/pkg/httpmock/stub.go b/pkg/httpmock/stub.go
+index 48077ed4e92..c57b7a1ada7 100644
+--- a/pkg/httpmock/stub.go
++++ b/pkg/httpmock/stub.go
+@@ -59,15 +59,21 @@ func decodeJSONBody(req *http.Request, dest interface{}) error {
+ }
+ 
+ func StringResponse(body string) Responder {
+-	return func(*http.Request) (*http.Response, error) {
+-		return httpResponse(200, bytes.NewBufferString(body)), nil
++	return func(req *http.Request) (*http.Response, error) {
++		return httpResponse(200, req, bytes.NewBufferString(body)), nil
++	}
++}
++
++func StatusStringResponse(status int, body string) Responder {
++	return func(req *http.Request) (*http.Response, error) {
++		return httpResponse(status, req, bytes.NewBufferString(body)), nil
+ 	}
+ }
+ 
+ func JSONResponse(body interface{}) Responder {
+-	return func(*http.Request) (*http.Response, error) {
++	return func(req *http.Request) (*http.Response, error) {
+ 		b, _ := json.Marshal(body)
+-		return httpResponse(200, bytes.NewBuffer(b)), nil
++		return httpResponse(200, req, bytes.NewBuffer(b)), nil
+ 	}
+ }
+ 
+@@ -84,7 +90,7 @@ func GraphQLMutation(body string, cb func(map[string]interface{})) Responder {
+ 		}
+ 		cb(bodyData.Variables.Input)
+ 
+-		return httpResponse(200, bytes.NewBufferString(body)), nil
++		return httpResponse(200, req, bytes.NewBufferString(body)), nil
+ 	}
+ }
+ 
+@@ -100,13 +106,14 @@ func GraphQLQuery(body string, cb func(string, map[string]interface{})) Responde
+ 		}
+ 		cb(bodyData.Query, bodyData.Variables)
+ 
+-		return httpResponse(200, bytes.NewBufferString(body)), nil
++		return httpResponse(200, req, bytes.NewBufferString(body)), nil
+ 	}
+ }
+ 
+-func httpResponse(status int, body io.Reader) *http.Response {
++func httpResponse(status int, req *http.Request, body io.Reader) *http.Response {
+ 	return &http.Response{
+ 		StatusCode: status,
++		Request:    req,
+ 		Body:       ioutil.NopCloser(body),
+ 	}
+ }

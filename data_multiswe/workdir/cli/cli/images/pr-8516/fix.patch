@@ -1,0 +1,320 @@
+diff --git a/pkg/cmd/cache/shared/shared.go b/pkg/cmd/cache/shared/shared.go
+index c3ae7568d53..6dceb186ced 100644
+--- a/pkg/cmd/cache/shared/shared.go
++++ b/pkg/cmd/cache/shared/shared.go
+@@ -2,12 +2,11 @@ package shared
+ 
+ import (
+ 	"fmt"
+-	"reflect"
+-	"strings"
+ 	"time"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ )
+ 
+ var CacheFields = []string{
+@@ -85,17 +84,5 @@ pagination:
+ }
+ 
+ func (c *Cache) ExportData(fields []string) map[string]interface{} {
+-	v := reflect.ValueOf(c).Elem()
+-	fieldByName := func(v reflect.Value, field string) reflect.Value {
+-		return v.FieldByNameFunc(func(s string) bool {
+-			return strings.EqualFold(field, s)
+-		})
+-	}
+-	data := map[string]interface{}{}
+-
+-	for _, f := range fields {
+-		data[f] = fieldByName(v, f).Interface()
+-	}
+-
+-	return data
++	return cmdutil.StructExportData(c, fields)
+ }
+diff --git a/pkg/cmd/label/shared.go b/pkg/cmd/label/shared.go
+index b9886f91402..a189721d7c6 100644
+--- a/pkg/cmd/label/shared.go
++++ b/pkg/cmd/label/shared.go
+@@ -1,9 +1,9 @@
+ package label
+ 
+ import (
+-	"reflect"
+-	"strings"
+ 	"time"
++
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ )
+ 
+ var labelFields = []string{
+@@ -21,31 +21,13 @@ type label struct {
+ 	Color       string    `json:"color"`
+ 	CreatedAt   time.Time `json:"createdAt"`
+ 	Description string    `json:"description"`
+-	ID          string    `json:"node_id"`
++	ID          string    `json:"id"`
+ 	IsDefault   bool      `json:"isDefault"`
+ 	Name        string    `json:"name"`
+ 	URL         string    `json:"url"`
+ 	UpdatedAt   time.Time `json:"updatedAt"`
+ }
+ 
+-// ExportData implements cmdutil.exportable
+ func (l *label) ExportData(fields []string) map[string]interface{} {
+-	v := reflect.ValueOf(l).Elem()
+-	data := map[string]interface{}{}
+-
+-	for _, f := range fields {
+-		switch f {
+-		default:
+-			sf := fieldByName(v, f)
+-			data[f] = sf.Interface()
+-		}
+-	}
+-
+-	return data
+-}
+-
+-func fieldByName(v reflect.Value, field string) reflect.Value {
+-	return v.FieldByNameFunc(func(s string) bool {
+-		return strings.EqualFold(field, s)
+-	})
++	return cmdutil.StructExportData(l, fields)
+ }
+diff --git a/pkg/cmd/secret/list/list.go b/pkg/cmd/secret/list/list.go
+index 54c3d660e5b..57ca0e37d1d 100644
+--- a/pkg/cmd/secret/list/list.go
++++ b/pkg/cmd/secret/list/list.go
+@@ -144,7 +144,7 @@ func listRun(opts *ListOptions) error {
+ 		return fmt.Errorf("failed to get secrets: %w", err)
+ 	}
+ 
+-	if len(secrets) == 0 {
++	if len(secrets) == 0 && opts.Exporter == nil {
+ 		return cmdutil.NewNoResultsError("no secrets found")
+ 	}
+ 
+@@ -195,6 +195,10 @@ type Secret struct {
+ 	NumSelectedRepos int               `json:"num_selected_repos"`
+ }
+ 
++func (s *Secret) ExportData(fields []string) map[string]interface{} {
++	return cmdutil.StructExportData(s, fields)
++}
++
+ func fmtVisibility(s Secret) string {
+ 	switch s.Visibility {
+ 	case shared.All:
+diff --git a/pkg/cmd/variable/list/list.go b/pkg/cmd/variable/list/list.go
+index c2df0652d29..6d82d51a2b4 100644
+--- a/pkg/cmd/variable/list/list.go
++++ b/pkg/cmd/variable/list/list.go
+@@ -24,10 +24,21 @@ type ListOptions struct {
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Now        func() time.Time
+ 
++	Exporter cmdutil.Exporter
++
+ 	OrgName string
+ 	EnvName string
+ }
+ 
++var variableFields = []string{
++	"name",
++	"value",
++	"visibility",
++	"updatedAt",
++	"numSelectedRepos",
++	"selectedReposURL",
++}
++
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+@@ -65,6 +76,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 
+ 	cmd.Flags().StringVarP(&opts.OrgName, "org", "o", "", "List variables for an organization")
+ 	cmd.Flags().StringVarP(&opts.EnvName, "env", "e", "", "List variables for an environment")
++	cmdutil.AddJSONFlags(cmd, &opts.Exporter, variableFields)
+ 
+ 	return cmd
+ }
+@@ -114,7 +126,7 @@ func listRun(opts *ListOptions) error {
+ 		return fmt.Errorf("failed to get variables: %w", err)
+ 	}
+ 
+-	if len(variables) == 0 {
++	if len(variables) == 0 && opts.Exporter == nil {
+ 		return cmdutil.NewNoResultsError("no variables found")
+ 	}
+ 
+@@ -124,6 +136,10 @@ func listRun(opts *ListOptions) error {
+ 		fmt.Fprintf(opts.IO.ErrOut, "failed to start pager: %v\n", err)
+ 	}
+ 
++	if opts.Exporter != nil {
++		return opts.Exporter.Write(opts.IO, variables)
++	}
++
+ 	var headers []string
+ 	if variableEntity == shared.Organization {
+ 		headers = []string{"Name", "Value", "Updated", "Visibility"}
+@@ -155,12 +171,16 @@ func listRun(opts *ListOptions) error {
+ }
+ 
+ type Variable struct {
+-	Name             string
+-	Value            string
+-	UpdatedAt        time.Time `json:"updated_at"`
+-	Visibility       shared.Visibility
+-	SelectedReposURL string `json:"selected_repositories_url"`
+-	NumSelectedRepos int
++	Name             string            `json:"name"`
++	Value            string            `json:"value"`
++	UpdatedAt        time.Time         `json:"updated_at"`
++	Visibility       shared.Visibility `json:"visibility"`
++	SelectedReposURL string            `json:"selected_repositories_url"`
++	NumSelectedRepos int               `json:"num_selected_repos"`
++}
++
++func (v *Variable) ExportData(fields []string) map[string]interface{} {
++	return cmdutil.StructExportData(v, fields)
+ }
+ 
+ func fmtVisibility(s Variable) string {
+diff --git a/pkg/cmd/workflow/shared/shared.go b/pkg/cmd/workflow/shared/shared.go
+index 89fba815dad..db6b3ab122d 100644
+--- a/pkg/cmd/workflow/shared/shared.go
++++ b/pkg/cmd/workflow/shared/shared.go
+@@ -8,12 +8,12 @@ import (
+ 	"io"
+ 	"net/url"
+ 	"path"
+-	"reflect"
+ 	"strconv"
+ 	"strings"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/cli/go-gh/v2/pkg/asciisanitizer"
+ 	"golang.org/x/text/transform"
+@@ -51,21 +51,7 @@ func (w *Workflow) Base() string {
+ }
+ 
+ func (w *Workflow) ExportData(fields []string) map[string]interface{} {
+-	fieldByName := func(v reflect.Value, field string) reflect.Value {
+-		return v.FieldByNameFunc(func(s string) bool {
+-			return strings.EqualFold(field, s)
+-		})
+-	}
+-	v := reflect.ValueOf(w).Elem()
+-	data := map[string]interface{}{}
+-	for _, f := range fields {
+-		switch f {
+-		default:
+-			sf := fieldByName(v, f)
+-			data[f] = sf.Interface()
+-		}
+-	}
+-	return data
++	return cmdutil.StructExportData(w, fields)
+ }
+ 
+ func GetWorkflows(client *api.Client, repo ghrepo.Interface, limit int) ([]Workflow, error) {
+diff --git a/pkg/cmdutil/json_flags.go b/pkg/cmdutil/json_flags.go
+index aeb888653d4..bc3c242fe65 100644
+--- a/pkg/cmdutil/json_flags.go
++++ b/pkg/cmdutil/json_flags.go
+@@ -174,7 +174,7 @@ type jsonExporter struct {
+ }
+ 
+ // NewJSONExporter returns an Exporter to emit JSON.
+-func NewJSONExporter() Exporter {
++func NewJSONExporter() *jsonExporter {
+ 	return &jsonExporter{}
+ }
+ 
+@@ -182,6 +182,10 @@ func (e *jsonExporter) Fields() []string {
+ 	return e.fields
+ }
+ 
++func (e *jsonExporter) SetFields(fields []string) {
++	e.fields = fields
++}
++
+ // Write serializes data into JSON output written to w. If the object passed as data implements exportable,
+ // or if data is a map or slice of exportable object, ExportData() will be called on each object to obtain
+ // raw data for serialization.
+@@ -259,3 +263,35 @@ type exportable interface {
+ var exportableType = reflect.TypeOf((*exportable)(nil)).Elem()
+ var sliceOfEmptyInterface []interface{}
+ var emptyInterfaceType = reflect.TypeOf(sliceOfEmptyInterface).Elem()
++
++// Basic function that can be used with structs that need to implement
++// the exportable interface. It has numerous limitations so verify
++// that it works as expected with the struct and fields you want to export.
++// If it does not, then implementing a custom ExportData method is necessary.
++// Perhaps this should be moved up into exportData for the case when
++// a struct does not implement the exportable interface, but for now it will
++// need to be explicitly used.
++func StructExportData(s interface{}, fields []string) map[string]interface{} {
++	v := reflect.ValueOf(s)
++	if v.Kind() == reflect.Ptr {
++		v = v.Elem()
++	}
++	if v.Kind() != reflect.Struct {
++		// If s is not a struct or pointer to a struct return nil.
++		return nil
++	}
++	data := make(map[string]interface{}, len(fields))
++	for _, f := range fields {
++		sf := fieldByName(v, f)
++		if sf.IsValid() && sf.CanInterface() {
++			data[f] = sf.Interface()
++		}
++	}
++	return data
++}
++
++func fieldByName(v reflect.Value, field string) reflect.Value {
++	return v.FieldByNameFunc(func(s string) bool {
++		return strings.EqualFold(field, s)
++	})
++}
+diff --git a/pkg/search/result.go b/pkg/search/result.go
+index de00001dbf8..0c7c43cd7c5 100644
+--- a/pkg/search/result.go
++++ b/pkg/search/result.go
+@@ -5,6 +5,8 @@ import (
+ 	"reflect"
+ 	"strings"
+ 	"time"
++
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ )
+ 
+ var CodeFields = []string{
+@@ -293,16 +295,7 @@ func (code Code) ExportData(fields []string) map[string]interface{} {
+ }
+ 
+ func (textMatch TextMatch) ExportData(fields []string) map[string]interface{} {
+-	v := reflect.ValueOf(textMatch)
+-	data := map[string]interface{}{}
+-	for _, f := range fields {
+-		switch f {
+-		default:
+-			sf := fieldByName(v, f)
+-			data[f] = sf.Interface()
+-		}
+-	}
+-	return data
++	return cmdutil.StructExportData(textMatch, fields)
+ }
+ 
+ func (commit Commit) ExportData(fields []string) map[string]interface{} {

@@ -1,0 +1,112 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/mount-props-updates/_config.js b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/_config.js
+new file mode 100644
+index 000000000000..ff7af2d5244e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/_config.js
+@@ -0,0 +1,47 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	test({ assert, target }) {
++		assert.htmlEqual(
++			target.innerHTML,
++			// The buz fallback does not propagate back up
++			`
++			<button>reset</button> foo baz
++			<div><button>update</button> foo bar baz buz</div>
++			<div><button>update</button> foo bar baz buz</div>
++			`
++		);
++
++		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++
++		btn2.click();
++		btn3.click();
++		flushSync();
++		assert.htmlEqual(
++			target.innerHTML,
++			// bar is not set in the parent because it's a readonly property
++			// baz is not set in the parent because while it's a bindable property,
++			// it wasn't set initially so it's treated as a readonly proeprty
++			`
++			<button>reset</button> foo 3
++			<div><button>update</button> 1 2 3 4</div>
++			<div><button>update</button> 1 2 3 4</div>
++			`
++		);
++
++		btn1.click();
++		flushSync();
++		assert.htmlEqual(
++			target.innerHTML,
++			// Because foo is a readonly property, component.svelte diverges locally from it,
++			// and the passed in property keeps the initial value of foo. This is why it stays
++			// at 1, because foo is not updated to a different value.
++			`
++				<button>reset</button> foo bar baz buz
++			<div><button>update</button> 1 bar baz buz</div>
++			<div><button>update</button> 1 bar baz buz</div>
++				`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/mount-props-updates/component.svelte b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/component.svelte
+new file mode 100644
+index 000000000000..214cb7bf72fc
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/component.svelte
+@@ -0,0 +1,17 @@
++<script>
++	let { foo, bar = 'bar', baz = $bindable(), buz = $bindable('buz') } = $props();
++</script>
++
++<button
++	onclick={() => {
++		foo = '1';
++		bar = '2';
++		baz = '3';
++		buz = '4';
++	}}>update</button
++>
++
++{foo}
++{bar}
++{baz}
++{buz}
+diff --git a/packages/svelte/tests/runtime-runes/samples/mount-props-updates/main.svelte b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/main.svelte
+new file mode 100644
+index 000000000000..0769830afbcd
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/mount-props-updates/main.svelte
+@@ -0,0 +1,30 @@
++<script>
++	import { createClassComponent } from 'svelte/legacy';
++	import Component from './component.svelte';
++	import { mount, onMount } from 'svelte';
++
++	let div1, div2;
++	let legacy;
++	const props = $state({ foo: 'foo', baz: 'baz' });
++
++	onMount(() => {
++		legacy = createClassComponent({
++			component: Component,
++			target: div1,
++			props: { foo: 'foo', baz: 'baz' }
++		});
++		mount(Component, { target: div2, props });
++	});
++</script>
++
++<button
++	onclick={() => {
++		legacy.$set({ foo: 'foo', bar: 'bar', baz: 'baz', buz: 'buz' });
++		props.foo = 'foo';
++		props.bar = 'bar';
++		props.baz = 'baz';
++		props.buz = 'buz';
++	}}>reset</button
++> {props.foo} {props.bar} {props.baz} {props.buz}
++<div bind:this={div1}></div>
++<div bind:this={div2}></div>

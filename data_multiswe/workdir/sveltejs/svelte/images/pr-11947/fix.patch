@@ -1,0 +1,33 @@
+diff --git a/.changeset/breezy-waves-camp.md b/.changeset/breezy-waves-camp.md
+new file mode 100644
+index 000000000000..a324706d9c05
+--- /dev/null
++++ b/.changeset/breezy-waves-camp.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: validate form inside a form
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 51bb4d85fd8a..e54828375e65 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -568,6 +568,17 @@ const validation = {
+ 			}
+ 		}
+ 
++		// can't add form to interactive elements because those are also used by the parser
++		// to check for the last auto-closing parent.
++		if (node.name === 'form') {
++			const path = context.path;
++			for (let parent of path) {
++				if (parent.type === 'RegularElement' && parent.name === 'form') {
++					e.node_invalid_placement(node, `<${node.name}>`, parent.name);
++				}
++			}
++		}
++
+ 		if (interactive_elements.has(node.name)) {
+ 			const path = context.path;
+ 			for (let parent of path) {

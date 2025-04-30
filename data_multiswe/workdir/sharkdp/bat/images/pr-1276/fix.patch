@@ -1,0 +1,229 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index b181ff3a39..2a549f9384 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -5,6 +5,7 @@
+ ## Features
+ 
+ - Adjust pager configuration to comply with `--wrap=never`, see #1255 (@gahag)
++- Added a new `--style` value, `rule`, which adds a simple horizontal ruled line between files, see #1276 (@tommilligan)
+ 
+ ## Bugfixes
+ 
+diff --git a/assets/manual/bat.1.in b/assets/manual/bat.1.in
+index a6846b5dd5..65a17fe130 100644
+--- a/assets/manual/bat.1.in
++++ b/assets/manual/bat.1.in
+@@ -129,7 +129,7 @@ Configure which elements (line numbers, file headers, grid borders, Git modifica
+ of components to display (e.g. 'numbers,changes,grid') or a pre\-defined style ('full').
+ To set a default style, add the '\-\-style=".."' option to the configuration file or
+ export the BAT_STYLE environment variable (e.g.: export BAT_STYLE=".."). Possible
+-values: *auto*, full, plain, changes, header, grid, numbers, snip.
++values: *auto*, full, plain, changes, header, grid, rule, numbers, snip.
+ .HP
+ \fB\-r\fR, \fB\-\-line\-range\fR <N:M>...
+ .IP
+diff --git a/src/bin/bat/app.rs b/src/bin/bat/app.rs
+index 8249e3c93b..8d09618cb4 100644
+--- a/src/bin/bat/app.rs
++++ b/src/bin/bat/app.rs
+@@ -288,8 +288,8 @@ impl App {
+ 
+     fn style_components(&self) -> Result<StyleComponents> {
+         let matches = &self.matches;
+-        Ok(StyleComponents(
+-            if matches.value_of("decorations") == Some("never") {
++        let mut styled_components =
++            StyleComponents(if matches.value_of("decorations") == Some("never") {
+                 HashSet::new()
+             } else if matches.is_present("number") {
+                 [StyleComponent::LineNumbers].iter().cloned().collect()
+@@ -323,7 +323,17 @@ impl App {
+                         acc.extend(components.iter().cloned());
+                         acc
+                     })
+-            },
+-        ))
++            });
++
++        // If `grid` is set, remove `rule` as it is a subset of `grid`, and print a warning.
++        if styled_components.grid() && styled_components.0.remove(&StyleComponent::Rule) {
++            use ansi_term::Colour::Yellow;
++            eprintln!(
++                "{}: Style 'rule' is a subset of style 'grid', 'rule' will not be visible.",
++                Yellow.paint("[bat warning]"),
++            );
++        }
++
++        Ok(styled_components)
+     }
+ }
+diff --git a/src/bin/bat/clap_app.rs b/src/bin/bat/clap_app.rs
+index d04abd8a43..4e642760c8 100644
+--- a/src/bin/bat/clap_app.rs
++++ b/src/bin/bat/clap_app.rs
+@@ -367,7 +367,7 @@ pub fn build_app(interactive_output: bool) -> ClapApp<'static, 'static> {
+                 .validator(|val| {
+                     let mut invalid_vals = val.split(',').filter(|style| {
+                         !&[
+-                            "auto", "full", "plain", "header", "grid", "numbers", "snip",
++                            "auto", "full", "plain", "header", "grid", "rule", "numbers", "snip",
+                             #[cfg(feature = "git")]
+                                 "changes",
+                         ]
+@@ -382,7 +382,7 @@ pub fn build_app(interactive_output: bool) -> ClapApp<'static, 'static> {
+                 })
+                 .help(
+                     "Comma-separated list of style elements to display \
+-                     (*auto*, full, plain, changes, header, grid, numbers, snip).",
++                     (*auto*, full, plain, changes, header, grid, rule, numbers, snip).",
+                 )
+                 .long_help(
+                     "Configure which elements (line numbers, file headers, grid \
+@@ -400,6 +400,7 @@ pub fn build_app(interactive_output: bool) -> ClapApp<'static, 'static> {
+                      * header: show filenames before the content.\n  \
+                      * grid: vertical/horizontal lines to separate side bar\n          \
+                        and the header from the content.\n  \
++                     * rule: horizontal lines to delimit files.\n  \
+                      * numbers: show line numbers in the side bar.\n  \
+                      * snip: draw separation lines between distinct line ranges.",
+                 ),
+diff --git a/src/pretty_printer.rs b/src/pretty_printer.rs
+index c9530bf405..89745eecd8 100644
+--- a/src/pretty_printer.rs
++++ b/src/pretty_printer.rs
+@@ -23,6 +23,7 @@ struct ActiveStyleComponents {
+     header: bool,
+     vcs_modification_markers: bool,
+     grid: bool,
++    rule: bool,
+     line_numbers: bool,
+     snip: bool,
+ }
+@@ -179,6 +180,12 @@ impl<'a> PrettyPrinter<'a> {
+         self
+     }
+ 
++    /// Whether to paint a horizontal rule to delimit files
++    pub fn rule(&mut self, yes: bool) -> &mut Self {
++        self.active_style_components.rule = yes;
++        self
++    }
++
+     /// Whether to show modification markers for VCS changes. This has no effect if
+     /// the `git` feature is not activated.
+     #[cfg_attr(
+@@ -285,6 +292,9 @@ impl<'a> PrettyPrinter<'a> {
+         if self.active_style_components.grid {
+             style_components.push(StyleComponent::Grid);
+         }
++        if self.active_style_components.rule {
++            style_components.push(StyleComponent::Rule);
++        }
+         if self.active_style_components.header {
+             style_components.push(StyleComponent::Header);
+         }
+diff --git a/src/printer.rs b/src/printer.rs
+index 71bf78ee32..e082987489 100644
+--- a/src/printer.rs
++++ b/src/printer.rs
+@@ -200,13 +200,18 @@ impl<'a> InteractivePrinter<'a> {
+         })
+     }
+ 
++    fn print_horizontal_line_term(&mut self, handle: &mut dyn Write, style: Style) -> Result<()> {
++        writeln!(
++            handle,
++            "{}",
++            style.paint("─".repeat(self.config.term_width))
++        )?;
++        Ok(())
++    }
++
+     fn print_horizontal_line(&mut self, handle: &mut dyn Write, grid_char: char) -> Result<()> {
+         if self.panel_width == 0 {
+-            writeln!(
+-                handle,
+-                "{}",
+-                self.colors.grid.paint("─".repeat(self.config.term_width))
+-            )?;
++            self.print_horizontal_line_term(handle, self.colors.grid)?;
+         } else {
+             let hline = "─".repeat(self.config.term_width - (self.panel_width + 1));
+             let hline = format!("{}{}{}", "─".repeat(self.panel_width), grid_char, hline);
+@@ -251,6 +256,10 @@ impl<'a> Printer for InteractivePrinter<'a> {
+         input: &OpenedInput,
+         add_header_padding: bool,
+     ) -> Result<()> {
++        if add_header_padding && self.config.style_components.rule() {
++            self.print_horizontal_line_term(handle, self.colors.rule)?;
++        }
++
+         if !self.config.style_components.header() {
+             if Some(ContentType::BINARY) == self.content_type && !self.config.show_nonprintable {
+                 writeln!(
+@@ -279,7 +288,8 @@ impl<'a> Printer for InteractivePrinter<'a> {
+                     .paint(if self.panel_width > 0 { "│ " } else { "" }),
+             )?;
+         } else {
+-            if add_header_padding {
++            // Only pad space between files, if we haven't already drawn a horizontal rule
++            if add_header_padding && !self.config.style_components.rule() {
+                 writeln!(handle)?;
+             }
+             write!(handle, "{}", " ".repeat(self.panel_width))?;
+@@ -603,6 +613,7 @@ const DEFAULT_GUTTER_COLOR: u8 = 238;
+ #[derive(Debug, Default)]
+ pub struct Colors {
+     pub grid: Style,
++    pub rule: Style,
+     pub filename: Style,
+     pub git_added: Style,
+     pub git_removed: Style,
+@@ -624,6 +635,7 @@ impl Colors {
+ 
+         Colors {
+             grid: gutter_color.normal(),
++            rule: gutter_color.normal(),
+             filename: Style::new().bold(),
+             git_added: Green.normal(),
+             git_removed: Red.normal(),
+diff --git a/src/style.rs b/src/style.rs
+index 8d51cbded2..654142068b 100644
+--- a/src/style.rs
++++ b/src/style.rs
+@@ -9,6 +9,7 @@ pub enum StyleComponent {
+     #[cfg(feature = "git")]
+     Changes,
+     Grid,
++    Rule,
+     Header,
+     LineNumbers,
+     Snip,
+@@ -29,6 +30,7 @@ impl StyleComponent {
+             #[cfg(feature = "git")]
+             StyleComponent::Changes => &[StyleComponent::Changes],
+             StyleComponent::Grid => &[StyleComponent::Grid],
++            StyleComponent::Rule => &[StyleComponent::Rule],
+             StyleComponent::Header => &[StyleComponent::Header],
+             StyleComponent::LineNumbers => &[StyleComponent::LineNumbers],
+             StyleComponent::Snip => &[StyleComponent::Snip],
+@@ -54,6 +56,7 @@ impl FromStr for StyleComponent {
+             #[cfg(feature = "git")]
+             "changes" => Ok(StyleComponent::Changes),
+             "grid" => Ok(StyleComponent::Grid),
++            "rule" => Ok(StyleComponent::Rule),
+             "header" => Ok(StyleComponent::Header),
+             "numbers" => Ok(StyleComponent::LineNumbers),
+             "snip" => Ok(StyleComponent::Snip),
+@@ -81,6 +84,10 @@ impl StyleComponents {
+         self.0.contains(&StyleComponent::Grid)
+     }
+ 
++    pub fn rule(&self) -> bool {
++        self.0.contains(&StyleComponent::Rule)
++    }
++
+     pub fn header(&self) -> bool {
+         self.0.contains(&StyleComponent::Header)
+     }

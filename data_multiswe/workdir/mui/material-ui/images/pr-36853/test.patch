@@ -1,0 +1,62 @@
+diff --git a/packages/mui-system/src/cssVars/prepareCssVars.test.ts b/packages/mui-system/src/cssVars/prepareCssVars.test.ts
+new file mode 100644
+index 00000000000000..4de3389c90cd12
+--- /dev/null
++++ b/packages/mui-system/src/cssVars/prepareCssVars.test.ts
+@@ -0,0 +1,39 @@
++import { expect } from 'chai';
++import prepareCssVars from './prepareCssVars';
++
++describe('prepareCssVars', () => {
++  it('`generateCssVars` should always return a new object', () => {
++    const result = prepareCssVars({
++      colorSchemes: {
++        dark: {
++          color: 'red',
++        },
++      },
++    });
++
++    const { css: css1 } = result.generateCssVars('dark');
++    const { css: css2 } = result.generateCssVars('dark');
++
++    expect(css1).to.not.equal(css2);
++  });
++
++  it('delete css fields should not affect the next call', () => {
++    const result = prepareCssVars({
++      colorSchemes: {
++        dark: {
++          color: 'red',
++        },
++      },
++    });
++
++    const { css: css1 } = result.generateCssVars('dark');
++
++    delete css1['--color'];
++
++    expect(css1).to.deep.equal({});
++
++    const { css: css2 } = result.generateCssVars('dark');
++
++    expect(css2).to.deep.equal({ '--color': 'red' });
++  });
++});
+diff --git a/test/regressions/fixtures/CssVarsProvider/MaterialUIDefaultDark.js b/test/regressions/fixtures/CssVarsProvider/MaterialUIDefaultDark.js
+index 462062e9449c07..c8b6477f284bb9 100644
+--- a/test/regressions/fixtures/CssVarsProvider/MaterialUIDefaultDark.js
++++ b/test/regressions/fixtures/CssVarsProvider/MaterialUIDefaultDark.js
+@@ -6,6 +6,12 @@ import Paper from '@mui/material/Paper';
+ import Toolbar from '@mui/material/Toolbar';
+ 
+ export default function MaterialUIDefaultDark() {
++  const [, rerender] = React.useState(false);
++  React.useEffect(() => {
++    // Trigger rerender to ensure that the UI does not change after the first render.
++    // To catch bug like https://github.com/mui/material-ui/issues/36452
++    rerender(true);
++  }, []);
+   return (
+     <CssVarsProvider defaultMode="dark">
+       <Box

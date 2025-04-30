@@ -1,0 +1,59 @@
+diff --git a/command/pr_test.go b/command/pr_test.go
+index a11c608206c..ee90a66b94e 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -299,6 +299,38 @@ Requesting a code review from you
+ 	}
+ }
+ 
++func TestPRStatus_detachedHead(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	http.StubResponse(200, bytes.NewBufferString(`
++	{ "data": {} }
++	`))
++
++	output, err := RunCommand("pr status")
++	if err != nil {
++		t.Errorf("error running command `pr status`: %v", err)
++	}
++
++	expected := `
++Relevant pull requests in OWNER/REPO
++
++Current branch
++  There is no current branch
++
++Created by you
++  You have no open pull requests
++
++Requesting a code review from you
++  You have no pull requests to review
++
++`
++	if output.String() != expected {
++		t.Errorf("expected %q, got %q", expected, output.String())
++	}
++}
++
+ func TestPRList(t *testing.T) {
+ 	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+diff --git a/git/git_test.go b/git/git_test.go
+index c84023e4084..1a8f3267701 100644
+--- a/git/git_test.go
++++ b/git/git_test.go
+@@ -67,9 +67,8 @@ func Test_CurrentBranch_detached_head(t *testing.T) {
+ 	if err == nil {
+ 		t.Errorf("expected an error")
+ 	}
+-	expectedError := "git: not on any branch"
+-	if err.Error() != expectedError {
+-		t.Errorf("got unexpected error: %s instead of %s", err.Error(), expectedError)
++	if err != ErrNotOnAnyBranch {
++		t.Errorf("got unexpected error: %s instead of %s", err, ErrNotOnAnyBranch)
+ 	}
+ 	if len(cs.Calls) != 1 {
+ 		t.Errorf("expected 1 git call, saw %d", len(cs.Calls))

@@ -1,0 +1,56 @@
+diff --git a/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap b/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
+index 18b5d90eaf6..1bf13f84dce 100644
+--- a/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
++++ b/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
+@@ -745,6 +745,21 @@ return { get vMyDir() { return vMyDir } }
+ })"
+ `;
+ 
++exports[`SFC compile <script setup> > dev mode import usage check > dynamic arguments 1`] = `
++"import { defineComponent as _defineComponent } from 'vue'
++import { FooBar, foo, bar, unused } from './x'
++        
++export default /*#__PURE__*/_defineComponent({
++  setup(__props, { expose: __expose }) {
++  __expose();
++
++        
++return { get FooBar() { return FooBar }, get foo() { return foo }, get bar() { return bar } }
++}
++
++})"
++`;
++
+ exports[`SFC compile <script setup> > dev mode import usage check > js template string interpolations 1`] = `
+ "import { defineComponent as _defineComponent } from 'vue'
+ import { VAR, VAR2, VAR3 } from './x'
+diff --git a/packages/compiler-sfc/__tests__/compileScript.spec.ts b/packages/compiler-sfc/__tests__/compileScript.spec.ts
+index 6da274dd8a5..80c670e92ec 100644
+--- a/packages/compiler-sfc/__tests__/compileScript.spec.ts
++++ b/packages/compiler-sfc/__tests__/compileScript.spec.ts
+@@ -413,6 +413,25 @@ describe('SFC compile <script setup>', () => {
+       assertCode(content)
+     })
+ 
++    test('dynamic arguments', () => {
++      const { content } = compile(`
++        <script setup lang="ts">
++        import { FooBar, foo, bar, unused } from './x'
++        </script>
++        <template>
++          <FooBar #[foo.slotName] />
++          <FooBar #unused />
++          <div :[bar.attrName]="15"></div>
++          <div unused="unused"></div>
++        </template>
++        `)
++      expect(content).toMatch(
++        `return { get FooBar() { return FooBar }, get foo() { return foo }, ` +
++          `get bar() { return bar } }`
++      )
++      assertCode(content)
++    })
++
+     // https://github.com/vuejs/core/issues/4599
+     test('attribute expressions', () => {
+       const { content } = compile(`

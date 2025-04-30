@@ -1,0 +1,204 @@
+diff --git a/include/internal/catch_commandline.cpp b/include/internal/catch_commandline.cpp
+index c57b7ed74d..66759ebbf1 100644
+--- a/include/internal/catch_commandline.cpp
++++ b/include/internal/catch_commandline.cpp
+@@ -10,6 +10,9 @@
+ 
+ #include "catch_string_manip.h"
+ 
++#include "catch_interfaces_registry_hub.h"
++#include "catch_interfaces_reporter.h"
++
+ #include <fstream>
+ #include <ctime>
+ 
+@@ -105,6 +108,18 @@ namespace Catch {
+                 return ParserResult::runtimeError( "Unrecognised verbosity, '" + verbosity + "'" );
+             return ParserResult::ok( ParseResultType::Matched );
+         };
++        auto const setReporter = [&]( std::string const& reporter ) {
++            IReporterRegistry::FactoryMap const& factories = getRegistryHub().getReporterRegistry().getFactories();
++
++            auto lcReporter = toLower( reporter );
++            auto result = factories.find( lcReporter );
++
++            if( factories.end() != result )
++                config.reporterName = lcReporter;
++            else
++                return ParserResult::runtimeError( "Unrecognized reporter, '" + reporter + "'. Check available with --list-reporters" );
++            return ParserResult::ok( ParseResultType::Matched );
++        };
+ 
+         auto cli
+             = ExeName( config.processName )
+@@ -130,7 +145,7 @@ namespace Catch {
+             | Opt( config.outputFilename, "filename" )
+                 ["-o"]["--out"]
+                 ( "output filename" )
+-            | Opt( config.reporterName, "name" )
++            | Opt( setReporter, "name" )
+                 ["-r"]["--reporter"]
+                 ( "reporter to use (defaults to console)" )
+             | Opt( config.name, "name" )
+diff --git a/include/internal/catch_list.cpp b/include/internal/catch_list.cpp
+index 3b0e33f112..6010ec15d2 100644
+--- a/include/internal/catch_list.cpp
++++ b/include/internal/catch_list.cpp
+@@ -124,7 +124,7 @@ namespace Catch {
+         return tagCounts.size();
+     }
+ 
+-    std::size_t listReporters( Config const& /*config*/ ) {
++    std::size_t listReporters() {
+         Catch::cout() << "Available reporters:\n";
+         IReporterRegistry::FactoryMap const& factories = getRegistryHub().getReporterRegistry().getFactories();
+         std::size_t maxNameLen = 0;
+@@ -155,7 +155,7 @@ namespace Catch {
+         if( config.listTags() )
+             listedCount = listedCount.valueOr(0) + listTags( config );
+         if( config.listReporters() )
+-            listedCount = listedCount.valueOr(0) + listReporters( config );
++            listedCount = listedCount.valueOr(0) + listReporters();
+         return listedCount;
+     }
+ 
+diff --git a/include/internal/catch_list.h b/include/internal/catch_list.h
+index 4bc96ec517..bd29d97066 100644
+--- a/include/internal/catch_list.h
++++ b/include/internal/catch_list.h
+@@ -29,7 +29,7 @@ namespace Catch {
+ 
+     std::size_t listTags( Config const& config );
+ 
+-    std::size_t listReporters( Config const& /*config*/ );
++    std::size_t listReporters();
+     
+     Option<std::size_t> list( Config const& config );
+ 
+diff --git a/projects/SelfTest/Baselines/compact.sw.approved.txt b/projects/SelfTest/Baselines/compact.sw.approved.txt
+index 767cb567a4..2b1b917a87 100644
+--- a/projects/SelfTest/Baselines/compact.sw.approved.txt
++++ b/projects/SelfTest/Baselines/compact.sw.approved.txt
+@@ -707,6 +707,8 @@ CmdLine.tests.cpp:<line number>: passed: config.reporterName == "xml" for: "xml"
+ CmdLine.tests.cpp:<line number>: passed: cli.parse({"test", "--reporter", "junit"}) for: {?}
+ CmdLine.tests.cpp:<line number>: passed: config.reporterName == "junit" for: "junit" == "junit"
+ CmdLine.tests.cpp:<line number>: passed: !(cli.parse({ "test", "-r", "xml", "-r", "junit" })) for: !{?}
++CmdLine.tests.cpp:<line number>: passed: !result for: true
++CmdLine.tests.cpp:<line number>: passed: result.errorMessage(), Contains("Unrecognized reporter") for: "Unrecognized reporter, 'unsupported'. Check available with --list-reporters" contains: "Unrecognized reporter"
+ CmdLine.tests.cpp:<line number>: passed: cli.parse({"test", "-b"}) for: {?}
+ CmdLine.tests.cpp:<line number>: passed: config.shouldDebugBreak == true for: true == true
+ CmdLine.tests.cpp:<line number>: passed: cli.parse({"test", "--break"}) for: {?}
+diff --git a/projects/SelfTest/Baselines/console.std.approved.txt b/projects/SelfTest/Baselines/console.std.approved.txt
+index 525a193c2d..7d3a4db4fa 100644
+--- a/projects/SelfTest/Baselines/console.std.approved.txt
++++ b/projects/SelfTest/Baselines/console.std.approved.txt
+@@ -1099,5 +1099,5 @@ due to unexpected exception with message:
+ 
+ ===============================================================================
+ test cases:  215 |  162 passed |  49 failed |  4 failed as expected
+-assertions: 1231 | 1102 passed | 108 failed | 21 failed as expected
++assertions: 1233 | 1104 passed | 108 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/console.sw.approved.txt b/projects/SelfTest/Baselines/console.sw.approved.txt
+index 6642a06e83..3085960ed8 100644
+--- a/projects/SelfTest/Baselines/console.sw.approved.txt
++++ b/projects/SelfTest/Baselines/console.sw.approved.txt
+@@ -5977,6 +5977,27 @@ PASSED:
+ with expansion:
+   !{?}
+ 
++-------------------------------------------------------------------------------
++Process can be configured on command line
++  reporter
++  must match one of the available ones
++-------------------------------------------------------------------------------
++CmdLine.tests.cpp:<line number>
++...............................................................................
++
++CmdLine.tests.cpp:<line number>:
++PASSED:
++  CHECK( !result )
++with expansion:
++  true
++
++CmdLine.tests.cpp:<line number>:
++PASSED:
++  REQUIRE_THAT( result.errorMessage(), Contains("Unrecognized reporter") )
++with expansion:
++  "Unrecognized reporter, 'unsupported'. Check available with --list-reporters"
++  contains: "Unrecognized reporter"
++
+ -------------------------------------------------------------------------------
+ Process can be configured on command line
+   debugger
+@@ -10865,5 +10886,5 @@ PASSED:
+ 
+ ===============================================================================
+ test cases:  215 |  149 passed |  62 failed |  4 failed as expected
+-assertions: 1245 | 1102 passed | 122 failed | 21 failed as expected
++assertions: 1247 | 1104 passed | 122 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/junit.sw.approved.txt b/projects/SelfTest/Baselines/junit.sw.approved.txt
+index f364448511..0b726c8d51 100644
+--- a/projects/SelfTest/Baselines/junit.sw.approved.txt
++++ b/projects/SelfTest/Baselines/junit.sw.approved.txt
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuitesloose text artifact
+ >
+-  <testsuite name="<exe-name>" errors="17" failures="106" tests="1246" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="106" tests="1248" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <testcase classname="<exe-name>.global" name="# A test name that starts with a #" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="#1005: Comparing pointer to int and long (NULL can be either on various systems)" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="#1027" time="{duration}"/>
+@@ -489,6 +489,7 @@ Message.tests.cpp:<line number>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/reporter/-r/xml" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/reporter/--reporter/junit" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/reporter/Only one reporter is accepted" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Process can be configured on command line/reporter/must match one of the available ones" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/debugger/-b" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/debugger/--break" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/abort/-a aborts after first failure" time="{duration}"/>
+diff --git a/projects/SelfTest/Baselines/xml.sw.approved.txt b/projects/SelfTest/Baselines/xml.sw.approved.txt
+index 02509e0831..f573f58529 100644
+--- a/projects/SelfTest/Baselines/xml.sw.approved.txt
++++ b/projects/SelfTest/Baselines/xml.sw.approved.txt
+@@ -6237,6 +6237,28 @@
+         </Section>
+         <OverallResults successes="1" failures="0" expectedFailures="0"/>
+       </Section>
++      <Section name="reporter" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++        <Section name="must match one of the available ones" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++          <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              !result
++            </Original>
++            <Expanded>
++              true
++            </Expanded>
++          </Expression>
++          <Expression success="true" type="REQUIRE_THAT" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              result.errorMessage(), Contains("Unrecognized reporter")
++            </Original>
++            <Expanded>
++              "Unrecognized reporter, 'unsupported'. Check available with --list-reporters" contains: "Unrecognized reporter"
++            </Expanded>
++          </Expression>
++          <OverallResults successes="2" failures="0" expectedFailures="0"/>
++        </Section>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
+       <Section name="debugger" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
+         <Section name="-b" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
+           <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
+@@ -11336,7 +11358,7 @@ loose text artifact
+       </Section>
+       <OverallResult success="true"/>
+     </TestCase>
+-    <OverallResults successes="1102" failures="123" expectedFailures="21"/>
++    <OverallResults successes="1104" failures="123" expectedFailures="21"/>
+   </Group>
+-  <OverallResults successes="1102" failures="122" expectedFailures="21"/>
++  <OverallResults successes="1104" failures="122" expectedFailures="21"/>
+ </Catch>

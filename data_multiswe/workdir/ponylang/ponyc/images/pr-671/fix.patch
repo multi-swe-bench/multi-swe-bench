@@ -1,0 +1,99 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 1ed23e017d..3786ee69be 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -21,6 +21,7 @@ All notable changes to the Pony compiler and standard library will be documented
+ - Crashing gc bug caused by "force freeing" objects with finalizers.
+ - Bug in `String.compare` and `String.compare_sub`.
+ - Crashing gc bug from using `get` instead of `getorput` in `gc_markactor`.
++- Add -rpath to the link command for library paths
+ 
+ ### Added
+ 
+diff --git a/src/libponyc/codegen/genexe.c b/src/libponyc/codegen/genexe.c
+index d147e19c90..de3d625ea6 100644
+--- a/src/libponyc/codegen/genexe.c
++++ b/src/libponyc/codegen/genexe.c
+@@ -209,7 +209,7 @@ static bool link_exe(compile_t* c, ast_t* program,
+   const char* file_exe = suffix_filename(c->opt->output, "", c->filename, "");
+   PONY_LOG(c->opt, VERBOSITY_MINIMAL, ("Linking %s\n", file_exe));
+ 
+-  program_lib_build_args(program, "-L", "", "", "-l", "");
++  program_lib_build_args(program, "-L", NULL, "", "", "-l", "");
+   const char* lib_args = program_lib_args(program);
+ 
+   size_t arch_len = arch - c->opt->triple;
+@@ -255,7 +255,7 @@ static bool link_exe(compile_t* c, ast_t* program,
+   const char* file_exe = suffix_filename(c->opt->output, "", c->filename, "");
+   PONY_LOG(c->opt, VERBOSITY_MINIMAL, ("Linking %s\n", file_exe));
+ 
+-  program_lib_build_args(program, "-L", "-Wl,--start-group ",
++  program_lib_build_args(program, "-L", "-Wl,-rpath,", "-Wl,--start-group ",
+     "-Wl,--end-group ", "-l", "");
+   const char* lib_args = program_lib_args(program);
+ 
+@@ -305,7 +305,7 @@ static bool link_exe(compile_t* c, ast_t* program,
+     ".exe");
+   PONY_LOG(c->opt, VERBOSITY_MINIMAL, ("Linking %s\n", file_exe));
+ 
+-  program_lib_build_args(program, "/LIBPATH:", "", "", "", ".lib");
++  program_lib_build_args(program, "/LIBPATH:", NULL, "", "", "", ".lib");
+   const char* lib_args = program_lib_args(program);
+ 
+   size_t ld_len = 256 + strlen(file_exe) + strlen(file_o) +
+diff --git a/src/libponyc/pkg/program.c b/src/libponyc/pkg/program.c
+index 1bfa9b17b9..a8f8f523bc 100644
+--- a/src/libponyc/pkg/program.c
++++ b/src/libponyc/pkg/program.c
+@@ -145,7 +145,8 @@ bool use_path(ast_t* use, const char* locator, ast_t* name,
+ }
+ 
+ 
+-void program_lib_build_args(ast_t* program, const char* path_preamble,
++void program_lib_build_args(ast_t* program,
++  const char* path_preamble, const char* rpath_preamble,
+   const char* global_preamble, const char* global_postamble,
+   const char* lib_premable, const char* lib_postamble)
+ {
+@@ -173,6 +174,13 @@ void program_lib_build_args(ast_t* program, const char* path_preamble,
+     append_to_args(data, path_preamble);
+     append_to_args(data, libpath);
+     append_to_args(data, " ");
++
++    if(rpath_preamble != NULL)
++    {
++      append_to_args(data, rpath_preamble);
++      append_to_args(data, libpath);
++      append_to_args(data, " ");
++    }
+   }
+ 
+   // Library paths from the command line and environment variable.
+@@ -186,6 +194,13 @@ void program_lib_build_args(ast_t* program, const char* path_preamble,
+     append_to_args(data, path_preamble);
+     append_to_args(data, libpath);
+     append_to_args(data, " ");
++
++    if(rpath_preamble != NULL)
++    {
++      append_to_args(data, rpath_preamble);
++      append_to_args(data, libpath);
++      append_to_args(data, " ");
++    }
+   }
+ 
+   // Library names.
+diff --git a/src/libponyc/pkg/program.h b/src/libponyc/pkg/program.h
+index 8832276b3f..f6e7177aab 100644
+--- a/src/libponyc/pkg/program.h
++++ b/src/libponyc/pkg/program.h
+@@ -30,7 +30,8 @@ bool use_path(ast_t* use, const char* locator, ast_t* name,
+ /** Build the required linker arguments based on the libraries we're using.
+  * Once this has been called no more calls to use_library() are permitted.
+  */
+-void program_lib_build_args(ast_t* program, const char* path_preamble,
++void program_lib_build_args(ast_t* program,
++  const char* path_preamble, const char* rpath_preamble,
+   const char* global_preamble, const char* global_postamble,
+   const char* lib_premable, const char* lib_postamble);
+ 

@@ -1,0 +1,75 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/Test.svelte b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/Test.svelte
+new file mode 100644
+index 000000000000..189bb6ec9614
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/Test.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let { x } = $props();
++
++	$effect(()=>{
++		console.log(x);
++	});
++</script>
+diff --git a/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/_config.js b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/_config.js
+new file mode 100644
+index 000000000000..99dafbf16195
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/_config.js
+@@ -0,0 +1,37 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<button>reset</button>
++		<button>add foo</button>
++		<button>update foo</button>
++		<button>update bar</button>
++		<button>update rest</button>
++		<button>update x</button>
++	`,
++	async test({ assert, target, logs }) {
++		const [reset, add_foo, update_foo, update_bar, update_rest, update_x] =
++			target.querySelectorAll('button');
++
++		assert.deepEqual(logs, ['something']);
++
++		flushSync(() => reset.click());
++		assert.deepEqual(logs, ['something']);
++
++		flushSync(() => add_foo.click());
++		assert.deepEqual(logs, ['something', 'something']);
++
++		flushSync(() => update_foo.click());
++		assert.deepEqual(logs, ['something', 'something']);
++
++		flushSync(() => update_bar.click());
++		assert.deepEqual(logs, ['something', 'something', 'something']);
++
++		flushSync(() => update_rest.click());
++		assert.deepEqual(logs, ['something', 'something', 'something', 'else']);
++
++		flushSync(() => update_x.click());
++		assert.deepEqual(logs, ['something', 'something', 'something', 'else', 'another']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/main.svelte b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/main.svelte
+new file mode 100644
+index 000000000000..2c94800ab433
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/fine-grained-spreading-dep/main.svelte
+@@ -0,0 +1,13 @@
++<script lang="ts">
++	import Test from "./Test.svelte";
++	let rest = $state({});
++</script>
++
++<button onclick={() => (rest = {})}>reset</button>
++<button onclick={() => (rest = { foo: 1 })}>add foo</button>
++<button onclick={() => (rest.foo = 1)}>update foo</button>
++<button onclick={() => (rest.bar = 1)}>update bar</button>
++<button onclick={() => (rest = { x: "else" })}>update rest</button>
++<button onclick={() => (rest.x = "another")}>update x</button>
++
++<Test x="something" {...rest}></Test>

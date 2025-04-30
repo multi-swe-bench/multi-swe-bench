@@ -1,0 +1,281 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index 6fd9e4d1826..1e2d46885a0 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -34,10 +34,13 @@ import (
+ 	"fmt"
+ 	"io/ioutil"
+ 	"net/http"
++	"net/url"
++	"regexp"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+ 
++	"github.com/cli/cli/v2/api"
+ 	"github.com/opentracing/opentracing-go"
+ )
+ 
+@@ -190,62 +193,70 @@ type CodespaceEnvironmentConnection struct {
+ 	HostPublicKeys []string `json:"hostPublicKeys"`
+ }
+ 
+-// codespacesListResponse is the response body for the `/user/codespaces` endpoint
+-type getCodespacesListResponse struct {
+-	Codespaces []*Codespace `json:"codespaces"`
+-	TotalCount int          `json:"total_count"`
+-}
++// ListCodespaces returns a list of codespaces for the user. Pass a negative limit to request all pages from
++// the API until all codespaces have been fetched.
++func (a *API) ListCodespaces(ctx context.Context, limit int) (codespaces []*Codespace, err error) {
++	perPage := 100
++	if limit > 0 && limit < 100 {
++		perPage = limit
++	}
++
++	listURL := fmt.Sprintf("%s/user/codespaces?per_page=%d", a.githubAPI, perPage)
++	for {
++		req, err := http.NewRequest(http.MethodGet, listURL, nil)
++		if err != nil {
++			return nil, fmt.Errorf("error creating request: %w", err)
++		}
++		a.setHeaders(req)
+ 
+-// ListCodespaces returns a list of codespaces for the user.
+-// It consumes all pages returned by the API until all codespaces have been fetched.
+-func (a *API) ListCodespaces(ctx context.Context) (codespaces []*Codespace, err error) {
+-	per_page := 100
+-	for page := 1; ; page++ {
+-		response, err := a.fetchCodespaces(ctx, page, per_page)
++		resp, err := a.do(ctx, req, "/user/codespaces")
+ 		if err != nil {
+-			return nil, err
++			return nil, fmt.Errorf("error making request: %w", err)
++		}
++		defer resp.Body.Close()
++
++		if resp.StatusCode != http.StatusOK {
++			return nil, api.HandleHTTPError(resp)
++		}
++
++		var response struct {
++			Codespaces []*Codespace `json:"codespaces"`
++		}
++		dec := json.NewDecoder(resp.Body)
++		if err := dec.Decode(&response); err != nil {
++			return nil, fmt.Errorf("error unmarshaling response: %w", err)
+ 		}
++
++		nextURL := findNextPage(resp.Header.Get("Link"))
+ 		codespaces = append(codespaces, response.Codespaces...)
+-		if page*per_page >= response.TotalCount {
++
++		if nextURL == "" || (limit > 0 && len(codespaces) >= limit) {
+ 			break
+ 		}
++
++		if newPerPage := limit - len(codespaces); limit > 0 && newPerPage < 100 {
++			u, _ := url.Parse(nextURL)
++			q := u.Query()
++			q.Set("per_page", strconv.Itoa(newPerPage))
++			u.RawQuery = q.Encode()
++			listURL = u.String()
++		} else {
++			listURL = nextURL
++		}
+ 	}
+ 
+ 	return codespaces, nil
+ }
+ 
+-func (a *API) fetchCodespaces(ctx context.Context, page int, per_page int) (response *getCodespacesListResponse, err error) {
+-	req, err := http.NewRequest(
+-		http.MethodGet, a.githubAPI+"/user/codespaces", nil,
+-	)
+-	if err != nil {
+-		return nil, fmt.Errorf("error creating request: %w", err)
+-	}
+-	a.setHeaders(req)
+-	q := req.URL.Query()
+-	q.Add("page", strconv.Itoa(page))
+-	q.Add("per_page", strconv.Itoa(per_page))
+-
+-	req.URL.RawQuery = q.Encode()
+-	resp, err := a.do(ctx, req, "/user/codespaces")
+-	if err != nil {
+-		return nil, fmt.Errorf("error making request: %w", err)
+-	}
+-	defer resp.Body.Close()
+-
+-	b, err := ioutil.ReadAll(resp.Body)
+-	if err != nil {
+-		return nil, fmt.Errorf("error reading response body: %w", err)
+-	}
+-
+-	if resp.StatusCode != http.StatusOK {
+-		return nil, jsonErrorResponse(b)
+-	}
++var linkRE = regexp.MustCompile(`<([^>]+)>;\s*rel="([^"]+)"`)
+ 
+-	if err := json.Unmarshal(b, &response); err != nil {
+-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
++func findNextPage(linkValue string) string {
++	for _, m := range linkRE.FindAllStringSubmatch(linkValue, -1) {
++		if len(m) > 2 && m[2] == "next" {
++			return m[1]
++		}
+ 	}
+-	return response, nil
++	return ""
+ }
+ 
+ // GetCodespace returns the user codespace based on the provided name.
+diff --git a/pkg/cmd/codespace/common.go b/pkg/cmd/codespace/common.go
+index d304f8d0db0..b93b9a8d667 100644
+--- a/pkg/cmd/codespace/common.go
++++ b/pkg/cmd/codespace/common.go
+@@ -35,7 +35,7 @@ func NewApp(logger *output.Logger, apiClient apiClient) *App {
+ type apiClient interface {
+ 	GetUser(ctx context.Context) (*api.User, error)
+ 	GetCodespace(ctx context.Context, name string, includeConnection bool) (*api.Codespace, error)
+-	ListCodespaces(ctx context.Context) ([]*api.Codespace, error)
++	ListCodespaces(ctx context.Context, limit int) ([]*api.Codespace, error)
+ 	DeleteCodespace(ctx context.Context, name string) error
+ 	StartCodespace(ctx context.Context, name string) error
+ 	CreateCodespace(ctx context.Context, params *api.CreateCodespaceParams) (*api.Codespace, error)
+@@ -49,7 +49,7 @@ type apiClient interface {
+ var errNoCodespaces = errors.New("you have no codespaces")
+ 
+ func chooseCodespace(ctx context.Context, apiClient apiClient) (*api.Codespace, error) {
+-	codespaces, err := apiClient.ListCodespaces(ctx)
++	codespaces, err := apiClient.ListCodespaces(ctx, -1)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("error getting codespaces: %w", err)
+ 	}
+diff --git a/pkg/cmd/codespace/delete.go b/pkg/cmd/codespace/delete.go
+index 2d526dca36e..3b1d5e44557 100644
+--- a/pkg/cmd/codespace/delete.go
++++ b/pkg/cmd/codespace/delete.go
+@@ -62,7 +62,7 @@ func (a *App) Delete(ctx context.Context, opts deleteOptions) (err error) {
+ 	var codespaces []*api.Codespace
+ 	nameFilter := opts.codespaceName
+ 	if nameFilter == "" {
+-		codespaces, err = a.apiClient.ListCodespaces(ctx)
++		codespaces, err = a.apiClient.ListCodespaces(ctx, -1)
+ 		if err != nil {
+ 			return fmt.Errorf("error getting codespaces: %w", err)
+ 		}
+diff --git a/pkg/cmd/codespace/list.go b/pkg/cmd/codespace/list.go
+index 4bc649bf7dc..2dbbbc7c7ee 100644
+--- a/pkg/cmd/codespace/list.go
++++ b/pkg/cmd/codespace/list.go
+@@ -6,28 +6,35 @@ import (
+ 	"os"
+ 
+ 	"github.com/cli/cli/v2/pkg/cmd/codespace/output"
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+ )
+ 
+ func newListCmd(app *App) *cobra.Command {
+ 	var asJSON bool
++	var limit int
+ 
+ 	listCmd := &cobra.Command{
+ 		Use:   "list",
+ 		Short: "List your codespaces",
+ 		Args:  noArgsConstraint,
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+-			return app.List(cmd.Context(), asJSON)
++			if limit < 1 {
++				return &cmdutil.FlagError{Err: fmt.Errorf("invalid limit: %v", limit)}
++			}
++
++			return app.List(cmd.Context(), asJSON, limit)
+ 		},
+ 	}
+ 
+ 	listCmd.Flags().BoolVar(&asJSON, "json", false, "Output as JSON")
++	listCmd.Flags().IntVarP(&limit, "limit", "L", 30, "Maximum number of codespaces to list")
+ 
+ 	return listCmd
+ }
+ 
+-func (a *App) List(ctx context.Context, asJSON bool) error {
+-	codespaces, err := a.apiClient.ListCodespaces(ctx)
++func (a *App) List(ctx context.Context, asJSON bool, limit int) error {
++	codespaces, err := a.apiClient.ListCodespaces(ctx, limit)
+ 	if err != nil {
+ 		return fmt.Errorf("error getting codespaces: %w", err)
+ 	}
+diff --git a/pkg/cmd/codespace/mock_api.go b/pkg/cmd/codespace/mock_api.go
+index df9b6f3b223..d46d793f903 100644
+--- a/pkg/cmd/codespace/mock_api.go
++++ b/pkg/cmd/codespace/mock_api.go
+@@ -43,7 +43,7 @@ import (
+ // 			GetUserFunc: func(ctx context.Context) (*api.User, error) {
+ // 				panic("mock out the GetUser method")
+ // 			},
+-// 			ListCodespacesFunc: func(ctx context.Context) ([]*api.Codespace, error) {
++// 			ListCodespacesFunc: func(ctx context.Context, limit int) ([]*api.Codespace, error) {
+ // 				panic("mock out the ListCodespaces method")
+ // 			},
+ // 			StartCodespaceFunc: func(ctx context.Context, name string) error {
+@@ -84,7 +84,7 @@ type apiClientMock struct {
+ 	GetUserFunc func(ctx context.Context) (*api.User, error)
+ 
+ 	// ListCodespacesFunc mocks the ListCodespaces method.
+-	ListCodespacesFunc func(ctx context.Context) ([]*api.Codespace, error)
++	ListCodespacesFunc func(ctx context.Context, limit int) ([]*api.Codespace, error)
+ 
+ 	// StartCodespaceFunc mocks the StartCodespace method.
+ 	StartCodespaceFunc func(ctx context.Context, name string) error
+@@ -162,6 +162,8 @@ type apiClientMock struct {
+ 		ListCodespaces []struct {
+ 			// Ctx is the ctx argument value.
+ 			Ctx context.Context
++			// Limit is the limit argument value.
++			Limit int
+ 		}
+ 		// StartCodespace holds details about calls to the StartCodespace method.
+ 		StartCodespace []struct {
+@@ -508,29 +510,33 @@ func (mock *apiClientMock) GetUserCalls() []struct {
+ }
+ 
+ // ListCodespaces calls ListCodespacesFunc.
+-func (mock *apiClientMock) ListCodespaces(ctx context.Context) ([]*api.Codespace, error) {
++func (mock *apiClientMock) ListCodespaces(ctx context.Context, limit int) ([]*api.Codespace, error) {
+ 	if mock.ListCodespacesFunc == nil {
+ 		panic("apiClientMock.ListCodespacesFunc: method is nil but apiClient.ListCodespaces was just called")
+ 	}
+ 	callInfo := struct {
+-		Ctx context.Context
++		Ctx   context.Context
++		Limit int
+ 	}{
+-		Ctx: ctx,
++		Ctx:   ctx,
++		Limit: limit,
+ 	}
+ 	mock.lockListCodespaces.Lock()
+ 	mock.calls.ListCodespaces = append(mock.calls.ListCodespaces, callInfo)
+ 	mock.lockListCodespaces.Unlock()
+-	return mock.ListCodespacesFunc(ctx)
++	return mock.ListCodespacesFunc(ctx, limit)
+ }
+ 
+ // ListCodespacesCalls gets all the calls that were made to ListCodespaces.
+ // Check the length with:
+ //     len(mockedapiClient.ListCodespacesCalls())
+ func (mock *apiClientMock) ListCodespacesCalls() []struct {
+-	Ctx context.Context
++	Ctx   context.Context
++	Limit int
+ } {
+ 	var calls []struct {
+-		Ctx context.Context
++		Ctx   context.Context
++		Limit int
+ 	}
+ 	mock.lockListCodespaces.RLock()
+ 	calls = mock.calls.ListCodespaces

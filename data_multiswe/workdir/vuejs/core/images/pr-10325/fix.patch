@@ -1,0 +1,45 @@
+diff --git a/packages/runtime-core/src/hydration.ts b/packages/runtime-core/src/hydration.ts
+index 1e9200ce27b..fa61ed96a94 100644
+--- a/packages/runtime-core/src/hydration.ts
++++ b/packages/runtime-core/src/hydration.ts
+@@ -753,9 +753,11 @@ function propHasMismatch(
+       }
+     }
+ 
+-    const cssVars = instance?.getCssVars?.()
+-    for (const key in cssVars) {
+-      expectedMap.set(`--${key}`, String(cssVars[key]))
++    if (instance && isInstanceRootEl(instance.subTree, el)) {
++      const cssVars = instance?.getCssVars?.()
++      for (const key in cssVars) {
++        expectedMap.set(`--${key}`, String(cssVars[key]))
++      }
+     }
+ 
+     if (!isMapEqual(actualMap, expectedMap)) {
+@@ -852,3 +854,25 @@ function isMapEqual(a: Map<string, string>, b: Map<string, string>): boolean {
+   }
+   return true
+ }
++
++function isInstanceRootEl(vnode: VNode, element: Element): boolean {
++  while (vnode.component) {
++    vnode = vnode.component.subTree
++  }
++
++  if (vnode.shapeFlag & ShapeFlags.ELEMENT && vnode.el) {
++    return element === vnode.el
++  } else if (vnode.type === Fragment) {
++    return (vnode.children as VNode[]).some(c => isInstanceRootEl(c, element))
++  } else if (vnode.type === Static) {
++    let { el, anchor } = vnode
++    while (el) {
++      if (el === element) {
++        return true
++      }
++      if (el === anchor) break
++      el = el.nextSibling
++    }
++  }
++  return false
++}

@@ -1,0 +1,274 @@
+diff --git a/tokio/Cargo.toml b/tokio/Cargo.toml
+index ae64fd5cff7..0b4e011eff0 100644
+--- a/tokio/Cargo.toml
++++ b/tokio/Cargo.toml
+@@ -109,7 +109,7 @@ num_cpus = { version = "1.8.0", optional = true }
+ parking_lot = { version = "0.12.0", optional = true }
+ 
+ [target.'cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))'.dependencies]
+-socket2 = { version = "0.4.4", optional = true, features = [ "all" ] }
++socket2 = { version = "0.4.9", optional = true, features = [ "all" ] }
+ 
+ # Currently unstable. The API exposed by these features may be broken at any time.
+ # Requires `--cfg tokio_unstable` to enable.
+@@ -146,7 +146,7 @@ mockall = "0.11.1"
+ async-stream = "0.3"
+ 
+ [target.'cfg(not(any(target_arch = "wasm32", target_arch = "wasm64")))'.dev-dependencies]
+-socket2 = "0.4"
++socket2 = "0.4.9"
+ tempfile = "3.1.0"
+ 
+ [target.'cfg(not(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown")))'.dev-dependencies]
+diff --git a/tokio/src/net/udp.rs b/tokio/src/net/udp.rs
+index 213d9149dad..c2da3cac082 100644
+--- a/tokio/src/net/udp.rs
++++ b/tokio/src/net/udp.rs
+@@ -954,6 +954,15 @@ impl UdpSocket {
+         /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
+         /// returned. This function is usually paired with `readable()`.
+         ///
++        /// # Notes
++        /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++        /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++        /// Because UDP is stateless and does not validate the origin of a packet,
++        /// the attacker does not need to be able to intercept traffic in order to interfere.
++        /// It is important to be aware of this when designing your application-level protocol.
++        ///
++        /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++        ///
+         /// # Examples
+         ///
+         /// ```no_run
+@@ -1177,6 +1186,15 @@ impl UdpSocket {
+     ///     Ok(())
+     /// }
+     /// ```
++    ///
++    /// # Notes
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
+     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+         self.io
+             .registration()
+@@ -1201,6 +1219,15 @@ impl UdpSocket {
+     /// # Errors
+     ///
+     /// This function may encounter any standard I/O error except `WouldBlock`.
++    ///
++    /// # Notes
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
+     pub fn poll_recv_from(
+         &self,
+         cx: &mut Context<'_>,
+@@ -1233,6 +1260,16 @@ impl UdpSocket {
+     /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
+     /// returned. This function is usually paired with `readable()`.
+     ///
++    /// # Notes
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++    ///
+     /// # Examples
+     ///
+     /// ```no_run
+@@ -1331,6 +1368,17 @@ impl UdpSocket {
+     /// Make sure to always use a sufficiently large buffer to hold the
+     /// maximum UDP packet size, which can be up to 65536 bytes in size.
+     ///
++    /// MacOS will return an error if you pass a zero-sized buffer.
++    ///
++    /// If you're merely interested in learning the sender of the data at the head of the queue,
++    /// try [`peek_sender`].
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
+     /// # Examples
+     ///
+     /// ```no_run
+@@ -1349,6 +1397,9 @@ impl UdpSocket {
+     ///     Ok(())
+     /// }
+     /// ```
++    ///
++    /// [`peek_sender`]: method@Self::peek_sender
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
+     pub async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+         self.io
+             .registration()
+@@ -1357,7 +1408,7 @@ impl UdpSocket {
+     }
+ 
+     /// Receives data from the socket, without removing it from the input queue.
+-    /// On success, returns the number of bytes read.
++    /// On success, returns the sending address of the datagram.
+     ///
+     /// # Notes
+     ///
+@@ -1371,6 +1422,17 @@ impl UdpSocket {
+     /// Make sure to always use a sufficiently large buffer to hold the
+     /// maximum UDP packet size, which can be up to 65536 bytes in size.
+     ///
++    /// MacOS will return an error if you pass a zero-sized buffer.
++    ///
++    /// If you're merely interested in learning the sender of the data at the head of the queue,
++    /// try [`poll_peek_sender`].
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
+     /// # Return value
+     ///
+     /// The function returns:
+@@ -1382,6 +1444,9 @@ impl UdpSocket {
+     /// # Errors
+     ///
+     /// This function may encounter any standard I/O error except `WouldBlock`.
++    ///
++    /// [`poll_peek_sender`]: method@Self::poll_peek_sender
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
+     pub fn poll_peek_from(
+         &self,
+         cx: &mut Context<'_>,
+@@ -1404,6 +1469,117 @@ impl UdpSocket {
+         Poll::Ready(Ok(addr))
+     }
+ 
++    /// Tries to receive data on the socket without removing it from the input queue.
++    /// On success, returns the number of bytes read and the sending address of the
++    /// datagram.
++    ///
++    /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
++    /// returned. This function is usually paired with `readable()`.
++    ///
++    /// # Notes
++    ///
++    /// On Windows, if the data is larger than the buffer specified, the buffer
++    /// is filled with the first part of the data, and peek returns the error
++    /// WSAEMSGSIZE(10040). The excess data is lost.
++    /// Make sure to always use a sufficiently large buffer to hold the
++    /// maximum UDP packet size, which can be up to 65536 bytes in size.
++    ///
++    /// MacOS will return an error if you pass a zero-sized buffer.
++    ///
++    /// If you're merely interested in learning the sender of the data at the head of the queue,
++    /// try [`try_peek_sender`].
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [`try_peek_sender`]: method@Self::try_peek_sender
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++    pub fn try_peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
++        self.io
++            .registration()
++            .try_io(Interest::READABLE, || self.io.peek_from(buf))
++    }
++
++    /// Retrieve the sender of the data at the head of the input queue, waiting if empty.
++    ///
++    /// This is equivalent to calling [`peek_from`] with a zero-sized buffer,
++    /// but suppresses the `WSAEMSGSIZE` error on Windows and the "invalid argument" error on macOS.
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [`peek_from`]: method@Self::peek_from
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++    pub async fn peek_sender(&self) -> io::Result<SocketAddr> {
++        self.io
++            .registration()
++            .async_io(Interest::READABLE, || self.peek_sender_inner())
++            .await
++    }
++
++    /// Retrieve the sender of the data at the head of the input queue,
++    /// scheduling a wakeup if empty.
++    ///
++    /// This is equivalent to calling [`poll_peek_from`] with a zero-sized buffer,
++    /// but suppresses the `WSAEMSGSIZE` error on Windows and the "invalid argument" error on macOS.
++    ///
++    /// # Notes
++    ///
++    /// Note that on multiple calls to a `poll_*` method in the recv direction, only the
++    /// `Waker` from the `Context` passed to the most recent call will be scheduled to
++    /// receive a wakeup.
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [`poll_peek_from`]: method@Self::poll_peek_from
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++    pub fn poll_peek_sender(&self, cx: &mut Context<'_>) -> Poll<io::Result<SocketAddr>> {
++        self.io
++            .registration()
++            .poll_read_io(cx, || self.peek_sender_inner())
++    }
++
++    /// Try to retrieve the sender of the data at the head of the input queue.
++    ///
++    /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
++    /// returned. This function is usually paired with `readable()`.
++    ///
++    /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
++    /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
++    /// Because UDP is stateless and does not validate the origin of a packet,
++    /// the attacker does not need to be able to intercept traffic in order to interfere.
++    /// It is important to be aware of this when designing your application-level protocol.
++    ///
++    /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
++    pub fn try_peek_sender(&self) -> io::Result<SocketAddr> {
++        self.io
++            .registration()
++            .try_io(Interest::READABLE, || self.peek_sender_inner())
++    }
++
++    #[inline]
++    fn peek_sender_inner(&self) -> io::Result<SocketAddr> {
++        self.io.try_io(|| {
++            self.as_socket()
++                .peek_sender()?
++                // May be `None` if the platform doesn't populate the sender for some reason.
++                // In testing, that only occurred on macOS if you pass a zero-sized buffer,
++                // but the implementation of `Socket::peek_sender()` covers that.
++                .as_socket()
++                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "sender not available"))
++        })
++    }
++
+     /// Gets the value of the `SO_BROADCAST` option for this socket.
+     ///
+     /// For more information about this option, see [`set_broadcast`].

@@ -1,0 +1,202 @@
+diff --git a/internal/authflow/flow.go b/internal/authflow/flow.go
+index bfe9d12997f..fbf0a9e341c 100644
+--- a/internal/authflow/flow.go
++++ b/internal/authflow/flow.go
+@@ -27,13 +27,11 @@ type iconfig interface {
+ 	Write() error
+ }
+ 
+-func AuthFlowWithConfig(cfg iconfig, IO *iostreams.IOStreams, hostname, notice string, additionalScopes []string) (string, error) {
++func AuthFlowWithConfig(cfg iconfig, IO *iostreams.IOStreams, hostname, notice string, additionalScopes []string, isInteractive bool) (string, error) {
+ 	// TODO this probably shouldn't live in this package. It should probably be in a new package that
+ 	// depends on both iostreams and config.
+-	stderr := IO.ErrOut
+-	cs := IO.ColorScheme()
+ 
+-	token, userLogin, err := authFlow(hostname, IO, notice, additionalScopes)
++	token, userLogin, err := authFlow(hostname, IO, notice, additionalScopes, isInteractive)
+ 	if err != nil {
+ 		return "", err
+ 	}
+@@ -47,19 +45,10 @@ func AuthFlowWithConfig(cfg iconfig, IO *iostreams.IOStreams, hostname, notice s
+ 		return "", err
+ 	}
+ 
+-	err = cfg.Write()
+-	if err != nil {
+-		return "", err
+-	}
+-
+-	fmt.Fprintf(stderr, "%s Authentication complete. %s to continue...\n",
+-		cs.SuccessIcon(), cs.Bold("Press Enter"))
+-	_ = waitForEnter(IO.In)
+-
+-	return token, nil
++	return token, cfg.Write()
+ }
+ 
+-func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, additionalScopes []string) (string, string, error) {
++func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, additionalScopes []string, isInteractive bool) (string, string, error) {
+ 	w := IO.ErrOut
+ 	cs := IO.ColorScheme()
+ 
+@@ -90,7 +79,12 @@ func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, addition
+ 			return nil
+ 		},
+ 		BrowseURL: func(url string) error {
+-			fmt.Fprintf(w, "- %s to open %s in your browser... ", cs.Bold("Press Enter"), oauthHost)
++			if !isInteractive {
++				fmt.Fprintf(w, "%s to continue in your web browser: %s\n", cs.Bold("Open this URL"), url)
++				return nil
++			}
++
++			fmt.Fprintf(w, "%s to open %s in your browser... ", cs.Bold("Press Enter"), oauthHost)
+ 			_ = waitForEnter(IO.In)
+ 
+ 			// FIXME: read the browser from cmd Factory rather than recreating it
+@@ -103,7 +97,7 @@ func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, addition
+ 			return nil
+ 		},
+ 		WriteSuccessHTML: func(w io.Writer) {
+-			fmt.Fprintln(w, oauthSuccessPage)
++			fmt.Fprint(w, oauthSuccessPage)
+ 		},
+ 		HTTPClient: httpClient,
+ 		Stdin:      IO.In,
+diff --git a/pkg/cmd/auth/login/login.go b/pkg/cmd/auth/login/login.go
+index f591fcbc6ff..51e74861df9 100644
+--- a/pkg/cmd/auth/login/login.go
++++ b/pkg/cmd/auth/login/login.go
+@@ -68,37 +68,34 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
+ 			$ gh auth login --hostname enterprise.internal
+ 		`),
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+-			if !opts.IO.CanPrompt() && !(tokenStdin || opts.Web) {
+-				return cmdutil.FlagErrorf("--web or --with-token required when not running interactively")
+-			}
+-
+ 			if tokenStdin && opts.Web {
+-				return cmdutil.FlagErrorf("specify only one of --web or --with-token")
++				return cmdutil.FlagErrorf("specify only one of `--web` or `--with-token`")
++			}
++			if tokenStdin && len(opts.Scopes) > 0 {
++				return cmdutil.FlagErrorf("specify only one of `--scopes` or `--with-token`")
+ 			}
+ 
+ 			if tokenStdin {
+ 				defer opts.IO.In.Close()
+ 				token, err := ioutil.ReadAll(opts.IO.In)
+ 				if err != nil {
+-					return fmt.Errorf("failed to read token from STDIN: %w", err)
++					return fmt.Errorf("failed to read token from standard input: %w", err)
+ 				}
+ 				opts.Token = strings.TrimSpace(string(token))
+ 			}
+ 
+-			if opts.IO.CanPrompt() && opts.Token == "" && !opts.Web {
++			if opts.IO.CanPrompt() && opts.Token == "" {
+ 				opts.Interactive = true
+ 			}
+ 
+ 			if cmd.Flags().Changed("hostname") {
+ 				if err := ghinstance.HostnameValidator(opts.Hostname); err != nil {
+-					return cmdutil.FlagErrorf("error parsing --hostname: %w", err)
++					return cmdutil.FlagErrorf("error parsing hostname: %w", err)
+ 				}
+ 			}
+ 
+-			if !opts.Interactive {
+-				if opts.Hostname == "" {
+-					opts.Hostname = ghinstance.Default()
+-				}
++			if opts.Hostname == "" && (!opts.Interactive || opts.Web) {
++				opts.Hostname = ghinstance.Default()
+ 			}
+ 
+ 			opts.MainExecutable = f.Executable()
+@@ -125,15 +122,11 @@ func loginRun(opts *LoginOptions) error {
+ 	}
+ 
+ 	hostname := opts.Hostname
+-	if hostname == "" {
+-		if opts.Interactive {
+-			var err error
+-			hostname, err = promptForHostname()
+-			if err != nil {
+-				return err
+-			}
+-		} else {
+-			return errors.New("must specify --hostname")
++	if opts.Interactive && hostname == "" {
++		var err error
++		hostname, err = promptForHostname()
++		if err != nil {
++			return err
+ 		}
+ 	}
+ 
+diff --git a/pkg/cmd/auth/refresh/refresh.go b/pkg/cmd/auth/refresh/refresh.go
+index f2b9cbbb47b..cd470132cac 100644
+--- a/pkg/cmd/auth/refresh/refresh.go
++++ b/pkg/cmd/auth/refresh/refresh.go
+@@ -26,7 +26,7 @@ type RefreshOptions struct {
+ 
+ 	Hostname string
+ 	Scopes   []string
+-	AuthFlow func(config.Config, *iostreams.IOStreams, string, []string) error
++	AuthFlow func(config.Config, *iostreams.IOStreams, string, []string, bool) error
+ 
+ 	Interactive bool
+ }
+@@ -35,8 +35,8 @@ func NewCmdRefresh(f *cmdutil.Factory, runF func(*RefreshOptions) error) *cobra.
+ 	opts := &RefreshOptions{
+ 		IO:     f.IOStreams,
+ 		Config: f.Config,
+-		AuthFlow: func(cfg config.Config, io *iostreams.IOStreams, hostname string, scopes []string) error {
+-			_, err := authflow.AuthFlowWithConfig(cfg, io, hostname, "", scopes)
++		AuthFlow: func(cfg config.Config, io *iostreams.IOStreams, hostname string, scopes []string, interactive bool) error {
++			_, err := authflow.AuthFlowWithConfig(cfg, io, hostname, "", scopes, interactive)
+ 			return err
+ 		},
+ 		httpClient: http.DefaultClient,
+@@ -154,10 +154,13 @@ func refreshRun(opts *RefreshOptions) error {
+ 		additionalScopes = append(additionalScopes, credentialFlow.Scopes()...)
+ 	}
+ 
+-	if err := opts.AuthFlow(cfg, opts.IO, hostname, append(opts.Scopes, additionalScopes...)); err != nil {
++	if err := opts.AuthFlow(cfg, opts.IO, hostname, append(opts.Scopes, additionalScopes...), opts.Interactive); err != nil {
+ 		return err
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++	fmt.Fprintf(opts.IO.ErrOut, "%s Authentication complete.\n", cs.SuccessIcon())
++
+ 	if credentialFlow.ShouldSetup() {
+ 		username, _ := cfg.Get(hostname, "user")
+ 		password, _ := cfg.Get(hostname, "oauth_token")
+diff --git a/pkg/cmd/auth/shared/login_flow.go b/pkg/cmd/auth/shared/login_flow.go
+index 0bac49b35cf..3570106da55 100644
+--- a/pkg/cmd/auth/shared/login_flow.go
++++ b/pkg/cmd/auth/shared/login_flow.go
+@@ -99,7 +99,7 @@ func Login(opts *LoginOptions) error {
+ 	var authMode int
+ 	if opts.Web {
+ 		authMode = 0
+-	} else {
++	} else if opts.Interactive {
+ 		err := prompt.SurveyAskOne(&survey.Select{
+ 			Message: "How would you like to authenticate GitHub CLI?",
+ 			Options: []string{
+@@ -117,10 +117,11 @@ func Login(opts *LoginOptions) error {
+ 
+ 	if authMode == 0 {
+ 		var err error
+-		authToken, err = authflow.AuthFlowWithConfig(cfg, opts.IO, hostname, "", append(opts.Scopes, additionalScopes...))
++		authToken, err = authflow.AuthFlowWithConfig(cfg, opts.IO, hostname, "", append(opts.Scopes, additionalScopes...), opts.Interactive)
+ 		if err != nil {
+ 			return fmt.Errorf("failed to authenticate via web browser: %w", err)
+ 		}
++		fmt.Fprintf(opts.IO.ErrOut, "%s Authentication complete.\n", cs.SuccessIcon())
+ 		userValidated = true
+ 	} else {
+ 		minimumScopes := append([]string{"repo", "read:org"}, additionalScopes...)

@@ -1,0 +1,106 @@
+diff --git a/.changeset/short-countries-rush.md b/.changeset/short-countries-rush.md
+new file mode 100644
+index 000000000000..c080f91889a9
+--- /dev/null
++++ b/.changeset/short-countries-rush.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: eagerly unsubscribe when store is changed
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/utils.js b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+index 6723ed3da1d6..91a56def4589 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+@@ -393,28 +393,37 @@ export function serialize_set_binding(node, context, fallback, options) {
+ 				return b.call(left, value);
+ 			} else if (is_store) {
+ 				return b.call('$.store_set', serialize_get_binding(b.id(left_name), state), value);
+-			} else if (binding.kind === 'state') {
+-				return b.call(
+-					'$.set',
+-					b.id(left_name),
+-					context.state.analysis.runes &&
+-						!options?.skip_proxy_and_freeze &&
+-						should_proxy_or_freeze(value, context.state.scope)
+-						? b.call('$.proxy', value)
+-						: value
+-				);
+-			} else if (binding.kind === 'frozen_state') {
+-				return b.call(
+-					'$.set',
+-					b.id(left_name),
+-					context.state.analysis.runes &&
+-						!options?.skip_proxy_and_freeze &&
+-						should_proxy_or_freeze(value, context.state.scope)
+-						? b.call('$.freeze', value)
+-						: value
+-				);
+ 			} else {
+-				return b.call('$.set', b.id(left_name), value);
++				let call;
++				if (binding.kind === 'state') {
++					call = b.call(
++						'$.set',
++						b.id(left_name),
++						context.state.analysis.runes &&
++							!options?.skip_proxy_and_freeze &&
++							should_proxy_or_freeze(value, context.state.scope)
++							? b.call('$.proxy', value)
++							: value
++					);
++				} else if (binding.kind === 'frozen_state') {
++					call = b.call(
++						'$.set',
++						b.id(left_name),
++						context.state.analysis.runes &&
++							!options?.skip_proxy_and_freeze &&
++							should_proxy_or_freeze(value, context.state.scope)
++							? b.call('$.freeze', value)
++							: value
++					);
++				} else {
++					call = b.call('$.set', b.id(left_name), value);
++				}
++
++				if (state.scope.get(`$${left.name}`)?.kind === 'store_sub') {
++					return b.call('$.store_unsub', call, b.literal(`$${left.name}`), b.id('$$subscriptions'));
++				} else {
++					return call;
++				}
+ 			}
+ 		} else {
+ 			if (is_store) {
+diff --git a/packages/svelte/src/internal/client/reactivity/store.js b/packages/svelte/src/internal/client/reactivity/store.js
+index fe2ef12971c4..b6d71db4aecf 100644
+--- a/packages/svelte/src/internal/client/reactivity/store.js
++++ b/packages/svelte/src/internal/client/reactivity/store.js
+@@ -47,6 +47,27 @@ export function store_get(store, store_name, stores) {
+ 	return value === UNINITIALIZED ? entry.last_value : value;
+ }
+ 
++/**
++ * Unsubscribe from a store if it's not the same as the one in the store references container.
++ * We need this in addition to `store_get` because someone could unsubscribe from a store but
++ * then never subscribe to the new one (if any), causing the subscription to stay open wrongfully.
++ * @param {import('#client').Store<any> | null | undefined} store
++ * @param {string} store_name
++ * @param {import('#client').StoreReferencesContainer} stores
++ */
++export function store_unsub(store, store_name, stores) {
++	/** @type {import('#client').StoreReferencesContainer[''] | undefined} */
++	let entry = stores[store_name];
++
++	if (entry && entry.store !== store) {
++		// Don't reset store yet, so that store_get above can resubscribe to new store if necessary
++		entry.unsubscribe();
++		entry.unsubscribe = noop;
++	}
++
++	return store;
++}
++
+ /**
+  * @template V
+  * @param {import('#client').Store<V> | null | undefined} store

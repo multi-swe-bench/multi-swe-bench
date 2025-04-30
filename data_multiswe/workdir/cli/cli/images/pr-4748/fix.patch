@@ -1,0 +1,98 @@
+diff --git a/git/git.go b/git/git.go
+index 55bbc89ac6f..7a3a814379c 100644
+--- a/git/git.go
++++ b/git/git.go
+@@ -307,6 +307,19 @@ func CheckoutBranch(branch string) error {
+ 	return run.PrepareCmd(configCmd).Run()
+ }
+ 
++// pull changes from remote branch without version history
++func Pull(remote, branch string) error {
++	pullCmd, err := GitCommand("pull", "--ff-only", remote, branch)
++	if err != nil {
++		return err
++	}
++
++	pullCmd.Stdout = os.Stdout
++	pullCmd.Stderr = os.Stderr
++	pullCmd.Stdin = os.Stdin
++	return run.PrepareCmd(pullCmd).Run()
++}
++
+ func parseCloneArgs(extraArgs []string) (args []string, target string) {
+ 	args = extraArgs
+ 
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index e356f17ec51..9e84f2863c7 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -8,8 +8,10 @@ import (
+ 	"github.com/AlecAivazis/survey/v2"
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/context"
+ 	"github.com/cli/cli/v2/git"
+ 	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/cmd/pr/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+@@ -26,6 +28,7 @@ type MergeOptions struct {
+ 	HttpClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	Branch     func() (string, error)
++	Remotes    func() (context.Remotes, error)
+ 
+ 	Finder shared.PRFinder
+ 
+@@ -51,6 +54,7 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 		IO:         f.IOStreams,
+ 		HttpClient: f.HttpClient,
+ 		Branch:     f.Branch,
++		Remotes:    f.Remotes,
+ 	}
+ 
+ 	var (
+@@ -333,10 +337,16 @@ func mergeRun(opts *MergeOptions) error {
+ 			if err != nil {
+ 				return err
+ 			}
++
+ 			err = git.CheckoutBranch(branchToSwitchTo)
+ 			if err != nil {
+ 				return err
+ 			}
++
++			err := pullLatestChanges(opts, baseRepo, branchToSwitchTo)
++			if err != nil {
++				fmt.Fprintf(opts.IO.ErrOut, "%s warning: not posible to fast-forward to: %q\n", cs.WarningIcon(), branchToSwitchTo)
++			}
+ 		}
+ 
+ 		if err := git.DeleteLocalBranch(pr.HeadRefName); err != nil {
+@@ -365,6 +375,25 @@ func mergeRun(opts *MergeOptions) error {
+ 	return nil
+ }
+ 
++func pullLatestChanges(opts *MergeOptions, repo ghrepo.Interface, branch string) error {
++	remotes, err := opts.Remotes()
++	if err != nil {
++		return err
++	}
++
++	baseRemote, err := remotes.FindByRepo(repo.RepoOwner(), repo.RepoName())
++	if err != nil {
++		return err
++	}
++
++	err = git.Pull(baseRemote.Name, branch)
++	if err != nil {
++		return err
++	}
++
++	return nil
++}
++
+ func mergeMethodSurvey(baseRepo *api.Repository) (PullRequestMergeMethod, error) {
+ 	type mergeOption struct {
+ 		title  string

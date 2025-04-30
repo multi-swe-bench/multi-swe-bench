@@ -1,0 +1,124 @@
+diff --git a/appveyor.yml b/appveyor.yml
+index 742f612069d..2b674ce3ca1 100644
+--- a/appveyor.yml
++++ b/appveyor.yml
+@@ -181,15 +181,15 @@
+     - COMPILER: "gcc"
+       HOST:     "mingw"
+       PLATFORM: "x64"
+-      SCRIPT:   "make allzstd"
++      SCRIPT:   "CPPFLAGS=-DDEBUGLEVEL=2 CFLAGS=-Werror make -j allzstd DEBUGLEVEL=2"
+     - COMPILER: "gcc"
+       HOST:     "mingw"
+       PLATFORM: "x86"
+-      SCRIPT:   "make allzstd"
++      SCRIPT:   "CFLAGS=-Werror make -j allzstd"
+     - COMPILER: "clang"
+       HOST:     "mingw"
+       PLATFORM: "x64"
+-      SCRIPT:   "MOREFLAGS='--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion' make allzstd"
++      SCRIPT:   "CFLAGS='--target=x86_64-w64-mingw32 -Werror -Wconversion -Wno-sign-conversion' make -j allzstd"
+ 
+     - COMPILER: "visual"
+       HOST:     "visual"
+diff --git a/build/cmake/lib/CMakeLists.txt b/build/cmake/lib/CMakeLists.txt
+index c4c2f81e6b9..e84e0630173 100644
+--- a/build/cmake/lib/CMakeLists.txt
++++ b/build/cmake/lib/CMakeLists.txt
+@@ -14,7 +14,7 @@ OPTION(ZSTD_BUILD_STATIC "BUILD STATIC LIBRARIES" ON)
+ OPTION(ZSTD_BUILD_SHARED "BUILD SHARED LIBRARIES" ON)
+ 
+ IF(NOT ZSTD_BUILD_SHARED AND NOT ZSTD_BUILD_STATIC)
+-    MESSAGE(SEND_ERROR "You need to build at least one flavor of libstd")
++    MESSAGE(SEND_ERROR "You need to build at least one flavor of libzstd")
+ ENDIF()
+ 
+ # Define library directory, where sources and header files are located
+diff --git a/lib/Makefile b/lib/Makefile
+index 9cedd53b721..01689c6d533 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -19,6 +19,9 @@ LIBVER := $(shell echo $(LIBVER_SCRIPT))
+ VERSION?= $(LIBVER)
+ 
+ CPPFLAGS+= -I. -I./common -DXXH_NAMESPACE=ZSTD_
++ifeq ($(OS),Windows_NT)   # MinGW assumed
++CPPFLAGS   += -D__USE_MINGW_ANSI_STDIO   # compatibility with %zu formatting
++endif
+ CFLAGS  ?= -O3
+ DEBUGFLAGS = -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+@@ -52,11 +55,11 @@ ifeq ($(ZSTD_LIB_DECOMPRESSION), 0)
+ endif
+ 
+ ifneq ($(ZSTD_LIB_COMPRESSION), 0)
+-	ZSTD_FILES += $(ZSTDCOMP_FILES) 
++	ZSTD_FILES += $(ZSTDCOMP_FILES)
+ endif
+ 
+ ifneq ($(ZSTD_LIB_DECOMPRESSION), 0)
+-	ZSTD_FILES += $(ZSTDDECOMP_FILES) 
++	ZSTD_FILES += $(ZSTDDECOMP_FILES)
+ endif
+ 
+ ifneq ($(ZSTD_LIB_DEPRECATED), 0)
+diff --git a/lib/compress/zstd_compress.c b/lib/compress/zstd_compress.c
+index d659baf1245..ed3aab871b9 100644
+--- a/lib/compress/zstd_compress.c
++++ b/lib/compress/zstd_compress.c
+@@ -1032,6 +1032,9 @@ ZSTD_reset_matchState(ZSTD_matchState_t* ms,
+ 
+     ms->hashLog3 = hashLog3;
+     memset(&ms->window, 0, sizeof(ms->window));
++    ms->window.dictLimit = 1;    /* start from 1, so that 1st position is valid */
++    ms->window.lowLimit = 1;     /* it ensures first and later CCtx usages compress the same */
++    ms->window.nextSrc = ms->window.base + 1;   /* see issue #1241 */
+     ZSTD_invalidateMatchState(ms);
+ 
+     /* opt parser space */
+@@ -1281,8 +1284,9 @@ static size_t ZSTD_resetCCtx_usingCDict(ZSTD_CCtx* cctx,
+     }
+ 
+     if (attachDict) {
+-        const U32 cdictLen = (U32)( cdict->matchState.window.nextSrc
++        const U32 cdictEnd = (U32)( cdict->matchState.window.nextSrc
+                                   - cdict->matchState.window.base);
++        const U32 cdictLen = cdictEnd - cdict->matchState.window.dictLimit;
+         if (cdictLen == 0) {
+             /* don't even attach dictionaries with no contents */
+             DEBUGLOG(4, "skipping attaching empty dictionary");
+@@ -1292,9 +1296,9 @@ static size_t ZSTD_resetCCtx_usingCDict(ZSTD_CCtx* cctx,
+ 
+             /* prep working match state so dict matches never have negative indices
+              * when they are translated to the working context's index space. */
+-            if (cctx->blockState.matchState.window.dictLimit < cdictLen) {
++            if (cctx->blockState.matchState.window.dictLimit < cdictEnd) {
+                 cctx->blockState.matchState.window.nextSrc =
+-                    cctx->blockState.matchState.window.base + cdictLen;
++                    cctx->blockState.matchState.window.base + cdictEnd;
+                 ZSTD_window_clear(&cctx->blockState.matchState.window);
+             }
+             cctx->blockState.matchState.loadedDictEnd = cctx->blockState.matchState.window.dictLimit;
+diff --git a/programs/Makefile b/programs/Makefile
+index 4202764c2e0..912f9eff06e 100644
+--- a/programs/Makefile
++++ b/programs/Makefile
+@@ -38,6 +38,9 @@ endif
+ CPPFLAGS+= -I$(ZSTDDIR) -I$(ZSTDDIR)/common -I$(ZSTDDIR)/compress \
+            -I$(ZSTDDIR)/dictBuilder \
+            -DXXH_NAMESPACE=ZSTD_
++ifeq ($(OS),Windows_NT)   # MinGW assumed
++CPPFLAGS   += -D__USE_MINGW_ANSI_STDIO   # compatibility with %zu formatting
++endif
+ CFLAGS  ?= -O3
+ DEBUGFLAGS+=-Wall -Wextra -Wcast-qual -Wcast-align -Wshadow \
+             -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+@@ -158,7 +161,7 @@ zstd-release: DEBUGFLAGS :=
+ zstd-release: zstd
+ 
+ zstd32 : CPPFLAGS += $(THREAD_CPP)
+-zstd32 : LDFLAGS += $(THREAD_LD) 
++zstd32 : LDFLAGS += $(THREAD_LD)
+ zstd32 : CPPFLAGS += -DZSTD_LEGACY_SUPPORT=$(ZSTD_LEGACY_SUPPORT)
+ zstd32 : $(ZSTDLIB_FILES) zstdcli.c fileio.c bench.c datagen.c dibio.c
+ ifneq (,$(filter Windows%,$(OS)))

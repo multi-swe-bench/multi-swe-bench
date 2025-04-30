@@ -1,0 +1,66 @@
+diff --git a/.changeset/two-doors-exercise.md b/.changeset/two-doors-exercise.md
+new file mode 100644
+index 000000000000..b41e582ae79a
+--- /dev/null
++++ b/.changeset/two-doors-exercise.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: add check for `is` attribute to correctly detect custom elements
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+index 21a78de032c4..59d2d7fd28de 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+@@ -227,7 +227,7 @@ export function RegularElement(node, context) {
+ 			node_id,
+ 			attributes_id,
+ 			(node.metadata.svg || node.metadata.mathml || is_custom_element_node(node)) && b.true,
+-			node.name.includes('-') && b.true,
++			is_custom_element_node(node) && b.true,
+ 			context.state
+ 		);
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/fragment.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/fragment.js
+index 0b4ac873428e..5bc3041ca453 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/fragment.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/fragment.js
+@@ -4,6 +4,7 @@
+ import { cannot_be_set_statically } from '../../../../../../utils.js';
+ import { is_event_attribute, is_text_attribute } from '../../../../../utils/ast.js';
+ import * as b from '../../../../../utils/builders.js';
++import { is_custom_element_node } from '../../../../nodes.js';
+ import { build_template_chunk } from './utils.js';
+ 
+ /**
+@@ -128,7 +129,7 @@ export function process_children(nodes, initial, is_element, { visit, state }) {
+ function is_static_element(node, state) {
+ 	if (node.type !== 'RegularElement') return false;
+ 	if (node.fragment.metadata.dynamic) return false;
+-	if (node.name.includes('-')) return false; // we're setting all attributes on custom elements through properties
++	if (is_custom_element_node(node)) return false; // we're setting all attributes on custom elements through properties
+ 
+ 	for (const attribute of node.attributes) {
+ 		if (attribute.type !== 'Attribute') {
+diff --git a/packages/svelte/src/compiler/phases/nodes.js b/packages/svelte/src/compiler/phases/nodes.js
+index 5ca4ce3380a3..003c3a2c4945 100644
+--- a/packages/svelte/src/compiler/phases/nodes.js
++++ b/packages/svelte/src/compiler/phases/nodes.js
+@@ -23,10 +23,14 @@ export function is_element_node(node) {
+ 
+ /**
+  * @param {AST.RegularElement | AST.SvelteElement} node
+- * @returns {node is AST.RegularElement}
++ * @returns {boolean}
+  */
+ export function is_custom_element_node(node) {
+-	return node.type === 'RegularElement' && node.name.includes('-');
++	return (
++		node.type === 'RegularElement' &&
++		(node.name.includes('-') ||
++			node.attributes.some((attr) => attr.type === 'Attribute' && attr.name === 'is'))
++	);
+ }
+ 
+ /**

@@ -1,0 +1,44 @@
+diff --git a/.changeset/cold-cups-act.md b/.changeset/cold-cups-act.md
+new file mode 100644
+index 000000000000..6776d4eef352
+--- /dev/null
++++ b/.changeset/cold-cups-act.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: Make Tween duration 0 set current to target immediately
+diff --git a/packages/svelte/src/motion/tweened.js b/packages/svelte/src/motion/tweened.js
+index 8aaefe5a2caf..36d32d1f72e5 100644
+--- a/packages/svelte/src/motion/tweened.js
++++ b/packages/svelte/src/motion/tweened.js
+@@ -230,9 +230,6 @@ export class Tween {
+ 	set(value, options) {
+ 		set(this.#target, value);
+ 
+-		let previous_task = this.#task;
+-
+-		let started = false;
+ 		let {
+ 			delay = 0,
+ 			duration = 400,
+@@ -240,10 +237,18 @@ export class Tween {
+ 			interpolate = get_interpolator
+ 		} = { ...this.#defaults, ...options };
+ 
++		if (duration === 0) {
++			this.#task?.abort();
++			set(this.#current, value);
++			return Promise.resolve();
++		}
++
+ 		const start = raf.now() + delay;
+ 
+ 		/** @type {(t: number) => T} */
+ 		let fn;
++		let started = false;
++		let previous_task = this.#task;
+ 
+ 		this.#task = loop((now) => {
+ 			if (now < start) {

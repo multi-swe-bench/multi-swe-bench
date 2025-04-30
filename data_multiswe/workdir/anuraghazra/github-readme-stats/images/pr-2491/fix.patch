@@ -1,0 +1,105 @@
+diff --git a/api/top-langs.js b/api/top-langs.js
+index 19cccb894e33a..baedd15c17513 100644
+--- a/api/top-langs.js
++++ b/api/top-langs.js
+@@ -29,6 +29,7 @@ export default async (req, res) => {
+     locale,
+     border_radius,
+     border_color,
++    merge_others,
+     disable_animations,
+   } = req.query;
+   res.setHeader("Content-Type", "image/svg+xml");
+@@ -76,6 +77,7 @@ export default async (req, res) => {
+         border_radius,
+         border_color,
+         locale: locale ? locale.toLowerCase() : null,
++        merge_others: parseBoolean(merge_others),
+         disable_animations: parseBoolean(disable_animations),
+       }),
+     );
+diff --git a/readme.md b/readme.md
+index 678c5c0b14af4..697b053e23e21 100644
+--- a/readme.md
++++ b/readme.md
+@@ -304,6 +304,7 @@ You can provide multiple comma-separated values in the bg_color option to render
+ -   `langs_count` - Show more languages on the card, between 1-10 _(number)_. Default `5`.
+ -   `exclude_repo` - Exclude specified repositories _(Comma-separated values)_. Default: `[] (blank array)`.
+ -   `custom_title` - Sets a custom title for the card _(string)_. Default `Most Used Languages`.
++-   `merge_others` - Shows an "Other" percentage when limiting the amount of languages _(boolean)_. Default: `false`.
+ -   `disable_animations` - Disables all animations in the card _(boolean)_. Default: `false`.
+ 
+ > **Warning**
+diff --git a/src/cards/top-languages-card.js b/src/cards/top-languages-card.js
+index 9396ff8e73d5e..84f85594784bc 100644
+--- a/src/cards/top-languages-card.js
++++ b/src/cards/top-languages-card.js
+@@ -233,11 +233,12 @@ const calculateNormalLayoutHeight = (totalLangs) => {
+  * @param {Record<string, Lang>} topLangs Top languages.
+  * @param {string[]} hide Languages to hide.
+  * @param {string} langs_count Number of languages to show.
++ * @param {boolean} merge_others Merge the rest of the languages into "Others" category.
+  */
+-const useLanguages = (topLangs, hide, langs_count) => {
++const useLanguages = (topLangs, hide, langs_count, merge_others) => {
+   let langs = Object.values(topLangs);
+   let langsToHide = {};
+-  let langsCount = clampValue(parseInt(langs_count), 1, 10);
++  let langsCountClamped = clampValue(parseInt(langs_count), 1, 10);
+ 
+   // populate langsToHide map for quick lookup
+   // while filtering out
+@@ -252,8 +253,23 @@ const useLanguages = (topLangs, hide, langs_count) => {
+     .sort((a, b) => b.size - a.size)
+     .filter((lang) => {
+       return !langsToHide[lowercaseTrim(lang.name)];
+-    })
+-    .slice(0, langsCount);
++    });
++
++  if (merge_others && langs.length > langsCountClamped) {
++    // Return 'langs_count' -1 top languages and merge the rest of the languages into "others" category.
++    const others = langs.splice(langsCountClamped - 1);
++    const othersSize = others.reduce((accumulator, object) => {
++      return accumulator + object.size;
++    }, 0);
++    langs.push({
++      name: "Others",
++      color: "#9E9F9E",
++      size: othersSize,
++    });
++  } else {
++    // Return 'langs_count' top languages.
++    langs = langs.slice(0, langsCountClamped);
++  }
+ 
+   const totalLanguageSize = langs.reduce((acc, curr) => acc + curr.size, 0);
+ 
+@@ -283,6 +299,7 @@ const renderTopLanguages = (topLangs, options = {}) => {
+     langs_count = DEFAULT_LANGS_COUNT,
+     border_radius,
+     border_color,
++    merge_others,
+     disable_animations,
+   } = options;
+ 
+@@ -295,6 +312,7 @@ const renderTopLanguages = (topLangs, options = {}) => {
+     topLangs,
+     hide,
+     String(langs_count),
++    merge_others,
+   );
+ 
+   let width = isNaN(card_width)
+diff --git a/src/cards/types.d.ts b/src/cards/types.d.ts
+index c5945d48be71e..80f8b427b8ac4 100644
+--- a/src/cards/types.d.ts
++++ b/src/cards/types.d.ts
+@@ -37,6 +37,7 @@ export type TopLangOptions = CommonOptions & {
+   layout: "compact" | "normal";
+   custom_title: string;
+   langs_count: number;
++  merge_others: boolean;
+   disable_animations: boolean;
+ };
+ 

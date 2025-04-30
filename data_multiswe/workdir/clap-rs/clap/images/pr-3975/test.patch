@@ -1,0 +1,2709 @@
+diff --git a/examples/derive_ref/interop_tests.md b/examples/derive_ref/interop_tests.md
+index a455c535df5..8a1fd6e4250 100644
+--- a/examples/derive_ref/interop_tests.md
++++ b/examples/derive_ref/interop_tests.md
+@@ -107,13 +107,13 @@ USAGE:
+     interop_hand_subcommand[EXE] [OPTIONS] <SUBCOMMAND>
+ 
+ OPTIONS:
+-    -h, --help         Print help information
+     -t, --top-level    
++    -h, --help         Print help information
+ 
+ SUBCOMMANDS:
+     add       
+-    help      Print this message or the help of the given subcommand(s)
+     remove    
++    help      Print this message or the help of the given subcommand(s)
+ 
+ ```
+ 
+diff --git a/tests/builder/app_settings.rs b/tests/builder/app_settings.rs
+index f2cf4d22038..510534b6d1d 100644
+--- a/tests/builder/app_settings.rs
++++ b/tests/builder/app_settings.rs
+@@ -29,44 +29,6 @@ OPTIONS:
+     -V, --version    Print version information
+ ";
+ 
+-static REQUIRE_EQUALS: &str = "clap-test v1.4.8
+-
+-USAGE:
+-    clap-test --opt=<FILE>
+-
+-OPTIONS:
+-    -h, --help          Print help information
+-    -o, --opt=<FILE>    some
+-    -V, --version       Print version information
+-";
+-
+-static SKIP_POS_VALS: &str = "test 1.3
+-Kevin K.
+-tests stuff
+-
+-USAGE:
+-    test [OPTIONS] [arg1]
+-
+-ARGS:
+-    <arg1>    some pos arg
+-
+-OPTIONS:
+-    -h, --help         Print help information
+-    -o, --opt <opt>    some option
+-    -V, --version      Print version information
+-";
+-
+-static ARG_REQUIRED_ELSE_HELP: &str = "test 1.0
+-
+-USAGE:
+-    test [OPTIONS]
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -i, --info       Provides more info
+-    -V, --version    Print version information
+-";
+-
+ #[test]
+ fn sub_command_negate_required() {
+     Command::new("sub_command_negate")
+@@ -163,6 +125,17 @@ fn arg_required_else_help_with_default() {
+ 
+ #[test]
+ fn arg_required_else_help_error_message() {
++    static ARG_REQUIRED_ELSE_HELP: &str = "test 1.0
++
++USAGE:
++    test [OPTIONS]
++
++OPTIONS:
++    -i, --info       Provides more info
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+     let cmd = Command::new("test")
+         .arg_required_else_help(true)
+         .version("1.0")
+@@ -310,6 +283,22 @@ fn no_bin_name() {
+ 
+ #[test]
+ fn skip_possible_values() {
++    static SKIP_POS_VALS: &str = "test 1.3
++Kevin K.
++tests stuff
++
++USAGE:
++    test [OPTIONS] [arg1]
++
++ARGS:
++    <arg1>    some pos arg
++
++OPTIONS:
++    -o, --opt <opt>    some option
++    -h, --help         Print help information
++    -V, --version      Print version information
++";
++
+     let cmd = Command::new("test")
+         .author("Kevin K.")
+         .about("tests stuff")
+@@ -575,6 +564,17 @@ fn dont_collapse_args() {
+ 
+ #[test]
+ fn require_eq() {
++    static REQUIRE_EQUALS: &str = "clap-test v1.4.8
++
++USAGE:
++    clap-test --opt=<FILE>
++
++OPTIONS:
++    -o, --opt=<FILE>    some
++    -h, --help          Print help information
++    -V, --version       Print version information
++";
++
+     let cmd = Command::new("clap-test").version("v1.4.8").arg(
+         Arg::new("opt")
+             .long("opt")
+diff --git a/tests/builder/arg_aliases.rs b/tests/builder/arg_aliases.rs
+index 3cc8dbf552c..893797c4a19 100644
+--- a/tests/builder/arg_aliases.rs
++++ b/tests/builder/arg_aliases.rs
+@@ -2,32 +2,6 @@ use super::utils;
+ 
+ use clap::{arg, Arg, ArgAction, Command};
+ 
+-static SC_VISIBLE_ALIAS_HELP: &str = "ct-test 1.2
+-Some help
+-
+-USAGE:
+-    ct test [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag         [aliases: v_flg, flag2, flg3]
+-    -h, --help         Print help information
+-    -o, --opt <opt>    [aliases: visible]
+-    -V, --version      Print version information
+-";
+-
+-static SC_INVISIBLE_ALIAS_HELP: &str = "ct-test 1.2
+-Some help
+-
+-USAGE:
+-    ct test [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag         
+-    -h, --help         Print help information
+-    -o, --opt <opt>    
+-    -V, --version      Print version information
+-";
+-
+ #[test]
+ fn single_alias_of_option() {
+     let a = Command::new("single_alias")
+@@ -216,6 +190,19 @@ fn alias_on_a_subcommand_option() {
+ 
+ #[test]
+ fn invisible_arg_aliases_help_output() {
++    static SC_INVISIBLE_ALIAS_HELP: &str = "ct-test 1.2
++Some help
++
++USAGE:
++    ct test [OPTIONS]
++
++OPTIONS:
++    -o, --opt <opt>    
++    -f, --flag         
++    -h, --help         Print help information
++    -V, --version      Print version information
++";
++
+     let cmd = Command::new("ct").author("Salim Afiune").subcommand(
+         Command::new("test")
+             .about("Some help")
+@@ -234,6 +221,19 @@ fn invisible_arg_aliases_help_output() {
+ 
+ #[test]
+ fn visible_arg_aliases_help_output() {
++    static SC_VISIBLE_ALIAS_HELP: &str = "ct-test 1.2
++Some help
++
++USAGE:
++    ct test [OPTIONS]
++
++OPTIONS:
++    -o, --opt <opt>    [aliases: visible]
++    -f, --flag         [aliases: v_flg, flag2, flg3]
++    -h, --help         Print help information
++    -V, --version      Print version information
++";
++
+     let cmd = Command::new("ct").author("Salim Afiune").subcommand(
+         Command::new("test")
+             .about("Some help")
+diff --git a/tests/builder/arg_aliases_short.rs b/tests/builder/arg_aliases_short.rs
+index 260fb95e1fa..ac1085c5321 100644
+--- a/tests/builder/arg_aliases_short.rs
++++ b/tests/builder/arg_aliases_short.rs
+@@ -2,32 +2,6 @@ use super::utils;
+ 
+ use clap::{arg, Arg, ArgAction, Command};
+ 
+-static SC_VISIBLE_ALIAS_HELP: &str = "ct-test 1.2
+-Some help
+-
+-USAGE:
+-    ct test [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag         [aliases: flag1] [short aliases: a, b, 🦆]
+-    -h, --help         Print help information
+-    -o, --opt <opt>    [short aliases: v]
+-    -V, --version      Print version information
+-";
+-
+-static SC_INVISIBLE_ALIAS_HELP: &str = "ct-test 1.2
+-Some help
+-
+-USAGE:
+-    ct test [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag         
+-    -h, --help         Print help information
+-    -o, --opt <opt>    
+-    -V, --version      Print version information
+-";
+-
+ #[test]
+ fn single_short_alias_of_option() {
+     let a = Command::new("single_alias")
+@@ -183,6 +157,19 @@ fn short_alias_on_a_subcommand_option() {
+ 
+ #[test]
+ fn invisible_short_arg_aliases_help_output() {
++    static SC_INVISIBLE_ALIAS_HELP: &str = "ct-test 1.2
++Some help
++
++USAGE:
++    ct test [OPTIONS]
++
++OPTIONS:
++    -o, --opt <opt>    
++    -f, --flag         
++    -h, --help         Print help information
++    -V, --version      Print version information
++";
++
+     let cmd = Command::new("ct").author("Salim Afiune").subcommand(
+         Command::new("test")
+             .about("Some help")
+@@ -201,6 +188,19 @@ fn invisible_short_arg_aliases_help_output() {
+ 
+ #[test]
+ fn visible_short_arg_aliases_help_output() {
++    static SC_VISIBLE_ALIAS_HELP: &str = "ct-test 1.2
++Some help
++
++USAGE:
++    ct test [OPTIONS]
++
++OPTIONS:
++    -o, --opt <opt>    [short aliases: v]
++    -f, --flag         [aliases: flag1] [short aliases: a, b, 🦆]
++    -h, --help         Print help information
++    -V, --version      Print version information
++";
++
+     let cmd = Command::new("ct").author("Salim Afiune").subcommand(
+         Command::new("test")
+             .about("Some help")
+diff --git a/tests/builder/derive_order.rs b/tests/builder/derive_order.rs
+index 5277806480f..ccc1cd3fef5 100644
+--- a/tests/builder/derive_order.rs
++++ b/tests/builder/derive_order.rs
+@@ -2,9 +2,11 @@ use super::utils;
+ 
+ use std::str;
+ 
+-use clap::{AppSettings, Arg, Command};
++use clap::{Arg, Command};
+ 
+-static NO_DERIVE_ORDER: &str = "test 1.2
++#[test]
++fn no_derive_order() {
++    static NO_DERIVE_ORDER: &str = "test 1.2
+ 
+ USAGE:
+     test [OPTIONS]
+@@ -18,24 +20,31 @@ OPTIONS:
+     -V, --version                Print version information
+ ";
+ 
+-static UNIFIED_HELP_AND_DERIVE: &str = "test 1.2
+-
+-USAGE:
+-    test [OPTIONS]
++    let cmd = Command::new("test")
++        .version("1.2")
++        .next_display_order(None)
++        .args(&[
++            Arg::new("flag_b").long("flag_b").help("first flag"),
++            Arg::new("option_b")
++                .long("option_b")
++                .takes_value(true)
++                .help("first option"),
++            Arg::new("flag_a").long("flag_a").help("second flag"),
++            Arg::new("option_a")
++                .long("option_a")
++                .takes_value(true)
++                .help("second option"),
++        ]);
+ 
+-OPTIONS:
+-        --flag_b                 first flag
+-        --option_b <option_b>    first option
+-        --flag_a                 second flag
+-        --option_a <option_a>    second option
+-    -h, --help                   Print help information
+-    -V, --version                Print version information
+-";
++    utils::assert_output(cmd, "test --help", NO_DERIVE_ORDER, false);
++}
+ 
+-static UNIFIED_DERIVE_SC_PROP: &str = "test-sub 1.2
++#[test]
++fn derive_order() {
++    static UNIFIED_HELP_AND_DERIVE: &str = "test 1.2
+ 
+ USAGE:
+-    test sub [OPTIONS]
++    test [OPTIONS]
+ 
+ OPTIONS:
+         --flag_b                 first flag
+@@ -46,46 +55,6 @@ OPTIONS:
+     -V, --version                Print version information
+ ";
+ 
+-static UNIFIED_DERIVE_SC_PROP_EXPLICIT_ORDER: &str = "test-sub 1.2
+-
+-USAGE:
+-    test sub [OPTIONS]
+-
+-OPTIONS:
+-        --flag_a                 second flag
+-        --flag_b                 first flag
+-        --option_b <option_b>    first option
+-        --option_a <option_a>    second option
+-    -h, --help                   Print help information
+-    -V, --version                Print version information
+-";
+-
+-static PREFER_USER_HELP_DERIVE_ORDER: &str = "test 1.2
+-
+-USAGE:
+-    test [OPTIONS]
+-
+-OPTIONS:
+-    -h, --help       Print help message
+-        --flag_b     first flag
+-        --flag_a     second flag
+-    -V, --version    Print version information
+-";
+-
+-static PREFER_USER_HELP_SUBCMD_DERIVE_ORDER: &str = "test-sub 1.2
+-
+-USAGE:
+-    test sub [OPTIONS]
+-
+-OPTIONS:
+-    -h, --help       Print help message
+-        --flag_b     first flag
+-        --flag_a     second flag
+-    -V, --version    Print version information
+-";
+-
+-#[test]
+-fn no_derive_order() {
+     let cmd = Command::new("test").version("1.2").args(&[
+         Arg::new("flag_b").long("flag_b").help("first flag"),
+         Arg::new("option_b")
+@@ -99,27 +68,6 @@ fn no_derive_order() {
+             .help("second option"),
+     ]);
+ 
+-    utils::assert_output(cmd, "test --help", NO_DERIVE_ORDER, false);
+-}
+-
+-#[test]
+-fn derive_order() {
+-    let cmd = Command::new("test")
+-        .setting(AppSettings::DeriveDisplayOrder)
+-        .version("1.2")
+-        .args(&[
+-            Arg::new("flag_b").long("flag_b").help("first flag"),
+-            Arg::new("option_b")
+-                .long("option_b")
+-                .takes_value(true)
+-                .help("first option"),
+-            Arg::new("flag_a").long("flag_a").help("second flag"),
+-            Arg::new("option_a")
+-                .long("option_a")
+-                .takes_value(true)
+-                .help("second option"),
+-        ]);
+-
+     utils::assert_output(cmd, "test --help", UNIFIED_HELP_AND_DERIVE, false);
+ }
+ 
+@@ -140,7 +88,6 @@ OPTIONS:
+ ";
+ 
+     let cmd = Command::new("test")
+-        .setting(AppSettings::DeriveDisplayOrder)
+         .version("1.2")
+         .next_display_order(10000)
+         .arg(Arg::new("flag_a").long("flag_a").help("second flag"))
+@@ -179,7 +126,6 @@ OPTIONS:
+ ";
+ 
+     let cmd = Command::new("test")
+-        .setting(AppSettings::DeriveDisplayOrder)
+         .version("1.2")
+         .next_display_order(None)
+         .arg(Arg::new("flag_a").long("flag_a").help("first flag"))
+@@ -202,47 +148,71 @@ OPTIONS:
+ 
+ #[test]
+ fn derive_order_subcommand_propagate() {
+-    let cmd = Command::new("test")
+-        .global_setting(AppSettings::DeriveDisplayOrder)
+-        .subcommand(
+-            Command::new("sub").version("1.2").args(&[
+-                Arg::new("flag_b").long("flag_b").help("first flag"),
+-                Arg::new("option_b")
+-                    .long("option_b")
+-                    .takes_value(true)
+-                    .help("first option"),
+-                Arg::new("flag_a").long("flag_a").help("second flag"),
+-                Arg::new("option_a")
+-                    .long("option_a")
+-                    .takes_value(true)
+-                    .help("second option"),
+-            ]),
+-        );
++    static UNIFIED_DERIVE_SC_PROP: &str = "test-sub 1.2
++
++USAGE:
++    test sub [OPTIONS]
++
++OPTIONS:
++        --flag_b                 first flag
++        --option_b <option_b>    first option
++        --flag_a                 second flag
++        --option_a <option_a>    second option
++    -h, --help                   Print help information
++    -V, --version                Print version information
++";
++
++    let cmd = Command::new("test").subcommand(
++        Command::new("sub").version("1.2").args(&[
++            Arg::new("flag_b").long("flag_b").help("first flag"),
++            Arg::new("option_b")
++                .long("option_b")
++                .takes_value(true)
++                .help("first option"),
++            Arg::new("flag_a").long("flag_a").help("second flag"),
++            Arg::new("option_a")
++                .long("option_a")
++                .takes_value(true)
++                .help("second option"),
++        ]),
++    );
+ 
+     utils::assert_output(cmd, "test sub --help", UNIFIED_DERIVE_SC_PROP, false);
+ }
+ 
+ #[test]
+ fn derive_order_subcommand_propagate_with_explicit_display_order() {
+-    let cmd = Command::new("test")
+-        .global_setting(AppSettings::DeriveDisplayOrder)
+-        .subcommand(
+-            Command::new("sub").version("1.2").args(&[
+-                Arg::new("flag_b").long("flag_b").help("first flag"),
+-                Arg::new("option_b")
+-                    .long("option_b")
+-                    .takes_value(true)
+-                    .help("first option"),
+-                Arg::new("flag_a")
+-                    .long("flag_a")
+-                    .help("second flag")
+-                    .display_order(0),
+-                Arg::new("option_a")
+-                    .long("option_a")
+-                    .takes_value(true)
+-                    .help("second option"),
+-            ]),
+-        );
++    static UNIFIED_DERIVE_SC_PROP_EXPLICIT_ORDER: &str = "test-sub 1.2
++
++USAGE:
++    test sub [OPTIONS]
++
++OPTIONS:
++        --flag_a                 second flag
++        --flag_b                 first flag
++        --option_b <option_b>    first option
++        --option_a <option_a>    second option
++    -h, --help                   Print help information
++    -V, --version                Print version information
++";
++
++    let cmd = Command::new("test").subcommand(
++        Command::new("sub").version("1.2").args(&[
++            Arg::new("flag_b").long("flag_b").help("first flag"),
++            Arg::new("option_b")
++                .long("option_b")
++                .takes_value(true)
++                .help("first option"),
++            Arg::new("flag_a")
++                .long("flag_a")
++                .help("second flag")
++                .display_order(0),
++            Arg::new("option_a")
++                .long("option_a")
++                .takes_value(true)
++                .help("second option"),
++        ]),
++    );
+ 
+     utils::assert_output(
+         cmd,
+@@ -254,40 +224,130 @@ fn derive_order_subcommand_propagate_with_explicit_display_order() {
+ 
+ #[test]
+ fn prefer_user_help_with_derive_order() {
+-    let cmd = Command::new("test")
+-        .setting(AppSettings::DeriveDisplayOrder)
+-        .version("1.2")
+-        .args(&[
++    static PREFER_USER_HELP_DERIVE_ORDER: &str = "test 1.2
++
++USAGE:
++    test [OPTIONS]
++
++OPTIONS:
++    -h, --help       Print help message
++        --flag_b     first flag
++        --flag_a     second flag
++    -V, --version    Print version information
++";
++
++    let cmd = Command::new("test").version("1.2").args(&[
++        Arg::new("help")
++            .long("help")
++            .short('h')
++            .help("Print help message"),
++        Arg::new("flag_b").long("flag_b").help("first flag"),
++        Arg::new("flag_a").long("flag_a").help("second flag"),
++    ]);
++
++    utils::assert_output(cmd, "test --help", PREFER_USER_HELP_DERIVE_ORDER, false);
++}
++
++#[test]
++fn prefer_user_help_in_subcommand_with_derive_order() {
++    static PREFER_USER_HELP_SUBCMD_DERIVE_ORDER: &str = "test-sub 1.2
++
++USAGE:
++    test sub [OPTIONS]
++
++OPTIONS:
++    -h, --help       Print help message
++        --flag_b     first flag
++        --flag_a     second flag
++    -V, --version    Print version information
++";
++
++    let cmd = Command::new("test").subcommand(
++        Command::new("sub").version("1.2").args(&[
+             Arg::new("help")
+                 .long("help")
+                 .short('h')
+                 .help("Print help message"),
+             Arg::new("flag_b").long("flag_b").help("first flag"),
+             Arg::new("flag_a").long("flag_a").help("second flag"),
++        ]),
++    );
++
++    utils::assert_output(
++        cmd,
++        "test sub --help",
++        PREFER_USER_HELP_SUBCMD_DERIVE_ORDER,
++        false,
++    );
++}
++
++#[test]
++fn subcommand_sorted_display_order() {
++    static SUBCMD_ALPHA_ORDER: &str = "test 1
++
++USAGE:
++    test [SUBCOMMAND]
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++SUBCOMMANDS:
++    a1      blah a1
++    b1      blah b1
++    help    Print this message or the help of the given subcommand(s)
++";
++
++    let app_subcmd_alpha_order = Command::new("test")
++        .version("1")
++        .next_display_order(None)
++        .subcommands(vec![
++            Command::new("b1")
++                .about("blah b1")
++                .arg(Arg::new("test").short('t')),
++            Command::new("a1")
++                .about("blah a1")
++                .arg(Arg::new("roster").short('r')),
+         ]);
+ 
+-    utils::assert_output(cmd, "test --help", PREFER_USER_HELP_DERIVE_ORDER, false);
++    utils::assert_output(
++        app_subcmd_alpha_order,
++        "test --help",
++        SUBCMD_ALPHA_ORDER,
++        false,
++    );
+ }
+ 
+ #[test]
+-fn prefer_user_help_in_subcommand_with_derive_order() {
+-    let cmd = Command::new("test")
+-        .global_setting(AppSettings::DeriveDisplayOrder)
+-        .subcommand(
+-            Command::new("sub").version("1.2").args(&[
+-                Arg::new("help")
+-                    .long("help")
+-                    .short('h')
+-                    .help("Print help message"),
+-                Arg::new("flag_b").long("flag_b").help("first flag"),
+-                Arg::new("flag_a").long("flag_a").help("second flag"),
+-            ]),
+-        );
++fn subcommand_derived_display_order() {
++    static SUBCMD_DECL_ORDER: &str = "test 1
++
++USAGE:
++    test [SUBCOMMAND]
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++SUBCOMMANDS:
++    b1      blah b1
++    a1      blah a1
++    help    Print this message or the help of the given subcommand(s)
++";
++
++    let app_subcmd_decl_order = Command::new("test").version("1").subcommands(vec![
++        Command::new("b1")
++            .about("blah b1")
++            .arg(Arg::new("test").short('t')),
++        Command::new("a1")
++            .about("blah a1")
++            .arg(Arg::new("roster").short('r')),
++    ]);
+ 
+     utils::assert_output(
+-        cmd,
+-        "test sub --help",
+-        PREFER_USER_HELP_SUBCMD_DERIVE_ORDER,
++        app_subcmd_decl_order,
++        "test --help",
++        SUBCMD_DECL_ORDER,
+         false,
+     );
+ }
+diff --git a/tests/builder/flag_subcommands.rs b/tests/builder/flag_subcommands.rs
+index 1c36300115e..5b733c6b6c7 100644
+--- a/tests/builder/flag_subcommands.rs
++++ b/tests/builder/flag_subcommands.rs
+@@ -499,9 +499,9 @@ USAGE:
+     pacman {query|--query|-Q} [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help                  Print help information
+-    -i, --info <info>...        view package information
+     -s, --search <search>...    search locally installed packages for matching strings
++    -i, --info <info>...        view package information
++    -h, --help                  Print help information
+ ";
+ 
+ #[test]
+@@ -548,9 +548,9 @@ USAGE:
+     pacman {query|--query} [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help                  Print help information
+-    -i, --info <info>...        view package information
+     -s, --search <search>...    search locally installed packages for matching strings
++    -i, --info <info>...        view package information
++    -h, --help                  Print help information
+ ";
+ 
+ #[test]
+@@ -601,9 +601,9 @@ USAGE:
+     pacman {query|-Q} [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help                  Print help information
+-    -i, --info <info>...        view package information
+     -s, --search <search>...    search locally installed packages for matching strings
++    -i, --info <info>...        view package information
++    -h, --help                  Print help information
+ ";
+ 
+ #[test]
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index b96498f5788..e00de1c3fca 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -2,610 +2,6 @@ use super::utils;
+ 
+ use clap::{arg, error::ErrorKind, Arg, ArgAction, ArgGroup, Command, PossibleValue};
+ 
+-static REQUIRE_DELIM_HELP: &str = "test 1.3
+-Kevin K.
+-tests stuff
+-
+-USAGE:
+-    test --fake <some>:<val>
+-
+-OPTIONS:
+-    -f, --fake <some>:<val>    some help
+-    -h, --help                 Print help information
+-    -V, --version              Print version information
+-";
+-
+-static HELP: &str = "clap-test v1.4.8
+-Kevin K. <kbknapp@gmail.com>
+-tests clap library
+-
+-USAGE:
+-    clap-test [OPTIONS] [ARGS] [SUBCOMMAND]
+-
+-ARGS:
+-    <positional>        tests positionals
+-    <positional2>       tests positionals with exclusions
+-    <positional3>...    tests specific values [possible values: vi, emacs]
+-
+-OPTIONS:
+-    -f, --flag                       tests flags
+-    -F                               tests flags with exclusions
+-    -h, --help                       Print help information
+-        --long-option-2 <option2>    tests long options with exclusions
+-        --maxvals3 <maxvals>...      Tests 3 max vals
+-        --minvals2 <minvals>...      Tests 2 min vals
+-        --multvals <one> <two>       Tests multiple values, not mult occs
+-        --multvalsmo <one> <two>     Tests multiple values, and mult occs
+-    -o, --option <opt>...            tests options
+-    -O, --option3 <option3>          specific vals [possible values: fast, slow]
+-        --optvaleq[=<optval>]        Tests optional value, require = sign
+-        --optvalnoeq [<optval>]      Tests optional value
+-    -V, --version                    Print version information
+-
+-SUBCOMMANDS:
+-    help      Print this message or the help of the given subcommand(s)
+-    subcmd    tests subcommands
+-";
+-
+-static SC_NEGATES_REQS: &str = "prog 1.0
+-
+-USAGE:
+-    prog --opt <FILE> [PATH]
+-    prog [PATH] <SUBCOMMAND>
+-
+-ARGS:
+-    <PATH>    help
+-
+-OPTIONS:
+-    -h, --help          Print help information
+-    -o, --opt <FILE>    tests options
+-    -V, --version       Print version information
+-
+-SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+-    test    
+-";
+-
+-static ARGS_NEGATE_SC: &str = "prog 1.0
+-
+-USAGE:
+-    prog [OPTIONS] [PATH]
+-    prog <SUBCOMMAND>
+-
+-ARGS:
+-    <PATH>    help
+-
+-OPTIONS:
+-    -f, --flag          testing flags
+-    -h, --help          Print help information
+-    -o, --opt <FILE>    tests options
+-    -V, --version       Print version information
+-
+-SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+-    test    
+-";
+-
+-static AFTER_HELP: &str = "some text that comes before the help
+-
+-clap-test v1.4.8
+-tests clap library
+-
+-USAGE:
+-    clap-test
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+-some text that comes after the help
+-";
+-
+-static AFTER_LONG_HELP: &str = "some longer text that comes before the help
+-
+-clap-test v1.4.8
+-tests clap library
+-
+-USAGE:
+-    clap-test
+-
+-OPTIONS:
+-    -h, --help
+-            Print help information
+-
+-    -V, --version
+-            Print version information
+-
+-some longer text that comes after the help
+-";
+-
+-static HIDDEN_ARGS: &str = "prog 1.0
+-
+-USAGE:
+-    prog [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag          testing flags
+-    -h, --help          Print help information
+-    -o, --opt <FILE>    tests options
+-    -V, --version       Print version information
+-";
+-
+-static SC_HELP: &str = "clap-test-subcmd 0.1
+-Kevin K. <kbknapp@gmail.com>
+-tests subcommands
+-
+-USAGE:
+-    clap-test subcmd [OPTIONS] [--] [scpositional]
+-
+-ARGS:
+-    <scpositional>    tests positionals
+-
+-OPTIONS:
+-    -f, --flag                     tests flags
+-    -h, --help                     Print help information
+-    -o, --option <scoption>...     tests options
+-    -s, --subcmdarg <subcmdarg>    tests other args
+-    -V, --version                  Print version information
+-";
+-
+-static ISSUE_1046_HIDDEN_SCS: &str = "prog 1.0
+-
+-USAGE:
+-    prog [OPTIONS] [PATH]
+-
+-ARGS:
+-    <PATH>    some
+-
+-OPTIONS:
+-    -f, --flag          testing flags
+-    -h, --help          Print help information
+-    -o, --opt <FILE>    tests options
+-    -V, --version       Print version information
+-";
+-
+-// Using number_of_values(1) with multiple_values(true) misaligns help message
+-static ISSUE_760: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-    -h, --help               Print help information
+-    -o, --option <option>    tests options
+-    -O, --opt <opt>          tests options
+-    -V, --version            Print version information
+-";
+-
+-static RIPGREP_USAGE: &str = "ripgrep 0.5
+-
+-USAGE:
+-    rg [OPTIONS] <pattern> [<path> ...]
+-    rg [OPTIONS] [-e PATTERN | -f FILE ]... [<path> ...]
+-    rg [OPTIONS] --files [<path> ...]
+-    rg [OPTIONS] --type-list
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static MULTI_SC_HELP: &str = "ctest-subcmd-multi 0.1
+-Kevin K. <kbknapp@gmail.com>
+-tests subcommands
+-
+-USAGE:
+-    ctest subcmd multi [OPTIONS]
+-
+-OPTIONS:
+-    -f, --flag                    tests flags
+-    -h, --help                    Print help information
+-    -o, --option <scoption>...    tests options
+-    -V, --version                 Print version information
+-";
+-
+-static ISSUE_626_CUTOFF: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-    -c, --cafe <FILE>    A coffeehouse, coffee shop, or café is an
+-                         establishment which primarily serves hot
+-                         coffee, related coffee beverages (e.g., café
+-                         latte, cappuccino, espresso), tea, and other
+-                         hot beverages. Some coffeehouses also serve
+-                         cold beverages such as iced coffee and iced
+-                         tea. Many cafés also serve some type of food,
+-                         such as light snacks, muffins, or pastries.
+-    -h, --help           Print help information
+-    -V, --version        Print version information
+-";
+-
+-static ISSUE_626_PANIC: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-    -c, --cafe <FILE>
+-            La culture du café est très développée
+-            dans de nombreux pays à climat chaud
+-            d\'Amérique, d\'Afrique et d\'Asie, dans
+-            des plantations qui sont cultivées pour
+-            les marchés d\'exportation. Le café est
+-            souvent une contribution majeure aux
+-            exportations des régions productrices.
+-
+-    -h, --help
+-            Print help information
+-
+-    -V, --version
+-            Print version information
+-";
+-
+-static HIDE_POS_VALS: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-    -c, --cafe <FILE>    A coffeehouse, coffee shop, or café.
+-    -h, --help           Print help information
+-    -p, --pos <VAL>      Some vals [possible values: fast, slow]
+-    -V, --version        Print version information
+-";
+-
+-static FINAL_WORD_WRAPPING: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest
+-
+-OPTIONS:
+-    -h, --help
+-            Print help
+-            information
+-
+-    -V, --version
+-            Print
+-            version
+-            information
+-";
+-
+-static OLD_NEWLINE_CHARS: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -m               Some help with some wrapping
+-                     (Defaults to something)
+-    -V, --version    Print version information
+-";
+-
+-static WRAPPING_NEWLINE_CHARS: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [mode]
+-
+-ARGS:
+-    <mode>    x, max, maximum   20 characters, contains
+-              symbols.
+-              l, long           Copy-friendly, 14
+-              characters, contains symbols.
+-              m, med, medium    Copy-friendly, 8
+-              characters, contains symbols.
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static ISSUE_688: &str = "ctest 0.1
+-
+-USAGE:
+-    ctest [OPTIONS]
+-
+-OPTIONS:
+-        --filter <filter>    Sets the filter, or sampling method, to use for interpolation when resizing the particle
+-                             images. The default is Linear (Bilinear). [possible values: Nearest, Linear, Cubic,
+-                             Gaussian, Lanczos3]
+-    -h, --help               Print help information
+-    -V, --version            Print version information
+-";
+-
+-static ISSUE_702: &str = "myapp 1.0
+-foo
+-bar
+-
+-USAGE:
+-    myapp [OPTIONS] [--] [ARGS]
+-
+-ARGS:
+-    <arg1>       some option
+-    <arg2>...    some option
+-
+-OPTIONS:
+-    -h, --help                Print help information
+-    -l, --label <label>...    a label
+-    -o, --other <other>       some other option
+-    -s, --some <some>         some option
+-    -V, --version             Print version information
+-";
+-
+-static ISSUE_777: &str = "A cmd with a crazy very long long
+-long name hahaha 1.0
+-Some Very Long Name and crazy long
+-email <email@server.com>
+-Show how the about text is not
+-wrapped
+-
+-USAGE:
+-    ctest
+-
+-OPTIONS:
+-    -h, --help
+-            Print help information
+-
+-    -V, --version
+-            Print version
+-            information
+-";
+-
+-static ISSUE_1642: &str = "prog 
+-
+-USAGE:
+-    prog [OPTIONS]
+-
+-OPTIONS:
+-        --config
+-            The config file used by the myprog must be in JSON format
+-            with only valid keys and may not contain other nonsense
+-            that cannot be read by this program. Obviously I'm going on
+-            and on, so I'll stop now.
+-
+-    -h, --help
+-            Print help information
+-";
+-
+-static HELP_CONFLICT: &str = "conflict 
+-
+-USAGE:
+-    conflict [OPTIONS]
+-
+-OPTIONS:
+-    -h            
+-        --help    Print help information
+-";
+-
+-static LAST_ARG: &str = "last 0.1
+-
+-USAGE:
+-    last <TARGET> [CORPUS] [-- <ARGS>...]
+-
+-ARGS:
+-    <TARGET>     some
+-    <CORPUS>     some
+-    <ARGS>...    some
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static LAST_ARG_SC: &str = "last 0.1
+-
+-USAGE:
+-    last <TARGET> [CORPUS] [-- <ARGS>...]
+-    last <SUBCOMMAND>
+-
+-ARGS:
+-    <TARGET>     some
+-    <CORPUS>     some
+-    <ARGS>...    some
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+-SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+-    test    some
+-";
+-
+-static LAST_ARG_REQ: &str = "last 0.1
+-
+-USAGE:
+-    last <TARGET> [CORPUS] -- <ARGS>...
+-
+-ARGS:
+-    <TARGET>     some
+-    <CORPUS>     some
+-    <ARGS>...    some
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static LAST_ARG_REQ_SC: &str = "last 0.1
+-
+-USAGE:
+-    last <TARGET> [CORPUS] -- <ARGS>...
+-    last <SUBCOMMAND>
+-
+-ARGS:
+-    <TARGET>     some
+-    <CORPUS>     some
+-    <ARGS>...    some
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+-SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+-    test    some
+-";
+-
+-static HIDE_DEFAULT_VAL: &str = "default 0.1
+-
+-USAGE:
+-    default [OPTIONS]
+-
+-OPTIONS:
+-        --arg <argument>    Pass an argument to the program. [default: default-argument]
+-    -h, --help              Print help information
+-    -V, --version           Print version information
+-";
+-
+-static ESCAPED_DEFAULT_VAL: &str = "default 0.1
+-
+-USAGE:
+-    default [OPTIONS]
+-
+-OPTIONS:
+-        --arg <argument>    Pass an argument to the program. [default: \"\\n\"] [possible values: normal, \" \", \"\\n\", \"\\t\",
+-                            other]
+-    -h, --help              Print help information
+-    -V, --version           Print version information
+-";
+-
+-static LAST_ARG_USAGE: &str = "flamegraph 0.1
+-
+-USAGE:
+-    flamegraph [OPTIONS] [BINFILE] [-- <ARGS>...]
+-
+-ARGS:
+-    <BINFILE>    The path of the binary to be profiled. for a binary.
+-    <ARGS>...    Any arguments you wish to pass to the being profiled.
+-
+-OPTIONS:
+-    -f, --frequency <HERTZ>    The sampling frequency.
+-    -h, --help                 Print help information
+-    -t, --timeout <SECONDS>    Timeout in seconds.
+-    -v, --verbose              Prints out more stuff.
+-    -V, --version              Print version information
+-";
+-
+-static LAST_ARG_REQ_MULT: &str = "example 1.0
+-
+-USAGE:
+-    example <FIRST>... [--] <SECOND>...
+-
+-ARGS:
+-    <FIRST>...     First
+-    <SECOND>...    Second
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static DEFAULT_HELP: &str = "ctest 1.0
+-
+-USAGE:
+-    ctest
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-";
+-
+-static LONG_ABOUT: &str = "myapp 1.0
+-foo
+-something really really long, with
+-multiple lines of text
+-that should be displayed
+-
+-USAGE:
+-    myapp [arg1]
+-
+-ARGS:
+-    <arg1>
+-            some option
+-
+-OPTIONS:
+-    -h, --help
+-            Print help information
+-
+-    -V, --version
+-            Print version information
+-";
+-
+-static CUSTOM_HELP_SECTION: &str = "blorp 1.4
+-Will M.
+-does stuff
+-
+-USAGE:
+-    test [OPTIONS] --fake <some>:<val>
+-
+-OPTIONS:
+-    -f, --fake <some>:<val>    some help
+-    -h, --help                 Print help information
+-    -V, --version              Print version information
+-
+-NETWORKING:
+-    -n, --no-proxy    Do not use system proxy settings
+-        --port        
+-";
+-
+-static ISSUE_1487: &str = "test 
+-
+-USAGE:
+-    ctest <arg1|arg2>
+-
+-ARGS:
+-    <arg1>    
+-    <arg2>    
+-
+-OPTIONS:
+-    -h, --help    Print help information
+-";
+-
+-static ISSUE_1364: &str = "demo 
+-
+-USAGE:
+-    demo [OPTIONS] [FILES]...
+-
+-ARGS:
+-    <FILES>...    
+-
+-OPTIONS:
+-    -f            
+-    -h, --help    Print help information
+-";
+-
+-static OPTION_USAGE_ORDER: &str = "order 
+-
+-USAGE:
+-    order [OPTIONS]
+-
+-OPTIONS:
+-    -a                     
+-    -b                     
+-    -B                     
+-    -h, --help             Print help information
+-    -s                     
+-        --select_file      
+-        --select_folder    
+-    -x                     
+-";
+-
+-static ABOUT_IN_SUBCOMMANDS_LIST: &str = "about-in-subcommands-list 
+-
+-USAGE:
+-    about-in-subcommands-list [SUBCOMMAND]
+-
+-OPTIONS:
+-    -h, --help    Print help information
+-
+-SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+-    sub     short about sub
+-";
+-
+ fn setup() -> Command<'static> {
+     Command::new("test")
+         .author("Kevin K.")
+@@ -692,6 +88,20 @@ For more information try --help
+ 
+ #[test]
+ fn req_last_arg_usage() {
++    static LAST_ARG_REQ_MULT: &str = "example 1.0
++
++USAGE:
++    example <FIRST>... [--] <SECOND>...
++
++ARGS:
++    <FIRST>...     First
++    <SECOND>...    Second
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+     let cmd = Command::new("example")
+         .version("1.0")
+         .arg(
+@@ -712,6 +122,23 @@ fn req_last_arg_usage() {
+ 
+ #[test]
+ fn args_with_last_usage() {
++    static LAST_ARG_USAGE: &str = "flamegraph 0.1
++
++USAGE:
++    flamegraph [OPTIONS] [BINFILE] [-- <ARGS>...]
++
++ARGS:
++    <BINFILE>    The path of the binary to be profiled. for a binary.
++    <ARGS>...    Any arguments you wish to pass to the being profiled.
++
++OPTIONS:
++    -v, --verbose              Prints out more stuff.
++    -t, --timeout <SECONDS>    Timeout in seconds.
++    -f, --frequency <HERTZ>    The sampling frequency.
++    -h, --help                 Print help information
++    -V, --version              Print version information
++";
++
+     let cmd = Command::new("flamegraph")
+         .version("0.1")
+         .trailing_var_arg(true)
+@@ -778,11 +205,58 @@ fn subcommand_help_rev() {
+ 
+ #[test]
+ fn complex_help_output() {
++    static HELP: &str = "clap-test v1.4.8
++Kevin K. <kbknapp@gmail.com>
++tests clap library
++
++USAGE:
++    clap-test [OPTIONS] [ARGS] [SUBCOMMAND]
++
++ARGS:
++    <positional>        tests positionals
++    <positional2>       tests positionals with exclusions
++    <positional3>...    tests specific values [possible values: vi, emacs]
++
++OPTIONS:
++    -o, --option <opt>...            tests options
++    -f, --flag                       tests flags
++    -F                               tests flags with exclusions
++        --long-option-2 <option2>    tests long options with exclusions
++    -O, --option3 <option3>          specific vals [possible values: fast, slow]
++        --multvals <one> <two>       Tests multiple values, not mult occs
++        --multvalsmo <one> <two>     Tests multiple values, and mult occs
++        --minvals2 <minvals>...      Tests 2 min vals
++        --maxvals3 <maxvals>...      Tests 3 max vals
++        --optvaleq[=<optval>]        Tests optional value, require = sign
++        --optvalnoeq [<optval>]      Tests optional value
++    -h, --help                       Print help information
++    -V, --version                    Print version information
++
++SUBCOMMANDS:
++    subcmd    tests subcommands
++    help      Print this message or the help of the given subcommand(s)
++";
++
+     utils::assert_output(utils::complex_app(), "clap-test --help", HELP, false);
+ }
+ 
+ #[test]
+ fn after_and_before_help_output() {
++    static AFTER_HELP: &str = "some text that comes before the help
++
++clap-test v1.4.8
++tests clap library
++
++USAGE:
++    clap-test
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++some text that comes after the help
++";
++
+     let cmd = Command::new("clap-test")
+         .version("v1.4.8")
+         .about("tests clap library")
+@@ -794,6 +268,39 @@ fn after_and_before_help_output() {
+ 
+ #[test]
+ fn after_and_before_long_help_output() {
++    static AFTER_HELP: &str = "some text that comes before the help
++
++clap-test v1.4.8
++tests clap library
++
++USAGE:
++    clap-test
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++some text that comes after the help
++";
++
++    static AFTER_LONG_HELP: &str = "some longer text that comes before the help
++
++clap-test v1.4.8
++tests clap library
++
++USAGE:
++    clap-test
++
++OPTIONS:
++    -h, --help
++            Print help information
++
++    -V, --version
++            Print version information
++
++some longer text that comes after the help
++";
++
+     let cmd = Command::new("clap-test")
+         .version("v1.4.8")
+         .about("tests clap library")
+@@ -805,6 +312,20 @@ fn after_and_before_long_help_output() {
+     utils::assert_output(cmd, "clap-test -h", AFTER_HELP, false);
+ }
+ 
++static MULTI_SC_HELP: &str = "ctest-subcmd-multi 0.1
++Kevin K. <kbknapp@gmail.com>
++tests subcommands
++
++USAGE:
++    ctest subcmd multi [OPTIONS]
++
++OPTIONS:
++    -f, --flag                    tests flags
++    -o, --option <scoption>...    tests options
++    -h, --help                    Print help information
++    -V, --version                 Print version information
++";
++
+ #[test]
+ fn multi_level_sc_help() {
+     let cmd = Command::new("ctest").subcommand(
+@@ -839,6 +360,16 @@ fn no_wrap_help() {
+ 
+ #[test]
+ fn no_wrap_default_help() {
++    static DEFAULT_HELP: &str = "ctest 1.0
++
++USAGE:
++    ctest
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+     let cmd = Command::new("ctest").version("1.0").term_width(0);
+     utils::assert_output(cmd, "ctest --help", DEFAULT_HELP, false);
+ }
+@@ -860,14 +391,14 @@ OPTIONS:
+             Specify inter dependency version numbers exactly with
+             `=`
+ 
+-    -h, --help
+-            Print help information
+-
+         --no-git-commit
+             Do not commit version changes
+ 
+         --no-git-push
+             Do not push generated commit and tags to git remote
++
++    -h, --help
++            Print help information
+ ";
+     let cmd = Command::new("test")
+         .term_width(67)
+@@ -908,10 +439,10 @@ OPTIONS:
+                            (will not be published)
+         --exact            Specify inter dependency version numbers
+                            exactly with `=`
+-    -h, --help             Print help information
+         --no-git-commit    Do not commit version changes
+         --no-git-push      Do not push generated commit and tags to
+                            git remote
++    -h, --help             Print help information
+ ";
+     let cmd = Command::new("test")
+         .term_width(68)
+@@ -948,9 +479,6 @@ USAGE:
+     test [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help
+-            Print help information
+-
+         --possible-values <possible_values>
+             Possible values:
+               - short_name:
+@@ -969,6 +497,9 @@ OPTIONS:
+             Possible values:
+               - name:   Short enough help message with no wrapping
+               - second: short help
++
++    -h, --help
++            Print help information
+ ";
+     let cmd = Command::new("test")
+         .term_width(67)
+@@ -1007,12 +538,48 @@ OPTIONS:
+ 
+ #[test]
+ fn complex_subcommand_help_output() {
++    static SC_HELP: &str = "clap-test-subcmd 0.1
++Kevin K. <kbknapp@gmail.com>
++tests subcommands
++
++USAGE:
++    clap-test subcmd [OPTIONS] [--] [scpositional]
++
++ARGS:
++    <scpositional>    tests positionals
++
++OPTIONS:
++    -o, --option <scoption>...     tests options
++    -f, --flag                     tests flags
++    -s, --subcmdarg <subcmdarg>    tests other args
++    -h, --help                     Print help information
++    -V, --version                  Print version information
++";
++
+     let a = utils::complex_app();
+     utils::assert_output(a, "clap-test subcmd --help", SC_HELP, false);
+ }
+ 
+ #[test]
+ fn issue_626_unicode_cutoff() {
++    static ISSUE_626_CUTOFF: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++    -c, --cafe <FILE>    A coffeehouse, coffee shop, or café is an
++                         establishment which primarily serves hot
++                         coffee, related coffee beverages (e.g., café
++                         latte, cappuccino, espresso), tea, and other
++                         hot beverages. Some coffeehouses also serve
++                         cold beverages such as iced coffee and iced
++                         tea. Many cafés also serve some type of food,
++                         such as light snacks, muffins, or pastries.
++    -h, --help           Print help information
++    -V, --version        Print version information
++";
++
+     let cmd = Command::new("ctest").version("0.1").term_width(70).arg(
+         Arg::new("cafe")
+             .short('c')
+@@ -1031,6 +598,18 @@ fn issue_626_unicode_cutoff() {
+     utils::assert_output(cmd, "ctest --help", ISSUE_626_CUTOFF, false);
+ }
+ 
++static HIDE_POS_VALS: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++    -p, --pos <VAL>      Some vals [possible values: fast, slow]
++    -c, --cafe <FILE>    A coffeehouse, coffee shop, or café.
++    -h, --help           Print help information
++    -V, --version        Print version information
++";
++
+ #[test]
+ fn hide_possible_vals() {
+     let cmd = Command::new("ctest")
+@@ -1093,12 +672,6 @@ USAGE:
+     ctest [OPTIONS]
+ 
+ OPTIONS:
+-    -c, --cafe <FILE>
+-            A coffeehouse, coffee shop, or café.
+-
+-    -h, --help
+-            Print help information
+-
+     -p, --pos <VAL>
+             Some vals
+ 
+@@ -1106,6 +679,12 @@ OPTIONS:
+               - fast
+               - slow: not as fast
+ 
++    -c, --cafe <FILE>
++            A coffeehouse, coffee shop, or café.
++
++    -h, --help
++            Print help information
++
+     -V, --version
+             Print version information
+ ";
+@@ -1137,6 +716,28 @@ OPTIONS:
+ 
+ #[test]
+ fn issue_626_panic() {
++    static ISSUE_626_PANIC: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++    -c, --cafe <FILE>
++            La culture du café est très développée
++            dans de nombreux pays à climat chaud
++            d\'Amérique, d\'Afrique et d\'Asie, dans
++            des plantations qui sont cultivées pour
++            les marchés d\'exportation. Le café est
++            souvent une contribution majeure aux
++            exportations des régions productrices.
++
++    -h, --help
++            Print help information
++
++    -V, --version
++            Print version information
++";
++
+     let cmd = Command::new("ctest")
+         .version("0.1")
+         .term_width(52)
+@@ -1171,10 +772,44 @@ fn issue_626_variable_panic() {
+ 
+ #[test]
+ fn final_word_wrapping() {
++    static FINAL_WORD_WRAPPING: &str = "ctest 0.1
++
++USAGE:
++    ctest
++
++OPTIONS:
++    -h, --help
++            Print help
++            information
++
++    -V, --version
++            Print
++            version
++            information
++";
++
+     let cmd = Command::new("ctest").version("0.1").term_width(24);
+     utils::assert_output(cmd, "ctest --help", FINAL_WORD_WRAPPING, false);
+ }
+ 
++static WRAPPING_NEWLINE_CHARS: &str = "ctest 0.1
++
++USAGE:
++    ctest [mode]
++
++ARGS:
++    <mode>    x, max, maximum   20 characters, contains
++              symbols.
++              l, long           Copy-friendly, 14
++              characters, contains symbols.
++              m, med, medium    Copy-friendly, 8
++              characters, contains symbols.
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+ #[test]
+ fn wrapping_newline_chars() {
+     let cmd = Command::new("ctest")
+@@ -1232,6 +867,18 @@ OPTIONS:
+     utils::assert_output(cmd, "Example update --help", EXPECTED, false);
+ }
+ 
++static OLD_NEWLINE_CHARS: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++    -m               Some help with some wrapping
++                     (Defaults to something)
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+ #[test]
+ fn old_newline_chars() {
+     let cmd = Command::new("ctest").version("0.1").arg(
+@@ -1254,6 +901,19 @@ fn old_newline_variables() {
+ 
+ #[test]
+ fn issue_688_hide_pos_vals() {
++    static ISSUE_688: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++        --filter <filter>    Sets the filter, or sampling method, to use for interpolation when resizing the particle
++                             images. The default is Linear (Bilinear). [possible values: Nearest, Linear, Cubic,
++                             Gaussian, Lanczos3]
++    -h, --help               Print help information
++    -V, --version            Print version information
++";
++
+     let filter_values = ["Nearest", "Linear", "Cubic", "Gaussian", "Lanczos3"];
+ 
+     let app1 = Command::new("ctest")
+@@ -1292,6 +952,25 @@ fn issue_688_hide_pos_vals() {
+ 
+ #[test]
+ fn issue_702_multiple_values() {
++    static ISSUE_702: &str = "myapp 1.0
++foo
++bar
++
++USAGE:
++    myapp [OPTIONS] [--] [ARGS]
++
++ARGS:
++    <arg1>       some option
++    <arg2>...    some option
++
++OPTIONS:
++    -s, --some <some>         some option
++    -o, --other <other>       some other option
++    -l, --label <label>...    a label
++    -h, --help                Print help information
++    -V, --version             Print version information
++";
++
+     let cmd = Command::new("myapp")
+         .version("1.0")
+         .author("foo")
+@@ -1330,6 +1009,27 @@ fn issue_702_multiple_values() {
+ 
+ #[test]
+ fn long_about() {
++    static LONG_ABOUT: &str = "myapp 1.0
++foo
++something really really long, with
++multiple lines of text
++that should be displayed
++
++USAGE:
++    myapp [arg1]
++
++ARGS:
++    <arg1>
++            some option
++
++OPTIONS:
++    -h, --help
++            Print help information
++
++    -V, --version
++            Print version information
++";
++
+     let cmd = Command::new("myapp")
+         .version("1.0")
+         .author("foo")
+@@ -1343,6 +1043,19 @@ fn long_about() {
+ 
+ #[test]
+ fn issue_760() {
++    // Using number_of_values(1) with multiple_values(true) misaligns help message
++    static ISSUE_760: &str = "ctest 0.1
++
++USAGE:
++    ctest [OPTIONS]
++
++OPTIONS:
++    -o, --option <option>    tests options
++    -O, --opt <opt>          tests options
++    -h, --help               Print help information
++    -V, --version            Print version information
++";
++
+     let cmd = Command::new("ctest")
+         .version("0.1")
+         .arg(
+@@ -1383,13 +1096,26 @@ USAGE:
+     hello [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help              Print help information
+     -p, --package <name>    
++    -h, --help              Print help information
+ ",
+         false,
+     );
+ }
+ 
++static RIPGREP_USAGE: &str = "ripgrep 0.5
++
++USAGE:
++    rg [OPTIONS] <pattern> [<path> ...]
++    rg [OPTIONS] [-e PATTERN | -f FILE ]... [<path> ...]
++    rg [OPTIONS] --files [<path> ...]
++    rg [OPTIONS] --type-list
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+ #[test]
+ fn ripgrep_usage() {
+     let cmd = Command::new("ripgrep").version("0.5").override_usage(
+@@ -1428,6 +1154,25 @@ OPTIONS:
+ 
+ #[test]
+ fn sc_negates_reqs() {
++    static SC_NEGATES_REQS: &str = "prog 1.0
++
++USAGE:
++    prog --opt <FILE> [PATH]
++    prog [PATH] <SUBCOMMAND>
++
++ARGS:
++    <PATH>    help
++
++OPTIONS:
++    -o, --opt <FILE>    tests options
++    -h, --help          Print help information
++    -V, --version       Print version information
++
++SUBCOMMANDS:
++    test    
++    help    Print this message or the help of the given subcommand(s)
++";
++
+     let cmd = Command::new("prog")
+         .version("1.0")
+         .subcommand_negates_reqs(true)
+@@ -1437,8 +1182,20 @@ fn sc_negates_reqs() {
+     utils::assert_output(cmd, "prog --help", SC_NEGATES_REQS, false);
+ }
+ 
+-#[test]
+-fn hide_args() {
++#[test]
++fn hide_args() {
++    static HIDDEN_ARGS: &str = "prog 1.0
++
++USAGE:
++    prog [OPTIONS]
++
++OPTIONS:
++    -f, --flag          testing flags
++    -o, --opt <FILE>    tests options
++    -h, --help          Print help information
++    -V, --version       Print version information
++";
++
+     let cmd = Command::new("prog")
+         .version("1.0")
+         .arg(arg!(-f --flag "testing flags"))
+@@ -1449,6 +1206,26 @@ fn hide_args() {
+ 
+ #[test]
+ fn args_negate_sc() {
++    static ARGS_NEGATE_SC: &str = "prog 1.0
++
++USAGE:
++    prog [OPTIONS] [PATH]
++    prog <SUBCOMMAND>
++
++ARGS:
++    <PATH>    help
++
++OPTIONS:
++    -f, --flag          testing flags
++    -o, --opt <FILE>    tests options
++    -h, --help          Print help information
++    -V, --version       Print version information
++
++SUBCOMMANDS:
++    test    
++    help    Print this message or the help of the given subcommand(s)
++";
++
+     let cmd = Command::new("prog")
+         .version("1.0")
+         .args_conflicts_with_subcommands(true)
+@@ -1461,6 +1238,21 @@ fn args_negate_sc() {
+ 
+ #[test]
+ fn issue_1046_hide_scs() {
++    static ISSUE_1046_HIDDEN_SCS: &str = "prog 1.0
++
++USAGE:
++    prog [OPTIONS] [PATH]
++
++ARGS:
++    <PATH>    some
++
++OPTIONS:
++    -f, --flag          testing flags
++    -o, --opt <FILE>    tests options
++    -h, --help          Print help information
++    -V, --version       Print version information
++";
++
+     let cmd = Command::new("prog")
+         .version("1.0")
+         .arg(arg!(-f --flag "testing flags"))
+@@ -1472,6 +1264,25 @@ fn issue_1046_hide_scs() {
+ 
+ #[test]
+ fn issue_777_wrap_all_things() {
++    static ISSUE_777: &str = "A cmd with a crazy very long long
++long name hahaha 1.0
++Some Very Long Name and crazy long
++email <email@server.com>
++Show how the about text is not
++wrapped
++
++USAGE:
++    ctest
++
++OPTIONS:
++    -h, --help
++            Print help information
++
++    -V, --version
++            Print version
++            information
++";
++
+     let cmd = Command::new("A cmd with a crazy very long long long name hahaha")
+         .version("1.0")
+         .author("Some Very Long Name and crazy long email <email@server.com>")
+@@ -1542,6 +1353,16 @@ fn override_help_about() {
+ 
+ #[test]
+ fn arg_short_conflict_with_help() {
++    static HELP_CONFLICT: &str = "conflict 
++
++USAGE:
++    conflict [OPTIONS]
++
++OPTIONS:
++    -h            
++        --help    Print help information
++";
++
+     let cmd = Command::new("conflict").arg(Arg::new("home").short('h'));
+ 
+     utils::assert_output(cmd, "conflict --help", HELP_CONFLICT, false);
+@@ -1559,6 +1380,21 @@ fn arg_short_conflict_with_help_mut_arg() {
+ 
+ #[test]
+ fn last_arg_mult_usage() {
++    static LAST_ARG: &str = "last 0.1
++
++USAGE:
++    last <TARGET> [CORPUS] [-- <ARGS>...]
++
++ARGS:
++    <TARGET>     some
++    <CORPUS>     some
++    <ARGS>...    some
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+     let cmd = Command::new("last")
+         .version("0.1")
+         .arg(Arg::new("TARGET").required(true).help("some"))
+@@ -1575,6 +1411,21 @@ fn last_arg_mult_usage() {
+ 
+ #[test]
+ fn last_arg_mult_usage_req() {
++    static LAST_ARG_REQ: &str = "last 0.1
++
++USAGE:
++    last <TARGET> [CORPUS] -- <ARGS>...
++
++ARGS:
++    <TARGET>     some
++    <CORPUS>     some
++    <ARGS>...    some
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++";
++
+     let cmd = Command::new("last")
+         .version("0.1")
+         .arg(Arg::new("TARGET").required(true).help("some"))
+@@ -1592,6 +1443,26 @@ fn last_arg_mult_usage_req() {
+ 
+ #[test]
+ fn last_arg_mult_usage_req_with_sc() {
++    static LAST_ARG_REQ_SC: &str = "last 0.1
++
++USAGE:
++    last <TARGET> [CORPUS] -- <ARGS>...
++    last <SUBCOMMAND>
++
++ARGS:
++    <TARGET>     some
++    <CORPUS>     some
++    <ARGS>...    some
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++SUBCOMMANDS:
++    test    some
++    help    Print this message or the help of the given subcommand(s)
++";
++
+     let cmd = Command::new("last")
+         .version("0.1")
+         .subcommand_negates_reqs(true)
+@@ -1611,6 +1482,26 @@ fn last_arg_mult_usage_req_with_sc() {
+ 
+ #[test]
+ fn last_arg_mult_usage_with_sc() {
++    static LAST_ARG_SC: &str = "last 0.1
++
++USAGE:
++    last <TARGET> [CORPUS] [-- <ARGS>...]
++    last <SUBCOMMAND>
++
++ARGS:
++    <TARGET>     some
++    <CORPUS>     some
++    <ARGS>...    some
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++SUBCOMMANDS:
++    test    some
++    help    Print this message or the help of the given subcommand(s)
++";
++
+     let cmd = Command::new("last")
+         .version("0.1")
+         .args_conflicts_with_subcommands(true)
+@@ -1627,6 +1518,17 @@ fn last_arg_mult_usage_with_sc() {
+     utils::assert_output(cmd, "last --help", LAST_ARG_SC, false);
+ }
+ 
++static HIDE_DEFAULT_VAL: &str = "default 0.1
++
++USAGE:
++    default [OPTIONS]
++
++OPTIONS:
++        --arg <argument>    Pass an argument to the program. [default: default-argument]
++    -h, --help              Print help information
++    -V, --version           Print version information
++";
++
+ #[test]
+ fn hide_default_val() {
+     let app1 = Command::new("default").version("0.1").term_width(120).arg(
+@@ -1649,6 +1551,18 @@ fn hide_default_val() {
+ 
+ #[test]
+ fn escaped_whitespace_values() {
++    static ESCAPED_DEFAULT_VAL: &str = "default 0.1
++
++USAGE:
++    default [OPTIONS]
++
++OPTIONS:
++        --arg <argument>    Pass an argument to the program. [default: \"\\n\"] [possible values: normal, \" \", \"\\n\", \"\\t\",
++                            other]
++    -h, --help              Print help information
++    -V, --version           Print version information
++";
++
+     let app1 = Command::new("default").version("0.1").term_width(120).arg(
+         Arg::new("argument")
+             .help("Pass an argument to the program.")
+@@ -1726,6 +1640,19 @@ fn prefer_user_subcmd_help_short_1112() {
+ 
+ #[test]
+ fn issue_1052_require_delim_help() {
++    static REQUIRE_DELIM_HELP: &str = "test 1.3
++Kevin K.
++tests stuff
++
++USAGE:
++    test --fake <some>:<val>
++
++OPTIONS:
++    -f, --fake <some>:<val>    some help
++    -h, --help                 Print help information
++    -V, --version              Print version information
++";
++
+     let cmd = Command::new("test")
+         .author("Kevin K.")
+         .about("tests stuff")
+@@ -1745,6 +1672,23 @@ fn issue_1052_require_delim_help() {
+ 
+ #[test]
+ fn custom_headers_headers() {
++    static CUSTOM_HELP_SECTION: &str = "blorp 1.4
++Will M.
++does stuff
++
++USAGE:
++    test [OPTIONS] --fake <some>:<val>
++
++OPTIONS:
++    -f, --fake <some>:<val>    some help
++    -h, --help                 Print help information
++    -V, --version              Print version information
++
++NETWORKING:
++    -n, --no-proxy    Do not use system proxy settings
++        --port        
++";
++
+     let cmd = Command::new("blorp")
+         .author("Will M.")
+         .about("does stuff")
+@@ -1779,14 +1723,14 @@ USAGE:
+ 
+ OPTIONS:
+     -f, --fake <some>:<val>    some help
+-    -h, --help                 Print help information
+-    -s, --speed <SPEED>        How fast? [possible values: fast, slow]
+         --style <style>        Choose musical style to play the song
++    -s, --speed <SPEED>        How fast? [possible values: fast, slow]
++    -h, --help                 Print help information
+     -V, --version              Print version information
+ 
+ NETWORKING:
+-    -a, --server-addr    Set server address
+     -n, --no-proxy       Do not use system proxy settings
++    -a, --server-addr    Set server address
+ 
+ OVERRIDE SPECIAL:
+     -b, --birthday-song <song>    Change which song is played for birthdays
+@@ -1953,6 +1897,19 @@ fn show_short_about_issue_897() {
+ 
+ #[test]
+ fn issue_1364_no_short_options() {
++    static ISSUE_1364: &str = "demo 
++
++USAGE:
++    demo [OPTIONS] [FILES]...
++
++ARGS:
++    <FILES>...    
++
++OPTIONS:
++    -f            
++    -h, --help    Print help information
++";
++
+     let cmd = Command::new("demo")
+         .arg(Arg::new("foo").short('f'))
+         .arg(
+@@ -1974,6 +1931,19 @@ fn issue_1364_no_short_options() {
+ #[rustfmt::skip]
+ #[test]
+ fn issue_1487() {
++static ISSUE_1487: &str = "test 
++
++USAGE:
++    ctest <arg1|arg2>
++
++ARGS:
++    <arg1>    
++    <arg2>    
++
++OPTIONS:
++    -h, --help    Print help information
++";
++
+     let cmd = Command::new("test")
+         .arg(Arg::new("arg1")
+             .group("group1"))
+@@ -2083,6 +2053,22 @@ fn help_required_and_no_args() {
+ 
+ #[test]
+ fn issue_1642_long_help_spacing() {
++    static ISSUE_1642: &str = "prog 
++
++USAGE:
++    prog [OPTIONS]
++
++OPTIONS:
++        --config
++            The config file used by the myprog must be in JSON format
++            with only valid keys and may not contain other nonsense
++            that cannot be read by this program. Obviously I'm going on
++            and on, so I'll stop now.
++
++    -h, --help
++            Print help information
++";
++
+     let cmd = Command::new("prog").arg(Arg::new("cfg").long("config").long_help(
+         "The config file used by the myprog must be in JSON format
+ with only valid keys and may not contain other nonsense
+@@ -2241,6 +2227,22 @@ fn help_about_multi_subcmd_override() {
+ 
+ #[test]
+ fn option_usage_order() {
++    static OPTION_USAGE_ORDER: &str = "order 
++
++USAGE:
++    order [OPTIONS]
++
++OPTIONS:
++    -a                     
++    -B                     
++    -b                     
++    -s                     
++        --select_file      
++        --select_folder    
++    -x                     
++    -h, --help             Print help information
++";
++
+     let cmd = Command::new("order").args(&[
+         Arg::new("a").short('a'),
+         Arg::new("B").short('B'),
+@@ -2256,6 +2258,19 @@ fn option_usage_order() {
+ 
+ #[test]
+ fn prefer_about_over_long_about_in_subcommands_list() {
++    static ABOUT_IN_SUBCOMMANDS_LIST: &str = "about-in-subcommands-list 
++
++USAGE:
++    about-in-subcommands-list [SUBCOMMAND]
++
++OPTIONS:
++    -h, --help    Print help information
++
++SUBCOMMANDS:
++    sub     short about sub
++    help    Print this message or the help of the given subcommand(s)
++";
++
+     let cmd = Command::new("about-in-subcommands-list").subcommand(
+         Command::new("sub")
+             .long_about("long about sub")
+@@ -2282,8 +2297,8 @@ ARGS:
+     <pos2>    
+ 
+ OPTIONS:
+-    -h, --help       Print help information
+         --option1    
++    -h, --help       Print help information
+ ";
+ 
+     let cmd = clap::Command::new("hello")
+@@ -2388,9 +2403,9 @@ USAGE:
+     my_app [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help                              Print help information
+         --some_arg <some_arg> <some_arg>    
+         --some_arg_issue <ARG> <ARG>        
++    -h, --help                              Print help information
+ ",
+         false,
+     );
+diff --git a/tests/builder/hidden_args.rs b/tests/builder/hidden_args.rs
+index 8af6a788ac7..c6838521dc6 100644
+--- a/tests/builder/hidden_args.rs
++++ b/tests/builder/hidden_args.rs
+@@ -11,8 +11,8 @@ USAGE:
+ 
+ OPTIONS:
+     -F, --flag2           some other flag
+-    -h, --help            Print help information
+         --option <opt>    some option
++    -h, --help            Print help information
+     -V, --version         Print version information
+ ";
+ 
+@@ -39,32 +39,11 @@ USAGE:
+     test [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help       Print help information
+     -v, --visible    This text should be visible
++    -h, --help       Print help information
+     -V, --version    Print version information
+ ";
+ 
+-static HIDDEN_SHORT_ARGS_LONG_HELP: &str = "test 2.31.2
+-Steve P.
+-hides short args
+-
+-USAGE:
+-    test [OPTIONS]
+-
+-OPTIONS:
+-    -c, --config
+-            Some help text describing the --config arg
+-
+-    -h, --help
+-            Print help information
+-
+-    -v, --visible
+-            This text should be visible
+-
+-    -V, --version
+-            Print version information
+-";
+-
+ /// Ensure hide with short option
+ #[test]
+ fn hide_short_args() {
+@@ -90,6 +69,27 @@ fn hide_short_args() {
+ /// Ensure visible with opposite option
+ #[test]
+ fn hide_short_args_long_help() {
++    static HIDDEN_SHORT_ARGS_LONG_HELP: &str = "test 2.31.2
++Steve P.
++hides short args
++
++USAGE:
++    test [OPTIONS]
++
++OPTIONS:
++    -c, --config
++            Some help text describing the --config arg
++
++    -v, --visible
++            This text should be visible
++
++    -h, --help
++            Print help information
++
++    -V, --version
++            Print version information
++";
++
+     let cmd = Command::new("test")
+         .about("hides short args")
+         .author("Steve P.")
+@@ -117,12 +117,12 @@ USAGE:
+     test [OPTIONS]
+ 
+ OPTIONS:
+-    -h, --help
+-            Print help information
+-
+     -v, --visible
+             This text should be visible
+ 
++    -h, --help
++            Print help information
++
+     -V, --version
+             Print version information
+ ";
+@@ -157,8 +157,8 @@ USAGE:
+ 
+ OPTIONS:
+     -c, --config     Some help text describing the --config arg
+-    -h, --help       Print help information
+     -v, --visible    This text should be visible
++    -h, --help       Print help information
+     -V, --version    Print version information
+ ";
+ 
+diff --git a/tests/builder/subcommands.rs b/tests/builder/subcommands.rs
+index 9bc4728dfeb..40eb91b2eb5 100644
+--- a/tests/builder/subcommands.rs
++++ b/tests/builder/subcommands.rs
+@@ -12,8 +12,8 @@ OPTIONS:
+     -V, --version    Print version information
+ 
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     test    Some help [aliases: dongle, done]
++    help    Print this message or the help of the given subcommand(s)
+ ";
+ 
+ static INVISIBLE_ALIAS_HELP: &str = "clap-test 2.6
+@@ -26,37 +26,7 @@ OPTIONS:
+     -V, --version    Print version information
+ 
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     test    Some help
+-";
+-
+-static SUBCMD_ALPHA_ORDER: &str = "test 1
+-
+-USAGE:
+-    test [SUBCOMMAND]
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+-SUBCOMMANDS:
+-    a1      blah a1
+-    b1      blah b1
+-    help    Print this message or the help of the given subcommand(s)
+-";
+-
+-static SUBCMD_DECL_ORDER: &str = "test 1
+-
+-USAGE:
+-    test [SUBCOMMAND]
+-
+-OPTIONS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+-SUBCOMMANDS:
+-    b1      blah b1
+-    a1      blah a1
+     help    Print this message or the help of the given subcommand(s)
+ ";
+ 
+@@ -169,44 +139,6 @@ fn subcommand_multiple() {
+     );
+ }
+ 
+-#[test]
+-fn subcommand_display_order() {
+-    let app_subcmd_alpha_order = Command::new("test").version("1").subcommands(vec![
+-        Command::new("b1")
+-            .about("blah b1")
+-            .arg(Arg::new("test").short('t')),
+-        Command::new("a1")
+-            .about("blah a1")
+-            .arg(Arg::new("roster").short('r')),
+-    ]);
+-
+-    utils::assert_output(
+-        app_subcmd_alpha_order,
+-        "test --help",
+-        SUBCMD_ALPHA_ORDER,
+-        false,
+-    );
+-
+-    let app_subcmd_decl_order = Command::new("test")
+-        .version("1")
+-        .setting(clap::AppSettings::DeriveDisplayOrder)
+-        .subcommands(vec![
+-            Command::new("b1")
+-                .about("blah b1")
+-                .arg(Arg::new("test").short('t')),
+-            Command::new("a1")
+-                .about("blah a1")
+-                .arg(Arg::new("roster").short('r')),
+-        ]);
+-
+-    utils::assert_output(
+-        app_subcmd_decl_order,
+-        "test --help",
+-        SUBCMD_DECL_ORDER,
+-        false,
+-    );
+-}
+-
+ #[test]
+ fn single_alias() {
+     let m = Command::new("myprog")
+diff --git a/tests/builder/template_help.rs b/tests/builder/template_help.rs
+index cf3642a670d..f74c4aea9b4 100644
+--- a/tests/builder/template_help.rs
++++ b/tests/builder/template_help.rs
+@@ -40,8 +40,8 @@ OPTIONS:
+ ARGS:
+     <output>    Sets an optional output file
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     test    does testing things
++    help    Print this message or the help of the given subcommand(s)
+ ";
+ 
+ static SIMPLE_TEMPLATE: &str = "MyApp 1.0
+@@ -61,8 +61,8 @@ OPTIONS:
+     -V, --version          Print version information
+ 
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     test    does testing things
++    help    Print this message or the help of the given subcommand(s)
+ ";
+ 
+ #[test]
+diff --git a/tests/derive/help.rs b/tests/derive/help.rs
+index 97fb394e75f..e0518e00ec2 100644
+--- a/tests/derive/help.rs
++++ b/tests/derive/help.rs
+@@ -1,4 +1,4 @@
+-use clap::{AppSettings, Args, CommandFactory, Parser, Subcommand};
++use clap::{Args, CommandFactory, Parser, Subcommand};
+ 
+ #[test]
+ fn arg_help_heading_applied() {
+@@ -247,7 +247,6 @@ OPTIONS:
+ 
+     #[derive(Parser, Debug)]
+     #[clap(name = "test", version = "1.2")]
+-    #[clap(setting = AppSettings::DeriveDisplayOrder)]
+     struct Args {
+         #[clap(flatten)]
+         a: A,
+@@ -303,7 +302,6 @@ OPTIONS:
+ ";
+ 
+     #[derive(Parser, Debug)]
+-    #[clap(setting = AppSettings::DeriveDisplayOrder)]
+     #[clap(name = "test", version = "1.2")]
+     struct Args {
+         #[clap(flatten)]
+@@ -361,7 +359,6 @@ OPTIONS:
+ 
+     #[derive(Parser, Debug)]
+     #[clap(name = "test", version = "1.2")]
+-    #[clap(setting = AppSettings::DeriveDisplayOrder)]
+     #[clap(next_display_order = None)]
+     struct Args {
+         #[clap(flatten)]
+diff --git a/tests/ui/arg_required_else_help_stderr.toml b/tests/ui/arg_required_else_help_stderr.toml
+index 5ac94784317..5602cef5af0 100644
+--- a/tests/ui/arg_required_else_help_stderr.toml
++++ b/tests/ui/arg_required_else_help_stderr.toml
+@@ -9,11 +9,11 @@ USAGE:
+     stdio-fixture[EXE] [OPTIONS] [SUBCOMMAND]
+ 
+ OPTIONS:
++        --verbose    log
+     -h, --help       Print help information
+     -V, --version    Print version information
+-        --verbose    log
+ 
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     more    
++    help    Print this message or the help of the given subcommand(s)
+ """
+diff --git a/tests/ui/h_flag_stdout.toml b/tests/ui/h_flag_stdout.toml
+index 66af2e46bc8..c03b83c3a1c 100644
+--- a/tests/ui/h_flag_stdout.toml
++++ b/tests/ui/h_flag_stdout.toml
+@@ -8,12 +8,12 @@ USAGE:
+     stdio-fixture[EXE] [OPTIONS] [SUBCOMMAND]
+ 
+ OPTIONS:
++        --verbose    log
+     -h, --help       Print help information
+     -V, --version    Print version information
+-        --verbose    log
+ 
+ SUBCOMMANDS:
+-    help    Print this message or the help of the given subcommand(s)
+     more    
++    help    Print this message or the help of the given subcommand(s)
+ """
+ stderr = ""
+diff --git a/tests/ui/help_cmd_stdout.toml b/tests/ui/help_cmd_stdout.toml
+index 881d53eecee..abc634e7c07 100644
+--- a/tests/ui/help_cmd_stdout.toml
++++ b/tests/ui/help_cmd_stdout.toml
+@@ -8,19 +8,19 @@ USAGE:
+     stdio-fixture[EXE] [OPTIONS] [SUBCOMMAND]
+ 
+ OPTIONS:
++        --verbose
++            more log
++
+     -h, --help
+             Print help information
+ 
+     -V, --version
+             Print version information
+ 
+-        --verbose
+-            more log
+-
+ SUBCOMMANDS:
+-    help
+-            Print this message or the help of the given subcommand(s)
+     more
+             
++    help
++            Print this message or the help of the given subcommand(s)
+ """
+ stderr = ""
+diff --git a/tests/ui/help_flag_stdout.toml b/tests/ui/help_flag_stdout.toml
+index 2615875b231..9ddc319dec6 100644
+--- a/tests/ui/help_flag_stdout.toml
++++ b/tests/ui/help_flag_stdout.toml
+@@ -8,19 +8,19 @@ USAGE:
+     stdio-fixture[EXE] [OPTIONS] [SUBCOMMAND]
+ 
+ OPTIONS:
++        --verbose
++            more log
++
+     -h, --help
+             Print help information
+ 
+     -V, --version
+             Print version information
+ 
+-        --verbose
+-            more log
+-
+ SUBCOMMANDS:
+-    help
+-            Print this message or the help of the given subcommand(s)
+     more
+             
++    help
++            Print this message or the help of the given subcommand(s)
+ """
+ stderr = ""

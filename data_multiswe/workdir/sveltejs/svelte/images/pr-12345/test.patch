@@ -1,0 +1,74 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports-3/_config.js b/packages/svelte/tests/runtime-runes/samples/exports-3/_config.js
+index cf22671d9f4c..807fed2aa634 100644
+--- a/packages/svelte/tests/runtime-runes/samples/exports-3/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/exports-3/_config.js
+@@ -4,10 +4,9 @@ import { test } from '../../test';
+ export default test({
+ 	test({ assert, target }) {
+ 		assert.htmlEqual(target.innerHTML, `0 0 <button>0 / 0</button>`);
+-		const [btn] = target.querySelectorAll('button');
++		const btn = target.querySelector('button');
+ 
+-		btn?.click();
+-		flushSync();
++		flushSync(() => btn?.click());
+ 		assert.htmlEqual(target.innerHTML, '1 2 <button>1 / 2</button>');
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports-3/main.svelte b/packages/svelte/tests/runtime-runes/samples/exports-3/main.svelte
+index b1cabb399fa9..a68a40f3002a 100644
+--- a/packages/svelte/tests/runtime-runes/samples/exports-3/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/exports-3/main.svelte
+@@ -1,5 +1,5 @@
+ <script>
+-	import Sub from './sub.svelte'
++	import Sub from './sub.svelte';
+ 	let sub = $state();
+ </script>
+ 
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports-4/_config.js b/packages/svelte/tests/runtime-runes/samples/exports-4/_config.js
+new file mode 100644
+index 000000000000..807fed2aa634
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports-4/_config.js
+@@ -0,0 +1,12 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	test({ assert, target }) {
++		assert.htmlEqual(target.innerHTML, `0 0 <button>0 / 0</button>`);
++		const btn = target.querySelector('button');
++
++		flushSync(() => btn?.click());
++		assert.htmlEqual(target.innerHTML, '1 2 <button>1 / 2</button>');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports-4/main.svelte b/packages/svelte/tests/runtime-runes/samples/exports-4/main.svelte
+new file mode 100644
+index 000000000000..85adcffbe34b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports-4/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import Sub from './sub.svelte';
++	let sub = $state();
++</script>
++
++<Sub bind:this={sub} />
++<button on:click={() => sub.count++}>{sub?.count} / {sub?.doubled}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports-4/sub.svelte b/packages/svelte/tests/runtime-runes/samples/exports-4/sub.svelte
+new file mode 100644
+index 000000000000..75b009123572
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports-4/sub.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let count = $state(0);
++	let doubled = $derived(count * 2);
++
++	export { count, doubled };
++</script>
++
++{count}
++{doubled}

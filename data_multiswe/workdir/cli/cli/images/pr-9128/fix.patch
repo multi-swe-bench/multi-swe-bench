@@ -1,0 +1,264 @@
+diff --git a/pkg/cmd/variable/get/get.go b/pkg/cmd/variable/get/get.go
+index a946411340c..32b4c5e6271 100644
+--- a/pkg/cmd/variable/get/get.go
++++ b/pkg/cmd/variable/get/get.go
+@@ -21,21 +21,13 @@ type GetOptions struct {
+ 	Config     func() (gh.Config, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
++	Exporter cmdutil.Exporter
++
+ 	VariableName string
+ 	OrgName      string
+ 	EnvName      string
+ }
+ 
+-type getVariableResponse struct {
+-	Value string `json:"value"`
+-	// Other available but unused fields
+-	// Name             string            `json:"name"`
+-	// UpdatedAt        time.Time         `json:"updated_at"`
+-	// Visibility       shared.Visibility `json:"visibility"`
+-	// SelectedReposURL string            `json:"selected_repositories_url"`
+-	// NumSelectedRepos int               `json:"num_selected_repos"`
+-}
+-
+ func NewCmdGet(f *cmdutil.Factory, runF func(*GetOptions) error) *cobra.Command {
+ 	opts := &GetOptions{
+ 		IO:         f.IOStreams,
+@@ -72,6 +64,7 @@ func NewCmdGet(f *cmdutil.Factory, runF func(*GetOptions) error) *cobra.Command
+ 	}
+ 	cmd.Flags().StringVarP(&opts.OrgName, "org", "o", "", "Get a variable for an organization")
+ 	cmd.Flags().StringVarP(&opts.EnvName, "env", "e", "", "Get a variable for an environment")
++	cmdutil.AddJSONFlags(cmd, &opts.Exporter, shared.VariableJSONFields)
+ 
+ 	return cmd
+ }
+@@ -116,8 +109,8 @@ func getRun(opts *GetOptions) error {
+ 
+ 	host, _ := cfg.Authentication().DefaultHost()
+ 
+-	var response getVariableResponse
+-	if err = client.REST(host, "GET", path, nil, &response); err != nil {
++	var variable shared.Variable
++	if err = client.REST(host, "GET", path, nil, &variable); err != nil {
+ 		var httpErr api.HTTPError
+ 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
+ 			return fmt.Errorf("variable %s was not found", opts.VariableName)
+@@ -126,7 +119,13 @@ func getRun(opts *GetOptions) error {
+ 		return fmt.Errorf("failed to get variable %s: %w", opts.VariableName, err)
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.Out, "%s\n", response.Value)
++	if opts.Exporter != nil {
++		if err := shared.PopulateSelectedRepositoryInformation(client, host, &variable); err != nil {
++			return err
++		}
++		return opts.Exporter.Write(opts.IO, &variable)
++	}
+ 
++	fmt.Fprintf(opts.IO.Out, "%s\n", variable.Value)
+ 	return nil
+ }
+diff --git a/pkg/cmd/variable/list/list.go b/pkg/cmd/variable/list/list.go
+index 1c29cfe2fcb..2d26a03b6a2 100644
+--- a/pkg/cmd/variable/list/list.go
++++ b/pkg/cmd/variable/list/list.go
+@@ -30,15 +30,6 @@ type ListOptions struct {
+ 	EnvName string
+ }
+ 
+-var variableFields = []string{
+-	"name",
+-	"value",
+-	"visibility",
+-	"updatedAt",
+-	"numSelectedRepos",
+-	"selectedReposURL",
+-}
+-
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+@@ -76,7 +67,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 
+ 	cmd.Flags().StringVarP(&opts.OrgName, "org", "o", "", "List variables for an organization")
+ 	cmd.Flags().StringVarP(&opts.EnvName, "env", "e", "", "List variables for an environment")
+-	cmdutil.AddJSONFlags(cmd, &opts.Exporter, variableFields)
++	cmdutil.AddJSONFlags(cmd, &opts.Exporter, shared.VariableJSONFields)
+ 
+ 	return cmd
+ }
+@@ -103,7 +94,7 @@ func listRun(opts *ListOptions) error {
+ 		return err
+ 	}
+ 
+-	var variables []Variable
++	var variables []shared.Variable
+ 	showSelectedRepoInfo := opts.IO.IsStdoutTTY()
+ 
+ 	switch variableEntity {
+@@ -170,20 +161,7 @@ func listRun(opts *ListOptions) error {
+ 	return nil
+ }
+ 
+-type Variable struct {
+-	Name             string            `json:"name"`
+-	Value            string            `json:"value"`
+-	UpdatedAt        time.Time         `json:"updated_at"`
+-	Visibility       shared.Visibility `json:"visibility"`
+-	SelectedReposURL string            `json:"selected_repositories_url"`
+-	NumSelectedRepos int               `json:"num_selected_repos"`
+-}
+-
+-func (v *Variable) ExportData(fields []string) map[string]interface{} {
+-	return cmdutil.StructExportData(v, fields)
+-}
+-
+-func fmtVisibility(s Variable) string {
++func fmtVisibility(s shared.Variable) string {
+ 	switch s.Visibility {
+ 	case shared.All:
+ 		return "Visible to all repositories"
+@@ -199,22 +177,23 @@ func fmtVisibility(s Variable) string {
+ 	return ""
+ }
+ 
+-func getRepoVariables(client *http.Client, repo ghrepo.Interface) ([]Variable, error) {
++func getRepoVariables(client *http.Client, repo ghrepo.Interface) ([]shared.Variable, error) {
+ 	return getVariables(client, repo.RepoHost(), fmt.Sprintf("repos/%s/actions/variables", ghrepo.FullName(repo)))
+ }
+ 
+-func getEnvVariables(client *http.Client, repo ghrepo.Interface, envName string) ([]Variable, error) {
++func getEnvVariables(client *http.Client, repo ghrepo.Interface, envName string) ([]shared.Variable, error) {
+ 	path := fmt.Sprintf("repos/%s/environments/%s/variables", ghrepo.FullName(repo), envName)
+ 	return getVariables(client, repo.RepoHost(), path)
+ }
+ 
+-func getOrgVariables(client *http.Client, host, orgName string, showSelectedRepoInfo bool) ([]Variable, error) {
++func getOrgVariables(client *http.Client, host, orgName string, showSelectedRepoInfo bool) ([]shared.Variable, error) {
+ 	variables, err := getVariables(client, host, fmt.Sprintf("orgs/%s/actions/variables", orgName))
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	apiClient := api.NewClientFromHTTP(client)
+ 	if showSelectedRepoInfo {
+-		err = populateSelectedRepositoryInformation(client, host, variables)
++		err = shared.PopulateMultipleSelectedRepositoryInformation(apiClient, host, variables)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -222,13 +201,13 @@ func getOrgVariables(client *http.Client, host, orgName string, showSelectedRepo
+ 	return variables, nil
+ }
+ 
+-func getVariables(client *http.Client, host, path string) ([]Variable, error) {
+-	var results []Variable
++func getVariables(client *http.Client, host, path string) ([]shared.Variable, error) {
++	var results []shared.Variable
+ 	apiClient := api.NewClientFromHTTP(client)
+ 	path = fmt.Sprintf("%s?per_page=100", path)
+ 	for path != "" {
+ 		response := struct {
+-			Variables []Variable
++			Variables []shared.Variable
+ 		}{}
+ 		var err error
+ 		path, err = apiClient.RESTWithNext(host, "GET", path, nil, &response)
+@@ -239,20 +218,3 @@ func getVariables(client *http.Client, host, path string) ([]Variable, error) {
+ 	}
+ 	return results, nil
+ }
+-
+-func populateSelectedRepositoryInformation(client *http.Client, host string, variables []Variable) error {
+-	apiClient := api.NewClientFromHTTP(client)
+-	for i, variable := range variables {
+-		if variable.SelectedReposURL == "" {
+-			continue
+-		}
+-		response := struct {
+-			TotalCount int `json:"total_count"`
+-		}{}
+-		if err := apiClient.REST(host, "GET", variable.SelectedReposURL, nil, &response); err != nil {
+-			return fmt.Errorf("failed determining selected repositories for %s: %w", variable.Name, err)
+-		}
+-		variables[i].NumSelectedRepos = response.TotalCount
+-	}
+-	return nil
+-}
+diff --git a/pkg/cmd/variable/shared/shared.go b/pkg/cmd/variable/shared/shared.go
+index e9975dd5cc5..c681242bc3f 100644
+--- a/pkg/cmd/variable/shared/shared.go
++++ b/pkg/cmd/variable/shared/shared.go
+@@ -2,6 +2,11 @@ package shared
+ 
+ import (
+ 	"errors"
++	"fmt"
++	"time"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ )
+ 
+ type Visibility string
+@@ -20,6 +25,30 @@ const (
+ 	Environment  = "environment"
+ )
+ 
++type Variable struct {
++	Name             string     `json:"name"`
++	Value            string     `json:"value"`
++	UpdatedAt        time.Time  `json:"updated_at"`
++	CreatedAt        time.Time  `json:"created_at"`
++	Visibility       Visibility `json:"visibility"`
++	SelectedReposURL string     `json:"selected_repositories_url"`
++	NumSelectedRepos int        `json:"num_selected_repos"`
++}
++
++var VariableJSONFields = []string{
++	"name",
++	"value",
++	"visibility",
++	"updatedAt",
++	"createdAt",
++	"numSelectedRepos",
++	"selectedReposURL",
++}
++
++func (v *Variable) ExportData(fields []string) map[string]interface{} {
++	return cmdutil.StructExportData(v, fields)
++}
++
+ func GetVariableEntity(orgName, envName string) (VariableEntity, error) {
+ 	orgSet := orgName != ""
+ 	envSet := envName != ""
+@@ -36,3 +65,28 @@ func GetVariableEntity(orgName, envName string) (VariableEntity, error) {
+ 	}
+ 	return Repository, nil
+ }
++
++func PopulateMultipleSelectedRepositoryInformation(apiClient *api.Client, host string, variables []Variable) error {
++	for i, variable := range variables {
++		if err := PopulateSelectedRepositoryInformation(apiClient, host, &variable); err != nil {
++			return err
++		}
++		variables[i] = variable
++	}
++	return nil
++}
++
++func PopulateSelectedRepositoryInformation(apiClient *api.Client, host string, variable *Variable) error {
++	if variable.SelectedReposURL == "" {
++		return nil
++	}
++
++	response := struct {
++		TotalCount int `json:"total_count"`
++	}{}
++	if err := apiClient.REST(host, "GET", variable.SelectedReposURL, nil, &response); err != nil {
++		return fmt.Errorf("failed determining selected repositories for %s: %w", variable.Name, err)
++	}
++	variable.NumSelectedRepos = response.TotalCount
++	return nil
++}

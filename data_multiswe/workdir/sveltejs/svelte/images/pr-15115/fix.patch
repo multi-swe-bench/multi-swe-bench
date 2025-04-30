@@ -1,0 +1,25 @@
+diff --git a/.changeset/strong-shoes-whisper.md b/.changeset/strong-shoes-whisper.md
+new file mode 100644
+index 000000000000..ea7f8d6c5e0c
+--- /dev/null
++++ b/.changeset/strong-shoes-whisper.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: disallow $state/$derived in const tags
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/CallExpression.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/CallExpression.js
+index 96788d9f93d8..0a6b3f3ee520 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/CallExpression.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/CallExpression.js
+@@ -79,7 +79,8 @@ export function CallExpression(node, context) {
+ 		case '$derived':
+ 		case '$derived.by':
+ 			if (
+-				parent.type !== 'VariableDeclarator' &&
++				(parent.type !== 'VariableDeclarator' ||
++					get_parent(context.path, -3).type === 'ConstTag') &&
+ 				!(parent.type === 'PropertyDefinition' && !parent.static && !parent.computed)
+ 			) {
+ 				e.state_invalid_placement(node, rune);

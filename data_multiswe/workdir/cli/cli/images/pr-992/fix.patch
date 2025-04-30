@@ -1,0 +1,130 @@
+diff --git a/command/issue.go b/command/issue.go
+index 3d3f01708da..372bb227ef6 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -396,11 +396,14 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 		// TODO: move URL generation into GitHubRepository
+ 		openURL := fmt.Sprintf("https://github.com/%s/issues/new", ghrepo.FullName(baseRepo))
+ 		if title != "" || body != "" {
+-			openURL += fmt.Sprintf(
+-				"?title=%s&body=%s",
+-				url.QueryEscape(title),
+-				url.QueryEscape(body),
+-			)
++			milestone := ""
++			if len(milestoneTitles) > 0 {
++				milestone = milestoneTitles[0]
++			}
++			openURL, err = withPrAndIssueQueryParams(openURL, title, body, assignees, labelNames, projectNames, milestone)
++			if err != nil {
++				return err
++			}
+ 		} else if len(templateFiles) > 1 {
+ 			openURL += "/choose"
+ 		}
+@@ -455,12 +458,15 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 	}
+ 
+ 	if action == PreviewAction {
+-		openURL := fmt.Sprintf(
+-			"https://github.com/%s/issues/new/?title=%s&body=%s",
+-			ghrepo.FullName(baseRepo),
+-			url.QueryEscape(title),
+-			url.QueryEscape(body),
+-		)
++		openURL := fmt.Sprintf("https://github.com/%s/issues/new/", ghrepo.FullName(baseRepo))
++		milestone := ""
++		if len(milestoneTitles) > 0 {
++			milestone = milestoneTitles[0]
++		}
++		openURL, err = withPrAndIssueQueryParams(openURL, title, body, assignees, labelNames, projectNames, milestone)
++		if err != nil {
++			return err
++		}
+ 		// TODO could exceed max url length for explorer
+ 		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
+ 		return utils.OpenInBrowser(openURL)
+diff --git a/command/pr_create.go b/command/pr_create.go
+index 96dc087916b..45ec801d412 100644
+--- a/command/pr_create.go
++++ b/command/pr_create.go
+@@ -250,6 +250,9 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 	if isDraft && isWeb {
+ 		return errors.New("the --draft flag is not supported with --web")
+ 	}
++	if len(reviewers) > 0 && isWeb {
++		return errors.New("the --reviewer flag is not supported with --web")
++	}
+ 
+ 	didForkRepo := false
+ 	// if a head repository could not be determined so far, automatically create
+@@ -337,7 +340,14 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 
+ 		fmt.Fprintln(cmd.OutOrStdout(), pr.URL)
+ 	} else if action == PreviewAction {
+-		openURL := generateCompareURL(baseRepo, baseBranch, headBranchLabel, title, body)
++		milestone := ""
++		if len(milestoneTitles) > 0 {
++			milestone = milestoneTitles[0]
++		}
++		openURL, err := generateCompareURL(baseRepo, baseBranch, headBranchLabel, title, body, assignees, labelNames, projectNames, milestone)
++		if err != nil {
++			return err
++		}
+ 		// TODO could exceed max url length for explorer
+ 		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
+ 		return utils.OpenInBrowser(openURL)
+@@ -389,20 +399,46 @@ func determineTrackingBranch(remotes context.Remotes, headBranch string) *git.Tr
+ 	return nil
+ }
+ 
+-func generateCompareURL(r ghrepo.Interface, base, head, title, body string) string {
++func withPrAndIssueQueryParams(baseURL, title, body string, assignees, labels, projects []string, milestone string) (string, error) {
++	u, err := url.Parse(baseURL)
++	if err != nil {
++		return "", nil
++	}
++	q := u.Query()
++	if title != "" {
++		q.Set("title", title)
++	}
++	if body != "" {
++		q.Set("body", body)
++	}
++	if len(assignees) > 0 {
++		q.Set("assignees", strings.Join(assignees, ","))
++	}
++	if len(labels) > 0 {
++		q.Set("labels", strings.Join(labels, ","))
++	}
++	if len(projects) > 0 {
++		q.Set("projects", strings.Join(projects, ","))
++	}
++	if milestone != "" {
++		q.Set("milestone", milestone)
++	}
++	u.RawQuery = q.Encode()
++	return u.String(), nil
++}
++
++func generateCompareURL(r ghrepo.Interface, base, head, title, body string, assignees, labels, projects []string, milestone string) (string, error) {
+ 	u := fmt.Sprintf(
+ 		"https://github.com/%s/compare/%s...%s?expand=1",
+ 		ghrepo.FullName(r),
+ 		base,
+ 		head,
+ 	)
+-	if title != "" {
+-		u += "&title=" + url.QueryEscape(title)
+-	}
+-	if body != "" {
+-		u += "&body=" + url.QueryEscape(body)
++	url, err := withPrAndIssueQueryParams(u, title, body, assignees, labels, projects, milestone)
++	if err != nil {
++		return "", err
+ 	}
+-	return u
++	return url, nil
+ }
+ 
+ var prCreateCmd = &cobra.Command{

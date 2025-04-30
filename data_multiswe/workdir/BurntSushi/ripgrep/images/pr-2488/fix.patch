@@ -1,0 +1,54 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 1e11a8ea6..946298030 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,6 +10,8 @@ Bug fixes:
+   Disable mmap searching in all non-64-bit environments.
+ * [BUG #2236](https://github.com/BurntSushi/ripgrep/issues/2236):
+   Fix gitignore parsing bug where a trailing `\/` resulted in an error.
++* [BUG #2480](https://github.com/BurntSushi/ripgrep/issues/2480):
++  Fix bug when using flags with '-e'.
+ 
+ 
+ 13.0.0 (2021-06-12)
+diff --git a/crates/core/args.rs b/crates/core/args.rs
+index 425ec1955..22f867744 100644
+--- a/crates/core/args.rs
++++ b/crates/core/args.rs
+@@ -700,7 +700,8 @@ impl ArgMatches {
+         let res = if self.is_present("fixed-strings") {
+             builder.build_literals(patterns)
+         } else {
+-            builder.build(&patterns.join("|"))
++            let joined = self.join_patterns(&patterns);
++            builder.build(&joined)
+         };
+         match res {
+             Ok(m) => Ok(m),
+@@ -708,6 +709,16 @@ impl ArgMatches {
+         }
+     }
+ 
++    fn join_patterns(&self, patterns: &[String]) -> String {
++        match patterns.len() {
++            1 => patterns[0].to_owned(),
++            _ => patterns
++                .iter()
++                .map(|s| format!("(?:{})", s))
++                .collect::<Vec<String>>()
++                .join("|"),
++        }
++    }
+     /// Build a matcher using PCRE2.
+     ///
+     /// If there was a problem building the matcher (such as a regex syntax
+@@ -747,7 +758,8 @@ impl ArgMatches {
+         if self.is_present("crlf") {
+             builder.crlf(true);
+         }
+-        Ok(builder.build(&patterns.join("|"))?)
++        let joined = self.join_patterns(&patterns);
++        Ok(builder.build(&joined)?)
+     }
+ 
+     /// Build a JSON printer that writes results to the given writer.

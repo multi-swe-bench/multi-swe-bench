@@ -1,0 +1,205 @@
+diff --git a/api/client.go b/api/client.go
+index bf6827d34af..3c95f625034 100644
+--- a/api/client.go
++++ b/api/client.go
+@@ -326,6 +326,7 @@ func (c Client) REST(hostname string, method string, p string, body io.Reader, d
+ 	if err != nil {
+ 		return err
+ 	}
++
+ 	err = json.Unmarshal(b, &data)
+ 	if err != nil {
+ 		return err
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index 1c8a210fb6d..65f1027a88f 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -5,6 +5,7 @@ import (
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
++	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"io"
+ 	"net/http"
+ 	"sort"
+@@ -524,6 +525,37 @@ func ForkRepo(client *Client, repo ghrepo.Interface, org string) (*Repository, e
+ 	}, nil
+ }
+ 
++// RenameRepo renames the repository on GitHub and returns the renamed repository
++func RenameRepo(client *Client, repo ghrepo.Interface, newRepoName string) (*Repository, error) {
++	input := map[string]string{"name": newRepoName}
++	body := &bytes.Buffer{}
++	enc := json.NewEncoder(body)
++	if err := enc.Encode(input); err != nil {
++		return nil, err
++	}
++
++	path := fmt.Sprintf("%srepos/%s",
++		ghinstance.RESTPrefix(repo.RepoHost()),
++		ghrepo.FullName(repo))
++
++	result := repositoryV3{}
++	err := client.REST(repo.RepoHost(), "PATCH", path, body, &result)
++	if err != nil {
++		return nil, err
++	}
++
++	return &Repository{
++		ID:        result.NodeID,
++		Name:      result.Name,
++		CreatedAt: result.CreatedAt,
++		Owner: RepositoryOwner{
++			Login: result.Owner.Login,
++		},
++		ViewerPermission: "WRITE",
++		hostname:         repo.RepoHost(),
++	}, nil
++}
++
+ func LastCommit(client *Client, repo ghrepo.Interface) (*Commit, error) {
+ 	var responseData struct {
+ 		Repository struct {
+diff --git a/pkg/cmd/repo/fork/fork.go b/pkg/cmd/repo/fork/fork.go
+index 98fc79e2f9d..952071fb516 100644
+--- a/pkg/cmd/repo/fork/fork.go
++++ b/pkg/cmd/repo/fork/fork.go
+@@ -39,6 +39,7 @@ type ForkOptions struct {
+ 	PromptRemote bool
+ 	RemoteName   string
+ 	Organization string
++	ForkName     string
+ 	Rename       bool
+ }
+ 
+@@ -115,6 +116,7 @@ Additional 'git clone' flags can be passed in by listing them after '--'.`,
+ 	cmd.Flags().BoolVar(&opts.Remote, "remote", false, "Add remote for fork {true|false}")
+ 	cmd.Flags().StringVar(&opts.RemoteName, "remote-name", defaultRemoteName, "Specify a name for a fork's new remote.")
+ 	cmd.Flags().StringVar(&opts.Organization, "org", "", "Create the fork in an organization")
++	cmd.Flags().StringVar(&opts.ForkName, "fork-name", "", "Specify a name for the forked repo")
+ 
+ 	return cmd
+ }
+@@ -201,6 +203,17 @@ func forkRun(opts *ForkOptions) error {
+ 		}
+ 	}
+ 
++	// Rename the forked repo if ForkName is specified in opts.
++	if opts.ForkName != "" {
++		forkedRepo, err = api.RenameRepo(apiClient, forkedRepo, opts.ForkName)
++		if err != nil {
++			return fmt.Errorf("could not rename fork: %w", err)
++		}
++		if connectedToTerminal {
++			fmt.Fprintf(stderr, "%s Renamed fork to %s\n", cs.SuccessIconWithColor(cs.Green), cs.Bold(ghrepo.FullName(forkedRepo)))
++		}
++	}
++
+ 	if (inParent && (!opts.Remote && !opts.PromptRemote)) || (!inParent && (!opts.Clone && !opts.PromptClone)) {
+ 		return nil
+ 	}
+diff --git a/pkg/cmd/repo/rename/http.go b/pkg/cmd/repo/rename/http.go
+deleted file mode 100644
+index 1e5d73477df..00000000000
+--- a/pkg/cmd/repo/rename/http.go
++++ /dev/null
+@@ -1,61 +0,0 @@
+-package rename
+-
+-import (
+-	"bytes"
+-	"encoding/json"
+-	"fmt"
+-	"io/ioutil"
+-	"net/http"
+-
+-	"github.com/cli/cli/v2/api"
+-	"github.com/cli/cli/v2/internal/ghinstance"
+-	"github.com/cli/cli/v2/internal/ghrepo"
+-)
+-
+-func apiRename(client *http.Client, repo ghrepo.Interface, newRepoName string) (ghrepo.Interface, error) {
+-	input := map[string]string{"name": newRepoName}
+-	body, err := json.Marshal(input)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	path := fmt.Sprintf("%srepos/%s",
+-		ghinstance.RESTPrefix(repo.RepoHost()),
+-		ghrepo.FullName(repo))
+-
+-	request, err := http.NewRequest("PATCH", path, bytes.NewBuffer(body))
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	request.Header.Set("Content-Type", "application/json; charset=utf-8")
+-
+-	resp, err := client.Do(request)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	if resp.StatusCode > 299 {
+-		return nil, api.HandleHTTPError(resp)
+-	}
+-
+-	defer resp.Body.Close()
+-	b, err := ioutil.ReadAll(resp.Body)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	result := struct {
+-		Name  string
+-		Owner struct {
+-			Login string
+-		}
+-	}{}
+-	if err := json.Unmarshal(b, &result); err != nil {
+-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
+-	}
+-
+-	newRepo := ghrepo.NewWithHost(result.Owner.Login, result.Name, repo.RepoHost())
+-
+-	return newRepo, nil
+-}
+diff --git a/pkg/cmd/repo/rename/rename.go b/pkg/cmd/repo/rename/rename.go
+index 8bbcc4f9a4c..1921aca7346 100644
+--- a/pkg/cmd/repo/rename/rename.go
++++ b/pkg/cmd/repo/rename/rename.go
+@@ -2,6 +2,7 @@ package rename
+ 
+ import (
+ 	"fmt"
++	"github.com/cli/cli/v2/api"
+ 	"net/http"
+ 
+ 	"github.com/AlecAivazis/survey/v2"
+@@ -114,11 +115,15 @@ func renameRun(opts *RenameOptions) error {
+ 		}
+ 	}
+ 
+-	newRepo, err := apiRename(httpClient, currRepo, newRepoName)
++	apiClient := api.NewClientFromHTTP(httpClient)
++
++	newRepo, err := api.RenameRepo(apiClient, currRepo, newRepoName)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
++	renamedRepo := ghrepo.New(newRepo.Owner.Login, newRepo.Name)
++
+ 	cs := opts.IO.ColorScheme()
+ 	if opts.IO.IsStdoutTTY() {
+ 		fmt.Fprintf(opts.IO.Out, "%s Renamed repository %s\n", cs.SuccessIcon(), ghrepo.FullName(newRepo))
+@@ -128,7 +133,7 @@ func renameRun(opts *RenameOptions) error {
+ 		return nil
+ 	}
+ 
+-	remote, err := updateRemote(currRepo, newRepo, opts)
++	remote, err := updateRemote(currRepo, renamedRepo, opts)
+ 	if err != nil {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Warning: unable to update remote %q: %v\n", cs.WarningIcon(), remote.Name, err)
+ 	} else if opts.IO.IsStdoutTTY() {

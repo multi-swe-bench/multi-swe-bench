@@ -1,0 +1,321 @@
+diff --git a/packages/svelte/tests/css/samples/is/_config.js b/packages/svelte/tests/css/samples/is/_config.js
+index cb3a31ce2061..e4c24eb75681 100644
+--- a/packages/svelte/tests/css/samples/is/_config.js
++++ b/packages/svelte/tests/css/samples/is/_config.js
+@@ -4,16 +4,72 @@ export default test({
+ 	warnings: [
+ 		{
+ 			code: 'css_unused_selector',
++			message: 'Unused CSS selector ".unused"',
++			start: {
++				line: 11,
++				column: 10,
++				character: 80
++			},
+ 			end: {
+-				character: 38,
+-				column: 11,
+-				line: 6
++				line: 11,
++				column: 17,
++				character: 87
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector "x :is(.unused)"',
++			start: {
++				line: 14,
++				column: 1,
++				character: 111
+ 			},
+-			message: 'Unused CSS selector "z"',
++			end: {
++				line: 14,
++				column: 15,
++				character: 125
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ".unused"',
+ 			start: {
+-				character: 37,
+-				column: 10,
+-				line: 6
++				line: 14,
++				column: 7,
++				character: 117
++			},
++			end: {
++				line: 14,
++				column: 14,
++				character: 124
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ":global(.foo) :is(.unused)"',
++			start: {
++				line: 28,
++				column: 1,
++				character: 274
++			},
++			end: {
++				line: 28,
++				column: 27,
++				character: 300
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ".unused"',
++			start: {
++				line: 28,
++				column: 19,
++				character: 292
++			},
++			end: {
++				line: 28,
++				column: 26,
++				character: 299
+ 			}
+ 		}
+ 	]
+diff --git a/packages/svelte/tests/css/samples/is/expected.css b/packages/svelte/tests/css/samples/is/expected.css
+index 2f30feedc230..be8deeff2892 100644
+--- a/packages/svelte/tests/css/samples/is/expected.css
++++ b/packages/svelte/tests/css/samples/is/expected.css
+@@ -1,4 +1,34 @@
+ 
+-	x.svelte-xyz :is(y:where(.svelte-xyz) /* (unused) z*/) {
+-		color: purple;
++	x.svelte-xyz :is(y:where(.svelte-xyz)) {
++		color: green;
++	}
++	x.svelte-xyz :is(y:where(.svelte-xyz) /* (unused) .unused*/) {
++		color: green;
++	}
++	/* (unused) x :is(.unused) {
++		color: red;
++	}*/
++
++	x.svelte-xyz :is(y) {
++		color: green;
++	}
++	x.svelte-xyz :is(.foo) {
++		color: green;
++	}
++
++	.foo :is(x.svelte-xyz) {
++		color: green;
++	}
++	/* (unused) :global(.foo) :is(.unused) {
++		color: red;
++	}*/
++
++	x.svelte-xyz :is(html *) {
++		color: green;
++	}
++	x.svelte-xyz :is(html:where(.svelte-xyz) :where(.svelte-xyz)) {
++		color: red; /* TODO would be nice to prune this one day */
++	}
++	y.svelte-xyz :is(x:where(.svelte-xyz) :where(.svelte-xyz)) {
++		color: green; /* matches z */
+ 	}
+diff --git a/packages/svelte/tests/css/samples/is/input.svelte b/packages/svelte/tests/css/samples/is/input.svelte
+index de84526d67ef..06aa0669b90f 100644
+--- a/packages/svelte/tests/css/samples/is/input.svelte
++++ b/packages/svelte/tests/css/samples/is/input.svelte
+@@ -1,9 +1,41 @@
+ <x>
+-	<y></y>
++	<y>
++		<z></z>
++	</y>
+ </x>
+ 
+ <style>
+-	x :is(y, z) {
+-		color: purple;
++	x :is(y) {
++		color: green;
++	}
++	x :is(y, .unused) {
++		color: green;
++	}
++	x :is(.unused) {
++		color: red;
++	}
++
++	x :is(:global(y)) {
++		color: green;
++	}
++	x :is(:global(.foo)) {
++		color: green;
++	}
++
++	:global(.foo) :is(x) {
++		color: green;
++	}
++	:global(.foo) :is(.unused) {
++		color: red;
++	}
++
++	x :is(:global(html *)) {
++		color: green;
++	}
++	x :is(html *) {
++		color: red; /* TODO would be nice to prune this one day */
++	}
++	y :is(x *) {
++		color: green; /* matches z */
+ 	}
+ </style>
+diff --git a/packages/svelte/tests/css/samples/not-selector/_config.js b/packages/svelte/tests/css/samples/not-selector/_config.js
+new file mode 100644
+index 000000000000..6ab49a8809fb
+--- /dev/null
++++ b/packages/svelte/tests/css/samples/not-selector/_config.js
+@@ -0,0 +1,62 @@
++import { test } from '../../test';
++
++export default test({
++	warnings: [
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ":not(.unused)"',
++			start: {
++				line: 8,
++				column: 1,
++				character: 89
++			},
++			end: {
++				line: 8,
++				column: 14,
++				character: 102
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ":not(.foo):not(.unused)"',
++			start: {
++				line: 18,
++				column: 1,
++				character: 221
++			},
++			end: {
++				line: 18,
++				column: 24,
++				character: 244
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector "p :not(.foo)"',
++			start: {
++				line: 25,
++				column: 1,
++				character: 300
++			},
++			end: {
++				line: 25,
++				column: 13,
++				character: 312
++			}
++		},
++		{
++			code: 'css_unused_selector',
++			message: 'Unused CSS selector ":global(.x) :not(.unused)"',
++			start: {
++				line: 34,
++				column: 1,
++				character: 469
++			},
++			end: {
++				line: 34,
++				column: 26,
++				character: 494
++			}
++		}
++	]
++});
+diff --git a/packages/svelte/tests/css/samples/not-selector/expected.css b/packages/svelte/tests/css/samples/not-selector/expected.css
+index 1e5f9478db79..45e9ad69c051 100644
+--- a/packages/svelte/tests/css/samples/not-selector/expected.css
++++ b/packages/svelte/tests/css/samples/not-selector/expected.css
+@@ -1,3 +1,33 @@
++
++	.svelte-xyz:not(.foo:where(.svelte-xyz)) {
++		color: green;
++	}
++	/* (unused) :not(.unused) {
++		color: red;
++	}*/
+ 	.svelte-xyz:not(.foo) {
++		color: green;
++	}
++
++	.svelte-xyz:not(.foo:where(.svelte-xyz)):not(.unused) {
++		color: green;
++	}
++	/* (unused) :not(.foo):not(.unused) {
+ 		color: red;
++	}*/
++
++	p.svelte-xyz:not(.foo:where(.svelte-xyz)) {
++		color: green;
+ 	}
++	/* (unused) p :not(.foo) {
++		color: red;
++	}*/
++	.x:not(.foo.svelte-xyz) {
++		color: green;
++	}
++	.x:not(.unused.svelte-xyz) {
++		color: red; /* TODO would be nice to prune this one day */
++	}
++	/* (unused) :global(.x) :not(.unused) {
++		color: red;
++	}*/
+diff --git a/packages/svelte/tests/css/samples/not-selector/input.svelte b/packages/svelte/tests/css/samples/not-selector/input.svelte
+index 31a880f2bbf2..57d062cf4993 100644
+--- a/packages/svelte/tests/css/samples/not-selector/input.svelte
++++ b/packages/svelte/tests/css/samples/not-selector/input.svelte
+@@ -3,6 +3,35 @@
+ 
+ <style>
+ 	:not(.foo) {
++		color: green;
++	}
++	:not(.unused) {
++		color: red;
++	}
++	:not(:global(.foo)) {
++		color: green;
++	}
++
++	:not(.foo):not(:global(.unused)) {
++		color: green;
++	}
++	:not(.foo):not(.unused) {
++		color: red;
++	}
++
++	p:not(.foo) {
++		color: green;
++	}
++	p :not(.foo) {
++		color: red;
++	}
++	:global(.x):not(.foo) {
++		color: green;
++	}
++	:global(.x):not(.unused) {
++		color: red; /* TODO would be nice to prune this one day */
++	}
++	:global(.x) :not(.unused) {
+ 		color: red;
+ 	}
+ </style>
+\ No newline at end of file

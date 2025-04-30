@@ -1,0 +1,67 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/Child.svelte b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/Child.svelte
+new file mode 100644
+index 000000000000..b69380af2b5e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/Child.svelte
+@@ -0,0 +1,1 @@
++<p>child</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/_config.js b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/_config.js
+new file mode 100644
+index 000000000000..b3d2f90fe892
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/_config.js
+@@ -0,0 +1,34 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>unshift</button>`,
++
++	compileOptions: {
++		dev: true,
++		hmr: true
++	},
++
++	test({ assert, target }) {
++		const btn = target.querySelector('button');
++
++		flushSync(() => btn?.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>unshift</button>
++				<p>child</p>
++			`
++		);
++
++		flushSync(() => btn?.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>unshift</button>
++				<p>child</p>
++				<p>child</p>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/main.svelte b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/main.svelte
+new file mode 100644
+index 000000000000..be8b2f418858
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-each-keyed-unshift/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++	import Child from './Child.svelte';
++
++	let uid = 0;
++
++	/** @type {Array<{ id: number }>} */
++	let items = $state([]);
++</script>
++
++<button onclick={() => items.unshift({ id: uid++ })}>unshift</button>
++
++{#each items as item (item.id)}
++	<Child />
++{/each}

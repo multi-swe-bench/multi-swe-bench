@@ -1,0 +1,120 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 34884d16f7f..d9d9a21bd93 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -341,6 +341,65 @@ func PullRequestByNumber(client *Client, repo ghrepo.Interface, number int) (*Pu
+ 	return &resp.Repository.PullRequest, nil
+ }
+ 
++func PullRequestBySha(client *Client, vars map[string]interface{}) (*PullRequest, error) {
++	type prBlock struct {
++		Edges []struct {
++			Node PullRequest
++		}
++		PageInfo struct {
++			HasNextPage bool
++			EndCursor   string
++		}
++	}
++	type response struct {
++		Search prBlock
++	}
++
++	fragment := `
++	fragment pr on PullRequest {
++		url
++		number
++		title
++		body
++	}
++	`
++
++	query := fragment + `
++	query($q: String!) {
++		search(query: $q, type: ISSUE, first: 1) {
++			edges {
++				node {
++					...pr
++          		}
++			}
++		}
++	}`
++
++	variables := map[string]interface{}{}
++	owner := vars["owner"].(string)
++	repo := vars["repo"].(string)
++	sha := vars["sha"].(string)
++	search := []string{
++		fmt.Sprintf("repo:%s/%s", owner, repo),
++		sha,
++		"is:pr",
++		"sort:created-asc",
++	}
++	variables["q"] = strings.Join(search, " ")
++
++	var resp response
++	err := client.GraphQL(query, variables, &resp)
++	if err != nil {
++		return nil, err
++	}
++
++	for _, edge := range resp.Search.Edges {
++		return &edge.Node, nil
++	}
++
++	return nil, &NotFoundError{fmt.Errorf("no open pull requests found for sha %q", sha)}
++}
++
+ func PullRequestForBranch(client *Client, repo ghrepo.Interface, branch string) (*PullRequest, error) {
+ 	type response struct {
+ 		Repository struct {
+diff --git a/command/pr.go b/command/pr.go
+index 688bddf2a7c..6a26c7d770f 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -32,6 +32,7 @@ func init() {
+ 	prListCmd.Flags().StringP("assignee", "a", "", "Filter by assignee")
+ 
+ 	prViewCmd.Flags().BoolP("preview", "p", false, "Display preview of pull request content")
++	prViewCmd.Flags().StringP("sha", "s", "", "Commit sha hash of pull request")
+ }
+ 
+ var prCmd = &cobra.Command{
+@@ -266,10 +267,20 @@ func prView(cmd *cobra.Command, args []string) error {
+ 	if err != nil {
+ 		return err
+ 	}
++	sha, err := cmd.Flags().GetString("sha")
++	if err != nil {
++		return err
++	}
+ 
+ 	var openURL string
+ 	var pr *api.PullRequest
+-	if len(args) > 0 {
++	if sha != "" {
++		pr, err = prFromSha(apiClient, baseRepo, sha)
++		if err != nil {
++			return err
++		}
++		openURL = pr.URL
++	} else if len(args) > 0 {
+ 		pr, err = prFromArg(apiClient, baseRepo, args[0])
+ 		if err != nil {
+ 			return err
+@@ -346,6 +357,15 @@ func prFromArg(apiClient *api.Client, baseRepo ghrepo.Interface, arg string) (*a
+ 	return api.PullRequestForBranch(apiClient, baseRepo, arg)
+ }
+ 
++func prFromSha(apiClient *api.Client, baseRepo ghrepo.Interface, sha string) (*api.PullRequest, error) {
++	params := map[string]interface{}{
++		"owner": baseRepo.RepoOwner(),
++		"repo":  baseRepo.RepoName(),
++		"sha":   sha,
++	}
++	return api.PullRequestBySha(apiClient, params)
++}
++
+ func prSelectorForCurrentBranch(ctx context.Context, baseRepo ghrepo.Interface) (prNumber int, prHeadRef string, err error) {
+ 	prHeadRef, err = ctx.Branch()
+ 	if err != nil {

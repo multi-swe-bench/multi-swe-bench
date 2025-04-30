@@ -1,0 +1,1047 @@
+diff --git a/api/client.go b/api/client.go
+index d6eb3a81b93..94f396e6ac4 100644
+--- a/api/client.go
++++ b/api/client.go
+@@ -124,7 +124,18 @@ type graphQLResponse struct {
+ type GraphQLError struct {
+ 	Type    string
+ 	Message string
+-	// Path []interface // mixed strings and numbers
++	Path    []interface{} // mixed strings and numbers
++}
++
++func (ge GraphQLError) PathString() string {
++	var res strings.Builder
++	for i, v := range ge.Path {
++		if i > 0 {
++			res.WriteRune('.')
++		}
++		fmt.Fprintf(&res, "%v", v)
++	}
++	return res.String()
+ }
+ 
+ // GraphQLErrorResponse contains errors returned in a GraphQL response
+@@ -140,6 +151,14 @@ func (gr GraphQLErrorResponse) Error() string {
+ 	return fmt.Sprintf("GraphQL error: %s", strings.Join(errorMessages, "\n"))
+ }
+ 
++// Match checks if this error is only about a specific type on a specific path.
++func (gr GraphQLErrorResponse) Match(expectType, expectPath string) bool {
++	if len(gr.Errors) != 1 {
++		return false
++	}
++	return gr.Errors[0].Type == expectType && gr.Errors[0].PathString() == expectPath
++}
++
+ // HTTPError is an error returned by a failed API call
+ type HTTPError struct {
+ 	StatusCode int
+@@ -221,7 +240,8 @@ func EndpointNeedsScopes(resp *http.Response, s string) *http.Response {
+ 	return resp
+ }
+ 
+-// GraphQL performs a GraphQL request and parses the response
++// GraphQL performs a GraphQL request and parses the response. If there are errors in the response,
++// *GraphQLErrorResponse will be returned, but the data will also be parsed into the receiver.
+ func (c Client) GraphQL(hostname string, query string, variables map[string]interface{}, data interface{}) error {
+ 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
+ 	if err != nil {
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index d09497569e6..813212276c9 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -1,12 +1,10 @@
+ package api
+ 
+ import (
+-	"context"
+ 	"fmt"
+ 	"time"
+ 
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+-	"github.com/shurcooL/githubv4"
+ )
+ 
+ type IssuesPayload struct {
+@@ -22,6 +20,7 @@ type IssuesAndTotalCount struct {
+ }
+ 
+ type Issue struct {
++	Typename       string `json:"__typename"`
+ 	ID             string
+ 	Number         int
+ 	Title          string
+@@ -41,6 +40,10 @@ type Issue struct {
+ 	ReactionGroups ReactionGroups
+ }
+ 
++func (i Issue) IsPullRequest() bool {
++	return i.Typename == "PullRequest"
++}
++
+ type Assignees struct {
+ 	Nodes      []GitHubUser
+ 	TotalCount int
+@@ -337,87 +340,6 @@ func IssueByNumber(client *Client, repo ghrepo.Interface, number int) (*Issue, e
+ 	return &resp.Repository.Issue, nil
+ }
+ 
+-func IssueClose(client *Client, repo ghrepo.Interface, issue Issue) error {
+-	var mutation struct {
+-		CloseIssue struct {
+-			Issue struct {
+-				ID githubv4.ID
+-			}
+-		} `graphql:"closeIssue(input: $input)"`
+-	}
+-
+-	variables := map[string]interface{}{
+-		"input": githubv4.CloseIssueInput{
+-			IssueID: issue.ID,
+-		},
+-	}
+-
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "IssueClose", &mutation, variables)
+-
+-	if err != nil {
+-		return err
+-	}
+-
+-	return nil
+-}
+-
+-func IssueReopen(client *Client, repo ghrepo.Interface, issue Issue) error {
+-	var mutation struct {
+-		ReopenIssue struct {
+-			Issue struct {
+-				ID githubv4.ID
+-			}
+-		} `graphql:"reopenIssue(input: $input)"`
+-	}
+-
+-	variables := map[string]interface{}{
+-		"input": githubv4.ReopenIssueInput{
+-			IssueID: issue.ID,
+-		},
+-	}
+-
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "IssueReopen", &mutation, variables)
+-
+-	return err
+-}
+-
+-func IssueDelete(client *Client, repo ghrepo.Interface, issue Issue) error {
+-	var mutation struct {
+-		DeleteIssue struct {
+-			Repository struct {
+-				ID githubv4.ID
+-			}
+-		} `graphql:"deleteIssue(input: $input)"`
+-	}
+-
+-	variables := map[string]interface{}{
+-		"input": githubv4.DeleteIssueInput{
+-			IssueID: issue.ID,
+-		},
+-	}
+-
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "IssueDelete", &mutation, variables)
+-
+-	return err
+-}
+-
+-func IssueUpdate(client *Client, repo ghrepo.Interface, params githubv4.UpdateIssueInput) error {
+-	var mutation struct {
+-		UpdateIssue struct {
+-			Issue struct {
+-				ID string
+-			}
+-		} `graphql:"updateIssue(input: $input)"`
+-	}
+-	variables := map[string]interface{}{"input": params}
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "IssueUpdate", &mutation, variables)
+-	return err
+-}
+-
+ func (i Issue) Link() string {
+ 	return i.URL
+ }
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 744b4c9e291..300846c231e 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -621,20 +621,6 @@ func CreatePullRequest(client *Client, repo *Repository, params map[string]inter
+ 	return pr, nil
+ }
+ 
+-func UpdatePullRequest(client *Client, repo ghrepo.Interface, params githubv4.UpdatePullRequestInput) error {
+-	var mutation struct {
+-		UpdatePullRequest struct {
+-			PullRequest struct {
+-				ID string
+-			}
+-		} `graphql:"updatePullRequest(input: $input)"`
+-	}
+-	variables := map[string]interface{}{"input": params}
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "PullRequestUpdate", &mutation, variables)
+-	return err
+-}
+-
+ func UpdatePullRequestReviews(client *Client, repo ghrepo.Interface, params githubv4.RequestReviewsInput) error {
+ 	var mutation struct {
+ 		RequestReviews struct {
+@@ -660,7 +646,7 @@ func isBlank(v interface{}) bool {
+ 	}
+ }
+ 
+-func PullRequestClose(client *Client, repo ghrepo.Interface, pr *PullRequest) error {
++func PullRequestClose(httpClient *http.Client, repo ghrepo.Interface, prID string) error {
+ 	var mutation struct {
+ 		ClosePullRequest struct {
+ 			PullRequest struct {
+@@ -671,17 +657,15 @@ func PullRequestClose(client *Client, repo ghrepo.Interface, pr *PullRequest) er
+ 
+ 	variables := map[string]interface{}{
+ 		"input": githubv4.ClosePullRequestInput{
+-			PullRequestID: pr.ID,
++			PullRequestID: prID,
+ 		},
+ 	}
+ 
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "PullRequestClose", &mutation, variables)
+-
+-	return err
++	gql := graphQLClient(httpClient, repo.RepoHost())
++	return gql.MutateNamed(context.Background(), "PullRequestClose", &mutation, variables)
+ }
+ 
+-func PullRequestReopen(client *Client, repo ghrepo.Interface, pr *PullRequest) error {
++func PullRequestReopen(httpClient *http.Client, repo ghrepo.Interface, prID string) error {
+ 	var mutation struct {
+ 		ReopenPullRequest struct {
+ 			PullRequest struct {
+@@ -692,14 +676,12 @@ func PullRequestReopen(client *Client, repo ghrepo.Interface, pr *PullRequest) e
+ 
+ 	variables := map[string]interface{}{
+ 		"input": githubv4.ReopenPullRequestInput{
+-			PullRequestID: pr.ID,
++			PullRequestID: prID,
+ 		},
+ 	}
+ 
+-	gql := graphQLClient(client.http, repo.RepoHost())
+-	err := gql.MutateNamed(context.Background(), "PullRequestReopen", &mutation, variables)
+-
+-	return err
++	gql := graphQLClient(httpClient, repo.RepoHost())
++	return gql.MutateNamed(context.Background(), "PullRequestReopen", &mutation, variables)
+ }
+ 
+ func PullRequestReady(client *Client, repo ghrepo.Interface, pr *PullRequest) error {
+diff --git a/api/query_builder.go b/api/query_builder.go
+index c9ab62d13c9..7dc9a423aa8 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -176,6 +176,8 @@ var PullRequestFields = append(IssueFields,
+ 	"statusCheckRollup",
+ )
+ 
++// PullRequestGraphQL constructs a GraphQL query fragment for a set of pull request fields. Since GitHub
++// pull requests are also technically issues, this function can be used to query issues as well.
+ func PullRequestGraphQL(fields []string) string {
+ 	var q []string
+ 	for _, field := range fields {
+diff --git a/pkg/cmd/issue/close/close.go b/pkg/cmd/issue/close/close.go
+index 95d56b51d31..eabdc3ab7fa 100644
+--- a/pkg/cmd/issue/close/close.go
++++ b/pkg/cmd/issue/close/close.go
+@@ -1,15 +1,19 @@
+ package close
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"net/http"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/cmd/issue/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
++	graphql "github.com/cli/shurcooL-graphql"
++	"github.com/shurcooL/githubv4"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -58,9 +62,8 @@ func closeRun(opts *CloseOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	issue, baseRepo, err := shared.IssueFromArg(apiClient, opts.BaseRepo, opts.SelectorArg)
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, []string{"id", "number", "title", "state"})
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -70,7 +73,7 @@ func closeRun(opts *CloseOptions) error {
+ 		return nil
+ 	}
+ 
+-	err = api.IssueClose(apiClient, baseRepo, *issue)
++	err = apiClose(httpClient, baseRepo, issue)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -79,3 +82,26 @@ func closeRun(opts *CloseOptions) error {
+ 
+ 	return nil
+ }
++
++func apiClose(httpClient *http.Client, repo ghrepo.Interface, issue *api.Issue) error {
++	if issue.IsPullRequest() {
++		return api.PullRequestClose(httpClient, repo, issue.ID)
++	}
++
++	var mutation struct {
++		CloseIssue struct {
++			Issue struct {
++				ID githubv4.ID
++			}
++		} `graphql:"closeIssue(input: $input)"`
++	}
++
++	variables := map[string]interface{}{
++		"input": githubv4.CloseIssueInput{
++			IssueID: issue.ID,
++		},
++	}
++
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(repo.RepoHost()), httpClient)
++	return gql.MutateNamed(context.Background(), "IssueClose", &mutation, variables)
++}
+diff --git a/pkg/cmd/issue/comment/comment.go b/pkg/cmd/issue/comment/comment.go
+index 3e73a1d7958..41c76eeeab5 100644
+--- a/pkg/cmd/issue/comment/comment.go
++++ b/pkg/cmd/issue/comment/comment.go
+@@ -1,10 +1,7 @@
+ package comment
+ 
+ import (
+-	"net/http"
+-
+ 	"github.com/MakeNowJust/heredoc"
+-	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	issueShared "github.com/cli/cli/v2/pkg/cmd/issue/shared"
+ 	prShared "github.com/cli/cli/v2/pkg/cmd/pr/shared"
+@@ -32,7 +29,13 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 		`),
+ 		Args: cobra.ExactArgs(1),
+ 		PreRunE: func(cmd *cobra.Command, args []string) error {
+-			opts.RetrieveCommentable = retrieveIssue(f.HttpClient, f.BaseRepo, args[0])
++			opts.RetrieveCommentable = func() (prShared.Commentable, ghrepo.Interface, error) {
++				httpClient, err := f.HttpClient()
++				if err != nil {
++					return nil, nil, err
++				}
++				return issueShared.IssueFromArgWithFields(httpClient, f.BaseRepo, args[0], []string{"id", "url"})
++			}
+ 			return prShared.CommentablePreRun(cmd, opts)
+ 		},
+ 		RunE: func(_ *cobra.Command, args []string) error {
+@@ -58,22 +61,3 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 
+ 	return cmd
+ }
+-
+-func retrieveIssue(httpClient func() (*http.Client, error),
+-	baseRepo func() (ghrepo.Interface, error),
+-	selector string) func() (prShared.Commentable, ghrepo.Interface, error) {
+-	return func() (prShared.Commentable, ghrepo.Interface, error) {
+-		httpClient, err := httpClient()
+-		if err != nil {
+-			return nil, nil, err
+-		}
+-		apiClient := api.NewClientFromHTTP(httpClient)
+-
+-		issue, repo, err := issueShared.IssueFromArg(apiClient, baseRepo, selector)
+-		if err != nil {
+-			return nil, nil, err
+-		}
+-
+-		return issue, repo, nil
+-	}
+-}
+diff --git a/pkg/cmd/issue/delete/delete.go b/pkg/cmd/issue/delete/delete.go
+index fa0332d5f7e..efabbbf5b85 100644
+--- a/pkg/cmd/issue/delete/delete.go
++++ b/pkg/cmd/issue/delete/delete.go
+@@ -1,18 +1,21 @@
+ package delete
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"net/http"
+ 	"strconv"
+ 
+ 	"github.com/AlecAivazis/survey/v2"
+-	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/cmd/issue/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/cli/cli/v2/pkg/prompt"
++	graphql "github.com/cli/shurcooL-graphql"
++	"github.com/shurcooL/githubv4"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -61,12 +64,14 @@ func deleteRun(opts *DeleteOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	issue, baseRepo, err := shared.IssueFromArg(apiClient, opts.BaseRepo, opts.SelectorArg)
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, []string{"id", "number", "title"})
+ 	if err != nil {
+ 		return err
+ 	}
++	if issue.IsPullRequest() {
++		return fmt.Errorf("issue #%d is a pull request and cannot be deleted", issue.Number)
++	}
+ 
+ 	// When executed in an interactive shell, require confirmation. Otherwise skip confirmation.
+ 	if opts.IO.CanPrompt() {
+@@ -87,12 +92,32 @@ func deleteRun(opts *DeleteOptions) error {
+ 		}
+ 	}
+ 
+-	err = api.IssueDelete(apiClient, baseRepo, *issue)
+-	if err != nil {
++	if err := apiDelete(httpClient, baseRepo, issue.ID); err != nil {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(opts.IO.ErrOut, "%s Deleted issue #%d (%s).\n", cs.Red("✔"), issue.Number, issue.Title)
++	if opts.IO.IsStdoutTTY() {
++		fmt.Fprintf(opts.IO.ErrOut, "%s Deleted issue #%d (%s).\n", cs.Red("✔"), issue.Number, issue.Title)
++	}
+ 
+ 	return nil
+ }
++
++func apiDelete(httpClient *http.Client, repo ghrepo.Interface, issueID string) error {
++	var mutation struct {
++		DeleteIssue struct {
++			Repository struct {
++				ID githubv4.ID
++			}
++		} `graphql:"deleteIssue(input: $input)"`
++	}
++
++	variables := map[string]interface{}{
++		"input": githubv4.DeleteIssueInput{
++			IssueID: issueID,
++		},
++	}
++
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(repo.RepoHost()), httpClient)
++	return gql.MutateNamed(context.Background(), "IssueDelete", &mutation, variables)
++}
+diff --git a/pkg/cmd/issue/edit/edit.go b/pkg/cmd/issue/edit/edit.go
+index 433141583bc..3f7cb3b8400 100644
+--- a/pkg/cmd/issue/edit/edit.go
++++ b/pkg/cmd/issue/edit/edit.go
+@@ -11,7 +11,6 @@ import (
+ 	prShared "github.com/cli/cli/v2/pkg/cmd/pr/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+-	"github.com/shurcooL/githubv4"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -135,14 +134,27 @@ func editRun(opts *EditOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	issue, repo, err := shared.IssueFromArg(apiClient, opts.BaseRepo, opts.SelectorArg)
++	editable := opts.Editable
++	lookupFields := []string{"id", "number", "title", "body", "url"}
++	if opts.Interactive || editable.Assignees.Edited {
++		lookupFields = append(lookupFields, "assignees")
++	}
++	if opts.Interactive || editable.Labels.Edited {
++		lookupFields = append(lookupFields, "labels")
++	}
++	if opts.Interactive || editable.Projects.Edited {
++		lookupFields = append(lookupFields, "projectCards")
++	}
++	if opts.Interactive || editable.Milestone.Edited {
++		lookupFields = append(lookupFields, "milestone")
++	}
++
++	issue, repo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, lookupFields)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	editable := opts.Editable
+ 	editable.Title.Default = issue.Title
+ 	editable.Body.Default = issue.Body
+ 	editable.Assignees.Default = issue.Assignees.Logins()
+@@ -159,6 +171,7 @@ func editRun(opts *EditOptions) error {
+ 		}
+ 	}
+ 
++	apiClient := api.NewClientFromHTTP(httpClient)
+ 	opts.IO.StartProgressIndicator()
+ 	err = opts.FetchOptions(apiClient, repo, &editable)
+ 	opts.IO.StopProgressIndicator()
+@@ -178,7 +191,7 @@ func editRun(opts *EditOptions) error {
+ 	}
+ 
+ 	opts.IO.StartProgressIndicator()
+-	err = updateIssue(apiClient, repo, issue.ID, editable)
++	err = prShared.UpdateIssue(httpClient, repo, issue.ID, issue.IsPullRequest(), editable)
+ 	opts.IO.StopProgressIndicator()
+ 	if err != nil {
+ 		return err
+@@ -188,64 +201,3 @@ func editRun(opts *EditOptions) error {
+ 
+ 	return nil
+ }
+-
+-func updateIssue(client *api.Client, repo ghrepo.Interface, id string, options prShared.Editable) error {
+-	var err error
+-	params := githubv4.UpdateIssueInput{
+-		ID:    id,
+-		Title: ghString(options.TitleValue()),
+-		Body:  ghString(options.BodyValue()),
+-	}
+-	assigneeIds, err := options.AssigneeIds(client, repo)
+-	if err != nil {
+-		return err
+-	}
+-	params.AssigneeIDs = ghIds(assigneeIds)
+-	labelIds, err := options.LabelIds()
+-	if err != nil {
+-		return err
+-	}
+-	params.LabelIDs = ghIds(labelIds)
+-	projectIds, err := options.ProjectIds()
+-	if err != nil {
+-		return err
+-	}
+-	params.ProjectIDs = ghIds(projectIds)
+-	milestoneId, err := options.MilestoneId()
+-	if err != nil {
+-		return err
+-	}
+-	params.MilestoneID = ghId(milestoneId)
+-	return api.IssueUpdate(client, repo, params)
+-}
+-
+-func ghIds(s *[]string) *[]githubv4.ID {
+-	if s == nil {
+-		return nil
+-	}
+-	ids := make([]githubv4.ID, len(*s))
+-	for i, v := range *s {
+-		ids[i] = v
+-	}
+-	return &ids
+-}
+-
+-func ghId(s *string) *githubv4.ID {
+-	if s == nil {
+-		return nil
+-	}
+-	if *s == "" {
+-		r := githubv4.ID(nil)
+-		return &r
+-	}
+-	r := githubv4.ID(*s)
+-	return &r
+-}
+-
+-func ghString(s *string) *githubv4.String {
+-	if s == nil {
+-		return nil
+-	}
+-	r := githubv4.String(*s)
+-	return &r
+-}
+diff --git a/pkg/cmd/issue/reopen/reopen.go b/pkg/cmd/issue/reopen/reopen.go
+index bef037bd7d2..99dd5dc5bad 100644
+--- a/pkg/cmd/issue/reopen/reopen.go
++++ b/pkg/cmd/issue/reopen/reopen.go
+@@ -1,15 +1,19 @@
+ package reopen
+ 
+ import (
++	"context"
+ 	"fmt"
+ 	"net/http"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/cmd/issue/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
++	graphql "github.com/cli/shurcooL-graphql"
++	"github.com/shurcooL/githubv4"
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -58,9 +62,8 @@ func reopenRun(opts *ReopenOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	issue, baseRepo, err := shared.IssueFromArg(apiClient, opts.BaseRepo, opts.SelectorArg)
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, []string{"id", "number", "title", "state"})
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -70,7 +73,7 @@ func reopenRun(opts *ReopenOptions) error {
+ 		return nil
+ 	}
+ 
+-	err = api.IssueReopen(apiClient, baseRepo, *issue)
++	err = apiReopen(httpClient, baseRepo, issue)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -79,3 +82,26 @@ func reopenRun(opts *ReopenOptions) error {
+ 
+ 	return nil
+ }
++
++func apiReopen(httpClient *http.Client, repo ghrepo.Interface, issue *api.Issue) error {
++	if issue.IsPullRequest() {
++		return api.PullRequestReopen(httpClient, repo, issue.ID)
++	}
++
++	var mutation struct {
++		ReopenIssue struct {
++			Issue struct {
++				ID githubv4.ID
++			}
++		} `graphql:"reopenIssue(input: $input)"`
++	}
++
++	variables := map[string]interface{}{
++		"input": githubv4.ReopenIssueInput{
++			IssueID: issue.ID,
++		},
++	}
++
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(repo.RepoHost()), httpClient)
++	return gql.MutateNamed(context.Background(), "IssueReopen", &mutation, variables)
++}
+diff --git a/pkg/cmd/issue/shared/lookup.go b/pkg/cmd/issue/shared/lookup.go
+index d0c1126da53..875a43c49d0 100644
+--- a/pkg/cmd/issue/shared/lookup.go
++++ b/pkg/cmd/issue/shared/lookup.go
+@@ -1,7 +1,9 @@
+ package shared
+ 
+ import (
++	"errors"
+ 	"fmt"
++	"net/http"
+ 	"net/url"
+ 	"regexp"
+ 	"strconv"
+@@ -11,6 +13,8 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ )
+ 
++// IssueFromArg loads an issue with all its fields.
++// Deprecated: use IssueFromArgWithFields instead.
+ func IssueFromArg(apiClient *api.Client, baseRepoFn func() (ghrepo.Interface, error), arg string) (*api.Issue, ghrepo.Interface, error) {
+ 	issueNumber, baseRepo := issueMetadataFromURL(arg)
+ 
+@@ -30,7 +34,31 @@ func IssueFromArg(apiClient *api.Client, baseRepoFn func() (ghrepo.Interface, er
+ 		}
+ 	}
+ 
+-	issue, err := issueFromNumber(apiClient, baseRepo, issueNumber)
++	issue, err := api.IssueByNumber(apiClient, baseRepo, issueNumber)
++	return issue, baseRepo, err
++}
++
++// IssueFromArgWithFields loads an issue or pull request with the specified fields.
++func IssueFromArgWithFields(httpClient *http.Client, baseRepoFn func() (ghrepo.Interface, error), arg string, fields []string) (*api.Issue, ghrepo.Interface, error) {
++	issueNumber, baseRepo := issueMetadataFromURL(arg)
++
++	if issueNumber == 0 {
++		var err error
++		issueNumber, err = strconv.Atoi(strings.TrimPrefix(arg, "#"))
++		if err != nil {
++			return nil, nil, fmt.Errorf("invalid issue format: %q", arg)
++		}
++	}
++
++	if baseRepo == nil {
++		var err error
++		baseRepo, err = baseRepoFn()
++		if err != nil {
++			return nil, nil, fmt.Errorf("could not determine base repo: %w", err)
++		}
++	}
++
++	issue, err := findIssueOrPR(httpClient, baseRepo, issueNumber, fields)
+ 	return issue, baseRepo, err
+ }
+ 
+@@ -56,6 +84,45 @@ func issueMetadataFromURL(s string) (int, ghrepo.Interface) {
+ 	return issueNumber, repo
+ }
+ 
+-func issueFromNumber(apiClient *api.Client, repo ghrepo.Interface, issueNumber int) (*api.Issue, error) {
+-	return api.IssueByNumber(apiClient, repo, issueNumber)
++func findIssueOrPR(httpClient *http.Client, repo ghrepo.Interface, number int, fields []string) (*api.Issue, error) {
++	type response struct {
++		Repository struct {
++			HasIssuesEnabled bool
++			Issue            *api.Issue
++		}
++	}
++
++	query := fmt.Sprintf(`
++	query IssueByNumber($owner: String!, $repo: String!, $number: Int!) {
++		repository(owner: $owner, name: $repo) {
++			hasIssuesEnabled
++			issue: issueOrPullRequest(number: $number) {
++				__typename
++				...on Issue{%[1]s}
++				...on PullRequest{%[1]s}
++			}
++		}
++	}`, api.PullRequestGraphQL(fields))
++
++	variables := map[string]interface{}{
++		"owner":  repo.RepoOwner(),
++		"repo":   repo.RepoName(),
++		"number": number,
++	}
++
++	var resp response
++	client := api.NewClientFromHTTP(httpClient)
++	if err := client.GraphQL(repo.RepoHost(), query, variables, &resp); err != nil {
++		var gerr *api.GraphQLErrorResponse
++		if errors.As(err, &gerr) && gerr.Match("NOT_FOUND", "repository.issue") && !resp.Repository.HasIssuesEnabled {
++			return nil, fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(repo))
++		}
++		return nil, err
++	}
++
++	if resp.Repository.Issue == nil {
++		return nil, errors.New("issue was not found but GraphQL reported no error")
++	}
++
++	return resp.Repository.Issue, nil
+ }
+diff --git a/pkg/cmd/issue/transfer/transfer.go b/pkg/cmd/issue/transfer/transfer.go
+index b3f204baf4c..69866d90b5f 100644
+--- a/pkg/cmd/issue/transfer/transfer.go
++++ b/pkg/cmd/issue/transfer/transfer.go
+@@ -60,13 +60,15 @@ func transferRun(opts *TransferOptions) error {
+ 		return err
+ 	}
+ 
+-	apiClient := api.NewClientFromHTTP(httpClient)
+-	issue, _, err := shared.IssueFromArg(apiClient, opts.BaseRepo, opts.IssueSelector)
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.IssueSelector, []string{"id", "number"})
+ 	if err != nil {
+ 		return err
+ 	}
++	if issue.IsPullRequest() {
++		return fmt.Errorf("issue #%d is a pull request and cannot be transferred", issue.Number)
++	}
+ 
+-	destRepo, err := ghrepo.FromFullName(opts.DestRepoSelector)
++	destRepo, err := ghrepo.FromFullNameWithHost(opts.DestRepoSelector, baseRepo.RepoHost())
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/close/close.go b/pkg/cmd/pr/close/close.go
+index 1e3b1333d3e..fc954b19e60 100644
+--- a/pkg/cmd/pr/close/close.go
++++ b/pkg/cmd/pr/close/close.go
+@@ -79,9 +79,8 @@ func closeRun(opts *CloseOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	err = api.PullRequestClose(apiClient, baseRepo, pr)
++	err = api.PullRequestClose(httpClient, baseRepo, pr.ID)
+ 	if err != nil {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+@@ -90,6 +89,7 @@ func closeRun(opts *CloseOptions) error {
+ 
+ 	if opts.DeleteBranch {
+ 		branchSwitchString := ""
++		apiClient := api.NewClientFromHTTP(httpClient)
+ 
+ 		if opts.DeleteLocalBranch {
+ 			currentBranch, err := opts.Branch()
+diff --git a/pkg/cmd/pr/edit/edit.go b/pkg/cmd/pr/edit/edit.go
+index 17f35a2eef2..f69a70e7938 100644
+--- a/pkg/cmd/pr/edit/edit.go
++++ b/pkg/cmd/pr/edit/edit.go
+@@ -202,7 +202,7 @@ func editRun(opts *EditOptions) error {
+ 	}
+ 
+ 	opts.IO.StartProgressIndicator()
+-	err = updatePullRequest(apiClient, repo, pr.ID, editable)
++	err = updatePullRequest(httpClient, repo, pr.ID, editable)
+ 	opts.IO.StopProgressIndicator()
+ 	if err != nil {
+ 		return err
+@@ -213,44 +213,14 @@ func editRun(opts *EditOptions) error {
+ 	return nil
+ }
+ 
+-func updatePullRequest(client *api.Client, repo ghrepo.Interface, id string, editable shared.Editable) error {
+-	var err error
+-	params := githubv4.UpdatePullRequestInput{
+-		PullRequestID: id,
+-		Title:         ghString(editable.TitleValue()),
+-		Body:          ghString(editable.BodyValue()),
+-	}
+-	assigneeIds, err := editable.AssigneeIds(client, repo)
+-	if err != nil {
+-		return err
+-	}
+-	params.AssigneeIDs = ghIds(assigneeIds)
+-	labelIds, err := editable.LabelIds()
+-	if err != nil {
+-		return err
+-	}
+-	params.LabelIDs = ghIds(labelIds)
+-	projectIds, err := editable.ProjectIds()
+-	if err != nil {
++func updatePullRequest(httpClient *http.Client, repo ghrepo.Interface, id string, editable shared.Editable) error {
++	if err := shared.UpdateIssue(httpClient, repo, id, true, editable); err != nil {
+ 		return err
+ 	}
+-	params.ProjectIDs = ghIds(projectIds)
+-	milestoneId, err := editable.MilestoneId()
+-	if err != nil {
+-		return err
+-	}
+-	params.MilestoneID = ghId(milestoneId)
+-	if editable.Base.Edited {
+-		params.BaseRefName = ghString(&editable.Base.Value)
+-	}
+-	err = api.UpdatePullRequest(client, repo, params)
+-	if err != nil {
+-		return err
+-	}
+-	return updatePullRequestReviews(client, repo, id, editable)
++	return updatePullRequestReviews(httpClient, repo, id, editable)
+ }
+ 
+-func updatePullRequestReviews(client *api.Client, repo ghrepo.Interface, id string, editable shared.Editable) error {
++func updatePullRequestReviews(httpClient *http.Client, repo ghrepo.Interface, id string, editable shared.Editable) error {
+ 	if !editable.Reviewers.Edited {
+ 		return nil
+ 	}
+@@ -265,6 +235,7 @@ func updatePullRequestReviews(client *api.Client, repo ghrepo.Interface, id stri
+ 		UserIDs:       ghIds(userIds),
+ 		TeamIDs:       ghIds(teamIds),
+ 	}
++	client := api.NewClientFromHTTP(httpClient)
+ 	return api.UpdatePullRequestReviews(client, repo, reviewsRequestParams)
+ }
+ 
+@@ -315,23 +286,3 @@ func ghIds(s *[]string) *[]githubv4.ID {
+ 	}
+ 	return &ids
+ }
+-
+-func ghId(s *string) *githubv4.ID {
+-	if s == nil {
+-		return nil
+-	}
+-	if *s == "" {
+-		r := githubv4.ID(nil)
+-		return &r
+-	}
+-	r := githubv4.ID(*s)
+-	return &r
+-}
+-
+-func ghString(s *string) *githubv4.String {
+-	if s == nil {
+-		return nil
+-	}
+-	r := githubv4.String(*s)
+-	return &r
+-}
+diff --git a/pkg/cmd/pr/reopen/reopen.go b/pkg/cmd/pr/reopen/reopen.go
+index df747a2dc61..f795dbc1edc 100644
+--- a/pkg/cmd/pr/reopen/reopen.go
++++ b/pkg/cmd/pr/reopen/reopen.go
+@@ -73,9 +73,8 @@ func reopenRun(opts *ReopenOptions) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	apiClient := api.NewClientFromHTTP(httpClient)
+ 
+-	err = api.PullRequestReopen(apiClient, baseRepo, pr)
++	err = api.PullRequestReopen(httpClient, baseRepo, pr.ID)
+ 	if err != nil {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+diff --git a/pkg/cmd/pr/shared/editable_http.go b/pkg/cmd/pr/shared/editable_http.go
+new file mode 100644
+index 00000000000..8af23c6c3ec
+--- /dev/null
++++ b/pkg/cmd/pr/shared/editable_http.go
+@@ -0,0 +1,122 @@
++package shared
++
++import (
++	"context"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	graphql "github.com/cli/shurcooL-graphql"
++	"github.com/shurcooL/githubv4"
++)
++
++func UpdateIssue(httpClient *http.Client, repo ghrepo.Interface, id string, isPR bool, options Editable) error {
++	title := ghString(options.TitleValue())
++	body := ghString(options.BodyValue())
++
++	apiClient := api.NewClientFromHTTP(httpClient)
++	assigneeIds, err := options.AssigneeIds(apiClient, repo)
++	if err != nil {
++		return err
++	}
++
++	labelIds, err := options.LabelIds()
++	if err != nil {
++		return err
++	}
++
++	projectIds, err := options.ProjectIds()
++	if err != nil {
++		return err
++	}
++
++	milestoneId, err := options.MilestoneId()
++	if err != nil {
++		return err
++	}
++
++	if isPR {
++		params := githubv4.UpdatePullRequestInput{
++			PullRequestID: id,
++			Title:         title,
++			Body:          body,
++			AssigneeIDs:   ghIds(assigneeIds),
++			LabelIDs:      ghIds(labelIds),
++			ProjectIDs:    ghIds(projectIds),
++			MilestoneID:   ghId(milestoneId),
++		}
++		if options.Base.Edited {
++			params.BaseRefName = ghString(&options.Base.Value)
++		}
++		return updatePullRequest(httpClient, repo, params)
++	}
++
++	return updateIssue(httpClient, repo, githubv4.UpdateIssueInput{
++		ID:          id,
++		Title:       title,
++		Body:        body,
++		AssigneeIDs: ghIds(assigneeIds),
++		LabelIDs:    ghIds(labelIds),
++		ProjectIDs:  ghIds(projectIds),
++		MilestoneID: ghId(milestoneId),
++	})
++}
++
++func updateIssue(httpClient *http.Client, repo ghrepo.Interface, params githubv4.UpdateIssueInput) error {
++	var mutation struct {
++		UpdateIssue struct {
++			Issue struct {
++				ID string
++			}
++		} `graphql:"updateIssue(input: $input)"`
++	}
++	variables := map[string]interface{}{"input": params}
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(repo.RepoHost()), httpClient)
++	return gql.MutateNamed(context.Background(), "IssueUpdate", &mutation, variables)
++}
++
++func updatePullRequest(httpClient *http.Client, repo ghrepo.Interface, params githubv4.UpdatePullRequestInput) error {
++	var mutation struct {
++		UpdatePullRequest struct {
++			PullRequest struct {
++				ID string
++			}
++		} `graphql:"updatePullRequest(input: $input)"`
++	}
++	variables := map[string]interface{}{"input": params}
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(repo.RepoHost()), httpClient)
++	err := gql.MutateNamed(context.Background(), "PullRequestUpdate", &mutation, variables)
++	return err
++}
++
++func ghIds(s *[]string) *[]githubv4.ID {
++	if s == nil {
++		return nil
++	}
++	ids := make([]githubv4.ID, len(*s))
++	for i, v := range *s {
++		ids[i] = v
++	}
++	return &ids
++}
++
++func ghId(s *string) *githubv4.ID {
++	if s == nil {
++		return nil
++	}
++	if *s == "" {
++		r := githubv4.ID(nil)
++		return &r
++	}
++	r := githubv4.ID(*s)
++	return &r
++}
++
++func ghString(s *string) *githubv4.String {
++	if s == nil {
++		return nil
++	}
++	r := githubv4.String(*s)
++	return &r
++}

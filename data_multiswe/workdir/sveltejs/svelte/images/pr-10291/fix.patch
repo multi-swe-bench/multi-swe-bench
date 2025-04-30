@@ -1,0 +1,47 @@
+diff --git a/.changeset/tall-mugs-buy.md b/.changeset/tall-mugs-buy.md
+new file mode 100644
+index 000000000000..7c05fe662978
+--- /dev/null
++++ b/.changeset/tall-mugs-buy.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: prevent false positive store error in module script
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 1eb54593535c..439b2b4034af 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -435,10 +435,6 @@ const errors = {
+ 	// 	code: 'illegal-declaration',
+ 	// 	message: 'The $ prefix is reserved, and cannot be used for variable and import names'
+ 	// },
+-	// illegal_subscription: {
+-	// 	code: 'illegal-subscription',
+-	// 	message: 'Cannot reference store value inside <script context="module">'
+-	// },
+ 	// illegal_global: /** @param {string} name */ (name) => ({
+ 	// 	code: 'illegal-global',
+ 	// 	message: `${name} is an illegal variable name`
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 0af7b5430dd8..7cc6adfd4841 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -306,11 +306,13 @@ export function analyze_component(root, options) {
+ 			}
+ 
+ 			if (module.ast) {
+-				// if the reference is inside context="module", error. this is a bit hacky but it works
+-				for (const { node } of references) {
++				for (const { node, path } of references) {
++					// if the reference is inside context="module", error. this is a bit hacky but it works
+ 					if (
+ 						/** @type {number} */ (node.start) > /** @type {number} */ (module.ast.start) &&
+-						/** @type {number} */ (node.end) < /** @type {number} */ (module.ast.end)
++						/** @type {number} */ (node.end) < /** @type {number} */ (module.ast.end) &&
++						// const state = $state(0) is valid
++						get_rune(/** @type {import('estree').Node} */ (path.at(-1)), module.scope) === null
+ 					) {
+ 						error(node, 'illegal-subscription');
+ 					}

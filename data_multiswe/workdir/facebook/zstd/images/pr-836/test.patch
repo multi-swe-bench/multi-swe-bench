@@ -1,0 +1,44 @@
+diff --git a/tests/fuzzer.c b/tests/fuzzer.c
+index 108eeaf48b7..2bc5c9dfe61 100644
+--- a/tests/fuzzer.c
++++ b/tests/fuzzer.c
+@@ -1384,6 +1384,16 @@ static int fuzzerTests(U32 seed, U32 nbTests, unsigned startTest, U32 const maxD
+         }
+ 
+         /* streaming decompression test */
++        /* ensure memory requirement is good enough (should always be true) */
++        {   ZSTD_frameHeader zfh;
++            CHECK( ZSTD_getFrameHeader(&zfh, cBuffer, ZSTD_frameHeaderSize_max),
++                  "ZSTD_getFrameHeader(): error retrieving frame information");
++            {   size_t const roundBuffSize = ZSTD_decodingBufferSize_min(zfh.windowSize, zfh.frameContentSize);
++                CHECK_Z(roundBuffSize);
++                CHECK((roundBuffSize > totalTestSize) && (zfh.frameContentSize!=ZSTD_CONTENTSIZE_UNKNOWN),
++                      "ZSTD_decodingBufferSize_min() requires more memory (%u) than necessary (%u)",
++                      (U32)roundBuffSize, (U32)totalTestSize );
++        }   }
+         if (dictSize<8) dictSize=0, dict=NULL;   /* disable dictionary */
+         CHECK_Z( ZSTD_decompressBegin_usingDict(dctx, dict, dictSize) );
+         totalCSize = 0;
+diff --git a/tests/zstreamtest.c b/tests/zstreamtest.c
+index d7b2e197a9a..8c8adc62d4d 100644
+--- a/tests/zstreamtest.c
++++ b/tests/zstreamtest.c
+@@ -909,10 +909,16 @@ static int fuzzerTests(U32 seed, U32 nbTests, unsigned startTest, double compres
+                 inBuff.size = inBuff.pos + readCSrcSize;
+                 outBuff.size = inBuff.pos + dstBuffSize;
+                 decompressionResult = ZSTD_decompressStream(zd, &outBuff, &inBuff);
+-                CHECK (ZSTD_isError(decompressionResult), "decompression error : %s", ZSTD_getErrorName(decompressionResult));
++                if (ZSTD_getErrorCode(decompressionResult) == ZSTD_error_checksum_wrong) {
++                    DISPLAY("checksum error : \n");
++                    findDiff(copyBuffer, dstBuffer, totalTestSize);
++                }
++                CHECK( ZSTD_isError(decompressionResult), "decompression error : %s",
++                       ZSTD_getErrorName(decompressionResult) );
+             }
+             CHECK (decompressionResult != 0, "frame not fully decoded");
+-            CHECK (outBuff.pos != totalTestSize, "decompressed data : wrong size")
++            CHECK (outBuff.pos != totalTestSize, "decompressed data : wrong size (%u != %u)",
++                    (U32)outBuff.pos, (U32)totalTestSize);
+             CHECK (inBuff.pos != cSize, "compressed data should be fully read")
+             {   U64 const crcDest = XXH64(dstBuffer, totalTestSize, 0);
+                 if (crcDest!=crcOrig) findDiff(copyBuffer, dstBuffer, totalTestSize);

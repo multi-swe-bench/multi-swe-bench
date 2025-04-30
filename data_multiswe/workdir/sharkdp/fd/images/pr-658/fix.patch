@@ -1,0 +1,100 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index a3e32ca94..bc217beae 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -3,6 +3,7 @@
+ ## Features
+ 
+ - Improved the usability of the time-based options, see #624 and #645 (@gorogoroumaru)
++- Add new `--prune` flag, see #535 (@reima)
+ 
+ ## Bugfixes
+ 
+diff --git a/contrib/completion/_fd b/contrib/completion/_fd
+index 20f8144ca..3f43b0f6a 100644
+--- a/contrib/completion/_fd
++++ b/contrib/completion/_fd
+@@ -102,6 +102,9 @@ _fd() {
+     '(--exact-depth --min-depth)--min-depth=[set directory depth to descend before start searching]:depth'
+     '(--exact-depth -d --max-depth --maxdepth --min-depth)--exact-depth=[only search at the exact given directory depth]:depth'
+ 
++    + prune # pruning
++    "--prune[don't traverse into matching directories]"
++
+     + filter-misc # filter search
+     '*'{-t+,--type=}"[filter search by type]:type:(($fd_types))"
+     '*'{-e+,--extension=}'[filter search by file extension]:extension'
+diff --git a/doc/fd.1 b/doc/fd.1
+index 324c165d0..4762293b4 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -115,6 +115,9 @@ Only show search results starting at the given depth. See also: '--max-depth' an
+ .BI "\-\-exact\-depth " d
+ Only show search results at the exact given depth. This is an alias for '--min-depth <depth> --max-depth <depth>'.
+ .TP
++.B \-\-prune
++Do not traverse into matching directories.
++.TP
+ .BI "\-t, \-\-type " filetype
+ Filter search by type:
+ .RS
+diff --git a/src/app.rs b/src/app.rs
+index 7cc716484..a019691b8 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -215,6 +215,13 @@ pub fn build_app() -> App<'static, 'static> {
+                      '--min-depth <depth> --max-depth <depth>'.",
+                 ),
+         )
++        .arg(
++            Arg::with_name("prune")
++                .long("prune")
++                .conflicts_with_all(&["size", "exact-depth"])
++                .hidden_short_help(true)
++                .long_help("Do not traverse into matching directories.")
++        )
+         .arg(
+             Arg::with_name("file-type")
+                 .long("type")
+diff --git a/src/main.rs b/src/main.rs
+index 235866936..24a78767b 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -323,6 +323,7 @@ fn run() -> Result<ExitCode> {
+             .value_of("min-depth")
+             .or_else(|| matches.value_of("exact-depth"))
+             .and_then(|n| usize::from_str_radix(n, 10).ok()),
++        prune: matches.is_present("prune"),
+         threads: std::cmp::max(
+             matches
+                 .value_of("threads")
+diff --git a/src/options.rs b/src/options.rs
+index dd11506b9..aa9b5ea90 100644
+--- a/src/options.rs
++++ b/src/options.rs
+@@ -48,6 +48,9 @@ pub struct Options {
+     /// The minimum depth for reported entries, or `None`.
+     pub min_depth: Option<usize>,
+ 
++    /// Whether to stop traversing into matching directories.
++    pub prune: bool,
++
+     /// The number of threads to use.
+     pub threads: usize,
+ 
+diff --git a/src/walk.rs b/src/walk.rs
+index de700d0f9..3ba937b62 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -494,6 +494,11 @@ fn spawn_senders(
+                 return ignore::WalkState::Quit;
+             }
+ 
++            // Apply pruning.
++            if config.prune {
++                return ignore::WalkState::Skip;
++            }
++
+             ignore::WalkState::Continue
+         })
+     });

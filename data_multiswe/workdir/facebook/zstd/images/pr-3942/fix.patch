@@ -1,0 +1,60 @@
+diff --git a/programs/zstd.1.md b/programs/zstd.1.md
+index c5d0ef70a36..646e3cf28eb 100644
+--- a/programs/zstd.1.md
++++ b/programs/zstd.1.md
+@@ -225,15 +225,17 @@ the last one takes effect.
+     This parameter defines a loose target: compressed blocks will target this size "on average", but individual blocks can still be larger or smaller.
+     Enabling this feature can decrease compression speed by up to ~10% at level 1.
+     Higher levels will see smaller relative speed regression, becoming invisible at higher settings.
+-* `-o FILE`:
+-    save result into `FILE`.
+ * `-f`, `--force`:
+     disable input and output checks. Allows overwriting existing files, input
+     from console, output to stdout, operating on links, block devices, etc.
+     During decompression and when the output destination is stdout, pass-through
+     unrecognized formats as-is.
+ * `-c`, `--stdout`:
+-    write to standard output (even if it is the console); keep original files unchanged.
++    write to standard output (even if it is the console); keep original files (disable `--rm`).
++* `-o FILE`:
++    save result into `FILE`.
++    Note that this operation is in conflict with `-c`.
++    If both operations are present on the command line, the last expressed one wins.
+ * `--[no-]sparse`:
+     enable / disable sparse FS support,
+     to make files with many zeroes smaller on disk.
+diff --git a/programs/zstdcli.c b/programs/zstdcli.c
+index 1cb16ef50e7..9dd6b051a7b 100644
+--- a/programs/zstdcli.c
++++ b/programs/zstdcli.c
+@@ -962,7 +962,7 @@ int main(int argCount, const char* argv[])
+                 if (!strcmp(argument, "--help")) { usageAdvanced(programName); CLEAN_RETURN(0); }
+                 if (!strcmp(argument, "--verbose")) { g_displayLevel++; continue; }
+                 if (!strcmp(argument, "--quiet")) { g_displayLevel--; continue; }
+-                if (!strcmp(argument, "--stdout")) { forceStdout=1; outFileName=stdoutmark; removeSrcFile=0; continue; }
++                if (!strcmp(argument, "--stdout")) { forceStdout=1; outFileName=stdoutmark; continue; }
+                 if (!strcmp(argument, "--ultra")) { ultra=1; continue; }
+                 if (!strcmp(argument, "--check")) { FIO_setChecksumFlag(prefs, 2); continue; }
+                 if (!strcmp(argument, "--no-check")) { FIO_setChecksumFlag(prefs, 0); continue; }
+@@ -1176,7 +1176,10 @@ int main(int argCount, const char* argv[])
+                         operation=zom_decompress; argument++; break;
+ 
+                     /* Force stdout, even if stdout==console */
+-                case 'c': forceStdout=1; outFileName=stdoutmark; removeSrcFile=0; argument++; break;
++                case 'c': forceStdout=1; outFileName=stdoutmark; argument++; break;
++
++                    /* destination file name */
++                case 'o': argument++; NEXT_FIELD(outFileName); break;
+ 
+                     /* do not store filename - gzip compatibility - nothing to do */
+                 case 'n': argument++; break;
+@@ -1202,9 +1205,6 @@ int main(int argCount, const char* argv[])
+                     /* test compressed file */
+                 case 't': operation=zom_test; argument++; break;
+ 
+-                    /* destination file name */
+-                case 'o': argument++; NEXT_FIELD(outFileName); break;
+-
+                     /* limit memory */
+                 case 'M':
+                     argument++;

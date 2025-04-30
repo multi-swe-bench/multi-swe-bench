@@ -1,0 +1,183 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentA.svelte b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentA.svelte
+new file mode 100644
+index 000000000000..c94874725062
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentA.svelte
+@@ -0,0 +1,5 @@
++<script>
++	export const a = {};
++</script>
++
++<div>a</div>
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentB.svelte b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentB.svelte
+new file mode 100644
+index 000000000000..6e0b2d36d071
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/ComponentB.svelte
+@@ -0,0 +1,1 @@
++<div>b</div>
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/_config.js b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/_config.js
+new file mode 100644
+index 000000000000..395899daff87
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/_config.js
+@@ -0,0 +1,26 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>a</button><button>b</button><div>a</div>`,
++	compileOptions: {
++		dev: false
++	},
++
++	async test({ assert, target, logs, ok }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		flushSync(() => {
++			btn2.click();
++		});
++
++		assert.htmlEqual(target.innerHTML, `<button>a</button><button>b</button><div>b</div>`);
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		assert.htmlEqual(target.innerHTML, `<button>a</button><button>b</button><div>a</div>`);
++		assert.deepEqual(logs, [{ a: {} }, {}, { a: {} }]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/main.svelte b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/main.svelte
+new file mode 100644
+index 000000000000..4b314a33fa7c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-this-frozen/main.svelte
+@@ -0,0 +1,24 @@
++<script>
++	import ComponentA from './ComponentA.svelte';
++	import ComponentB from './ComponentB.svelte';
++
++	let type = $state(ComponentA);
++	let elem = $state.frozen();
++
++	$effect(() => {
++		console.log(elem);
++	});
++</script>
++
++<button
++	onclick={() => {
++		type = ComponentA;
++	}}>a</button
++>
++<button
++	onclick={() => {
++		type = ComponentB;
++	}}>b</button
++>
++
++<svelte:component this={type} bind:this={elem}>Content</svelte:component>
+diff --git a/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
+index ba4352d57b80..2ffcbeffabb2 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
+@@ -30,4 +30,5 @@ export default function Bind_component_snippet($$anchor) {
+ 
+ 	$.template_effect(() => $.set_text(text, ` value: ${$.get(value) ?? ""}`));
+ 	$.append($$anchor, fragment_1);
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+index bd24eca96227..a2fc02644b3c 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+@@ -3,4 +3,5 @@ import * as $ from "svelte/internal/client";
+ 
+ export default function Bind_this($$anchor) {
+ 	$.bind_this(Foo($$anchor, { $$legacy: true }), ($$value) => foo = $$value, () => foo);
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js
+index aa4d22d99a6d..eafec512f626 100644
+--- a/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js
+@@ -30,4 +30,5 @@ export default function Main($$anchor) {
+ 	});
+ 
+ 	$.append($$anchor, fragment);
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/each-string-template/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/each-string-template/_expected/client/index.svelte.js
+index 5d5e47faf2d6..872fa30d8daa 100644
+--- a/packages/svelte/tests/snapshot/samples/each-string-template/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/each-string-template/_expected/client/index.svelte.js
+@@ -13,4 +13,5 @@ export default function Each_string_template($$anchor) {
+ 	});
+ 
+ 	$.append($$anchor, fragment);
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
+index 8fb6d075cd7c..512c2d9d8d9f 100644
+--- a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
+@@ -22,4 +22,6 @@ export default function Function_prop_no_getter($$anchor) {
+ 		},
+ 		$$slots: { default: true }
+ 	});
++
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/hello-world/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/hello-world/_expected/client/index.svelte.js
+index 92354d8f1483..da64ce05c5dd 100644
+--- a/packages/svelte/tests/snapshot/samples/hello-world/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/hello-world/_expected/client/index.svelte.js
+@@ -7,4 +7,5 @@ export default function Hello_world($$anchor) {
+ 	var h1 = root();
+ 
+ 	$.append($$anchor, h1);
++	return {};
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/hmr/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/hmr/_expected/client/index.svelte.js
+index 6cb6845c1cce..7358eefd3081 100644
+--- a/packages/svelte/tests/snapshot/samples/hmr/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/hmr/_expected/client/index.svelte.js
+@@ -7,6 +7,7 @@ function Hmr($$anchor) {
+ 	var h1 = root();
+ 
+ 	$.append($$anchor, h1);
++	return {};
+ }
+ 
+ if (import.meta.hot) {
+diff --git a/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
+index 0f2d6f420094..45427aa6ff1a 100644
+--- a/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
+@@ -28,6 +28,7 @@ export default function State_proxy_literal($$anchor) {
+ 	$.bind_value(input, () => $.get(str), ($$value) => $.set(str, $$value));
+ 	$.bind_value(input_1, () => $.get(tpl), ($$value) => $.set(tpl, $$value));
+ 	$.append($$anchor, fragment);
++	return {};
+ }
+ 
+ $.delegate(["click"]);
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/svelte-element/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/svelte-element/_expected/client/index.svelte.js
+index a4bbea582bf3..484d937327f4 100644
+--- a/packages/svelte/tests/snapshot/samples/svelte-element/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/svelte-element/_expected/client/index.svelte.js
+@@ -8,4 +8,5 @@ export default function Svelte_element($$anchor, $$props) {
+ 
+ 	$.element(node, tag, false);
+ 	$.append($$anchor, fragment);
++	return {};
+ }
+\ No newline at end of file

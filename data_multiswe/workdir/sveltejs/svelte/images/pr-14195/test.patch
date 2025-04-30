@@ -1,0 +1,69 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/Test.svelte b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/Test.svelte
+new file mode 100644
+index 000000000000..8b11acb279db
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/Test.svelte
+@@ -0,0 +1,11 @@
++<script>
++	export let store;
++
++	let currentStore;
++	function update(){
++		currentStore = store
++	}
++</script>
++
++<button on:click={update}></button>
++<p>{$currentStore}</p>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/_config.js b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/_config.js
+new file mode 100644
+index 000000000000..eecdcb246295
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/_config.js
+@@ -0,0 +1,29 @@
++import { flushSync } from 'svelte';
++import { ok, test } from '../../test';
++
++export default test({
++	async test({ assert, target, window }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++		const p = target.querySelector('p');
++
++		assert.equal(p?.innerHTML, '');
++
++		flushSync(() => {
++			btn2.click();
++		});
++
++		assert.equal(p?.innerHTML, '1');
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		assert.equal(p?.innerHTML, '1');
++
++		flushSync(() => {
++			btn2.click();
++		});
++
++		assert.equal(p?.innerHTML, '2');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/main.svelte b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/main.svelte
+new file mode 100644
+index 000000000000..5033fbc52676
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/variable-assigned-store-state/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	import { writable } from 'svelte/store'
++	import Test from './Test.svelte'
++	let counter = 1
++	let store = writable(counter)
++</script>
++
++<button on:click={() => store = writable(++counter)}></button>
++<Test {store} />
+\ No newline at end of file

@@ -1,0 +1,143 @@
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index c105adb9aac..b4ebae09a94 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -27,24 +27,25 @@ type CreateOptions struct {
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 
+-	Name              string
+-	Description       string
+-	Homepage          string
+-	Team              string
+-	Template          string
+-	Public            bool
+-	Private           bool
+-	Internal          bool
+-	Visibility        string
+-	Push              bool
+-	Clone             bool
+-	Source            string
+-	Remote            string
+-	GitIgnoreTemplate string
+-	LicenseTemplate   string
+-	DisableIssues     bool
+-	DisableWiki       bool
+-	Interactive       bool
++	Name               string
++	Description        string
++	Homepage           string
++	Team               string
++	Template           string
++	Public             bool
++	Private            bool
++	Internal           bool
++	Visibility         string
++	Push               bool
++	Clone              bool
++	Source             string
++	Remote             string
++	GitIgnoreTemplate  string
++	LicenseTemplate    string
++	DisableIssues      bool
++	DisableWiki        bool
++	Interactive        bool
++	IncludeAllBranches bool
+ }
+ 
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+@@ -144,6 +145,10 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 				return cmdutil.FlagErrorf("the `--template` option is not supported with `--homepage`, `--team`, `--disable-issues`, or `--disable-wiki`")
+ 			}
+ 
++			if opts.Template == "" && opts.IncludeAllBranches {
++				return cmdutil.FlagErrorf("the `--include-all-branches` option is only supported when using `--template`")
++			}
++
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+@@ -166,6 +171,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 	cmd.Flags().BoolVarP(&opts.Clone, "clone", "c", false, "Clone the new repository to the current directory")
+ 	cmd.Flags().BoolVar(&opts.DisableIssues, "disable-issues", false, "Disable issues in the new repository")
+ 	cmd.Flags().BoolVar(&opts.DisableWiki, "disable-wiki", false, "Disable wiki in the new repository")
++	cmd.Flags().BoolVar(&opts.IncludeAllBranches, "include-all-branches", false, "Include all branches from template repository")
+ 
+ 	// deprecated flags
+ 	cmd.Flags().BoolP("confirm", "y", false, "Skip the confirmation prompt")
+@@ -295,16 +301,17 @@ func createFromScratch(opts *CreateOptions) error {
+ 	}
+ 
+ 	input := repoCreateInput{
+-		Name:              repoToCreate.RepoName(),
+-		Visibility:        opts.Visibility,
+-		OwnerLogin:        repoToCreate.RepoOwner(),
+-		TeamSlug:          opts.Team,
+-		Description:       opts.Description,
+-		HomepageURL:       opts.Homepage,
+-		HasIssuesEnabled:  !opts.DisableIssues,
+-		HasWikiEnabled:    !opts.DisableWiki,
+-		GitIgnoreTemplate: opts.GitIgnoreTemplate,
+-		LicenseTemplate:   opts.LicenseTemplate,
++		Name:               repoToCreate.RepoName(),
++		Visibility:         opts.Visibility,
++		OwnerLogin:         repoToCreate.RepoOwner(),
++		TeamSlug:           opts.Team,
++		Description:        opts.Description,
++		HomepageURL:        opts.Homepage,
++		HasIssuesEnabled:   !opts.DisableIssues,
++		HasWikiEnabled:     !opts.DisableWiki,
++		GitIgnoreTemplate:  opts.GitIgnoreTemplate,
++		LicenseTemplate:    opts.LicenseTemplate,
++		IncludeAllBranches: opts.IncludeAllBranches,
+ 	}
+ 
+ 	var templateRepoMainBranch string
+diff --git a/pkg/cmd/repo/create/http.go b/pkg/cmd/repo/create/http.go
+index 1cc6a47a631..6031d28d5c7 100644
+--- a/pkg/cmd/repo/create/http.go
++++ b/pkg/cmd/repo/create/http.go
+@@ -23,6 +23,7 @@ type repoCreateInput struct {
+ 	HasWikiEnabled       bool
+ 	GitIgnoreTemplate    string
+ 	LicenseTemplate      string
++	IncludeAllBranches   bool
+ }
+ 
+ // createRepositoryInputV3 is the payload for the repo create REST API
+@@ -53,11 +54,12 @@ type createRepositoryInput struct {
+ 
+ // cloneTemplateRepositoryInput is the payload for creating a repo from a template using GraphQL
+ type cloneTemplateRepositoryInput struct {
+-	Name         string `json:"name"`
+-	Visibility   string `json:"visibility"`
+-	Description  string `json:"description,omitempty"`
+-	OwnerID      string `json:"ownerId"`
+-	RepositoryID string `json:"repositoryId"`
++	Name               string `json:"name"`
++	Visibility         string `json:"visibility"`
++	Description        string `json:"description,omitempty"`
++	OwnerID            string `json:"ownerId"`
++	RepositoryID       string `json:"repositoryId"`
++	IncludeAllBranches bool   `json:"includeAllBranches"`
+ }
+ 
+ // repoCreate creates a new GitHub repository
+@@ -104,11 +106,12 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput) (*a
+ 
+ 		variables := map[string]interface{}{
+ 			"input": cloneTemplateRepositoryInput{
+-				Name:         input.Name,
+-				Description:  input.Description,
+-				Visibility:   strings.ToUpper(input.Visibility),
+-				OwnerID:      ownerID,
+-				RepositoryID: input.TemplateRepositoryID,
++				Name:               input.Name,
++				Description:        input.Description,
++				Visibility:         strings.ToUpper(input.Visibility),
++				OwnerID:            ownerID,
++				RepositoryID:       input.TemplateRepositoryID,
++				IncludeAllBranches: input.IncludeAllBranches,
+ 			},
+ 		}
+ 

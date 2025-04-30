@@ -1,0 +1,215 @@
+diff --git a/.changeset/nervous-berries-boil.md b/.changeset/nervous-berries-boil.md
+new file mode 100644
+index 000000000000..c14195f32de0
+--- /dev/null
++++ b/.changeset/nervous-berries-boil.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: only inject push/init/pop when necessary
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 5eae33a4d7d5..2ed2288a8e72 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -370,6 +370,8 @@ export function analyze_component(root, source, options) {
+ 		uses_slots: false,
+ 		uses_component_bindings: false,
+ 		uses_render_tags: false,
++		needs_context: false,
++		needs_props: false,
+ 		custom_element: options.customElementOptions ?? options.customElement,
+ 		inject_styles: options.css === 'injected' || options.customElement,
+ 		accessors: options.customElement
+@@ -803,6 +805,8 @@ const legacy_scope_tweaker = {
+ 			return next();
+ 		}
+ 
++		state.analysis.needs_props = true;
++
+ 		if (!node.declaration) {
+ 			for (const specifier of node.specifiers) {
+ 				const binding = /** @type {import('#compiler').Binding} */ (
+@@ -931,6 +935,8 @@ const runes_scope_tweaker = {
+ 		}
+ 
+ 		if (rune === '$props') {
++			state.analysis.needs_props = true;
++
+ 			for (const property of /** @type {import('estree').ObjectPattern} */ (node.id).properties) {
+ 				if (property.type !== 'Property') continue;
+ 
+@@ -1038,6 +1044,33 @@ const function_visitor = (node, context) => {
+ 	});
+ };
+ 
++/**
++ * A 'safe' identifier means that the `foo` in `foo.bar` or `foo()` will not
++ * call functions that require component context to exist
++ * @param {import('estree').Expression | import('estree').Super} expression
++ * @param {Scope} scope
++ */
++function is_safe_identifier(expression, scope) {
++	let node = expression;
++	while (node.type === 'MemberExpression') node = node.object;
++
++	if (node.type !== 'Identifier') return false;
++
++	const binding = scope.get(node.name);
++	if (!binding) return true;
++
++	if (binding.kind === 'store_sub') {
++		return is_safe_identifier({ name: node.name.slice(1), type: 'Identifier' }, scope);
++	}
++
++	return (
++		binding.declaration_kind !== 'import' &&
++		binding.kind !== 'prop' &&
++		binding.kind !== 'bindable_prop' &&
++		binding.kind !== 'rest_prop'
++	);
++}
++
+ /** @type {import('./types').Visitors} */
+ const common_visitors = {
+ 	_(node, context) {
+@@ -1209,6 +1242,8 @@ const common_visitors = {
+ 		}
+ 
+ 		const callee = node.callee;
++		const rune = get_rune(node, context.state.scope);
++
+ 		if (callee.type === 'Identifier') {
+ 			const binding = context.state.scope.get(callee.name);
+ 
+@@ -1216,7 +1251,7 @@ const common_visitors = {
+ 				binding.is_called = true;
+ 			}
+ 
+-			if (get_rune(node, context.state.scope) === '$derived') {
++			if (rune === '$derived') {
+ 				// special case — `$derived(foo)` is treated as `$derived(() => foo)`
+ 				// for the purposes of identifying static state references
+ 				context.next({
+@@ -1228,6 +1263,16 @@ const common_visitors = {
+ 			}
+ 		}
+ 
++		if (rune === '$effect' || rune === '$effect.pre') {
++			// `$effect` needs context because Svelte needs to know whether it should re-run
++			// effects that invalidate themselves, and that's determined by whether we're in runes mode
++			context.state.analysis.needs_context = true;
++		} else if (rune === null) {
++			if (!is_safe_identifier(callee, context.state.scope)) {
++				context.state.analysis.needs_context = true;
++			}
++		}
++
+ 		context.next();
+ 	},
+ 	MemberExpression(node, context) {
+@@ -1235,6 +1280,10 @@ const common_visitors = {
+ 			context.state.expression.metadata.dynamic = true;
+ 		}
+ 
++		if (!is_safe_identifier(node, context.state.scope)) {
++			context.state.analysis.needs_context = true;
++		}
++
+ 		context.next();
+ 	},
+ 	BindDirective(node, context) {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index 61a0377e6fe9..aabf99d82132 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -351,12 +351,11 @@ export function client_component(source, analysis, options) {
+ 	if (options.dev) push_args.push(b.id(analysis.name));
+ 
+ 	const component_block = b.block([
+-		b.stmt(b.call('$.push', ...push_args)),
+ 		...store_setup,
+ 		...legacy_reactive_declarations,
+ 		...group_binding_declarations,
+ 		.../** @type {import('estree').Statement[]} */ (instance.body),
+-		analysis.runes ? b.empty : b.stmt(b.call('$.init')),
++		analysis.runes || !analysis.needs_context ? b.empty : b.stmt(b.call('$.init')),
+ 		.../** @type {import('estree').Statement[]} */ (template.body)
+ 	]);
+ 
+@@ -392,11 +391,22 @@ export function client_component(source, analysis, options) {
+ 			: () => {};
+ 
+ 	append_styles();
+-	component_block.body.push(
+-		component_returned_object.length > 0
+-			? b.return(b.call('$.pop', b.object(component_returned_object)))
+-			: b.stmt(b.call('$.pop'))
+-	);
++
++	const should_inject_context =
++		analysis.needs_context ||
++		analysis.reactive_statements.size > 0 ||
++		component_returned_object.length > 0 ||
++		options.dev;
++
++	if (should_inject_context) {
++		component_block.body.unshift(b.stmt(b.call('$.push', ...push_args)));
++
++		component_block.body.push(
++			component_returned_object.length > 0
++				? b.return(b.call('$.pop', b.object(component_returned_object)))
++				: b.stmt(b.call('$.pop'))
++		);
++	}
+ 
+ 	if (analysis.uses_rest_props) {
+ 		const named_props = analysis.exports.map(({ name, alias }) => alias ?? name);
+@@ -430,11 +440,19 @@ export function client_component(source, analysis, options) {
+ 		component_block.body.unshift(b.const('$$slots', b.call('$.sanitize_slots', b.id('$$props'))));
+ 	}
+ 
++	let should_inject_props =
++		should_inject_context ||
++		analysis.needs_props ||
++		analysis.uses_props ||
++		analysis.uses_rest_props ||
++		analysis.uses_slots ||
++		analysis.slot_names.size > 0;
++
+ 	const body = [...state.hoisted, ...module.body];
+ 
+ 	const component = b.function_declaration(
+ 		b.id(analysis.name),
+-		[b.id('$$anchor'), b.id('$$props')],
++		should_inject_props ? [b.id('$$anchor'), b.id('$$props')] : [b.id('$$anchor')],
+ 		component_block
+ 	);
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 9c7706a17c93..89eb32f429c3 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -1228,6 +1228,8 @@ function serialize_event_handler(node, { state, visit }) {
+ 
+ 		return handler;
+ 	} else {
++		state.analysis.needs_props = true;
++
+ 		// Function + .call to preserve "this" context as much as possible
+ 		return b.function(
+ 			null,
+diff --git a/packages/svelte/src/compiler/phases/types.d.ts b/packages/svelte/src/compiler/phases/types.d.ts
+index c2ece7d7fd10..3e892fefef9e 100644
+--- a/packages/svelte/src/compiler/phases/types.d.ts
++++ b/packages/svelte/src/compiler/phases/types.d.ts
+@@ -57,6 +57,8 @@ export interface ComponentAnalysis extends Analysis {
+ 	uses_slots: boolean;
+ 	uses_component_bindings: boolean;
+ 	uses_render_tags: boolean;
++	needs_context: boolean;
++	needs_props: boolean;
+ 	custom_element: boolean | SvelteOptions['customElement'];
+ 	/** If `true`, should append styles through JavaScript */
+ 	inject_styles: boolean;

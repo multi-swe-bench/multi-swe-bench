@@ -1,0 +1,276 @@
+diff --git a/.changeset/slimy-walls-draw.md b/.changeset/slimy-walls-draw.md
+new file mode 100644
+index 000000000000..fd0ec42dd0ec
+--- /dev/null
++++ b/.changeset/slimy-walls-draw.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly call exported state
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index dad08406f0cb..27069478c896 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -7,7 +7,7 @@ import { global_visitors } from './visitors/global.js';
+ import { javascript_visitors } from './visitors/javascript.js';
+ import { javascript_visitors_runes } from './visitors/javascript-runes.js';
+ import { javascript_visitors_legacy } from './visitors/javascript-legacy.js';
+-import { serialize_get_binding } from './utils.js';
++import { is_state_source, serialize_get_binding } from './utils.js';
+ import { remove_types } from '../typescript.js';
+ 
+ /**
+@@ -242,9 +242,7 @@ export function client_component(source, analysis, options) {
+ 
+ 	const properties = analysis.exports.map(({ name, alias }) => {
+ 		const binding = analysis.instance.scope.get(name);
+-		const is_source =
+-			(binding?.kind === 'state' || binding?.kind === 'frozen_state') &&
+-			(!state.analysis.immutable || binding.reassigned);
++		const is_source = binding !== null && is_state_source(binding, state);
+ 
+ 		// TODO This is always a getter because the `renamed-instance-exports` test wants it that way.
+ 		// Should we for code size reasons make it an init in runes mode and/or non-dev mode?
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/utils.js b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+index 7b7076a69c6b..ca652801a75f 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+@@ -45,6 +45,18 @@ export function get_assignment_value(node, { state, visit }) {
+ 	}
+ }
+ 
++/**
++ * @param {import('#compiler').Binding} binding
++ * @param {import('./types').ClientTransformState} state
++ * @returns {boolean}
++ */
++export function is_state_source(binding, state) {
++	return (
++		(binding.kind === 'state' || binding.kind === 'frozen_state') &&
++		(!state.analysis.immutable || binding.reassigned || state.analysis.accessors)
++	);
++}
++
+ /**
+  * @param {import('estree').Identifier} node
+  * @param {import('./types').ClientTransformState} state
+@@ -93,8 +105,7 @@ export function serialize_get_binding(node, state) {
+ 	}
+ 
+ 	if (
+-		((binding.kind === 'state' || binding.kind === 'frozen_state') &&
+-			(!state.analysis.immutable || state.analysis.accessors || binding.reassigned)) ||
++		is_state_source(binding, state) ||
+ 		binding.kind === 'derived' ||
+ 		binding.kind === 'legacy_reactive'
+ 	) {
+@@ -491,33 +502,6 @@ export function get_prop_source(binding, state, name, initial) {
+ 	return b.call('$.prop', ...args);
+ }
+ 
+-/**
+- * Creates the output for a state declaration.
+- * @param {import('estree').VariableDeclarator} declarator
+- * @param {import('../../scope').Scope} scope
+- * @param {import('estree').Expression} value
+- */
+-export function create_state_declarators(declarator, scope, value) {
+-	// in the simple `let count = $state(0)` case, we rewrite `$state` as `$.source`
+-	if (declarator.id.type === 'Identifier') {
+-		return [b.declarator(declarator.id, b.call('$.mutable_source', value))];
+-	}
+-
+-	const tmp = scope.generate('tmp');
+-	const paths = extract_paths(declarator.id);
+-	return [
+-		b.declarator(b.id(tmp), value), // TODO inject declarator for opts, so we can use it below
+-		...paths.map((path) => {
+-			const value = path.expression?.(b.id(tmp));
+-			const binding = scope.get(/** @type {import('estree').Identifier} */ (path.node).name);
+-			return b.declarator(
+-				path.node,
+-				binding?.kind === 'state' ? b.call('$.mutable_source', value) : value
+-			);
+-		})
+-	];
+-}
+-
+ /** @param {import('estree').Expression} node */
+ export function should_proxy_or_freeze(node) {
+ 	if (
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
+index 7471fb860c80..ba09d5f04e74 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
+@@ -1,7 +1,33 @@
+ import { is_hoistable_function } from '../../utils.js';
+ import * as b from '../../../../utils/builders.js';
+ import { extract_paths } from '../../../../utils/ast.js';
+-import { create_state_declarators, get_prop_source, serialize_get_binding } from '../utils.js';
++import { get_prop_source, serialize_get_binding } from '../utils.js';
++
++/**
++ * Creates the output for a state declaration.
++ * @param {import('estree').VariableDeclarator} declarator
++ * @param {import('../../../scope.js').Scope} scope
++ * @param {import('estree').Expression} value
++ */
++function create_state_declarators(declarator, scope, value) {
++	if (declarator.id.type === 'Identifier') {
++		return [b.declarator(declarator.id, b.call('$.mutable_source', value))];
++	}
++
++	const tmp = scope.generate('tmp');
++	const paths = extract_paths(declarator.id);
++	return [
++		b.declarator(b.id(tmp), value),
++		...paths.map((path) => {
++			const value = path.expression?.(b.id(tmp));
++			const binding = scope.get(/** @type {import('estree').Identifier} */ (path.node).name);
++			return b.declarator(
++				path.node,
++				binding?.kind === 'state' ? b.call('$.mutable_source', value) : value
++			);
++		})
++	];
++}
+ 
+ /** @type {import('../types.js').ComponentVisitors} */
+ export const javascript_visitors_legacy = {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+index 7f656dc69042..63c46d8c6464 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+@@ -2,8 +2,8 @@ import { get_rune } from '../../../scope.js';
+ import { is_hoistable_function, transform_inspect_rune } from '../../utils.js';
+ import * as b from '../../../../utils/builders.js';
+ import * as assert from '../../../../utils/assert.js';
+-import { create_state_declarators, get_prop_source, should_proxy_or_freeze } from '../utils.js';
+-import { unwrap_ts_expression } from '../../../../utils/ast.js';
++import { get_prop_source, is_state_source, should_proxy_or_freeze } from '../utils.js';
++import { extract_paths, unwrap_ts_expression } from '../../../../utils/ast.js';
+ 
+ /** @type {import('../types.js').ComponentVisitors} */
+ export const javascript_visitors_runes = {
+@@ -223,66 +223,79 @@ export const javascript_visitors_runes = {
+ 			}
+ 
+ 			const args = /** @type {import('estree').CallExpression} */ (init).arguments;
+-			let value =
++			const value =
+ 				args.length === 0
+ 					? b.id('undefined')
+ 					: /** @type {import('estree').Expression} */ (visit(args[0]));
+ 
+-			if (declarator.id.type === 'Identifier') {
+-				if (rune === '$state') {
+-					const binding = /** @type {import('#compiler').Binding} */ (
+-						state.scope.get(declarator.id.name)
+-					);
++			if (rune === '$state' || rune === '$state.frozen') {
++				/**
++				 * @param {import('estree').Identifier} id
++				 * @param {import('estree').Expression} value
++				 */
++				const create_state_declarator = (id, value) => {
++					const binding = /** @type {import('#compiler').Binding} */ (state.scope.get(id.name));
+ 					if (should_proxy_or_freeze(value)) {
+-						value = b.call('$.proxy', value);
++						value = b.call(rune === '$state' ? '$.proxy' : '$.freeze', value);
+ 					}
+-
+-					if (!state.analysis.immutable || state.analysis.accessors || binding.reassigned) {
++					if (is_state_source(binding, state)) {
+ 						value = b.call('$.source', value);
+ 					}
+-				} else if (rune === '$state.frozen') {
+-					const binding = /** @type {import('#compiler').Binding} */ (
+-						state.scope.get(declarator.id.name)
+-					);
+-					if (should_proxy_or_freeze(value)) {
+-						value = b.call('$.freeze', value);
+-					}
++					return value;
++				};
+ 
+-					if (binding.reassigned) {
+-						value = b.call('$.source', value);
+-					}
++				if (declarator.id.type === 'Identifier') {
++					declarations.push(
++						b.declarator(declarator.id, create_state_declarator(declarator.id, value))
++					);
+ 				} else {
+-					value = b.call('$.derived', b.thunk(value));
++					const tmp = state.scope.generate('tmp');
++					const paths = extract_paths(declarator.id);
++					declarations.push(
++						b.declarator(b.id(tmp), value),
++						...paths.map((path) => {
++							const value = path.expression?.(b.id(tmp));
++							const binding = state.scope.get(
++								/** @type {import('estree').Identifier} */ (path.node).name
++							);
++							return b.declarator(
++								path.node,
++								binding?.kind === 'state' || binding?.kind === 'frozen_state'
++									? create_state_declarator(binding.node, value)
++									: value
++							);
++						})
++					);
+ 				}
+-
+-				declarations.push(b.declarator(declarator.id, value));
+ 				continue;
+ 			}
+ 
+ 			if (rune === '$derived') {
+-				const bindings = state.scope.get_bindings(declarator);
+-				const id = state.scope.generate('derived_value');
+-				declarations.push(
+-					b.declarator(
+-						b.id(id),
+-						b.call(
+-							'$.derived',
+-							b.thunk(
+-								b.block([
+-									b.let(declarator.id, value),
+-									b.return(b.array(bindings.map((binding) => binding.node)))
+-								])
++				if (declarator.id.type === 'Identifier') {
++					declarations.push(b.declarator(declarator.id, b.call('$.derived', b.thunk(value))));
++				} else {
++					const bindings = state.scope.get_bindings(declarator);
++					const id = state.scope.generate('derived_value');
++					declarations.push(
++						b.declarator(
++							b.id(id),
++							b.call(
++								'$.derived',
++								b.thunk(
++									b.block([
++										b.let(declarator.id, value),
++										b.return(b.array(bindings.map((binding) => binding.node)))
++									])
++								)
+ 							)
+ 						)
+-					)
+-				);
+-				for (let i = 0; i < bindings.length; i++) {
+-					bindings[i].expression = b.member(b.call('$.get', b.id(id)), b.literal(i), true);
++					);
++					for (let i = 0; i < bindings.length; i++) {
++						bindings[i].expression = b.member(b.call('$.get', b.id(id)), b.literal(i), true);
++					}
+ 				}
+ 				continue;
+ 			}
+-
+-			declarations.push(...create_state_declarators(declarator, state.scope, value));
+ 		}
+ 
+ 		if (declarations.length === 0) {

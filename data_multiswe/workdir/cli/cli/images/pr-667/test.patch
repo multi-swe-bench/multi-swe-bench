@@ -1,0 +1,834 @@
+diff --git a/command/issue_test.go b/command/issue_test.go
+index 9a9b8386855..d9e2846d0f0 100644
+--- a/command/issue_test.go
++++ b/command/issue_test.go
+@@ -12,6 +12,7 @@ import (
+ 
+ 	"github.com/cli/cli/internal/run"
+ 	"github.com/cli/cli/test"
++	"github.com/google/go-cmp/cmp"
+ )
+ 
+ func TestIssueStatus(t *testing.T) {
+@@ -284,81 +285,77 @@ func TestIssueView_web_numberArgWithHash(t *testing.T) {
+ 	eq(t, url, "https://github.com/OWNER/REPO/issues/123")
+ }
+ 
+-func TestIssueView(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
+-	http := initFakeHTTP()
+-	http.StubRepoResponse("OWNER", "REPO")
+-
+-	http.StubResponse(200, bytes.NewBufferString(`
+-		{ "data": { "repository": { "hasIssuesEnabled": true, "issue": {
+-		"number": 123,
+-		"body": "**bold story**",
+-		"title": "ix of coins",
+-		"author": {
+-			"login": "marseilles"
++func TestIssueView_Preview(t *testing.T) {
++	tests := map[string]struct {
++		ownerRepo       string
++		command         string
++		fixture         string
++		expectedOutputs []string
++	}{
++		"Open issue": {
++			ownerRepo: "master",
++			command:   "issue view 123",
++			fixture:   "../test/fixtures/issueView_preview.json",
++			expectedOutputs: []string{
++				"ix of coins",
++				"Open • marseilles opened about 292 years ago • 9 comments",
++				"bold story",
++				"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123",
++			},
+ 		},
+-		"labels": {
+-			"nodes": [
+-				{"name": "tarot"}
+-			]
++		"Open issue with no label": {
++			ownerRepo: "master",
++			command:   "issue view 123",
++			fixture:   "../test/fixtures/issueView_previewNoLabel.json",
++			expectedOutputs: []string{
++				"ix of coins",
++				"Open • marseilles opened about 292 years ago • 9 comments",
++				"bold story",
++				"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123",
++			},
+ 		},
+-		"comments": {
+-		  "totalCount": 9
++		"Open issue with empty body": {
++			ownerRepo: "master",
++			command:   "issue view 123",
++			fixture:   "../test/fixtures/issueView_previewWithEmptyBody.json",
++			expectedOutputs: []string{
++				"ix of coins",
++				"Open • marseilles opened about 292 years ago • 9 comments",
++				"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123",
++			},
++		},
++		"Closed issue": {
++			ownerRepo: "master",
++			command:   "issue view 123",
++			fixture:   "../test/fixtures/issueView_previewClosedState.json",
++			expectedOutputs: []string{
++				"ix of coins",
++				"Closed • marseilles opened about 292 years ago • 9 comments",
++				"bold story",
++				"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123",
++			},
+ 		},
+-		"url": "https://github.com/OWNER/REPO/issues/123"
+-	} } } }
+-	`))
+-
+-	output, err := RunCommand(issueViewCmd, "issue view 123")
+-	if err != nil {
+-		t.Errorf("error running command `issue view`: %v", err)
+ 	}
++	for name, tc := range tests {
++		t.Run(name, func(t *testing.T) {
++			initBlankContext("OWNER/REPO", tc.ownerRepo)
++			http := initFakeHTTP()
++			http.StubRepoResponse("OWNER", "REPO")
+ 
+-	eq(t, output.Stderr(), "")
+-
+-	test.ExpectLines(t, output.String(),
+-		"ix of coins",
+-		`opened by marseilles. 9 comments. \(tarot\)`,
+-		"bold story",
+-		"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123")
+-}
++			jsonFile, _ := os.Open(tc.fixture)
++			defer jsonFile.Close()
++			http.StubResponse(200, jsonFile)
+ 
+-func TestIssueView_WithEmptyBody(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
+-	http := initFakeHTTP()
+-	http.StubRepoResponse("OWNER", "REPO")
++			output, err := RunCommand(issueViewCmd, tc.command)
++			if err != nil {
++				t.Errorf("error running command `%v`: %v", tc.command, err)
++			}
+ 
+-	http.StubResponse(200, bytes.NewBufferString(`
+-		{ "data": { "repository": { "hasIssuesEnabled": true, "issue": {
+-		"number": 123,
+-		"body": "",
+-		"title": "ix of coins",
+-		"author": {
+-			"login": "marseilles"
+-		},
+-		"labels": {
+-			"nodes": [
+-				{"name": "tarot"}
+-			]
+-		},
+-		"comments": {
+-		  "totalCount": 9
+-		},
+-		"url": "https://github.com/OWNER/REPO/issues/123"
+-	} } } }
+-	`))
++			eq(t, output.Stderr(), "")
+ 
+-	output, err := RunCommand(issueViewCmd, "issue view 123")
+-	if err != nil {
+-		t.Errorf("error running command `issue view`: %v", err)
++			test.ExpectLines(t, output.String(), tc.expectedOutputs...)
++		})
+ 	}
+-
+-	eq(t, output.Stderr(), "")
+-
+-	test.ExpectLines(t, output.String(),
+-		"ix of coins",
+-		`opened by marseilles. 9 comments. \(tarot\)`,
+-		"View this issue on GitHub: https://github.com/OWNER/REPO/issues/123")
+ }
+ 
+ func TestIssueView_web_notFound(t *testing.T) {
+@@ -659,3 +656,23 @@ func Test_listHeader(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestIssueStateTitleWithColor(t *testing.T) {
++	tests := map[string]struct {
++		state string
++		want  string
++	}{
++		"Open state":   {state: "OPEN", want: "Open"},
++		"Closed state": {state: "CLOSED", want: "Closed"},
++	}
++
++	for name, tc := range tests {
++		t.Run(name, func(t *testing.T) {
++			got := issueStateTitleWithColor(tc.state)
++			diff := cmp.Diff(tc.want, got)
++			if diff != "" {
++				t.Fatalf(diff)
++			}
++		})
++	}
++}
+diff --git a/command/pr_test.go b/command/pr_test.go
+index 73d58bfb828..2a68781b03c 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -11,8 +11,10 @@ import (
+ 	"strings"
+ 	"testing"
+ 
++	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/internal/run"
+ 	"github.com/cli/cli/test"
++	"github.com/google/go-cmp/cmp"
+ 	"github.com/google/shlex"
+ 	"github.com/spf13/cobra"
+ 	"github.com/spf13/pflag"
+@@ -400,82 +402,111 @@ func TestPRList_filteringAssigneeLabels(t *testing.T) {
+ 	}
+ }
+ 
+-func TestPRView_preview(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
+-	http := initFakeHTTP()
+-	http.StubRepoResponse("OWNER", "REPO")
+-
+-	jsonFile, _ := os.Open("../test/fixtures/prViewPreview.json")
+-	defer jsonFile.Close()
+-	http.StubResponse(200, jsonFile)
+-
+-	output, err := RunCommand(prViewCmd, "pr view 12")
+-	if err != nil {
+-		t.Errorf("error running command `pr view`: %v", err)
+-	}
+-
+-	eq(t, output.Stderr(), "")
+-
+-	test.ExpectLines(t, output.String(),
+-		"Blueberries are from a fork",
+-		"nobody wants to merge 12 commits into master from blueberries",
+-		"blueberries taste good",
+-		"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12")
+-}
+-
+-func TestPRView_previewCurrentBranch(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
+-	http := initFakeHTTP()
+-	http.StubRepoResponse("OWNER", "REPO")
+-
+-	jsonFile, _ := os.Open("../test/fixtures/prView.json")
+-	defer jsonFile.Close()
+-	http.StubResponse(200, jsonFile)
+-
+-	restoreCmd := run.SetPrepareCmd(func(cmd *exec.Cmd) run.Runnable {
+-		return &test.OutputStub{}
+-	})
+-	defer restoreCmd()
+-
+-	output, err := RunCommand(prViewCmd, "pr view")
+-	if err != nil {
+-		t.Errorf("error running command `pr view`: %v", err)
+-	}
+-
+-	eq(t, output.Stderr(), "")
+-
+-	test.ExpectLines(t, output.String(),
+-		"Blueberries are a good fruit",
+-		"nobody wants to merge 8 commits into master from blueberries",
+-		"blueberries taste good",
+-		"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10")
+-}
+-
+-func TestPRView_previewCurrentBranchWithEmptyBody(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
+-	http := initFakeHTTP()
+-	http.StubRepoResponse("OWNER", "REPO")
+-
+-	jsonFile, _ := os.Open("../test/fixtures/prView_EmptyBody.json")
+-	defer jsonFile.Close()
+-	http.StubResponse(200, jsonFile)
++func TestPRView_Preview(t *testing.T) {
++	tests := map[string]struct {
++		ownerRepo       string
++		args            string
++		fixture         string
++		expectedOutputs []string
++	}{
++		"Open PR": {
++			ownerRepo: "master",
++			args:      "pr view 12",
++			fixture:   "../test/fixtures/prViewPreview.json",
++			expectedOutputs: []string{
++				"Blueberries are from a fork",
++				"Open • nobody wants to merge 12 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12",
++			},
++		},
++		"Open PR for the current branch": {
++			ownerRepo: "blueberries",
++			args:      "pr view",
++			fixture:   "../test/fixtures/prView.json",
++			expectedOutputs: []string{
++				"Blueberries are a good fruit",
++				"Open • nobody wants to merge 8 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10",
++			},
++		},
++		"Open PR wth empty body for the current branch": {
++			ownerRepo: "blueberries",
++			args:      "pr view",
++			fixture:   "../test/fixtures/prView_EmptyBody.json",
++			expectedOutputs: []string{
++				"Blueberries are a good fruit",
++				"Open • nobody wants to merge 8 commits into master from blueberries",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10",
++			},
++		},
++		"Closed PR": {
++			ownerRepo: "master",
++			args:      "pr view 12",
++			fixture:   "../test/fixtures/prViewPreviewClosedState.json",
++			expectedOutputs: []string{
++				"Blueberries are from a fork",
++				"Closed • nobody wants to merge 12 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12",
++			},
++		},
++		"Merged PR": {
++			ownerRepo: "master",
++			args:      "pr view 12",
++			fixture:   "../test/fixtures/prViewPreviewMergedState.json",
++			expectedOutputs: []string{
++				"Blueberries are from a fork",
++				"Merged • nobody wants to merge 12 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12",
++			},
++		},
++		"Draft PR": {
++			ownerRepo: "master",
++			args:      "pr view 12",
++			fixture:   "../test/fixtures/prViewPreviewDraftState.json",
++			expectedOutputs: []string{
++				"Blueberries are from a fork",
++				"Draft • nobody wants to merge 12 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12",
++			},
++		},
++		"Draft PR by branch": {
++			ownerRepo: "master",
++			args:      "pr view blueberries",
++			fixture:   "../test/fixtures/prViewPreviewDraftStatebyBranch.json",
++			expectedOutputs: []string{
++				"Blueberries are a good fruit",
++				"Draft • nobody wants to merge 8 commits into master from blueberries",
++				"blueberries taste good",
++				"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10",
++			},
++		},
++	}
++
++	for name, tc := range tests {
++		t.Run(name, func(t *testing.T) {
++			initBlankContext("OWNER/REPO", tc.ownerRepo)
++			http := initFakeHTTP()
++			http.StubRepoResponse("OWNER", "REPO")
++
++			jsonFile, _ := os.Open(tc.fixture)
++			defer jsonFile.Close()
++			http.StubResponse(200, jsonFile)
++
++			output, err := RunCommand(prViewCmd, tc.args)
++			if err != nil {
++				t.Errorf("error running command `%v`: %v", tc.args, err)
++			}
+ 
+-	restoreCmd := run.SetPrepareCmd(func(cmd *exec.Cmd) run.Runnable {
+-		return &test.OutputStub{}
+-	})
+-	defer restoreCmd()
++			eq(t, output.Stderr(), "")
+ 
+-	output, err := RunCommand(prViewCmd, "pr view")
+-	if err != nil {
+-		t.Errorf("error running command `pr view`: %v", err)
++			test.ExpectLines(t, output.String(), tc.expectedOutputs...)
++		})
+ 	}
+-
+-	eq(t, output.Stderr(), "")
+-
+-	test.ExpectLines(t, output.String(),
+-		"Blueberries are a good fruit",
+-		"nobody wants to merge 8 commits into master from blueberries",
+-		"View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10")
+ }
+ 
+ func TestPRView_web_currentBranch(t *testing.T) {
+@@ -717,3 +748,25 @@ func TestReplaceExcessiveWhitespace(t *testing.T) {
+ 	eq(t, replaceExcessiveWhitespace("hello   goodbye"), "hello goodbye")
+ 	eq(t, replaceExcessiveWhitespace("   hello \n goodbye   "), "hello goodbye")
+ }
++
++func TestPrStateTitleWithColor(t *testing.T) {
++	tests := map[string]struct {
++		pr   api.PullRequest
++		want string
++	}{
++		"Format OPEN state":              {pr: api.PullRequest{State: "OPEN", IsDraft: false}, want: "Open"},
++		"Format OPEN state for Draft PR": {pr: api.PullRequest{State: "OPEN", IsDraft: true}, want: "Draft"},
++		"Format CLOSED state":            {pr: api.PullRequest{State: "CLOSED", IsDraft: false}, want: "Closed"},
++		"Format MERGED state":            {pr: api.PullRequest{State: "MERGED", IsDraft: false}, want: "Merged"},
++	}
++
++	for name, tc := range tests {
++		t.Run(name, func(t *testing.T) {
++			got := prStateTitleWithColor(tc.pr)
++			diff := cmp.Diff(tc.want, got)
++			if diff != "" {
++				t.Fatalf(diff)
++			}
++		})
++	}
++}
+diff --git a/test/fixtures/issueView_preview.json b/test/fixtures/issueView_preview.json
+new file mode 100644
+index 00000000000..db971d849e8
+--- /dev/null
++++ b/test/fixtures/issueView_preview.json
+@@ -0,0 +1,28 @@
++{
++  "data": {
++    "repository": {
++      "hasIssuesEnabled": true,
++      "issue": {
++        "number": 123,
++        "body": "**bold story**",
++        "title": "ix of coins",
++        "state": "OPEN",
++        "created_at": "2011-01-26T19:01:12Z",
++        "author": {
++          "login": "marseilles"
++        },
++        "labels": {
++          "nodes": [
++            {
++              "name": "tarot"
++            }
++          ]
++        },
++        "comments": {
++          "totalCount": 9
++        },
++        "url": "https://github.com/OWNER/REPO/issues/123"
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/issueView_previewClosedState.json b/test/fixtures/issueView_previewClosedState.json
+new file mode 100644
+index 00000000000..97892712526
+--- /dev/null
++++ b/test/fixtures/issueView_previewClosedState.json
+@@ -0,0 +1,28 @@
++{
++  "data": {
++    "repository": {
++      "hasIssuesEnabled": true,
++      "issue": {
++        "number": 123,
++        "body": "**bold story**",
++        "title": "ix of coins",
++        "state": "CLOSED",
++        "created_at": "2011-01-26T19:01:12Z",
++        "author": {
++          "login": "marseilles"
++        },
++        "labels": {
++          "nodes": [
++            {
++              "name": "tarot"
++            }
++          ]
++        },
++        "comments": {
++          "totalCount": 9
++        },
++        "url": "https://github.com/OWNER/REPO/issues/123"
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/issueView_previewNoLabel.json b/test/fixtures/issueView_previewNoLabel.json
+new file mode 100644
+index 00000000000..1891100eb87
+--- /dev/null
++++ b/test/fixtures/issueView_previewNoLabel.json
+@@ -0,0 +1,25 @@
++{
++  "data": {
++    "repository": {
++      "hasIssuesEnabled": true,
++      "issue": {
++        "number": 123,
++        "body": "**bold story**",
++        "title": "ix of coins",
++        "state": "OPEN",
++        "created_at": "2011-01-26T19:01:12Z",
++        "author": {
++          "login": "marseilles"
++        },
++        "labels": {
++          "nodes": [
++          ]
++        },
++        "comments": {
++          "totalCount": 9
++        },
++        "url": "https://github.com/OWNER/REPO/issues/123"
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/issueView_previewWithEmptyBody.json b/test/fixtures/issueView_previewWithEmptyBody.json
+new file mode 100644
+index 00000000000..6e87a42b663
+--- /dev/null
++++ b/test/fixtures/issueView_previewWithEmptyBody.json
+@@ -0,0 +1,28 @@
++{
++  "data": {
++    "repository": {
++      "hasIssuesEnabled": true,
++      "issue": {
++        "number": 123,
++        "body": "",
++        "title": "ix of coins",
++        "state": "OPEN",
++        "created_at": "2011-01-26T19:01:12Z",
++        "author": {
++          "login": "marseilles"
++        },
++        "labels": {
++          "nodes": [
++            {
++              "name": "tarot"
++            }
++          ]
++        },
++        "comments": {
++          "totalCount": 9
++        },
++        "url": "https://github.com/OWNER/REPO/issues/123"
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/prStatus.json b/test/fixtures/prStatus.json
+index d2996b71c6e..a226663a3c3 100644
+--- a/test/fixtures/prStatus.json
++++ b/test/fixtures/prStatus.json
+@@ -8,8 +8,10 @@
+             "node": {
+               "number": 10,
+               "title": "Blueberries are a good fruit",
++              "state": "OPEN",
+               "url": "https://github.com/cli/cli/pull/10",
+               "headRefName": "blueberries",
++              "isDraft": false,
+               "headRepositoryOwner": {
+                 "login": "OWNER"
+               },
+@@ -26,8 +28,10 @@
+           "node": {
+             "number": 8,
+             "title": "Strawberries are not actually berries",
++            "state": "OPEN",
+             "url": "https://github.com/cli/cli/pull/8",
+-            "headRefName": "strawberries"
++            "headRefName": "strawberries",
++            "isDraft": false
+           }
+         }
+       ]
+@@ -39,16 +43,18 @@
+           "node": {
+             "number": 9,
+             "title": "Apples are tasty",
++            "state": "OPEN",
+             "url": "https://github.com/cli/cli/pull/9",
+-            "headRefName": "apples"
+-          }
+-        },
+-        {
++            "headRefName": "apples",
++            "isDraft": false
++          } }, {
+           "node": {
+             "number": 11,
+             "title": "Figs are my favorite",
++            "state": "OPEN",
+             "url": "https://github.com/cli/cli/pull/1",
+-            "headRefName": "figs"
++            "headRefName": "figs",
++            "isDraft": true
+           }
+         }
+       ]
+diff --git a/test/fixtures/prStatusFork.json b/test/fixtures/prStatusFork.json
+index df184aaea54..c9a7a5b3a61 100644
+--- a/test/fixtures/prStatusFork.json
++++ b/test/fixtures/prStatusFork.json
+@@ -8,8 +8,10 @@
+             "node": {
+               "number": 10,
+               "title": "Blueberries are a good fruit",
++              "state": "OPEN",
+               "url": "https://github.com/PARENT/REPO/pull/10",
+               "headRefName": "blueberries",
++              "isDraft": false,
+               "headRepositoryOwner": {
+                 "login": "OWNER"
+               },
+diff --git a/test/fixtures/prView.json b/test/fixtures/prView.json
+index 02277d7a50f..826f101009d 100644
+--- a/test/fixtures/prView.json
++++ b/test/fixtures/prView.json
+@@ -6,6 +6,7 @@
+           {
+             "number": 12,
+             "title": "Blueberries are from a fork",
++            "state": "OPEN",
+             "body": "yeah",
+             "url": "https://github.com/OWNER/REPO/pull/12",
+             "headRefName": "blueberries",
+@@ -19,11 +20,13 @@
+             "author": {
+               "login": "nobody"
+             },
+-            "isCrossRepository": true
++            "isCrossRepository": true,
++            "isDraft": false
+           },
+           {
+             "number": 10,
+             "title": "Blueberries are a good fruit",
++            "state": "OPEN",
+             "body": "**blueberries taste good**",
+             "url": "https://github.com/OWNER/REPO/pull/10",
+             "baseRefName": "master",
+@@ -37,7 +40,8 @@
+             "commits": {
+               "totalCount": 8
+             },
+-            "isCrossRepository": false
++            "isCrossRepository": false,
++            "isDraft": false
+           }
+         ]
+       }
+diff --git a/test/fixtures/prViewPreview.json b/test/fixtures/prViewPreview.json
+index e4094677484..379fd253b2f 100644
+--- a/test/fixtures/prViewPreview.json
++++ b/test/fixtures/prViewPreview.json
+@@ -4,6 +4,7 @@
+       "pullRequest": {
+         "number": 12,
+         "title": "Blueberries are from a fork",
++        "state": "OPEN",
+         "body": "**blueberries taste good**",
+         "url": "https://github.com/OWNER/REPO/pull/12",
+         "author": {
+@@ -17,7 +18,8 @@
+         "headRepositoryOwner": {
+           "login": "hubot"
+         },
+-        "isCrossRepository": true
++        "isCrossRepository": true,
++        "isDraft": false
+       }
+     }
+   }
+diff --git a/test/fixtures/prViewPreviewClosedState.json b/test/fixtures/prViewPreviewClosedState.json
+new file mode 100644
+index 00000000000..9df2c103801
+--- /dev/null
++++ b/test/fixtures/prViewPreviewClosedState.json
+@@ -0,0 +1,25 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "CLOSED",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/prViewPreviewDraftState.json b/test/fixtures/prViewPreviewDraftState.json
+new file mode 100644
+index 00000000000..69ab57b1130
+--- /dev/null
++++ b/test/fixtures/prViewPreviewDraftState.json
+@@ -0,0 +1,26 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": true
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/prViewPreviewDraftStatebyBranch.json b/test/fixtures/prViewPreviewDraftStatebyBranch.json
+new file mode 100644
+index 00000000000..c9d0eef59b5
+--- /dev/null
++++ b/test/fixtures/prViewPreviewDraftStatebyBranch.json
+@@ -0,0 +1,50 @@
++{
++  "data": {
++    "repository": {
++      "pullRequests": {
++        "nodes": [
++          {
++            "number": 12,
++            "title": "Blueberries are from a fork",
++            "state": "OPEN",
++            "body": "yeah",
++            "url": "https://github.com/OWNER/REPO/pull/12",
++            "headRefName": "blueberries",
++            "baseRefName": "master",
++            "headRepositoryOwner": {
++              "login": "hubot"
++            },
++            "commits": {
++              "totalCount": 12
++            },
++            "author": {
++              "login": "nobody"
++            },
++            "isCrossRepository": true,
++            "isDraft": false
++          },
++          {
++            "number": 10,
++            "title": "Blueberries are a good fruit",
++            "state": "OPEN",
++            "body": "**blueberries taste good**",
++            "url": "https://github.com/OWNER/REPO/pull/10",
++            "baseRefName": "master",
++            "headRefName": "blueberries",
++            "author": {
++              "login": "nobody"
++            },
++            "headRepositoryOwner": {
++              "login": "OWNER"
++            },
++            "commits": {
++              "totalCount": 8
++            },
++            "isCrossRepository": false,
++            "isDraft": true
++          }
++        ]
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/prViewPreviewMergedState.json b/test/fixtures/prViewPreviewMergedState.json
+new file mode 100644
+index 00000000000..d62449092c5
+--- /dev/null
++++ b/test/fixtures/prViewPreviewMergedState.json
+@@ -0,0 +1,25 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "MERGED",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true
++      }
++    }
++  }
++}
+diff --git a/test/fixtures/prView_EmptyBody.json b/test/fixtures/prView_EmptyBody.json
+index 651f49ce095..36fdc308bc3 100644
+--- a/test/fixtures/prView_EmptyBody.json
++++ b/test/fixtures/prView_EmptyBody.json
+@@ -6,6 +6,7 @@
+           {
+             "number": 12,
+             "title": "Blueberries are from a fork",
++            "state": "OPEN",
+             "body": "yeah",
+             "url": "https://github.com/OWNER/REPO/pull/12",
+             "headRefName": "blueberries",
+@@ -24,6 +25,7 @@
+           {
+             "number": 10,
+             "title": "Blueberries are a good fruit",
++            "state": "OPEN",
+             "body": "",
+             "url": "https://github.com/OWNER/REPO/pull/10",
+             "baseRefName": "master",

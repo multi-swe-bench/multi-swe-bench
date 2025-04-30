@@ -1,0 +1,162 @@
+diff --git a/docs/pages/base/api/use-autocomplete.json b/docs/pages/base/api/use-autocomplete.json
+index 69241b7e7c6ffd..b30e45f07a7379 100644
+--- a/docs/pages/base/api/use-autocomplete.json
++++ b/docs/pages/base/api/use-autocomplete.json
+@@ -155,6 +155,11 @@
+       "default": "false",
+       "required": true
+     },
++    "expanded": {
++      "type": { "name": "boolean", "description": "boolean" },
++      "default": "false",
++      "required": true
++    },
+     "focused": {
+       "type": { "name": "boolean", "description": "boolean" },
+       "default": "false",
+diff --git a/docs/pages/material-ui/api/autocomplete.json b/docs/pages/material-ui/api/autocomplete.json
+index cca686211fc219..b3a503ce93dfbd 100644
+--- a/docs/pages/material-ui/api/autocomplete.json
++++ b/docs/pages/material-ui/api/autocomplete.json
+@@ -106,6 +106,7 @@
+     "classes": [
+       "root",
+       "fullWidth",
++      "expanded",
+       "focused",
+       "tag",
+       "tagSizeSmall",
+@@ -129,7 +130,7 @@
+       "groupLabel",
+       "groupUl"
+     ],
+-    "globalClasses": { "focused": "Mui-focused" },
++    "globalClasses": { "expanded": "Mui-expanded", "focused": "Mui-focused" },
+     "name": "MuiAutocomplete"
+   },
+   "spread": true,
+diff --git a/docs/translations/api-docs/autocomplete/autocomplete.json b/docs/translations/api-docs/autocomplete/autocomplete.json
+index 7a2fe237d9a903..f47e0e33e71530 100644
+--- a/docs/translations/api-docs/autocomplete/autocomplete.json
++++ b/docs/translations/api-docs/autocomplete/autocomplete.json
+@@ -71,6 +71,11 @@
+       "nodeName": "the root element",
+       "conditions": "<code>fullWidth={true}</code>"
+     },
++    "expanded": {
++      "description": "State class applied to {{nodeName}} if {{conditions}}.",
++      "nodeName": "the root element",
++      "conditions": "the listbox is displayed"
++    },
+     "focused": {
+       "description": "State class applied to {{nodeName}} if {{conditions}}.",
+       "nodeName": "the root element",
+diff --git a/docs/translations/api-docs/use-autocomplete/use-autocomplete.json b/docs/translations/api-docs/use-autocomplete/use-autocomplete.json
+index 45330cfff822f8..78003082f2d2b3 100644
+--- a/docs/translations/api-docs/use-autocomplete/use-autocomplete.json
++++ b/docs/translations/api-docs/use-autocomplete/use-autocomplete.json
+@@ -41,6 +41,7 @@
+   "returnValueDescriptions": {
+     "anchorEl": "An HTML element that is used to set the position of the component.",
+     "dirty": "If <code>true</code>, the component input has some values.",
++    "expanded": "If <code>true</code>, the listbox is being displayed.",
+     "focused": "If <code>true</code>, the component is focused.",
+     "focusedTag": "Index of the focused tag for the component.",
+     "getClearProps": "Resolver for the <code>clear</code> button element's props.",
+diff --git a/packages/mui-base/src/useAutocomplete/useAutocomplete.d.ts b/packages/mui-base/src/useAutocomplete/useAutocomplete.d.ts
+index dc35915e900683..62ed839692bcab 100644
+--- a/packages/mui-base/src/useAutocomplete/useAutocomplete.d.ts
++++ b/packages/mui-base/src/useAutocomplete/useAutocomplete.d.ts
+@@ -411,6 +411,11 @@ export interface UseAutocompleteReturnValue<
+    * @default false
+    */
+   dirty: boolean;
++  /**
++   * If `true`, the listbox is being displayed.
++   * @default false
++   */
++  expanded: boolean;
+   /**
+    * If `true`, the popup is open on the component.
+    * @default false
+diff --git a/packages/mui-base/src/useAutocomplete/useAutocomplete.js b/packages/mui-base/src/useAutocomplete/useAutocomplete.js
+index 7c6f0dc82caf0b..cba6b180294eee 100644
+--- a/packages/mui-base/src/useAutocomplete/useAutocomplete.js
++++ b/packages/mui-base/src/useAutocomplete/useAutocomplete.js
+@@ -1151,6 +1151,7 @@ export default function useAutocomplete(props) {
+     inputValue,
+     value,
+     dirty,
++    expanded: popupOpen && anchorEl,
+     popupOpen,
+     focused: focused || focusedTag !== -1,
+     anchorEl,
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+index 5f818ebc0f464e..20c557ef3a3332 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+@@ -32,6 +32,7 @@ export type AutocompleteOwnerState<
+   ChipComponent extends React.ElementType = ChipTypeMap['defaultComponent'],
+ > = AutocompleteProps<T, Multiple, DisableClearable, FreeSolo, ChipComponent> & {
+   disablePortal: boolean;
++  expanded: boolean;
+   focused: boolean;
+   fullWidth: boolean;
+   hasClearIcon: boolean;
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.js b/packages/mui-material/src/Autocomplete/Autocomplete.js
+index 19e2615989e707..f1d70f117e0bb4 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.js
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.js
+@@ -28,6 +28,7 @@ const useUtilityClasses = (ownerState) => {
+   const {
+     classes,
+     disablePortal,
++    expanded,
+     focused,
+     fullWidth,
+     hasClearIcon,
+@@ -40,6 +41,7 @@ const useUtilityClasses = (ownerState) => {
+   const slots = {
+     root: [
+       'root',
++      expanded && 'expanded',
+       focused && 'focused',
+       fullWidth && 'fullWidth',
+       hasClearIcon && 'hasClearIcon',
+@@ -456,6 +458,7 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+     getOptionProps,
+     value,
+     dirty,
++    expanded,
+     id,
+     popupOpen,
+     focused,
+@@ -473,6 +476,7 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+   const ownerState = {
+     ...props,
+     disablePortal,
++    expanded,
+     focused,
+     fullWidth,
+     hasClearIcon,
+diff --git a/packages/mui-material/src/Autocomplete/autocompleteClasses.ts b/packages/mui-material/src/Autocomplete/autocompleteClasses.ts
+index e0e22b79f667e7..ce0e8aea9f1219 100644
+--- a/packages/mui-material/src/Autocomplete/autocompleteClasses.ts
++++ b/packages/mui-material/src/Autocomplete/autocompleteClasses.ts
+@@ -6,6 +6,8 @@ export interface AutocompleteClasses {
+   root: string;
+   /** Styles applied to the root element if `fullWidth={true}`. */
+   fullWidth: string;
++  /** State class applied to the root element if the listbox is displayed. */
++  expanded: string;
+   /** State class applied to the root element if focused. */
+   focused: string;
+   /** Styles applied to the tag elements, e.g. the chips. */
+@@ -60,6 +62,7 @@ export function getAutocompleteUtilityClass(slot: string): string {
+ 
+ const autocompleteClasses: AutocompleteClasses = generateUtilityClasses('MuiAutocomplete', [
+   'root',
++  'expanded',
+   'fullWidth',
+   'focused',
+   'focusVisible',

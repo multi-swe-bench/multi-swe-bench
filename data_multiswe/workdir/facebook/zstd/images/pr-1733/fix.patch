@@ -1,0 +1,255 @@
+diff --git a/lib/compress/zstd_compress.c b/lib/compress/zstd_compress.c
+index b4ae4e8778f..8308bf5d13a 100644
+--- a/lib/compress/zstd_compress.c
++++ b/lib/compress/zstd_compress.c
+@@ -392,6 +392,11 @@ ZSTD_bounds ZSTD_cParam_getBounds(ZSTD_cParameter param)
+         bounds.upperBound = ZSTD_TARGETCBLOCKSIZE_MAX;
+         return bounds;
+ 
++    case ZSTD_c_srcSizeHint:
++        bounds.lowerBound = ZSTD_SRCSIZEHINT_MIN;
++        bounds.upperBound = ZSTD_SRCSIZEHINT_MAX;
++        return bounds;
++
+     default:
+         {   ZSTD_bounds const boundError = { ERROR(parameter_unsupported), 0, 0 };
+             return boundError;
+@@ -448,6 +453,7 @@ static int ZSTD_isUpdateAuthorized(ZSTD_cParameter param)
+     case ZSTD_c_forceAttachDict:
+     case ZSTD_c_literalCompressionMode:
+     case ZSTD_c_targetCBlockSize:
++    case ZSTD_c_srcSizeHint:
+     default:
+         return 0;
+     }
+@@ -494,6 +500,7 @@ size_t ZSTD_CCtx_setParameter(ZSTD_CCtx* cctx, ZSTD_cParameter param, int value)
+     case ZSTD_c_ldmMinMatch:
+     case ZSTD_c_ldmBucketSizeLog:
+     case ZSTD_c_targetCBlockSize:
++    case ZSTD_c_srcSizeHint:
+         break;
+ 
+     default: RETURN_ERROR(parameter_unsupported);
+@@ -674,6 +681,12 @@ size_t ZSTD_CCtxParams_setParameter(ZSTD_CCtx_params* CCtxParams,
+         CCtxParams->targetCBlockSize = value;
+         return CCtxParams->targetCBlockSize;
+ 
++    case ZSTD_c_srcSizeHint :
++        if (value!=0)    /* 0 ==> default */
++            BOUNDCHECK(ZSTD_c_srcSizeHint, value);
++        CCtxParams->srcSizeHint = value;
++        return CCtxParams->srcSizeHint;
++
+     default: RETURN_ERROR(parameter_unsupported, "unknown parameter");
+     }
+ }
+@@ -779,6 +792,9 @@ size_t ZSTD_CCtxParams_getParameter(
+     case ZSTD_c_targetCBlockSize :
+         *value = (int)CCtxParams->targetCBlockSize;
+         break;
++    case ZSTD_c_srcSizeHint :
++        *value = (int)CCtxParams->srcSizeHint;
++        break;
+     default: RETURN_ERROR(parameter_unsupported, "unknown parameter");
+     }
+     return 0;
+@@ -1029,7 +1045,11 @@ ZSTD_adjustCParams(ZSTD_compressionParameters cPar,
+ ZSTD_compressionParameters ZSTD_getCParamsFromCCtxParams(
+         const ZSTD_CCtx_params* CCtxParams, U64 srcSizeHint, size_t dictSize)
+ {
+-    ZSTD_compressionParameters cParams = ZSTD_getCParams(CCtxParams->compressionLevel, srcSizeHint, dictSize);
++    ZSTD_compressionParameters cParams;
++    if (srcSizeHint == ZSTD_CONTENTSIZE_UNKNOWN && CCtxParams->srcSizeHint > 0) {
++      srcSizeHint = CCtxParams->srcSizeHint;
++    }
++    cParams = ZSTD_getCParams(CCtxParams->compressionLevel, srcSizeHint, dictSize);
+     if (CCtxParams->ldmParams.enableLdm) cParams.windowLog = ZSTD_LDM_DEFAULT_WINDOW_LOG;
+     if (CCtxParams->cParams.windowLog) cParams.windowLog = CCtxParams->cParams.windowLog;
+     if (CCtxParams->cParams.hashLog) cParams.hashLog = CCtxParams->cParams.hashLog;
+diff --git a/lib/compress/zstd_compress_internal.h b/lib/compress/zstd_compress_internal.h
+index 6d623cc6be8..3e590ec3737 100644
+--- a/lib/compress/zstd_compress_internal.h
++++ b/lib/compress/zstd_compress_internal.h
+@@ -203,6 +203,9 @@ struct ZSTD_CCtx_params_s {
+     size_t targetCBlockSize;   /* Tries to fit compressed block size to be around targetCBlockSize.
+                                 * No target when targetCBlockSize == 0.
+                                 * There is no guarantee on compressed block size */
++    int srcSizeHint;           /* User's best guess of source size.
++                                * Hint is not valid when srcSizeHint == 0.
++                                * There is no guarantee that hint is close to actual source size */
+ 
+     ZSTD_dictAttachPref_e attachDictPref;
+     ZSTD_literalCompressionMode_e literalCompressionMode;
+diff --git a/lib/zstd.h b/lib/zstd.h
+index f8e95f2283e..38c99e016b3 100644
+--- a/lib/zstd.h
++++ b/lib/zstd.h
+@@ -15,6 +15,7 @@ extern "C" {
+ #define ZSTD_H_235446
+ 
+ /* ======   Dependency   ======*/
++#include <limits.h>   /* INT_MAX */
+ #include <stddef.h>   /* size_t */
+ 
+ 
+@@ -386,6 +387,7 @@ typedef enum {
+      * ZSTD_c_forceAttachDict
+      * ZSTD_c_literalCompressionMode
+      * ZSTD_c_targetCBlockSize
++     * ZSTD_c_srcSizeHint
+      * Because they are not stable, it's necessary to define ZSTD_STATIC_LINKING_ONLY to access them.
+      * note : never ever use experimentalParam? names directly;
+      *        also, the enums values themselves are unstable and can still change.
+@@ -396,6 +398,7 @@ typedef enum {
+      ZSTD_c_experimentalParam4=1001,
+      ZSTD_c_experimentalParam5=1002,
+      ZSTD_c_experimentalParam6=1003,
++     ZSTD_c_experimentalParam7=1004,
+ } ZSTD_cParameter;
+ 
+ typedef struct {
+@@ -1063,6 +1066,8 @@ ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
+ /* Advanced parameter bounds */
+ #define ZSTD_TARGETCBLOCKSIZE_MIN   64
+ #define ZSTD_TARGETCBLOCKSIZE_MAX   ZSTD_BLOCKSIZE_MAX
++#define ZSTD_SRCSIZEHINT_MIN        0
++#define ZSTD_SRCSIZEHINT_MAX        INT_MAX
+ 
+ /* internal */
+ #define ZSTD_HASHLOG3_MAX           17
+@@ -1441,6 +1446,12 @@ ZSTDLIB_API size_t ZSTD_CCtx_refPrefix_advanced(ZSTD_CCtx* cctx, const void* pre
+  * There is no guarantee on compressed block size (default:0) */
+ #define ZSTD_c_targetCBlockSize ZSTD_c_experimentalParam6
+ 
++/* User's best guess of source size.
++ * Hint is not valid when srcSizeHint == 0.
++ * There is no guarantee that hint is close to actual source size,
++ * but compression ratio may regress significantly if guess considerably underestimates */
++#define ZSTD_c_srcSizeHint ZSTD_c_experimentalParam7
++
+ /*! ZSTD_CCtx_getParameter() :
+  *  Get the requested compression parameter value, selected by enum ZSTD_cParameter,
+  *  and store it into int* value.
+diff --git a/programs/fileio.c b/programs/fileio.c
+index 873013a514a..20e2ee2a191 100644
+--- a/programs/fileio.c
++++ b/programs/fileio.c
+@@ -30,6 +30,7 @@
+ #include <string.h>     /* strcmp, strlen */
+ #include <assert.h>
+ #include <errno.h>      /* errno */
++#include <limits.h>     /* INT_MAX */
+ #include <signal.h>
+ #include "timefn.h"     /* UTIL_getTime, UTIL_clockSpanMicro */
+ 
+@@ -306,6 +307,7 @@ struct FIO_prefs_s {
+     int ldmHashRateLog;
+     size_t streamSrcSize;
+     size_t targetCBlockSize;
++    int srcSizeHint;
+     ZSTD_literalCompressionMode_e literalCompressionMode;
+ 
+     /* IO preferences */
+@@ -352,6 +354,7 @@ FIO_prefs_t* FIO_createPreferences(void)
+     ret->ldmHashRateLog = FIO_LDM_PARAM_NOTSET;
+     ret->streamSrcSize = 0;
+     ret->targetCBlockSize = 0;
++    ret->srcSizeHint = 0;
+     ret->literalCompressionMode = ZSTD_lcm_auto;
+     return ret;
+ }
+@@ -428,6 +431,10 @@ void FIO_setTargetCBlockSize(FIO_prefs_t* const prefs, size_t targetCBlockSize)
+     prefs->targetCBlockSize = targetCBlockSize;
+ }
+ 
++void FIO_setSrcSizeHint(FIO_prefs_t* const prefs, size_t srcSizeHint) {
++    prefs->srcSizeHint = (int)MIN((size_t)INT_MAX, srcSizeHint);
++}
++
+ void FIO_setLiteralCompressionMode(
+         FIO_prefs_t* const prefs,
+         ZSTD_literalCompressionMode_e mode) {
+@@ -672,6 +679,8 @@ static cRess_t FIO_createCResources(FIO_prefs_t* const prefs,
+         CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_compressionLevel, cLevel) );
+         /* max compressed block size */
+         CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_targetCBlockSize, (int)prefs->targetCBlockSize) );
++        /* source size hint */
++        CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_srcSizeHint, (int)prefs->srcSizeHint) );
+         /* long distance matching */
+         CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_enableLongDistanceMatching, prefs->ldmFlag) );
+         CHECK( ZSTD_CCtx_setParameter(ress.cctx, ZSTD_c_ldmHashLog, prefs->ldmHashLog) );
+diff --git a/programs/fileio.h b/programs/fileio.h
+index 13f6f1d0590..096d90b5caa 100644
+--- a/programs/fileio.h
++++ b/programs/fileio.h
+@@ -73,6 +73,7 @@ void FIO_setSparseWrite(FIO_prefs_t* const prefs, unsigned sparse);  /**< 0: no
+ void FIO_setRsyncable(FIO_prefs_t* const prefs, int rsyncable);
+ void FIO_setStreamSrcSize(FIO_prefs_t* const prefs, size_t streamSrcSize);
+ void FIO_setTargetCBlockSize(FIO_prefs_t* const prefs, size_t targetCBlockSize);
++void FIO_setSrcSizeHint(FIO_prefs_t* const prefs, size_t srcSizeHint);
+ void FIO_setLiteralCompressionMode(
+         FIO_prefs_t* const prefs,
+         ZSTD_literalCompressionMode_e mode);
+diff --git a/programs/zstd.1.md b/programs/zstd.1.md
+index 1bdc426540b..dff4d9eac51 100644
+--- a/programs/zstd.1.md
++++ b/programs/zstd.1.md
+@@ -149,6 +149,13 @@ the last one takes effect.
+     will be included in the produced frame header. Incorrect stream sizes will cause an error.
+     This information will be used to better optimize compression parameters, resulting in
+     better and potentially faster compression, especially for smaller source sizes.
++* `--size-hint=#`:
++    When handling input from a stream, `zstd` must guess how large the source size
++    will be when optimizing compression parameters. If the stream size is relatively
++    small, this guess may be a poor one, resulting in a higher compression ratio than
++    expected. This feature allows for controlling the guess when needed.
++    Exact guesses result in better compression ratios. Overestimates result in slightly
++    degraded compression ratios, while underestimates may result in significant degradation.
+ * `--rsyncable` :
+     `zstd` will periodically synchronize the compression state to make the
+     compressed file more rsync-friendly. There is a negligible impact to
+diff --git a/programs/zstdcli.c b/programs/zstdcli.c
+index 401e1ee2c2f..98df728a98b 100644
+--- a/programs/zstdcli.c
++++ b/programs/zstdcli.c
+@@ -142,6 +142,7 @@ static int usage_advanced(const char* programName)
+     DISPLAY( "--fast[=#]: switch to ultra fast compression level (default: %u)\n", 1);
+     DISPLAY( "--adapt : dynamically adapt compression level to I/O conditions \n");
+     DISPLAY( "--stream-size=# : optimize compression parameters for streaming input of given number of bytes \n");
++    DISPLAY( "--size-hint=# optimize compression parameters for streaming input of approximately this size\n");
+     DISPLAY( "--target-compressed-block-size=# : make compressed block near targeted size \n");
+ #ifdef ZSTD_MULTITHREAD
+     DISPLAY( " -T#    : spawns # compression threads (default: 1, 0==# cores) \n");
+@@ -591,6 +592,7 @@ int main(int argCount, const char* argv[])
+     unsigned dictID = 0;
+     size_t streamSrcSize = 0;
+     size_t targetCBlockSize = 0;
++    size_t srcSizeHint = 0;
+     int dictCLevel = g_defaultDictCLevel;
+     unsigned dictSelect = g_defaultSelectivityLevel;
+ #ifdef UTIL_HAS_CREATEFILELIST
+@@ -749,6 +751,7 @@ int main(int argCount, const char* argv[])
+                     if (longCommandWArg(&argument, "--zstd=")) { if (!parseCompressionParameters(argument, &compressionParams)) CLEAN_RETURN(badusage(programName)); continue; }
+                     if (longCommandWArg(&argument, "--stream-size=")) { streamSrcSize = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--target-compressed-block-size=")) { targetCBlockSize = readU32FromChar(&argument); continue; }
++                    if (longCommandWArg(&argument, "--size-hint=")) { srcSizeHint = readU32FromChar(&argument); continue; }
+                     if (longCommandWArg(&argument, "--long")) {
+                         unsigned ldmWindowLog = 0;
+                         ldmFlag = 1;
+@@ -1155,6 +1158,7 @@ int main(int argCount, const char* argv[])
+         FIO_setRsyncable(prefs, rsyncable);
+         FIO_setStreamSrcSize(prefs, streamSrcSize);
+         FIO_setTargetCBlockSize(prefs, targetCBlockSize);
++        FIO_setSrcSizeHint(prefs, srcSizeHint);
+         FIO_setLiteralCompressionMode(prefs, literalCompressionMode);
+         if (adaptMin > cLevel) cLevel = adaptMin;
+         if (adaptMax < cLevel) cLevel = adaptMax;
+@@ -1164,7 +1168,7 @@ int main(int argCount, const char* argv[])
+         else
+           operationResult = FIO_compressMultipleFilenames(prefs, filenameTable, filenameIdx, outFileName, suffix, dictFileName, cLevel, compressionParams);
+ #else
+-        (void)suffix; (void)adapt; (void)rsyncable; (void)ultra; (void)cLevel; (void)ldmFlag; (void)literalCompressionMode; (void)streamSrcSize; (void)targetCBlockSize; /* not used when ZSTD_NOCOMPRESS set */
++        (void)suffix; (void)adapt; (void)rsyncable; (void)ultra; (void)cLevel; (void)ldmFlag; (void)literalCompressionMode; (void)targetCBlockSize; (void)streamSrcSize; (void)srcSizeHint; /* not used when ZSTD_NOCOMPRESS set */
+         DISPLAY("Compression not supported \n");
+ #endif
+     } else {  /* decompression or test */

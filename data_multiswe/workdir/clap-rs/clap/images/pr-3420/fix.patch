@@ -1,0 +1,472 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index c6bb2ca6181..d6174a716df 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -3286,32 +3286,10 @@ impl<'help> App<'help> {
+         args
+     }
+ 
+-    pub(crate) fn unroll_requirements_for_arg(
+-        &self,
+-        arg: &Id,
+-        matcher: Option<&ArgMatcher>,
+-    ) -> Vec<Id> {
+-        let requires_if_or_not = |(val, req_arg): &(ArgPredicate<'_>, Id)| -> Option<Id> {
+-            match val {
+-                ArgPredicate::Equals(v) => {
+-                    if let Some(matcher) = matcher {
+-                        if matcher
+-                            .get(arg)
+-                            .map(|ma| ma.contains_val_os(v))
+-                            .unwrap_or(false)
+-                        {
+-                            Some(req_arg.clone())
+-                        } else {
+-                            None
+-                        }
+-                    } else {
+-                        None
+-                    }
+-                }
+-                ArgPredicate::IsPresent => Some(req_arg.clone()),
+-            }
+-        };
+-
++    pub(crate) fn unroll_arg_requires<F>(&self, func: F, arg: &Id) -> Vec<Id>
++    where
++        F: Fn(&(ArgPredicate<'_>, Id)) -> Option<Id>,
++    {
+         let mut processed = vec![];
+         let mut r_vec = vec![arg];
+         let mut args = vec![];
+@@ -3324,7 +3302,7 @@ impl<'help> App<'help> {
+             processed.push(a);
+ 
+             if let Some(arg) = self.find(a) {
+-                for r in arg.requires.iter().filter_map(requires_if_or_not) {
++                for r in arg.requires.iter().filter_map(&func) {
+                     if let Some(req) = self.find(&r) {
+                         if !req.requires.is_empty() {
+                             r_vec.push(&req.id)
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index c7b9c42a2d0..5b61601208f 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -627,8 +627,6 @@ impl<'help> Arg<'help> {
+     ///
+     /// **NOTE:** [Conflicting] rules and [override] rules take precedence over being required
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -3810,8 +3808,6 @@ impl<'help> Arg<'help> {
+     /// This argument is [required] only if the specified `arg` is present at runtime and its value
+     /// equals `val`.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -4058,8 +4054,6 @@ impl<'help> Arg<'help> {
+     /// if this arg (`self`) is present and its value equals to `val`.
+     /// If it does, `another_arg` will be marked as required.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -4120,8 +4114,6 @@ impl<'help> Arg<'help> {
+     ///
+     /// The requirement will only become valid if this arg's value equals `val`.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -4178,8 +4170,6 @@ impl<'help> Arg<'help> {
+     /// **NOTE:** [Conflicting] rules and [override] rules take precedence over being required
+     /// by default.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -4255,8 +4245,6 @@ impl<'help> Arg<'help> {
+     ///
+     /// **NOTE** [`Arg::exclusive(true)`] allows specifying an argument which conflicts with every other argument.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -4306,8 +4294,6 @@ impl<'help> Arg<'help> {
+     ///
+     /// **NOTE:** [`Arg::exclusive(true)`] allows specifying an argument which conflicts with every other argument.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a [`Arg::default_value`]
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+diff --git a/src/build/arg_group.rs b/src/build/arg_group.rs
+index 137b881c96a..0c4a0b85cab 100644
+--- a/src/build/arg_group.rs
++++ b/src/build/arg_group.rs
+@@ -244,9 +244,6 @@ impl<'help> ArgGroup<'help> {
+     /// Use of more than one arg is an error." Vice setting `ArgGroup::multiple(true)` which
+     /// states, '*At least* one arg from this group must be used. Using multiple is OK."
+     ///
+-    /// **NOTE:** An argument is considered present when there is a
+-    /// [`Arg::default_value`](crate::Arg::default_value)
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -282,9 +279,6 @@ impl<'help> ArgGroup<'help> {
+     /// [argument requirement rules], you can name other arguments or groups that must be present
+     /// when any one of the arguments from this group is used.
+     ///
+-    /// **NOTE:** An argument is considered present when there is a
+-    /// [`Arg::default_value`](crate::Arg::default_value)
+-    ///
+     /// **NOTE:** The name provided may be an argument or group name
+     ///
+     /// # Examples
+@@ -324,9 +318,6 @@ impl<'help> ArgGroup<'help> {
+     ///
+     /// **NOTE:** The names provided may be an argument or group name
+     ///
+-    /// **NOTE:** An argument is considered present when there is a
+-    /// [`Arg::default_value`](crate::Arg::default_value)
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -368,9 +359,6 @@ impl<'help> ArgGroup<'help> {
+     ///
+     /// **NOTE:** The name provided may be an argument, or group name
+     ///
+-    /// **NOTE:** An argument is considered present when there is a
+-    /// [`Arg::default_value`](crate::Arg::default_value)
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+@@ -405,9 +393,6 @@ impl<'help> ArgGroup<'help> {
+     ///
+     /// **NOTE:** The names provided may be an argument, or group name
+     ///
+-    /// **NOTE:** An argument is considered present when there is a
+-    /// [`Arg::default_value`](crate::Arg::default_value)
+-    ///
+     /// # Examples
+     ///
+     /// ```rust
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index 0ed3c39514a..37793fc41c4 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -3,7 +3,7 @@ use indexmap::IndexSet;
+ // Internal
+ use crate::{
+     build::AppSettings as AS,
+-    build::{App, Arg, ArgSettings},
++    build::{App, Arg, ArgPredicate, ArgSettings},
+     parse::ArgMatcher,
+     util::{ChildGraph, Id},
+     INTERNAL_ERROR_MSG,
+@@ -360,7 +360,21 @@ impl<'help, 'app> Usage<'help, 'app> {
+         let mut unrolled_reqs = IndexSet::new();
+ 
+         for a in self.required.iter() {
+-            for aa in self.app.unroll_requirements_for_arg(a, matcher) {
++            let is_relevant = |(val, req_arg): &(ArgPredicate<'_>, Id)| -> Option<Id> {
++                let required = match val {
++                    ArgPredicate::Equals(_) => {
++                        if let Some(matcher) = matcher {
++                            matcher.check_explicit(a, *val)
++                        } else {
++                            false
++                        }
++                    }
++                    ArgPredicate::IsPresent => true,
++                };
++                required.then(|| req_arg.clone())
++            };
++
++            for aa in self.app.unroll_arg_requires(is_relevant, a) {
+                 // if we don't check for duplicates here this causes duplicate error messages
+                 // see https://github.com/clap-rs/clap/issues/2770
+                 unrolled_reqs.insert(aa);
+diff --git a/src/parse/arg_matcher.rs b/src/parse/arg_matcher.rs
+index 08c36e9a900..f454b931c0a 100644
+--- a/src/parse/arg_matcher.rs
++++ b/src/parse/arg_matcher.rs
+@@ -3,7 +3,7 @@ use std::{collections::HashMap, ffi::OsString, mem, ops::Deref};
+ 
+ // Internal
+ use crate::{
+-    build::{App, Arg, ArgSettings},
++    build::{App, Arg, ArgPredicate, ArgSettings},
+     parse::{ArgMatches, MatchedArg, SubCommand, ValueType},
+     util::Id,
+ };
+@@ -101,13 +101,6 @@ impl ArgMatcher {
+         self.0.args.contains_key(arg)
+     }
+ 
+-    pub(crate) fn contains_explicit(&self, arg: &Id) -> bool {
+-        self.0
+-            .args
+-            .get(arg)
+-            .map_or(false, |a| a.source() != ValueType::DefaultValue)
+-    }
+-
+     pub(crate) fn is_empty(&self) -> bool {
+         self.0.args.is_empty()
+     }
+@@ -132,6 +125,10 @@ impl ArgMatcher {
+         self.0.args.iter()
+     }
+ 
++    pub(crate) fn check_explicit<'a>(&self, arg: &Id, predicate: ArgPredicate<'a>) -> bool {
++        self.get(arg).map_or(false, |a| a.check_explicit(predicate))
++    }
++
+     pub(crate) fn inc_occurrence_of_arg(&mut self, arg: &Arg) {
+         let id = &arg.id;
+         debug!("ArgMatcher::inc_occurrence_of_arg: id={:?}", id);
+diff --git a/src/parse/matches/matched_arg.rs b/src/parse/matches/matched_arg.rs
+index 5ea60827153..fb7cf1e1a79 100644
+--- a/src/parse/matches/matched_arg.rs
++++ b/src/parse/matches/matched_arg.rs
+@@ -5,6 +5,7 @@ use std::{
+     slice::Iter,
+ };
+ 
++use crate::build::ArgPredicate;
+ use crate::util::eq_ignore_case;
+ use crate::INTERNAL_ERROR_MSG;
+ 
+@@ -116,29 +117,22 @@ impl MatchedArg {
+         }
+     }
+ 
+-    pub(crate) fn contains_val(&self, val: &str) -> bool {
+-        self.vals_flatten().any(|v| {
+-            if self.ignore_case {
+-                // If `v` isn't utf8, it can't match `val`, so `OsStr::to_str` should be fine
+-                v.to_str().map_or(false, |v| eq_ignore_case(v, val))
+-            } else {
+-                OsString::as_os_str(v) == OsStr::new(val)
+-            }
+-        })
+-    }
+-
+-    pub(crate) fn contains_val_os(&self, val: &OsStr) -> bool {
+-        self.vals_flatten().any(|v| {
+-            if self.ignore_case {
+-                eq_ignore_case(&v.to_string_lossy(), &val.to_string_lossy())
+-            } else {
+-                v.as_os_str() == val
+-            }
+-        })
+-    }
++    pub(crate) fn check_explicit(&self, predicate: ArgPredicate) -> bool {
++        if self.ty == ValueType::DefaultValue {
++            return false;
++        }
+ 
+-    pub(crate) fn source(&self) -> ValueType {
+-        self.ty
++        match predicate {
++            ArgPredicate::Equals(val) => self.vals_flatten().any(|v| {
++                if self.ignore_case {
++                    // If `v` isn't utf8, it can't match `val`, so `OsStr::to_str` should be fine
++                    eq_ignore_case(&v.to_string_lossy(), &val.to_string_lossy())
++                } else {
++                    OsString::as_os_str(v) == OsStr::new(val)
++                }
++            }),
++            ArgPredicate::IsPresent => true,
++        }
+     }
+ 
+     pub(crate) fn update_ty(&mut self, ty: ValueType) {
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index a6eaef3085d..c0763bea7c1 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -1,5 +1,5 @@
+ // Internal
+-use crate::build::{arg::PossibleValue, App, AppSettings as AS, Arg, ArgSettings};
++use crate::build::{arg::PossibleValue, App, AppSettings as AS, Arg, ArgPredicate, ArgSettings};
+ use crate::error::{Error, Result as ClapResult};
+ use crate::output::Usage;
+ use crate::parse::{ArgMatcher, MatchedArg, ParseState, Parser};
+@@ -33,7 +33,6 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         if let ParseState::Opt(a) = parse_state {
+             debug!("Validator::validate: needs_val_of={:?}", a);
+             self.validate_required(matcher)?;
+-            self.validate_required_unless(matcher)?;
+ 
+             let o = &self.p.app[&a];
+             reqs_validated = true;
+@@ -65,7 +64,6 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         self.validate_conflicts(matcher)?;
+         if !(self.p.is_set(AS::SubcommandsNegateReqs) && is_subcmd || reqs_validated) {
+             self.validate_required(matcher)?;
+-            self.validate_required_unless(matcher)?;
+         }
+         self.validate_matched_args(matcher)?;
+ 
+@@ -103,6 +101,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+                 if !ok {
+                     let used: Vec<Id> = matcher
+                         .arg_names()
++                        .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
+                         .filter(|&n| {
+                             self.p.app.find(n).map_or(true, |a| {
+                                 !(a.is_set(ArgSettings::Hidden) || self.p.required.contains(&a.id))
+@@ -180,7 +179,8 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         let mut conflicts = Conflicts::new();
+         for arg_id in matcher
+             .arg_names()
+-            .filter(|arg_id| matcher.contains_explicit(arg_id) && self.p.app.find(arg_id).is_some())
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
++            .filter(|arg_id| self.p.app.find(arg_id).is_some())
+         {
+             debug!("Validator::validate_conflicts::iter: id={:?}", arg_id);
+             let conflicts = conflicts.gather_conflicts(self.p.app, matcher, arg_id);
+@@ -192,6 +192,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+ 
+     fn validate_exclusive(&self, matcher: &ArgMatcher) -> ClapResult<()> {
+         debug!("Validator::validate_exclusive");
++        // Not bothering to filter for `check_explicit` since defaults shouldn't play into this
+         let args_count = matcher.arg_names().count();
+         matcher
+             .arg_names()
+@@ -253,6 +254,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+     fn build_conflict_err_usage(&self, matcher: &ArgMatcher, conflicting_keys: &[Id]) -> String {
+         let used_filtered: Vec<Id> = matcher
+             .arg_names()
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
+             .filter(|key| !conflicting_keys.contains(key))
+             .cloned()
+             .collect();
+@@ -267,20 +269,24 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         Usage::new(self.p.app, &self.p.required).create_usage_with_title(&required)
+     }
+ 
+-    fn gather_requirements(&mut self, matcher: &ArgMatcher) {
+-        debug!("Validator::gather_requirements");
+-        for name in matcher.arg_names() {
+-            debug!("Validator::gather_requirements:iter:{:?}", name);
++    fn gather_requires(&mut self, matcher: &ArgMatcher) {
++        debug!("Validator::gather_requires");
++        for name in matcher
++            .arg_names()
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
++        {
++            debug!("Validator::gather_requires:iter:{:?}", name);
+             if let Some(arg) = self.p.app.find(name) {
+-                for req in self
+-                    .p
+-                    .app
+-                    .unroll_requirements_for_arg(&arg.id, Some(matcher))
+-                {
++                let is_relevant = |(val, req_arg): &(ArgPredicate<'_>, Id)| -> Option<Id> {
++                    let required = matcher.check_explicit(&arg.id, *val);
++                    required.then(|| req_arg.clone())
++                };
++
++                for req in self.p.app.unroll_arg_requires(is_relevant, &arg.id) {
+                     self.p.required.insert(req);
+                 }
+             } else if let Some(g) = self.p.app.find_group(name) {
+-                debug!("Validator::gather_requirements:iter:{:?}:group", name);
++                debug!("Validator::gather_requires:iter:{:?}:group", name);
+                 for r in &g.requires {
+                     self.p.required.insert(r.clone());
+                 }
+@@ -423,7 +429,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+             "Validator::validate_required: required={:?}",
+             self.p.required
+         );
+-        self.gather_requirements(matcher);
++        self.gather_requires(matcher);
+ 
+         for arg_or_group in self.p.required.iter().filter(|r| !matcher.contains(r)) {
+             debug!("Validator::validate_required:iter:aog={:?}", arg_or_group);
+@@ -449,21 +455,23 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         // Validate the conditionally required args
+         for a in self.p.app.args.args() {
+             for (other, val) in &a.r_ifs {
+-                if let Some(ma) = matcher.get(other) {
+-                    if ma.contains_val(val) && !matcher.contains(&a.id) {
+-                        return self.missing_required_error(matcher, vec![a.id.clone()]);
+-                    }
++                if matcher.check_explicit(other, ArgPredicate::Equals(std::ffi::OsStr::new(*val)))
++                    && !matcher.contains(&a.id)
++                {
++                    return self.missing_required_error(matcher, vec![a.id.clone()]);
+                 }
+             }
+ 
+-            let match_all = a
+-                .r_ifs_all
+-                .iter()
+-                .all(|(other, val)| matcher.get(other).map_or(false, |ma| ma.contains_val(val)));
++            let match_all = a.r_ifs_all.iter().all(|(other, val)| {
++                matcher.check_explicit(other, ArgPredicate::Equals(std::ffi::OsStr::new(*val)))
++            });
+             if match_all && !a.r_ifs_all.is_empty() && !matcher.contains(&a.id) {
+                 return self.missing_required_error(matcher, vec![a.id.clone()]);
+             }
+         }
++
++        self.validate_required_unless(matcher)?;
++
+         Ok(())
+     }
+ 
+@@ -508,7 +516,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+     // Failing a required unless means, the arg's "unless" wasn't present, and neither were they
+     fn fails_arg_required_unless(&self, a: &Arg<'help>, matcher: &ArgMatcher) -> bool {
+         debug!("Validator::fails_arg_required_unless: a={:?}", a.name);
+-        let exists = |id| matcher.contains(id);
++        let exists = |id| matcher.check_explicit(id, ArgPredicate::IsPresent);
+ 
+         (a.r_unless_all.is_empty() || !a.r_unless_all.iter().all(exists))
+             && !a.r_unless.iter().any(exists)
+@@ -533,12 +541,11 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+ 
+         let used: Vec<Id> = matcher
+             .arg_names()
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
+             .filter(|n| {
+                 // Filter out the args we don't want to specify.
+                 self.p.app.find(n).map_or(true, |a| {
+-                    !a.is_set(ArgSettings::Hidden)
+-                        && a.default_vals.is_empty()
+-                        && !self.p.required.contains(&a.id)
++                    !a.is_set(ArgSettings::Hidden) && !self.p.required.contains(&a.id)
+                 })
+             })
+             .cloned()
+@@ -568,7 +575,7 @@ impl Conflicts {
+         let mut conflicts = Vec::new();
+         for other_arg_id in matcher
+             .arg_names()
+-            .filter(|arg_id| matcher.contains_explicit(arg_id))
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
+         {
+             if arg_id == other_arg_id {
+                 continue;

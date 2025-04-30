@@ -1,0 +1,144 @@
+diff --git a/go.mod b/go.mod
+index ab4d519a23b..e779ae75fc4 100644
+--- a/go.mod
++++ b/go.mod
+@@ -24,6 +24,7 @@ require (
+ 	github.com/hashicorp/go-multierror v1.1.1
+ 	github.com/hashicorp/go-version v1.3.0
+ 	github.com/henvic/httpretty v0.1.3
++	github.com/in-toto/in-toto-golang v0.9.0
+ 	github.com/joho/godotenv v1.5.1
+ 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+ 	github.com/mattn/go-colorable v0.1.13
+@@ -96,7 +97,6 @@ require (
+ 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+ 	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect
+ 	github.com/hashicorp/hcl v1.0.0 // indirect
+-	github.com/in-toto/in-toto-golang v0.9.0 // indirect
+ 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+ 	github.com/itchyny/gojq v0.12.15 // indirect
+ 	github.com/itchyny/timefmt-go v0.1.5 // indirect
+diff --git a/pkg/cmd/auth/login/login.go b/pkg/cmd/auth/login/login.go
+index 34a345632fc..64e84c0e288 100644
+--- a/pkg/cmd/auth/login/login.go
++++ b/pkg/cmd/auth/login/login.go
+@@ -30,12 +30,13 @@ type LoginOptions struct {
+ 
+ 	Interactive bool
+ 
+-	Hostname        string
+-	Scopes          []string
+-	Token           string
+-	Web             bool
+-	GitProtocol     string
+-	InsecureStorage bool
++	Hostname         string
++	Scopes           []string
++	Token            string
++	Web              bool
++	GitProtocol      string
++	InsecureStorage  bool
++	SkipSSHKeyPrompt bool
+ }
+ 
+ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Command {
+@@ -75,6 +76,10 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
+ 			The git protocol to use for git operations on this host can be set with %[1]s--git-protocol%[1]s,
+ 			or during the interactive prompting. Although login is for a single account on a host, setting
+ 			the git protocol will take effect for all users on the host.
++
++			Specifying %[1]sssh%[1]s for the git protocol will detect existing SSH keys to upload,
++			prompting to create and upload a new key if one is not found. This can be skipped with
++			%[1]s--skip-ssh-key%[1]s flag.
+ 		`, "`"),
+ 		Example: heredoc.Doc(`
+ 			# Start interactive setup
+@@ -138,6 +143,7 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
+ 	_ = cmd.Flags().MarkHidden("secure-storage")
+ 
+ 	cmd.Flags().BoolVar(&opts.InsecureStorage, "insecure-storage", false, "Save authentication credentials in plain text instead of credential store")
++	cmd.Flags().BoolVar(&opts.SkipSSHKeyPrompt, "skip-ssh-key", false, "Skip generate/upload SSH key prompt")
+ 
+ 	return cmd
+ }
+@@ -189,19 +195,20 @@ func loginRun(opts *LoginOptions) error {
+ 	}
+ 
+ 	return shared.Login(&shared.LoginOptions{
+-		IO:            opts.IO,
+-		Config:        authCfg,
+-		HTTPClient:    httpClient,
+-		Hostname:      hostname,
+-		Interactive:   opts.Interactive,
+-		Web:           opts.Web,
+-		Scopes:        opts.Scopes,
+-		Executable:    opts.MainExecutable,
+-		GitProtocol:   opts.GitProtocol,
+-		Prompter:      opts.Prompter,
+-		GitClient:     opts.GitClient,
+-		Browser:       opts.Browser,
+-		SecureStorage: !opts.InsecureStorage,
++		IO:               opts.IO,
++		Config:           authCfg,
++		HTTPClient:       httpClient,
++		Hostname:         hostname,
++		Interactive:      opts.Interactive,
++		Web:              opts.Web,
++		Scopes:           opts.Scopes,
++		Executable:       opts.MainExecutable,
++		GitProtocol:      opts.GitProtocol,
++		Prompter:         opts.Prompter,
++		GitClient:        opts.GitClient,
++		Browser:          opts.Browser,
++		SecureStorage:    !opts.InsecureStorage,
++		SkipSSHKeyPrompt: opts.SkipSSHKeyPrompt,
+ 	})
+ }
+ 
+diff --git a/pkg/cmd/auth/shared/login_flow.go b/pkg/cmd/auth/shared/login_flow.go
+index 7bb97454790..4a5e4532616 100644
+--- a/pkg/cmd/auth/shared/login_flow.go
++++ b/pkg/cmd/auth/shared/login_flow.go
+@@ -28,19 +28,20 @@ type iconfig interface {
+ }
+ 
+ type LoginOptions struct {
+-	IO            *iostreams.IOStreams
+-	Config        iconfig
+-	HTTPClient    *http.Client
+-	GitClient     *git.Client
+-	Hostname      string
+-	Interactive   bool
+-	Web           bool
+-	Scopes        []string
+-	Executable    string
+-	GitProtocol   string
+-	Prompter      Prompt
+-	Browser       browser.Browser
+-	SecureStorage bool
++	IO               *iostreams.IOStreams
++	Config           iconfig
++	HTTPClient       *http.Client
++	GitClient        *git.Client
++	Hostname         string
++	Interactive      bool
++	Web              bool
++	Scopes           []string
++	Executable       string
++	GitProtocol      string
++	Prompter         Prompt
++	Browser          browser.Browser
++	SecureStorage    bool
++	SkipSSHKeyPrompt bool
+ 
+ 	sshContext ssh.Context
+ }
+@@ -84,7 +85,7 @@ func Login(opts *LoginOptions) error {
+ 
+ 	var keyToUpload string
+ 	keyTitle := defaultSSHKeyTitle
+-	if opts.Interactive && gitProtocol == "ssh" {
++	if opts.Interactive && !opts.SkipSSHKeyPrompt && gitProtocol == "ssh" {
+ 		pubKeys, err := opts.sshContext.LocalPublicKeys()
+ 		if err != nil {
+ 			return err

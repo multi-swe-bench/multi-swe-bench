@@ -1,0 +1,286 @@
+diff --git a/docs/data/material/components/grid2/grid2.md b/docs/data/material/components/grid2/grid2.md
+index e2c8e93fde8c47..e0f50bbf698a8e 100644
+--- a/docs/data/material/components/grid2/grid2.md
++++ b/docs/data/material/components/grid2/grid2.md
+@@ -130,14 +130,21 @@ The demo below shows how this works:
+ 
+ ## Nested grid
+ 
+-The grid container that renders inside another grid container is a nested grid that inherits its [`columns`](#columns) and [`spacing`](#spacing) from the top level.
++The grid container that renders as a **direct child** inside another grid container is a nested grid that inherits its [`columns`](#columns) and [`spacing`](#spacing) from the top level.
+ It will also inherit the props of the top-level grid if it receives those props.
+ 
+-### Inheriting columns
++:::success
+ 
+-A nested grid container will inherits the columns from its parent unless the `columns` prop is specified to the instance.
++Note that a nested grid container should be a direct child of another grid container. If there are non-grid elements in between, the grid container will start as the new root container.
+ 
+-{{"demo": "NestedGridColumns.js", "bg": true}}
++```js
++<Grid container>
++  <Grid container> // A nested grid container that inherits columns and spacing from above.
++    <div>
++      <Grid container> // A new root grid container with its own variables scope.
++```
++
++:::
+ 
+ ### Inheriting spacing
+ 
+@@ -145,6 +152,12 @@ A nested grid container will inherits the row and column spacing from its parent
+ 
+ {{"demo": "NestedGrid.js", "bg": true}}
+ 
++### Inheriting columns
++
++A nested grid container will inherits the columns from its parent unless the `columns` prop is specified to the instance.
++
++{{"demo": "NestedGridColumns.js", "bg": true}}
++
+ ## Columns
+ 
+ Use the `columns` prop to change the default number of columns (12) in the grid, as shown below:
+diff --git a/packages/mui-system/src/Unstable_Grid/GridProps.ts b/packages/mui-system/src/Unstable_Grid/GridProps.ts
+index fb87411411531e..3faec054eafd70 100644
+--- a/packages/mui-system/src/Unstable_Grid/GridProps.ts
++++ b/packages/mui-system/src/Unstable_Grid/GridProps.ts
+@@ -141,6 +141,29 @@ export interface GridBaseProps extends Breakpoints {
+    * If `true`, the negative margin and padding are apply only to the top and left sides of the grid.
+    */
+   disableEqualOverflow?: boolean;
++  /**
++   * @internal
++   * The level of the grid starts from `0`
++   * and increases when the grid nests inside another grid regardless of container or item.
++   *
++   * ```js
++   * <Grid> // level 0
++   *   <Grid> // level 1
++   *     <Grid> // level 2
++   *   <Grid> // level 1
++   * ```
++   *
++   * Only consecutive grid is considered nesting.
++   * A grid container will start at `0` if there are non-Grid element above it.
++   *
++   * ```js
++   * <Grid> // level 0
++   *   <div>
++   *     <Grid> // level 0
++   *       <Grid> // level 1
++   * ```
++   */
++  unstable_level?: number;
+   /**
+    * Defines the vertical space between the type `item` components.
+    * It overrides the value of the `spacing` prop.
+@@ -161,18 +184,7 @@ export interface GridBaseProps extends Breakpoints {
+ }
+ 
+ export interface GridOwnerState extends GridBaseProps {
+-  /**
+-   * The level of the grid starts from `0`
+-   * and increases when the grid nests inside another grid regardless of container or item.
+-   *
+-   * ```js
+-   * <Grid> // level 0
+-   *   <Grid> // level 1
+-   *     <Grid> // level 2
+-   *   <Grid> // level 1
+-   * ```
+-   */
+-  level: number;
++  unstable_level: number;
+   gridSize: Partial<Record<Breakpoint, GridSize | boolean>>;
+   gridOffset: Partial<Record<Breakpoint, GridSize>>;
+ }
+diff --git a/packages/mui-system/src/Unstable_Grid/createGrid.tsx b/packages/mui-system/src/Unstable_Grid/createGrid.tsx
+index 920caf5073731a..37465f1953ef5b 100644
+--- a/packages/mui-system/src/Unstable_Grid/createGrid.tsx
++++ b/packages/mui-system/src/Unstable_Grid/createGrid.tsx
+@@ -5,6 +5,7 @@ import { OverridableComponent } from '@mui/types';
+ import {
+   unstable_composeClasses as composeClasses,
+   unstable_generateUtilityClass as generateUtilityClass,
++  unstable_isMuiElement as isMuiElement,
+ } from '@mui/utils';
+ import systemStyled from '../styled';
+ import useThemePropsSystem from '../useThemeProps';
+@@ -24,7 +25,7 @@ import {
+   generateDirectionClasses,
+ } from './gridGenerator';
+ import { CreateMUIStyled } from '../createStyled';
+-import { GridTypeMap, GridOwnerState } from './GridProps';
++import { GridTypeMap, GridOwnerState, GridProps } from './GridProps';
+ import type { Breakpoint } from '../createTheme';
+ 
+ const defaultTheme = createTheme();
+@@ -58,7 +59,6 @@ export default function createGrid(
+     componentName = 'MuiGrid',
+   } = options;
+ 
+-  const NestedContext = React.createContext<number>(0);
+   const OverflowContext = React.createContext<boolean | undefined>(undefined);
+ 
+   const useUtilityClasses = (ownerState: GridOwnerState, theme: typeof defaultTheme) => {
+@@ -92,11 +92,11 @@ export default function createGrid(
+   const Grid = React.forwardRef(function Grid(inProps, ref) {
+     const theme = useTheme();
+     const themeProps = useThemeProps<typeof inProps & { component?: React.ElementType }>(inProps);
+-    const props = extendSxProp(themeProps) as Omit<typeof themeProps, 'color'>; // `color` type conflicts with html color attribute.
+-    const level = React.useContext(NestedContext);
++    const props = extendSxProp(themeProps) as Omit<typeof themeProps, 'color'> & GridOwnerState; // `color` type conflicts with html color attribute.
+     const overflow = React.useContext(OverflowContext);
+     const {
+       className,
++      children,
+       columns: columnsProp = 12,
+       container = false,
+       component = 'div',
+@@ -106,6 +106,7 @@ export default function createGrid(
+       rowSpacing: rowSpacingProp = spacingProp,
+       columnSpacing: columnSpacingProp = spacingProp,
+       disableEqualOverflow: themeDisableEqualOverflow,
++      unstable_level: level = 0,
+       ...rest
+     } = props;
+     // Because `disableEqualOverflow` can be set from the theme's defaultProps, the **nested** grid should look at the instance props instead.
+@@ -159,13 +160,18 @@ export default function createGrid(
+         ownerState={ownerState}
+         className={clsx(classes.root, className)}
+         {...other}
+-      />
++      >
++        {React.Children.map(children, (child) => {
++          if (React.isValidElement(child) && isMuiElement(child, ['Grid'])) {
++            return React.cloneElement(child, {
++              unstable_level: child.props.unstable_level ?? level + 1,
++            } as GridProps);
++          }
++          return child;
++        })}
++      </GridRoot>
+     );
+ 
+-    if (container) {
+-      result = <NestedContext.Provider value={level + 1}>{result}</NestedContext.Provider>;
+-    }
+-
+     if (disableEqualOverflow !== undefined && disableEqualOverflow !== (overflow ?? false)) {
+       // There are 2 possibilities that should wrap with the OverflowContext to communicate with the nested grids:
+       // 1. It is the root grid with `disableEqualOverflow`.
+@@ -230,5 +236,8 @@ export default function createGrid(
+     xsOffset: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number]),
+   };
+ 
++  // @ts-ignore internal logic for nested grid
++  Grid.muiName = 'Grid';
++
+   return Grid;
+ }
+diff --git a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+index f3b6b3f89d7dac..a67518bc3ace7a 100644
+--- a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
++++ b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+@@ -20,29 +20,29 @@ function appendLevel(level: number | undefined) {
+ }
+ 
+ function isNestedContainer(ownerState: Props['ownerState']) {
+-  return ownerState.level > 0 && ownerState.container;
++  return ownerState.unstable_level > 0 && ownerState.container;
+ }
+ 
+ function createGetSelfSpacing(ownerState: Props['ownerState']) {
+   return function getSelfSpacing(axis: 'row' | 'column') {
+-    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.level)})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level)})`;
+   };
+ }
+ 
+ function createGetParentSpacing(ownerState: Props['ownerState']) {
+   return function getParentSpacing(axis: 'row' | 'column') {
+-    if (ownerState.level === 0) {
++    if (ownerState.unstable_level === 0) {
+       return `var(--Grid-${axis}Spacing)`;
+     }
+-    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.level - 1)})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level - 1)})`;
+   };
+ }
+ 
+ function getParentColumns(ownerState: Props['ownerState']) {
+-  if (ownerState.level === 0) {
++  if (ownerState.unstable_level === 0) {
+     return `var(--Grid-columns)`;
+   }
+-  return `var(--Grid-columns${appendLevel(ownerState.level - 1)})`;
++  return `var(--Grid-columns${appendLevel(ownerState.unstable_level - 1)})`;
+ }
+ 
+ export const filterBreakpointKeys = (breakpointsKeys: Breakpoint[], responsiveKeys: string[]) =>
+@@ -166,10 +166,10 @@ export const generateGridColumnsStyles = ({ theme, ownerState }: Props) => {
+     return {};
+   }
+   const styles = isNestedContainer(ownerState)
+-    ? { [`--Grid-columns${appendLevel(ownerState.level)}`]: getParentColumns(ownerState) }
++    ? { [`--Grid-columns${appendLevel(ownerState.unstable_level)}`]: getParentColumns(ownerState) }
+     : { '--Grid-columns': 12 };
+   traverseBreakpoints<number>(theme.breakpoints, ownerState.columns, (appendStyle, value) => {
+-    appendStyle(styles, { [`--Grid-columns${appendLevel(ownerState.level)}`]: value });
++    appendStyle(styles, { [`--Grid-columns${appendLevel(ownerState.unstable_level)}`]: value });
+   });
+   return styles;
+ };
+@@ -183,7 +183,7 @@ export const generateGridRowSpacingStyles = ({ theme, ownerState }: Props) => {
+     ? {
+         // Set the default spacing as its parent spacing.
+         // It will be overridden if spacing props are provided
+-        [`--Grid-rowSpacing${appendLevel(ownerState.level)}`]: getParentSpacing('row'),
++        [`--Grid-rowSpacing${appendLevel(ownerState.unstable_level)}`]: getParentSpacing('row'),
+       }
+     : {};
+   traverseBreakpoints<number | string>(
+@@ -191,7 +191,7 @@ export const generateGridRowSpacingStyles = ({ theme, ownerState }: Props) => {
+     ownerState.rowSpacing,
+     (appendStyle, value) => {
+       appendStyle(styles, {
+-        [`--Grid-rowSpacing${appendLevel(ownerState.level)}`]:
++        [`--Grid-rowSpacing${appendLevel(ownerState.unstable_level)}`]:
+           typeof value === 'string' ? value : theme.spacing?.(value),
+       });
+     },
+@@ -208,7 +208,8 @@ export const generateGridColumnSpacingStyles = ({ theme, ownerState }: Props) =>
+     ? {
+         // Set the default spacing as its parent spacing.
+         // It will be overridden if spacing props are provided
+-        [`--Grid-columnSpacing${appendLevel(ownerState.level)}`]: getParentSpacing('column'),
++        [`--Grid-columnSpacing${appendLevel(ownerState.unstable_level)}`]:
++          getParentSpacing('column'),
+       }
+     : {};
+   traverseBreakpoints<number | string>(
+@@ -216,7 +217,7 @@ export const generateGridColumnSpacingStyles = ({ theme, ownerState }: Props) =>
+     ownerState.columnSpacing,
+     (appendStyle, value) => {
+       appendStyle(styles, {
+-        [`--Grid-columnSpacing${appendLevel(ownerState.level)}`]:
++        [`--Grid-columnSpacing${appendLevel(ownerState.unstable_level)}`]:
+           typeof value === 'string' ? value : theme.spacing?.(value),
+       });
+     },
+diff --git a/packages/mui-system/src/createStyled.js b/packages/mui-system/src/createStyled.js
+index edd1037f4413c4..4ed86fcbf1d79b 100644
+--- a/packages/mui-system/src/createStyled.js
++++ b/packages/mui-system/src/createStyled.js
+@@ -227,6 +227,10 @@ export default function createStyled(input = {}) {
+         Component.displayName = displayName;
+       }
+ 
++      if (tag.muiName) {
++        Component.muiName = tag.muiName;
++      }
++
+       return Component;
+     };
+ 

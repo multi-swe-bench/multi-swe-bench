@@ -1,0 +1,192 @@
+diff --git a/.changeset/good-vans-bake.md b/.changeset/good-vans-bake.md
+new file mode 100644
+index 000000000000..8f3917acc703
+--- /dev/null
++++ b/.changeset/good-vans-bake.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: support migration of `svelte:component`
+diff --git a/packages/svelte/src/compiler/migrate/index.js b/packages/svelte/src/compiler/migrate/index.js
+index 05d4c5db2a69..b877d27e5405 100644
+--- a/packages/svelte/src/compiler/migrate/index.js
++++ b/packages/svelte/src/compiler/migrate/index.js
+@@ -1,16 +1,18 @@
+ /** @import { VariableDeclarator, Node, Identifier } from 'estree' */
+ /** @import { Visitors } from 'zimmerframe' */
+ /** @import { ComponentAnalysis } from '../phases/types.js' */
+-/** @import { Scope } from '../phases/scope.js' */
++/** @import { Scope, ScopeRoot } from '../phases/scope.js' */
+ /** @import { AST, Binding, SvelteNode, ValidatedCompileOptions } from '#compiler' */
+ import MagicString from 'magic-string';
+ import { walk } from 'zimmerframe';
+ import { parse } from '../phases/1-parse/index.js';
++import { regex_valid_component_name } from '../phases/1-parse/state/element.js';
+ import { analyze_component } from '../phases/2-analyze/index.js';
+ import { get_rune } from '../phases/scope.js';
+ import { reset, reset_warning_filter } from '../state.js';
+ import { extract_identifiers } from '../utils/ast.js';
+ import { migrate_svelte_ignore } from '../utils/extract_svelte_ignore.js';
++import { determine_slot } from '../utils/slot.js';
+ import { validate_component_options } from '../validate-options.js';
+ 
+ const regex_style_tags = /(<style[^>]+>)([\S\s]*?)(<\/style>)/g;
+@@ -85,7 +87,8 @@ export function migrate(source) {
+ 				nonpassive: analysis.root.unique('nonpassive').name
+ 			},
+ 			legacy_imports: new Set(),
+-			script_insertions: new Set()
++			script_insertions: new Set(),
++			derived_components: new Map()
+ 		};
+ 
+ 		if (parsed.module) {
+@@ -108,6 +111,7 @@ export function migrate(source) {
+ 
+ 		const need_script =
+ 			state.legacy_imports.size > 0 ||
++			state.derived_components.size > 0 ||
+ 			state.script_insertions.size > 0 ||
+ 			state.props.length > 0 ||
+ 			analysis.uses_rest_props ||
+@@ -250,6 +254,17 @@ export function migrate(source) {
+ 			}
+ 		}
+ 
++		insertion_point = parsed.instance
++			? /** @type {number} */ (parsed.instance.content.end)
++			: insertion_point;
++
++		if (state.derived_components.size > 0) {
++			str.appendRight(
++				insertion_point,
++				`\n${indent}${[...state.derived_components.entries()].map(([init, name]) => `const ${name} = $derived(${init});`).join(`\n${indent}`)}\n`
++			);
++		}
++
+ 		if (!parsed.instance && need_script) {
+ 			str.appendRight(insertion_point, '\n</script>\n\n');
+ 		}
+@@ -273,7 +288,8 @@ export function migrate(source) {
+  *  end: number;
+  * 	names: Record<string, string>;
+  * 	legacy_imports: Set<string>;
+- * 	script_insertions: Set<string>
++ * 	script_insertions: Set<string>;
++ *  derived_components: Map<string, string>
+  * }} State
+  */
+ 
+@@ -586,6 +602,65 @@ const template = {
+ 		handle_events(node, state);
+ 		next();
+ 	},
++	SvelteComponent(node, { state, next, path }) {
++		next();
++
++		let expression = state.str
++			.snip(
++				/** @type {number} */ (node.expression.start),
++				/** @type {number} */ (node.expression.end)
++			)
++			.toString();
++
++		if (
++			(node.expression.type !== 'Identifier' && node.expression.type !== 'MemberExpression') ||
++			!regex_valid_component_name.test(expression)
++		) {
++			let current_expression = expression;
++			expression = state.scope.generate('SvelteComponent');
++			let needs_derived = true;
++			for (let i = path.length - 1; i >= 0; i--) {
++				const part = path[i];
++				if (
++					part.type === 'EachBlock' ||
++					part.type === 'AwaitBlock' ||
++					part.type === 'IfBlock' ||
++					part.type === 'KeyBlock' ||
++					part.type === 'SnippetBlock' ||
++					part.type === 'Component' ||
++					part.type === 'SvelteComponent'
++				) {
++					const indent = state.str.original.substring(
++						state.str.original.lastIndexOf('\n', node.start) + 1,
++						node.start
++					);
++					state.str.prependLeft(
++						node.start,
++						`{@const ${expression} = ${current_expression}}\n${indent}`
++					);
++					needs_derived = false;
++					continue;
++				}
++			}
++			if (needs_derived) {
++				if (state.derived_components.has(current_expression)) {
++					expression = /** @type {string} */ (state.derived_components.get(current_expression));
++				} else {
++					state.derived_components.set(current_expression, expression);
++				}
++			}
++		}
++
++		state.str.overwrite(node.start + 1, node.start + node.name.length + 1, expression);
++
++		if (state.str.original.substring(node.end - node.name.length - 1, node.end - 1) === node.name) {
++			state.str.overwrite(node.end - node.name.length - 1, node.end - 1, expression);
++		}
++		let this_pos = state.str.original.lastIndexOf('this', node.expression.start);
++		while (!state.str.original.charAt(this_pos - 1).trim()) this_pos--;
++		const end_pos = state.str.original.indexOf('}', node.expression.end) + 1;
++		state.str.remove(this_pos, end_pos);
++	},
+ 	SvelteWindow(node, { state, next }) {
+ 		handle_events(node, state);
+ 		next();
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/element.js b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+index d94d8180e7a9..f3c723783bfc 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/element.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+@@ -23,7 +23,7 @@ const regex_starts_with_quote_characters = /^["']/;
+ const regex_attribute_value = /^(?:"([^"]*)"|'([^'])*'|([^>\s]+))/;
+ const regex_valid_element_name =
+ 	/^(?:![a-zA-Z]+|[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?|[a-zA-Z][a-zA-Z0-9]*:[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])$/;
+-const regex_valid_component_name =
++export const regex_valid_component_name =
+ 	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#identifiers adjusted for our needs
+ 	// (must start with uppercase letter if no dots, can contain dots)
+ 	/^(?:\p{Lu}[$\u200c\u200d\p{ID_Continue}.]*|\p{ID_Start}[$\u200c\u200d\p{ID_Continue}]*(?:\.[$\u200c\u200d\p{ID_Continue}]+)+)$/u;
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteComponent.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteComponent.js
+index 8f655d55994d..3c7630cb25d5 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteComponent.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteComponent.js
+@@ -12,5 +12,7 @@ export function SvelteComponent(node, context) {
+ 		w.svelte_component_deprecated(node);
+ 	}
+ 
++	context.visit(node.expression);
++
+ 	visit_component(node, context);
+ }
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 95c8bd32e065..7a8afa532af9 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -391,6 +391,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 			if (node.expression) {
+ 				for (const id of extract_identifiers_from_destructuring(node.expression)) {
+ 					const binding = scope.declare(id, 'template', 'const');
++					scope.reference(id, [context.path[context.path.length - 1], node]);
+ 					bindings.push(binding);
+ 				}
+ 			} else {
+@@ -402,6 +403,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 					end: node.end
+ 				};
+ 				const binding = scope.declare(id, 'template', 'const');
++				scope.reference(id, [context.path[context.path.length - 1], node]);
+ 				bindings.push(binding);
+ 			}
+ 		},

@@ -1,0 +1,111 @@
+diff --git a/pkg/cmd/repo/view/view_test.go b/pkg/cmd/repo/view/view_test.go
+index aeb8ae9b716..2f57739528c 100644
+--- a/pkg/cmd/repo/view/view_test.go
++++ b/pkg/cmd/repo/view/view_test.go
+@@ -178,6 +178,7 @@ func Test_ViewRun(t *testing.T) {
+ 			stdoutTTY: true,
+ 			wantOut: heredoc.Doc(`
+ 				jill/valentine
++				https://github.com/jill/valentine (remote)
+ 				social distancing
+ 
+ 
+@@ -197,6 +198,7 @@ func Test_ViewRun(t *testing.T) {
+ 			stdoutTTY: true,
+ 			wantOut: heredoc.Doc(`
+ 				jill/valentine
++				https://github.com/jill/valentine (remote)
+ 				social distancing
+ 
+ 
+@@ -215,6 +217,7 @@ func Test_ViewRun(t *testing.T) {
+ 			stdoutTTY: true,
+ 			wantOut: heredoc.Doc(`
+ 				OWNER/REPO
++				https://github.com/OWNER/REPO/tree/feat/awesome (remote)
+ 				social distancing
+ 
+ 
+@@ -225,11 +228,25 @@ func Test_ViewRun(t *testing.T) {
+ 				View this repository on GitHub: https://github.com/OWNER/REPO
+ 			`),
+ 		},
++		{
++			name:      "dot arg",
++			repoName: ".",
++			opts: &ViewOptions{
++				RepoArg: ".",
++			},
++			wantOut: heredoc.Doc(`
++				name:	OWNER/REPO
++				description:	social distancing
++				--
++				# truly cool readme check it out
++				`),
++		},
+ 		{
+ 			name:      "no args",
+ 			stdoutTTY: true,
+ 			wantOut: heredoc.Doc(`
+ 				OWNER/REPO
++				https://github.com/OWNER/REPO (remote)
+ 				social distancing
+ 
+ 
+@@ -246,7 +263,7 @@ func Test_ViewRun(t *testing.T) {
+ 			tt.opts = &ViewOptions{}
+ 		}
+ 
+-		if tt.repoName == "" {
++		if tt.repoName == "" || tt.repoName == "." {
+ 			tt.repoName = "OWNER/REPO"
+ 		}
+ 
+@@ -269,6 +286,15 @@ func Test_ViewRun(t *testing.T) {
+ 		{ "name": "readme.md",
+ 		"content": "IyB0cnVseSBjb29sIHJlYWRtZSBjaGVjayBpdCBvdXQ="}`))
+ 
++		if tt.opts.RepoArg == "." {
++			reg.Register(
++				httpmock.GraphQL(`query UserCurrent\b`),
++				httpmock.StringResponse(`
++				{ "data": { "viewer": {
++					"login": "OWNER"
++			}}}`))
++		}
++
+ 		tt.opts.HttpClient = func() (*http.Client, error) {
+ 			return &http.Client{Transport: reg}, nil
+ 		}
+@@ -299,6 +325,7 @@ func Test_ViewRun_NonMarkdownReadme(t *testing.T) {
+ 			name: "tty",
+ 			wantOut: heredoc.Doc(`
+ 			OWNER/REPO
++			https://github.com/OWNER/REPO (remote)
+ 			social distancing
+ 
+ 			# truly cool readme check it out
+@@ -369,6 +396,7 @@ func Test_ViewRun_NoReadme(t *testing.T) {
+ 			name: "tty",
+ 			wantOut: heredoc.Doc(`
+ 			OWNER/REPO
++			https://github.com/OWNER/REPO (remote)
+ 			social distancing
+ 
+ 			This repository does not have a README
+@@ -435,6 +463,7 @@ func Test_ViewRun_NoDescription(t *testing.T) {
+ 			name: "tty",
+ 			wantOut: heredoc.Doc(`
+ 			OWNER/REPO
++			https://github.com/OWNER/REPO (remote)
+ 			No description provided
+ 
+ 			# truly cool readme check it out
+@@ -565,6 +594,7 @@ func Test_ViewRun_HandlesSpecialCharacters(t *testing.T) {
+ 			stdoutTTY: true,
+ 			wantOut: heredoc.Doc(`
+ 				OWNER/REPO
++				https://github.com/OWNER/REPO (remote)
+ 				Some basic special characters " & / < > '
+ 
+ 

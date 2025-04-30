@@ -1,0 +1,67 @@
+diff --git a/.changeset/modern-pets-punch.md b/.changeset/modern-pets-punch.md
+new file mode 100644
+index 000000000000..981547e9e5ba
+--- /dev/null
++++ b/.changeset/modern-pets-punch.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly infer `<a>` tag namespace
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/types.d.ts b/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
+index 265f58130db8..dedbe95ace7e 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
++++ b/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
+@@ -9,6 +9,10 @@ export interface AnalysisState {
+ 	analysis: ComponentAnalysis;
+ 	options: ValidatedCompileOptions;
+ 	ast_type: 'instance' | 'template' | 'module';
++	/**
++	 * Tag name of the parent element. `null` if the parent is `svelte:element`, `#snippet`, a component or the root.
++	 * Parent doesn't necessarily mean direct path predecessor because there could be `#each`, `#if` etc in-between.
++	 */
+ 	parent_element: string | null;
+ 	has_props_rune: boolean;
+ 	/** Which slots the current parent component has */
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+index 98bb1ca92a8a..60bd1dd0c5c7 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+@@ -174,4 +174,17 @@ export function RegularElement(node, context) {
+ 	}
+ 
+ 	context.next({ ...context.state, parent_element: node.name });
++
++	// Special case: <a> tags are valid in both the SVG and HTML namespace.
++	// If there's no parent, look downwards to see if it's the parent of a SVG or HTML element.
++	if (node.name === 'a' && !context.state.parent_element) {
++		for (const child of node.fragment.nodes) {
++			if (child.type === 'RegularElement') {
++				if (child.metadata.svg && child.name !== 'svg') {
++					node.metadata.svg = true;
++					break;
++				}
++			}
++		}
++	}
+ }
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/component.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/component.js
+index 73b051a84813..9a432341a064 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/component.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/component.js
+@@ -1,5 +1,5 @@
+ /** @import { AST } from '#compiler' */
+-/** @import { Context } from '../../types' */
++/** @import { AnalysisState, Context } from '../../types' */
+ import * as e from '../../../../errors.js';
+ import { get_attribute_expression, is_expression_attribute } from '../../../../utils/ast.js';
+ import { determine_slot } from '../../../../utils/slot.js';
+@@ -96,6 +96,7 @@ export function visit_component(node, context) {
+ 	const component_slots = new Set();
+ 
+ 	for (const slot_name in nodes) {
++		/** @type {AnalysisState} */
+ 		const state = {
+ 			...context.state,
+ 			scope: node.metadata.scopes[slot_name],

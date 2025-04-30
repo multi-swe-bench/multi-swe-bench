@@ -1,0 +1,116 @@
+diff --git a/pkg/cmd/release/edit/edit.go b/pkg/cmd/release/edit/edit.go
+index cac9c0e4854..0360911bfd2 100644
+--- a/pkg/cmd/release/edit/edit.go
++++ b/pkg/cmd/release/edit/edit.go
+@@ -26,6 +26,7 @@ type EditOptions struct {
+ 	Draft              *bool
+ 	Prerelease         *bool
+ 	IsLatest           *bool
++	VerifyTag          bool
+ }
+ 
+ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Command {
+@@ -81,6 +82,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default: main branch)")
+ 	cmd.Flags().StringVar(&opts.TagName, "tag", "", "The name of the tag")
+ 	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file` (use \"-\" to read from standard input)")
++	cmd.Flags().BoolVar(&opts.VerifyTag, "verify-tag", false, "Abort in case the git tag doesn't already exist in the remote repository")
+ 
+ 	_ = cmdutil.RegisterBranchCompletionFlags(f.GitClient, cmd, "target")
+ 
+@@ -110,6 +112,17 @@ func editRun(tag string, opts *EditOptions) error {
+ 		params["tag_name"] = release.TagName
+ 	}
+ 
++	if opts.VerifyTag && opts.TagName != "" {
++		remoteTagPresent, err := remoteTagExists(httpClient, baseRepo, opts.TagName)
++		if err != nil {
++			return err
++		}
++		if !remoteTagPresent {
++			return fmt.Errorf("tag %s doesn't exist in the repo %s, aborting due to --verify-tag flag",
++				opts.TagName, ghrepo.FullName(baseRepo))
++		}
++	}
++
+ 	editedRelease, err := editRelease(httpClient, baseRepo, release.DatabaseID, params)
+ 	if err != nil {
+ 		return err
+diff --git a/pkg/cmd/release/edit/http.go b/pkg/cmd/release/edit/http.go
+index 6016ad7761a..bf310da6053 100644
+--- a/pkg/cmd/release/edit/http.go
++++ b/pkg/cmd/release/edit/http.go
+@@ -11,6 +11,7 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/cmd/release/shared"
++	"github.com/shurcooL/githubv4"
+ )
+ 
+ func editRelease(httpClient *http.Client, repo ghrepo.Interface, releaseID int64, params map[string]interface{}) (*shared.Release, error) {
+@@ -48,3 +49,22 @@ func editRelease(httpClient *http.Client, repo ghrepo.Interface, releaseID int64
+ 	err = json.Unmarshal(b, &newRelease)
+ 	return &newRelease, err
+ }
++
++func remoteTagExists(httpClient *http.Client, repo ghrepo.Interface, tagName string) (bool, error) {
++	gql := api.NewClientFromHTTP(httpClient)
++	qualifiedTagName := fmt.Sprintf("refs/tags/%s", tagName)
++	var query struct {
++		Repository struct {
++			Ref struct {
++				ID string
++			} `graphql:"ref(qualifiedName: $tagName)"`
++		} `graphql:"repository(owner: $owner, name: $name)"`
++	}
++	variables := map[string]interface{}{
++		"owner":   githubv4.String(repo.RepoOwner()),
++		"name":    githubv4.String(repo.RepoName()),
++		"tagName": githubv4.String(qualifiedTagName),
++	}
++	err := gql.Query(repo.RepoHost(), "RepositoryFindRef", &query, variables)
++	return query.Repository.Ref.ID != "", err
++}
+diff --git a/pkg/cmd/release/shared/fetch.go b/pkg/cmd/release/shared/fetch.go
+index c8182cc8363..84a9a369bb2 100644
+--- a/pkg/cmd/release/shared/fetch.go
++++ b/pkg/cmd/release/shared/fetch.go
+@@ -9,6 +9,7 @@ import (
+ 	"net/http"
+ 	"reflect"
+ 	"strings"
++	"testing"
+ 	"time"
+ 
+ 	"github.com/cli/cli/v2/api"
+@@ -224,11 +225,7 @@ func fetchReleasePath(ctx context.Context, httpClient *http.Client, host string,
+ 	return &release, nil
+ }
+ 
+-type testingT interface {
+-	Errorf(format string, args ...interface{})
+-}
+-
+-func StubFetchRelease(t testingT, reg *httpmock.Registry, owner, repoName, tagName, responseBody string) {
++func StubFetchRelease(t *testing.T, reg *httpmock.Registry, owner, repoName, tagName, responseBody string) {
+ 	path := "repos/OWNER/REPO/releases/tags/v1.2.3"
+ 	if tagName == "" {
+ 		path = "repos/OWNER/REPO/releases/latest"
+@@ -239,10 +236,12 @@ func StubFetchRelease(t testingT, reg *httpmock.Registry, owner, repoName, tagNa
+ 	if tagName != "" {
+ 		reg.Register(
+ 			httpmock.GraphQL(`query RepositoryReleaseByTag\b`),
+-			httpmock.GraphQLQuery(`{ "data": { "repository": { "release": null }}}`, func(q string, vars map[string]interface{}) {
+-				assert.Equal(t, owner, vars["owner"])
+-				assert.Equal(t, repoName, vars["name"])
+-				assert.Equal(t, tagName, vars["tagName"])
+-			}))
++			httpmock.GraphQLQuery(`{ "data": { "repository": { "release": null }}}`,
++				func(q string, vars map[string]interface{}) {
++					assert.Equal(t, owner, vars["owner"])
++					assert.Equal(t, repoName, vars["name"])
++					assert.Equal(t, tagName, vars["tagName"])
++				}),
++		)
+ 	}
+ }

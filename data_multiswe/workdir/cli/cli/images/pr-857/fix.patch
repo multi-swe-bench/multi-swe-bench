@@ -1,0 +1,99 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 3bb56b80fde..3ae9ba98ae1 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -780,6 +780,25 @@ func PullRequestClose(client *Client, repo ghrepo.Interface, pr PullRequest) err
+ 	return err
+ }
+ 
++func PullRequestReopen(client *Client, repo ghrepo.Interface, pr PullRequest) error {
++	var mutation struct {
++		ReopenPullRequest struct {
++			PullRequest struct {
++				ID githubv4.ID
++			}
++		} `graphql:"reopenPullRequest(input: $input)"`
++	}
++
++	input := githubv4.ReopenPullRequestInput{
++		PullRequestID: pr.ID,
++	}
++
++	v4 := githubv4.NewClient(client.http)
++	err := v4.Mutate(context.Background(), &mutation, input, nil)
++
++	return err
++}
++
+ func min(a, b int) int {
+ 	if a < b {
+ 		return a
+diff --git a/command/pr.go b/command/pr.go
+index d6873b4d7de..2d4b63d61ce 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -23,6 +23,7 @@ func init() {
+ 	prCmd.AddCommand(prCreateCmd)
+ 	prCmd.AddCommand(prStatusCmd)
+ 	prCmd.AddCommand(prCloseCmd)
++	prCmd.AddCommand(prReopenCmd)
+ 
+ 	prCmd.AddCommand(prListCmd)
+ 	prListCmd.Flags().IntP("limit", "L", 30, "Maximum number of items to fetch")
+@@ -72,6 +73,12 @@ var prCloseCmd = &cobra.Command{
+ 	Args:  cobra.ExactArgs(1),
+ 	RunE:  prClose,
+ }
++var prReopenCmd = &cobra.Command{
++	Use:   "reopen [{<number> | <url>}]",
++	Short: "Reopen a pull request",
++	Args:  cobra.ExactArgs(1),
++	RunE:  prReopen,
++}
+ 
+ func prStatus(cmd *cobra.Command, args []string) error {
+ 	ctx := contextForCommand(cmd)
+@@ -367,6 +374,43 @@ func prClose(cmd *cobra.Command, args []string) error {
+ 	return nil
+ }
+ 
++func prReopen(cmd *cobra.Command, args []string) error {
++	ctx := contextForCommand(cmd)
++	apiClient, err := apiClientForContext(ctx)
++	if err != nil {
++		return err
++	}
++
++	baseRepo, err := determineBaseRepo(cmd, ctx)
++	if err != nil {
++		return err
++	}
++
++	pr, err := prFromArg(apiClient, baseRepo, args[0])
++	if err != nil {
++		return err
++	}
++
++	if pr.State == "MERGED" {
++		fmt.Fprintf(colorableErr(cmd), "%s Pull request #%d can't be reopened because it was already merged.\n", utils.Red("!"), pr.Number)
++		return nil
++	}
++
++	if !pr.Closed {
++		fmt.Fprintf(colorableErr(cmd), "%s Pull request #%d is already open\n", utils.Yellow("!"), pr.Number)
++		return nil
++	}
++
++	err = api.PullRequestReopen(apiClient, baseRepo, *pr)
++	if err != nil {
++		return fmt.Errorf("API call failed:%w", err)
++	}
++
++	fmt.Fprintf(colorableErr(cmd), "%s Reopened pull request #%d\n", utils.Green("✔"), pr.Number)
++
++	return nil
++}
++
+ func printPrPreview(out io.Writer, pr *api.PullRequest) error {
+ 	// Header (Title and State)
+ 	fmt.Fprintln(out, utils.Bold(pr.Title))

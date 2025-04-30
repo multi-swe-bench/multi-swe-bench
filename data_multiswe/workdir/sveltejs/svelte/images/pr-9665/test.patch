@@ -1,0 +1,108 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/_config.js
+new file mode 100644
+index 000000000000..ffb50aaa536f
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/_config.js
+@@ -0,0 +1,62 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<p>snippet: 0</p>
++		<button>toggle</button>
++		<button>increase count</button>
++	`,
++	props: {
++		get log() {
++			return [];
++		}
++	},
++
++	async test({ assert, target, component }) {
++		const [toggle, increment] = target.querySelectorAll('button');
++
++		await increment?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>snippet: 1</p>
++				<button>toggle</button>
++				<button>increase count</button>
++			`
++		);
++		assert.deepEqual(component.log, []);
++
++		await toggle?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>component: 1</p>
++				<button>toggle</button>
++				<button>increase count</button>
++			`
++		);
++		assert.deepEqual(component.log, [1]);
++
++		await increment?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>component: 2</p>
++				<button>toggle</button>
++				<button>increase count</button>
++			`
++		);
++		assert.deepEqual(component.log, [1]);
++
++		await toggle?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>snippet: 2</p>
++				<button>toggle</button>
++				<button>increase count</button>
++			`
++		);
++		assert.deepEqual(component.log, [1]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/inner.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/inner.svelte
+new file mode 100644
+index 000000000000..bbe3a6104340
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/inner.svelte
+@@ -0,0 +1,6 @@
++<script>
++    let { count, log } = $props();
++    log.push(count);
++</script>
++
++<p>component: {count}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/main.svelte
+new file mode 100644
+index 000000000000..682fca22dc84
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-reactive-args/main.svelte
+@@ -0,0 +1,22 @@
++<script>
++	import Inner from "./inner.svelte";
++
++	let { log } = $props();
++
++	let count = $state(0);
++	let show_foo = $state(true);
++	let snippet = $derived(show_foo ? foo : bar);
++</script>
++
++{#snippet foo({count})}
++	<p>snippet: {count}</p>
++{/snippet}
++
++{#snippet bar(props)}
++	<Inner {...props}></Inner>
++{/snippet}
++
++{@render snippet({ count, log })}
++
++<button onclick={() => show_foo = !show_foo}>toggle</button>
++<button onclick={() => count++}>increase count</button>

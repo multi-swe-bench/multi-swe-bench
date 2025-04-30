@@ -1,0 +1,81 @@
+diff --git a/test_suite/tests/test_gen.rs b/test_suite/tests/test_gen.rs
+index ed9dc725e..256fe3823 100644
+--- a/test_suite/tests/test_gen.rs
++++ b/test_suite/tests/test_gen.rs
+@@ -808,6 +808,41 @@ fn test_gen() {
+     #[derive(Deserialize)]
+     #[serde(bound(deserialize = "[&'de str; N]: Copy"))]
+     pub struct GenericUnitStruct<const N: usize>;
++
++    #[derive(Serialize)]
++    pub struct WithGetter {
++        #[serde(getter = "Self::get")]
++        a: u8,
++        #[serde(getter = "free_function")]
++        b: u8,
++    }
++    impl WithGetter {
++        fn get(&self) -> u8 {
++            self.a
++        }
++    }
++    pub fn free_function(obj: &WithGetter) -> u8 {
++        obj.b
++    }
++    assert_ser::<WithGetter>();
++
++    // We need to constraint generic types with the same bounds as on `generic_free_function`
++    #[derive(Serialize)]
++    pub struct GenericWithGetter<T: Clone> {
++        #[serde(getter = "Self::get")]
++        a: T,
++        #[serde(getter = "generic_free_function")]
++        b: T,
++    }
++    impl<T: Clone> GenericWithGetter<T> {
++        fn get(&self) -> T {
++            self.a.clone()
++        }
++    }
++    pub fn generic_free_function<T: Clone>(obj: &GenericWithGetter<T>) -> T {
++        obj.b.clone()
++    }
++    assert_ser::<GenericWithGetter<u16>>();
+ }
+ 
+ //////////////////////////////////////////////////////////////////////////
+diff --git a/test_suite/tests/ui/remote/nonremote_getter.rs b/test_suite/tests/ui/remote/nonremote_getter.rs
+deleted file mode 100644
+index 6c5f4681b..000000000
+--- a/test_suite/tests/ui/remote/nonremote_getter.rs
++++ /dev/null
+@@ -1,15 +0,0 @@
+-use serde_derive::Serialize;
+-
+-#[derive(Serialize)]
+-struct S {
+-    #[serde(getter = "S::get")]
+-    a: u8,
+-}
+-
+-impl S {
+-    fn get(&self) -> u8 {
+-        self.a
+-    }
+-}
+-
+-fn main() {}
+diff --git a/test_suite/tests/ui/remote/nonremote_getter.stderr b/test_suite/tests/ui/remote/nonremote_getter.stderr
+deleted file mode 100644
+index e510fdc83..000000000
+--- a/test_suite/tests/ui/remote/nonremote_getter.stderr
++++ /dev/null
+@@ -1,8 +0,0 @@
+-error: #[serde(getter = "...")] can only be used in structs that have #[serde(remote = "...")]
+- --> tests/ui/remote/nonremote_getter.rs:4:1
+-  |
+-4 | / struct S {
+-5 | |     #[serde(getter = "S::get")]
+-6 | |     a: u8,
+-7 | | }
+-  | |_^

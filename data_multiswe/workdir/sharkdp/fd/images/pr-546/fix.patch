@@ -1,0 +1,119 @@
+diff --git a/src/app.rs b/src/app.rs
+index a44b3ee6c..3de383ffc 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -127,6 +127,7 @@ pub fn build_app() -> App<'static, 'static> {
+                 .short("0")
+                 .overrides_with("print0"),
+         )
++        .arg(arg("prune").long("prune").hidden_short_help(true))
+         .arg(arg("depth").long("max-depth").short("d").takes_value(true))
+         // support --maxdepth as well, for compatibility with rg
+         .arg(
+@@ -351,6 +352,10 @@ fn usage() -> HashMap<&'static str, Help> {
+         , "Separate results by the null character"
+         , "Separate search results by the null character (instead of newlines). Useful for \
+            piping results to 'xargs'.");
++    doc!(h, "prune"
++        , "Do not descend into matched directories"
++        , "When a directory matches the pattern, fd does not descend into it but still shows \
++           all matches at the same level as that directory.");
+     doc!(h, "depth"
+         , "Set maximum search depth (default: none)"
+         , "Limit the directory traversal to a given depth. By default, there is no limit \
+diff --git a/src/internal/opts.rs b/src/internal/opts.rs
+index b3feb1cbc..aacb916d7 100644
+--- a/src/internal/opts.rs
++++ b/src/internal/opts.rs
+@@ -34,6 +34,9 @@ pub struct FdOptions {
+     /// Whether elements of output should be separated by a null character
+     pub null_separator: bool,
+ 
++    /// Whether to not descend into matching directories.
++    pub prune: bool,
++
+     /// The maximum search depth, or `None` if no maximum search depth should be set.
+     ///
+     /// A depth of `1` includes all files under the current directory, a depth of `2` also includes
+diff --git a/src/main.rs b/src/main.rs
+index 243b8c6e9..adbf6c155 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -211,6 +211,7 @@ fn main() {
+         follow_links: matches.is_present("follow"),
+         one_file_system: matches.is_present("one-file-system"),
+         null_separator: matches.is_present("null_separator"),
++        prune: matches.is_present("prune"),
+         max_depth: matches
+             .value_of("depth")
+             .or_else(|| matches.value_of("rg-depth"))
+diff --git a/src/walk.rs b/src/walk.rs
+index 11969307f..c6b14071b 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -362,6 +362,17 @@ fn spawn_senders(
+                 return ignore::WalkState::Continue;
+             }
+ 
++            // when pruning, don't descend into matching dirs
++            // note that prune requires pattern
++            let walk_action = if config.prune
++                && pattern.as_str().len() != 0
++                && entry.file_type().map_or(false, |e| e.is_dir())
++            {
++                ignore::WalkState::Skip
++            } else {
++                ignore::WalkState::Continue
++            };
++
+             // Filter out unwanted extensions.
+             if let Some(ref exts_regex) = config.extensions {
+                 if let Some(path_str) = entry_path.file_name() {
+@@ -387,10 +398,10 @@ fn spawn_senders(
+                         || (file_types.empty_only && !fshelper::is_empty(&entry))
+                         || !(entry_type.is_file() || entry_type.is_dir() || entry_type.is_symlink())
+                     {
+-                        return ignore::WalkState::Continue;
++                        return walk_action;
+                     }
+                 } else {
+-                    return ignore::WalkState::Continue;
++                    return walk_action;
+                 }
+             }
+ 
+@@ -404,13 +415,13 @@ fn spawn_senders(
+                             .iter()
+                             .any(|sc| !sc.is_within(file_size))
+                         {
+-                            return ignore::WalkState::Continue;
++                            return walk_action;
+                         }
+                     } else {
+-                        return ignore::WalkState::Continue;
++                        return walk_action;
+                     }
+                 } else {
+-                    return ignore::WalkState::Continue;
++                    return walk_action;
+                 }
+             }
+ 
+@@ -426,7 +437,7 @@ fn spawn_senders(
+                     }
+                 }
+                 if !matched {
+-                    return ignore::WalkState::Continue;
++                    return walk_action;
+                 }
+             }
+ 
+@@ -436,7 +447,7 @@ fn spawn_senders(
+                 return ignore::WalkState::Quit;
+             }
+ 
+-            ignore::WalkState::Continue
++            walk_action
+         })
+     });
+ }

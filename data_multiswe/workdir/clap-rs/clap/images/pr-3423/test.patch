@@ -1,0 +1,79 @@
+diff --git a/tests/builder/default_missing_vals.rs b/tests/builder/default_missing_vals.rs
+index 16bc82449aa..40793043afa 100644
+--- a/tests/builder/default_missing_vals.rs
++++ b/tests/builder/default_missing_vals.rs
+@@ -155,3 +155,33 @@ fn default_missing_value_flag_value() {
+         false
+     );
+ }
++
++#[cfg(debug_assertions)]
++#[test]
++#[should_panic = "Argument `arg`'s default_missing_value=value doesn't match possible values"]
++fn default_missing_values_are_possible_values() {
++    use clap::{App, Arg};
++
++    let _ = App::new("test")
++        .arg(
++            Arg::new("arg")
++                .possible_values(["one", "two"])
++                .default_missing_value("value"),
++        )
++        .try_get_matches();
++}
++
++#[cfg(debug_assertions)]
++#[test]
++#[should_panic = "Argument `arg`'s default_missing_value=value failed validation: invalid digit found in string"]
++fn default_missing_values_are_valid() {
++    use clap::{App, Arg};
++
++    let _ = App::new("test")
++        .arg(
++            Arg::new("arg")
++                .validator(|val| val.parse::<u32>().map_err(|e| e.to_string()))
++                .default_missing_value("value"),
++        )
++        .try_get_matches();
++}
+diff --git a/tests/builder/default_vals.rs b/tests/builder/default_vals.rs
+index a97c0759d78..8c2777a378b 100644
+--- a/tests/builder/default_vals.rs
++++ b/tests/builder/default_vals.rs
+@@ -631,6 +631,36 @@ fn required_args_with_default_values() {
+         .try_get_matches();
+ }
+ 
++#[cfg(debug_assertions)]
++#[test]
++#[should_panic = "Argument `arg`'s default_value=value doesn't match possible values"]
++fn default_values_are_possible_values() {
++    use clap::{App, Arg};
++
++    let _ = App::new("test")
++        .arg(
++            Arg::new("arg")
++                .possible_values(["one", "two"])
++                .default_value("value"),
++        )
++        .try_get_matches();
++}
++
++#[cfg(debug_assertions)]
++#[test]
++#[should_panic = "Argument `arg`'s default_value=value failed validation: invalid digit found in string"]
++fn default_values_are_valid() {
++    use clap::{App, Arg};
++
++    let _ = App::new("test")
++        .arg(
++            Arg::new("arg")
++                .validator(|val| val.parse::<u32>().map_err(|e| e.to_string()))
++                .default_value("value"),
++        )
++        .try_get_matches();
++}
++
+ #[test]
+ fn with_value_delimiter() {
+     let app = App::new("multiple_values").arg(

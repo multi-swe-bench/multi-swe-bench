@@ -1,0 +1,53 @@
+diff --git a/src/build/app/debug_asserts.rs b/src/build/app/debug_asserts.rs
+index f3ace5ac3f5..fa5c4478fe9 100644
+--- a/src/build/app/debug_asserts.rs
++++ b/src/build/app/debug_asserts.rs
+@@ -219,14 +219,27 @@ pub(crate) fn assert_app(app: &App) {
+             group.name,
+         );
+ 
+-        // Args listed inside groups should exist
+         for arg in &group.args {
++            // Args listed inside groups should exist
+             assert!(
+                 app.args.args.iter().any(|x| x.id == *arg),
+                 "Argument group '{}' contains non-existent argument '{:?}'",
+                 group.name,
+                 arg
+-            )
++            );
++
++            // Required groups shouldn't have args with default values
++            if group.required {
++                assert!(
++                    app.args
++                        .args
++                        .iter()
++                        .any(|x| x.id == *arg && x.default_vals.is_empty()),
++                    "Argument group '{}' is required but contains argument '{:?}' which has a default value.",
++                    group.name,
++                    arg
++                )
++            }
+         }
+     }
+ 
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index d3dc8b8be4c..2de73c042db 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -4397,6 +4397,14 @@ impl Arg<'_> {
+                 self.name
+             );
+         }
++
++        if self.is_set(ArgSettings::Required) {
++            assert!(
++                self.default_vals.is_empty(),
++                "Argument '{}' is required and can't have a default value",
++                self.name
++            );
++        }
+     }
+ }
+ 

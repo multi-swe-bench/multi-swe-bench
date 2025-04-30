@@ -1,0 +1,621 @@
+diff --git a/api/client_test.go b/api/client_test.go
+index 8edf279eab3..29da3363ae1 100644
+--- a/api/client_test.go
++++ b/api/client_test.go
+@@ -109,67 +109,3 @@ func TestRESTError(t *testing.T) {
+ 
+ 	}
+ }
+-
+-func Test_HasMinimumScopes(t *testing.T) {
+-	tests := []struct {
+-		name    string
+-		header  string
+-		wantErr string
+-	}{
+-		{
+-			name:    "no scopes",
+-			header:  "",
+-			wantErr: "",
+-		},
+-		{
+-			name:    "default scopes",
+-			header:  "repo, read:org",
+-			wantErr: "",
+-		},
+-		{
+-			name:    "admin:org satisfies read:org",
+-			header:  "repo, admin:org",
+-			wantErr: "",
+-		},
+-		{
+-			name:    "insufficient scope",
+-			header:  "repo",
+-			wantErr: "missing required scope 'read:org'",
+-		},
+-		{
+-			name:    "insufficient scopes",
+-			header:  "gist",
+-			wantErr: "missing required scopes 'repo', 'read:org'",
+-		},
+-	}
+-	for _, tt := range tests {
+-		t.Run(tt.name, func(t *testing.T) {
+-			fakehttp := &httpmock.Registry{}
+-			client := NewClient(ReplaceTripper(fakehttp))
+-
+-			fakehttp.Register(httpmock.REST("GET", ""), func(req *http.Request) (*http.Response, error) {
+-				return &http.Response{
+-					Request:    req,
+-					StatusCode: 200,
+-					Body:       ioutil.NopCloser(&bytes.Buffer{}),
+-					Header: map[string][]string{
+-						"X-Oauth-Scopes": {tt.header},
+-					},
+-				}, nil
+-			})
+-
+-			err := client.HasMinimumScopes("github.com")
+-			if tt.wantErr == "" {
+-				if err != nil {
+-					t.Errorf("error: %v", err)
+-				}
+-				return
+-			}
+-			if err.Error() != tt.wantErr {
+-				t.Errorf("want %q, got %q", tt.wantErr, err.Error())
+-
+-			}
+-		})
+-	}
+-
+-}
+diff --git a/pkg/cmd/auth/login/login_test.go b/pkg/cmd/auth/login/login_test.go
+index e14bc2e3f6e..17a2ade6201 100644
+--- a/pkg/cmd/auth/login/login_test.go
++++ b/pkg/cmd/auth/login/login_test.go
+@@ -8,9 +8,8 @@ import (
+ 	"testing"
+ 
+ 	"github.com/MakeNowJust/heredoc"
+-	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/pkg/cmd/auth/shared"
++	"github.com/cli/cli/internal/run"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/httpmock"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -300,13 +299,8 @@ func Test_loginRun_nontty(t *testing.T) {
+ 		tt.opts.IO = io
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			reg := &httpmock.Registry{}
+-			origClientFromCfg := shared.ClientFromCfg
+-			defer func() {
+-				shared.ClientFromCfg = origClientFromCfg
+-			}()
+-			shared.ClientFromCfg = func(_ string, _ config.Config) (*api.Client, error) {
+-				httpClient := &http.Client{Transport: reg}
+-				return api.NewClientFromHTTP(httpClient), nil
++			tt.opts.HttpClient = func() (*http.Client, error) {
++				return &http.Client{Transport: reg}, nil
+ 			}
+ 
+ 			old_GH_TOKEN := os.Getenv("GH_TOKEN")
+@@ -328,6 +322,9 @@ func Test_loginRun_nontty(t *testing.T) {
+ 				tt.httpStubs(reg)
+ 			}
+ 
++			_, restoreRun := run.Stub()
++			defer restoreRun(t)
++
+ 			mainBuf := bytes.Buffer{}
+ 			hostsBuf := bytes.Buffer{}
+ 			defer config.StubWriteConfig(&mainBuf, &hostsBuf)()
+@@ -353,6 +350,7 @@ func Test_loginRun_Survey(t *testing.T) {
+ 		opts       *LoginOptions
+ 		httpStubs  func(*httpmock.Registry)
+ 		askStubs   func(*prompt.AskStubber)
++		runStubs   func(*run.CommandStubber)
+ 		wantHosts  string
+ 		wantErrOut *regexp.Regexp
+ 		cfg        func(config.Config)
+@@ -367,9 +365,9 @@ func Test_loginRun_Survey(t *testing.T) {
+ 			},
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", ""), httpmock.ScopesResponder("repo,read:org"))
+-				reg.Register(
+-					httpmock.GraphQL(`query UserCurrent\b`),
+-					httpmock.StringResponse(`{"data":{"viewer":{"login":"jillv"}}}`))
++				// reg.Register(
++				// 	httpmock.GraphQL(`query UserCurrent\b`),
++				// 	httpmock.StringResponse(`{"data":{"viewer":{"login":"jillv"}}}`))
+ 			},
+ 			askStubs: func(as *prompt.AskStubber) {
+ 				as.StubOne(0)     // host type github.com
+@@ -384,12 +382,21 @@ func Test_loginRun_Survey(t *testing.T) {
+ 				Hostname:    "rebecca.chambers",
+ 				Interactive: true,
+ 			},
+-			wantHosts: "rebecca.chambers:\n    oauth_token: def456\n    git_protocol: https\n    user: jillv\n",
++			wantHosts: heredoc.Doc(`
++				rebecca.chambers:
++				    oauth_token: def456
++				    user: jillv
++				    git_protocol: https
++			`),
+ 			askStubs: func(as *prompt.AskStubber) {
+-				as.StubOne(1)        // auth mode: token
+-				as.StubOne("def456") // auth token
+ 				as.StubOne("HTTPS")  // git_protocol
+ 				as.StubOne(false)    // cache credentials
++				as.StubOne(1)        // auth mode: token
++				as.StubOne("def456") // auth token
++			},
++			runStubs: func(rs *run.CommandStubber) {
++				rs.Register(`git config credential\.https:/`, 1, "")
++				rs.Register(`git config credential\.helper`, 1, "")
+ 			},
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "api/v3/"), httpmock.ScopesResponder("repo,read:org"))
+@@ -400,18 +407,27 @@ func Test_loginRun_Survey(t *testing.T) {
+ 			wantErrOut: regexp.MustCompile("Tip: you can generate a Personal Access Token here https://rebecca.chambers/settings/tokens"),
+ 		},
+ 		{
+-			name:      "choose enterprise",
+-			wantHosts: "brad.vickers:\n    oauth_token: def456\n    git_protocol: https\n    user: jillv\n",
++			name: "choose enterprise",
++			wantHosts: heredoc.Doc(`
++				brad.vickers:
++				    oauth_token: def456
++				    user: jillv
++				    git_protocol: https
++			`),
+ 			opts: &LoginOptions{
+ 				Interactive: true,
+ 			},
+ 			askStubs: func(as *prompt.AskStubber) {
+ 				as.StubOne(1)              // host type enterprise
+ 				as.StubOne("brad.vickers") // hostname
+-				as.StubOne(1)              // auth mode: token
+-				as.StubOne("def456")       // auth token
+ 				as.StubOne("HTTPS")        // git_protocol
+ 				as.StubOne(false)          // cache credentials
++				as.StubOne(1)              // auth mode: token
++				as.StubOne("def456")       // auth token
++			},
++			runStubs: func(rs *run.CommandStubber) {
++				rs.Register(`git config credential\.https:/`, 1, "")
++				rs.Register(`git config credential\.helper`, 1, "")
+ 			},
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "api/v3/"), httpmock.ScopesResponder("repo,read:org,read:public_key"))
+@@ -422,31 +438,46 @@ func Test_loginRun_Survey(t *testing.T) {
+ 			wantErrOut: regexp.MustCompile("Tip: you can generate a Personal Access Token here https://brad.vickers/settings/tokens"),
+ 		},
+ 		{
+-			name:      "choose github.com",
+-			wantHosts: "github.com:\n    oauth_token: def456\n    git_protocol: https\n    user: jillv\n",
++			name: "choose github.com",
++			wantHosts: heredoc.Doc(`
++				github.com:
++				    oauth_token: def456
++				    user: jillv
++				    git_protocol: https
++			`),
+ 			opts: &LoginOptions{
+ 				Interactive: true,
+ 			},
+ 			askStubs: func(as *prompt.AskStubber) {
+ 				as.StubOne(0)        // host type github.com
+-				as.StubOne(1)        // auth mode: token
+-				as.StubOne("def456") // auth token
+ 				as.StubOne("HTTPS")  // git_protocol
+ 				as.StubOne(false)    // cache credentials
++				as.StubOne(1)        // auth mode: token
++				as.StubOne("def456") // auth token
++			},
++			runStubs: func(rs *run.CommandStubber) {
++				rs.Register(`git config credential\.https:/`, 1, "")
++				rs.Register(`git config credential\.helper`, 1, "")
+ 			},
+ 			wantErrOut: regexp.MustCompile("Tip: you can generate a Personal Access Token here https://github.com/settings/tokens"),
+ 		},
+ 		{
+-			name:      "sets git_protocol",
+-			wantHosts: "github.com:\n    oauth_token: def456\n    git_protocol: ssh\n    user: jillv\n",
++			name: "sets git_protocol",
++			wantHosts: heredoc.Doc(`
++				github.com:
++				    oauth_token: def456
++				    user: jillv
++				    git_protocol: ssh
++			`),
+ 			opts: &LoginOptions{
+ 				Interactive: true,
+ 			},
+ 			askStubs: func(as *prompt.AskStubber) {
+ 				as.StubOne(0)        // host type github.com
++				as.StubOne("SSH")    // git_protocol
++				as.StubOne(10)       // TODO: SSH key selection
+ 				as.StubOne(1)        // auth mode: token
+ 				as.StubOne("def456") // auth token
+-				as.StubOne("SSH")    // git_protocol
+ 			},
+ 			wantErrOut: regexp.MustCompile("Tip: you can generate a Personal Access Token here https://github.com/settings/tokens"),
+ 		},
+@@ -476,13 +507,8 @@ func Test_loginRun_Survey(t *testing.T) {
+ 
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			reg := &httpmock.Registry{}
+-			origClientFromCfg := shared.ClientFromCfg
+-			defer func() {
+-				shared.ClientFromCfg = origClientFromCfg
+-			}()
+-			shared.ClientFromCfg = func(_ string, _ config.Config) (*api.Client, error) {
+-				httpClient := &http.Client{Transport: reg}
+-				return api.NewClientFromHTTP(httpClient), nil
++			tt.opts.HttpClient = func() (*http.Client, error) {
++				return &http.Client{Transport: reg}, nil
+ 			}
+ 			if tt.httpStubs != nil {
+ 				tt.httpStubs(reg)
+@@ -503,6 +529,12 @@ func Test_loginRun_Survey(t *testing.T) {
+ 				tt.askStubs(as)
+ 			}
+ 
++			rs, restoreRun := run.Stub()
++			defer restoreRun(t)
++			if tt.runStubs != nil {
++				tt.runStubs(rs)
++			}
++
+ 			err := loginRun(tt.opts)
+ 			if err != nil {
+ 				t.Fatalf("unexpected error: %s", err)
+diff --git a/pkg/cmd/auth/shared/git_credential_test.go b/pkg/cmd/auth/shared/git_credential_test.go
+index a8d2fe408ef..debcf2d123b 100644
+--- a/pkg/cmd/auth/shared/git_credential_test.go
++++ b/pkg/cmd/auth/shared/git_credential_test.go
+@@ -1,88 +1,73 @@
+ package shared
+ 
+ import (
+-	"fmt"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/internal/run"
+-	"github.com/cli/cli/pkg/prompt"
+ )
+ 
+-type tinyConfig map[string]string
+-
+-func (c tinyConfig) Get(host, key string) (string, error) {
+-	return c[fmt.Sprintf("%s:%s", host, key)], nil
+-}
+-
+ func TestGitCredentialSetup_configureExisting(t *testing.T) {
+-	cfg := tinyConfig{"example.com:oauth_token": "OTOKEN"}
+-
+ 	cs, restoreRun := run.Stub()
+ 	defer restoreRun(t)
+-	cs.Register(`git config credential\.https://example\.com\.helper`, 1, "")
+-	cs.Register(`git config credential\.helper`, 0, "osxkeychain\n")
+ 	cs.Register(`git credential reject`, 0, "")
+ 	cs.Register(`git credential approve`, 0, "")
+ 
+-	as, restoreAsk := prompt.InitAskStubber()
+-	defer restoreAsk()
+-	as.StubOne(true)
+-
+-	if err := GitCredentialSetup(cfg, "example.com", "monalisa"); err != nil {
++	if err := GitCredentialSetup("example.com", "monalisa", "PASSWD", "osxkeychain"); err != nil {
+ 		t.Errorf("GitCredentialSetup() error = %v", err)
+ 	}
+ }
+ 
+ func TestGitCredentialSetup_setOurs(t *testing.T) {
+-	cfg := tinyConfig{"example.com:oauth_token": "OTOKEN"}
+-
+ 	cs, restoreRun := run.Stub()
+ 	defer restoreRun(t)
+-	cs.Register(`git config credential\.https://example\.com\.helper`, 1, "")
+-	cs.Register(`git config credential\.helper`, 1, "")
+ 	cs.Register(`git config --global credential\.https://example\.com\.helper`, 0, "", func(args []string) {
+ 		if val := args[len(args)-1]; val != "!gh auth git-credential" {
+ 			t.Errorf("global credential helper configured to %q", val)
+ 		}
+ 	})
+ 
+-	as, restoreAsk := prompt.InitAskStubber()
+-	defer restoreAsk()
+-	as.StubOne(true)
+-
+-	if err := GitCredentialSetup(cfg, "example.com", "monalisa"); err != nil {
++	if err := GitCredentialSetup("example.com", "monalisa", "PASSWD", ""); err != nil {
+ 		t.Errorf("GitCredentialSetup() error = %v", err)
+ 	}
+ }
+ 
+-func TestGitCredentialSetup_promptDeny(t *testing.T) {
+-	cfg := tinyConfig{"example.com:oauth_token": "OTOKEN"}
+-
+-	cs, restoreRun := run.Stub()
+-	defer restoreRun(t)
+-	cs.Register(`git config credential\.https://example\.com\.helper`, 1, "")
+-	cs.Register(`git config credential\.helper`, 1, "")
+-
+-	as, restoreAsk := prompt.InitAskStubber()
+-	defer restoreAsk()
+-	as.StubOne(false)
+-
+-	if err := GitCredentialSetup(cfg, "example.com", "monalisa"); err != nil {
+-		t.Errorf("GitCredentialSetup() error = %v", err)
++func Test_isOurCredentialHelper(t *testing.T) {
++	tests := []struct {
++		name string
++		arg  string
++		want bool
++	}{
++		{
++			name: "blank",
++			arg:  "",
++			want: false,
++		},
++		{
++			name: "invalid",
++			arg:  "!",
++			want: false,
++		},
++		{
++			name: "osxkeychain",
++			arg:  "osxkeychain",
++			want: false,
++		},
++		{
++			name: "looks like gh but isn't",
++			arg:  "gh auth",
++			want: false,
++		},
++		{
++			name: "ours",
++			arg:  "!/path/to/gh auth",
++			want: true,
++		},
+ 	}
+-}
+-
+-func TestGitCredentialSetup_isOurs(t *testing.T) {
+-	cfg := tinyConfig{"example.com:oauth_token": "OTOKEN"}
+-
+-	cs, restoreRun := run.Stub()
+-	defer restoreRun(t)
+-	cs.Register(`git config credential\.https://example\.com\.helper`, 0, "!/path/to/gh auth\n")
+-
+-	_, restoreAsk := prompt.InitAskStubber()
+-	defer restoreAsk()
+-
+-	if err := GitCredentialSetup(cfg, "example.com", "monalisa"); err != nil {
+-		t.Errorf("GitCredentialSetup() error = %v", err)
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			if got := isOurCredentialHelper(tt.arg); got != tt.want {
++				t.Errorf("isOurCredentialHelper() = %v, want %v", got, tt.want)
++			}
++		})
+ 	}
+ }
+diff --git a/pkg/cmd/auth/shared/login_flow_test.go b/pkg/cmd/auth/shared/login_flow_test.go
+new file mode 100644
+index 00000000000..c37d89b4674
+--- /dev/null
++++ b/pkg/cmd/auth/shared/login_flow_test.go
+@@ -0,0 +1,103 @@
++package shared
++
++import (
++	"fmt"
++	"io/ioutil"
++	"net/http"
++	"path/filepath"
++	"testing"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/internal/run"
++	"github.com/cli/cli/pkg/httpmock"
++	"github.com/cli/cli/pkg/iostreams"
++	"github.com/cli/cli/pkg/prompt"
++	"github.com/stretchr/testify/assert"
++)
++
++type tinyConfig map[string]string
++
++func (c tinyConfig) Get(host, key string) (string, error) {
++	return c[fmt.Sprintf("%s:%s", host, key)], nil
++}
++
++func (c tinyConfig) Set(host string, key string, value string) error {
++	c[fmt.Sprintf("%s:%s", host, key)] = value
++	return nil
++}
++
++func (c tinyConfig) Write() error {
++	return nil
++}
++
++func TestLogin_ssh(t *testing.T) {
++	dir := t.TempDir()
++	io, _, stdout, stderr := iostreams.Test()
++
++	tr := httpmock.Registry{}
++	defer tr.Verify(t)
++
++	tr.Register(
++		httpmock.REST("GET", "api/v3/"),
++		httpmock.ScopesResponder("repo,read:org"))
++	tr.Register(
++		httpmock.GraphQL(`query UserCurrent\b`),
++		httpmock.StringResponse(`{"data":{"viewer":{ "login": "monalisa" }}}`))
++	tr.Register(
++		httpmock.REST("POST", "api/v3/user/keys"),
++		httpmock.StringResponse(`{}`))
++
++	ask, askRestore := prompt.InitAskStubber()
++	defer askRestore()
++
++	ask.StubOne("SSH")    // preferred protocol
++	ask.StubOne(true)     // generate a new key
++	ask.StubOne("monkey") // enter a passphrase
++	ask.StubOne(1)        // paste a token
++	ask.StubOne("ATOKEN") // token
++
++	rs, runRestore := run.Stub()
++	defer runRestore(t)
++
++	keyFile := filepath.Join(dir, "id_ed25519")
++	rs.Register(`ssh-keygen`, 0, "", func(args []string) {
++		expected := []string{
++			"ssh-keygen", "-t", "ed25519",
++			"-C", "",
++			"-N", "monkey",
++			"-f", keyFile,
++		}
++		assert.Equal(t, expected, args)
++		// simulate that the public key file has been generated
++		_ = ioutil.WriteFile(keyFile+".pub", []byte("PUBKEY"), 0600)
++	})
++
++	cfg := tinyConfig{}
++
++	err := Login(&LoginOptions{
++		IO:          io,
++		Config:      &cfg,
++		HTTPClient:  &http.Client{Transport: &tr},
++		Hostname:    "example.com",
++		Interactive: true,
++		sshContext: sshContext{
++			configDir: dir,
++			keygenExe: "ssh-keygen",
++		},
++	})
++	assert.NoError(t, err)
++
++	assert.Equal(t, "", stdout.String())
++	assert.Equal(t, heredoc.Docf(`
++		Tip: you can generate a Personal Access Token here https://example.com/settings/tokens
++		The minimum required scopes are 'repo', 'read:org', 'admin:public_key'.
++		- gh config set -h example.com git_protocol ssh
++		✓ Configured git protocol
++		✓ Uploaded the SSH key to your GitHub account: %s.pub
++		✓ Logged in as monalisa
++	`, keyFile), stderr.String())
++
++	assert.Equal(t, "monalisa", cfg["example.com:user"])
++	assert.Equal(t, "ATOKEN", cfg["example.com:oauth_token"])
++	assert.Equal(t, "ssh", cfg["example.com:git_protocol"])
++}
+diff --git a/pkg/cmd/auth/shared/oauth_scopes_test.go b/pkg/cmd/auth/shared/oauth_scopes_test.go
+new file mode 100644
+index 00000000000..e92020f0852
+--- /dev/null
++++ b/pkg/cmd/auth/shared/oauth_scopes_test.go
+@@ -0,0 +1,71 @@
++package shared
++
++import (
++	"bytes"
++	"io/ioutil"
++	"net/http"
++	"testing"
++
++	"github.com/cli/cli/pkg/httpmock"
++	"github.com/stretchr/testify/assert"
++)
++
++func Test_HasMinimumScopes(t *testing.T) {
++	tests := []struct {
++		name    string
++		header  string
++		wantErr string
++	}{
++		{
++			name:    "no scopes",
++			header:  "",
++			wantErr: "",
++		},
++		{
++			name:    "default scopes",
++			header:  "repo, read:org",
++			wantErr: "",
++		},
++		{
++			name:    "admin:org satisfies read:org",
++			header:  "repo, admin:org",
++			wantErr: "",
++		},
++		{
++			name:    "insufficient scope",
++			header:  "repo",
++			wantErr: "missing required scope 'read:org'",
++		},
++		{
++			name:    "insufficient scopes",
++			header:  "gist",
++			wantErr: "missing required scopes 'repo', 'read:org'",
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			fakehttp := &httpmock.Registry{}
++			defer fakehttp.Verify(t)
++
++			fakehttp.Register(httpmock.REST("GET", ""), func(req *http.Request) (*http.Response, error) {
++				return &http.Response{
++					Request:    req,
++					StatusCode: 200,
++					Body:       ioutil.NopCloser(&bytes.Buffer{}),
++					Header: map[string][]string{
++						"X-Oauth-Scopes": {tt.header},
++					},
++				}, nil
++			})
++
++			client := http.Client{Transport: fakehttp}
++			err := HasMinimumScopes(&client, "github.com", "ATOKEN")
++			if tt.wantErr != "" {
++				assert.EqualError(t, err, tt.wantErr)
++			} else {
++				assert.NoError(t, err)
++			}
++		})
++	}
++
++}
+diff --git a/pkg/cmd/auth/status/status_test.go b/pkg/cmd/auth/status/status_test.go
+index e917f621c0c..2e4261981a3 100644
+--- a/pkg/cmd/auth/status/status_test.go
++++ b/pkg/cmd/auth/status/status_test.go
+@@ -6,9 +6,7 @@ import (
+ 	"regexp"
+ 	"testing"
+ 
+-	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/internal/config"
+-	"github.com/cli/cli/pkg/cmd/auth/shared"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/httpmock"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -228,14 +226,6 @@ func Test_statusRun(t *testing.T) {
+ 			}
+ 
+ 			reg := &httpmock.Registry{}
+-			origClientFromCfg := shared.ClientFromCfg
+-			defer func() {
+-				shared.ClientFromCfg = origClientFromCfg
+-			}()
+-			shared.ClientFromCfg = func(_ string, _ config.Config) (*api.Client, error) {
+-				httpClient := &http.Client{Transport: reg}
+-				return api.NewClientFromHTTP(httpClient), nil
+-			}
+ 			tt.opts.HttpClient = func() (*http.Client, error) {
+ 				return &http.Client{Transport: reg}, nil
+ 			}

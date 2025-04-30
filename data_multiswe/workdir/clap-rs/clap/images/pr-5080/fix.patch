@@ -1,0 +1,290 @@
+diff --git a/clap_builder/src/builder/value_parser.rs b/clap_builder/src/builder/value_parser.rs
+index ab06ae5a432..1f0ef925f08 100644
+--- a/clap_builder/src/builder/value_parser.rs
++++ b/clap_builder/src/builder/value_parser.rs
+@@ -3,6 +3,7 @@ use std::ops::RangeBounds;
+ 
+ use crate::builder::Str;
+ use crate::builder::StyledStr;
++use crate::parser::ValueSource;
+ use crate::util::AnyValue;
+ use crate::util::AnyValueId;
+ 
+@@ -236,8 +237,9 @@ impl ValueParser {
+         cmd: &crate::Command,
+         arg: Option<&crate::Arg>,
+         value: &std::ffi::OsStr,
++        source: ValueSource,
+     ) -> Result<AnyValue, crate::Error> {
+-        self.any_value_parser().parse_ref(cmd, arg, value)
++        self.any_value_parser().parse_ref_(cmd, arg, value, source)
+     }
+ 
+     /// Describes the content of `AnyValue`
+@@ -594,6 +596,16 @@ trait AnyValueParser: Send + Sync + 'static {
+         value: &std::ffi::OsStr,
+     ) -> Result<AnyValue, crate::Error>;
+ 
++    fn parse_ref_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++        _source: ValueSource,
++    ) -> Result<AnyValue, crate::Error> {
++        self.parse_ref(cmd, arg, value)
++    }
++
+     fn parse(
+         &self,
+         cmd: &crate::Command,
+@@ -601,6 +613,16 @@ trait AnyValueParser: Send + Sync + 'static {
+         value: std::ffi::OsString,
+     ) -> Result<AnyValue, crate::Error>;
+ 
++    fn parse_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++        _source: ValueSource,
++    ) -> Result<AnyValue, crate::Error> {
++        self.parse(cmd, arg, value)
++    }
++
+     /// Describes the content of `AnyValue`
+     fn type_id(&self) -> AnyValueId;
+ 
+@@ -626,6 +648,17 @@ where
+         Ok(AnyValue::new(value))
+     }
+ 
++    fn parse_ref_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++        source: ValueSource,
++    ) -> Result<AnyValue, crate::Error> {
++        let value = ok!(TypedValueParser::parse_ref_(self, cmd, arg, value, source));
++        Ok(AnyValue::new(value))
++    }
++
+     fn parse(
+         &self,
+         cmd: &crate::Command,
+@@ -636,6 +669,17 @@ where
+         Ok(AnyValue::new(value))
+     }
+ 
++    fn parse_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++        source: ValueSource,
++    ) -> Result<AnyValue, crate::Error> {
++        let value = ok!(TypedValueParser::parse_(self, cmd, arg, value, source));
++        Ok(AnyValue::new(value))
++    }
++
+     fn type_id(&self) -> AnyValueId {
+         AnyValueId::of::<T>()
+     }
+@@ -716,6 +760,19 @@ pub trait TypedValueParser: Clone + Send + Sync + 'static {
+         value: &std::ffi::OsStr,
+     ) -> Result<Self::Value, crate::Error>;
+ 
++    /// Parse the argument value
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse_ref_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++        _source: ValueSource,
++    ) -> Result<Self::Value, crate::Error> {
++        self.parse_ref(cmd, arg, value)
++    }
++
+     /// Parse the argument value
+     ///
+     /// When `arg` is `None`, an external subcommand value is being parsed.
+@@ -728,6 +785,19 @@ pub trait TypedValueParser: Clone + Send + Sync + 'static {
+         self.parse_ref(cmd, arg, &value)
+     }
+ 
++    /// Parse the argument value
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse_(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++        _source: ValueSource,
++    ) -> Result<Self::Value, crate::Error> {
++        self.parse(cmd, arg, value)
++    }
++
+     /// Reflect on enumerated value properties
+     ///
+     /// Error checking should not be done with this; it is mostly targeted at user-facing
+@@ -2155,35 +2225,52 @@ impl TypedValueParser for UnknownArgumentValueParser {
+     type Value = String;
+ 
+     fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        TypedValueParser::parse_ref_(self, cmd, arg, value, ValueSource::CommandLine)
++    }
++
++    fn parse_ref_(
+         &self,
+         cmd: &crate::Command,
+         arg: Option<&crate::Arg>,
+         _value: &std::ffi::OsStr,
++        source: ValueSource,
+     ) -> Result<Self::Value, crate::Error> {
+-        let arg = match arg {
+-            Some(arg) => arg.to_string(),
+-            None => "..".to_owned(),
+-        };
+-        let err = crate::Error::unknown_argument(
+-            cmd,
+-            arg,
+-            self.arg.as_ref().map(|s| (s.as_str().to_owned(), None)),
+-            false,
+-            crate::output::Usage::new(cmd).create_usage_with_title(&[]),
+-        );
+-        #[cfg(feature = "error-context")]
+-        let err = {
+-            debug_assert_eq!(
+-                err.get(crate::error::ContextKind::Suggested),
+-                None,
+-                "Assuming `Error::unknown_argument` doesn't apply any `Suggested` so we can without caution"
+-            );
+-            err.insert_context_unchecked(
+-                crate::error::ContextKind::Suggested,
+-                crate::error::ContextValue::StyledStrs(self.suggestions.clone()),
+-            )
+-        };
+-        Err(err)
++        match source {
++            ValueSource::DefaultValue => {
++                TypedValueParser::parse_ref_(&StringValueParser::new(), cmd, arg, _value, source)
++            }
++            ValueSource::EnvVariable | ValueSource::CommandLine => {
++                let arg = match arg {
++                    Some(arg) => arg.to_string(),
++                    None => "..".to_owned(),
++                };
++                let err = crate::Error::unknown_argument(
++                    cmd,
++                    arg,
++                    self.arg.as_ref().map(|s| (s.as_str().to_owned(), None)),
++                    false,
++                    crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++                );
++                #[cfg(feature = "error-context")]
++                let err = {
++                    debug_assert_eq!(
++                        err.get(crate::error::ContextKind::Suggested),
++                        None,
++                        "Assuming `Error::unknown_argument` doesn't apply any `Suggested` so we can without caution"
++                    );
++                    err.insert_context_unchecked(
++                        crate::error::ContextKind::Suggested,
++                        crate::error::ContextValue::StyledStrs(self.suggestions.clone()),
++                    )
++                };
++                Err(err)
++            }
++        }
+     }
+ }
+ 
+diff --git a/clap_builder/src/parser/parser.rs b/clap_builder/src/parser/parser.rs
+index 81eddc9fd61..98b28eeb73d 100644
+--- a/clap_builder/src/parser/parser.rs
++++ b/clap_builder/src/parser/parser.rs
+@@ -421,7 +421,12 @@ impl<'cmd> Parser<'cmd> {
+                 sc_m.start_occurrence_of_external(self.cmd);
+ 
+                 for raw_val in raw_args.remaining(&mut args_cursor) {
+-                    let val = ok!(external_parser.parse_ref(self.cmd, None, raw_val));
++                    let val = ok!(external_parser.parse_ref(
++                        self.cmd,
++                        None,
++                        raw_val,
++                        ValueSource::CommandLine
++                    ));
+                     let external_id = Id::from_static_ref(Id::EXTERNAL);
+                     sc_m.add_val_to(&external_id, val, raw_val.to_os_string());
+                 }
+@@ -1032,6 +1037,7 @@ impl<'cmd> Parser<'cmd> {
+         &self,
+         arg: &Arg,
+         raw_vals: Vec<OsString>,
++        source: ValueSource,
+         matcher: &mut ArgMatcher,
+     ) -> ClapResult<()> {
+         debug!("Parser::push_arg_values: {raw_vals:?}");
+@@ -1044,7 +1050,7 @@ impl<'cmd> Parser<'cmd> {
+                 self.cur_idx.get()
+             );
+             let value_parser = arg.get_value_parser();
+-            let val = ok!(value_parser.parse_ref(self.cmd, Some(arg), &raw_val));
++            let val = ok!(value_parser.parse_ref(self.cmd, Some(arg), &raw_val, source));
+ 
+             matcher.add_val_to(arg.get_id(), val, raw_val);
+             matcher.add_index_to(arg.get_id(), self.cur_idx.get());
+@@ -1153,7 +1159,7 @@ impl<'cmd> Parser<'cmd> {
+                     ));
+                 }
+                 self.start_custom_arg(matcher, arg, source);
+-                ok!(self.push_arg_values(arg, raw_vals, matcher));
++                ok!(self.push_arg_values(arg, raw_vals, source, matcher));
+                 if cfg!(debug_assertions) && matcher.needs_more_vals(arg) {
+                     debug!(
+                         "Parser::react not enough values passed in, leaving it to the validator to complain",
+@@ -1170,7 +1176,7 @@ impl<'cmd> Parser<'cmd> {
+                     debug!("Parser::react: cur_idx:={}", self.cur_idx.get());
+                 }
+                 self.start_custom_arg(matcher, arg, source);
+-                ok!(self.push_arg_values(arg, raw_vals, matcher));
++                ok!(self.push_arg_values(arg, raw_vals, source, matcher));
+                 if cfg!(debug_assertions) && matcher.needs_more_vals(arg) {
+                     debug!(
+                         "Parser::react not enough values passed in, leaving it to the validator to complain",
+@@ -1196,7 +1202,7 @@ impl<'cmd> Parser<'cmd> {
+                     ));
+                 }
+                 self.start_custom_arg(matcher, arg, source);
+-                ok!(self.push_arg_values(arg, raw_vals, matcher));
++                ok!(self.push_arg_values(arg, raw_vals, source, matcher));
+                 Ok(ParseResult::ValuesDone)
+             }
+             ArgAction::SetFalse => {
+@@ -1217,7 +1223,7 @@ impl<'cmd> Parser<'cmd> {
+                     ));
+                 }
+                 self.start_custom_arg(matcher, arg, source);
+-                ok!(self.push_arg_values(arg, raw_vals, matcher));
++                ok!(self.push_arg_values(arg, raw_vals, source, matcher));
+                 Ok(ParseResult::ValuesDone)
+             }
+             ArgAction::Count => {
+@@ -1233,7 +1239,7 @@ impl<'cmd> Parser<'cmd> {
+ 
+                 matcher.remove(arg.get_id());
+                 self.start_custom_arg(matcher, arg, source);
+-                ok!(self.push_arg_values(arg, raw_vals, matcher));
++                ok!(self.push_arg_values(arg, raw_vals, source, matcher));
+                 Ok(ParseResult::ValuesDone)
+             }
+             ArgAction::Help => {

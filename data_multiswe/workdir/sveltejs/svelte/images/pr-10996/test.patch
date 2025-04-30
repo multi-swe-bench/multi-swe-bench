@@ -1,0 +1,164 @@
+diff --git a/packages/svelte/tests/hydration/samples/surrounding-whitespace/_config.js b/packages/svelte/tests/hydration/samples/surrounding-whitespace/_config.js
+new file mode 100644
+index 000000000000..f47bee71df87
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/surrounding-whitespace/_config.js
+@@ -0,0 +1,3 @@
++import { test } from '../../test';
++
++export default test({});
+diff --git a/packages/svelte/tests/hydration/samples/surrounding-whitespace/_override.html b/packages/svelte/tests/hydration/samples/surrounding-whitespace/_override.html
+new file mode 100644
+index 000000000000..a4b8d9e17cdf
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/surrounding-whitespace/_override.html
+@@ -0,0 +1,2 @@
++		<!-- unrelated comment -->
++		<!--[--><!--[--><!--ssr:if:true-->hello<!--]--><!--]-->
+diff --git a/packages/svelte/tests/hydration/samples/surrounding-whitespace/main.svelte b/packages/svelte/tests/hydration/samples/surrounding-whitespace/main.svelte
+new file mode 100644
+index 000000000000..7d6fe331139e
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/surrounding-whitespace/main.svelte
+@@ -0,0 +1,1 @@
++{#if true}hello{/if}
+diff --git a/packages/svelte/tests/hydration/test.ts b/packages/svelte/tests/hydration/test.ts
+index 460d589695a0..688450471864 100644
+--- a/packages/svelte/tests/hydration/test.ts
++++ b/packages/svelte/tests/hydration/test.ts
+@@ -34,17 +34,11 @@ interface HydrationTest extends BaseTest {
+ 	after_test?: () => void;
+ }
+ 
+-const { test, run } = suite<HydrationTest>(async (config, cwd) => {
+-	/**
+-	 * Read file and remove whitespace between ssr comments
+-	 */
+-	function read_html(path: string, fallback?: string): string {
+-		const html = fs.readFileSync(fallback && !fs.existsSync(path) ? fallback : path, 'utf-8');
+-		return config.trim_whitespace !== false
+-			? html.replace(/(<!--ssr:.?-->)[ \t\n\r\f]+(<!--ssr:.?-->)/g, '$1$2')
+-			: html;
+-	}
++function read(path: string): string | void {
++	return fs.existsSync(path) ? fs.readFileSync(path, 'utf-8') : undefined;
++}
+ 
++const { test, run } = suite<HydrationTest>(async (config, cwd) => {
+ 	if (!config.load_compiled) {
+ 		await compile_directory(cwd, 'client', { accessors: true, ...config.compileOptions });
+ 		await compile_directory(cwd, 'server', config.compileOptions);
+@@ -58,7 +52,7 @@ const { test, run } = suite<HydrationTest>(async (config, cwd) => {
+ 	});
+ 
+ 	fs.writeFileSync(`${cwd}/_output/body.html`, rendered.html + '\n');
+-	target.innerHTML = rendered.html;
++	target.innerHTML = read(`${cwd}/_override.html`) ?? rendered.html;
+ 
+ 	if (rendered.head) {
+ 		fs.writeFileSync(`${cwd}/_output/head.html`, rendered.head + '\n');
+@@ -97,15 +91,11 @@ const { test, run } = suite<HydrationTest>(async (config, cwd) => {
+ 			assert.ok(!got_hydration_error, 'Unexpected hydration error');
+ 		}
+ 
+-		const expected = fs.existsSync(`${cwd}/_expected.html`)
+-			? read_html(`${cwd}/_expected.html`)
+-			: rendered.html;
++		const expected = read(`${cwd}/_expected.html`) ?? rendered.html;
+ 		assert_html_equal(target.innerHTML, expected);
+ 
+ 		if (rendered.head) {
+-			const expected = fs.existsSync(`${cwd}/_expected_head.html`)
+-				? read_html(`${cwd}/_expected_head.html`)
+-				: rendered.head;
++			const expected = read(`${cwd}/_expected_head.html`) ?? rendered.head;
+ 			assert_html_equal(head.innerHTML, expected);
+ 		}
+ 
+diff --git a/packages/svelte/tests/server-side-rendering/samples/comment-preserve/_expected.html b/packages/svelte/tests/server-side-rendering/samples/comment-preserve/_expected.html
+index 20b49122af66..3eb11afc34b1 100644
+--- a/packages/svelte/tests/server-side-rendering/samples/comment-preserve/_expected.html
++++ b/packages/svelte/tests/server-side-rendering/samples/comment-preserve/_expected.html
+@@ -1,1 +1,1 @@
+-<![><p>before</p><!-- a comment --><p>after</p><!]>
++<!--[--><p>before</p><!-- a comment --><p>after</p><!--]-->
+diff --git a/packages/svelte/tests/snapshot/samples/bind-this/_expected/server/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-this/_expected/server/index.svelte.js
+index 5627a82d5c95..bd1d1ec71150 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-this/_expected/server/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-this/_expected/server/index.svelte.js
+@@ -4,8 +4,8 @@ import * as $ from "svelte/internal/server";
+ 
+ export default function Bind_this($$payload, $$props) {
+ 	$.push(false);
+-	$$payload.out += `<![>`;
++	$$payload.out += `<!--[-->`;
+ 	Foo($$payload, {});
+-	$$payload.out += `<!]>`;
++	$$payload.out += `<!--]-->`;
+ 	$.pop();
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/each-string-template/_expected/server/index.svelte.js b/packages/svelte/tests/snapshot/samples/each-string-template/_expected/server/index.svelte.js
+index 759705d3f240..baabeb63e077 100644
+--- a/packages/svelte/tests/snapshot/samples/each-string-template/_expected/server/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/each-string-template/_expected/server/index.svelte.js
+@@ -7,16 +7,16 @@ export default function Each_string_template($$payload, $$props) {
+ 
+ 	const each_array = $.ensure_array_like(['foo', 'bar', 'baz']);
+ 
+-	$$payload.out += `<![>`;
++	$$payload.out += `<!--[-->`;
+ 
+ 	for (let $$index = 0; $$index < each_array.length; $$index++) {
+ 		const thing = each_array[$$index];
+ 
+-		$$payload.out += "<![>";
++		$$payload.out += "<!--[-->";
+ 		$$payload.out += `${$.escape(thing)}, `;
+-		$$payload.out += "<!]>";
++		$$payload.out += "<!--]-->";
+ 	}
+ 
+-	$$payload.out += `<!]>`;
++	$$payload.out += `<!--]-->`;
+ 	$.pop();
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/server/index.svelte.js b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/server/index.svelte.js
+index cec3ef17cef7..1ae4cc76136b 100644
+--- a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/server/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/server/index.svelte.js
+@@ -13,7 +13,7 @@ export default function Function_prop_no_getter($$payload, $$props) {
+ 
+ 	const plusOne = (num) => num + 1;
+ 
+-	$$payload.out += `<![>`;
++	$$payload.out += `<!--[-->`;
+ 
+ 	Button($$payload, {
+ 		onmousedown: () => count += 1,
+@@ -24,6 +24,6 @@ export default function Function_prop_no_getter($$payload, $$props) {
+ 		}
+ 	});
+ 
+-	$$payload.out += `<!]>`;
++	$$payload.out += `<!--]-->`;
+ 	$.pop();
+ }
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/svelte-element/_expected/server/index.svelte.js b/packages/svelte/tests/snapshot/samples/svelte-element/_expected/server/index.svelte.js
+index a1ffeff067ca..2bd6400a5c20 100644
+--- a/packages/svelte/tests/snapshot/samples/svelte-element/_expected/server/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/svelte-element/_expected/server/index.svelte.js
+@@ -7,8 +7,8 @@ export default function Svelte_element($$payload, $$props) {
+ 
+ 	let { tag = 'hr' } = $$props;
+ 
+-	$$payload.out += `<![>`;
++	$$payload.out += `<!--[-->`;
+ 	if (tag) $.element($$payload, tag, () => {}, () => {});
+-	$$payload.out += `<!]>`;
++	$$payload.out += `<!--]-->`;
+ 	$.pop();
+ }
+\ No newline at end of file

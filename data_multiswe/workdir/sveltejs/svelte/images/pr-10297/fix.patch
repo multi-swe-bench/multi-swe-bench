@@ -1,0 +1,76 @@
+diff --git a/.changeset/three-icons-trade.md b/.changeset/three-icons-trade.md
+new file mode 100644
+index 000000000000..0bafcf9b7335
+--- /dev/null
++++ b/.changeset/three-icons-trade.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: run `onDestroy` callbacks during SSR
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 12d9a3c130f4..7350014958da 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -79,6 +79,12 @@ export function assign_payload(p1, p2) {
+ 	p1.anchor = p2.anchor;
+ }
+ 
++/**
++ * Array of `onDestroy` callbacks that should be called at the end of the server render function
++ * @type {Function[]}
++ */
++export let on_destroy = [];
++
+ /**
+  * @param {(...args: any[]) => void} component
+  * @param {{ props: Record<string, any>; context?: Map<any, any> }} options
+@@ -90,6 +96,8 @@ export function render(component, options) {
+ 	const root_head_anchor = create_anchor(payload.head);
+ 
+ 	set_is_ssr(true);
++	const prev_on_destroy = on_destroy;
++	on_destroy = [];
+ 	payload.out += root_anchor;
+ 
+ 	if (options.context) {
+@@ -102,6 +110,8 @@ export function render(component, options) {
+ 		$.pop();
+ 	}
+ 	payload.out += root_anchor;
++	for (const cleanup of on_destroy) cleanup();
++	on_destroy = prev_on_destroy;
+ 	set_is_ssr(false);
+ 
+ 	return {
+diff --git a/packages/svelte/src/main/main-server.js b/packages/svelte/src/main/main-server.js
+index 844aec50d1c6..a9e1148cc3e5 100644
+--- a/packages/svelte/src/main/main-server.js
++++ b/packages/svelte/src/main/main-server.js
+@@ -1,3 +1,5 @@
++import { on_destroy } from '../internal/server/index.js';
++
+ export {
+ 	createRoot,
+ 	createEventDispatcher,
+@@ -6,7 +8,6 @@ export {
+ 	getContext,
+ 	hasContext,
+ 	mount,
+-	onDestroy,
+ 	setContext,
+ 	tick,
+ 	untrack
+@@ -15,6 +16,11 @@ export {
+ /** @returns {void} */
+ export function onMount() {}
+ 
++/** @param {Function} fn */
++export function onDestroy(fn) {
++	on_destroy.push(fn);
++}
++
+ /** @returns {void} */
+ export function beforeUpdate() {}
+ 

@@ -1,0 +1,1805 @@
+diff --git a/pkg/cmd/api/api.go b/pkg/cmd/api/api.go
+index a4bbafa9c86..525c9e2d9de 100644
+--- a/pkg/cmd/api/api.go
++++ b/pkg/cmd/api/api.go
+@@ -45,7 +45,7 @@ type ApiOptions struct {
+ 	CacheTTL            time.Duration
+ 	FilterOutput        string
+ 
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Branch     func() (string, error)
+ }
+@@ -53,7 +53,7 @@ type ApiOptions struct {
+ func NewCmdApi(f *cmdutil.Factory, runF func(*ApiOptions) error) *cobra.Command {
+ 	opts := ApiOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		BaseRepo:   f.BaseRepo,
+ 		Branch:     f.Branch,
+ 	}
+@@ -269,7 +269,7 @@ func apiRun(opts *ApiOptions) error {
+ 		requestHeaders = append(requestHeaders, "Accept: "+previewNamesToMIMETypes(opts.Previews))
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/auth/login/login.go b/pkg/cmd/auth/login/login.go
+index 995405021a7..cd1534f5b0d 100644
+--- a/pkg/cmd/auth/login/login.go
++++ b/pkg/cmd/auth/login/login.go
+@@ -21,7 +21,7 @@ import (
+ type LoginOptions struct {
+ 	IO         *iostreams.IOStreams
+ 	Config     func() (config.Config, error)
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 
+ 	MainExecutable string
+ 
+@@ -37,7 +37,7 @@ func NewCmdLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.Comm
+ 	opts := &LoginOptions{
+ 		IO:         f.IOStreams,
+ 		Config:     f.Config,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 
+ 		MainExecutable: f.Executable,
+ 	}
+@@ -148,7 +148,7 @@ func loginRun(opts *LoginOptions) error {
+ 		return err
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/auth/logout/logout.go b/pkg/cmd/auth/logout/logout.go
+index 1454a3656f9..90d97ad3524 100644
+--- a/pkg/cmd/auth/logout/logout.go
++++ b/pkg/cmd/auth/logout/logout.go
+@@ -16,7 +16,7 @@ import (
+ )
+ 
+ type LogoutOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	Config     func() (config.Config, error)
+ 
+@@ -25,7 +25,7 @@ type LogoutOptions struct {
+ 
+ func NewCmdLogout(f *cmdutil.Factory, runF func(*LogoutOptions) error) *cobra.Command {
+ 	opts := &LogoutOptions{
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		IO:         f.IOStreams,
+ 		Config:     f.Config,
+ 	}
+@@ -114,7 +114,7 @@ func logoutRun(opts *LogoutOptions) error {
+ 		return err
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/auth/status/status.go b/pkg/cmd/auth/status/status.go
+index 6c31cfad422..530a1ac5dba 100644
+--- a/pkg/cmd/auth/status/status.go
++++ b/pkg/cmd/auth/status/status.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type StatusOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	Config     func() (config.Config, error)
+ 
+@@ -25,7 +25,7 @@ type StatusOptions struct {
+ 
+ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Command {
+ 	opts := &StatusOptions{
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		IO:         f.IOStreams,
+ 		Config:     f.Config,
+ 	}
+@@ -75,7 +75,7 @@ func statusRun(opts *StatusOptions) error {
+ 		return cmdutil.SilentError
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/factory/default.go b/pkg/cmd/factory/default.go
+index ff8ca8ac9a8..79904a57b82 100644
+--- a/pkg/cmd/factory/default.go
++++ b/pkg/cmd/factory/default.go
+@@ -53,7 +53,7 @@ func New(appVersion string) *cmdutil.Factory {
+ 		IOStreams: io,
+ 		Config:    configFunc,
+ 		Remotes:   remotesFunc,
+-		HttpClient: func() (*http.Client, error) {
++		HTTPClient: func() (*http.Client, error) {
+ 			cfg, err := configFunc()
+ 			if err != nil {
+ 				return nil, err
+diff --git a/pkg/cmd/gist/clone/clone.go b/pkg/cmd/gist/clone/clone.go
+index 8bdc932aea6..4a624f2f822 100644
+--- a/pkg/cmd/gist/clone/clone.go
++++ b/pkg/cmd/gist/clone/clone.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type CloneOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 
+@@ -27,7 +27,7 @@ type CloneOptions struct {
+ func NewCmdClone(f *cmdutil.Factory, runF func(*CloneOptions) error) *cobra.Command {
+ 	opts := &CloneOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+diff --git a/pkg/cmd/gist/create/create.go b/pkg/cmd/gist/create/create.go
+index 5ba3d56c738..1b6818dca4c 100644
+--- a/pkg/cmd/gist/create/create.go
++++ b/pkg/cmd/gist/create/create.go
+@@ -32,13 +32,13 @@ type CreateOptions struct {
+ 	FilenameOverride string
+ 	WebMode          bool
+ 
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ }
+ 
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := CreateOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -123,7 +123,7 @@ func createRun(opts *CreateOptions) error {
+ 	errOut := opts.IO.ErrOut
+ 	fmt.Fprintf(errOut, "%s %s\n", cs.Gray("-"), processMessage)
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/delete/delete.go b/pkg/cmd/gist/delete/delete.go
+index 674c33ad6fe..3ad0acbd84e 100644
+--- a/pkg/cmd/gist/delete/delete.go
++++ b/pkg/cmd/gist/delete/delete.go
+@@ -15,7 +15,7 @@ import (
+ 
+ type DeleteOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 
+ 	Selector string
+ }
+@@ -23,7 +23,7 @@ type DeleteOptions struct {
+ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
+ 	opts := DeleteOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -51,7 +51,7 @@ func deleteRun(opts *DeleteOptions) error {
+ 		}
+ 		gistID = id
+ 	}
+-	client, err := opts.HttpClient()
++	client, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/edit/edit.go b/pkg/cmd/gist/edit/edit.go
+index 6eb4a4ac8cd..0dcf962c10c 100644
+--- a/pkg/cmd/gist/edit/edit.go
++++ b/pkg/cmd/gist/edit/edit.go
+@@ -25,7 +25,7 @@ import (
+ 
+ type EditOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 
+ 	Edit func(string, string, string, *iostreams.IOStreams) (string, error)
+@@ -38,7 +38,7 @@ type EditOptions struct {
+ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Command {
+ 	opts := EditOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Edit: func(editorCmd, filename, defaultContent string, io *iostreams.IOStreams) (string, error) {
+ 			return surveyext.Edit(
+@@ -81,7 +81,7 @@ func editRun(opts *EditOptions) error {
+ 		gistID = id
+ 	}
+ 
+-	client, err := opts.HttpClient()
++	client, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/list/list.go b/pkg/cmd/gist/list/list.go
+index abe407827bc..dd0e046b537 100644
+--- a/pkg/cmd/gist/list/list.go
++++ b/pkg/cmd/gist/list/list.go
+@@ -17,7 +17,7 @@ import (
+ 
+ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 
+ 	Limit      int
+ 	Visibility string // all, secret, public
+@@ -26,7 +26,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	var flagPublic bool
+@@ -63,7 +63,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	client, err := opts.HttpClient()
++	client, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/gist/view/view.go b/pkg/cmd/gist/view/view.go
+index 33946fe8b13..be88457d8e6 100644
+--- a/pkg/cmd/gist/view/view.go
++++ b/pkg/cmd/gist/view/view.go
+@@ -21,7 +21,7 @@ import (
+ 
+ type ViewOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 
+ 	Selector  string
+ 	Filename  string
+@@ -33,7 +33,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -67,7 +67,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ 
+ func viewRun(opts *ViewOptions) error {
+ 	gistID := opts.Selector
+-	client, err := opts.HttpClient()
++	client, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/close/close.go b/pkg/cmd/issue/close/close.go
+index 0a5355c2177..84228b91884 100644
+--- a/pkg/cmd/issue/close/close.go
++++ b/pkg/cmd/issue/close/close.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type CloseOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -25,7 +25,7 @@ type CloseOptions struct {
+ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Command {
+ 	opts := &CloseOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -54,7 +54,7 @@ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Comm
+ func closeRun(opts *CloseOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/comment/comment.go b/pkg/cmd/issue/comment/comment.go
+index 94545cb6bba..88fec38ae6c 100644
+--- a/pkg/cmd/issue/comment/comment.go
++++ b/pkg/cmd/issue/comment/comment.go
+@@ -16,7 +16,7 @@ import (
+ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) error) *cobra.Command {
+ 	opts := &prShared.CommentableOptions{
+ 		IO:                    f.IOStreams,
+-		HttpClient:            f.HttpClient,
++		HTTPClient:            f.HTTPClient,
+ 		EditSurvey:            prShared.CommentableEditSurvey(f.Config, f.IOStreams),
+ 		InteractiveEditSurvey: prShared.CommentableInteractiveEditSurvey(f.Config, f.IOStreams),
+ 		ConfirmSubmitSurvey:   prShared.CommentableConfirmSubmitSurvey,
+@@ -33,7 +33,7 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 		`),
+ 		Args: cobra.ExactArgs(1),
+ 		PreRunE: func(cmd *cobra.Command, args []string) error {
+-			opts.RetrieveCommentable = retrieveIssue(f.HttpClient, f.BaseRepo, args[0])
++			opts.RetrieveCommentable = retrieveIssue(f.HTTPClient, f.BaseRepo, args[0])
+ 			return prShared.CommentablePreRun(cmd, opts)
+ 		},
+ 		RunE: func(_ *cobra.Command, args []string) error {
+diff --git a/pkg/cmd/issue/create/create.go b/pkg/cmd/issue/create/create.go
+index 44ae3eb9809..4db2bd0e7dd 100644
+--- a/pkg/cmd/issue/create/create.go
++++ b/pkg/cmd/issue/create/create.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type CreateOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -42,7 +42,7 @@ type CreateOptions struct {
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := &CreateOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -107,7 +107,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ }
+ 
+ func createRun(opts *CreateOptions) (err error) {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return
+ 	}
+diff --git a/pkg/cmd/issue/delete/delete.go b/pkg/cmd/issue/delete/delete.go
+index 9b3edfbb4b3..d87dd8408bd 100644
+--- a/pkg/cmd/issue/delete/delete.go
++++ b/pkg/cmd/issue/delete/delete.go
+@@ -2,6 +2,9 @@ package delete
+ 
+ import (
+ 	"fmt"
++	"net/http"
++	"strconv"
++
+ 	"github.com/AlecAivazis/survey/v2"
+ 	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/internal/config"
+@@ -11,12 +14,10 @@ import (
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/cli/cli/pkg/prompt"
+ 	"github.com/spf13/cobra"
+-	"net/http"
+-	"strconv"
+ )
+ 
+ type DeleteOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -27,7 +28,7 @@ type DeleteOptions struct {
+ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
+ 	opts := &DeleteOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -56,7 +57,7 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ func deleteRun(opts *DeleteOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/edit/edit.go b/pkg/cmd/issue/edit/edit.go
+index b3f85a36ba1..33f47239a7b 100644
+--- a/pkg/cmd/issue/edit/edit.go
++++ b/pkg/cmd/issue/edit/edit.go
+@@ -17,7 +17,7 @@ import (
+ )
+ 
+ type EditOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -35,7 +35,7 @@ type EditOptions struct {
+ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Command {
+ 	opts := &EditOptions{
+ 		IO:                 f.IOStreams,
+-		HttpClient:         f.HttpClient,
++		HTTPClient:         f.HTTPClient,
+ 		DetermineEditor:    func() (string, error) { return cmdutil.DetermineEditor(f.Config) },
+ 		FieldsToEditSurvey: prShared.FieldsToEditSurvey,
+ 		EditFieldsSurvey:   prShared.EditFieldsSurvey,
+@@ -132,7 +132,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ }
+ 
+ func editRun(opts *EditOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/list/list.go b/pkg/cmd/issue/list/list.go
+index d0c2430e8a1..394f9a509e3 100644
+--- a/pkg/cmd/issue/list/list.go
++++ b/pkg/cmd/issue/list/list.go
+@@ -20,7 +20,7 @@ import (
+ )
+ 
+ type ListOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -40,7 +40,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -85,7 +85,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/reopen/reopen.go b/pkg/cmd/issue/reopen/reopen.go
+index b0bb784f3c1..4199b00ea22 100644
+--- a/pkg/cmd/issue/reopen/reopen.go
++++ b/pkg/cmd/issue/reopen/reopen.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type ReopenOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -25,7 +25,7 @@ type ReopenOptions struct {
+ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Command {
+ 	opts := &ReopenOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -54,7 +54,7 @@ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Co
+ func reopenRun(opts *ReopenOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/status/status.go b/pkg/cmd/issue/status/status.go
+index 218d5d38ae1..65ba302d6a9 100644
+--- a/pkg/cmd/issue/status/status.go
++++ b/pkg/cmd/issue/status/status.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type StatusOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -24,7 +24,7 @@ type StatusOptions struct {
+ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Command {
+ 	opts := &StatusOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -47,7 +47,7 @@ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Co
+ }
+ 
+ func statusRun(opts *StatusOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/issue/view/view.go b/pkg/cmd/issue/view/view.go
+index aaf41526621..17f938f65d9 100644
+--- a/pkg/cmd/issue/view/view.go
++++ b/pkg/cmd/issue/view/view.go
+@@ -21,7 +21,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -35,7 +35,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Now:        time.Now,
+ 	}
+ 
+@@ -70,7 +70,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ }
+ 
+ func viewRun(opts *ViewOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/job/view/view.go b/pkg/cmd/job/view/view.go
+index 61ca751978d..0e97051339c 100644
+--- a/pkg/cmd/job/view/view.go
++++ b/pkg/cmd/job/view/view.go
+@@ -20,7 +20,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -36,7 +36,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Now:        time.Now,
+ 	}
+ 	cmd := &cobra.Command{
+@@ -80,7 +80,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ }
+ 
+ func runView(opts *ViewOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/pr/checkout/checkout.go b/pkg/cmd/pr/checkout/checkout.go
+index f7f73bb28f6..585ed303bac 100644
+--- a/pkg/cmd/pr/checkout/checkout.go
++++ b/pkg/cmd/pr/checkout/checkout.go
+@@ -21,7 +21,7 @@ import (
+ )
+ 
+ type CheckoutOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -37,7 +37,7 @@ type CheckoutOptions struct {
+ func NewCmdCheckout(f *cmdutil.Factory, runF func(*CheckoutOptions) error) *cobra.Command {
+ 	opts := &CheckoutOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -75,7 +75,7 @@ func checkoutRun(opts *CheckoutOptions) error {
+ 		return err
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/checks/checks.go b/pkg/cmd/pr/checks/checks.go
+index 89eb8e5d3a0..eb36164e857 100644
+--- a/pkg/cmd/pr/checks/checks.go
++++ b/pkg/cmd/pr/checks/checks.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type ChecksOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Branch     func() (string, error)
+@@ -32,7 +32,7 @@ type ChecksOptions struct {
+ func NewCmdChecks(f *cmdutil.Factory, runF func(*ChecksOptions) error) *cobra.Command {
+ 	opts := &ChecksOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Branch:     f.Branch,
+ 		Remotes:    f.Remotes,
+ 		BaseRepo:   f.BaseRepo,
+@@ -68,7 +68,7 @@ func NewCmdChecks(f *cmdutil.Factory, runF func(*ChecksOptions) error) *cobra.Co
+ }
+ 
+ func checksRun(opts *ChecksOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/close/close.go b/pkg/cmd/pr/close/close.go
+index f4cc442c224..42695aa5249 100644
+--- a/pkg/cmd/pr/close/close.go
++++ b/pkg/cmd/pr/close/close.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type CloseOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -29,7 +29,7 @@ type CloseOptions struct {
+ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Command {
+ 	opts := &CloseOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Branch:     f.Branch,
+ 	}
+@@ -62,7 +62,7 @@ func NewCmdClose(f *cmdutil.Factory, runF func(*CloseOptions) error) *cobra.Comm
+ func closeRun(opts *CloseOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/comment/comment.go b/pkg/cmd/pr/comment/comment.go
+index dc9341ebec1..06c5eed410a 100644
+--- a/pkg/cmd/pr/comment/comment.go
++++ b/pkg/cmd/pr/comment/comment.go
+@@ -17,7 +17,7 @@ import (
+ func NewCmdComment(f *cmdutil.Factory, runF func(*shared.CommentableOptions) error) *cobra.Command {
+ 	opts := &shared.CommentableOptions{
+ 		IO:                    f.IOStreams,
+-		HttpClient:            f.HttpClient,
++		HTTPClient:            f.HTTPClient,
+ 		EditSurvey:            shared.CommentableEditSurvey(f.Config, f.IOStreams),
+ 		InteractiveEditSurvey: shared.CommentableInteractiveEditSurvey(f.Config, f.IOStreams),
+ 		ConfirmSubmitSurvey:   shared.CommentableConfirmSubmitSurvey,
+@@ -41,7 +41,7 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*shared.CommentableOptions) err
+ 			if len(args) > 0 {
+ 				selector = args[0]
+ 			}
+-			opts.RetrieveCommentable = retrievePR(f.HttpClient, f.BaseRepo, f.Branch, f.Remotes, selector)
++			opts.RetrieveCommentable = retrievePR(f.HTTPClient, f.BaseRepo, f.Branch, f.Remotes, selector)
+ 			return shared.CommentablePreRun(cmd, opts)
+ 		},
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index 0de13bd4947..c64632d417d 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -26,7 +26,7 @@ import (
+ 
+ type CreateOptions struct {
+ 	// This struct stores user input and factory functions
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	Remotes    func() (context.Remotes, error)
+@@ -75,7 +75,7 @@ type CreateContext struct {
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := &CreateOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -435,7 +435,7 @@ func NewIssueState(ctx CreateContext, opts CreateOptions) (*shared.IssueMetadata
+ }
+ 
+ func NewCreateContext(opts *CreateOptions) (*CreateContext, error) {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/pkg/cmd/pr/diff/diff.go b/pkg/cmd/pr/diff/diff.go
+index 2bea8072b90..b3b4dff8ad0 100644
+--- a/pkg/cmd/pr/diff/diff.go
++++ b/pkg/cmd/pr/diff/diff.go
+@@ -19,7 +19,7 @@ import (
+ )
+ 
+ type DiffOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Remotes    func() (context.Remotes, error)
+@@ -32,7 +32,7 @@ type DiffOptions struct {
+ func NewCmdDiff(f *cmdutil.Factory, runF func(*DiffOptions) error) *cobra.Command {
+ 	opts := &DiffOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+ 	}
+@@ -74,7 +74,7 @@ func NewCmdDiff(f *cmdutil.Factory, runF func(*DiffOptions) error) *cobra.Comman
+ }
+ 
+ func diffRun(opts *DiffOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/edit/edit.go b/pkg/cmd/pr/edit/edit.go
+index 7a01f512567..74cc2f14337 100644
+--- a/pkg/cmd/pr/edit/edit.go
++++ b/pkg/cmd/pr/edit/edit.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type EditOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Remotes    func() (context.Remotes, error)
+@@ -37,7 +37,7 @@ type EditOptions struct {
+ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Command {
+ 	opts := &EditOptions{
+ 		IO:              f.IOStreams,
+-		HttpClient:      f.HttpClient,
++		HTTPClient:      f.HTTPClient,
+ 		Remotes:         f.Remotes,
+ 		Branch:          f.Branch,
+ 		Surveyor:        surveyor{},
+@@ -149,7 +149,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ }
+ 
+ func editRun(opts *EditOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/list/list.go b/pkg/cmd/pr/list/list.go
+index 97c35cd9c71..cfbdcb839ea 100644
+--- a/pkg/cmd/pr/list/list.go
++++ b/pkg/cmd/pr/list/list.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type ListOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -35,7 +35,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -75,7 +75,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index 96fb2b7f67f..23ce6d5b776 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -25,7 +25,7 @@ type editor interface {
+ }
+ 
+ type MergeOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -51,7 +51,7 @@ type MergeOptions struct {
+ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Command {
+ 	opts := &MergeOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -157,7 +157,7 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ func mergeRun(opts *MergeOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/ready/ready.go b/pkg/cmd/pr/ready/ready.go
+index 003902963db..dfdcad7b18f 100644
+--- a/pkg/cmd/pr/ready/ready.go
++++ b/pkg/cmd/pr/ready/ready.go
+@@ -16,7 +16,7 @@ import (
+ )
+ 
+ type ReadyOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -29,7 +29,7 @@ type ReadyOptions struct {
+ func NewCmdReady(f *cmdutil.Factory, runF func(*ReadyOptions) error) *cobra.Command {
+ 	opts := &ReadyOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -64,7 +64,7 @@ func NewCmdReady(f *cmdutil.Factory, runF func(*ReadyOptions) error) *cobra.Comm
+ func readyRun(opts *ReadyOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/reopen/reopen.go b/pkg/cmd/pr/reopen/reopen.go
+index 135e341faf0..0f90890b25d 100644
+--- a/pkg/cmd/pr/reopen/reopen.go
++++ b/pkg/cmd/pr/reopen/reopen.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type ReopenOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -25,7 +25,7 @@ type ReopenOptions struct {
+ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Command {
+ 	opts := &ReopenOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -54,7 +54,7 @@ func NewCmdReopen(f *cmdutil.Factory, runF func(*ReopenOptions) error) *cobra.Co
+ func reopenRun(opts *ReopenOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/review/review.go b/pkg/cmd/pr/review/review.go
+index 1ff213bcbe6..c24b275a199 100644
+--- a/pkg/cmd/pr/review/review.go
++++ b/pkg/cmd/pr/review/review.go
+@@ -21,7 +21,7 @@ import (
+ )
+ 
+ type ReviewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -37,7 +37,7 @@ type ReviewOptions struct {
+ func NewCmdReview(f *cmdutil.Factory, runF func(*ReviewOptions) error) *cobra.Command {
+ 	opts := &ReviewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -151,7 +151,7 @@ func NewCmdReview(f *cmdutil.Factory, runF func(*ReviewOptions) error) *cobra.Co
+ }
+ 
+ func reviewRun(opts *ReviewOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/shared/commentable.go b/pkg/cmd/pr/shared/commentable.go
+index c2e65453e51..a58d59e4553 100644
+--- a/pkg/cmd/pr/shared/commentable.go
++++ b/pkg/cmd/pr/shared/commentable.go
+@@ -33,7 +33,7 @@ type Commentable interface {
+ 
+ type CommentableOptions struct {
+ 	IO                    *iostreams.IOStreams
+-	HttpClient            func() (*http.Client, error)
++	HTTPClient            func() (*http.Client, error)
+ 	RetrieveCommentable   func() (Commentable, ghrepo.Interface, error)
+ 	EditSurvey            func() (string, error)
+ 	InteractiveEditSurvey func() (string, error)
+@@ -115,7 +115,7 @@ func CommentableRun(opts *CommentableOptions) error {
+ 		}
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/status/status.go b/pkg/cmd/pr/status/status.go
+index b43bf8cfb32..32af5998ed3 100644
+--- a/pkg/cmd/pr/status/status.go
++++ b/pkg/cmd/pr/status/status.go
+@@ -21,7 +21,7 @@ import (
+ )
+ 
+ type StatusOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -34,7 +34,7 @@ type StatusOptions struct {
+ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Command {
+ 	opts := &StatusOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -60,7 +60,7 @@ func NewCmdStatus(f *cmdutil.Factory, runF func(*StatusOptions) error) *cobra.Co
+ }
+ 
+ func statusRun(opts *StatusOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index e38b0fb23cd..d5d337ce2ee 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -23,7 +23,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -38,7 +38,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		Remotes:    f.Remotes,
+ 		Branch:     f.Branch,
+@@ -401,7 +401,7 @@ func prStateWithDraft(pr *api.PullRequest) string {
+ }
+ 
+ func retrievePullRequest(opts *ViewOptions) (*api.PullRequest, error) {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/pkg/cmd/release/create/create.go b/pkg/cmd/release/create/create.go
+index 18f06d2ac97..4098b1f8019 100644
+--- a/pkg/cmd/release/create/create.go
++++ b/pkg/cmd/release/create/create.go
+@@ -25,7 +25,7 @@ import (
+ type CreateOptions struct {
+ 	IO         *iostreams.IOStreams
+ 	Config     func() (config.Config, error)
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	TagName      string
+@@ -53,7 +53,7 @@ type CreateOptions struct {
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := &CreateOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -131,7 +131,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ }
+ 
+ func createRun(opts *CreateOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/release/delete/delete.go b/pkg/cmd/release/delete/delete.go
+index c880f9d58b1..bb4866de8c9 100644
+--- a/pkg/cmd/release/delete/delete.go
++++ b/pkg/cmd/release/delete/delete.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type DeleteOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -26,7 +26,7 @@ type DeleteOptions struct {
+ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
+ 	opts := &DeleteOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -52,7 +52,7 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ }
+ 
+ func deleteRun(opts *DeleteOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/release/download/download.go b/pkg/cmd/release/download/download.go
+index d8c28e2892f..0308e0999af 100644
+--- a/pkg/cmd/release/download/download.go
++++ b/pkg/cmd/release/download/download.go
+@@ -17,7 +17,7 @@ import (
+ )
+ 
+ type DownloadOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -32,7 +32,7 @@ type DownloadOptions struct {
+ func NewCmdDownload(f *cmdutil.Factory, runF func(*DownloadOptions) error) *cobra.Command {
+ 	opts := &DownloadOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -83,7 +83,7 @@ func NewCmdDownload(f *cmdutil.Factory, runF func(*DownloadOptions) error) *cobr
+ }
+ 
+ func downloadRun(opts *DownloadOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/release/list/list.go b/pkg/cmd/release/list/list.go
+index caaab772dca..ba5023316f5 100644
+--- a/pkg/cmd/release/list/list.go
++++ b/pkg/cmd/release/list/list.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type ListOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -24,7 +24,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -48,7 +48,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/release/upload/upload.go b/pkg/cmd/release/upload/upload.go
+index 79e67f7eacc..08ede8ebfe9 100644
+--- a/pkg/cmd/release/upload/upload.go
++++ b/pkg/cmd/release/upload/upload.go
+@@ -15,7 +15,7 @@ import (
+ )
+ 
+ type UploadOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -30,7 +30,7 @@ type UploadOptions struct {
+ func NewCmdUpload(f *cmdutil.Factory, runF func(*UploadOptions) error) *cobra.Command {
+ 	opts := &UploadOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -70,7 +70,7 @@ func NewCmdUpload(f *cmdutil.Factory, runF func(*UploadOptions) error) *cobra.Co
+ }
+ 
+ func uploadRun(opts *UploadOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/release/view/view.go b/pkg/cmd/release/view/view.go
+index 4dcfdeee22d..ce92f91b5fc 100644
+--- a/pkg/cmd/release/view/view.go
++++ b/pkg/cmd/release/view/view.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -29,7 +29,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -63,7 +63,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ }
+ 
+ func viewRun(opts *ViewOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/clone/clone.go b/pkg/cmd/repo/clone/clone.go
+index 5cf2d14b88c..12498b794c5 100644
+--- a/pkg/cmd/repo/clone/clone.go
++++ b/pkg/cmd/repo/clone/clone.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type CloneOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 
+@@ -29,7 +29,7 @@ type CloneOptions struct {
+ func NewCmdClone(f *cmdutil.Factory, runF func(*CloneOptions) error) *cobra.Command {
+ 	opts := &CloneOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -70,7 +70,7 @@ func NewCmdClone(f *cmdutil.Factory, runF func(*CloneOptions) error) *cobra.Comm
+ }
+ 
+ func cloneRun(opts *CloneOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index 4ab6025f946..50c962d6610 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -22,7 +22,7 @@ import (
+ )
+ 
+ type CreateOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 
+@@ -42,7 +42,7 @@ type CreateOptions struct {
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+ 	opts := &CreateOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 	}
+ 
+@@ -205,7 +205,7 @@ func createRun(opts *CreateOptions) error {
+ 	var templateRepoMainBranch string
+ 	// Find template repo ID
+ 	if opts.Template != "" {
+-		httpClient, err := opts.HttpClient()
++		httpClient, err := opts.HTTPClient()
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -246,7 +246,7 @@ func createRun(opts *CreateOptions) error {
+ 		HasWikiEnabled:   opts.EnableWiki,
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/credits/credits.go b/pkg/cmd/repo/credits/credits.go
+index e792b54d63a..6a60fed8d0a 100644
+--- a/pkg/cmd/repo/credits/credits.go
++++ b/pkg/cmd/repo/credits/credits.go
+@@ -22,7 +22,7 @@ import (
+ )
+ 
+ type CreditsOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	IO         *iostreams.IOStreams
+ 
+@@ -32,7 +32,7 @@ type CreditsOptions struct {
+ 
+ func NewCmdCredits(f *cmdutil.Factory, runF func(*CreditsOptions) error) *cobra.Command {
+ 	opts := &CreditsOptions{
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		IO:         f.IOStreams,
+ 		BaseRepo:   f.BaseRepo,
+ 		Repository: "cli/cli",
+@@ -70,7 +70,7 @@ func NewCmdCredits(f *cmdutil.Factory, runF func(*CreditsOptions) error) *cobra.
+ 
+ func NewCmdRepoCredits(f *cmdutil.Factory, runF func(*CreditsOptions) error) *cobra.Command {
+ 	opts := &CreditsOptions{
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		BaseRepo:   f.BaseRepo,
+ 		IO:         f.IOStreams,
+ 	}
+@@ -113,7 +113,7 @@ func NewCmdRepoCredits(f *cmdutil.Factory, runF func(*CreditsOptions) error) *co
+ 
+ func creditsRun(opts *CreditsOptions) error {
+ 	isWindows := runtime.GOOS == "windows"
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/fork/fork.go b/pkg/cmd/repo/fork/fork.go
+index 2e4f49eb68c..f2de0bc90fd 100644
+--- a/pkg/cmd/repo/fork/fork.go
++++ b/pkg/cmd/repo/fork/fork.go
+@@ -23,7 +23,7 @@ import (
+ )
+ 
+ type ForkOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	Config     func() (config.Config, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+@@ -46,7 +46,7 @@ var Since = func(t time.Time) time.Duration {
+ func NewCmdFork(f *cmdutil.Factory, runF func(*ForkOptions) error) *cobra.Command {
+ 	opts := &ForkOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Config:     f.Config,
+ 		BaseRepo:   f.BaseRepo,
+ 		Remotes:    f.Remotes,
+@@ -161,7 +161,7 @@ func forkRun(opts *ForkOptions) error {
+ 	cs := opts.IO.ColorScheme()
+ 	stderr := opts.IO.ErrOut
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("unable to create client: %w", err)
+ 	}
+diff --git a/pkg/cmd/repo/garden/garden.go b/pkg/cmd/repo/garden/garden.go
+index c7ee048a739..c24cabb3d9d 100644
+--- a/pkg/cmd/repo/garden/garden.go
++++ b/pkg/cmd/repo/garden/garden.go
+@@ -87,7 +87,7 @@ func (p *Player) move(direction Direction) bool {
+ }
+ 
+ type GardenOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -97,7 +97,7 @@ type GardenOptions struct {
+ func NewCmdGarden(f *cmdutil.Factory, runF func(*GardenOptions) error) *cobra.Command {
+ 	opts := GardenOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		BaseRepo:   f.BaseRepo,
+ 	}
+ 
+@@ -132,7 +132,7 @@ func gardenRun(opts *GardenOptions) error {
+ 		return errors.New("must be connected to a terminal")
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/list/list.go b/pkg/cmd/repo/list/list.go
+index 0b0b5fd5e5d..141a114a286 100644
+--- a/pkg/cmd/repo/list/list.go
++++ b/pkg/cmd/repo/list/list.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type ListOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 
+ 	Limit int
+@@ -33,7 +33,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Now:        time.Now,
+ 	}
+ 
+@@ -91,7 +91,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/repo/view/view.go b/pkg/cmd/repo/view/view.go
+index 4a1def8b874..11946c184a1 100644
+--- a/pkg/cmd/repo/view/view.go
++++ b/pkg/cmd/repo/view/view.go
+@@ -22,7 +22,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -34,7 +34,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		BaseRepo:   f.BaseRepo,
+ 	}
+ 
+@@ -67,7 +67,7 @@ With '--branch', view a specific branch of the repository.`,
+ }
+ 
+ func viewRun(opts *ViewOptions) error {
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/root/root.go b/pkg/cmd/root/root.go
+index 038fa57d751..0972a4c3043 100644
+--- a/pkg/cmd/root/root.go
++++ b/pkg/cmd/root/root.go
+@@ -90,7 +90,7 @@ func NewCmdRoot(f *cmdutil.Factory, version, buildDate string) *cobra.Command {
+ 
+ 	// the `api` command should not inherit any extra HTTP headers
+ 	bareHTTPCmdFactory := *f
+-	bareHTTPCmdFactory.HttpClient = bareHTTPClient(f, version)
++	bareHTTPCmdFactory.HTTPClient = bareHTTPClient(f, version)
+ 
+ 	cmd.AddCommand(apiCmd.NewCmdApi(&bareHTTPCmdFactory, nil))
+ 
+@@ -128,7 +128,7 @@ func bareHTTPClient(f *cmdutil.Factory, version string) func() (*http.Client, er
+ 
+ func resolvedBaseRepo(f *cmdutil.Factory) func() (ghrepo.Interface, error) {
+ 	return func() (ghrepo.Interface, error) {
+-		httpClient, err := f.HttpClient()
++		httpClient, err := f.HTTPClient()
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/pkg/cmd/run/list/list.go b/pkg/cmd/run/list/list.go
+index 77e4ec05f6d..27f243ba5b0 100644
+--- a/pkg/cmd/run/list/list.go
++++ b/pkg/cmd/run/list/list.go
+@@ -19,7 +19,7 @@ const (
+ 
+ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	PlainOutput bool
+@@ -30,7 +30,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -68,7 +68,7 @@ func listRun(opts *ListOptions) error {
+ 		return fmt.Errorf("failed to determine base repo: %w", err)
+ 	}
+ 
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/run/view/view.go b/pkg/cmd/run/view/view.go
+index f4b6ca45353..13a2c3d5e68 100644
+--- a/pkg/cmd/run/view/view.go
++++ b/pkg/cmd/run/view/view.go
+@@ -17,7 +17,7 @@ import (
+ )
+ 
+ type ViewOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -33,7 +33,7 @@ type ViewOptions struct {
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		Now:        time.Now,
+ 	}
+ 	cmd := &cobra.Command{
+@@ -77,7 +77,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ }
+ 
+ func runView(opts *ViewOptions) error {
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/secret/list/list.go b/pkg/cmd/secret/list/list.go
+index 792e5fc8229..e8bc50c2b5a 100644
+--- a/pkg/cmd/secret/list/list.go
++++ b/pkg/cmd/secret/list/list.go
+@@ -18,7 +18,7 @@ import (
+ )
+ 
+ type ListOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -28,7 +28,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -54,7 +54,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ }
+ 
+ func listRun(opts *ListOptions) error {
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/secret/remove/remove.go b/pkg/cmd/secret/remove/remove.go
+index 55ab08a67d0..fd0f9b8ac2c 100644
+--- a/pkg/cmd/secret/remove/remove.go
++++ b/pkg/cmd/secret/remove/remove.go
+@@ -13,7 +13,7 @@ import (
+ )
+ 
+ type RemoveOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -24,7 +24,7 @@ type RemoveOptions struct {
+ func NewCmdRemove(f *cmdutil.Factory, runF func(*RemoveOptions) error) *cobra.Command {
+ 	opts := &RemoveOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -50,7 +50,7 @@ func NewCmdRemove(f *cmdutil.Factory, runF func(*RemoveOptions) error) *cobra.Co
+ }
+ 
+ func removeRun(opts *RemoveOptions) error {
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/secret/set/set.go b/pkg/cmd/secret/set/set.go
+index 4c4c20908ca..944737c8aa2 100644
+--- a/pkg/cmd/secret/set/set.go
++++ b/pkg/cmd/secret/set/set.go
+@@ -21,7 +21,7 @@ import (
+ )
+ 
+ type SetOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -37,7 +37,7 @@ type SetOptions struct {
+ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command {
+ 	opts := &SetOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -118,7 +118,7 @@ func setRun(opts *SetOptions) error {
+ 		return fmt.Errorf("did not understand secret body: %w", err)
+ 	}
+ 
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not create http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/ssh-key/add/add.go b/pkg/cmd/ssh-key/add/add.go
+index ab95b592f37..6d3a6f573cd 100644
+--- a/pkg/cmd/ssh-key/add/add.go
++++ b/pkg/cmd/ssh-key/add/add.go
+@@ -23,7 +23,7 @@ type AddOptions struct {
+ 
+ func NewCmdAdd(f *cmdutil.Factory, runF func(*AddOptions) error) *cobra.Command {
+ 	opts := &AddOptions{
+-		HTTPClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		IO:         f.IOStreams,
+ 	}
+ 
+diff --git a/pkg/cmd/ssh-key/list/list.go b/pkg/cmd/ssh-key/list/list.go
+index 3f88f902154..9f3252042b0 100644
+--- a/pkg/cmd/ssh-key/list/list.go
++++ b/pkg/cmd/ssh-key/list/list.go
+@@ -19,7 +19,7 @@ type ListOptions struct {
+ 
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+-		HTTPClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 		IO:         f.IOStreams,
+ 	}
+ 
+diff --git a/pkg/cmd/workflow/disable/disable.go b/pkg/cmd/workflow/disable/disable.go
+index 9010776307d..a5009b7d1a4 100644
+--- a/pkg/cmd/workflow/disable/disable.go
++++ b/pkg/cmd/workflow/disable/disable.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type DisableOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -25,7 +25,7 @@ type DisableOptions struct {
+ func NewCmdDisable(f *cmdutil.Factory, runF func(*DisableOptions) error) *cobra.Command {
+ 	opts := &DisableOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -56,7 +56,7 @@ func NewCmdDisable(f *cmdutil.Factory, runF func(*DisableOptions) error) *cobra.
+ }
+ 
+ func runDisable(opts *DisableOptions) error {
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not build http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/workflow/enable/enable.go b/pkg/cmd/workflow/enable/enable.go
+index 5554b5fd146..b772c16799f 100644
+--- a/pkg/cmd/workflow/enable/enable.go
++++ b/pkg/cmd/workflow/enable/enable.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ type EnableOptions struct {
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+@@ -25,7 +25,7 @@ type EnableOptions struct {
+ func NewCmdEnable(f *cmdutil.Factory, runF func(*EnableOptions) error) *cobra.Command {
+ 	opts := &EnableOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -56,7 +56,7 @@ func NewCmdEnable(f *cmdutil.Factory, runF func(*EnableOptions) error) *cobra.Co
+ }
+ 
+ func runEnable(opts *EnableOptions) error {
+-	c, err := opts.HttpClient()
++	c, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not build http client: %w", err)
+ 	}
+diff --git a/pkg/cmd/workflow/list/list.go b/pkg/cmd/workflow/list/list.go
+index 4131768b7d1..19666e1e70a 100644
+--- a/pkg/cmd/workflow/list/list.go
++++ b/pkg/cmd/workflow/list/list.go
+@@ -17,7 +17,7 @@ const defaultLimit = 50
+ 
+ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+ 	PlainOutput bool
+@@ -29,7 +29,7 @@ type ListOptions struct {
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+ 	opts := &ListOptions{
+ 		IO:         f.IOStreams,
+-		HttpClient: f.HttpClient,
++		HTTPClient: f.HTTPClient,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -68,7 +68,7 @@ func listRun(opts *ListOptions) error {
+ 		return fmt.Errorf("could not determine base repo: %w", err)
+ 	}
+ 
+-	httpClient, err := opts.HttpClient()
++	httpClient, err := opts.HTTPClient()
+ 	if err != nil {
+ 		return fmt.Errorf("could not create http client: %w", err)
+ 	}
+diff --git a/pkg/cmdutil/factory.go b/pkg/cmdutil/factory.go
+index eb9546b52ba..5d3371b4c46 100644
+--- a/pkg/cmdutil/factory.go
++++ b/pkg/cmdutil/factory.go
+@@ -11,7 +11,7 @@ import (
+ 
+ type Factory struct {
+ 	IOStreams  *iostreams.IOStreams
+-	HttpClient func() (*http.Client, error)
++	HTTPClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Remotes    func() (context.Remotes, error)
+ 	Config     func() (config.Config, error)

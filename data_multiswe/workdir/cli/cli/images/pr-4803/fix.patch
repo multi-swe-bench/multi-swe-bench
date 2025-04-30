@@ -1,0 +1,417 @@
+diff --git a/api/client.go b/api/client.go
+index 94f396e6ac4..3b6ddaf9c08 100644
+--- a/api/client.go
++++ b/api/client.go
+@@ -146,17 +146,31 @@ type GraphQLErrorResponse struct {
+ func (gr GraphQLErrorResponse) Error() string {
+ 	errorMessages := make([]string, 0, len(gr.Errors))
+ 	for _, e := range gr.Errors {
+-		errorMessages = append(errorMessages, e.Message)
++		msg := e.Message
++		if p := e.PathString(); p != "" {
++			msg = fmt.Sprintf("%s (%s)", msg, p)
++		}
++		errorMessages = append(errorMessages, msg)
+ 	}
+-	return fmt.Sprintf("GraphQL error: %s", strings.Join(errorMessages, "\n"))
++	return fmt.Sprintf("GraphQL: %s", strings.Join(errorMessages, ", "))
+ }
+ 
+-// Match checks if this error is only about a specific type on a specific path.
++// Match checks if this error is only about a specific type on a specific path. If the path argument ends
++// with a ".", it will match all its subpaths as well.
+ func (gr GraphQLErrorResponse) Match(expectType, expectPath string) bool {
+-	if len(gr.Errors) != 1 {
+-		return false
++	for _, e := range gr.Errors {
++		if e.Type != expectType || !matchPath(e.PathString(), expectPath) {
++			return false
++		}
++	}
++	return true
++}
++
++func matchPath(p, expect string) bool {
++	if strings.HasSuffix(expect, ".") {
++		return strings.HasPrefix(p, expect) || p == strings.TrimSuffix(expect, ".")
+ 	}
+-	return gr.Errors[0].Type == expectType && gr.Errors[0].PathString() == expectPath
++	return p == expect
+ }
+ 
+ // HTTPError is an error returned by a failed API call
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index 813212276c9..4146bfeaa4d 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -71,17 +71,19 @@ func (l Labels) Names() []string {
+ }
+ 
+ type ProjectCards struct {
+-	Nodes []struct {
+-		Project struct {
+-			Name string `json:"name"`
+-		} `json:"project"`
+-		Column struct {
+-			Name string `json:"name"`
+-		} `json:"column"`
+-	}
++	Nodes      []*ProjectInfo
+ 	TotalCount int
+ }
+ 
++type ProjectInfo struct {
++	Project struct {
++		Name string `json:"name"`
++	} `json:"project"`
++	Column struct {
++		Name string `json:"name"`
++	} `json:"column"`
++}
++
+ func (p ProjectCards) ProjectNames() []string {
+ 	names := make([]string, len(p.Nodes))
+ 	for i, c := range p.Nodes {
+@@ -233,113 +235,6 @@ func IssueStatus(client *Client, repo ghrepo.Interface, options IssueStatusOptio
+ 	return &payload, nil
+ }
+ 
+-func IssueByNumber(client *Client, repo ghrepo.Interface, number int) (*Issue, error) {
+-	type response struct {
+-		Repository struct {
+-			Issue            Issue
+-			HasIssuesEnabled bool
+-		}
+-	}
+-
+-	query := `
+-	query IssueByNumber($owner: String!, $repo: String!, $issue_number: Int!) {
+-		repository(owner: $owner, name: $repo) {
+-			hasIssuesEnabled
+-			issue(number: $issue_number) {
+-				id
+-				title
+-				state
+-				body
+-				author {
+-					login
+-				}
+-				comments(last: 1) {
+-					nodes {
+-						author {
+-							login
+-						}
+-						authorAssociation
+-						body
+-						createdAt
+-						includesCreatedEdit
+-						isMinimized
+-						minimizedReason
+-						reactionGroups {
+-							content
+-							users {
+-								totalCount
+-							}
+-						}
+-					}
+-					totalCount
+-				}
+-				number
+-				url
+-				createdAt
+-				assignees(first: 100) {
+-					nodes {
+-						id
+-						name
+-						login
+-					}
+-					totalCount
+-				}
+-				labels(first: 100) {
+-					nodes {
+-						id
+-						name
+-						description
+-						color
+-					}
+-					totalCount
+-				}
+-				projectCards(first: 100) {
+-					nodes {
+-						project {
+-							name
+-						}
+-						column {
+-							name
+-						}
+-					}
+-					totalCount
+-				}
+-				milestone {
+-					number
+-					title
+-					description
+-					dueOn
+-				}
+-				reactionGroups {
+-					content
+-					users {
+-						totalCount
+-					}
+-				}
+-			}
+-		}
+-	}`
+-
+-	variables := map[string]interface{}{
+-		"owner":        repo.RepoOwner(),
+-		"repo":         repo.RepoName(),
+-		"issue_number": number,
+-	}
+-
+-	var resp response
+-	err := client.GraphQL(repo.RepoHost(), query, variables, &resp)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	if !resp.Repository.HasIssuesEnabled {
+-
+-		return nil, &IssuesDisabledError{fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(repo))}
+-	}
+-
+-	return &resp.Repository.Issue, nil
+-}
+-
+ func (i Issue) Link() string {
+ 	return i.URL
+ }
+diff --git a/api/query_builder.go b/api/query_builder.go
+index 7dc9a423aa8..9fbb0531be8 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -35,6 +35,22 @@ var issueComments = shortenQuery(`
+ 	}
+ `)
+ 
++var issueCommentLast = shortenQuery(`
++	comments(last: 1) {
++		nodes {
++			author{login},
++			authorAssociation,
++			body,
++			createdAt,
++			includesCreatedEdit,
++			isMinimized,
++			minimizedReason,
++			reactionGroups{content,users{totalCount}}
++		},
++		totalCount
++	}
++`)
++
+ var prReviewRequests = shortenQuery(`
+ 	reviewRequests(first: 100) {
+ 		nodes {
+@@ -206,6 +222,8 @@ func PullRequestGraphQL(fields []string) string {
+ 			q = append(q, `potentialMergeCommit{oid}`)
+ 		case "comments":
+ 			q = append(q, issueComments)
++		case "lastComment": // pseudo-field
++			q = append(q, issueCommentLast)
+ 		case "reviewRequests":
+ 			q = append(q, prReviewRequests)
+ 		case "reviews":
+diff --git a/pkg/cmd/issue/shared/lookup.go b/pkg/cmd/issue/shared/lookup.go
+index 875a43c49d0..41f1703ffef 100644
+--- a/pkg/cmd/issue/shared/lookup.go
++++ b/pkg/cmd/issue/shared/lookup.go
+@@ -13,32 +13,8 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ )
+ 
+-// IssueFromArg loads an issue with all its fields.
+-// Deprecated: use IssueFromArgWithFields instead.
+-func IssueFromArg(apiClient *api.Client, baseRepoFn func() (ghrepo.Interface, error), arg string) (*api.Issue, ghrepo.Interface, error) {
+-	issueNumber, baseRepo := issueMetadataFromURL(arg)
+-
+-	if issueNumber == 0 {
+-		var err error
+-		issueNumber, err = strconv.Atoi(strings.TrimPrefix(arg, "#"))
+-		if err != nil {
+-			return nil, nil, fmt.Errorf("invalid issue format: %q", arg)
+-		}
+-	}
+-
+-	if baseRepo == nil {
+-		var err error
+-		baseRepo, err = baseRepoFn()
+-		if err != nil {
+-			return nil, nil, fmt.Errorf("could not determine base repo: %w", err)
+-		}
+-	}
+-
+-	issue, err := api.IssueByNumber(apiClient, baseRepo, issueNumber)
+-	return issue, baseRepo, err
+-}
+-
+-// IssueFromArgWithFields loads an issue or pull request with the specified fields.
++// IssueFromArgWithFields loads an issue or pull request with the specified fields. If some of the fields
++// could not be fetched by GraphQL, this returns a non-nil issue and a *PartialLoadError.
+ func IssueFromArgWithFields(httpClient *http.Client, baseRepoFn func() (ghrepo.Interface, error), arg string, fields []string) (*api.Issue, ghrepo.Interface, error) {
+ 	issueNumber, baseRepo := issueMetadataFromURL(arg)
+ 
+@@ -84,6 +60,10 @@ func issueMetadataFromURL(s string) (int, ghrepo.Interface) {
+ 	return issueNumber, repo
+ }
+ 
++type PartialLoadError struct {
++	error
++}
++
+ func findIssueOrPR(httpClient *http.Client, repo ghrepo.Interface, number int, fields []string) (*api.Issue, error) {
+ 	type response struct {
+ 		Repository struct {
+@@ -114,8 +94,21 @@ func findIssueOrPR(httpClient *http.Client, repo ghrepo.Interface, number int, f
+ 	client := api.NewClientFromHTTP(httpClient)
+ 	if err := client.GraphQL(repo.RepoHost(), query, variables, &resp); err != nil {
+ 		var gerr *api.GraphQLErrorResponse
+-		if errors.As(err, &gerr) && gerr.Match("NOT_FOUND", "repository.issue") && !resp.Repository.HasIssuesEnabled {
+-			return nil, fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(repo))
++		if errors.As(err, &gerr) {
++			if gerr.Match("NOT_FOUND", "repository.issue") && !resp.Repository.HasIssuesEnabled {
++				return nil, fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(repo))
++			} else if gerr.Match("FORBIDDEN", "repository.issue.projectCards.") {
++				issue := resp.Repository.Issue
++				// remove nil entries for project cards due to permission issues
++				projects := make([]*api.ProjectInfo, 0, len(issue.ProjectCards.Nodes))
++				for _, p := range issue.ProjectCards.Nodes {
++					if p != nil {
++						projects = append(projects, p)
++					}
++				}
++				issue.ProjectCards.Nodes = projects
++				return issue, &PartialLoadError{err}
++			}
+ 		}
+ 		return nil, err
+ 	}
+diff --git a/pkg/cmd/issue/view/http.go b/pkg/cmd/issue/view/http.go
+index 568f053c41a..32d6034862f 100644
+--- a/pkg/cmd/issue/view/http.go
++++ b/pkg/cmd/issue/view/http.go
+@@ -15,8 +15,11 @@ func preloadIssueComments(client *http.Client, repo ghrepo.Interface, issue *api
+ 	type response struct {
+ 		Node struct {
+ 			Issue struct {
+-				Comments api.Comments `graphql:"comments(first: 100, after: $endCursor)"`
++				Comments *api.Comments `graphql:"comments(first: 100, after: $endCursor)"`
+ 			} `graphql:"...on Issue"`
++			PullRequest struct {
++				Comments *api.Comments `graphql:"comments(first: 100, after: $endCursor)"`
++			} `graphql:"...on PullRequest"`
+ 		} `graphql:"node(id: $id)"`
+ 	}
+ 
+@@ -38,11 +41,16 @@ func preloadIssueComments(client *http.Client, repo ghrepo.Interface, issue *api
+ 			return err
+ 		}
+ 
+-		issue.Comments.Nodes = append(issue.Comments.Nodes, query.Node.Issue.Comments.Nodes...)
+-		if !query.Node.Issue.Comments.PageInfo.HasNextPage {
++		comments := query.Node.Issue.Comments
++		if comments == nil {
++			comments = query.Node.PullRequest.Comments
++		}
++
++		issue.Comments.Nodes = append(issue.Comments.Nodes, comments.Nodes...)
++		if !comments.PageInfo.HasNextPage {
+ 			break
+ 		}
+-		variables["endCursor"] = githubv4.String(query.Node.Issue.Comments.PageInfo.EndCursor)
++		variables["endCursor"] = githubv4.String(comments.PageInfo.EndCursor)
+ 	}
+ 
+ 	issue.Comments.PageInfo.HasNextPage = false
+diff --git a/pkg/cmd/issue/view/view.go b/pkg/cmd/issue/view/view.go
+index b607a2dfb01..a839f488e14 100644
+--- a/pkg/cmd/issue/view/view.go
++++ b/pkg/cmd/issue/view/view.go
+@@ -1,6 +1,7 @@
+ package view
+ 
+ import (
++	"errors"
+ 	"fmt"
+ 	"io"
+ 	"net/http"
+@@ -77,24 +78,40 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ 	return cmd
+ }
+ 
++var defaultFields = []string{
++	"number", "url", "state", "createdAt", "title", "body", "author", "milestone",
++	"assignees", "labels", "projectCards", "reactionGroups", "lastComment",
++}
++
+ func viewRun(opts *ViewOptions) error {
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	loadComments := opts.Comments
+-	if !loadComments && opts.Exporter != nil {
+-		fields := set.NewStringSet()
+-		fields.AddValues(opts.Exporter.Fields())
+-		loadComments = fields.Contains("comments")
++	lookupFields := set.NewStringSet()
++	if opts.Exporter != nil {
++		lookupFields.AddValues(opts.Exporter.Fields())
++	} else if opts.WebMode {
++		lookupFields.Add("url")
++	} else {
++		lookupFields.AddValues(defaultFields)
++	}
++	if opts.Comments {
++		lookupFields.Add("comments")
++		lookupFields.Remove("lastComment")
+ 	}
+ 
+ 	opts.IO.StartProgressIndicator()
+-	issue, err := findIssue(httpClient, opts.BaseRepo, opts.SelectorArg, loadComments)
++	issue, err := findIssue(httpClient, opts.BaseRepo, opts.SelectorArg, lookupFields.ToSlice())
+ 	opts.IO.StopProgressIndicator()
+ 	if err != nil {
+-		return err
++		var loadErr *issueShared.PartialLoadError
++		if opts.Exporter == nil && errors.As(err, &loadErr) {
++			fmt.Fprintf(opts.IO.ErrOut, "warning: %s\n", loadErr.Error())
++		} else {
++			return err
++		}
+ 	}
+ 
+ 	if opts.WebMode {
+@@ -127,14 +144,17 @@ func viewRun(opts *ViewOptions) error {
+ 	return printRawIssuePreview(opts.IO.Out, issue)
+ }
+ 
+-func findIssue(client *http.Client, baseRepoFn func() (ghrepo.Interface, error), selector string, loadComments bool) (*api.Issue, error) {
+-	apiClient := api.NewClientFromHTTP(client)
+-	issue, repo, err := issueShared.IssueFromArg(apiClient, baseRepoFn, selector)
++func findIssue(client *http.Client, baseRepoFn func() (ghrepo.Interface, error), selector string, fields []string) (*api.Issue, error) {
++	fieldSet := set.NewStringSet()
++	fieldSet.AddValues(fields)
++	fieldSet.Add("id")
++
++	issue, repo, err := issueShared.IssueFromArgWithFields(client, baseRepoFn, selector, fieldSet.ToSlice())
+ 	if err != nil {
+ 		return issue, err
+ 	}
+ 
+-	if loadComments {
++	if fieldSet.Contains("comments") {
+ 		err = preloadIssueComments(client, repo, issue)
+ 	}
+ 	return issue, err

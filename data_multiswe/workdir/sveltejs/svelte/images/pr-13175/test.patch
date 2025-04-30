@@ -1,0 +1,73 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component1.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component1.svelte
+new file mode 100644
+index 000000000000..1db07ddbd033
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component1.svelte
+@@ -0,0 +1,13 @@
++<script>
++	import Component2 from './Component2.svelte';
++
++	let { rows = $bindable([]) } = $props();
++
++	let rows2 = $state([]);
++
++	$effect(() => {
++		rows2 = rows.slice();
++	});
++</script>
++
++<Component2 bind:rows={rows2} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component2.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component2.svelte
+new file mode 100644
+index 000000000000..8d63b9e9a9ec
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/Component2.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let { rows = $bindable([]) } = $props();
++</script>
++
++{#if rows.length}
++	<input type="checkbox" bind:checked={rows[0].check} />
++{/if}
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/_config.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/_config.js
+new file mode 100644
+index 000000000000..e766a946d0dc
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/_config.js
+@@ -0,0 +1,22 @@
++import { flushSync } from 'svelte';
++import { ok, test } from '../../test';
++
++// Tests that proxies widen ownership correctly even if not directly connected to each other
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	test({ assert, target, warnings }) {
++		const input = target.querySelector('input');
++		ok(input);
++
++		input.checked = true;
++		input.dispatchEvent(new Event('input', { bubbles: true }));
++		flushSync();
++
++		assert.deepEqual(warnings, []);
++	},
++
++	warnings: []
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/main.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/main.svelte
+new file mode 100644
+index 000000000000..60a9b19a05a9
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-with-binding-7/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import Component1 from './Component1.svelte';
++
++	let rows = $state([{}]);
++</script>
++
++<Component1 bind:rows />

@@ -1,0 +1,555 @@
+diff --git a/src/libponyc/codegen/codegen.c b/src/libponyc/codegen/codegen.c
+index d29a9b9ef0..0aa8de7fb8 100644
+--- a/src/libponyc/codegen/codegen.c
++++ b/src/libponyc/codegen/codegen.c
+@@ -1020,6 +1020,7 @@ bool codegen(ast_t* program, pass_opt_t* opt)
+   memset(&c, 0, sizeof(compile_t));
+ 
+   genned_strings_init(&c.strings, 64);
++  ffi_decls_init(&c.ffi_decls, 64);
+ 
+   if(!init_module(&c, program, opt))
+     return false;
+@@ -1046,6 +1047,7 @@ bool codegen_gen_test(compile_t* c, ast_t* program, pass_opt_t* opt,
+     memset(c, 0, sizeof(compile_t));
+ 
+     genned_strings_init(&c->strings, 64);
++    ffi_decls_init(&c->ffi_decls, 64);
+ 
+     if(!init_module(c, program, opt))
+       return false;
+@@ -1100,10 +1102,12 @@ void codegen_cleanup(compile_t* c)
+   LLVMDisposeTargetMachine(c->machine);
+   tbaa_metadatas_free(c->tbaa_mds);
+   genned_strings_destroy(&c->strings);
++  ffi_decls_destroy(&c->ffi_decls);
+   reach_free(c->reach);
+ }
+ 
+-LLVMValueRef codegen_addfun(compile_t* c, const char* name, LLVMTypeRef type)
++LLVMValueRef codegen_addfun(compile_t* c, const char* name, LLVMTypeRef type,
++  bool pony_abi)
+ {
+   // Add the function and set the calling convention and the linkage type.
+   LLVMValueRef fun = LLVMAddFunction(c->module, name, type);
+@@ -1111,6 +1115,12 @@ LLVMValueRef codegen_addfun(compile_t* c, const char* name, LLVMTypeRef type)
+   LLVMSetLinkage(fun, c->linkage);
+   LLVMSetUnnamedAddr(fun, true);
+ 
++  if(pony_abi)
++  {
++    LLVMValueRef md = LLVMMDNodeInContext(c->context, NULL, 0);
++    LLVMSetMetadataStr(fun, "pony.abi", md);
++  }
++
+   LLVMValueRef arg = LLVMGetFirstParam(fun);
+   uint32_t i = 1;
+ 
+diff --git a/src/libponyc/codegen/codegen.h b/src/libponyc/codegen/codegen.h
+index bad56402e1..adff76e5ab 100644
+--- a/src/libponyc/codegen/codegen.h
++++ b/src/libponyc/codegen/codegen.h
+@@ -39,6 +39,7 @@ void LLVMSetCallInaccessibleMemOrArgMemOnly(LLVMValueRef inst);
+ LLVMValueRef LLVMConstNaN(LLVMTypeRef type);
+ LLVMValueRef LLVMConstInf(LLVMTypeRef type, bool negative);
+ LLVMModuleRef LLVMParseIRFileInContext(LLVMContextRef ctx, const char* file);
++bool LLVMHasMetadataStr(LLVMValueRef val, const char* str);
+ void LLVMSetMetadataStr(LLVMValueRef val, const char* str, LLVMValueRef node);
+ 
+ // Intrinsics.
+@@ -67,6 +68,9 @@ DECLARE_HASHMAP(genned_strings, genned_strings_t, genned_string_t);
+ typedef struct compile_local_t compile_local_t;
+ DECLARE_HASHMAP(compile_locals, compile_locals_t, compile_local_t);
+ 
++typedef struct ffi_decl_t ffi_decl_t;
++DECLARE_HASHMAP(ffi_decls, ffi_decls_t, ffi_decl_t);
++
+ typedef struct tbaa_metadatas_t tbaa_metadatas_t;
+ 
+ typedef struct compile_frame_t
+@@ -95,6 +99,7 @@ typedef struct compile_t
+   reach_t* reach;
+   tbaa_metadatas_t* tbaa_mds;
+   genned_strings_t strings;
++  ffi_decls_t ffi_decls;
+   const char* filename;
+ 
+   const char* str_builtin;
+@@ -239,7 +244,8 @@ bool codegen_gen_test(compile_t* c, ast_t* program, pass_opt_t* opt,
+ 
+ void codegen_cleanup(compile_t* c);
+ 
+-LLVMValueRef codegen_addfun(compile_t* c, const char* name, LLVMTypeRef type);
++LLVMValueRef codegen_addfun(compile_t* c, const char* name, LLVMTypeRef type,
++  bool pony_abi);
+ 
+ void codegen_startfun(compile_t* c, LLVMValueRef fun, LLVMMetadataRef file,
+   LLVMMetadataRef scope, bool bare);
+diff --git a/src/libponyc/codegen/gencall.c b/src/libponyc/codegen/gencall.c
+index 1a7f18068d..bc216a2d0d 100644
+--- a/src/libponyc/codegen/gencall.c
++++ b/src/libponyc/codegen/gencall.c
+@@ -57,6 +57,25 @@ static size_t tuple_indices_pop(call_tuple_indices_t* ti)
+   return ti->data[--ti->count];
+ }
+ 
++struct ffi_decl_t
++{
++  LLVMValueRef func;
++  ast_t* decl;
++};
++
++static size_t ffi_decl_hash(ffi_decl_t* d)
++{
++  return ponyint_hash_ptr(d->func);
++}
++
++static bool ffi_decl_cmp(ffi_decl_t* a, ffi_decl_t* b)
++{
++  return a->func == b->func;
++}
++
++DEFINE_HASHMAP(ffi_decls, ffi_decls_t, ffi_decl_t, ffi_decl_hash, ffi_decl_cmp,
++  NULL);
++
+ static LLVMValueRef invoke_fun(compile_t* c, LLVMValueRef fun,
+   LLVMValueRef* args, int count, const char* ret, bool setcc)
+ {
+@@ -986,6 +1005,8 @@ static LLVMTypeRef ffi_return_type(compile_t* c, reach_type_t* t,
+       false);
+     ponyint_pool_free_size(buf_size, e_types);
+     return r_type;
++  } else if(is_none(t->ast_cap)) {
++    return c->void_type;
+   } else {
+     return c_t->use_type;
+   }
+@@ -1037,30 +1058,59 @@ static LLVMValueRef declare_ffi(compile_t* c, const char* f_name,
+   return func;
+ }
+ 
+-static LLVMValueRef cast_ffi_arg(compile_t* c, LLVMValueRef arg,
+-  LLVMTypeRef param)
++static void report_ffi_type_err(compile_t* c, ffi_decl_t* decl, ast_t* ast,
++  const char* name)
++{
++  ast_error(c->opt->check.errors, ast,
++    "conflicting declarations for FFI function: %s have incompatible types",
++    name);
++
++  if(decl != NULL)
++    ast_error_continue(c->opt->check.errors, decl->decl, "first declaration is "
++      "here");
++}
++
++static LLVMValueRef cast_ffi_arg(compile_t* c, ffi_decl_t* decl, ast_t* ast,
++  LLVMValueRef arg, LLVMTypeRef param, const char* name)
+ {
+   if(arg == NULL)
+     return NULL;
+ 
+   LLVMTypeRef arg_type = LLVMTypeOf(arg);
+ 
++  if(param == arg_type)
++    return arg;
++
++  if((LLVMABISizeOfType(c->target_data, param) !=
++    LLVMABISizeOfType(c->target_data, arg_type)))
++  {
++    report_ffi_type_err(c, decl, ast, name);
++    return NULL;
++  }
++
+   switch(LLVMGetTypeKind(param))
+   {
+     case LLVMPointerTypeKind:
+-    {
+       if(LLVMGetTypeKind(arg_type) == LLVMIntegerTypeKind)
+-        arg = LLVMBuildIntToPtr(c->builder, arg, param, "");
++        return LLVMBuildIntToPtr(c->builder, arg, param, "");
+       else
+-        arg = LLVMBuildBitCast(c->builder, arg, param, "");
++        return LLVMBuildBitCast(c->builder, arg, param, "");
++
++    case LLVMIntegerTypeKind:
++      if(LLVMGetTypeKind(arg_type) == LLVMPointerTypeKind)
++        return LLVMBuildPtrToInt(c->builder, arg, param, "");
+ 
+       break;
+-    }
++
++    case LLVMStructTypeKind:
++      pony_assert(LLVMGetTypeKind(arg_type) == LLVMStructTypeKind);
++      return arg;
+ 
+     default: {}
+   }
+ 
+-  return arg;
++  pony_assert(false);
++  return NULL;
+ }
+ 
+ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+@@ -1076,8 +1126,17 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+   reach_type_t* t = reach_type(c->reach, type);
+   pony_assert(t != NULL);
+ 
+-  // Get the function.
+-  LLVMValueRef func = LLVMGetNamedFunction(c->module, f_name);
++  // Get the function. First check if the name is in use by a global and error
++  // if it's the case.
++  ffi_decl_t* ffi_decl;
++  bool is_func = false;
++  LLVMValueRef func = LLVMGetNamedGlobal(c->module, f_name);
++
++  if(func == NULL)
++  {
++    func = LLVMGetNamedFunction(c->module, f_name);
++    is_func = true;
++  }
+ 
+   if(func == NULL)
+   {
+@@ -1097,6 +1156,37 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+       // Make it varargs.
+       func = declare_ffi_vararg(c, f_name, t);
+     }
++
++    size_t index = HASHMAP_UNKNOWN;
++
++#ifndef NDEBUG
++    ffi_decl_t k;
++    k.func = func;
++
++    ffi_decl = ffi_decls_get(&c->ffi_decls, &k, &index);
++    pony_assert(ffi_decl == NULL);
++#endif
++
++    ffi_decl = POOL_ALLOC(ffi_decl_t);
++    ffi_decl->func = func;
++    ffi_decl->decl = (decl != NULL) ? decl : ast;
++
++    ffi_decls_putindex(&c->ffi_decls, ffi_decl, index);
++  } else {
++    ffi_decl_t k;
++    k.func = func;
++    size_t index = HASHMAP_UNKNOWN;
++
++    ffi_decl = ffi_decls_get(&c->ffi_decls, &k, &index);
++
++    if((ffi_decl == NULL) && (!is_func || LLVMHasMetadataStr(func, "pony.abi")))
++    {
++      ast_error(c->opt->check.errors, ast, "cannot use '%s' as an FFI name: "
++        "name is already in use by the internal ABI", f_name);
++      return NULL;
++    }
++
++    pony_assert(is_func);
+   }
+ 
+   // Generate the arguments.
+@@ -1110,6 +1200,19 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+ 
+   if(!vararg)
+   {
++    if(count != (int)LLVMCountParamTypes(f_type))
++    {
++      ast_error(c->opt->check.errors, ast,
++        "conflicting declarations for FFI function: declarations have an "
++        "incompatible number of parameters");
++
++      if(ffi_decl != NULL)
++        ast_error_continue(c->opt->check.errors, ffi_decl->decl, "first "
++          "declaration is here");
++
++      return NULL;
++    }
++
+     f_params = (LLVMTypeRef*)ponyint_pool_alloc_size(buf_size);
+     LLVMGetParamTypes(f_type, f_params);
+   }
+@@ -1121,7 +1224,8 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+     f_args[i] = gen_expr(c, arg);
+ 
+     if(!vararg)
+-      f_args[i] = cast_ffi_arg(c, f_args[i], f_params[i]);
++      f_args[i] = cast_ffi_arg(c, ffi_decl, ast, f_args[i], f_params[i],
++        "parameters");
+ 
+     if(f_args[i] == NULL)
+     {
+@@ -1148,9 +1252,23 @@ LLVMValueRef gen_ffi(compile_t* c, ast_t* ast)
+   if(!vararg)
+     ponyint_pool_free_size(buf_size, f_params);
+ 
++  compile_type_t* c_t = (compile_type_t*)t->c_type;
++
+   // Special case a None return value, which is used for void functions.
+-  if(is_none(type))
+-    return ((compile_type_t*)t->c_type)->instance;
++  bool isnone = is_none(type);
++  bool isvoid = LLVMGetReturnType(f_type) == c->void_type;
++
++  if(isnone && isvoid)
++  {
++    result = c_t->instance;
++  } else if(isnone != isvoid) {
++    report_ffi_type_err(c, ffi_decl, ast, "return values");
++    return NULL;
++  }
++
++  result = cast_ffi_arg(c, ffi_decl, ast, result, c_t->use_type,
++    "return values");
++  result = gen_assign_cast(c, c_t->use_type, result, type);
+ 
+   return result;
+ }
+diff --git a/src/libponyc/codegen/gendesc.c b/src/libponyc/codegen/gendesc.c
+index ec38376bee..b0994f9516 100644
+--- a/src/libponyc/codegen/gendesc.c
++++ b/src/libponyc/codegen/gendesc.c
+@@ -62,7 +62,7 @@ static LLVMValueRef make_unbox_function(compile_t* c, reach_type_t* t,
+   }
+ 
+   LLVMTypeRef unbox_type = LLVMFunctionType(ret_type, params, count, false);
+-  LLVMValueRef unbox_fun = codegen_addfun(c, unbox_name, unbox_type);
++  LLVMValueRef unbox_fun = codegen_addfun(c, unbox_name, unbox_type, true);
+   codegen_startfun(c, unbox_fun, NULL, NULL, false);
+ 
+   // Extract the primitive type from element 1 and call the real function.
+diff --git a/src/libponyc/codegen/genfun.c b/src/libponyc/codegen/genfun.c
+index abd9dee115..72dacd4297 100644
+--- a/src/libponyc/codegen/genfun.c
++++ b/src/libponyc/codegen/genfun.c
+@@ -248,7 +248,7 @@ static void make_prototype(compile_t* c, reach_type_t* t,
+   if(!handler)
+   {
+     // Generate the function prototype.
+-    c_m->func = codegen_addfun(c, m->full_name, c_m->func_type);
++    c_m->func = codegen_addfun(c, m->full_name, c_m->func_type, true);
+     genfun_param_attrs(c, t, m, c_m->func);
+     make_function_debug(c, t, m, c_m->func);
+   } else {
+@@ -259,7 +259,7 @@ static void make_prototype(compile_t* c, reach_type_t* t,
+ 
+     // Generate the sender prototype.
+     const char* sender_name = genname_be(m->full_name);
+-    c_m->func = codegen_addfun(c, sender_name, c_m->func_type);
++    c_m->func = codegen_addfun(c, sender_name, c_m->func_type, true);
+     genfun_param_attrs(c, t, m, c_m->func);
+ 
+     // If the method is a forwarding mangling, we don't need the handler.
+@@ -270,7 +270,7 @@ static void make_prototype(compile_t* c, reach_type_t* t,
+         (int)count, false);
+ 
+       // Generate the handler prototype.
+-      c_m->func_handler = codegen_addfun(c, m->full_name, handler_type);
++      c_m->func_handler = codegen_addfun(c, m->full_name, handler_type, true);
+       genfun_param_attrs(c, t, m, c_m->func_handler);
+       make_function_debug(c, t, m, c_m->func_handler);
+     }
+@@ -635,7 +635,7 @@ static bool genfun_allocator(compile_t* c, reach_type_t* t)
+ 
+   const char* funname = genname_alloc(t->name);
+   LLVMTypeRef ftype = LLVMFunctionType(c_t->use_type, NULL, 0, false);
+-  LLVMValueRef fun = codegen_addfun(c, funname, ftype);
++  LLVMValueRef fun = codegen_addfun(c, funname, ftype, true);
+   if(t->underlying != TK_PRIMITIVE)
+   {
+     LLVMTypeRef elem = LLVMGetElementType(c_t->use_type);
+diff --git a/src/libponyc/codegen/genident.c b/src/libponyc/codegen/genident.c
+index ff8ca78bdd..d5dc87fef2 100644
+--- a/src/libponyc/codegen/genident.c
++++ b/src/libponyc/codegen/genident.c
+@@ -493,7 +493,7 @@ void gen_is_tuple_fun(compile_t* c, reach_type_t* t)
+   params[1] = c->object_ptr;
+   params[2] = c->i32;
+   c_m->func_type = LLVMFunctionType(c->i1, params, 3, false);
+-  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type);
++  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type, true);
+ 
+   codegen_startfun(c, c_m->func, NULL, NULL, false);
+   LLVMValueRef l_value = LLVMGetParam(codegen_fun(c), 0);
+diff --git a/src/libponyc/codegen/genprim.c b/src/libponyc/codegen/genprim.c
+index 29f9b6e12a..d1fbe5423b 100644
+--- a/src/libponyc/codegen/genprim.c
++++ b/src/libponyc/codegen/genprim.c
+@@ -39,7 +39,7 @@ static void start_function(compile_t* c, reach_type_t* t, reach_method_t* m,
+ {
+   compile_method_t* c_m = (compile_method_t*)m->c_method;
+   c_m->func_type = LLVMFunctionType(result, params, count, false);
+-  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type);
++  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type, true);
+   genfun_param_attrs(c, t, m, c_m->func);
+   codegen_startfun(c, c_m->func, NULL, NULL, false);
+ }
+@@ -766,7 +766,7 @@ void genprim_array_serialise_trace(compile_t* c, reach_type_t* t)
+   // Generate the serialise_trace function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->serialise_trace_fn = codegen_addfun(c, genname_serialise_trace(t->name),
+-    c->trace_type);
++    c->trace_type, true);
+ 
+   codegen_startfun(c, c_t->serialise_trace_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->serialise_trace_fn, LLVMCCallConv);
+@@ -821,7 +821,7 @@ void genprim_array_serialise(compile_t* c, reach_type_t* t)
+   // Generate the serialise function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->serialise_fn = codegen_addfun(c, genname_serialise(t->name),
+-    c->serialise_type);
++    c->serialise_type, true);
+ 
+   codegen_startfun(c, c_t->serialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->serialise_fn, LLVMCCallConv);
+@@ -948,7 +948,7 @@ void genprim_array_deserialise(compile_t* c, reach_type_t* t)
+   // Generate the deserisalise function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->deserialise_fn = codegen_addfun(c, genname_deserialise(t->name),
+-    c->trace_type);
++    c->trace_type, true);
+ 
+   codegen_startfun(c, c_t->deserialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->deserialise_fn, LLVMCCallConv);
+@@ -1032,7 +1032,7 @@ void genprim_string_serialise_trace(compile_t* c, reach_type_t* t)
+   // Generate the serialise_trace function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->serialise_trace_fn = codegen_addfun(c, genname_serialise_trace(t->name),
+-    c->serialise_type);
++    c->serialise_type, true);
+ 
+   codegen_startfun(c, c_t->serialise_trace_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->serialise_trace_fn, LLVMCCallConv);
+@@ -1078,7 +1078,7 @@ void genprim_string_serialise(compile_t* c, reach_type_t* t)
+   // Generate the serialise function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->serialise_fn = codegen_addfun(c, genname_serialise(t->name),
+-    c->serialise_type);
++    c->serialise_type, true);
+ 
+   codegen_startfun(c, c_t->serialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->serialise_fn, LLVMCCallConv);
+@@ -1148,7 +1148,7 @@ void genprim_string_deserialise(compile_t* c, reach_type_t* t)
+   // Generate the deserisalise function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->deserialise_fn = codegen_addfun(c, genname_deserialise(t->name),
+-    c->trace_type);
++    c->trace_type, true);
+ 
+   codegen_startfun(c, c_t->deserialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->deserialise_fn, LLVMCCallConv);
+@@ -1935,7 +1935,7 @@ static void make_cpuid(compile_t* c)
+     LLVMTypeRef elems[4] = {c->i32, c->i32, c->i32, c->i32};
+     LLVMTypeRef r_type = LLVMStructTypeInContext(c->context, elems, 4, false);
+     LLVMTypeRef f_type = LLVMFunctionType(r_type, &c->i32, 1, false);
+-    LLVMValueRef fun = codegen_addfun(c, "internal.x86.cpuid", f_type);
++    LLVMValueRef fun = codegen_addfun(c, "internal.x86.cpuid", f_type, false);
+     LLVMSetFunctionCallConv(fun, LLVMCCallConv);
+     codegen_startfun(c, fun, NULL, NULL, false);
+ 
+@@ -1964,7 +1964,7 @@ static void make_rdtscp(compile_t* c)
+     // i64 @internal.x86.rdtscp(i32*)
+     LLVMTypeRef i32_ptr = LLVMPointerType(c->i32, 0);
+     f_type = LLVMFunctionType(c->i64, &i32_ptr, 1, false);
+-    LLVMValueRef fun = codegen_addfun(c, "internal.x86.rdtscp", f_type);
++    LLVMValueRef fun = codegen_addfun(c, "internal.x86.rdtscp", f_type, false);
+     LLVMSetFunctionCallConv(fun, LLVMCCallConv);
+     codegen_startfun(c, fun, NULL, NULL, false);
+ 
+diff --git a/src/libponyc/codegen/genreference.c b/src/libponyc/codegen/genreference.c
+index d24b6c3dc5..7c5c9792fa 100644
+--- a/src/libponyc/codegen/genreference.c
++++ b/src/libponyc/codegen/genreference.c
+@@ -444,7 +444,7 @@ void gen_digestof_fun(compile_t* c, reach_type_t* t)
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   compile_method_t* c_m = (compile_method_t*)m->c_method;
+   c_m->func_type = LLVMFunctionType(c->i64, &c_t->structure_ptr, 1, false);
+-  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type);
++  c_m->func = codegen_addfun(c, m->full_name, c_m->func_type, true);
+ 
+   codegen_startfun(c, c_m->func, NULL, NULL, false);
+   LLVMValueRef value = LLVMGetParam(codegen_fun(c), 0);
+diff --git a/src/libponyc/codegen/genserialise.c b/src/libponyc/codegen/genserialise.c
+index 7f36c641ec..1e7e3c3ce9 100644
+--- a/src/libponyc/codegen/genserialise.c
++++ b/src/libponyc/codegen/genserialise.c
+@@ -213,7 +213,7 @@ static void make_serialise(compile_t* c, reach_type_t* t)
+ 
+   // Generate the serialise function.
+   c_t->serialise_fn = codegen_addfun(c, genname_serialise(t->name),
+-    c->serialise_type);
++    c->serialise_type, true);
+ 
+   codegen_startfun(c, c_t->serialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->serialise_fn, LLVMCCallConv);
+@@ -359,7 +359,7 @@ static void make_deserialise(compile_t* c, reach_type_t* t)
+   // Generate the deserialise function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   c_t->deserialise_fn = codegen_addfun(c, genname_deserialise(t->name),
+-    c->trace_type);
++    c->trace_type, true);
+ 
+   codegen_startfun(c, c_t->deserialise_fn, NULL, NULL, false);
+   LLVMSetFunctionCallConv(c_t->deserialise_fn, LLVMCCallConv);
+diff --git a/src/libponyc/codegen/gentrace.c b/src/libponyc/codegen/gentrace.c
+index 4939ead844..a171af7b63 100644
+--- a/src/libponyc/codegen/gentrace.c
++++ b/src/libponyc/codegen/gentrace.c
+@@ -943,7 +943,7 @@ void gentrace_prototype(compile_t* c, reach_type_t* t)
+     return;
+ 
+   ((compile_type_t*)t->c_type)->trace_fn = codegen_addfun(c,
+-    genname_trace(t->name), c->trace_type);
++    genname_trace(t->name), c->trace_type, true);
+ }
+ 
+ void gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef src_value,
+diff --git a/src/libponyc/codegen/gentype.c b/src/libponyc/codegen/gentype.c
+index 4592aad51c..b20d4036e7 100644
+--- a/src/libponyc/codegen/gentype.c
++++ b/src/libponyc/codegen/gentype.c
+@@ -441,7 +441,7 @@ static void make_dispatch(compile_t* c, reach_type_t* t)
+   // Create a dispatch function.
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+   const char* dispatch_name = genname_dispatch(t->name);
+-  c_t->dispatch_fn = codegen_addfun(c, dispatch_name, c->dispatch_type);
++  c_t->dispatch_fn = codegen_addfun(c, dispatch_name, c->dispatch_type, true);
+   LLVMSetFunctionCallConv(c_t->dispatch_fn, LLVMCCallConv);
+   LLVMSetLinkage(c_t->dispatch_fn, LLVMExternalLinkage);
+   codegen_startfun(c, c_t->dispatch_fn, NULL, NULL, false);
+diff --git a/src/libponyc/codegen/host.cc b/src/libponyc/codegen/host.cc
+index 1e22f60db2..45929d9a57 100644
+--- a/src/libponyc/codegen/host.cc
++++ b/src/libponyc/codegen/host.cc
+@@ -197,13 +197,29 @@ static MDNode* extractMDNode(MetadataAsValue* mdv)
+   return MDNode::get(mdv->getContext(), md);
+ }
+ 
+-void LLVMSetMetadataStr(LLVMValueRef inst, const char* str, LLVMValueRef node)
++bool LLVMHasMetadataStr(LLVMValueRef val, const char* str)
++{
++  Value* v = unwrap<Value>(val);
++  Instruction* i = dyn_cast<Instruction>(v);
++
++  if(i != NULL)
++    return i->getMetadata(str) != NULL;
++
++  return cast<Function>(v)->getMetadata(str) != NULL;
++}
++
++void LLVMSetMetadataStr(LLVMValueRef val, const char* str, LLVMValueRef node)
+ {
+   pony_assert(node != NULL);
+ 
+   MDNode* n = extractMDNode(unwrap<MetadataAsValue>(node));
++  Value* v = unwrap<Value>(val);
++  Instruction* i = dyn_cast<Instruction>(v);
+ 
+-  unwrap<Instruction>(inst)->setMetadata(str, n);
++  if(i != NULL)
++    i->setMetadata(str, n);
++  else
++    cast<Function>(v)->setMetadata(str, n);
+ }
+ 
+ LLVMValueRef LLVMMemcpy(LLVMModuleRef module, bool ilp32)

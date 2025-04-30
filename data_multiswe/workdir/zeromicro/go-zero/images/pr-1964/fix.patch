@@ -1,0 +1,51 @@
+diff --git a/rest/engine.go b/rest/engine.go
+index 53d536a41512..fad45771760d 100644
+--- a/rest/engine.go
++++ b/rest/engine.go
+@@ -5,6 +5,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"net/http"
++	"sort"
+ 	"time"
+ 
+ 	"github.com/justinas/alice"
+@@ -184,6 +185,22 @@ func (ng *engine) notFoundHandler(next http.Handler) http.Handler {
+ 	})
+ }
+ 
++func (ng *engine) print() {
++	var routes []string
++
++	for _, fr := range ng.routes {
++		for _, route := range fr.routes {
++			routes = append(routes, fmt.Sprintf("%s %s", route.Method, route.Path))
++		}
++	}
++
++	sort.Strings(routes)
++
++	for _, route := range routes {
++		fmt.Println(route)
++	}
++}
++
+ func (ng *engine) setTlsConfig(cfg *tls.Config) {
+ 	ng.tlsConfig = cfg
+ }
+diff --git a/rest/server.go b/rest/server.go
+index 669f7084c514..51a4dbc09d5c 100644
+--- a/rest/server.go
++++ b/rest/server.go
+@@ -73,6 +73,11 @@ func (s *Server) AddRoute(r Route, opts ...RouteOption) {
+ 	s.AddRoutes([]Route{r}, opts...)
+ }
+ 
++// PrintRoutes prints the added routes to stdout.
++func (s *Server) PrintRoutes() {
++	s.ngin.print()
++}
++
+ // Start starts the Server.
+ // Graceful shutdown is enabled by default.
+ // Use proc.SetTimeToForceQuit to customize the graceful shutdown period.

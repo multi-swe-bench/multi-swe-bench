@@ -1,0 +1,153 @@
+diff --git a/command/issue_test.go b/command/issue_test.go
+index edce87fb680..c09de2c623f 100644
+--- a/command/issue_test.go
++++ b/command/issue_test.go
+@@ -288,6 +288,51 @@ func TestIssueView_preview(t *testing.T) {
+ 	}
+ }
+ 
++func TestIssueView_previewWithEmptyBody(t *testing.T) {
++	initBlankContext("OWNER/REPO", "master")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	http.StubResponse(200, bytes.NewBufferString(`
++		{ "data": { "repository": { "hasIssuesEnabled": true, "issue": {
++		"number": 123,
++		"body": "",
++		"title": "ix of coins",
++		"author": {
++			"login": "marseilles"
++		},
++		"labels": {
++			"nodes": [
++				{"name": "tarot"}
++			]
++		},
++		"comments": {
++		  "totalCount": 9
++		},
++		"url": "https://github.com/OWNER/REPO/issues/123"
++	} } } }
++	`))
++
++	output, err := RunCommand(issueViewCmd, "issue view -p 123")
++	if err != nil {
++		t.Errorf("error running command `issue view`: %v", err)
++	}
++
++	eq(t, output.Stderr(), "")
++
++	expectedLines := []*regexp.Regexp{
++		regexp.MustCompile(`ix of coins`),
++		regexp.MustCompile(`opened by marseilles. 9 comments. \(tarot\)`),
++		regexp.MustCompile(`View this issue on GitHub: https://github.com/OWNER/REPO/issues/123`),
++	}
++	for _, r := range expectedLines {
++		if !r.MatchString(output.String()) {
++			t.Errorf("output did not match regexp /%s/\n> output\n%s\n", r, output)
++			return
++		}
++	}
++}
++
+ func TestIssueView_notFound(t *testing.T) {
+ 	initBlankContext("OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+diff --git a/command/pr_test.go b/command/pr_test.go
+index f0069371f57..d621d447b35 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -313,6 +313,40 @@ func TestPRView_previewCurrentBranch(t *testing.T) {
+ 	}
+ }
+ 
++func TestPRView_previewCurrentBranchWithEmptyBody(t *testing.T) {
++	initBlankContext("OWNER/REPO", "blueberries")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	jsonFile, _ := os.Open("../test/fixtures/prView_EmptyBody.json")
++	defer jsonFile.Close()
++	http.StubResponse(200, jsonFile)
++
++	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
++		return &outputStub{}
++	})
++	defer restoreCmd()
++
++	output, err := RunCommand(prViewCmd, "pr view -p")
++	if err != nil {
++		t.Errorf("error running command `pr view`: %v", err)
++	}
++
++	eq(t, output.Stderr(), "")
++
++	expectedLines := []*regexp.Regexp{
++		regexp.MustCompile(`Blueberries are a good fruit`),
++		regexp.MustCompile(`nobody wants to merge 8 commits into master from blueberries`),
++		regexp.MustCompile(`View this pull request on GitHub: https://github.com/OWNER/REPO/pull/10`),
++	}
++	for _, r := range expectedLines {
++		if !r.MatchString(output.String()) {
++			t.Errorf("output did not match regexp /%s/\n> output\n%s\n", r, output)
++			return
++		}
++	}
++}
++
+ func TestPRView_currentBranch(t *testing.T) {
+ 	initBlankContext("OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+diff --git a/test/fixtures/prView_EmptyBody.json b/test/fixtures/prView_EmptyBody.json
+new file mode 100644
+index 00000000000..651f49ce095
+--- /dev/null
++++ b/test/fixtures/prView_EmptyBody.json
+@@ -0,0 +1,46 @@
++{
++  "data": {
++    "repository": {
++      "pullRequests": {
++        "nodes": [
++          {
++            "number": 12,
++            "title": "Blueberries are from a fork",
++            "body": "yeah",
++            "url": "https://github.com/OWNER/REPO/pull/12",
++            "headRefName": "blueberries",
++            "baseRefName": "master",
++            "headRepositoryOwner": {
++              "login": "hubot"
++            },
++            "commits": {
++              "totalCount": 12
++            },
++            "author": {
++              "login": "nobody"
++            },
++            "isCrossRepository": true
++          },
++          {
++            "number": 10,
++            "title": "Blueberries are a good fruit",
++            "body": "",
++            "url": "https://github.com/OWNER/REPO/pull/10",
++            "baseRefName": "master",
++            "headRefName": "blueberries",
++            "author": {
++              "login": "nobody"
++            },
++            "headRepositoryOwner": {
++              "login": "OWNER"
++            },
++            "commits": {
++              "totalCount": 8
++            },
++            "isCrossRepository": false
++          }
++        ]
++      }
++    }
++  }
++}

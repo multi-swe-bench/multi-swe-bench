@@ -1,0 +1,99 @@
+diff --git a/packages/mui-codemod/src/util/propsToObject.js b/packages/mui-codemod/src/util/propsToObject.js
+index 88dded76717d99..4b5c6e1aab04fb 100644
+--- a/packages/mui-codemod/src/util/propsToObject.js
++++ b/packages/mui-codemod/src/util/propsToObject.js
+@@ -1,4 +1,4 @@
+-export default function propsToObject({ j, root, componentName, propName, props }) {
++export default function propsToObject({ j, root, componentName, aliasName, propName, props }) {
+   function buildObject(node, value) {
+     const shorthand = node.value.expression && node.value.expression.name === node.name.name;
+     const property = j.objectProperty(
+@@ -11,29 +11,35 @@ export default function propsToObject({ j, root, componentName, propName, props
+     return value;
+   }
+ 
+-  return root.findJSXElements(componentName).forEach((path) => {
+-    let propValue = [];
+-    const attributes = path.node.openingElement.attributes;
+-    attributes.forEach((node, index) => {
+-      // Only transform whitelisted props
+-      if (node.type === 'JSXAttribute' && props.includes(node.name.name)) {
+-        propValue = buildObject(node, propValue);
+-        delete attributes[index];
+-      }
+-    });
+-    if (propValue.length > 0) {
+-      const propNameAttr = attributes.find((attr) => attr?.name?.name === propName);
+-      if (propNameAttr) {
+-        (propNameAttr.value.expression?.properties || []).push(
+-          ...j.objectExpression(propValue).properties,
+-        );
+-      } else {
+-        attributes.push(
+-          j.jsxAttribute(
+-            j.jsxIdentifier(propName),
+-            j.jsxExpressionContainer(j.objectExpression(propValue)),
+-          ),
+-        );
++  const result = aliasName
++    ? root.find(j.JSXElement, { openingElement: { name: { property: { name: componentName } } } })
++    : root.findJSXElements(componentName);
++
++  return result.forEach((path) => {
++    if (!aliasName || (aliasName && path.node.openingElement.name.object.name === aliasName)) {
++      let propValue = [];
++      const attributes = path.node.openingElement.attributes;
++      attributes.forEach((node, index) => {
++        // Only transform whitelisted props
++        if (node.type === 'JSXAttribute' && props.includes(node.name.name)) {
++          propValue = buildObject(node, propValue);
++          delete attributes[index];
++        }
++      });
++      if (propValue.length > 0) {
++        const propNameAttr = attributes.find((attr) => attr?.name?.name === propName);
++        if (propNameAttr) {
++          (propNameAttr.value.expression?.properties || []).push(
++            ...j.objectExpression(propValue).properties,
++          );
++        } else {
++          attributes.push(
++            j.jsxAttribute(
++              j.jsxIdentifier(propName),
++              j.jsxExpressionContainer(j.objectExpression(propValue)),
++            ),
++          );
++        }
+       }
+     }
+   });
+diff --git a/packages/mui-codemod/src/v5.0.0/box-sx-prop.js b/packages/mui-codemod/src/v5.0.0/box-sx-prop.js
+index 414d6b27fb111d..c586ea05826b47 100644
+--- a/packages/mui-codemod/src/v5.0.0/box-sx-prop.js
++++ b/packages/mui-codemod/src/v5.0.0/box-sx-prop.js
+@@ -89,7 +89,22 @@ export default function transformer(file, api, options) {
+     quote: 'single',
+   };
+ 
+-  return propsToObject({ j, root, componentName: 'Box', propName: 'sx', props }).toSource(
+-    printOptions,
+-  );
++  let aliasName;
++
++  root.find(j.ImportDeclaration).forEach((path) => {
++    if (path.node.source.value.match(/^(@mui\/material|@material-ui\/core)$/)) {
++      if (path.node.specifiers[0]?.type === 'ImportNamespaceSpecifier') {
++        aliasName = path.node.specifiers[0].local.name;
++      }
++    }
++  });
++
++  return propsToObject({
++    j,
++    root,
++    aliasName,
++    componentName: 'Box',
++    propName: 'sx',
++    props,
++  }).toSource(printOptions);
+ }

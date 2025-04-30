@@ -1,0 +1,83 @@
+diff --git a/.changeset/curvy-lies-rush.md b/.changeset/curvy-lies-rush.md
+new file mode 100644
+index 000000000000..25c6ffc1d91b
+--- /dev/null
++++ b/.changeset/curvy-lies-rush.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: allow const tag inside `svelte:boundary`
+diff --git a/documentation/docs/03-template-syntax/09-@const.md b/documentation/docs/03-template-syntax/09-@const.md
+index f4bde77c23e8..c42d3560fd0e 100644
+--- a/documentation/docs/03-template-syntax/09-@const.md
++++ b/documentation/docs/03-template-syntax/09-@const.md
+@@ -11,4 +11,4 @@ The `{@const ...}` tag defines a local constant.
+ {/each}
+ ```
+ 
+-`{@const}` is only allowed as an immediate child of a block — `{#if ...}`, `{#each ...}`, `{#snippet ...}` and so on — or a `<Component />`.
++`{@const}` is only allowed as an immediate child of a block — `{#if ...}`, `{#each ...}`, `{#snippet ...}` and so on — a `<Component />` or a `<svelte:boundary`.
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/ConstTag.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/ConstTag.js
+index 214b4bcb9e6b..3f5e0473c5fd 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/ConstTag.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/ConstTag.js
+@@ -24,6 +24,7 @@ export function ConstTag(node, context) {
+ 			grand_parent?.type !== 'EachBlock' &&
+ 			grand_parent?.type !== 'AwaitBlock' &&
+ 			grand_parent?.type !== 'SnippetBlock' &&
++			grand_parent?.type !== 'SvelteBoundary' &&
+ 			((grand_parent?.type !== 'RegularElement' && grand_parent?.type !== 'SvelteElement') ||
+ 				!grand_parent.attributes.some((a) => a.type === 'Attribute' && a.name === 'slot')))
+ 	) {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteBoundary.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteBoundary.js
+index ef9f6bd798b1..325485d4c003 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteBoundary.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteBoundary.js
+@@ -33,21 +33,34 @@ export function SvelteBoundary(node, context) {
+ 	const nodes = [];
+ 
+ 	/** @type {Statement[]} */
+-	const snippet_statements = [];
++	const external_statements = [];
++
++	const snippets_visits = [];
+ 
+ 	// Capture the `failed` implicit snippet prop
+ 	for (const child of node.fragment.nodes) {
+ 		if (child.type === 'SnippetBlock' && child.expression.name === 'failed') {
++			// we need to delay the visit of the snippets in case they access a ConstTag that is declared
++			// after the snippets so that the visitor for the const tag can be updated
++			snippets_visits.push(() => {
++				/** @type {Statement[]} */
++				const init = [];
++				context.visit(child, { ...context.state, init });
++				props.properties.push(b.prop('init', child.expression, child.expression));
++				external_statements.push(...init);
++			});
++		} else if (child.type === 'ConstTag') {
+ 			/** @type {Statement[]} */
+ 			const init = [];
+ 			context.visit(child, { ...context.state, init });
+-			props.properties.push(b.prop('init', child.expression, child.expression));
+-			snippet_statements.push(...init);
++			external_statements.push(...init);
+ 		} else {
+ 			nodes.push(child);
+ 		}
+ 	}
+ 
++	snippets_visits.forEach((visit) => visit());
++
+ 	const block = /** @type {BlockStatement} */ (context.visit({ ...node.fragment, nodes }));
+ 
+ 	const boundary = b.stmt(
+@@ -56,6 +69,6 @@ export function SvelteBoundary(node, context) {
+ 
+ 	context.state.template.push('<!>');
+ 	context.state.init.push(
+-		snippet_statements.length > 0 ? b.block([...snippet_statements, boundary]) : boundary
++		external_statements.length > 0 ? b.block([...external_statements, boundary]) : boundary
+ 	);
+ }

@@ -1,0 +1,133 @@
+diff --git a/api/export_pr.go b/api/export_pr.go
+index e6f0f72217e..ef463b8a260 100644
+--- a/api/export_pr.go
++++ b/api/export_pr.go
+@@ -11,6 +11,18 @@ func (issue *Issue) ExportData(fields []string) map[string]interface{} {
+ 
+ 	for _, f := range fields {
+ 		switch f {
++		case "author":
++			author := map[string]interface{}{
++				"is_bot": issue.Author.IsBot(),
++			}
++			if issue.Author.IsBot() {
++				author["login"] = "app/" + issue.Author.Login
++			} else {
++				author["login"] = issue.Author.Login
++				author["name"] = issue.Author.Name
++				author["id"] = issue.Author.ID
++			}
++			data[f] = author
+ 		case "comments":
+ 			data[f] = issue.Comments.Nodes
+ 		case "assignees":
+@@ -34,6 +46,18 @@ func (pr *PullRequest) ExportData(fields []string) map[string]interface{} {
+ 
+ 	for _, f := range fields {
+ 		switch f {
++		case "author":
++			author := map[string]interface{}{
++				"is_bot": pr.Author.IsBot(),
++			}
++			if pr.Author.IsBot() {
++				author["login"] = "app/" + pr.Author.Login
++			} else {
++				author["login"] = pr.Author.Login
++				author["name"] = pr.Author.Name
++				author["id"] = pr.Author.ID
++			}
++			data[f] = author
+ 		case "headRepository":
+ 			data[f] = pr.HeadRepository
+ 		case "statusCheckRollup":
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index 93ef093b7be..d3e0cc84040 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -112,12 +112,15 @@ type Owner struct {
+ }
+ 
+ type Author struct {
+-	// adding these breaks generated GraphQL requests
+-	//ID    string `json:"id,omitempty"`
+-	//Name  string `json:"name,omitempty"`
++	ID    string `json:"id,omitempty"`
++	Name  string `json:"name,omitempty"`
+ 	Login string `json:"login"`
+ }
+ 
++func (author *Author) IsBot() bool {
++	return author.ID == ""
++}
++
+ // IssueCreate creates an issue in a GitHub repository
+ func IssueCreate(client *Client, repo *Repository, params map[string]interface{}) (*Issue, error) {
+ 	query := `
+diff --git a/api/query_builder.go b/api/query_builder.go
+index 733f245b256..7155552f203 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -261,7 +261,7 @@ func IssueGraphQL(fields []string) string {
+ 	for _, field := range fields {
+ 		switch field {
+ 		case "author":
+-			q = append(q, `author{login}`)
++			q = append(q, `author{login,...on User{id,name}}`)
+ 		case "mergedBy":
+ 			q = append(q, `mergedBy{login}`)
+ 		case "headRepositoryOwner":
+diff --git a/pkg/search/result.go b/pkg/search/result.go
+index 6ef1b8bc020..b9a0096957a 100644
+--- a/pkg/search/result.go
++++ b/pkg/search/result.go
+@@ -116,6 +116,13 @@ type User struct {
+ 	URL        string `json:"html_url"`
+ }
+ 
++func (u *User) IsBot() bool {
++	// copied from api/queries_issue.go
++	// would ideally be shared, but it would require coordinating a "user"
++	// abstraction in a bunch of places.
++	return u.ID == ""
++}
++
+ type Issue struct {
+ 	Assignees         []User      `json:"assignees"`
+ 	Author            User        `json:"user"`
+@@ -200,18 +207,30 @@ func (issue Issue) ExportData(fields []string) map[string]interface{} {
+ 		case "assignees":
+ 			assignees := make([]interface{}, 0, len(issue.Assignees))
+ 			for _, assignee := range issue.Assignees {
++				isBot := assignee.IsBot()
++				login := assignee.Login
++				if isBot {
++					login = "app/" + login
++				}
+ 				assignees = append(assignees, map[string]interface{}{
+-					"id":    assignee.ID,
+-					"login": assignee.Login,
+-					"type":  assignee.Type,
++					"id":     assignee.ID,
++					"login":  login,
++					"type":   assignee.Type,
++					"is_bot": isBot,
+ 				})
+ 			}
+ 			data[f] = assignees
+ 		case "author":
++			isBot := issue.Author.IsBot()
++			login := issue.Author.Login
++			if isBot {
++				login = "app/" + login
++			}
+ 			data[f] = map[string]interface{}{
+-				"id":    issue.Author.ID,
+-				"login": issue.Author.Login,
+-				"type":  issue.Author.Type,
++				"id":     issue.Author.ID,
++				"login":  login,
++				"type":   issue.Author.Type,
++				"is_bot": isBot,
+ 			}
+ 		case "isPullRequest":
+ 			data[f] = issue.IsPullRequest()

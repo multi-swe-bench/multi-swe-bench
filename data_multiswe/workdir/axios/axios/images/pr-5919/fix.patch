@@ -1,0 +1,96 @@
+diff --git a/lib/adapters/adapters.js b/lib/adapters/adapters.js
+index e31fca1203..550997d8c7 100644
+--- a/lib/adapters/adapters.js
++++ b/lib/adapters/adapters.js
+@@ -9,7 +9,7 @@ const knownAdapters = {
+ }
+ 
+ utils.forEach(knownAdapters, (fn, value) => {
+-  if(fn) {
++  if (fn) {
+     try {
+       Object.defineProperty(fn, 'name', {value});
+     } catch (e) {
+@@ -19,6 +19,10 @@ utils.forEach(knownAdapters, (fn, value) => {
+   }
+ });
+ 
++const renderReason = (reason) => `- ${reason}`;
++
++const isResolvedHandle = (adapter) => utils.isFunction(adapter) || adapter === null || adapter === false;
++
+ export default {
+   getAdapter: (adapters) => {
+     adapters = utils.isArray(adapters) ? adapters : [adapters];
+@@ -27,30 +31,44 @@ export default {
+     let nameOrAdapter;
+     let adapter;
+ 
++    const rejectedReasons = {};
++
+     for (let i = 0; i < length; i++) {
+       nameOrAdapter = adapters[i];
+-      if((adapter = utils.isString(nameOrAdapter) ? knownAdapters[nameOrAdapter.toLowerCase()] : nameOrAdapter)) {
++      let id;
++
++      adapter = nameOrAdapter;
++
++      if (!isResolvedHandle(nameOrAdapter)) {
++        adapter = knownAdapters[(id = String(nameOrAdapter)).toLowerCase()];
++
++        if (adapter === undefined) {
++          throw new AxiosError(`Unknown adapter '${id}'`);
++        }
++      }
++
++      if (adapter) {
+         break;
+       }
++
++      rejectedReasons[id || '#' + i] = adapter;
+     }
+ 
+     if (!adapter) {
+-      if (adapter === false) {
+-        throw new AxiosError(
+-          `Adapter ${nameOrAdapter} is not supported by the environment`,
+-          'ERR_NOT_SUPPORT'
++
++      const reasons = Object.entries(rejectedReasons)
++        .map(([id, state]) => `adapter ${id} ` +
++          (state === false ? 'is not supported by the environment' : 'is not available in the build')
+         );
+-      }
+ 
+-      throw new Error(
+-        utils.hasOwnProp(knownAdapters, nameOrAdapter) ?
+-          `Adapter '${nameOrAdapter}' is not available in the build` :
+-          `Unknown adapter '${nameOrAdapter}'`
+-      );
+-    }
++      let s = length ?
++        (reasons.length > 1 ? 'since :\n' + reasons.map(renderReason).join('\n') : ' ' + renderReason(reasons[0])) :
++        'as no adapter specified';
+ 
+-    if (!utils.isFunction(adapter)) {
+-      throw new TypeError('adapter is not a function');
++      throw new AxiosError(
++        `There is no suitable adapter to dispatch the request ` + s,
++        'ERR_NOT_SUPPORT'
++      );
+     }
+ 
+     return adapter;
+diff --git a/lib/defaults/index.js b/lib/defaults/index.js
+index 27c71b45e6..a883bfe5c5 100644
+--- a/lib/defaults/index.js
++++ b/lib/defaults/index.js
+@@ -37,7 +37,7 @@ const defaults = {
+ 
+   transitional: transitionalDefaults,
+ 
+-  adapter: platform.isNode ? 'http' : 'xhr',
++  adapter: ['xhr', 'http'],
+ 
+   transformRequest: [function transformRequest(data, headers) {
+     const contentType = headers.getContentType() || '';

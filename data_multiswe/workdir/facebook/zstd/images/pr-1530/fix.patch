@@ -1,0 +1,257 @@
+diff --git a/lib/compress/zstd_compress.c b/lib/compress/zstd_compress.c
+index 9ea7f04efb4..1429b84f97b 100644
+--- a/lib/compress/zstd_compress.c
++++ b/lib/compress/zstd_compress.c
+@@ -385,6 +385,18 @@ static int ZSTD_cParam_withinBounds(ZSTD_cParameter cParam, int value)
+     return 1;
+ }
+ 
++/* ZSTD_cParam_clampBounds:
++ * Clamps the value into the bounded range.
++ */
++static size_t ZSTD_cParam_clampBounds(ZSTD_cParameter cParam, int* value)
++{
++    ZSTD_bounds const bounds = ZSTD_cParam_getBounds(cParam);
++    if (ZSTD_isError(bounds.error)) return bounds.error;
++    if (*value < bounds.lowerBound) *value = bounds.lowerBound;
++    if (*value > bounds.upperBound) *value = bounds.upperBound;
++    return 0;
++}
++
+ #define BOUNDCHECK(cParam, val) { \
+     RETURN_ERROR_IF(!ZSTD_cParam_withinBounds(cParam,val), \
+                     parameter_outOfBound); \
+@@ -438,13 +450,10 @@ size_t ZSTD_CCtx_setParameter(ZSTD_CCtx* cctx, ZSTD_cParameter param, int value)
+ 
+     switch(param)
+     {
+-    case ZSTD_c_format :
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+     case ZSTD_c_compressionLevel:
+         RETURN_ERROR_IF(cctx->cdict, stage_wrong,
+                         "compression level is configured in cdict");
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
++        break;
+ 
+     case ZSTD_c_windowLog:
+     case ZSTD_c_hashLog:
+@@ -455,44 +464,37 @@ size_t ZSTD_CCtx_setParameter(ZSTD_CCtx* cctx, ZSTD_cParameter param, int value)
+     case ZSTD_c_strategy:
+         RETURN_ERROR_IF(cctx->cdict, stage_wrong,
+                         "cparams are configured in cdict");
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
++        break;
+ 
++    case ZSTD_c_nbWorkers:
++        RETURN_ERROR_IF((value!=0) && cctx->staticSize, parameter_unsupported,
++                        "MT not compatible with static alloc");
++        break;
++
++    case ZSTD_c_ldmHashRateLog:
++        RETURN_ERROR_IF(cctx->cdict, stage_wrong,
++                        "LDM hash rate log is configured in cdict");
++        break;
++
++    case ZSTD_c_format:
+     case ZSTD_c_contentSizeFlag:
+     case ZSTD_c_checksumFlag:
+     case ZSTD_c_dictIDFlag:
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+-    case ZSTD_c_forceMaxWindow :  /* Force back-references to remain < windowSize,
+-                                   * even when referencing into Dictionary content.
+-                                   * default : 0 when using a CDict, 1 when using a Prefix */
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
++    case ZSTD_c_forceMaxWindow:
+     case ZSTD_c_forceAttachDict:
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+     case ZSTD_c_literalCompressionMode:
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+-    case ZSTD_c_nbWorkers:
+-        RETURN_ERROR_IF((value!=0) && cctx->staticSize, parameter_unsupported,
+-                        "MT not compatible with static alloc");
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+     case ZSTD_c_jobSize:
+     case ZSTD_c_overlapLog:
+     case ZSTD_c_rsyncable:
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+-
+     case ZSTD_c_enableLongDistanceMatching:
+     case ZSTD_c_ldmHashLog:
+     case ZSTD_c_ldmMinMatch:
+     case ZSTD_c_ldmBucketSizeLog:
+-    case ZSTD_c_ldmHashRateLog:
+-        RETURN_ERROR_IF(cctx->cdict, stage_wrong);
+-        return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
++        break;
+ 
+     default: RETURN_ERROR(parameter_unsupported);
+     }
++    return ZSTD_CCtxParam_setParameter(&cctx->requestedParams, param, value);
+ }
+ 
+ size_t ZSTD_CCtxParam_setParameter(ZSTD_CCtx_params* CCtxParams,
+@@ -507,11 +509,9 @@ size_t ZSTD_CCtxParam_setParameter(ZSTD_CCtx_params* CCtxParams,
+         return (size_t)CCtxParams->format;
+ 
+     case ZSTD_c_compressionLevel : {
+-        int cLevel = value;
+-        if (cLevel > ZSTD_maxCLevel()) cLevel = ZSTD_maxCLevel();
+-        if (cLevel < ZSTD_minCLevel()) cLevel = ZSTD_minCLevel();
+-        if (cLevel) {  /* 0 : does not change current level */
+-            CCtxParams->compressionLevel = cLevel;
++        FORWARD_IF_ERROR(ZSTD_cParam_clampBounds(param, &value));
++        if (value) {  /* 0 : does not change current level */
++            CCtxParams->compressionLevel = value;
+         }
+         if (CCtxParams->compressionLevel >= 0) return CCtxParams->compressionLevel;
+         return 0;  /* return type (size_t) cannot represent negative values */
+@@ -597,28 +597,43 @@ size_t ZSTD_CCtxParam_setParameter(ZSTD_CCtx_params* CCtxParams,
+         RETURN_ERROR_IF(value!=0, parameter_unsupported, "not compiled with multithreading");
+         return 0;
+ #else
+-        return ZSTDMT_CCtxParam_setNbWorkers(CCtxParams, value);
++        FORWARD_IF_ERROR(ZSTD_cParam_clampBounds(param, &value));
++        CCtxParams->nbWorkers = value;
++        return CCtxParams->nbWorkers;
+ #endif
+ 
+     case ZSTD_c_jobSize :
+ #ifndef ZSTD_MULTITHREAD
+-        RETURN_ERROR(parameter_unsupported, "not compiled with multithreading");
++        RETURN_ERROR_IF(value!=0, parameter_unsupported, "not compiled with multithreading");
++        return 0;
+ #else
+-        return ZSTDMT_CCtxParam_setMTCtxParameter(CCtxParams, ZSTDMT_p_jobSize, value);
++        /* Adjust to the minimum non-default value. */
++        if (value != 0 && value < ZSTDMT_JOBSIZE_MIN)
++            value = ZSTDMT_JOBSIZE_MIN;
++        FORWARD_IF_ERROR(ZSTD_cParam_clampBounds(param, &value));
++        assert(value >= 0);
++        CCtxParams->jobSize = value;
++        return CCtxParams->jobSize;
+ #endif
+ 
+     case ZSTD_c_overlapLog :
+ #ifndef ZSTD_MULTITHREAD
+-        RETURN_ERROR(parameter_unsupported, "not compiled with multithreading");
++        RETURN_ERROR_IF(value!=0, parameter_unsupported, "not compiled with multithreading");
++        return 0;
+ #else
+-        return ZSTDMT_CCtxParam_setMTCtxParameter(CCtxParams, ZSTDMT_p_overlapLog, value);
++        FORWARD_IF_ERROR(ZSTD_cParam_clampBounds(ZSTD_c_overlapLog, &value));
++        CCtxParams->overlapLog = value;
++        return CCtxParams->overlapLog;
+ #endif
+ 
+     case ZSTD_c_rsyncable :
+ #ifndef ZSTD_MULTITHREAD
+-        RETURN_ERROR(parameter_unsupported, "not compiled with multithreading");
++        RETURN_ERROR_IF(value!=0, parameter_unsupported, "not compiled with multithreading");
++        return 0;
+ #else
+-        return ZSTDMT_CCtxParam_setMTCtxParameter(CCtxParams, ZSTDMT_p_rsyncable, value);
++        FORWARD_IF_ERROR(ZSTD_cParam_clampBounds(ZSTD_c_overlapLog, &value));
++        CCtxParams->rsyncable = value;
++        return CCtxParams->rsyncable;
+ #endif
+ 
+     case ZSTD_c_enableLongDistanceMatching :
+diff --git a/lib/compress/zstdmt_compress.c b/lib/compress/zstdmt_compress.c
+index ffa44bc4ee6..419352e7031 100644
+--- a/lib/compress/zstdmt_compress.c
++++ b/lib/compress/zstdmt_compress.c
+@@ -864,11 +864,7 @@ static size_t ZSTDMT_expandJobsTable (ZSTDMT_CCtx* mtctx, U32 nbWorkers) {
+  * Internal use only */
+ size_t ZSTDMT_CCtxParam_setNbWorkers(ZSTD_CCtx_params* params, unsigned nbWorkers)
+ {
+-    if (nbWorkers > ZSTDMT_NBWORKERS_MAX) nbWorkers = ZSTDMT_NBWORKERS_MAX;
+-    params->nbWorkers = nbWorkers;
+-    params->overlapLog = ZSTDMT_OVERLAPLOG_DEFAULT;
+-    params->jobSize = 0;
+-    return nbWorkers;
++    return ZSTD_CCtxParam_setParameter(params, ZSTD_c_nbWorkers, (int)nbWorkers);
+ }
+ 
+ ZSTDMT_CCtx* ZSTDMT_createCCtx_advanced(unsigned nbWorkers, ZSTD_customMem cMem)
+@@ -986,26 +982,13 @@ ZSTDMT_CCtxParam_setMTCtxParameter(ZSTD_CCtx_params* params,
+     {
+     case ZSTDMT_p_jobSize :
+         DEBUGLOG(4, "ZSTDMT_CCtxParam_setMTCtxParameter : set jobSize to %i", value);
+-        if ( value != 0  /* default */
+-          && value < ZSTDMT_JOBSIZE_MIN)
+-            value = ZSTDMT_JOBSIZE_MIN;
+-        assert(value >= 0);
+-        if (value > ZSTDMT_JOBSIZE_MAX) value = ZSTDMT_JOBSIZE_MAX;
+-        params->jobSize = value;
+-        return value;
+-
++        return ZSTD_CCtxParam_setParameter(params, ZSTD_c_jobSize, value);
+     case ZSTDMT_p_overlapLog :
+         DEBUGLOG(4, "ZSTDMT_p_overlapLog : %i", value);
+-        if (value < ZSTD_OVERLAPLOG_MIN) value = ZSTD_OVERLAPLOG_MIN;
+-        if (value > ZSTD_OVERLAPLOG_MAX) value = ZSTD_OVERLAPLOG_MAX;
+-        params->overlapLog = value;
+-        return value;
+-
++        return ZSTD_CCtxParam_setParameter(params, ZSTD_c_overlapLog, value);
+     case ZSTDMT_p_rsyncable :
+-        value = (value != 0);
+-        params->rsyncable = value;
+-        return value;
+-
++        DEBUGLOG(4, "ZSTD_p_rsyncable : %i", value);
++        return ZSTD_CCtxParam_setParameter(params, ZSTD_c_rsyncable, value);
+     default :
+         return ERROR(parameter_unsupported);
+     }
+@@ -1021,32 +1004,29 @@ size_t ZSTDMT_getMTCtxParameter(ZSTDMT_CCtx* mtctx, ZSTDMT_parameter parameter,
+ {
+     switch (parameter) {
+     case ZSTDMT_p_jobSize:
+-        assert(mtctx->params.jobSize <= INT_MAX);
+-        *value = (int)(mtctx->params.jobSize);
+-        break;
++        return ZSTD_CCtxParam_getParameter(&mtctx->params, ZSTD_c_jobSize, value);
+     case ZSTDMT_p_overlapLog:
+-        *value = mtctx->params.overlapLog;
+-        break;
++        return ZSTD_CCtxParam_getParameter(&mtctx->params, ZSTD_c_overlapLog, value);
+     case ZSTDMT_p_rsyncable:
+-        *value = mtctx->params.rsyncable;
+-        break;
++        return ZSTD_CCtxParam_getParameter(&mtctx->params, ZSTD_c_rsyncable, value);
+     default:
+         return ERROR(parameter_unsupported);
+     }
+-    return 0;
+ }
+ 
+ /* Sets parameters relevant to the compression job,
+  * initializing others to default values. */
+ static ZSTD_CCtx_params ZSTDMT_initJobCCtxParams(ZSTD_CCtx_params const params)
+ {
+-    ZSTD_CCtx_params jobParams;
+-    memset(&jobParams, 0, sizeof(jobParams));
+-
+-    jobParams.cParams = params.cParams;
+-    jobParams.fParams = params.fParams;
+-    jobParams.compressionLevel = params.compressionLevel;
+-
++    ZSTD_CCtx_params jobParams = params;
++    /* Clear parameters related to multithreading */
++    jobParams.forceWindow = 0;
++    jobParams.nbWorkers = 0;
++    jobParams.jobSize = 0;
++    jobParams.overlapLog = 0;
++    jobParams.rsyncable = 0;
++    memset(&jobParams.ldmParams, 0, sizeof(ldmParams_t));
++    memset(&jobParams.customMem, 0, sizeof(ZSTD_customMem));
+     return jobParams;
+ }
+ 

@@ -1,0 +1,145 @@
+diff --git a/tests/app_from_crate.rs b/tests/app_from_crate.rs
+index f69cf9c3b65..3146b0a7def 100644
+--- a/tests/app_from_crate.rs
++++ b/tests/app_from_crate.rs
+@@ -18,7 +18,7 @@ fn app_from_crate() {
+ 
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::HelpDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayHelp);
+     assert_eq!(
+         err.to_string(),
+         EVERYTHING.replace("{{version}}", env!("CARGO_PKG_VERSION"))
+diff --git a/tests/cargo.rs b/tests/cargo.rs
+index 3ea46d958b3..733b421db5c 100644
+--- a/tests/cargo.rs
++++ b/tests/cargo.rs
+@@ -30,7 +30,7 @@ fn crate_version() {
+ 
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::VersionDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayVersion);
+     assert_eq!(
+         err.to_string(),
+         format!("prog {}\n", env!("CARGO_PKG_VERSION"))
+@@ -46,7 +46,7 @@ fn crate_description() {
+ 
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::HelpDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayHelp);
+     assert_eq!(err.to_string(), DESCRIPTION_ONLY);
+ }
+ 
+@@ -59,7 +59,7 @@ fn crate_authors() {
+ 
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::HelpDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayHelp);
+     assert_eq!(err.to_string(), AUTHORS_ONLY);
+ }
+ 
+@@ -69,6 +69,6 @@ fn crate_name() {
+ 
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::VersionDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayVersion);
+     assert_eq!(err.to_string(), "clap \n");
+ }
+diff --git a/tests/help.rs b/tests/help.rs
+index 74af4407fcf..d4e9d63c6b0 100644
+--- a/tests/help.rs
++++ b/tests/help.rs
+@@ -594,7 +594,7 @@ fn help_short() {
+     let m = setup().try_get_matches_from(vec!["myprog", "-h"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+@@ -602,7 +602,7 @@ fn help_long() {
+     let m = setup().try_get_matches_from(vec!["myprog", "--help"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+@@ -624,7 +624,7 @@ fn help_subcommand() {
+         .try_get_matches_from(vec!["myprog", "help"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+@@ -696,7 +696,7 @@ fn subcommand_short_help() {
+     let m = utils::complex_app().try_get_matches_from(vec!["clap-test", "subcmd", "-h"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+@@ -704,7 +704,7 @@ fn subcommand_long_help() {
+     let m = utils::complex_app().try_get_matches_from(vec!["clap-test", "subcmd", "--help"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+@@ -712,7 +712,7 @@ fn subcommand_help_rev() {
+     let m = utils::complex_app().try_get_matches_from(vec!["clap-test", "help", "subcmd"]);
+ 
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+diff --git a/tests/subcommands.rs b/tests/subcommands.rs
+index 4148295ec35..b42b474e342 100644
+--- a/tests/subcommands.rs
++++ b/tests/subcommands.rs
+@@ -245,7 +245,7 @@ fn alias_help() {
+         .subcommand(App::new("test").alias("do-stuff"))
+         .try_get_matches_from(vec!["myprog", "help", "do-stuff"]);
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind, ErrorKind::HelpDisplayed);
++    assert_eq!(m.unwrap_err().kind, ErrorKind::DisplayHelp);
+ }
+ 
+ #[test]
+diff --git a/tests/version.rs b/tests/version.rs
+index 814d4e2fef8..a9a80f2fbb7 100644
+--- a/tests/version.rs
++++ b/tests/version.rs
+@@ -16,7 +16,7 @@ fn version_short() {
+ 
+     assert!(m.is_err());
+     let err = m.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::VersionDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayVersion);
+     assert_eq!(err.to_string(), "test 1.3\n");
+ }
+ 
+@@ -30,7 +30,7 @@ fn version_long() {
+ 
+     assert!(m.is_err());
+     let err = m.unwrap_err();
+-    assert_eq!(err.kind, ErrorKind::VersionDisplayed);
++    assert_eq!(err.kind, ErrorKind::DisplayVersion);
+     assert_eq!(err.to_string(), "test 1.3\n");
+ }
+ 

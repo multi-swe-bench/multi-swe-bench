@@ -1,0 +1,43 @@
+diff --git a/.changeset/selfish-panthers-add.md b/.changeset/selfish-panthers-add.md
+new file mode 100644
+index 000000000000..9e685cca2746
+--- /dev/null
++++ b/.changeset/selfish-panthers-add.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: allow global next to `&` for nesting
+diff --git a/packages/svelte/src/compiler/phases/3-transform/css/index.js b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+index 2fd588b9e3b7..db119bd5dc25 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/css/index.js
++++ b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+@@ -238,6 +238,13 @@ const visitors = {
+ 					}
+ 				}
+ 
++				// for any :global() at the middle of compound selector
++				for (const selector of relative_selector.selectors) {
++					if (selector.type === 'PseudoClassSelector' && selector.name === 'global') {
++						remove_global_pseudo_class(selector);
++					}
++				}
++
+ 				if (relative_selector.selectors.some((s) => s.type === 'NestingSelector')) {
+ 					continue;
+ 				}
+@@ -250,13 +257,6 @@ const visitors = {
+ 
+ 				context.state.specificity.bumped = true;
+ 
+-				// for any :global() at the middle of compound selector
+-				for (const selector of relative_selector.selectors) {
+-					if (selector.type === 'PseudoClassSelector' && selector.name === 'global') {
+-						remove_global_pseudo_class(selector);
+-					}
+-				}
+-
+ 				let i = relative_selector.selectors.length;
+ 				while (i--) {
+ 					const selector = relative_selector.selectors[i];

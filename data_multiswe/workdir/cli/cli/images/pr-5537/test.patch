@@ -1,0 +1,83 @@
+diff --git a/pkg/cmd/repo/create/create_test.go b/pkg/cmd/repo/create/create_test.go
+index 8cfa3d5cd48..f7fb1797bc3 100644
+--- a/pkg/cmd/repo/create/create_test.go
++++ b/pkg/cmd/repo/create/create_test.go
+@@ -101,6 +101,22 @@ func TestNewCmdCreate(t *testing.T) {
+ 			wantsErr: true,
+ 			errMsg:   "the `--source` option is not supported with `--clone`, `--template`, `--license`, or `--gitignore`",
+ 		},
++		{
++			name:     "include all branches without template",
++			cli:      "--source=/path/to/repo --private --include-all-branches",
++			wantsErr: true,
++			errMsg:   "the `--include-all-branches` option is only supported when using `--template`",
++		},
++		{
++			name: "new remote from template with include all branches",
++			cli:  "template-repo --template https://github.com/OWNER/REPO --public --include-all-branches",
++			wantsOpts: CreateOptions{
++				Name:               "template-repo",
++				Public:             true,
++				Template:           "https://github.com/OWNER/REPO",
++				IncludeAllBranches: true,
++			},
++		},
+ 	}
+ 
+ 	for _, tt := range tests {
+diff --git a/pkg/cmd/repo/create/http_test.go b/pkg/cmd/repo/create/http_test.go
+index 1a1ae1f0b8c..8b5b2362aec 100644
+--- a/pkg/cmd/repo/create/http_test.go
++++ b/pkg/cmd/repo/create/http_test.go
+@@ -196,6 +196,7 @@ func Test_repoCreate(t *testing.T) {
+ 				TemplateRepositoryID: "TPLID",
+ 				HasIssuesEnabled:     true,
+ 				HasWikiEnabled:       true,
++				IncludeAllBranches:   false,
+ 			},
+ 			stubs: func(t *testing.T, r *httpmock.Registry) {
+ 				r.Register(
+@@ -218,11 +219,12 @@ func Test_repoCreate(t *testing.T) {
+ 						}`,
+ 						func(inputs map[string]interface{}) {
+ 							assert.Equal(t, map[string]interface{}{
+-								"name":         "gen-project",
+-								"description":  "my generated project",
+-								"visibility":   "PRIVATE",
+-								"ownerId":      "USERID",
+-								"repositoryId": "TPLID",
++								"name":               "gen-project",
++								"description":        "my generated project",
++								"visibility":         "PRIVATE",
++								"ownerId":            "USERID",
++								"repositoryId":       "TPLID",
++								"includeAllBranches": false,
+ 							}, inputs)
+ 						}),
+ 				)
+@@ -240,6 +242,7 @@ func Test_repoCreate(t *testing.T) {
+ 				TemplateRepositoryID: "TPLID",
+ 				HasIssuesEnabled:     true,
+ 				HasWikiEnabled:       true,
++				IncludeAllBranches:   false,
+ 			},
+ 			stubs: func(t *testing.T, r *httpmock.Registry) {
+ 				r.Register(
+@@ -262,11 +265,12 @@ func Test_repoCreate(t *testing.T) {
+ 						}`,
+ 						func(inputs map[string]interface{}) {
+ 							assert.Equal(t, map[string]interface{}{
+-								"name":         "gen-project",
+-								"description":  "my generated project",
+-								"visibility":   "INTERNAL",
+-								"ownerId":      "ORGID",
+-								"repositoryId": "TPLID",
++								"name":               "gen-project",
++								"description":        "my generated project",
++								"visibility":         "INTERNAL",
++								"ownerId":            "ORGID",
++								"repositoryId":       "TPLID",
++								"includeAllBranches": false,
+ 							}, inputs)
+ 						}),
+ 				)

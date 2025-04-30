@@ -1,0 +1,270 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-2/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-2/main.svelte
+index 2a18005538a1..3e803a628375 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-2/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-2/main.svelte
+@@ -1,4 +1,4 @@
+-<div on:click={(e) => { console.log('clicked div') }}>
++<div onclick={(e) => { console.log('clicked div') }}>
+ 	<button onclick={(e) => { console.log('clicked button'); e.stopPropagation() }}>
+ 		Button
+ 	</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/Component.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/Component.svelte
+new file mode 100644
+index 000000000000..d096bacaac8d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/Component.svelte
+@@ -0,0 +1,7 @@
++<script>
++	const { children, ...props } = $props();
++</script>
++
++<div {...props} on:click>
++	{@render children()}
++</div>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/main.svelte
+index 9697540e18c6..b7b33001684f 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-4/main.svelte
+@@ -1,12 +1,13 @@
+ <script>
++	import Component from "./Component.svelte";
+ 	import Sub from "./sub.svelte";
+ </script>
+ 
+ <svelte:window onclick="{() => console.log('window main')}" />
+ <svelte:document onclick="{() => console.log('document main')}" />
+ 
+-<div on:click={() => console.log('div main 1')} on:click={() => console.log('div main 2')}>
++<Component on:click={() => console.log('div main 1')} on:click={() => console.log('div main 2')}>
+ 	<button onclick={() => console.log('button main')}>main</button>
+-</div>
++</Component>
+ 
+ <Sub />
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Button.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Button.svelte
+new file mode 100644
+index 000000000000..3de20765c267
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Button.svelte
+@@ -0,0 +1,7 @@
++<script>
++	const { children, ...props } = $props();
++</script>
++
++<button {...props} on:click>
++	{@render children()}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Component.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Component.svelte
+new file mode 100644
+index 000000000000..d096bacaac8d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/Component.svelte
+@@ -0,0 +1,7 @@
++<script>
++	const { children, ...props } = $props();
++</script>
++
++<div {...props} on:click>
++	{@render children()}
++</div>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/main.svelte
+index 6df18bff43b5..d7d70c0b0d98 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-delegation-5/main.svelte
+@@ -1,5 +1,10 @@
+-<div onclick={() => console.log('outer div onclick')}>
+-	<div on:click={() => console.log('inner div on:click')}>
+-		<button onclick={() => console.log('button onclick')} on:click={() => console.log('button on:click')}>main</button>
+-	</div>
+-</div>
++<script>
++	import Component from "./Component.svelte";
++	import Button from "./Button.svelte";
++</script>
++
++<Component onclick={() => console.log('outer div onclick')}>
++	<Component on:click={() => console.log('inner div on:click')}>
++		<Button onclick={() => console.log('button onclick')} on:click={() => console.log('button on:click')}>main</Button>
++	</Component>
++</Component>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/Button.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/Button.svelte
+new file mode 100644
+index 000000000000..3de20765c267
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/Button.svelte
+@@ -0,0 +1,7 @@
++<script>
++	const { children, ...props } = $props();
++</script>
++
++<button {...props} on:click>
++	{@render children()}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/main.svelte
+index de589e3e40ee..b80782b28f68 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-spread-collision/main.svelte
+@@ -1,21 +1,22 @@
+ <script>
++	import Button from './Button.svelte';
+ 	let text = $state('click me');
+ 	let text2 = $state('');
+ 	let spread = { onclick: () => text = 'click spread' };
+ </script>
+ 
+-<button onclick={() => text = 'click onclick'} {...spread}>
++<Button onclick={() => text = 'click onclick'} {...spread}>
+ 	{text}
+-</button>
++</Button>
+ 
+-<button {...spread} onclick={() => text = 'click onclick'}>
++<Button {...spread} onclick={() => text = 'click onclick'}>
+ 	{text}
+-</button>
++</Button>
+ 
+-<button onclick={() => text = 'click onclick'} {...spread} on:click={() => text2 = '!'}>
++<Button onclick={() => text = 'click onclick'} {...spread} on:click={() => text2 = '!'}>
+ 	{text}{text2}
+-</button>
++</Button>
+ 
+-<button on:click={() => text2 = '?'} {...spread} onclick={() => text = 'click onclick'}>
++<Button on:click={() => text2 = '?'} {...spread} onclick={() => text = 'click onclick'}>
+ 	{text}{text2}
+-</button>
++</Button>
+diff --git a/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/input.svelte b/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/input.svelte
+index 4f23811a012d..37df598129f5 100644
+--- a/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/input.svelte
++++ b/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/input.svelte
+@@ -25,7 +25,7 @@
+ <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+ <footer on:click={noop}></footer>
+ <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+-<footer onclick={noop}></footer>
++<footer on:click={noop}></footer>
+ 
+ <!-- should not warn -->
+ <div class="foo"></div>
+@@ -68,7 +68,7 @@
+ <div on:click={noop} role="presentation"></div>
+ <div on:click={noop} role="none"></div>
+ <div on:click={noop} role={dynamicRole}></div>
+-<div onclick={noop} role={dynamicRole}></div>
++<div on:click={noop} role={dynamicRole}></div>
+ 
+ <!-- svelte-ignore a11y_no_static_element_interactions -->
+ <svelte:element this={Math.random() ? 'button' : 'div'} on:click={noop} />
+diff --git a/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/warnings.json b/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/warnings.json
+index 00adecd2eab8..ec348e03eac0 100644
+--- a/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/warnings.json
++++ b/packages/svelte/tests/validator/samples/a11y-click-events-have-key-events/warnings.json
+@@ -92,7 +92,7 @@
+ 		},
+ 		"end": {
+ 			"line": 28,
+-			"column": 32
++			"column": 33
+ 		}
+ 	}
+ ]
+diff --git a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/errors.json b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/errors.json
+new file mode 100644
+index 000000000000..6a60c090031b
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/errors.json
+@@ -0,0 +1,14 @@
++[
++	{
++		"code": "mixed_event_handler_syntaxes",
++		"message": "Mixing old (on:click) and new syntaxes for event handling is not allowed. Use only the onclick syntax.",
++		"start": {
++			"line": 11,
++			"column": 8
++		},
++		"end": {
++			"line": 11,
++			"column": 22
++		}
++	}
++]
+diff --git a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/input.svelte b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/input.svelte
+new file mode 100644
+index 000000000000..c6df23913743
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings-2/input.svelte
+@@ -0,0 +1,11 @@
++<script>
++	let { foo } = $props();
++</script>
++
++<!-- ok -->
++<button onclick={foo}>click me</button>
++<Button on:click={foo}>click me</Button>
++<Button on:click={foo}>click me</Button>
++
++<!-- error -->
++<button on:click={foo}>click me</button>
+diff --git a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/input.svelte b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/input.svelte
+index e1d0afed499c..55763285098a 100644
+--- a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/input.svelte
++++ b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/input.svelte
+@@ -3,8 +3,7 @@
+ </script>
+ 
+ <!-- ok -->
+-<button onclick={foo}>click me</button>
+-<Button onclick={foo}>click me</Button>
++<Button on:click={foo}>click me</Button>
+ <Button on:click={foo}>click me</Button>
+ 
+ <!-- warn -->
+diff --git a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/warnings.json b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/warnings.json
+index b667f2e2dd4b..90fc8fe6f716 100644
+--- a/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/warnings.json
++++ b/packages/svelte/tests/validator/samples/runes-legacy-syntax-warnings/warnings.json
+@@ -3,36 +3,36 @@
+ 		"code": "slot_element_deprecated",
+ 		"end": {
+ 			"column": 13,
+-			"line": 11
++			"line": 10
+ 		},
+ 		"message": "Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead.",
+ 		"start": {
+ 			"column": 0,
+-			"line": 11
++			"line": 10
+ 		}
+ 	},
+ 	{
+ 		"code": "slot_element_deprecated",
+ 		"end": {
+ 			"column": 24,
+-			"line": 12
++			"line": 11
+ 		},
+ 		"message": "Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead.",
+ 		"start": {
+ 			"column": 0,
+-			"line": 12
++			"line": 11
+ 		}
+ 	},
+ 	{
+ 		"code": "event_directive_deprecated",
+ 		"end": {
+ 			"column": 22,
+-			"line": 13
++			"line": 12
+ 		},
+ 		"message": "Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead.",
+ 		"start": {
+ 			"column": 8,
+-			"line": 13
++			"line": 12
+ 		}
+ 	}
+ ]

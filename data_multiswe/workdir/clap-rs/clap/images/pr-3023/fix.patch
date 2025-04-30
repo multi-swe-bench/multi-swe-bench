@@ -1,0 +1,362 @@
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index 4a80b7f4c4c..e8d10fb137c 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -23,7 +23,7 @@ use proc_macro_error::{abort, abort_call_site};
+ use quote::{format_ident, quote, quote_spanned};
+ use syn::{
+     punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Data, DataStruct,
+-    DeriveInput, Field, Fields, Type,
++    DeriveInput, Field, Fields, Generics, Type,
+ };
+ 
+ pub fn derive_args(input: &DeriveInput) -> TokenStream {
+@@ -35,21 +35,27 @@ pub fn derive_args(input: &DeriveInput) -> TokenStream {
+         Data::Struct(DataStruct {
+             fields: Fields::Named(ref fields),
+             ..
+-        }) => gen_for_struct(ident, &fields.named, &input.attrs),
++        }) => gen_for_struct(ident, &input.generics, &fields.named, &input.attrs),
+         Data::Struct(DataStruct {
+             fields: Fields::Unit,
+             ..
+-        }) => gen_for_struct(ident, &Punctuated::<Field, Comma>::new(), &input.attrs),
++        }) => gen_for_struct(
++            ident,
++            &input.generics,
++            &Punctuated::<Field, Comma>::new(),
++            &input.attrs,
++        ),
+         _ => abort_call_site!("`#[derive(Args)]` only supports non-tuple structs"),
+     }
+ }
+ 
+ pub fn gen_for_struct(
+     struct_name: &Ident,
++    generics: &Generics,
+     fields: &Punctuated<Field, Comma>,
+     attrs: &[Attribute],
+ ) -> TokenStream {
+-    let from_arg_matches = gen_from_arg_matches_for_struct(struct_name, fields, attrs);
++    let from_arg_matches = gen_from_arg_matches_for_struct(struct_name, generics, fields, attrs);
+ 
+     let attrs = Attrs::from_struct(
+         Span::call_site(),
+@@ -62,6 +68,8 @@ pub fn gen_for_struct(
+     let augmentation = gen_augment(fields, &app_var, &attrs, false);
+     let augmentation_update = gen_augment(fields, &app_var, &attrs, true);
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     quote! {
+         #from_arg_matches
+ 
+@@ -78,7 +86,7 @@ pub fn gen_for_struct(
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::Args for #struct_name {
++        impl #impl_generics clap::Args for #struct_name #ty_generics #where_clause {
+             fn augment_args<'b>(#app_var: clap::App<'b>) -> clap::App<'b> {
+                 #augmentation
+             }
+@@ -91,6 +99,7 @@ pub fn gen_for_struct(
+ 
+ pub fn gen_from_arg_matches_for_struct(
+     struct_name: &Ident,
++    generics: &Generics,
+     fields: &Punctuated<Field, Comma>,
+     attrs: &[Attribute],
+ ) -> TokenStream {
+@@ -105,6 +114,8 @@ pub fn gen_from_arg_matches_for_struct(
+     let constructor = gen_constructor(fields, &attrs);
+     let updater = gen_updater(fields, &attrs, true);
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     quote! {
+         #[allow(dead_code, unreachable_code, unused_variables)]
+         #[allow(
+@@ -119,7 +130,7 @@ pub fn gen_from_arg_matches_for_struct(
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::FromArgMatches for #struct_name {
++        impl #impl_generics clap::FromArgMatches for #struct_name #ty_generics #where_clause {
+             fn from_arg_matches(__clap_arg_matches: &clap::ArgMatches) -> Result<Self, clap::Error> {
+                 let v = #struct_name #constructor;
+                 ::std::result::Result::Ok(v)
+diff --git a/clap_derive/src/derives/into_app.rs b/clap_derive/src/derives/into_app.rs
+index 86160ab82c2..24233527ddb 100644
+--- a/clap_derive/src/derives/into_app.rs
++++ b/clap_derive/src/derives/into_app.rs
+@@ -17,7 +17,7 @@ use std::env;
+ use proc_macro2::{Span, TokenStream};
+ use proc_macro_error::abort_call_site;
+ use quote::quote;
+-use syn::{Attribute, Data, DataStruct, DeriveInput, Fields, Ident};
++use syn::{Attribute, Data, DataStruct, DeriveInput, Fields, Generics, Ident};
+ 
+ use crate::{
+     attrs::{Attrs, Name, DEFAULT_CASING, DEFAULT_ENV_CASING},
+@@ -34,17 +34,21 @@ pub fn derive_into_app(input: &DeriveInput) -> TokenStream {
+         Data::Struct(DataStruct {
+             fields: Fields::Named(_),
+             ..
+-        }) => gen_for_struct(ident, &input.attrs),
++        }) => gen_for_struct(ident, &input.generics, &input.attrs),
+         Data::Struct(DataStruct {
+             fields: Fields::Unit,
+             ..
+-        }) => gen_for_struct(ident, &input.attrs),
+-        Data::Enum(_) => gen_for_enum(ident, &input.attrs),
++        }) => gen_for_struct(ident, &input.generics, &input.attrs),
++        Data::Enum(_) => gen_for_enum(ident, &input.generics, &input.attrs),
+         _ => abort_call_site!("`#[derive(IntoApp)]` only supports non-tuple structs and enums"),
+     }
+ }
+ 
+-pub fn gen_for_struct(struct_name: &Ident, attrs: &[Attribute]) -> TokenStream {
++pub fn gen_for_struct(
++    struct_name: &Ident,
++    generics: &Generics,
++    attrs: &[Attribute],
++) -> TokenStream {
+     let app_name = env::var("CARGO_PKG_NAME").ok().unwrap_or_default();
+ 
+     let attrs = Attrs::from_struct(
+@@ -57,6 +61,8 @@ pub fn gen_for_struct(struct_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+     let name = attrs.cased_name();
+     let app_var = Ident::new("__clap_app", Span::call_site());
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     let tokens = quote! {
+         #[allow(dead_code, unreachable_code, unused_variables)]
+         #[allow(
+@@ -71,15 +77,15 @@ pub fn gen_for_struct(struct_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::IntoApp for #struct_name {
++        impl #impl_generics clap::IntoApp for #struct_name #ty_generics #where_clause {
+             fn into_app<'b>() -> clap::App<'b> {
+                 let #app_var = clap::App::new(#name);
+-                <#struct_name as clap::Args>::augment_args(#app_var)
++                <Self as clap::Args>::augment_args(#app_var)
+             }
+ 
+             fn into_app_for_update<'b>() -> clap::App<'b> {
+                 let #app_var = clap::App::new(#name);
+-                <#struct_name as clap::Args>::augment_args_for_update(#app_var)
++                <Self as clap::Args>::augment_args_for_update(#app_var)
+             }
+         }
+     };
+@@ -87,7 +93,7 @@ pub fn gen_for_struct(struct_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+     tokens
+ }
+ 
+-pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute]) -> TokenStream {
++pub fn gen_for_enum(enum_name: &Ident, generics: &Generics, attrs: &[Attribute]) -> TokenStream {
+     let app_name = env::var("CARGO_PKG_NAME").ok().unwrap_or_default();
+ 
+     let attrs = Attrs::from_struct(
+@@ -100,6 +106,8 @@ pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+     let name = attrs.cased_name();
+     let app_var = Ident::new("__clap_app", Span::call_site());
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     quote! {
+         #[allow(dead_code, unreachable_code, unused_variables)]
+         #[allow(
+@@ -114,16 +122,16 @@ pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::IntoApp for #enum_name {
++        impl #impl_generics clap::IntoApp for #enum_name #ty_generics #where_clause {
+             fn into_app<'b>() -> clap::App<'b> {
+                 let #app_var = clap::App::new(#name)
+                     .setting(clap::AppSettings::SubcommandRequiredElseHelp);
+-                <#enum_name as clap::Subcommand>::augment_subcommands(#app_var)
++                <Self as clap::Subcommand>::augment_subcommands(#app_var)
+             }
+ 
+             fn into_app_for_update<'b>() -> clap::App<'b> {
+                 let #app_var = clap::App::new(#name);
+-                <#enum_name as clap::Subcommand>::augment_subcommands_for_update(#app_var)
++                <Self as clap::Subcommand>::augment_subcommands_for_update(#app_var)
+             }
+         }
+     }
+diff --git a/clap_derive/src/derives/parser.rs b/clap_derive/src/derives/parser.rs
+index 39d3d9e73ac..23d6ab7a45e 100644
+--- a/clap_derive/src/derives/parser.rs
++++ b/clap_derive/src/derives/parser.rs
+@@ -22,7 +22,7 @@ use proc_macro_error::abort_call_site;
+ use quote::quote;
+ use syn::{
+     self, punctuated::Punctuated, token::Comma, Attribute, Data, DataEnum, DataStruct, DeriveInput,
+-    Field, Fields, Ident,
++    Field, Fields, Generics, Ident,
+ };
+ 
+ pub fn derive_parser(input: &DeriveInput) -> TokenStream {
+@@ -34,18 +34,23 @@ pub fn derive_parser(input: &DeriveInput) -> TokenStream {
+             ..
+         }) => {
+             dummies::parser_struct(ident);
+-            gen_for_struct(ident, &fields.named, &input.attrs)
++            gen_for_struct(ident, &input.generics, &fields.named, &input.attrs)
+         }
+         Data::Struct(DataStruct {
+             fields: Fields::Unit,
+             ..
+         }) => {
+             dummies::parser_struct(ident);
+-            gen_for_struct(ident, &Punctuated::<Field, Comma>::new(), &input.attrs)
++            gen_for_struct(
++                ident,
++                &input.generics,
++                &Punctuated::<Field, Comma>::new(),
++                &input.attrs,
++            )
+         }
+         Data::Enum(ref e) => {
+             dummies::parser_enum(ident);
+-            gen_for_enum(ident, &input.attrs, e)
++            gen_for_enum(ident, &input.generics, &input.attrs, e)
+         }
+         _ => abort_call_site!("`#[derive(Parser)]` only supports non-tuple structs and enums"),
+     }
+@@ -53,26 +58,36 @@ pub fn derive_parser(input: &DeriveInput) -> TokenStream {
+ 
+ fn gen_for_struct(
+     name: &Ident,
++    generics: &Generics,
+     fields: &Punctuated<Field, Comma>,
+     attrs: &[Attribute],
+ ) -> TokenStream {
+-    let into_app = into_app::gen_for_struct(name, attrs);
+-    let args = args::gen_for_struct(name, fields, attrs);
++    let into_app = into_app::gen_for_struct(name, generics, attrs);
++    let args = args::gen_for_struct(name, generics, fields, attrs);
++
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+ 
+     quote! {
+-        impl clap::Parser for #name {}
++        impl #impl_generics clap::Parser for #name #ty_generics #where_clause {}
+ 
+         #into_app
+         #args
+     }
+ }
+ 
+-fn gen_for_enum(name: &Ident, attrs: &[Attribute], e: &DataEnum) -> TokenStream {
+-    let into_app = into_app::gen_for_enum(name, attrs);
+-    let subcommand = subcommand::gen_for_enum(name, attrs, e);
++fn gen_for_enum(
++    name: &Ident,
++    generics: &Generics,
++    attrs: &[Attribute],
++    e: &DataEnum,
++) -> TokenStream {
++    let into_app = into_app::gen_for_enum(name, generics, attrs);
++    let subcommand = subcommand::gen_for_enum(name, generics, attrs, e);
++
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+ 
+     quote! {
+-        impl clap::Parser for #name {}
++        impl #impl_generics clap::Parser for #name #ty_generics #where_clause {}
+ 
+         #into_app
+         #subcommand
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index 989bc51e7ff..bdd4630934c 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -23,7 +23,7 @@ use proc_macro_error::{abort, abort_call_site};
+ use quote::{format_ident, quote, quote_spanned};
+ use syn::{
+     punctuated::Punctuated, spanned::Spanned, Attribute, Data, DataEnum, DeriveInput,
+-    FieldsUnnamed, Token, Variant,
++    FieldsUnnamed, Generics, Token, Variant,
+ };
+ 
+ pub fn derive_subcommand(input: &DeriveInput) -> TokenStream {
+@@ -32,13 +32,18 @@ pub fn derive_subcommand(input: &DeriveInput) -> TokenStream {
+     dummies::subcommand(ident);
+ 
+     match input.data {
+-        Data::Enum(ref e) => gen_for_enum(ident, &input.attrs, e),
++        Data::Enum(ref e) => gen_for_enum(ident, &input.generics, &input.attrs, e),
+         _ => abort_call_site!("`#[derive(Subcommand)]` only supports enums"),
+     }
+ }
+ 
+-pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute], e: &DataEnum) -> TokenStream {
+-    let from_arg_matches = gen_from_arg_matches_for_enum(enum_name, attrs, e);
++pub fn gen_for_enum(
++    enum_name: &Ident,
++    generics: &Generics,
++    attrs: &[Attribute],
++    e: &DataEnum,
++) -> TokenStream {
++    let from_arg_matches = gen_from_arg_matches_for_enum(enum_name, generics, attrs, e);
+ 
+     let attrs = Attrs::from_struct(
+         Span::call_site(),
+@@ -51,6 +56,8 @@ pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute], e: &DataEnum) -> Tok
+     let augmentation_update = gen_augment(&e.variants, &attrs, true);
+     let has_subcommand = gen_has_subcommand(&e.variants, &attrs);
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     quote! {
+         #from_arg_matches
+ 
+@@ -67,7 +74,7 @@ pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute], e: &DataEnum) -> Tok
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::Subcommand for #enum_name {
++        impl #impl_generics clap::Subcommand for #enum_name #ty_generics #where_clause {
+             fn augment_subcommands <'b>(__clap_app: clap::App<'b>) -> clap::App<'b> {
+                 #augmentation
+             }
+@@ -81,7 +88,12 @@ pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute], e: &DataEnum) -> Tok
+     }
+ }
+ 
+-fn gen_from_arg_matches_for_enum(name: &Ident, attrs: &[Attribute], e: &DataEnum) -> TokenStream {
++fn gen_from_arg_matches_for_enum(
++    name: &Ident,
++    generics: &Generics,
++    attrs: &[Attribute],
++    e: &DataEnum,
++) -> TokenStream {
+     let attrs = Attrs::from_struct(
+         Span::call_site(),
+         attrs,
+@@ -93,6 +105,8 @@ fn gen_from_arg_matches_for_enum(name: &Ident, attrs: &[Attribute], e: &DataEnum
+     let from_arg_matches = gen_from_arg_matches(name, &e.variants, &attrs);
+     let update_from_arg_matches = gen_update_from_arg_matches(name, &e.variants, &attrs);
+ 
++    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
++
+     quote! {
+         #[allow(dead_code, unreachable_code, unused_variables, unused_braces)]
+         #[allow(
+@@ -107,7 +121,7 @@ fn gen_from_arg_matches_for_enum(name: &Ident, attrs: &[Attribute], e: &DataEnum
+             clippy::suspicious_else_formatting,
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::FromArgMatches for #name {
++        impl #impl_generics clap::FromArgMatches for #name #ty_generics #where_clause {
+             #from_arg_matches
+             #update_from_arg_matches
+         }

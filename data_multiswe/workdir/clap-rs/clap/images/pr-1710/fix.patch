@@ -1,0 +1,164 @@
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index 6291d48bbe9..e48d1b11a01 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -628,7 +628,7 @@ impl Error {
+             cause: format!("The subcommand '{}' wasn't recognized", s),
+             message: format!(
+                 "{} The subcommand '{}' wasn't recognized\n\t\
+-                 Did you mean '{}'?\n\n\
++                 Did you mean {}?\n\n\
+                  If you believe you received this message in error, try \
+                  re-running with '{} {} {}'\n\n\
+                  {}\n\n\
+diff --git a/src/parse/features/suggestions.rs b/src/parse/features/suggestions.rs
+index b63dd18fd0f..117484cbcd3 100644
+--- a/src/parse/features/suggestions.rs
++++ b/src/parse/features/suggestions.rs
+@@ -1,3 +1,5 @@
++use std::cmp::Ordering;
++
+ // Third Party
+ #[cfg(feature = "suggestions")]
+ use strsim;
+@@ -6,35 +8,32 @@ use strsim;
+ use crate::build::App;
+ use crate::output::fmt::Format;
+ 
+-/// Produces a string from a given list of possible values which is similar to
+-/// the passed in value `v` with a certain confidence.
++/// Produces multiple strings from a given list of possible values which are similar
++/// to the passed in value `v` within a certain confidence by least confidence.
+ /// Thus in a list of possible values like ["foo", "bar"], the value "fop" will yield
+ /// `Some("foo")`, whereas "blark" would yield `None`.
+ #[cfg(feature = "suggestions")]
+-pub fn did_you_mean<T, I>(v: &str, possible_values: I) -> Option<String>
++pub fn did_you_mean<T, I>(v: &str, possible_values: I) -> Vec<String>
+ where
+     T: AsRef<str>,
+     I: IntoIterator<Item = T>,
+ {
+-    let mut candidate: Option<(f64, String)> = None;
+-    for pv in possible_values {
+-        let confidence = strsim::jaro_winkler(v, pv.as_ref());
+-        if confidence > 0.8 && (candidate.is_none() || (candidate.as_ref().unwrap().0 < confidence))
+-        {
+-            candidate = Some((confidence, pv.as_ref().to_owned()));
+-        }
+-    }
+-
+-    candidate.map(|(_, candidate)| candidate)
++    let mut candidates: Vec<(f64, String)> = possible_values
++        .into_iter()
++        .map(|pv| (strsim::jaro_winkler(v, pv.as_ref()), pv.as_ref().to_owned()))
++        .filter(|(confidence, _pv)| *confidence > 0.8)
++        .collect();
++    candidates.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
++    candidates.into_iter().map(|(_confidence, pv)| pv).collect()
+ }
+ 
+ #[cfg(not(feature = "suggestions"))]
+-pub fn did_you_mean<T, I>(_: &str, _: I) -> Option<String>
++pub fn did_you_mean<T, I>(_: &str, _: I) -> Vec<String>
+ where
+     T: AsRef<str>,
+     I: IntoIterator<Item = T>,
+ {
+-    None
++    Vec::new()
+ }
+ 
+ /// Returns a suffix that can be empty, or is the standard 'did you mean' phrase
+@@ -47,7 +46,7 @@ where
+     T: AsRef<str>,
+     I: IntoIterator<Item = T>,
+ {
+-    match did_you_mean(arg, longs) {
++    match did_you_mean(arg, longs).pop() {
+         Some(ref candidate) => {
+             let suffix = format!(
+                 "\n\tDid you mean {}{}?",
+@@ -62,7 +61,9 @@ where
+                 if let Some(ref candidate) = did_you_mean(
+                     arg,
+                     longs!(subcommand).map(|x| x.to_string_lossy().into_owned()),
+-                ) {
++                )
++                .pop()
++                {
+                     let suffix = format!(
+                         "\n\tDid you mean to put '{}{}' after the subcommand '{}'?",
+                         Format::Good("--"),
+@@ -83,7 +84,7 @@ where
+     T: AsRef<str>,
+     I: IntoIterator<Item = T>,
+ {
+-    match did_you_mean(arg, values) {
++    match did_you_mean(arg, values).pop() {
+         Some(ref candidate) => {
+             let suffix = format!("\n\tDid you mean '{}'?", Format::Good(candidate));
+             (suffix, Some(candidate.to_owned()))
+@@ -102,6 +103,12 @@ mod test {
+         assert_eq!(did_you_mean("tst", p_vals.iter()), Some("test"));
+     }
+ 
++    #[test]
++    fn possible_values_match() {
++        let p_vals = ["test", "temp"];
++        assert_eq!(did_you_mean("te", p_vals.iter()), Some("test"));
++    }
++
+     #[test]
+     fn possible_values_nomatch() {
+         let p_vals = ["test", "possible", "values"];
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 89a39a087dd..bad6a62ef57 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -547,12 +547,13 @@ where
+                 || self.is_set(AS::AllowExternalSubcommands)
+                 || self.is_set(AS::InferSubcommands))
+             {
+-                if let Some(cdate) =
+-                    suggestions::did_you_mean(&*arg_os.to_string_lossy(), sc_names!(self.app))
+-                {
++                let cands =
++                    suggestions::did_you_mean(&*arg_os.to_string_lossy(), sc_names!(self.app));
++                if !cands.is_empty() {
++                    let cands: Vec<_> = cands.iter().map(|cand| format!("'{}'", cand)).collect();
+                     return Err(ClapError::invalid_subcommand(
+                         arg_os.to_string_lossy().into_owned(),
+-                        cdate,
++                        cands.join(" or "),
+                         self.app.bin_name.as_ref().unwrap_or(&self.app.name),
+                         &*Usage::new(self).create_usage_with_title(&[]),
+                         self.app.color(),
+@@ -608,8 +609,8 @@ where
+ 
+                     if self.is_new_arg(n, needs_val_of)
+                         || sc_match
+-                        || suggestions::did_you_mean(&n.to_string_lossy(), sc_names!(self.app))
+-                            .is_some()
++                        || !suggestions::did_you_mean(&n.to_string_lossy(), sc_names!(self.app))
++                            .is_empty()
+                     {
+                         debugln!("Parser::get_matches_with: Bumping the positional counter...");
+                         pos_counter += 1;
+@@ -728,12 +729,13 @@ where
+                     self.app.color(),
+                 ));
+             } else if !has_args || self.is_set(AS::InferSubcommands) && self.has_subcommands() {
+-                if let Some(cdate) =
+-                    suggestions::did_you_mean(&*arg_os.to_string_lossy(), sc_names!(self.app))
+-                {
++                let cands =
++                    suggestions::did_you_mean(&*arg_os.to_string_lossy(), sc_names!(self.app));
++                if !cands.is_empty() {
++                    let cands: Vec<_> = cands.iter().map(|cand| format!("'{}'", cand)).collect();
+                     return Err(ClapError::invalid_subcommand(
+                         arg_os.to_string_lossy().into_owned(),
+-                        cdate,
++                        cands.join(" or "),
+                         self.app.bin_name.as_ref().unwrap_or(&self.app.name),
+                         &*Usage::new(self).create_usage_with_title(&[]),
+                         self.app.color(),

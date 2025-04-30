@@ -1,0 +1,90 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/Component.svelte b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/Component.svelte
+new file mode 100644
+index 000000000000..6346eb57489d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/Component.svelte
+@@ -0,0 +1,5 @@
++<script>
++	const { propA, propB = "fallback" } = $props();
++</script>
++
++<p>{propA} {propB}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js
+new file mode 100644
+index 000000000000..f6be4fbae486
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/_config.js
+@@ -0,0 +1,55 @@
++import { test } from '../../test';
++
++// Tests that fallback values are kept as long as the prop is not defined in the case of a spread
++export default test({
++	accessors: false, // so that propA actually becomes $.prop and not $.prop_source
++	html: `
++		<button>change propA</button>
++		<button>change propB</button>
++		<p>true fallback</p>
++	`,
++
++	async test({ assert, target }) {
++		const [propA, propB] = target.querySelectorAll('button');
++
++		await propA.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>change propA</button>
++				<button>change propB</button>
++				<p>false fallback</p>
++			`
++		);
++
++		await propB.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>change propA</button>
++				<button>change propB</button>
++				<p>false defined</p>
++			`
++		);
++
++		await propA.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>change propA</button>
++				<button>change propB</button>
++				<p>true defined</p>
++			`
++		);
++
++		await propB.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button>change propA</button>
++				<button>change propB</button>
++				<p>true</p>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/main.svelte b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/main.svelte
+new file mode 100644
+index 000000000000..e3fd384d5875
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-spread-fallback/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	import Component from './Component.svelte';
++
++	let props = $state({
++		propA: true,
++		propB: undefined
++	});
++</script>
++
++<button on:click={() => {props.propA = !props.propA}}>change propA</button>
++<button on:click={() => {props.propB = props.propB ? undefined : 'defined'}}>change propB</button>
++<Component {...props}/>

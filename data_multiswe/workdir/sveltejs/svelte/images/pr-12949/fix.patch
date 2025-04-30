@@ -1,0 +1,96 @@
+diff --git a/.changeset/spotty-trees-provide.md b/.changeset/spotty-trees-provide.md
+new file mode 100644
+index 000000000000..0652fda04959
+--- /dev/null
++++ b/.changeset/spotty-trees-provide.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: more robust handling of var declarations
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
+index 2c1db714ca72..b0da1add5702 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
+@@ -296,7 +296,7 @@ export function VariableDeclaration(node, context) {
+ }
+ 
+ /**
+- * Creates the output for a state declaration.
++ * Creates the output for a state declaration in legacy mode.
+  * @param {VariableDeclarator} declarator
+  * @param {Scope} scope
+  * @param {Expression} value
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/declarations.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/declarations.js
+index 5db639c1903d..2f7aed707ae6 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/declarations.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/declarations.js
+@@ -23,7 +23,7 @@ export function add_state_transformers(context) {
+ 			binding.kind === 'legacy_reactive'
+ 		) {
+ 			context.state.transform[name] = {
+-				read: get_value,
++				read: binding.declaration_kind === 'var' ? (node) => b.call('$.safe_get', node) : get_value,
+ 				assign: (node, value) => {
+ 					let call = b.call('$.set', node, value);
+ 
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 66a49f87c7fd..f0db435b83da 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -461,8 +461,20 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 		ForStatement: create_block_scope,
+ 		ForInStatement: create_block_scope,
+ 		ForOfStatement: create_block_scope,
+-		BlockStatement: create_block_scope,
+ 		SwitchStatement: create_block_scope,
++		BlockStatement(node, context) {
++			const parent = context.path.at(-1);
++			if (
++				parent?.type === 'FunctionDeclaration' ||
++				parent?.type === 'FunctionExpression' ||
++				parent?.type === 'ArrowFunctionExpression'
++			) {
++				// We already created a new scope for the function
++				context.next();
++			} else {
++				create_block_scope(node, context);
++			}
++		},
+ 
+ 		ClassDeclaration(node, { state, next }) {
+ 			if (node.id) state.scope.declare(node.id, 'normal', 'let', node);
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index adb595b80d8f..e963cc58a58d 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -127,6 +127,7 @@ export {
+ export { set_text } from './render.js';
+ export {
+ 	get,
++	safe_get,
+ 	invalidate_inner_signals,
+ 	flush_sync,
+ 	tick,
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index b1a52b087859..f22a6c15a44d 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -734,6 +734,16 @@ export function get(signal) {
+ 	return signal.v;
+ }
+ 
++/**
++ * Like `get`, but checks for `undefined`. Used for `var` declarations because they can be accessed before being declared
++ * @template V
++ * @param {Value<V> | undefined} signal
++ * @returns {V | undefined}
++ */
++export function safe_get(signal) {
++	return signal && get(signal);
++}
++
+ /**
+  * Invokes a function and captures all signals that are read during the invocation,
+  * then invalidates them.

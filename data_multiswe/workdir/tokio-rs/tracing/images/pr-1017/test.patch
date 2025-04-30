@@ -1,0 +1,95 @@
+diff --git a/tracing-core/tests/dispatch.rs b/tracing-core/tests/dispatch.rs
+index 7184fc9f33..1e91cfebdc 100644
+--- a/tracing-core/tests/dispatch.rs
++++ b/tracing-core/tests/dispatch.rs
+@@ -1,6 +1,9 @@
++#[cfg(feature = "std")]
+ mod common;
+ 
++#[cfg(feature = "std")]
+ use common::*;
++#[cfg(feature = "std")]
+ use tracing_core::dispatcher::*;
+ 
+ #[cfg(feature = "std")]
+diff --git a/tracing-core/tests/global_dispatch.rs b/tracing-core/tests/global_dispatch.rs
+index d430ac6182..7d69ea3976 100644
+--- a/tracing-core/tests/global_dispatch.rs
++++ b/tracing-core/tests/global_dispatch.rs
+@@ -4,7 +4,8 @@ use common::*;
+ use tracing_core::dispatcher::*;
+ #[test]
+ fn global_dispatch() {
+-    set_global_default(Dispatch::new(TestSubscriberA)).expect("global dispatch set failed");
++    static TEST: TestSubscriberA = TestSubscriberA;
++    set_global_default(Dispatch::from_static(&TEST)).expect("global dispatch set failed");
+     get_default(|current| {
+         assert!(
+             current.is::<TestSubscriberA>(),
+@@ -29,6 +30,6 @@ fn global_dispatch() {
+         )
+     });
+ 
+-    set_global_default(Dispatch::new(TestSubscriberA))
++    set_global_default(Dispatch::from_static(&TEST))
+         .expect_err("double global dispatch set succeeded");
+ }
+diff --git a/tracing/tests/filter_caching_is_lexically_scoped.rs b/tracing/tests/filter_caching_is_lexically_scoped.rs
+index 9b997a0c6b..a78010d513 100644
+--- a/tracing/tests/filter_caching_is_lexically_scoped.rs
++++ b/tracing/tests/filter_caching_is_lexically_scoped.rs
+@@ -4,6 +4,10 @@
+ // added all filters are re-evaluated. The tests being run only in separate
+ // threads with shared global state lets them interfere with each other
+ 
++// liballoc is required because the test subscriber cannot be constructed
++// statically
++#![cfg(feature = "alloc")]
++
+ #[cfg(not(feature = "std"))]
+ extern crate std;
+ 
+diff --git a/tracing/tests/filters_are_not_reevaluated_for_the_same_span.rs b/tracing/tests/filters_are_not_reevaluated_for_the_same_span.rs
+index 53e11ef448..26ca1e28a3 100644
+--- a/tracing/tests/filters_are_not_reevaluated_for_the_same_span.rs
++++ b/tracing/tests/filters_are_not_reevaluated_for_the_same_span.rs
+@@ -3,6 +3,11 @@
+ // registry. The registry was changed so that each time a new dispatcher is
+ // added all filters are re-evaluated. The tests being run only in separate
+ // threads with shared global state lets them interfere with each other
++
++// liballoc is required because the test subscriber cannot be constructed
++// statically
++#![cfg(feature = "alloc")]
++
+ #[cfg(not(feature = "std"))]
+ extern crate std;
+ 
+diff --git a/tracing/tests/filters_are_reevaluated_for_different_call_sites.rs b/tracing/tests/filters_are_reevaluated_for_different_call_sites.rs
+index 5675e4e678..0530f66a63 100644
+--- a/tracing/tests/filters_are_reevaluated_for_different_call_sites.rs
++++ b/tracing/tests/filters_are_reevaluated_for_different_call_sites.rs
+@@ -3,6 +3,11 @@
+ // registry. The registry was changed so that each time a new dispatcher is
+ // added all filters are re-evaluated. The tests being run only in separate
+ // threads with shared global state lets them interfere with each other
++
++// liballoc is required because the test subscriber cannot be constructed
++// statically
++#![cfg(feature = "alloc")]
++
+ #[cfg(not(feature = "std"))]
+ extern crate std;
+ 
+diff --git a/tracing/tests/max_level_hint.rs b/tracing/tests/max_level_hint.rs
+index 49f14d55fe..f49ff950ef 100644
+--- a/tracing/tests/max_level_hint.rs
++++ b/tracing/tests/max_level_hint.rs
+@@ -1,3 +1,7 @@
++// liballoc is required because the test subscriber cannot be constructed
++// statically
++#![cfg(feature = "alloc")]
++
+ mod support;
+ 
+ use self::support::*;

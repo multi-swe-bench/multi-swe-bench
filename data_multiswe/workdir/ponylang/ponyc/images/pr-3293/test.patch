@@ -1,0 +1,67 @@
+diff --git a/packages/builtin_test/_test.pony b/packages/builtin_test/_test.pony
+index 475e1887f8..b1278f3109 100644
+--- a/packages/builtin_test/_test.pony
++++ b/packages/builtin_test/_test.pony
+@@ -83,7 +83,7 @@ actor Main is TestList
+     test(_TestUnsignedPartialArithmetic)
+     test(_TestNextPow2)
+     test(_TestNumberConversionSaturation)
+-    test(_TestMaybePointer)
++    test(_TestNullablePointer)
+     test(_TestLambdaCapture)
+     test(_TestValtrace)
+ 
+@@ -2688,14 +2688,14 @@ struct _TestStruct
+   var i: U32 = 0
+   new create() => None
+ 
+-class iso _TestMaybePointer is UnitTest
++class iso _TestNullablePointer is UnitTest
+   """
+-  Test the MaybePointer type.
++  Test the NullablePointer type.
+   """
+-  fun name(): String => "builtin/MaybePointer"
++  fun name(): String => "builtin/NullablePointer"
+ 
+   fun apply(h: TestHelper) ? =>
+-    let a = MaybePointer[_TestStruct].none()
++    let a = NullablePointer[_TestStruct].none()
+     h.assert_true(a.is_none())
+ 
+     h.assert_error({() ? => let from_a = a()? })
+@@ -2703,7 +2703,7 @@ class iso _TestMaybePointer is UnitTest
+     let s = _TestStruct
+     s.i = 7
+ 
+-    let b = MaybePointer[_TestStruct](s)
++    let b = NullablePointer[_TestStruct](s)
+     h.assert_false(b.is_none())
+ 
+     let from_b = b()?
+diff --git a/test/libponyc/badpony.cc b/test/libponyc/badpony.cc
+index 1906251f6a..8da6cbf97c 100644
+--- a/test/libponyc/badpony.cc
++++ b/test/libponyc/badpony.cc
+@@ -1041,7 +1041,7 @@ TEST_F(BadPonyTest, DisallowPointerAndMaybePointerInEmbeddedType)
+     "class Whoops\n"
+     "  embed ok: Ok = Ok\n"
+     "  embed not_ok: Pointer[None] = Pointer[None]\n"
+-    "  embed also_not_ok: MaybePointer[Ok] = MaybePointer[Ok](Ok)\n"
++    "  embed also_not_ok: NullablePointer[Ok] = NullablePointer[Ok](Ok)\n"
+     
+     "actor Main\n"
+     "new create(env: Env) =>\n"
+diff --git a/test/libponyc/util.cc b/test/libponyc/util.cc
+index ba9df4c58d..28ce0cb459 100644
+--- a/test/libponyc/util.cc
++++ b/test/libponyc/util.cc
+@@ -116,7 +116,7 @@ static const char* const _builtin =
+   "  fun ref next(): A ?\n"
+   "primitive DoNotOptimise\n"
+   "  fun apply[A](obj: A) => compile_intrinsic\n"
+-  "struct MaybePointer[A]\n"
++  "struct NullablePointer[A]\n"
+   "  new create(that: A) => compile_intrinsic\n";
+ 
+ 

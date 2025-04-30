@@ -1,0 +1,283 @@
+diff --git a/pkg/cmd/ssh-key/add/add.go b/pkg/cmd/ssh-key/add/add.go
+index 84d39d1e781..553c3598585 100644
+--- a/pkg/cmd/ssh-key/add/add.go
++++ b/pkg/cmd/ssh-key/add/add.go
+@@ -7,6 +7,7 @@ import (
+ 	"os"
+ 
+ 	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/pkg/cmd/ssh-key/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/spf13/cobra"
+@@ -19,6 +20,7 @@ type AddOptions struct {
+ 
+ 	KeyFile string
+ 	Title   string
++	Type    string
+ }
+ 
+ func NewCmdAdd(f *cmdutil.Factory, runF func(*AddOptions) error) *cobra.Command {
+@@ -49,6 +51,8 @@ func NewCmdAdd(f *cmdutil.Factory, runF func(*AddOptions) error) *cobra.Command
+ 		},
+ 	}
+ 
++	typeEnums := []string{shared.AuthenticationKey, shared.SigningKey}
++	cmdutil.StringEnumFlag(cmd, &opts.Type, "type", "", shared.AuthenticationKey, typeEnums, "Type of the ssh key")
+ 	cmd.Flags().StringVarP(&opts.Title, "title", "t", "", "Title for the new key")
+ 	return cmd
+ }
+@@ -79,7 +83,14 @@ func runAdd(opts *AddOptions) error {
+ 
+ 	hostname, _ := cfg.Authentication().DefaultHost()
+ 
+-	uploaded, err := SSHKeyUpload(httpClient, hostname, keyReader, opts.Title)
++	var uploaded bool
++
++	if opts.Type == shared.SigningKey {
++		uploaded, err = SSHSigningKeyUpload(httpClient, hostname, keyReader, opts.Title)
++	} else {
++		uploaded, err = SSHKeyUpload(httpClient, hostname, keyReader, opts.Title)
++	}
++
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/ssh-key/add/http.go b/pkg/cmd/ssh-key/add/http.go
+index e716425e0ae..83aa77bdc86 100644
+--- a/pkg/cmd/ssh-key/add/http.go
++++ b/pkg/cmd/ssh-key/add/http.go
+@@ -46,30 +46,82 @@ func SSHKeyUpload(httpClient *http.Client, hostname string, keyFile io.Reader, t
+ 		"key":   fullUserKey,
+ 	}
+ 
+-	payloadBytes, err := json.Marshal(payload)
++	err = keyUpload(httpClient, url, payload)
++
+ 	if err != nil {
+ 		return false, err
+ 	}
+ 
+-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
++	return true, nil
++}
++
++// Uploads the provided SSH Signing key. Returns true if the key was uploaded, false if it was not.
++func SSHSigningKeyUpload(httpClient *http.Client, hostname string, keyFile io.Reader, title string) (bool, error) {
++	url := ghinstance.RESTPrefix(hostname) + "user/ssh_signing_keys"
++
++	keyBytes, err := io.ReadAll(keyFile)
+ 	if err != nil {
+ 		return false, err
+ 	}
+ 
+-	resp, err := httpClient.Do(req)
++	fullUserKey := string(keyBytes)
++	splitKey := strings.Fields(fullUserKey)
++	if len(splitKey) < 2 {
++		return false, errors.New("provided key is not in a valid format")
++	}
++
++	keyToCompare := splitKey[0] + " " + splitKey[1]
++
++	keys, err := shared.UserSigningKeys(httpClient, hostname, "")
++	if err != nil {
++		return false, err
++	}
++
++	for _, k := range keys {
++		if k.Key == keyToCompare {
++			return false, nil
++		}
++	}
++
++	payload := map[string]string{
++		"title": title,
++		"key":   fullUserKey,
++	}
++
++	err = keyUpload(httpClient, url, payload)
++
+ 	if err != nil {
+ 		return false, err
+ 	}
++
++	return true, nil
++}
++
++func keyUpload(httpClient *http.Client, url string, payload map[string]string) error {
++	payloadBytes, err := json.Marshal(payload)
++	if err != nil {
++		return err
++	}
++
++	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
++	if err != nil {
++		return err
++	}
++
++	resp, err := httpClient.Do(req)
++	if err != nil {
++		return err
++	}
+ 	defer resp.Body.Close()
+ 
+ 	if resp.StatusCode > 299 {
+-		return false, api.HandleHTTPError(resp)
++		return api.HandleHTTPError(resp)
+ 	}
+ 
+ 	_, err = io.Copy(io.Discard, resp.Body)
+ 	if err != nil {
+-		return false, err
++		return err
+ 	}
+ 
+-	return true, nil
++	return nil
+ }
+diff --git a/pkg/cmd/ssh-key/list/list.go b/pkg/cmd/ssh-key/list/list.go
+index 0c0cbcd0b1d..12ee6d6350d 100644
+--- a/pkg/cmd/ssh-key/list/list.go
++++ b/pkg/cmd/ssh-key/list/list.go
+@@ -1,10 +1,14 @@
+ package list
+ 
+ import (
++	"errors"
++	"fmt"
++	"io"
+ 	"net/http"
+ 	"strconv"
+ 	"time"
+ 
++	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/config"
+ 	"github.com/cli/cli/v2/internal/text"
+ 	"github.com/cli/cli/v2/pkg/cmd/ssh-key/shared"
+@@ -55,12 +59,22 @@ func listRun(opts *ListOptions) error {
+ 	}
+ 
+ 	host, _ := cfg.Authentication().DefaultHost()
++	sshAuthKeys, authKeyErr := shared.UserKeys(apiClient, host, "")
++	if authKeyErr != nil {
++		printError(opts.IO.ErrOut, authKeyErr)
++	}
+ 
+-	sshKeys, err := shared.UserKeys(apiClient, host, "")
+-	if err != nil {
+-		return err
++	sshSigningKeys, signKeyErr := shared.UserSigningKeys(apiClient, host, "")
++	if signKeyErr != nil {
++		printError(opts.IO.ErrOut, signKeyErr)
++	}
++
++	if authKeyErr != nil && signKeyErr != nil {
++		return cmdutil.SilentError
+ 	}
+ 
++	sshKeys := append(sshAuthKeys, sshSigningKeys...)
++
+ 	if len(sshKeys) == 0 {
+ 		return cmdutil.NewNoResultsError("no SSH keys present in the GitHub account")
+ 	}
+@@ -74,6 +88,7 @@ func listRun(opts *ListOptions) error {
+ 		t.AddField("TITLE", nil, nil)
+ 		t.AddField("ID", nil, nil)
+ 		t.AddField("KEY", nil, nil)
++		t.AddField("TYPE", nil, nil)
+ 		t.AddField("ADDED", nil, nil)
+ 		t.EndRow()
+ 	}
+@@ -86,12 +101,14 @@ func listRun(opts *ListOptions) error {
+ 			t.AddField(sshKey.Title, nil, nil)
+ 			t.AddField(id, nil, nil)
+ 			t.AddField(sshKey.Key, truncateMiddle, nil)
++			t.AddField(sshKey.Type, nil, nil)
+ 			t.AddField(text.FuzzyAgoAbbr(now, sshKey.CreatedAt), nil, cs.Gray)
+ 		} else {
+ 			t.AddField(sshKey.Title, nil, nil)
+ 			t.AddField(sshKey.Key, nil, nil)
+ 			t.AddField(createdAt, nil, nil)
+ 			t.AddField(id, nil, nil)
++			t.AddField(sshKey.Type, nil, nil)
+ 		}
+ 
+ 		t.EndRow()
+@@ -114,3 +131,13 @@ func truncateMiddle(maxWidth int, t string) string {
+ 	remainder := (maxWidth - len(ellipsis)) % 2
+ 	return t[0:halfWidth+remainder] + ellipsis + t[len(t)-halfWidth:]
+ }
++
++func printError(w io.Writer, err error) {
++	fmt.Fprintln(w, "warning: ", err)
++	var httpErr api.HTTPError
++	if errors.As(err, &httpErr) {
++		if msg := httpErr.ScopesSuggestion(); msg != "" {
++			fmt.Fprintln(w, msg)
++		}
++	}
++}
+diff --git a/pkg/cmd/ssh-key/shared/user_keys.go b/pkg/cmd/ssh-key/shared/user_keys.go
+index 57f309d1924..035d002449d 100644
+--- a/pkg/cmd/ssh-key/shared/user_keys.go
++++ b/pkg/cmd/ssh-key/shared/user_keys.go
+@@ -11,10 +11,16 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghinstance"
+ )
+ 
++const (
++	AuthenticationKey = "authentication"
++	SigningKey        = "signing"
++)
++
+ type sshKey struct {
+ 	ID        int
+ 	Key       string
+ 	Title     string
++	Type      string
+ 	CreatedAt time.Time `json:"created_at"`
+ }
+ 
+@@ -24,6 +30,41 @@ func UserKeys(httpClient *http.Client, host, userHandle string) ([]sshKey, error
+ 		resource = fmt.Sprintf("users/%s/keys", userHandle)
+ 	}
+ 	url := fmt.Sprintf("%s%s?per_page=%d", ghinstance.RESTPrefix(host), resource, 100)
++
++	keys, err := getUserKeys(httpClient, url)
++
++	if err != nil {
++		return nil, err
++	}
++
++	for i := 0; i < len(keys); i++ {
++		keys[i].Type = AuthenticationKey
++	}
++
++	return keys, nil
++}
++
++func UserSigningKeys(httpClient *http.Client, host, userHandle string) ([]sshKey, error) {
++	resource := "user/ssh_signing_keys"
++	if userHandle != "" {
++		resource = fmt.Sprintf("users/%s/ssh_signing_keys", userHandle)
++	}
++	url := fmt.Sprintf("%s%s?per_page=%d", ghinstance.RESTPrefix(host), resource, 100)
++
++	keys, err := getUserKeys(httpClient, url)
++
++	if err != nil {
++		return nil, err
++	}
++
++	for i := 0; i < len(keys); i++ {
++		keys[i].Type = SigningKey
++	}
++
++	return keys, nil
++}
++
++func getUserKeys(httpClient *http.Client, url string) ([]sshKey, error) {
+ 	req, err := http.NewRequest("GET", url, nil)
+ 	if err != nil {
+ 		return nil, err

@@ -1,0 +1,192 @@
+diff --git a/pkg/cmd/root/help.go b/pkg/cmd/root/help.go
+index d8b3e18b1f1..c7940faf0f8 100644
+--- a/pkg/cmd/root/help.go
++++ b/pkg/cmd/root/help.go
+@@ -3,6 +3,7 @@ package root
+ import (
+ 	"bytes"
+ 	"fmt"
++	"io"
+ 	"sort"
+ 	"strings"
+ 
+@@ -12,25 +13,25 @@ import (
+ 	"github.com/spf13/pflag"
+ )
+ 
+-func rootUsageFunc(command *cobra.Command) error {
+-	command.Printf("Usage:  %s", command.UseLine())
++func rootUsageFunc(w io.Writer, command *cobra.Command) error {
++	fmt.Fprintf(w, "Usage:  %s", command.UseLine())
+ 
+ 	subcommands := command.Commands()
+ 	if len(subcommands) > 0 {
+-		command.Print("\n\nAvailable commands:\n")
++		fmt.Fprint(w, "\n\nAvailable commands:\n")
+ 		for _, c := range subcommands {
+ 			if c.Hidden {
+ 				continue
+ 			}
+-			command.Printf("  %s\n", c.Name())
++			fmt.Fprintf(w, "  %s\n", c.Name())
+ 		}
+ 		return nil
+ 	}
+ 
+ 	flagUsages := command.LocalFlags().FlagUsages()
+ 	if flagUsages != "" {
+-		command.Println("\n\nFlags:")
+-		command.Print(text.Indent(dedent(flagUsages), "  "))
++		fmt.Fprintln(w, "\n\nFlags:")
++		fmt.Fprint(w, text.Indent(dedent(flagUsages), "  "))
+ 	}
+ 	return nil
+ }
+@@ -52,8 +53,8 @@ func HasFailed() bool {
+ // Display helpful error message in case subcommand name was mistyped.
+ // This matches Cobra's behavior for root command, which Cobra
+ // confusingly doesn't apply to nested commands.
+-func nestedSuggestFunc(command *cobra.Command, arg string) {
+-	command.Printf("unknown command %q for %q\n", arg, command.CommandPath())
++func nestedSuggestFunc(w io.Writer, command *cobra.Command, arg string) {
++	fmt.Fprintf(w, "unknown command %q for %q\n", arg, command.CommandPath())
+ 
+ 	var candidates []string
+ 	if arg == "help" {
+@@ -66,14 +67,14 @@ func nestedSuggestFunc(command *cobra.Command, arg string) {
+ 	}
+ 
+ 	if len(candidates) > 0 {
+-		command.Print("\nDid you mean this?\n")
++		fmt.Fprint(w, "\nDid you mean this?\n")
+ 		for _, c := range candidates {
+-			command.Printf("\t%s\n", c)
++			fmt.Fprintf(w, "\t%s\n", c)
+ 		}
+ 	}
+ 
+-	command.Print("\n")
+-	_ = rootUsageFunc(command)
++	fmt.Fprint(w, "\n")
++	_ = rootUsageFunc(w, command)
+ }
+ 
+ func isRootCmd(command *cobra.Command) bool {
+@@ -84,7 +85,7 @@ func rootHelpFunc(f *cmdutil.Factory, command *cobra.Command, args []string) {
+ 	cs := f.IOStreams.ColorScheme()
+ 
+ 	if isRootCmd(command.Parent()) && len(args) >= 2 && args[1] != "--help" && args[1] != "-h" {
+-		nestedSuggestFunc(command, args[1])
++		nestedSuggestFunc(f.IOStreams.ErrOut, command, args[1])
+ 		hasFailed = true
+ 		return
+ 	}
+@@ -190,7 +191,7 @@ Read the manual at https://cli.github.com/manual`})
+ 		helpEntries = append(helpEntries, helpEntry{"FEEDBACK", command.Annotations["help:feedback"]})
+ 	}
+ 
+-	out := command.OutOrStdout()
++	out := f.IOStreams.Out
+ 	for _, e := range helpEntries {
+ 		if e.Title != "" {
+ 			// If there is a title, add indentation to each line in the body
+diff --git a/pkg/cmd/root/help_topic.go b/pkg/cmd/root/help_topic.go
+index 757e972edca..05798894b36 100644
+--- a/pkg/cmd/root/help_topic.go
++++ b/pkg/cmd/root/help_topic.go
+@@ -1,7 +1,11 @@
+ package root
+ 
+ import (
++	"fmt"
++	"io"
++
+ 	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/cli/cli/v2/pkg/text"
+ 	"github.com/spf13/cobra"
+ )
+@@ -127,7 +131,7 @@ var HelpTopics = map[string]map[string]string{
+ 	},
+ }
+ 
+-func NewHelpTopic(topic string) *cobra.Command {
++func NewHelpTopic(ios *iostreams.IOStreams, topic string) *cobra.Command {
+ 	cmd := &cobra.Command{
+ 		Use:     topic,
+ 		Short:   HelpTopics[topic]["short"],
+@@ -140,21 +144,25 @@ func NewHelpTopic(topic string) *cobra.Command {
+ 		},
+ 	}
+ 
+-	cmd.SetHelpFunc(helpTopicHelpFunc)
+-	cmd.SetUsageFunc(helpTopicUsageFunc)
++	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
++		helpTopicHelpFunc(ios.Out, c, args)
++	})
++	cmd.SetUsageFunc(func(c *cobra.Command) error {
++		return helpTopicUsageFunc(ios.ErrOut, c)
++	})
+ 
+ 	return cmd
+ }
+ 
+-func helpTopicHelpFunc(command *cobra.Command, args []string) {
+-	command.Print(command.Long)
++func helpTopicHelpFunc(w io.Writer, command *cobra.Command, args []string) {
++	fmt.Fprint(w, command.Long)
+ 	if command.Example != "" {
+-		command.Printf("\n\nEXAMPLES\n")
+-		command.Print(text.Indent(command.Example, "  "))
++		fmt.Fprintf(w, "\n\nEXAMPLES\n")
++		fmt.Fprint(w, text.Indent(command.Example, "  "))
+ 	}
+ }
+ 
+-func helpTopicUsageFunc(command *cobra.Command) error {
+-	command.Printf("Usage: gh help %s", command.Use)
++func helpTopicUsageFunc(w io.Writer, command *cobra.Command) error {
++	fmt.Fprintf(w, "Usage: gh help %s", command.Use)
+ 	return nil
+ }
+diff --git a/pkg/cmd/root/root.go b/pkg/cmd/root/root.go
+index 4c21330a5b6..4aa65c7984c 100644
+--- a/pkg/cmd/root/root.go
++++ b/pkg/cmd/root/root.go
+@@ -56,14 +56,16 @@ func NewCmdRoot(f *cmdutil.Factory, version, buildDate string) *cobra.Command {
+ 		},
+ 	}
+ 
+-	cmd.SetOut(f.IOStreams.Out)
+-	cmd.SetErr(f.IOStreams.ErrOut)
++	cmd.SetOut(f.IOStreams.ErrOut) // command usage summary and deprecation warnings
++	cmd.SetErr(f.IOStreams.ErrOut) // error messages
+ 
+ 	cmd.PersistentFlags().Bool("help", false, "Show help for command")
+-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+-		rootHelpFunc(f, cmd, args)
++	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
++		rootHelpFunc(f, c, args)
++	})
++	cmd.SetUsageFunc(func(c *cobra.Command) error {
++		return rootUsageFunc(f.IOStreams.ErrOut, c)
+ 	})
+-	cmd.SetUsageFunc(rootUsageFunc)
+ 	cmd.SetFlagErrorFunc(rootFlagErrorFunc)
+ 
+ 	formattedVersion := versionCmd.Format(version, buildDate)
+@@ -108,10 +110,10 @@ func NewCmdRoot(f *cmdutil.Factory, version, buildDate string) *cobra.Command {
+ 	cmd.AddCommand(labelCmd.NewCmdLabel(&repoResolvingCmdFactory))
+ 
+ 	// Help topics
+-	cmd.AddCommand(NewHelpTopic("environment"))
+-	cmd.AddCommand(NewHelpTopic("formatting"))
+-	cmd.AddCommand(NewHelpTopic("mintty"))
+-	referenceCmd := NewHelpTopic("reference")
++	cmd.AddCommand(NewHelpTopic(f.IOStreams, "environment"))
++	cmd.AddCommand(NewHelpTopic(f.IOStreams, "formatting"))
++	cmd.AddCommand(NewHelpTopic(f.IOStreams, "mintty"))
++	referenceCmd := NewHelpTopic(f.IOStreams, "reference")
+ 	referenceCmd.SetHelpFunc(referenceHelpFn(f.IOStreams))
+ 	cmd.AddCommand(referenceCmd)
+ 

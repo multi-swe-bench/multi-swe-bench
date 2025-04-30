@@ -1,0 +1,624 @@
+diff --git a/.changeset/selfish-socks-smile.md b/.changeset/selfish-socks-smile.md
+new file mode 100644
+index 000000000000..75d71b1ea8ca
+--- /dev/null
++++ b/.changeset/selfish-socks-smile.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: more accurate default value handling
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/utils.js b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+index cd274eef2377..b6b5d7ecaca1 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+@@ -1,5 +1,10 @@
+ import * as b from '../../../utils/builders.js';
+-import { extract_paths, is_simple_expression, object } from '../../../utils/ast.js';
++import {
++	extract_paths,
++	is_expression_async,
++	is_simple_expression,
++	object
++} from '../../../utils/ast.js';
+ import { error } from '../../../errors.js';
+ import {
+ 	PROPS_IS_LAZY_INITIAL,
+@@ -115,103 +120,6 @@ export function serialize_get_binding(node, state) {
+ 	return node;
+ }
+ 
+-/**
+- * @param {import('estree').Expression | import('estree').Pattern} expression
+- * @returns {boolean}
+- */
+-function is_expression_async(expression) {
+-	switch (expression.type) {
+-		case 'AwaitExpression': {
+-			return true;
+-		}
+-		case 'ArrayPattern': {
+-			return expression.elements.some((element) => element && is_expression_async(element));
+-		}
+-		case 'ArrayExpression': {
+-			return expression.elements.some((element) => {
+-				if (!element) {
+-					return false;
+-				} else if (element.type === 'SpreadElement') {
+-					return is_expression_async(element.argument);
+-				} else {
+-					return is_expression_async(element);
+-				}
+-			});
+-		}
+-		case 'AssignmentPattern':
+-		case 'AssignmentExpression':
+-		case 'BinaryExpression':
+-		case 'LogicalExpression': {
+-			return is_expression_async(expression.left) || is_expression_async(expression.right);
+-		}
+-		case 'CallExpression':
+-		case 'NewExpression': {
+-			return (
+-				(expression.callee.type !== 'Super' && is_expression_async(expression.callee)) ||
+-				expression.arguments.some((element) => {
+-					if (element.type === 'SpreadElement') {
+-						return is_expression_async(element.argument);
+-					} else {
+-						return is_expression_async(element);
+-					}
+-				})
+-			);
+-		}
+-		case 'ChainExpression': {
+-			return is_expression_async(expression.expression);
+-		}
+-		case 'ConditionalExpression': {
+-			return (
+-				is_expression_async(expression.test) ||
+-				is_expression_async(expression.alternate) ||
+-				is_expression_async(expression.consequent)
+-			);
+-		}
+-		case 'ImportExpression': {
+-			return is_expression_async(expression.source);
+-		}
+-		case 'MemberExpression': {
+-			return (
+-				(expression.object.type !== 'Super' && is_expression_async(expression.object)) ||
+-				(expression.property.type !== 'PrivateIdentifier' &&
+-					is_expression_async(expression.property))
+-			);
+-		}
+-		case 'ObjectPattern':
+-		case 'ObjectExpression': {
+-			return expression.properties.some((property) => {
+-				if (property.type === 'SpreadElement') {
+-					return is_expression_async(property.argument);
+-				} else if (property.type === 'Property') {
+-					return (
+-						(property.key.type !== 'PrivateIdentifier' && is_expression_async(property.key)) ||
+-						is_expression_async(property.value)
+-					);
+-				}
+-			});
+-		}
+-		case 'RestElement': {
+-			return is_expression_async(expression.argument);
+-		}
+-		case 'SequenceExpression':
+-		case 'TemplateLiteral': {
+-			return expression.expressions.some((subexpression) => is_expression_async(subexpression));
+-		}
+-		case 'TaggedTemplateExpression': {
+-			return is_expression_async(expression.tag) || is_expression_async(expression.quasi);
+-		}
+-		case 'UnaryExpression':
+-		case 'UpdateExpression': {
+-			return is_expression_async(expression.argument);
+-		}
+-		case 'YieldExpression': {
+-			return expression.argument ? is_expression_async(expression.argument) : false;
+-		}
+-		default:
+-			return false;
+-	}
+-}
+-
+ /**
+  * @template {import('./types').ClientTransformState} State
+  * @param {import('estree').AssignmentExpression} node
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 6a95c5370a61..46327006a2c3 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -2277,27 +2277,24 @@ export const template_visitors = {
+ 			for (const path of paths) {
+ 				const name = /** @type {import('estree').Identifier} */ (path.node).name;
+ 				const binding = /** @type {import('#compiler').Binding} */ (context.state.scope.get(name));
++				const needs_derived = path.has_default_value; // to ensure that default value is only called once
++				const fn = b.thunk(
++					/** @type {import('estree').Expression} */ (context.visit(path.expression?.(unwrapped)))
++				);
++
+ 				declarations.push(
+-					b.let(
+-						path.node,
+-						b.thunk(
+-							/** @type {import('estree').Expression} */ (
+-								context.visit(path.expression?.(unwrapped))
+-							)
+-						)
+-					)
++					b.let(path.node, needs_derived ? b.call('$.derived_safe_equal', fn) : fn)
++				);
++				binding.expression = needs_derived ? b.call('$.get', b.id(name)) : b.call(name);
++				binding.mutation = create_mutation(
++					/** @type {import('estree').Pattern} */ (path.update_expression(unwrapped))
+ 				);
+ 
+ 				// we need to eagerly evaluate the expression in order to hit any
+ 				// 'Cannot access x before initialization' errors
+ 				if (context.state.options.dev) {
+-					declarations.push(b.stmt(b.call(name)));
++					declarations.push(b.stmt(binding.expression));
+ 				}
+-
+-				binding.expression = b.call(name);
+-				binding.mutation = create_mutation(
+-					/** @type {import('estree').Pattern} */ (path.update_expression(unwrapped))
+-				);
+ 			}
+ 		}
+ 
+@@ -2486,24 +2483,23 @@ export const template_visitors = {
+ 			for (const path of paths) {
+ 				const name = /** @type {import('estree').Identifier} */ (path.node).name;
+ 				const binding = /** @type {import('#compiler').Binding} */ (context.state.scope.get(name));
+-				declarations.push(
+-					b.let(
+-						path.node,
+-						b.thunk(
+-							/** @type {import('estree').Expression} */ (
+-								context.visit(path.expression?.(b.maybe_call(b.id(arg_alias))))
+-							)
+-						)
++				const needs_derived = path.has_default_value; // to ensure that default value is only called once
++				const fn = b.thunk(
++					/** @type {import('estree').Expression} */ (
++						context.visit(path.expression?.(b.maybe_call(b.id(arg_alias))))
+ 					)
+ 				);
+ 
++				declarations.push(
++					b.let(path.node, needs_derived ? b.call('$.derived_safe_equal', fn) : fn)
++				);
++				binding.expression = needs_derived ? b.call('$.get', b.id(name)) : b.call(name);
++
+ 				// we need to eagerly evaluate the expression in order to hit any
+ 				// 'Cannot access x before initialization' errors
+ 				if (context.state.options.dev) {
+-					declarations.push(b.stmt(b.call(name)));
++					declarations.push(b.stmt(binding.expression));
+ 				}
+-
+-				binding.expression = b.call(name);
+ 			}
+ 		}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index 8c502449d41e..b1e72b567bcb 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -4,6 +4,7 @@ import {
+ 	extract_identifiers,
+ 	extract_paths,
+ 	is_event_attribute,
++	is_expression_async,
+ 	unwrap_optional
+ } from '../../../utils/ast.js';
+ import * as b from '../../../utils/builders.js';
+@@ -1191,7 +1192,9 @@ const javascript_visitors_legacy = {
+ 						const name = /** @type {import('estree').Identifier} */ (path.node).name;
+ 						const binding = /** @type {import('#compiler').Binding} */ (state.scope.get(name));
+ 						const prop = b.member(b.id('$$props'), b.literal(binding.prop_alias ?? name), true);
+-						declarations.push(b.declarator(path.node, b.call('$.value_or_fallback', prop, value)));
++						declarations.push(
++							b.declarator(path.node, b.call('$.value_or_fallback', prop, b.thunk(value)))
++						);
+ 					}
+ 					continue;
+ 				}
+@@ -1204,13 +1207,15 @@ const javascript_visitors_legacy = {
+ 					b.literal(binding.prop_alias ?? declarator.id.name),
+ 					true
+ 				);
+-				const init = declarator.init
+-					? b.call(
+-							'$.value_or_fallback',
+-							prop,
+-							/** @type {import('estree').Expression} */ (visit(declarator.init))
+-						)
+-					: prop;
++
++				/** @type {import('estree').Expression} */
++				let init = prop;
++				if (declarator.init) {
++					const default_value = /** @type {import('estree').Expression} */ (visit(declarator.init));
++					init = is_expression_async(default_value)
++						? b.await(b.call('$.value_or_fallback_async', prop, b.thunk(default_value, true)))
++						: b.call('$.value_or_fallback', prop, b.thunk(default_value));
++				}
+ 
+ 				declarations.push(b.declarator(declarator.id, init));
+ 
+diff --git a/packages/svelte/src/compiler/utils/ast.js b/packages/svelte/src/compiler/utils/ast.js
+index 0ff09079bc9a..7a5062382f65 100644
+--- a/packages/svelte/src/compiler/utils/ast.js
++++ b/packages/svelte/src/compiler/utils/ast.js
+@@ -183,11 +183,11 @@ export function extract_identifiers_from_destructuring(node, nodes = []) {
+  * @typedef {Object} DestructuredAssignment
+  * @property {import('estree').Identifier | import('estree').MemberExpression} node The node the destructuring path end in. Can be a member expression only for assignment expressions
+  * @property {boolean} is_rest `true` if this is a `...rest` destructuring
+- * @property {(expression: import('estree').Expression) => import('estree').Identifier | import('estree').MemberExpression | import('estree').CallExpression} expression Returns an expression which walks the path starting at the given expression.
+- * This will be a call expression if a rest element or default is involved —
+- * e.g. `const { foo: { bar: baz = 42 }, ...rest } = quux` —
+- * since we can't represent `baz` or `rest` purely as a path
+- * @property {(expression: import('estree').Expression) => import('estree').Identifier | import('estree').MemberExpression | import('estree').CallExpression} update_expression Like `expression` but without default values.
++ * @property {boolean} has_default_value `true` if this has a fallback value like `const { foo = 'bar } = ..`
++ * @property {(expression: import('estree').Expression) => import('estree').Identifier | import('estree').MemberExpression | import('estree').CallExpression | import('estree').AwaitExpression} expression Returns an expression which walks the path starting at the given expression.
++ * This will be a call expression if a rest element or default is involved — e.g. `const { foo: { bar: baz = 42 }, ...rest } = quux` — since we can't represent `baz` or `rest` purely as a path
++ * Will be an await expression in case of an async default value (`const { foo = await bar } = ...`)
++ * @property {(expression: import('estree').Expression) => import('estree').Identifier | import('estree').MemberExpression | import('estree').CallExpression | import('estree').AwaitExpression} update_expression Like `expression` but without default values.
+  */
+ 
+ /**
+@@ -200,7 +200,8 @@ export function extract_paths(param) {
+ 		[],
+ 		param,
+ 		(node) => /** @type {import('estree').Identifier | import('estree').MemberExpression} */ (node),
+-		(node) => /** @type {import('estree').Identifier | import('estree').MemberExpression} */ (node)
++		(node) => /** @type {import('estree').Identifier | import('estree').MemberExpression} */ (node),
++		false
+ 	);
+ }
+ 
+@@ -209,15 +210,17 @@ export function extract_paths(param) {
+  * @param {import('estree').Node} param
+  * @param {DestructuredAssignment['expression']} expression
+  * @param {DestructuredAssignment['update_expression']} update_expression
++ * @param {boolean} has_default_value
+  * @returns {DestructuredAssignment[]}
+  */
+-function _extract_paths(assignments = [], param, expression, update_expression) {
++function _extract_paths(assignments = [], param, expression, update_expression, has_default_value) {
+ 	switch (param.type) {
+ 		case 'Identifier':
+ 		case 'MemberExpression':
+ 			assignments.push({
+ 				node: param,
+ 				is_rest: false,
++				has_default_value,
+ 				expression,
+ 				update_expression
+ 			});
+@@ -246,17 +249,30 @@ function _extract_paths(assignments = [], param, expression, update_expression)
+ 						assignments.push({
+ 							node: prop.argument,
+ 							is_rest: true,
++							has_default_value,
+ 							expression: rest_expression,
+ 							update_expression: rest_expression
+ 						});
+ 					} else {
+-						_extract_paths(assignments, prop.argument, rest_expression, rest_expression);
++						_extract_paths(
++							assignments,
++							prop.argument,
++							rest_expression,
++							rest_expression,
++							has_default_value
++						);
+ 					}
+ 				} else {
+ 					/** @type {DestructuredAssignment['expression']} */
+ 					const object_expression = (object) =>
+ 						b.member(expression(object), prop.key, prop.computed || prop.key.type !== 'Identifier');
+-					_extract_paths(assignments, prop.value, object_expression, object_expression);
++					_extract_paths(
++						assignments,
++						prop.value,
++						object_expression,
++						object_expression,
++						has_default_value
++					);
+ 				}
+ 			}
+ 
+@@ -274,16 +290,29 @@ function _extract_paths(assignments = [], param, expression, update_expression)
+ 							assignments.push({
+ 								node: element.argument,
+ 								is_rest: true,
++								has_default_value,
+ 								expression: rest_expression,
+ 								update_expression: rest_expression
+ 							});
+ 						} else {
+-							_extract_paths(assignments, element.argument, rest_expression, rest_expression);
++							_extract_paths(
++								assignments,
++								element.argument,
++								rest_expression,
++								rest_expression,
++								has_default_value
++							);
+ 						}
+ 					} else {
+ 						/** @type {DestructuredAssignment['expression']} */
+ 						const array_expression = (object) => b.member(expression(object), b.literal(i), true);
+-						_extract_paths(assignments, element, array_expression, array_expression);
++						_extract_paths(
++							assignments,
++							element,
++							array_expression,
++							array_expression,
++							has_default_value
++						);
+ 					}
+ 				}
+ 			}
+@@ -293,16 +322,22 @@ function _extract_paths(assignments = [], param, expression, update_expression)
+ 		case 'AssignmentPattern': {
+ 			/** @type {DestructuredAssignment['expression']} */
+ 			const fallback_expression = (object) =>
+-				b.call('$.value_or_fallback', expression(object), param.right);
++				is_expression_async(param.right)
++					? b.await(
++							b.call('$.value_or_fallback_async', expression(object), b.thunk(param.right, true))
++						)
++					: b.call('$.value_or_fallback', expression(object), b.thunk(param.right));
++
+ 			if (param.left.type === 'Identifier') {
+ 				assignments.push({
+ 					node: param.left,
+ 					is_rest: false,
++					has_default_value: true,
+ 					expression: fallback_expression,
+ 					update_expression
+ 				});
+ 			} else {
+-				_extract_paths(assignments, param.left, fallback_expression, update_expression);
++				_extract_paths(assignments, param.left, fallback_expression, update_expression, true);
+ 			}
+ 
+ 			break;
+@@ -370,3 +405,100 @@ export function is_simple_expression(node) {
+ export function unwrap_optional(node) {
+ 	return node.type === 'ChainExpression' ? node.expression : node;
+ }
++
++/**
++ * @param {import('estree').Expression | import('estree').Pattern} expression
++ * @returns {boolean}
++ */
++export function is_expression_async(expression) {
++	switch (expression.type) {
++		case 'AwaitExpression': {
++			return true;
++		}
++		case 'ArrayPattern': {
++			return expression.elements.some((element) => element && is_expression_async(element));
++		}
++		case 'ArrayExpression': {
++			return expression.elements.some((element) => {
++				if (!element) {
++					return false;
++				} else if (element.type === 'SpreadElement') {
++					return is_expression_async(element.argument);
++				} else {
++					return is_expression_async(element);
++				}
++			});
++		}
++		case 'AssignmentPattern':
++		case 'AssignmentExpression':
++		case 'BinaryExpression':
++		case 'LogicalExpression': {
++			return is_expression_async(expression.left) || is_expression_async(expression.right);
++		}
++		case 'CallExpression':
++		case 'NewExpression': {
++			return (
++				(expression.callee.type !== 'Super' && is_expression_async(expression.callee)) ||
++				expression.arguments.some((element) => {
++					if (element.type === 'SpreadElement') {
++						return is_expression_async(element.argument);
++					} else {
++						return is_expression_async(element);
++					}
++				})
++			);
++		}
++		case 'ChainExpression': {
++			return is_expression_async(expression.expression);
++		}
++		case 'ConditionalExpression': {
++			return (
++				is_expression_async(expression.test) ||
++				is_expression_async(expression.alternate) ||
++				is_expression_async(expression.consequent)
++			);
++		}
++		case 'ImportExpression': {
++			return is_expression_async(expression.source);
++		}
++		case 'MemberExpression': {
++			return (
++				(expression.object.type !== 'Super' && is_expression_async(expression.object)) ||
++				(expression.property.type !== 'PrivateIdentifier' &&
++					is_expression_async(expression.property))
++			);
++		}
++		case 'ObjectPattern':
++		case 'ObjectExpression': {
++			return expression.properties.some((property) => {
++				if (property.type === 'SpreadElement') {
++					return is_expression_async(property.argument);
++				} else if (property.type === 'Property') {
++					return (
++						(property.key.type !== 'PrivateIdentifier' && is_expression_async(property.key)) ||
++						is_expression_async(property.value)
++					);
++				}
++			});
++		}
++		case 'RestElement': {
++			return is_expression_async(expression.argument);
++		}
++		case 'SequenceExpression':
++		case 'TemplateLiteral': {
++			return expression.expressions.some((subexpression) => is_expression_async(subexpression));
++		}
++		case 'TaggedTemplateExpression': {
++			return is_expression_async(expression.tag) || is_expression_async(expression.quasi);
++		}
++		case 'UnaryExpression':
++		case 'UpdateExpression': {
++			return is_expression_async(expression.argument);
++		}
++		case 'YieldExpression': {
++			return expression.argument ? is_expression_async(expression.argument) : false;
++		}
++		default:
++			return false;
++	}
++}
+diff --git a/packages/svelte/src/compiler/utils/builders.js b/packages/svelte/src/compiler/utils/builders.js
+index a5776a46deb1..c31a0bb5c51e 100644
+--- a/packages/svelte/src/compiler/utils/builders.js
++++ b/packages/svelte/src/compiler/utils/builders.js
+@@ -398,9 +398,10 @@ export function template(elements, expressions) {
+ 
+ /**
+  * @param {import('estree').Expression | import('estree').BlockStatement} expression
++ * @param {boolean} [async]
+  * @returns {import('estree').Expression}
+  */
+-export function thunk(expression) {
++export function thunk(expression, async = false) {
+ 	if (
+ 		expression.type === 'CallExpression' &&
+ 		expression.callee.type !== 'Super' &&
+@@ -411,7 +412,9 @@ export function thunk(expression) {
+ 		return expression.callee;
+ 	}
+ 
+-	return arrow([], expression);
++	const fn = arrow([], expression);
++	if (async) fn.async = true;
++	return fn;
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index 86c8fbc7da6d..c95fcfe3113a 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -107,6 +107,7 @@ export {
+ 	update,
+ 	update_pre,
+ 	value_or_fallback,
++	value_or_fallback_async,
+ 	exclude_from_object,
+ 	pop,
+ 	push,
+@@ -136,7 +137,7 @@ export {
+ 	$window as window,
+ 	$document as document
+ } from './dom/operations.js';
+-export { noop } from '../shared/utils.js';
++export { noop, call_once } from '../shared/utils.js';
+ export {
+ 	add_snippet_symbol,
+ 	validate_component,
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index c1b8ee3e441a..ac07faccc8bc 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -1025,11 +1025,21 @@ export function exclude_from_object(obj, keys) {
+ /**
+  * @template V
+  * @param {V} value
+- * @param {V} fallback
++ * @param {() => V} fallback lazy because could contain side effects
+  * @returns {V}
+  */
+ export function value_or_fallback(value, fallback) {
+-	return value === undefined ? fallback : value;
++	return value === undefined ? fallback() : value;
++}
++
++/**
++ * @template V
++ * @param {V} value
++ * @param {() => Promise<V>} fallback lazy because could contain side effects
++ * @returns {Promise<V>}
++ */
++export async function value_or_fallback_async(value, fallback) {
++	return value === undefined ? fallback() : value;
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 6c3263cd1c65..62ec333db958 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -514,11 +514,21 @@ export function unsubscribe_stores(store_values) {
+ /**
+  * @template V
+  * @param {V} value
+- * @param {V} fallback
++ * @param {() => V} fallback lazy because could contain side effects
+  * @returns {V}
+  */
+ export function value_or_fallback(value, fallback) {
+-	return value === undefined ? fallback : value;
++	return value === undefined ? fallback() : value;
++}
++
++/**
++ * @template V
++ * @param {V} value
++ * @param {() => Promise<V>} fallback lazy because could contain side effects
++ * @returns {Promise<V>}
++ */
++export async function value_or_fallback_async(value, fallback) {
++	return value === undefined ? fallback() : value;
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/internal/shared/utils.js b/packages/svelte/src/internal/shared/utils.js
+index f39f7118fef6..5b2c0742bceb 100644
+--- a/packages/svelte/src/internal/shared/utils.js
++++ b/packages/svelte/src/internal/shared/utils.js
+@@ -23,3 +23,19 @@ export function run_all(arr) {
+ 		arr[i]();
+ 	}
+ }
++
++/**
++ * @param {Function} fn
++ */
++export function call_once(fn) {
++	let called = false;
++	/** @type {unknown} */
++	let result;
++	return function () {
++		if (!called) {
++			called = true;
++			result = fn();
++		}
++		return result;
++	};
++}

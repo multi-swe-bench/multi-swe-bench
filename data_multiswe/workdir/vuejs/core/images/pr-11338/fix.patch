@@ -1,0 +1,29 @@
+diff --git a/packages/runtime-core/src/componentSlots.ts b/packages/runtime-core/src/componentSlots.ts
+index 0145d557b06..5234c18136b 100644
+--- a/packages/runtime-core/src/componentSlots.ts
++++ b/packages/runtime-core/src/componentSlots.ts
+@@ -179,7 +179,9 @@ export const initSlots = (
+         // when rendering the optimized slots by manually written render function,
+         // we need to delete the `slots._` flag if necessary to make subsequent
+         // updates reliable, i.e. let the `renderSlot` create the bailed Fragment
+-        delete slots._
++        if (!(instance.parent && instance.parent.vnode.patchFlag > 0)) {
++          delete slots._
++        }
+       }
+     } else {
+       normalizeObjectSlots(children as RawSlots, slots, instance)
+@@ -214,6 +216,13 @@ export const updateSlots = (
+         // compiled but dynamic (v-if/v-for on slots) - update slots, but skip
+         // normalization.
+         extend(slots, children as Slots)
++
++        if (
++          !optimized &&
++          !(instance.parent && instance.parent.vnode.patchFlag > 0)
++        ) {
++          delete slots._
++        }
+       }
+     } else {
+       needDeletionCheck = !(children as RawSlots).$stable

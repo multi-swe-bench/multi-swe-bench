@@ -1,0 +1,171 @@
+diff --git a/complete/_rg b/complete/_rg
+index cd5b5ac6b..93ab4ae84 100644
+--- a/complete/_rg
++++ b/complete/_rg
+@@ -45,6 +45,7 @@ _rg() {
+     '--ignore-file=[specify additional ignore file]:file:_files'
+     '(-v --invert-match)'{-v,--invert-match}'[invert matching]'
+     '(-n -N --line-number --no-line-number)'{-n,--line-number}'[show line numbers]'
++    '(-N --no-line-number)--line-number-width=[specify width of displayed line number]:number of columns'
+     '(-w -x --line-regexp --word-regexp)'{-x,--line-regexp}'[only show matches surrounded by line boundaries]'
+     '(-M --max-columns)'{-M+,--max-columns=}'[specify max length of lines to print]:number of bytes'
+     '(-m --max-count)'{-m+,--max-count=}'[specify max number of matches per file]:number of matches'
+diff --git a/doc/rg.1 b/doc/rg.1
+index 2ed14b393..c91cbc5c0 100644
+--- a/doc/rg.1
++++ b/doc/rg.1
+@@ -335,6 +335,14 @@ Follow symlinks.
+ .RS
+ .RE
+ .TP
++.B \-\-line\-number\-width \f[I]NUM\f[]
++Specify a width for the displayed line number.
++If number of digits in the line number is less than this number, it is
++left padded with spaces.
++Note: This setting has no effect if \-\-no\-line\-number is enabled.
++.RS
++.RE
++.TP
+ .B \-M, \-\-max\-columns \f[I]NUM\f[]
+ Don\[aq]t print lines longer than this limit in bytes.
+ Longer lines are omitted, and only the number of matches in that line is
+diff --git a/doc/rg.1.md b/doc/rg.1.md
+index 36c912c64..bbc0207ed 100644
+--- a/doc/rg.1.md
++++ b/doc/rg.1.md
+@@ -222,6 +222,12 @@ Project home page: https://github.com/BurntSushi/ripgrep
+ -L, --follow
+ : Follow symlinks.
+ 
++--line-number-width *NUM*
++: Specify a width for the displayed line number. If number of digits
++  in the line number is less than this number, it is left padded with
++  spaces. Note: This setting has no effect if --no-line-number is
++  enabled.
++
+ -M, --max-columns *NUM*
+ : Don't print lines longer than this limit in bytes. Longer lines are omitted,
+   and only the number of matches in that line is printed.
+diff --git a/src/app.rs b/src/app.rs
+index 996396340..a9ceae892 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -102,6 +102,9 @@ pub fn app() -> App<'static, 'static> {
+              .value_name("GLOB"))
+         .arg(flag("ignore-case").short("i"))
+         .arg(flag("line-number").short("n"))
++        .arg(flag("line-number-width")
++             .value_name("NUM").takes_value(true)
++             .validator(validate_line_number_width))
+         .arg(flag("no-line-number").short("N").overrides_with("line-number"))
+         .arg(flag("quiet").short("q"))
+         .arg(flag("type").short("t")
+@@ -318,6 +321,11 @@ lazy_static! {
+              "Show line numbers.",
+              "Show line numbers (1-based). This is enabled by default when \
+               searching in a tty.");
++        doc!(h, "line-number-width",
++             "Left pad line numbers upto NUM width.",
++             "Left pad line numbers upto NUM width. Space is used as \
++              the default padding character. This has no effect if \
++              --no-line-number is enabled.");
+         doc!(h, "no-line-number",
+              "Suppress line numbers.",
+              "Suppress line numbers. This is enabled by default when NOT \
+@@ -572,6 +580,15 @@ lazy_static! {
+     };
+ }
+ 
++fn validate_line_number_width(s: String) -> Result<(), String> {
++    if s.starts_with("0") {
++        Err(String::from("Custom padding characters are currently not supported. \
++        Please enter only a numeric value."))
++    } else {
++        validate_number(s)
++    }
++}
++
+ fn validate_number(s: String) -> Result<(), String> {
+     s.parse::<usize>().map(|_|()).map_err(|err| err.to_string())
+ }
+diff --git a/src/args.rs b/src/args.rs
+index 106762c40..f2c9de443 100644
+--- a/src/args.rs
++++ b/src/args.rs
+@@ -54,6 +54,7 @@ pub struct Args {
+     invert_match: bool,
+     line_number: bool,
+     line_per_match: bool,
++    line_number_width: Option<usize>,
+     max_columns: Option<usize>,
+     max_count: Option<u64>,
+     max_filesize: Option<u64>,
+@@ -144,7 +145,8 @@ impl Args {
+             .only_matching(self.only_matching)
+             .path_separator(self.path_separator)
+             .with_filename(self.with_filename)
+-            .max_columns(self.max_columns);
++            .max_columns(self.max_columns)
++            .line_number_width(self.line_number_width);
+         if let Some(ref rep) = self.replace {
+             p = p.replace(rep.clone());
+         }
+@@ -336,6 +338,7 @@ impl<'a> ArgMatches<'a> {
+             ignore_files: self.ignore_files(),
+             invert_match: self.is_present("invert-match"),
+             line_number: line_number,
++            line_number_width: try!(self.usize_of("line-number-width")),
+             line_per_match: self.is_present("vimgrep"),
+             max_columns: try!(self.usize_of("max-columns")),
+             max_count: try!(self.usize_of("max-count")).map(|max| max as u64),
+diff --git a/src/printer.rs b/src/printer.rs
+index 37680f9b9..2fb4ed60d 100644
+--- a/src/printer.rs
++++ b/src/printer.rs
+@@ -98,7 +98,11 @@ pub struct Printer<W> {
+     /// The separator to use for file paths. If empty, this is ignored.
+     path_separator: Option<u8>,
+     /// Restrict lines to this many columns.
+-    max_columns: Option<usize>
++    max_columns: Option<usize>,
++    /// Width of line number displayed. If the number of digits in the
++    /// line number is less than this, it is left padded with
++    /// spaces.
++    line_number_width: Option<usize>
+ }
+ 
+ impl<W: WriteColor> Printer<W> {
+@@ -120,6 +124,7 @@ impl<W: WriteColor> Printer<W> {
+             colors: ColorSpecs::default(),
+             path_separator: None,
+             max_columns: None,
++            line_number_width: None
+         }
+     }
+ 
+@@ -208,6 +213,12 @@ impl<W: WriteColor> Printer<W> {
+         self
+     }
+ 
++    /// Configure the width of the displayed line number
++    pub fn line_number_width(mut self, line_number_width: Option<usize>) -> Printer<W> {
++        self.line_number_width = line_number_width;
++        self
++    }
++
+     /// Returns true if and only if something has been printed.
+     pub fn has_printed(&self) -> bool {
+         self.has_printed
+@@ -457,7 +468,11 @@ impl<W: WriteColor> Printer<W> {
+     }
+ 
+     fn line_number(&mut self, n: u64, sep: u8) {
+-        self.write_colored(n.to_string().as_bytes(), |colors| colors.line());
++        let mut line_number = n.to_string();
++        if let Some(width) = self.line_number_width {
++            line_number = format!("{:>width$}", line_number, width = width);
++        }
++        self.write_colored(line_number.as_bytes(), |colors| colors.line());
+         self.separator(&[sep]);
+     }
+ 

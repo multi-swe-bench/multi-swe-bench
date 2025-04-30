@@ -1,0 +1,489 @@
+diff --git a/docs/scripts/buildApi.ts b/docs/scripts/buildApi.ts
+index 5533796924a4fa..b8013edfd4d936 100644
+--- a/docs/scripts/buildApi.ts
++++ b/docs/scripts/buildApi.ts
+@@ -788,7 +788,8 @@ async function run(argv: {
+       return directories.concat(findComponents(componentDirectory));
+     }, [] as ReadonlyArray<{ filename: string }>)
+     .filter((component) => {
+-      if (component.filename.includes('ThemeProvider')) {
++      const skippedList = ['ThemeProvider', 'ClassNameGenerator'];
++      if (skippedList.some((str) => component.filename.includes(str))) {
+         return false;
+       }
+       if (grep === null) {
+diff --git a/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.ts b/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.ts
+deleted file mode 100644
+index 4a4523b7b31220..00000000000000
+--- a/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.ts
++++ /dev/null
+@@ -1,20 +0,0 @@
+-const defaultGenerator = (componentName: string) => componentName;
+-
+-const createClassNameGenerator = () => {
+-  let generate = defaultGenerator;
+-  return {
+-    configure(generator: typeof generate) {
+-      generate = generator;
+-    },
+-    generate(componentName: string) {
+-      return generate(componentName);
+-    },
+-    reset() {
+-      generate = defaultGenerator;
+-    },
+-  };
+-};
+-
+-const ClassNameGenerator = createClassNameGenerator();
+-
+-export default ClassNameGenerator;
+diff --git a/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.tsx b/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.tsx
+new file mode 100644
+index 00000000000000..b4a2fbbf427dee
+--- /dev/null
++++ b/packages/mui-base/src/generateUtilityClass/ClassNameGenerator.tsx
+@@ -0,0 +1,76 @@
++import * as React from 'react';
++
++export type MuiStateClassKey =
++  | 'active'
++  | 'checked'
++  | 'completed'
++  | 'disabled'
++  | 'error'
++  | 'expanded'
++  | 'focused'
++  | 'focusVisible'
++  | 'required'
++  | 'selected';
++
++export const muiStateClasses: Record<MuiStateClassKey, string> = {
++  active: 'Mui-active',
++  checked: 'Mui-checked',
++  completed: 'Mui-completed',
++  disabled: 'Mui-disabled',
++  error: 'Mui-error',
++  expanded: 'Mui-expanded',
++  focused: 'Mui-focused',
++  focusVisible: 'Mui-focusVisible',
++  required: 'Mui-required',
++  selected: 'Mui-selected',
++};
++
++const defaultGenerator = (componentName: string) => componentName;
++
++const createClassNameGenerator = () => {
++  let generate = defaultGenerator;
++  return {
++    configure(generator: typeof generate) {
++      generate = generator;
++    },
++    generate(componentName: string) {
++      return generate(componentName);
++    },
++    reset() {
++      generate = defaultGenerator;
++    },
++  };
++};
++
++const ClassNameGenerator = createClassNameGenerator();
++
++const ClassNameContext = React.createContext({
++  generateClassName: defaultGenerator,
++});
++
++export const useClassNameGenerator = <ClassKey extends string>({ name }: { name: string }) => {
++  const { generateClassName } = React.useContext(ClassNameContext);
++
++  return (slot: ClassKey) => {
++    const globalStateClass = muiStateClasses[slot as MuiStateClassKey];
++    return globalStateClass || `${generateClassName(name)}-${slot}`;
++  };
++};
++
++export interface ClassNameProviderProps {
++  children: React.ReactElement;
++  generateClassName: typeof defaultGenerator;
++}
++
++/**
++ * A react context provider component for controlling MUI component public className, eg. MuiButton-root, MuiListItem-dense.
++ * Using react context allow one or multiple scope(s) of the application to have different className.
++ *
++ * Note: the className does not related to Mui-{state} global className and hashed className from styled-engine
++ */
++export const ClassNameProvider = ({ children, generateClassName }: ClassNameProviderProps) => {
++  const value = React.useMemo(() => ({ generateClassName }), [generateClassName]);
++  return <ClassNameContext.Provider value={value}>{children}</ClassNameContext.Provider>;
++};
++
++export default ClassNameGenerator;
+diff --git a/packages/mui-base/src/generateUtilityClass/generateUtilityClass.ts b/packages/mui-base/src/generateUtilityClass/generateUtilityClass.ts
+index 3b3e10fefdc2ee..7943efe8a561bd 100644
+--- a/packages/mui-base/src/generateUtilityClass/generateUtilityClass.ts
++++ b/packages/mui-base/src/generateUtilityClass/generateUtilityClass.ts
+@@ -1,19 +1,6 @@
+-import ClassNameGenerator from './ClassNameGenerator';
+-
+-const globalStateClassesMapping: Record<string, string> = {
+-  active: 'Mui-active',
+-  checked: 'Mui-checked',
+-  completed: 'Mui-completed',
+-  disabled: 'Mui-disabled',
+-  error: 'Mui-error',
+-  expanded: 'Mui-expanded',
+-  focused: 'Mui-focused',
+-  focusVisible: 'Mui-focusVisible',
+-  required: 'Mui-required',
+-  selected: 'Mui-selected',
+-};
++import ClassNameGenerator, { muiStateClasses, MuiStateClassKey } from './ClassNameGenerator';
+ 
+ export default function generateUtilityClass(componentName: string, slot: string): string {
+-  const globalStateClass = globalStateClassesMapping[slot];
+-  return globalStateClass || `${ClassNameGenerator.generate(componentName)}-${slot}`;
++  const muiStateClass = muiStateClasses[slot as MuiStateClassKey];
++  return muiStateClass || `${ClassNameGenerator.generate(componentName)}-${slot}`;
+ }
+diff --git a/packages/mui-base/src/index.d.ts b/packages/mui-base/src/index.d.ts
+index dcdbbf8a927052..e8438da5867d1e 100644
+--- a/packages/mui-base/src/index.d.ts
++++ b/packages/mui-base/src/index.d.ts
+@@ -14,7 +14,12 @@ export * from './composeClasses';
+ 
+ export { default as generateUtilityClass } from './generateUtilityClass';
+ export * from './generateUtilityClass';
+-export { default as unstable_ClassNameGenerator } from './generateUtilityClass/ClassNameGenerator';
++export {
++  default as unstable_ClassNameGenerator,
++  muiStateClasses,
++  ClassNameProvider as experimental_ClassNameProvider,
++  useClassNameGenerator as experimental_useClassNameGenerator,
++} from './generateUtilityClass/ClassNameGenerator';
+ 
+ export { default as generateUtilityClasses } from './generateUtilityClasses';
+ export * from './generateUtilityClasses';
+diff --git a/packages/mui-base/src/index.js b/packages/mui-base/src/index.js
+index 73b41036c1d765..0b4d7be84d923a 100644
+--- a/packages/mui-base/src/index.js
++++ b/packages/mui-base/src/index.js
+@@ -12,7 +12,12 @@ export * from './ButtonUnstyled';
+ export { default as unstable_composeClasses } from './composeClasses';
+ 
+ export { default as generateUtilityClass } from './generateUtilityClass';
+-export { default as unstable_ClassNameGenerator } from './generateUtilityClass/ClassNameGenerator';
++export {
++  default as unstable_ClassNameGenerator,
++  muiStateClasses,
++  ClassNameProvider as experimental_ClassNameProvider,
++  useClassNameGenerator as experimental_useClassNameGenerator,
++} from './generateUtilityClass/ClassNameGenerator';
+ 
+ export { default as generateUtilityClasses } from './generateUtilityClasses';
+ 
+diff --git a/packages/mui-material/src/ListItem/ListItem.js b/packages/mui-material/src/ListItem/ListItem.js
+index 47f967354d9893..34d126e8fa0b99 100644
+--- a/packages/mui-material/src/ListItem/ListItem.js
++++ b/packages/mui-material/src/ListItem/ListItem.js
+@@ -1,7 +1,11 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+-import { unstable_composeClasses as composeClasses, isHostComponent } from '@mui/base';
++import {
++  unstable_composeClasses as composeClasses,
++  isHostComponent,
++  muiStateClasses,
++} from '@mui/base';
+ import { chainPropTypes, elementTypeAcceptingRef } from '@mui/utils';
+ import { alpha } from '@mui/system';
+ import styled from '../styles/styled';
+@@ -11,8 +15,8 @@ import isMuiElement from '../utils/isMuiElement';
+ import useEnhancedEffect from '../utils/useEnhancedEffect';
+ import useForkRef from '../utils/useForkRef';
+ import ListContext from '../List/ListContext';
+-import listItemClasses, { getListItemUtilityClass } from './listItemClasses';
+-import { listItemButtonClasses } from '../ListItemButton';
++import { useListItemClassNameGenerator } from './listItemClasses';
++import { useListItemButtonClassNameGenerator } from '../ListItemButton';
+ import ListItemSecondaryAction from '../ListItemSecondaryAction';
+ 
+ export const overridesResolver = (props, styles) => {
+@@ -42,6 +46,7 @@ const useUtilityClasses = (ownerState) => {
+     divider,
+     hasSecondaryAction,
+     selected,
++    generateClassName,
+   } = ownerState;
+ 
+   const slots = {
+@@ -60,7 +65,7 @@ const useUtilityClasses = (ownerState) => {
+     container: ['container'],
+   };
+ 
+-  return composeClasses(slots, getListItemUtilityClass, classes);
++  return composeClasses(slots, generateClassName, classes);
+ };
+ 
+ export const ListItemRoot = styled('div', {
+@@ -94,23 +99,23 @@ export const ListItemRoot = styled('div', {
+     }),
+   }),
+   ...(!!ownerState.secondaryAction && {
+-    [`& > .${listItemButtonClasses.root}`]: {
++    [`& > .${ownerState.generateListItemButtonClassName('root')}`]: {
+       paddingRight: 48,
+     },
+   }),
+-  [`&.${listItemClasses.focusVisible}`]: {
++  [`&.${muiStateClasses.focusVisible}`]: {
+     backgroundColor: theme.palette.action.focus,
+   },
+-  [`&.${listItemClasses.selected}`]: {
++  [`&.${muiStateClasses.selected}`]: {
+     backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity),
+-    [`&.${listItemClasses.focusVisible}`]: {
++    [`&.${muiStateClasses.focusVisible}`]: {
+       backgroundColor: alpha(
+         theme.palette.primary.main,
+         theme.palette.action.selectedOpacity + theme.palette.action.focusOpacity,
+       ),
+     },
+   },
+-  [`&.${listItemClasses.disabled}`]: {
++  [`&.${muiStateClasses.disabled}`]: {
+     opacity: theme.palette.action.disabledOpacity,
+   },
+   ...(ownerState.alignItems === 'flex-start' && {
+@@ -132,7 +137,7 @@ export const ListItemRoot = styled('div', {
+         backgroundColor: 'transparent',
+       },
+     },
+-    [`&.${listItemClasses.selected}:hover`]: {
++    [`&.${muiStateClasses.selected}:hover`]: {
+       backgroundColor: alpha(
+         theme.palette.primary.main,
+         theme.palette.action.selectedOpacity + theme.palette.action.hoverOpacity,
+@@ -211,6 +216,9 @@ const ListItem = React.forwardRef(function ListItem(inProps, ref) {
+   const hasSecondaryAction =
+     children.length && isMuiElement(children[children.length - 1], ['ListItemSecondaryAction']);
+ 
++  const generateClassName = useListItemClassNameGenerator();
++  const generateListItemButtonClassName = useListItemButtonClassNameGenerator();
++
+   const ownerState = {
+     ...props,
+     alignItems,
+@@ -223,6 +231,8 @@ const ListItem = React.forwardRef(function ListItem(inProps, ref) {
+     divider,
+     hasSecondaryAction,
+     selected,
++    generateClassName,
++    generateListItemButtonClassName,
+   };
+ 
+   const classes = useUtilityClasses(ownerState);
+@@ -243,7 +253,7 @@ const ListItem = React.forwardRef(function ListItem(inProps, ref) {
+   if (button) {
+     componentProps.component = componentProp || 'div';
+     componentProps.focusVisibleClassName = clsx(
+-      listItemClasses.focusVisible,
++      muiStateClasses.focusVisible,
+       focusVisibleClassName,
+     );
+ 
+diff --git a/packages/mui-material/src/ListItem/listItemClasses.ts b/packages/mui-material/src/ListItem/listItemClasses.ts
+index 97ea244e265c2b..e8d2ad5ac6c2dd 100644
+--- a/packages/mui-material/src/ListItem/listItemClasses.ts
++++ b/packages/mui-material/src/ListItem/listItemClasses.ts
+@@ -1,4 +1,8 @@
+-import { generateUtilityClass, generateUtilityClasses } from '@mui/base';
++import {
++  generateUtilityClass,
++  generateUtilityClasses,
++  experimental_useClassNameGenerator as useClassNameGenerator,
++} from '@mui/base';
+ 
+ export interface ListItemClasses {
+   /** Styles applied to the (normally root) `component` element. May be wrapped by a `container`. */
+@@ -29,10 +33,18 @@ export interface ListItemClasses {
+ 
+ export type ListItemClassKey = keyof ListItemClasses;
+ 
++/**
++ * @deprecated Replaced by react hook `use{Component}ClassNameGenerator`.
++ * This function will be removed in the next major release.
++ */
+ export function getListItemUtilityClass(slot: string): string {
+   return generateUtilityClass('MuiListItem', slot);
+ }
+ 
++export function useListItemClassNameGenerator() {
++  return useClassNameGenerator<ListItemClassKey>({ name: 'MuiListItem' });
++}
++
+ const listItemClasses: ListItemClasses = generateUtilityClasses('MuiListItem', [
+   'root',
+   'container',
+diff --git a/packages/mui-material/src/ListItemButton/ListItemButton.js b/packages/mui-material/src/ListItemButton/ListItemButton.js
+index 87fd05187c6d65..4d3b2d0655eee4 100644
+--- a/packages/mui-material/src/ListItemButton/ListItemButton.js
++++ b/packages/mui-material/src/ListItemButton/ListItemButton.js
+@@ -1,7 +1,7 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+-import { unstable_composeClasses as composeClasses } from '@mui/base';
++import { unstable_composeClasses as composeClasses, muiStateClasses } from '@mui/base';
+ import { alpha } from '@mui/system';
+ import styled, { rootShouldForwardProp } from '../styles/styled';
+ import useThemeProps from '../styles/useThemeProps';
+@@ -9,7 +9,7 @@ import ButtonBase from '../ButtonBase';
+ import useEnhancedEffect from '../utils/useEnhancedEffect';
+ import useForkRef from '../utils/useForkRef';
+ import ListContext from '../List/ListContext';
+-import listItemButtonClasses, { getListItemButtonUtilityClass } from './listItemButtonClasses';
++import { useListItemButtonClassNameGenerator } from './listItemButtonClasses';
+ 
+ export const overridesResolver = (props, styles) => {
+   const { ownerState } = props;
+@@ -24,7 +24,16 @@ export const overridesResolver = (props, styles) => {
+ };
+ 
+ const useUtilityClasses = (ownerState) => {
+-  const { alignItems, classes, dense, disabled, disableGutters, divider, selected } = ownerState;
++  const {
++    alignItems,
++    classes,
++    dense,
++    disabled,
++    disableGutters,
++    divider,
++    selected,
++    generateClassName,
++  } = ownerState;
+ 
+   const slots = {
+     root: [
+@@ -38,7 +47,7 @@ const useUtilityClasses = (ownerState) => {
+     ],
+   };
+ 
+-  const composedClasses = composeClasses(slots, getListItemButtonUtilityClass, classes);
++  const composedClasses = composeClasses(slots, generateClassName, classes);
+ 
+   return {
+     ...classes,
+@@ -73,16 +82,16 @@ const ListItemButtonRoot = styled(ButtonBase, {
+       backgroundColor: 'transparent',
+     },
+   },
+-  [`&.${listItemButtonClasses.selected}`]: {
++  [`&.${muiStateClasses.selected}`]: {
+     backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity),
+-    [`&.${listItemButtonClasses.focusVisible}`]: {
++    [`&.${muiStateClasses.focusVisible}`]: {
+       backgroundColor: alpha(
+         theme.palette.primary.main,
+         theme.palette.action.selectedOpacity + theme.palette.action.focusOpacity,
+       ),
+     },
+   },
+-  [`&.${listItemButtonClasses.selected}:hover`]: {
++  [`&.${muiStateClasses.selected}:hover`]: {
+     backgroundColor: alpha(
+       theme.palette.primary.main,
+       theme.palette.action.selectedOpacity + theme.palette.action.hoverOpacity,
+@@ -92,10 +101,10 @@ const ListItemButtonRoot = styled(ButtonBase, {
+       backgroundColor: alpha(theme.palette.primary.main, theme.palette.action.selectedOpacity),
+     },
+   },
+-  [`&.${listItemButtonClasses.focusVisible}`]: {
++  [`&.${muiStateClasses.focusVisible}`]: {
+     backgroundColor: theme.palette.action.focus,
+   },
+-  [`&.${listItemButtonClasses.disabled}`]: {
++  [`&.${muiStateClasses.disabled}`]: {
+     opacity: theme.palette.action.disabledOpacity,
+   },
+   ...(ownerState.divider && {
+@@ -150,6 +159,8 @@ const ListItemButton = React.forwardRef(function ListItemButton(inProps, ref) {
+     }
+   }, [autoFocus]);
+ 
++  const generateClassName = useListItemButtonClassNameGenerator();
++
+   const ownerState = {
+     ...props,
+     alignItems,
+@@ -157,6 +168,7 @@ const ListItemButton = React.forwardRef(function ListItemButton(inProps, ref) {
+     disableGutters,
+     divider,
+     selected,
++    generateClassName,
+   };
+ 
+   const classes = useUtilityClasses(ownerState);
+diff --git a/packages/mui-material/src/ListItemButton/listItemButtonClasses.ts b/packages/mui-material/src/ListItemButton/listItemButtonClasses.ts
+index 1d34bf50bc11bd..d634177bb7dc76 100644
+--- a/packages/mui-material/src/ListItemButton/listItemButtonClasses.ts
++++ b/packages/mui-material/src/ListItemButton/listItemButtonClasses.ts
+@@ -1,4 +1,8 @@
+-import { generateUtilityClass, generateUtilityClasses } from '@mui/base';
++import {
++  generateUtilityClass,
++  generateUtilityClasses,
++  experimental_useClassNameGenerator as useClassNameGenerator,
++} from '@mui/base';
+ 
+ export interface ListItemButtonClasses {
+   /** Styles applied to the root element. */
+@@ -21,10 +25,18 @@ export interface ListItemButtonClasses {
+ 
+ export type ListItemButtonClassKey = keyof ListItemButtonClasses;
+ 
++/**
++ * @deprecated Replaced by react hook `use{Component}ClassNameGenerator`.
++ * This function will be removed in the next major release.
++ */
+ export function getListItemButtonUtilityClass(slot: string): string {
+   return generateUtilityClass('MuiListItemButton', slot);
+ }
+ 
++export function useListItemButtonClassNameGenerator() {
++  return useClassNameGenerator<ListItemButtonClassKey>({ name: 'MuiListItemButton' });
++}
++
+ const listItemButtonClasses: ListItemButtonClasses = generateUtilityClasses('MuiListItemButton', [
+   'root',
+   'focusVisible',
+diff --git a/packages/mui-material/src/utils/index.d.ts b/packages/mui-material/src/utils/index.d.ts
+index 05a0805f909190..3ee71ba2774d9a 100644
+--- a/packages/mui-material/src/utils/index.d.ts
++++ b/packages/mui-material/src/utils/index.d.ts
+@@ -15,4 +15,8 @@ export { default as useControlled } from './useControlled';
+ export { default as useEventCallback } from './useEventCallback';
+ export { default as useForkRef } from './useForkRef';
+ export { default as useIsFocusVisible } from './useIsFocusVisible';
+-export { unstable_ClassNameGenerator } from '@mui/base';
++export {
++  unstable_ClassNameGenerator,
++  experimental_useClassNameGenerator,
++  experimental_ClassNameProvider,
++} from '@mui/base';
+diff --git a/packages/mui-material/src/utils/index.js b/packages/mui-material/src/utils/index.js
+index 05a0805f909190..660fa8aece79ee 100644
+--- a/packages/mui-material/src/utils/index.js
++++ b/packages/mui-material/src/utils/index.js
+@@ -15,4 +15,8 @@ export { default as useControlled } from './useControlled';
+ export { default as useEventCallback } from './useEventCallback';
+ export { default as useForkRef } from './useForkRef';
+ export { default as useIsFocusVisible } from './useIsFocusVisible';
+-export { unstable_ClassNameGenerator } from '@mui/base';
++export {
++  unstable_ClassNameGenerator,
++  experimental_ClassNameProvider,
++  experimental_useClassNameGenerator,
++} from '@mui/base';

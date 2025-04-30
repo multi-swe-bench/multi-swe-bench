@@ -1,0 +1,316 @@
+diff --git a/pkg/cmd/issue/comment/comment.go b/pkg/cmd/issue/comment/comment.go
+index 1e426457442..94545cb6bba 100644
+--- a/pkg/cmd/issue/comment/comment.go
++++ b/pkg/cmd/issue/comment/comment.go
+@@ -23,6 +23,8 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 		OpenInBrowser:         utils.OpenInBrowser,
+ 	}
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "comment {<number> | <url>}",
+ 		Short: "Create a new issue comment",
+@@ -35,6 +37,14 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 			return prShared.CommentablePreRun(cmd, opts)
+ 		},
+ 		RunE: func(_ *cobra.Command, args []string) error {
++			if bodyFile != "" {
++				b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++				if err != nil {
++					return err
++				}
++				opts.Body = string(b)
++			}
++
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+@@ -43,6 +53,7 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*prShared.CommentableOptions) e
+ 	}
+ 
+ 	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "Supply a body. Will prompt for one otherwise.")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 	cmd.Flags().BoolP("editor", "e", false, "Add body using editor")
+ 	cmd.Flags().BoolP("web", "w", false, "Add body in browser")
+ 
+diff --git a/pkg/cmd/issue/edit/edit.go b/pkg/cmd/issue/edit/edit.go
+index e83784359bc..b3f85a36ba1 100644
+--- a/pkg/cmd/issue/edit/edit.go
++++ b/pkg/cmd/issue/edit/edit.go
+@@ -42,6 +42,8 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 		FetchOptions:       prShared.FetchOptions,
+ 	}
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "edit {<number> | <url>}",
+ 		Short: "Edit an issue",
+@@ -51,6 +53,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 			$ gh issue edit 23 --add-assignee @me --remove-assignee monalisa,hubot
+ 			$ gh issue edit 23 --add-project "Roadmap" --remove-project v1,v2
+ 			$ gh issue edit 23 --milestone "Version 1"
++			$ gh issue edit 23 --body-file body.txt
+ 		`),
+ 		Args: cobra.ExactArgs(1),
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+@@ -60,11 +63,30 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 			opts.SelectorArg = args[0]
+ 
+ 			flags := cmd.Flags()
+-			if flags.Changed("title") {
+-				opts.Editable.Title.Edited = true
++
++			bodyProvided := flags.Changed("body")
++			bodyFileProvided := bodyFile != ""
++
++			if err := cmdutil.MutuallyExclusive(
++				"specify only one of `--body` or `--body-file`",
++				bodyProvided,
++				bodyFileProvided,
++			); err != nil {
++				return err
+ 			}
+-			if flags.Changed("body") {
++			if bodyProvided || bodyFileProvided {
+ 				opts.Editable.Body.Edited = true
++				if bodyFileProvided {
++					b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++					if err != nil {
++						return err
++					}
++					opts.Editable.Body.Value = string(b)
++				}
++			}
++
++			if flags.Changed("title") {
++				opts.Editable.Title.Edited = true
+ 			}
+ 			if flags.Changed("add-assignee") || flags.Changed("remove-assignee") {
+ 				opts.Editable.Assignees.Edited = true
+@@ -97,6 +119,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 
+ 	cmd.Flags().StringVarP(&opts.Editable.Title.Value, "title", "t", "", "Set the new title.")
+ 	cmd.Flags().StringVarP(&opts.Editable.Body.Value, "body", "b", "", "Set the new body.")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 	cmd.Flags().StringSliceVar(&opts.Editable.Assignees.Add, "add-assignee", nil, "Add assigned users by their `login`. Use \"@me\" to assign yourself.")
+ 	cmd.Flags().StringSliceVar(&opts.Editable.Assignees.Remove, "remove-assignee", nil, "Remove assigned users by their `login`. Use \"@me\" to unassign yourself.")
+ 	cmd.Flags().StringSliceVar(&opts.Editable.Labels.Add, "add-label", nil, "Add labels by `name`")
+diff --git a/pkg/cmd/pr/comment/comment.go b/pkg/cmd/pr/comment/comment.go
+index 8e7c98cb1d2..dc9341ebec1 100644
+--- a/pkg/cmd/pr/comment/comment.go
++++ b/pkg/cmd/pr/comment/comment.go
+@@ -24,6 +24,8 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*shared.CommentableOptions) err
+ 		OpenInBrowser:         utils.OpenInBrowser,
+ 	}
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "comment [<number> | <url> | <branch>]",
+ 		Short: "Create a new pr comment",
+@@ -43,6 +45,14 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*shared.CommentableOptions) err
+ 			return shared.CommentablePreRun(cmd, opts)
+ 		},
+ 		RunE: func(cmd *cobra.Command, args []string) error {
++			if bodyFile != "" {
++				b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++				if err != nil {
++					return err
++				}
++				opts.Body = string(b)
++			}
++
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+@@ -51,6 +61,7 @@ func NewCmdComment(f *cmdutil.Factory, runF func(*shared.CommentableOptions) err
+ 	}
+ 
+ 	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "Supply a body. Will prompt for one otherwise.")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 	cmd.Flags().BoolP("editor", "e", false, "Add body using editor")
+ 	cmd.Flags().BoolP("web", "w", false, "Add body in browser")
+ 
+diff --git a/pkg/cmd/pr/edit/edit.go b/pkg/cmd/pr/edit/edit.go
+index 7319b55b435..7a01f512567 100644
+--- a/pkg/cmd/pr/edit/edit.go
++++ b/pkg/cmd/pr/edit/edit.go
+@@ -45,6 +45,8 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 		EditorRetriever: editorRetriever{config: f.Config},
+ 	}
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "edit [<number> | <url> | <branch>]",
+ 		Short: "Edit a pull request",
+@@ -66,6 +68,28 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 			}
+ 
+ 			flags := cmd.Flags()
++
++			bodyProvided := flags.Changed("body")
++			bodyFileProvided := bodyFile != ""
++
++			if err := cmdutil.MutuallyExclusive(
++				"specify only one of `--body` or `--body-file`",
++				bodyProvided,
++				bodyFileProvided,
++			); err != nil {
++				return err
++			}
++			if bodyProvided || bodyFileProvided {
++				opts.Editable.Body.Edited = true
++				if bodyFileProvided {
++					b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++					if err != nil {
++						return err
++					}
++					opts.Editable.Body.Value = string(b)
++				}
++			}
++
+ 			if flags.Changed("title") {
+ 				opts.Editable.Title.Edited = true
+ 			}
+@@ -109,6 +133,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 
+ 	cmd.Flags().StringVarP(&opts.Editable.Title.Value, "title", "t", "", "Set the new title.")
+ 	cmd.Flags().StringVarP(&opts.Editable.Body.Value, "body", "b", "", "Set the new body.")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 	cmd.Flags().StringVarP(&opts.Editable.Base.Value, "base", "B", "", "Change the base `branch` for this pull request")
+ 	cmd.Flags().StringSliceVar(&opts.Editable.Reviewers.Add, "add-reviewer", nil, "Add reviewers by their `login`.")
+ 	cmd.Flags().StringSliceVar(&opts.Editable.Reviewers.Remove, "remove-reviewer", nil, "Remove reviewers by their `login`.")
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index 3b5a10b5be1..96fb2b7f67f 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -63,6 +63,8 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 		flagRebase bool
+ 	)
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "merge [<number> | <url> | <branch>]",
+ 		Short: "Merge a pull request",
+@@ -106,7 +108,28 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 
+ 			opts.IsDeleteBranchIndicated = cmd.Flags().Changed("delete-branch")
+ 			opts.CanDeleteLocalBranch = !cmd.Flags().Changed("repo")
+-			opts.BodySet = cmd.Flags().Changed("body")
++
++			bodyProvided := cmd.Flags().Changed("body")
++			bodyFileProvided := bodyFile != ""
++
++			if err := cmdutil.MutuallyExclusive(
++				"specify only one of `--body` or `--body-file`",
++				bodyProvided,
++				bodyFileProvided,
++			); err != nil {
++				return err
++			}
++			if bodyProvided || bodyFileProvided {
++				opts.BodySet = true
++				if bodyFileProvided {
++					b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++					if err != nil {
++						return err
++					}
++					opts.Body = string(b)
++				}
++
++			}
+ 
+ 			opts.Editor = &userEditor{
+ 				io:     opts.IO,
+@@ -122,6 +145,7 @@ func NewCmdMerge(f *cmdutil.Factory, runF func(*MergeOptions) error) *cobra.Comm
+ 
+ 	cmd.Flags().BoolVarP(&opts.DeleteBranch, "delete-branch", "d", false, "Delete the local and remote branch after merge")
+ 	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "Body `text` for the merge commit")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 	cmd.Flags().BoolVarP(&flagMerge, "merge", "m", false, "Merge the commits with the base branch")
+ 	cmd.Flags().BoolVarP(&flagRebase, "rebase", "r", false, "Rebase the commits onto the base branch")
+ 	cmd.Flags().BoolVarP(&flagSquash, "squash", "s", false, "Squash the commits into one commit and merge it into the base branch")
+diff --git a/pkg/cmd/pr/review/review.go b/pkg/cmd/pr/review/review.go
+index 4fb23ec9781..79b23043aa8 100644
+--- a/pkg/cmd/pr/review/review.go
++++ b/pkg/cmd/pr/review/review.go
+@@ -49,6 +49,8 @@ func NewCmdReview(f *cmdutil.Factory, runF func(*ReviewOptions) error) *cobra.Co
+ 		flagComment        bool
+ 	)
+ 
++	var bodyFile string
++
+ 	cmd := &cobra.Command{
+ 		Use:   "review [<number> | <url> | <branch>]",
+ 		Short: "Add a review to a pull request",
+@@ -83,6 +85,24 @@ func NewCmdReview(f *cmdutil.Factory, runF func(*ReviewOptions) error) *cobra.Co
+ 				opts.SelectorArg = args[0]
+ 			}
+ 
++			bodyProvided := cmd.Flags().Changed("body")
++			bodyFileProvided := bodyFile != ""
++
++			if err := cmdutil.MutuallyExclusive(
++				"specify only one of `--body` or `--body-file`",
++				bodyProvided,
++				bodyFileProvided,
++			); err != nil {
++				return err
++			}
++			if bodyFileProvided {
++				b, err := cmdutil.ReadFile(bodyFile, opts.IO.In)
++				if err != nil {
++					return err
++				}
++				opts.Body = string(b)
++			}
++
+ 			found := 0
+ 			if flagApprove {
+ 				found++
+@@ -125,6 +145,7 @@ func NewCmdReview(f *cmdutil.Factory, runF func(*ReviewOptions) error) *cobra.Co
+ 	cmd.Flags().BoolVarP(&flagRequestChanges, "request-changes", "r", false, "Request changes on a pull request")
+ 	cmd.Flags().BoolVarP(&flagComment, "comment", "c", false, "Comment on a pull request")
+ 	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "Specify the body of a review")
++	cmd.Flags().StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file`")
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/pr/shared/commentable.go b/pkg/cmd/pr/shared/commentable.go
+index 55edccbcbb7..c2e65453e51 100644
+--- a/pkg/cmd/pr/shared/commentable.go
++++ b/pkg/cmd/pr/shared/commentable.go
+@@ -50,6 +50,10 @@ func CommentablePreRun(cmd *cobra.Command, opts *CommentableOptions) error {
+ 		opts.InputType = InputTypeInline
+ 		inputFlags++
+ 	}
++	if cmd.Flags().Changed("body-file") {
++		opts.InputType = InputTypeInline
++		inputFlags++
++	}
+ 	if web, _ := cmd.Flags().GetBool("web"); web {
+ 		opts.InputType = InputTypeWeb
+ 		inputFlags++
+@@ -61,15 +65,15 @@ func CommentablePreRun(cmd *cobra.Command, opts *CommentableOptions) error {
+ 
+ 	if inputFlags == 0 {
+ 		if !opts.IO.CanPrompt() {
+-			return &cmdutil.FlagError{Err: errors.New("--body or --web required when not running interactively")}
++			return &cmdutil.FlagError{Err: errors.New("`--body`, `--body-file` or `--web` required when not running interactively")}
+ 		}
+ 		opts.Interactive = true
+ 	} else if inputFlags == 1 {
+ 		if !opts.IO.CanPrompt() && opts.InputType == InputTypeEditor {
+-			return &cmdutil.FlagError{Err: errors.New("--body or --web required when not running interactively")}
++			return &cmdutil.FlagError{Err: errors.New("`--body`, `--body-file` or `--web` required when not running interactively")}
+ 		}
+ 	} else if inputFlags > 1 {
+-		return &cmdutil.FlagError{Err: fmt.Errorf("specify only one of --body, --editor, or --web")}
++		return &cmdutil.FlagError{Err: fmt.Errorf("specify only one of `--body`, `--body-file`, `--editor`, or `--web`")}
+ 	}
+ 
+ 	return nil

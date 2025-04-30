@@ -1,0 +1,62 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/_config.js b/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/_config.js
+new file mode 100644
+index 000000000000..069d183177f1
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/_config.js
+@@ -0,0 +1,19 @@
++import { test } from '../../test';
++
++export default test({
++	async test({ assert, target }) {
++		const p = target.querySelector('p');
++
++		assert.htmlEqual(
++			p?.innerHTML || '',
++			`{"text":"text","checkbox":true,"radio_group":"a","checkbox_group":["a"],"select":"b","textarea":"textarea"}`
++		);
++
++		await target.querySelector('button')?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			p?.innerHTML || '',
++			`{"text":"","checkbox":false,"radio_group":null,"checkbox_group":[],"select":"a","textarea":""}`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/main.svelte b/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/main.svelte
+new file mode 100644
+index 000000000000..ff13af85c896
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bindings-form-reset/main.svelte
+@@ -0,0 +1,31 @@
++<script>
++	let text = $state('text');
++	let checkbox = $state(true);
++	let radio_group = $state('a');
++	let checkbox_group = $state(['a']);
++	let select = $state('b');
++	let textarea = $state('textarea');
++</script>
++
++<p>{JSON.stringify({ text, checkbox, radio_group, checkbox_group, select, textarea })}</p>
++
++<form>
++	<input bind:value={text} />
++	
++	<input type="checkbox" bind:checked={checkbox} />
++	
++	<input type="radio" name="radio" value="a" bind:group={radio_group} />
++	<input type="radio" name="radio" value="b" bind:group={radio_group} />
++	
++	<input type="checkbox" name="checkbox" value="a" bind:group={checkbox_group} />
++	<input type="checkbox" name="checkbox" value="b" bind:group={checkbox_group} />
++
++	<select bind:value={select}>
++		<option value="a">a</option>
++		<option value="b">b</option>
++	</select>
++
++	<textarea bind:value={textarea}></textarea>
++
++	<button type="button" onclick={(e) => e.target.form.reset()}>Reset</button>
++</form>

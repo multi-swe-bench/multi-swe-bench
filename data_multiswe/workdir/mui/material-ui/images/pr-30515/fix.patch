@@ -1,0 +1,85 @@
+diff --git a/docs/pages/api-docs/autocomplete.json b/docs/pages/api-docs/autocomplete.json
+index 0f860d6a4e6a50..53ee1a7db537d7 100644
+--- a/docs/pages/api-docs/autocomplete.json
++++ b/docs/pages/api-docs/autocomplete.json
+@@ -20,7 +20,7 @@
+     "clearText": { "type": { "name": "string" }, "default": "'Clear'" },
+     "closeText": { "type": { "name": "string" }, "default": "'Close'" },
+     "componentsProps": {
+-      "type": { "name": "shape", "description": "{ clearIndicator?: object }" },
++      "type": { "name": "shape", "description": "{ clearIndicator?: object, paper?: object }" },
+       "default": "{}"
+     },
+     "defaultValue": {
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+index 831b1331be7de5..8c197c69776517 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+@@ -1,6 +1,7 @@
+ import * as React from 'react';
+ import { IconButtonProps, InternalStandardProps as StandardProps, Theme } from '@mui/material';
+ import { ChipProps, ChipTypeMap } from '@mui/material/Chip';
++import { PaperProps } from '@mui/material/Paper';
+ import { PopperProps } from '@mui/material/Popper';
+ import { SxProps } from '@mui/system';
+ import { OverridableStringUnion } from '@mui/types';
+@@ -101,6 +102,7 @@ export interface AutocompleteProps<
+    */
+   componentsProps?: {
+     clearIndicator?: Partial<IconButtonProps>;
++    paper?: PaperProps;
+   };
+   /**
+    * If `true`, the component is disabled.
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.js b/packages/mui-material/src/Autocomplete/Autocomplete.js
+index 23a8503a8b6308..2cbed8713fbd89 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.js
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.js
+@@ -590,7 +590,12 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+           anchorEl={anchorEl}
+           open
+         >
+-          <AutocompletePaper as={PaperComponent} className={classes.paper} ownerState={ownerState}>
++          <AutocompletePaper
++            ownerState={ownerState}
++            as={PaperComponent}
++            {...componentsProps.paper}
++            className={clsx(classes.paper, componentsProps.paper?.className)}
++          >
+             {loading && groupedOptions.length === 0 ? (
+               <AutocompleteLoading className={classes.loading} ownerState={ownerState}>
+                 {loadingText}
+@@ -722,6 +727,7 @@ Autocomplete.propTypes /* remove-proptypes */ = {
+    */
+   componentsProps: PropTypes.shape({
+     clearIndicator: PropTypes.object,
++    paper: PropTypes.object,
+   }),
+   /**
+    * The default value. Use when the component is not controlled.
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.spec.tsx b/packages/mui-material/src/Autocomplete/Autocomplete.spec.tsx
+index 76b1cefadc792a..864935d97d0b05 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.spec.tsx
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.spec.tsx
+@@ -3,6 +3,7 @@ import Autocomplete, {
+   AutocompleteProps,
+   AutocompleteRenderGetTagProps,
+ } from '@mui/material/Autocomplete';
++import TextField from '@mui/material/TextField';
+ import { expectType } from '@mui/types';
+ 
+ interface MyAutocompleteProps<
+@@ -75,3 +76,13 @@ function renderTags(value: Tag[], getTagProps: AutocompleteRenderGetTagProps) {
+     return <TagComponent {...tagProps} {...tag} />;
+   });
+ }
++
++function AutocompleteComponentsProps() {
++  return (
++    <Autocomplete
++      options={['one', 'two', 'three']}
++      renderInput={(params) => <TextField {...params} />}
++      componentsProps={{ paper: { elevation: 2 } }}
++    />
++  );
++}

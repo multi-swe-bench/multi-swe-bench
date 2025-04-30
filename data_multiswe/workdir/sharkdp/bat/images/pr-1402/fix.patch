@@ -1,0 +1,446 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index fe1f80d4c2..c9a24d09cf 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -13,6 +13,7 @@
+ - VimL syntax highlighting fix, see #1450 (@esensar)
+ - Print an 'Invalid syntax theme settings' error message if a custom theme is broken, see #614 (@Enselic)
+ - If plain mode is set and wrap is not explicitly opted in, long lines will no be truncated, see #1426
++- If `PAGER` (but not `BAT_PAGER` or `--pager`) is `more` or `most`, silently use `less` instead to ensure support for colors, see #1063 (@Enselic)
+ 
+ ## Other
+ 
+diff --git a/Cargo.lock b/Cargo.lock
+index 4fdb334332..2521d7aad0 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -114,6 +114,7 @@ dependencies = [
+  "semver",
+  "serde",
+  "serde_yaml",
++ "serial_test",
+  "shell-words",
+  "syntect",
+  "tempdir",
+@@ -550,6 +551,15 @@ dependencies = [
+  "hashbrown",
+ ]
+ 
++[[package]]
++name = "instant"
++version = "0.1.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "61124eeebbd69b8190558df225adf7e4caafce0d743919e5d6b19652314ec5ec"
++dependencies = [
++ "cfg-if 1.0.0",
++]
++
+ [[package]]
+ name = "itoa"
+ version = "0.4.7"
+@@ -622,6 +632,15 @@ version = "0.5.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "7fb9b38af92608140b86b693604b9ffcc5824240a484d1ecd4795bacb2fe88f3"
+ 
++[[package]]
++name = "lock_api"
++version = "0.4.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "dd96ffd135b2fd7b973ac026d28085defbe8983df057ced3eb4f2130b0831312"
++dependencies = [
++ "scopeguard",
++]
++
+ [[package]]
+ name = "log"
+ version = "0.4.11"
+@@ -712,6 +731,31 @@ dependencies = [
+  "pkg-config",
+ ]
+ 
++[[package]]
++name = "parking_lot"
++version = "0.11.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6d7744ac029df22dca6284efe4e898991d28e3085c706c972bcd7da4a27a15eb"
++dependencies = [
++ "instant",
++ "lock_api",
++ "parking_lot_core",
++]
++
++[[package]]
++name = "parking_lot_core"
++version = "0.8.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "9ccb628cad4f84851442432c60ad8e1f607e29752d0bf072cbd0baf28aa34272"
++dependencies = [
++ "cfg-if 1.0.0",
++ "instant",
++ "libc",
++ "redox_syscall",
++ "smallvec",
++ "winapi",
++]
++
+ [[package]]
+ name = "path_abs"
+ version = "0.5.0"
+@@ -917,6 +961,12 @@ dependencies = [
+  "winapi-util",
+ ]
+ 
++[[package]]
++name = "scopeguard"
++version = "1.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
++
+ [[package]]
+ name = "semver"
+ version = "0.11.0"
+@@ -978,12 +1028,40 @@ dependencies = [
+  "yaml-rust",
+ ]
+ 
++[[package]]
++name = "serial_test"
++version = "0.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e0bccbcf40c8938196944a3da0e133e031a33f4d6b72db3bda3cc556e361905d"
++dependencies = [
++ "lazy_static",
++ "parking_lot",
++ "serial_test_derive",
++]
++
++[[package]]
++name = "serial_test_derive"
++version = "0.5.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b2acd6defeddb41eb60bb468f8825d0cfd0c2a76bc03bfd235b6a1dc4f6a1ad5"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn",
++]
++
+ [[package]]
+ name = "shell-words"
+ version = "1.0.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "b6fa3938c99da4914afedd13bf3d79bcb6c277d1b2c398d23257a304d9e1b074"
+ 
++[[package]]
++name = "smallvec"
++version = "1.6.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
++
+ [[package]]
+ name = "snailquote"
+ version = "0.3.0"
+diff --git a/Cargo.toml b/Cargo.toml
+index 18216303a0..865d1f85ef 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -76,6 +76,7 @@ default-features = false
+ [dev-dependencies]
+ tempdir = "0.3"
+ assert_cmd = "1.0.2"
++serial_test = "0.5.1"
+ predicates = "1.0.6"
+ wait-timeout = "0.2.0"
+ 
+diff --git a/src/lib.rs b/src/lib.rs
+index d0d1fe0c7f..0c41716ddb 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -33,6 +33,8 @@ mod less;
+ pub mod line_range;
+ mod output;
+ #[cfg(feature = "paging")]
++mod pager;
++#[cfg(feature = "paging")]
+ pub(crate) mod paging;
+ mod preprocessor;
+ mod pretty_printer;
+diff --git a/src/output.rs b/src/output.rs
+index de11a9d218..c79535c358 100644
+--- a/src/output.rs
++++ b/src/output.rs
+@@ -48,100 +48,71 @@ impl OutputType {
+         wrapping_mode: WrappingMode,
+         pager_from_config: Option<&str>,
+     ) -> Result<Self> {
+-        use std::env;
+-        use std::ffi::OsString;
+-        use std::path::PathBuf;
++        use crate::pager::{self, PagerKind, PagerSource};
+         use std::process::{Command, Stdio};
+ 
+-        let mut replace_arguments_to_less = false;
++        let pager_opt =
++            pager::get_pager(pager_from_config).chain_err(|| "Could not parse pager command.")?;
+ 
+-        let pager_from_env = match (env::var("BAT_PAGER"), env::var("PAGER")) {
+-            (Ok(bat_pager), _) => Some(bat_pager),
+-            (_, Ok(pager)) => {
+-                // less needs to be called with the '-R' option in order to properly interpret the
+-                // ANSI color sequences printed by bat. If someone has set PAGER="less -F", we
+-                // therefore need to overwrite the arguments and add '-R'.
+-                //
+-                // We only do this for PAGER (as it is not specific to 'bat'), not for BAT_PAGER
+-                // or bats '--pager' command line option.
+-                replace_arguments_to_less = true;
+-                Some(pager)
+-            }
+-            _ => None,
++        let pager = match pager_opt {
++            Some(pager) => pager,
++            None => return Ok(OutputType::stdout()),
+         };
+ 
+-        let pager_from_config = pager_from_config.map(|p| p.to_string());
+-
+-        if pager_from_config.is_some() {
+-            replace_arguments_to_less = false;
++        if pager.kind == PagerKind::Bat {
++            return Err(ErrorKind::InvalidPagerValueBat.into());
+         }
+ 
+-        let pager = pager_from_config
+-            .or(pager_from_env)
+-            .unwrap_or_else(|| String::from("less"));
+-
+-        let pagerflags =
+-            shell_words::split(&pager).chain_err(|| "Could not parse pager command.")?;
+-
+-        match pagerflags.split_first() {
+-            Some((pager_name, args)) => {
+-                let pager_path = PathBuf::from(pager_name);
++        let mut p = Command::new(pager.bin);
++        let args = pager.args;
++
++        if pager.kind == PagerKind::Less {
++            // less needs to be called with the '-R' option in order to properly interpret the
++            // ANSI color sequences printed by bat. If someone has set PAGER="less -F", we
++            // therefore need to overwrite the arguments and add '-R'.
++            //
++            // We only do this for PAGER (as it is not specific to 'bat'), not for BAT_PAGER
++            // or bats '--pager' command line option.
++            let replace_arguments_to_less = pager.source == PagerSource::EnvVarPager;
++
++            if args.is_empty() || replace_arguments_to_less {
++                p.arg("--RAW-CONTROL-CHARS");
++                if single_screen_action == SingleScreenAction::Quit {
++                    p.arg("--quit-if-one-screen");
++                }
+ 
+-                if pager_path.file_stem() == Some(&OsString::from("bat")) {
+-                    return Err(ErrorKind::InvalidPagerValueBat.into());
++                if wrapping_mode == WrappingMode::NoWrapping(true) {
++                    p.arg("--chop-long-lines");
+                 }
+ 
+-                let is_less = pager_path.file_stem() == Some(&OsString::from("less"));
+-
+-                let mut process = if is_less {
+-                    let mut p = Command::new(&pager_path);
+-                    if args.is_empty() || replace_arguments_to_less {
+-                        p.arg("--RAW-CONTROL-CHARS");
+-                        if single_screen_action == SingleScreenAction::Quit {
+-                            p.arg("--quit-if-one-screen");
+-                        }
+-
+-                        if wrapping_mode == WrappingMode::NoWrapping(true) {
+-                            p.arg("--chop-long-lines");
+-                        }
+-
+-                        // Passing '--no-init' fixes a bug with '--quit-if-one-screen' in older
+-                        // versions of 'less'. Unfortunately, it also breaks mouse-wheel support.
+-                        //
+-                        // See: http://www.greenwoodsoftware.com/less/news.530.html
+-                        //
+-                        // For newer versions (530 or 558 on Windows), we omit '--no-init' as it
+-                        // is not needed anymore.
+-                        match retrieve_less_version() {
+-                            None => {
+-                                p.arg("--no-init");
+-                            }
+-                            Some(version)
+-                                if (version < 530 || (cfg!(windows) && version < 558)) =>
+-                            {
+-                                p.arg("--no-init");
+-                            }
+-                            _ => {}
+-                        }
+-                    } else {
+-                        p.args(args);
++                // Passing '--no-init' fixes a bug with '--quit-if-one-screen' in older
++                // versions of 'less'. Unfortunately, it also breaks mouse-wheel support.
++                //
++                // See: http://www.greenwoodsoftware.com/less/news.530.html
++                //
++                // For newer versions (530 or 558 on Windows), we omit '--no-init' as it
++                // is not needed anymore.
++                match retrieve_less_version() {
++                    None => {
++                        p.arg("--no-init");
++                    }
++                    Some(version) if (version < 530 || (cfg!(windows) && version < 558)) => {
++                        p.arg("--no-init");
+                     }
+-                    p.env("LESSCHARSET", "UTF-8");
+-                    p
+-                } else {
+-                    let mut p = Command::new(&pager_path);
+-                    p.args(args);
+-                    p
+-                };
+-
+-                Ok(process
+-                    .stdin(Stdio::piped())
+-                    .spawn()
+-                    .map(OutputType::Pager)
+-                    .unwrap_or_else(|_| OutputType::stdout()))
++                    _ => {}
++                }
++            } else {
++                p.args(args);
+             }
+-            None => Ok(OutputType::stdout()),
+-        }
++            p.env("LESSCHARSET", "UTF-8");
++        } else {
++            p.args(args);
++        };
++
++        Ok(p.stdin(Stdio::piped())
++            .spawn()
++            .map(OutputType::Pager)
++            .unwrap_or_else(|_| OutputType::stdout()))
+     }
+ 
+     pub(crate) fn stdout() -> Self {
+diff --git a/src/pager.rs b/src/pager.rs
+new file mode 100644
+index 0000000000..f6ae7bf42f
+--- /dev/null
++++ b/src/pager.rs
+@@ -0,0 +1,115 @@
++use shell_words::ParseError;
++use std::env;
++
++/// If we use a pager, this enum tells us from where we were told to use it.
++#[derive(Debug, PartialEq)]
++pub(crate) enum PagerSource {
++    /// From --config
++    Config,
++
++    /// From the env var BAT_PAGER
++    EnvVarBatPager,
++
++    /// From the env var PAGER
++    EnvVarPager,
++
++    /// No pager was specified, default is used
++    Default,
++}
++
++/// We know about some pagers, for example 'less'. This is a list of all pagers we know about
++#[derive(Debug, PartialEq)]
++pub(crate) enum PagerKind {
++    /// bat
++    Bat,
++
++    /// less
++    Less,
++
++    /// more
++    More,
++
++    /// most
++    Most,
++
++    /// A pager we don't know about
++    Unknown,
++}
++
++impl PagerKind {
++    fn from_bin(bin: &str) -> PagerKind {
++        use std::path::Path;
++
++        match Path::new(bin)
++            .file_stem()
++            .map(|s| s.to_string_lossy())
++            .as_deref()
++        {
++            Some("bat") => PagerKind::Bat,
++            Some("less") => PagerKind::Less,
++            Some("more") => PagerKind::More,
++            Some("most") => PagerKind::Most,
++            _ => PagerKind::Unknown,
++        }
++    }
++}
++
++/// A pager such as 'less', and from where we got it.
++#[derive(Debug)]
++pub(crate) struct Pager {
++    /// The pager binary
++    pub bin: String,
++
++    /// The pager binary arguments (that we might tweak)
++    pub args: Vec<String>,
++
++    /// What pager this is
++    pub kind: PagerKind,
++
++    /// From where this pager comes
++    pub source: PagerSource,
++}
++
++impl Pager {
++    fn new(bin: &str, args: &[String], kind: PagerKind, source: PagerSource) -> Pager {
++        Pager {
++            bin: String::from(bin),
++            args: args.to_vec(),
++            kind,
++            source,
++        }
++    }
++}
++
++/// Returns what pager to use, after looking at both config and environment variables.
++pub(crate) fn get_pager(config_pager: Option<&str>) -> Result<Option<Pager>, ParseError> {
++    let bat_pager = env::var("BAT_PAGER");
++    let pager = env::var("PAGER");
++
++    let (cmd, source) = match (config_pager, &bat_pager, &pager) {
++        (Some(config_pager), _, _) => (config_pager, PagerSource::Config),
++        (_, Ok(bat_pager), _) => (bat_pager.as_str(), PagerSource::EnvVarBatPager),
++        (_, _, Ok(pager)) => (pager.as_str(), PagerSource::EnvVarPager),
++        _ => ("less", PagerSource::Default),
++    };
++
++    let parts = shell_words::split(cmd)?;
++    match parts.split_first() {
++        Some((bin, args)) => {
++            let kind = PagerKind::from_bin(bin);
++
++            // 'more' and 'most' do not supports colors; automatically use 'less' instead
++            // if the problematic pager came from the generic PAGER env var
++            let no_color_support = kind == PagerKind::More || kind == PagerKind::Most;
++            let use_less_instead = no_color_support && source == PagerSource::EnvVarPager;
++
++            Ok(Some(if use_less_instead {
++                let no_args = vec![];
++                Pager::new("less", &no_args, PagerKind::Less, PagerSource::EnvVarPager)
++            } else {
++                Pager::new(bin, args, kind, source)
++            }))
++        }
++        None => Ok(None),
++    }
++}

@@ -1,0 +1,396 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 404f85f28f0..214c230eec6 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -126,6 +126,10 @@ required-features = ["cargo"]
+ name = "escaped-positional-derive"
+ required-features = ["derive"]
+ 
++[[example]]
++name = "find"
++required-features = ["cargo"]
++
+ [[example]]
+ name = "git-derive"
+ required-features = ["derive"]
+diff --git a/examples/find.md b/examples/find.md
+new file mode 100644
+index 00000000000..decfa2abce2
+--- /dev/null
++++ b/examples/find.md
+@@ -0,0 +1,47 @@
++`find` is an example of position-sensitive flags
++
++```console
++$ find --help
++clap 4.0.0-alpha.0
++A simple to use, efficient, and full-featured Command Line Argument Parser
++
++USAGE:
++    find[EXE] [OPTIONS] --name <NAME>
++
++OPTIONS:
++    -h, --help       Print help information
++    -V, --version    Print version information
++
++TESTS:
++        --empty          File is empty and is either a regular file or a directory
++        --name <NAME>    Base of file name (the path with the leading directories removed) matches
++                         shell pattern pattern
++
++OPERATORS:
++    -o, --or     expr2 is not evaluate if exp1 is true
++    -a, --and    Same as `expr1 expr1`
++
++$ find --empty -o --name .keep
++[
++    (
++        "empty",
++        Bool(
++            true,
++        ),
++    ),
++    (
++        "or",
++        Bool(
++            true,
++        ),
++    ),
++    (
++        "name",
++        String(
++            ".keep",
++        ),
++    ),
++]
++
++```
++
+diff --git a/examples/find.rs b/examples/find.rs
+new file mode 100644
+index 00000000000..c16ff991336
+--- /dev/null
++++ b/examples/find.rs
+@@ -0,0 +1,99 @@
++use std::collections::BTreeMap;
++
++use clap::{arg, command, ArgGroup, ArgMatches, Command};
++
++fn main() {
++    let matches = cli().get_matches();
++    let values = Value::from_matches(&matches);
++    println!("{:#?}", values);
++}
++
++fn cli() -> Command<'static> {
++    command!()
++        .group(ArgGroup::new("tests").multiple(true))
++        .next_help_heading("TESTS")
++        .args([
++            arg!(--empty "File is empty and is either a regular file or a directory").group("tests"),
++            arg!(--name <NAME> "Base of file name (the path with the leading directories removed) matches shell pattern pattern").group("tests"),
++        ])
++        .group(ArgGroup::new("operators").multiple(true))
++        .next_help_heading("OPERATORS")
++        .args([
++            arg!(-o - -or "expr2 is not evaluate if exp1 is true").group("operators"),
++            arg!(-a - -and "Same as `expr1 expr1`").group("operators"),
++        ])
++}
++
++#[derive(Clone, PartialEq, Eq, Hash, Debug)]
++pub enum Value {
++    Bool(bool),
++    String(String),
++}
++
++impl Value {
++    pub fn from_matches(matches: &ArgMatches) -> Vec<(clap::Id, Self)> {
++        let mut values = BTreeMap::new();
++        for id in matches.ids() {
++            if matches.try_get_many::<clap::Id>(id.as_str()).is_ok() {
++                // ignore groups
++                continue;
++            }
++            let value_source = matches
++                .value_source(id.as_str())
++                .expect("id came from matches");
++            if value_source != clap::parser::ValueSource::CommandLine {
++                // Any other source just gets tacked on at the end (like default values)
++                continue;
++            }
++            if Self::extract::<String>(matches, id, &mut values) {
++                continue;
++            }
++            if Self::extract::<bool>(matches, id, &mut values) {
++                continue;
++            }
++            unimplemented!("unknown type for {}: {:?}", id, matches);
++        }
++        values.into_values().collect::<Vec<_>>()
++    }
++
++    fn extract<T: Clone + Into<Value> + Send + Sync + 'static>(
++        matches: &ArgMatches,
++        id: &clap::Id,
++        output: &mut BTreeMap<usize, (clap::Id, Self)>,
++    ) -> bool {
++        match matches.try_get_many::<T>(id.as_str()) {
++            Ok(Some(values)) => {
++                for (value, index) in values.zip(
++                    matches
++                        .indices_of(id.as_str())
++                        .expect("id came from matches"),
++                ) {
++                    output.insert(index, (id.clone(), value.clone().into()));
++                }
++                true
++            }
++            Ok(None) => {
++                unreachable!("`ids` only reports what is present")
++            }
++            Err(clap::parser::MatchesError::UnknownArgument { .. }) => {
++                unreachable!("id came from matches")
++            }
++            Err(clap::parser::MatchesError::Downcast { .. }) => false,
++            Err(_) => {
++                unreachable!("id came from matches")
++            }
++        }
++    }
++}
++
++impl From<String> for Value {
++    fn from(other: String) -> Self {
++        Self::String(other)
++    }
++}
++
++impl From<bool> for Value {
++    fn from(other: bool) -> Self {
++        Self::Bool(other)
++    }
++}
+diff --git a/src/_cookbook/find.rs b/src/_cookbook/find.rs
+new file mode 100644
+index 00000000000..2ca11c665d2
+--- /dev/null
++++ b/src/_cookbook/find.rs
+@@ -0,0 +1,7 @@
++//! # Example: find-like CLI (Builder API)
++//!
++//! ```rust
++#![doc = include_str!("../../examples/find.rs")]
++//! ```
++//!
++#![doc = include_str!("../../examples/find.md")]
+diff --git a/src/_cookbook/mod.rs b/src/_cookbook/mod.rs
+index 1a78ed11bb7..8c45d2cf0ff 100644
+--- a/src/_cookbook/mod.rs
++++ b/src/_cookbook/mod.rs
+@@ -16,6 +16,10 @@
+ //!   - Subcommands
+ //!   - Cargo plugins
+ //!
++//! find-like interface: [builder][find]
++//! - Topics:
++//!   - Position-sensitive flags
++//!
+ //! git-like interface: [builder][git], [derive][git_derive]
+ //! - Topics:
+ //!   - Subcommands
+@@ -46,6 +50,7 @@ pub mod cargo_example;
+ pub mod cargo_example_derive;
+ pub mod escaped_positional;
+ pub mod escaped_positional_derive;
++pub mod find;
+ pub mod git;
+ pub mod git_derive;
+ pub mod multicall_busybox;
+diff --git a/src/parser/matches/arg_matches.rs b/src/parser/matches/arg_matches.rs
+index 7b77a54500e..0742a4aa185 100644
+--- a/src/parser/matches/arg_matches.rs
++++ b/src/parser/matches/arg_matches.rs
+@@ -269,7 +269,7 @@ impl ArgMatches {
+     pub fn remove_many<T: Any + Clone + Send + Sync + 'static>(
+         &mut self,
+         id: &str,
+-    ) -> Option<Values2<T>> {
++    ) -> Option<Values<T>> {
+         MatchesError::unwrap(id, self.try_remove_many(id))
+     }
+ 
+@@ -303,6 +303,35 @@ impl ArgMatches {
+         MatchesError::unwrap(id, self.try_contains_id(id))
+     }
+ 
++    /// Iterate over [`Arg`][crate::Arg] and [`ArgGroup`][crate::ArgGroup] [`Id`][crate::Id]s via [`ArgMatches::ids`].
++    ///
++    /// # Examples
++    ///
++    /// ```
++    /// # use clap::{Command, arg, value_parser};
++    ///
++    /// let m = Command::new("myprog")
++    ///     .arg(arg!(--color <when>)
++    ///         .value_parser(["auto", "always", "never"])
++    ///         .required(false))
++    ///     .arg(arg!(--config <path>)
++    ///         .value_parser(value_parser!(std::path::PathBuf))
++    ///         .required(false))
++    ///     .get_matches_from(["myprog", "--config=config.toml", "--color=auto"]);
++    /// assert_eq!(m.ids().len(), 2);
++    /// assert_eq!(
++    ///     m.ids()
++    ///         .map(|id| id.as_str())
++    ///         .collect::<Vec<_>>(),
++    ///     ["config", "color"]
++    /// );
++    /// ```
++    pub fn ids(&self) -> IdsRef<'_> {
++        IdsRef {
++            iter: self.args.keys(),
++        }
++    }
++
+     /// Check if any args were present on the command line
+     ///
+     /// # Examples
+@@ -916,14 +945,14 @@ impl ArgMatches {
+     pub fn try_remove_many<T: Any + Clone + Send + Sync + 'static>(
+         &mut self,
+         id: &str,
+-    ) -> Result<Option<Values2<T>>, MatchesError> {
++    ) -> Result<Option<Values<T>>, MatchesError> {
+         let arg = match self.try_remove_arg_t::<T>(id)? {
+             Some(arg) => arg,
+             None => return Ok(None),
+         };
+         let len = arg.num_vals();
+         let values = arg.into_vals_flatten();
+-        let values = Values2 {
++        let values = Values {
+             // enforced by `try_get_arg_t`
+             iter: values.map(|v| v.downcast_into::<T>().expect(INTERNAL_ERROR_MSG)),
+             len,
+@@ -1066,6 +1095,52 @@ pub(crate) struct SubCommand {
+     pub(crate) matches: ArgMatches,
+ }
+ 
++/// Iterate over [`Arg`][crate::Arg] and [`ArgGroup`][crate::ArgGroup] [`Id`][crate::Id]s via [`ArgMatches::ids`].
++///
++/// # Examples
++///
++/// ```
++/// # use clap::{Command, arg, value_parser};
++///
++/// let m = Command::new("myprog")
++///     .arg(arg!(--color <when>)
++///         .value_parser(["auto", "always", "never"])
++///         .required(false))
++///     .arg(arg!(--config <path>)
++///         .value_parser(value_parser!(std::path::PathBuf))
++///         .required(false))
++///     .get_matches_from(["myprog", "--config=config.toml", "--color=auto"]);
++/// assert_eq!(
++///     m.ids()
++///         .map(|id| id.as_str())
++///         .collect::<Vec<_>>(),
++///     ["config", "color"]
++/// );
++/// ```
++#[derive(Clone, Debug)]
++pub struct IdsRef<'a> {
++    iter: std::slice::Iter<'a, Id>,
++}
++
++impl<'a> Iterator for IdsRef<'a> {
++    type Item = &'a Id;
++
++    fn next(&mut self) -> Option<&'a Id> {
++        self.iter.next()
++    }
++    fn size_hint(&self) -> (usize, Option<usize>) {
++        self.iter.size_hint()
++    }
++}
++
++impl<'a> DoubleEndedIterator for IdsRef<'a> {
++    fn next_back(&mut self) -> Option<&'a Id> {
++        self.iter.next_back()
++    }
++}
++
++impl<'a> ExactSizeIterator for IdsRef<'a> {}
++
+ /// Iterate over multiple values for an argument via [`ArgMatches::remove_many`].
+ ///
+ /// # Examples
+@@ -1086,13 +1161,13 @@ pub(crate) struct SubCommand {
+ /// assert_eq!(values.next(), None);
+ /// ```
+ #[derive(Clone, Debug)]
+-pub struct Values2<T> {
++pub struct Values<T> {
+     #[allow(clippy::type_complexity)]
+     iter: Map<Flatten<std::vec::IntoIter<Vec<AnyValue>>>, fn(AnyValue) -> T>,
+     len: usize,
+ }
+ 
+-impl<T> Iterator for Values2<T> {
++impl<T> Iterator for Values<T> {
+     type Item = T;
+ 
+     fn next(&mut self) -> Option<Self::Item> {
+@@ -1103,19 +1178,19 @@ impl<T> Iterator for Values2<T> {
+     }
+ }
+ 
+-impl<T> DoubleEndedIterator for Values2<T> {
++impl<T> DoubleEndedIterator for Values<T> {
+     fn next_back(&mut self) -> Option<Self::Item> {
+         self.iter.next_back()
+     }
+ }
+ 
+-impl<T> ExactSizeIterator for Values2<T> {}
++impl<T> ExactSizeIterator for Values<T> {}
+ 
+ /// Creates an empty iterator.
+-impl<T> Default for Values2<T> {
++impl<T> Default for Values<T> {
+     fn default() -> Self {
+         let empty: Vec<Vec<AnyValue>> = Default::default();
+-        Values2 {
++        Values {
+             iter: empty.into_iter().flatten().map(|_| unreachable!()),
+             len: 0,
+         }
+diff --git a/src/parser/matches/mod.rs b/src/parser/matches/mod.rs
+index 5fcc088189f..0e3474fb3fe 100644
+--- a/src/parser/matches/mod.rs
++++ b/src/parser/matches/mod.rs
+@@ -4,7 +4,9 @@ mod matched_arg;
+ mod value_source;
+ 
+ pub use any_value::AnyValueId;
++pub use arg_matches::IdsRef;
+ pub use arg_matches::RawValues;
++pub use arg_matches::Values;
+ pub use arg_matches::ValuesRef;
+ pub use arg_matches::{ArgMatches, Indices};
+ pub use value_source::ValueSource;
+diff --git a/src/parser/mod.rs b/src/parser/mod.rs
+index 4e8a256c682..c99e74f95d3 100644
+--- a/src/parser/mod.rs
++++ b/src/parser/mod.rs
+@@ -19,7 +19,9 @@ pub(crate) use self::parser::{ParseState, Parser};
+ pub(crate) use self::validator::get_possible_values_cli;
+ pub(crate) use self::validator::Validator;
+ 
++pub use self::matches::IdsRef;
+ pub use self::matches::RawValues;
++pub use self::matches::Values;
+ pub use self::matches::ValuesRef;
+ pub use self::matches::{ArgMatches, Indices, ValueSource};
+ pub use error::MatchesError;

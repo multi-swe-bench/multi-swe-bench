@@ -1,0 +1,46 @@
+diff --git a/packages/mui-system/src/Unstable_Grid/createGrid.tsx b/packages/mui-system/src/Unstable_Grid/createGrid.tsx
+index 37465f1953ef5b..db1ee32606179e 100644
+--- a/packages/mui-system/src/Unstable_Grid/createGrid.tsx
++++ b/packages/mui-system/src/Unstable_Grid/createGrid.tsx
+@@ -164,7 +164,7 @@ export default function createGrid(
+         {React.Children.map(children, (child) => {
+           if (React.isValidElement(child) && isMuiElement(child, ['Grid'])) {
+             return React.cloneElement(child, {
+-              unstable_level: child.props.unstable_level ?? level + 1,
++              unstable_level: container ? child.props.unstable_level ?? level + 1 : 0,
+             } as GridProps);
+           }
+           return child;
+diff --git a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+index a67518bc3ace7a..41151d951ef51f 100644
+--- a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
++++ b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+@@ -25,7 +25,7 @@ function isNestedContainer(ownerState: Props['ownerState']) {
+ 
+ function createGetSelfSpacing(ownerState: Props['ownerState']) {
+   return function getSelfSpacing(axis: 'row' | 'column') {
+-    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level)})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level)}, 0px)`;
+   };
+ }
+ 
+@@ -34,7 +34,7 @@ function createGetParentSpacing(ownerState: Props['ownerState']) {
+     if (ownerState.unstable_level === 0) {
+       return `var(--Grid-${axis}Spacing)`;
+     }
+-    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level - 1)})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.unstable_level - 1)}, 0px)`;
+   };
+ }
+ 
+@@ -42,7 +42,9 @@ function getParentColumns(ownerState: Props['ownerState']) {
+   if (ownerState.unstable_level === 0) {
+     return `var(--Grid-columns)`;
+   }
+-  return `var(--Grid-columns${appendLevel(ownerState.unstable_level - 1)})`;
++  return `var(--Grid-columns${appendLevel(ownerState.unstable_level - 1)}, ${
++    ownerState.columns ?? 12
++  })`;
+ }
+ 
+ export const filterBreakpointKeys = (breakpointsKeys: Breakpoint[], responsiveKeys: string[]) =>

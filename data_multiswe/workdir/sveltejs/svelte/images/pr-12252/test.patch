@@ -1,0 +1,51 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-removal/Child.svelte b/packages/svelte/tests/runtime-runes/samples/hmr-removal/Child.svelte
+new file mode 100644
+index 000000000000..302a01f33502
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-removal/Child.svelte
+@@ -0,0 +1,1 @@
++<p>hello</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-removal/_config.js b/packages/svelte/tests/runtime-runes/samples/hmr-removal/_config.js
+new file mode 100644
+index 000000000000..8d6a3f1d5e55
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-removal/_config.js
+@@ -0,0 +1,21 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	compileOptions: {
++		dev: true,
++		hmr: true
++	},
++
++	html: `<button>toggle</button>`,
++
++	test({ assert, target }) {
++		const button = target.querySelector('button');
++
++		flushSync(() => button?.click());
++		assert.htmlEqual(target.innerHTML, `<button>toggle</button><p>hello</p>`);
++
++		flushSync(() => button?.click());
++		assert.htmlEqual(target.innerHTML, `<button>toggle</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/hmr-removal/main.svelte b/packages/svelte/tests/runtime-runes/samples/hmr-removal/main.svelte
+new file mode 100644
+index 000000000000..2cc30370b887
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/hmr-removal/main.svelte
+@@ -0,0 +1,11 @@
++<script>
++	import Child from './Child.svelte';
++
++	let open = $state(false);
++</script>
++
++<button onclick={() => (open = !open)}>toggle</button>
++
++{#if open}
++	<Child />
++{/if}

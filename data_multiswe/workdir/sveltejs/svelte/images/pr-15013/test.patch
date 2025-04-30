@@ -1,0 +1,51 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/_config.js b/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/_config.js
+new file mode 100644
+index 000000000000..29dc5e8d7fbb
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/_config.js
+@@ -0,0 +1,26 @@
++import { flushSync } from 'svelte';
++import { ok, test } from '../../test';
++
++export default test({
++	async test({ assert, target, logs }) {
++		const audio = target.querySelector('audio');
++		const btn = target.querySelector('button');
++
++		ok(audio);
++
++		flushSync(() => {
++			audio.currentTime = 10;
++			audio.dispatchEvent(new Event('timeupdate'));
++		});
++		assert.deepEqual(logs, ['event']);
++
++		flushSync(() => {
++			btn?.click();
++		});
++		flushSync(() => {
++			audio.currentTime = 20;
++			audio.dispatchEvent(new Event('timeupdate'));
++		});
++		assert.deepEqual(logs, ['event']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/main.svelte b/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/main.svelte
+new file mode 100644
+index 000000000000..40c215378e53
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/bind-current-time-remove-listener/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	let show = $state(true);
++	let time = $state(0);
++</script>
++
++<button onclick={()=> show = false}></button>
++{#if show}
++	<audio bind:currentTime={()=>time,(new_time)=>{
++		console.log("event");
++		time = new_time;
++	}}></audio>
++{/if}
+\ No newline at end of file

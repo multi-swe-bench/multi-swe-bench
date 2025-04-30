@@ -1,0 +1,113 @@
+diff --git a/.changeset/brave-pigs-obey.md b/.changeset/brave-pigs-obey.md
+new file mode 100644
+index 000000000000..312ead8adee9
+--- /dev/null
++++ b/.changeset/brave-pigs-obey.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: increment derived versions when updating
+diff --git a/packages/svelte/src/internal/client/reactivity/deriveds.js b/packages/svelte/src/internal/client/reactivity/deriveds.js
+index 6ebd945301d1..d50b335a7b52 100644
+--- a/packages/svelte/src/internal/client/reactivity/deriveds.js
++++ b/packages/svelte/src/internal/client/reactivity/deriveds.js
+@@ -8,7 +8,8 @@ import {
+ 	mark_reactions,
+ 	current_skip_reaction,
+ 	execute_reaction_fn,
+-	destroy_effect_children
++	destroy_effect_children,
++	increment_version
+ } from '../runtime.js';
+ import { equals, safe_equals } from './equality.js';
+ 
+@@ -104,6 +105,7 @@ export function update_derived(derived, force_schedule) {
+ 	var is_equal = derived.equals(value);
+ 
+ 	if (!is_equal) {
++		derived.version = increment_version();
+ 		derived.v = value;
+ 		mark_reactions(derived, DIRTY, force_schedule);
+ 
+diff --git a/packages/svelte/src/internal/client/reactivity/props.js b/packages/svelte/src/internal/client/reactivity/props.js
+index a12da1609074..665d7fdc1f10 100644
+--- a/packages/svelte/src/internal/client/reactivity/props.js
++++ b/packages/svelte/src/internal/client/reactivity/props.js
+@@ -323,8 +323,6 @@ export function prop(props, key, flags, fallback) {
+ 				from_child = true;
+ 				set(inner_current_value, value);
+ 				get(current_value); // force a synchronisation immediately
+-				// Increment the value so that unowned/disconnected nodes can validate dirtiness again.
+-				current_value.version++;
+ 			}
+ 
+ 			return value;
+diff --git a/packages/svelte/src/internal/client/reactivity/sources.js b/packages/svelte/src/internal/client/reactivity/sources.js
+index 9004e02ca3fc..f366ae5fe85d 100644
+--- a/packages/svelte/src/internal/client/reactivity/sources.js
++++ b/packages/svelte/src/internal/client/reactivity/sources.js
+@@ -14,7 +14,8 @@ import {
+ 	set_current_untracked_writes,
+ 	set_last_inspected_signal,
+ 	set_signal_status,
+-	untrack
++	untrack,
++	increment_version
+ } from '../runtime.js';
+ import { equals, safe_equals } from './equality.js';
+ import { CLEAN, DERIVED, DIRTY, BRANCH_EFFECT } from '../constants.js';
+@@ -99,7 +100,7 @@ export function set(signal, value) {
+ 		signal.v = value;
+ 
+ 		// Increment write version so that unowned signals can properly track dirtiness
+-		signal.version++;
++		signal.version = increment_version();
+ 
+ 		// If the current signal is running for the first time, it won't have any
+ 		// reactions as we only allocate and assign the reactions after the signal
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 8b9ca1c64b14..0b8c522140c9 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -122,6 +122,9 @@ export function set_last_inspected_signal(signal) {
+ /** If `true`, `get`ting the signal should not register it as a dependency */
+ export let current_untracking = false;
+ 
++/** @type {number} */
++let current_version = 0;
++
+ // If we are working with a get() chain that has no active container,
+ // to prevent memory leaks, we skip adding the reaction.
+ export let current_skip_reaction = false;
+@@ -155,6 +158,10 @@ export function set_dev_current_component_function(fn) {
+ 	dev_current_component_function = fn;
+ }
+ 
++export function increment_version() {
++	return current_version++;
++}
++
+ /** @returns {boolean} */
+ export function is_runes() {
+ 	return current_component_context !== null && current_component_context.l === null;
+@@ -234,7 +241,6 @@ export function check_dirtiness(reaction) {
+ 					// is also dirty.
+ 
+ 					if (version > /** @type {import('#client').Derived} */ (reaction).version) {
+-						/** @type {import('#client').Derived} */ (reaction).version = version;
+ 						return !is_equal;
+ 					}
+ 
+@@ -257,9 +263,9 @@ export function check_dirtiness(reaction) {
+ 					// In thise case, we need to re-attach it to the graph and mark it dirty if any of its dependencies have
+ 					// changed since.
+ 					if (version > /** @type {import('#client').Derived} */ (reaction).version) {
+-						/** @type {import('#client').Derived} */ (reaction).version = version;
+ 						is_dirty = true;
+ 					}
++
+ 					reactions = dependency.reactions;
+ 					if (reactions === null) {
+ 						dependency.reactions = [reaction];

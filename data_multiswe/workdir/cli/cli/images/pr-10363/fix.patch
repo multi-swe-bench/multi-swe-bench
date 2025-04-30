@@ -1,0 +1,116 @@
+diff --git a/pkg/cmd/repo/edit/edit.go b/pkg/cmd/repo/edit/edit.go
+index daa700cfb68..79e32385b41 100644
+--- a/pkg/cmd/repo/edit/edit.go
++++ b/pkg/cmd/repo/edit/edit.go
+@@ -70,23 +70,27 @@ type EditRepositoryInput struct {
+ 	enableSecretScanning               *bool
+ 	enableSecretScanningPushProtection *bool
+ 
+-	AllowForking        *bool                     `json:"allow_forking,omitempty"`
+-	AllowUpdateBranch   *bool                     `json:"allow_update_branch,omitempty"`
+-	DefaultBranch       *string                   `json:"default_branch,omitempty"`
+-	DeleteBranchOnMerge *bool                     `json:"delete_branch_on_merge,omitempty"`
+-	Description         *string                   `json:"description,omitempty"`
+-	EnableAutoMerge     *bool                     `json:"allow_auto_merge,omitempty"`
+-	EnableIssues        *bool                     `json:"has_issues,omitempty"`
+-	EnableMergeCommit   *bool                     `json:"allow_merge_commit,omitempty"`
+-	EnableProjects      *bool                     `json:"has_projects,omitempty"`
+-	EnableDiscussions   *bool                     `json:"has_discussions,omitempty"`
+-	EnableRebaseMerge   *bool                     `json:"allow_rebase_merge,omitempty"`
+-	EnableSquashMerge   *bool                     `json:"allow_squash_merge,omitempty"`
+-	EnableWiki          *bool                     `json:"has_wiki,omitempty"`
+-	Homepage            *string                   `json:"homepage,omitempty"`
+-	IsTemplate          *bool                     `json:"is_template,omitempty"`
+-	SecurityAndAnalysis *SecurityAndAnalysisInput `json:"security_and_analysis,omitempty"`
+-	Visibility          *string                   `json:"visibility,omitempty"`
++	AllowForking             *bool                     `json:"allow_forking,omitempty"`
++	AllowUpdateBranch        *bool                     `json:"allow_update_branch,omitempty"`
++	DefaultBranch            *string                   `json:"default_branch,omitempty"`
++	DeleteBranchOnMerge      *bool                     `json:"delete_branch_on_merge,omitempty"`
++	Description              *string                   `json:"description,omitempty"`
++	EnableAutoMerge          *bool                     `json:"allow_auto_merge,omitempty"`
++	EnableIssues             *bool                     `json:"has_issues,omitempty"`
++	EnableMergeCommit        *bool                     `json:"allow_merge_commit,omitempty"`
++	MergeCommitTitle         string                    `json:"merge_commit_title,omitempty"`
++	MergeCommitMessage       string                    `json:"merge_commit_message,omitempty"`
++	EnableSquashMerge        *bool                     `json:"allow_squash_merge,omitempty"`
++	SquashMergeCommitTitle   string                    `json:"squash_merge_commit_title,omitempty"`
++	SquashMergeCommitMessage string                    `json:"squash_merge_commit_message,omitempty"`
++	EnableRebaseMerge        *bool                     `json:"allow_rebase_merge,omitempty"`
++	EnableProjects           *bool                     `json:"has_projects,omitempty"`
++	EnableDiscussions        *bool                     `json:"has_discussions,omitempty"`
++	EnableWiki               *bool                     `json:"has_wiki,omitempty"`
++	Homepage                 *string                   `json:"homepage,omitempty"`
++	IsTemplate               *bool                     `json:"is_template,omitempty"`
++	SecurityAndAnalysis      *SecurityAndAnalysisInput `json:"security_and_analysis,omitempty"`
++	Visibility               *string                   `json:"visibility,omitempty"`
+ }
+ 
+ func NewCmdEdit(f *cmdutil.Factory, runF func(options *EditOptions) error) *cobra.Command {
+@@ -120,6 +124,22 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(options *EditOptions) error) *cobr
+ 			When the %[1]s--visibility%[1]s flag is used, %[1]s--accept-visibility-change-consequences%[1]s flag is required.
+ 
+ 			For information on all the potential consequences, see <https://gh.io/setting-repository-visibility>
++
++			For merge commit (%[1]s--enable-merge-commit%[1]s) and squash merge (%[1]s--enable-squash-merge%[1]s),
++			following are the valid combinations to set their respective default title and message options:
++
++			- Merge commit (%[1]s--merge-commit-title%[1]s and %[1]s--merge-commit-message%[1]s respectively):
++			  - MERGE_MESSAGE and PR_TITLE              (default message)
++			  - PR_TITLE and BLANK                      (pull request title)
++			  - PR_TITLE and PR_BODY                    (pull request title and description)
++
++			- Squash merge (%[1]s--squash-merge-commit-title%[1]s and %[1]s--squash-merge-commit-message%[1]s respectively):
++			  - COMMIT_OR_PR_TITLE and COMMIT_MESSAGES  (default message)
++			  - PR_TITLE and BLANK                      (pull request title)
++			  - PR_TITLE and PR_BODY                    (pull request title and description)
++			  - PR_TITLE and COMMIT_MESSAGES            (pull request title and commit details)
++
++			Note: To set the message option, its respective title is required to be set also.
+ 		`, "`"),
+ 		Args: cobra.MaximumNArgs(1),
+ 		Example: heredoc.Doc(`
+@@ -128,6 +148,12 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(options *EditOptions) error) *cobr
+ 
+ 			# disable projects
+ 			gh repo edit --enable-projects=false
++
++			# Set merge commit default commit message (pull request title and description)
++			$ gh repo edit --merge-commit-title=PR_TITLE --merge-commit-message=PR_BODY
++
++			# Set squash merge commit default message (pull request title and commit details)
++			$ gh repo edit --squash-merge-commit-title=PR_TITLE --squash-merge-commit-message=COMMIT_MESSAGES
+ 		`),
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+ 			if len(args) > 0 {
+@@ -166,6 +192,14 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(options *EditOptions) error) *cobr
+ 				opts.Edits.SecurityAndAnalysis = transformSecurityAndAnalysisOpts(opts)
+ 			}
+ 
++			if opts.Edits.MergeCommitMessage != "" && opts.Edits.MergeCommitTitle == "" {
++				return cmdutil.FlagErrorf("`--merge-commit-message` must be used in conjunction with `--merge-commit-title`")
++			}
++
++			if opts.Edits.SquashMergeCommitMessage != "" && opts.Edits.SquashMergeCommitTitle == "" {
++				return cmdutil.FlagErrorf("`--squash-merge-commit-message` must be used in conjunction with `--squash-merge-commit-title`")
++			}
++
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+@@ -182,8 +216,15 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(options *EditOptions) error) *cobr
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableProjects, "enable-projects", "", "Enable projects in the repository")
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableWiki, "enable-wiki", "", "Enable wiki in the repository")
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableDiscussions, "enable-discussions", "", "Enable discussions in the repository")
++
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableMergeCommit, "enable-merge-commit", "", "Enable merging pull requests via merge commit")
++	cmdutil.StringEnumFlag(cmd, &opts.Edits.MergeCommitTitle, "merge-commit-title", "", "", []string{"PR_TITLE", "MERGE_MESSAGE"}, "Default value for a merge commit title")
++	cmdutil.StringEnumFlag(cmd, &opts.Edits.MergeCommitMessage, "merge-commit-message", "", "", []string{"PR_BODY", "PR_TITLE", "BLANK"}, "Default value for a merge commit message")
++
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableSquashMerge, "enable-squash-merge", "", "Enable merging pull requests via squashed commit")
++	cmdutil.StringEnumFlag(cmd, &opts.Edits.SquashMergeCommitTitle, "squash-merge-commit-title", "", "", []string{"PR_TITLE", "COMMIT_OR_PR_TITLE"}, "Default value for a squash merge commit title")
++	cmdutil.StringEnumFlag(cmd, &opts.Edits.SquashMergeCommitMessage, "squash-merge-commit-message", "", "", []string{"PR_BODY", "COMMIT_MESSAGES", "BLANK"}, "Default value for a squash merge commit message")
++
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableRebaseMerge, "enable-rebase-merge", "", "Enable merging pull requests via rebase")
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.EnableAutoMerge, "enable-auto-merge", "", "Enable auto-merge functionality")
+ 	cmdutil.NilBoolFlag(cmd, &opts.Edits.enableAdvancedSecurity, "enable-advanced-security", "", "Enable advanced security in the repository")

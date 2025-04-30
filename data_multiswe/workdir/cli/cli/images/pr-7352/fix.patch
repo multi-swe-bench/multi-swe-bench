@@ -1,0 +1,58 @@
+diff --git a/pkg/cmd/run/list/list.go b/pkg/cmd/run/list/list.go
+index b98a40f08c0..af84b089e02 100644
+--- a/pkg/cmd/run/list/list.go
++++ b/pkg/cmd/run/list/list.go
+@@ -33,6 +33,7 @@ type ListOptions struct {
+ 	Actor            string
+ 	Status           string
+ 	Event            string
++	Created          string
+ 
+ 	now time.Time
+ }
+@@ -70,6 +71,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 	cmd.Flags().StringVarP(&opts.Branch, "branch", "b", "", "Filter runs by branch")
+ 	cmd.Flags().StringVarP(&opts.Actor, "user", "u", "", "Filter runs by user who triggered the run")
+ 	cmd.Flags().StringVarP(&opts.Event, "event", "e", "", "Filter runs by which `event` triggered the run")
++	cmd.Flags().StringVarP(&opts.Created, "created", "", "", "Filter runs by the `date` it was created")
+ 	cmdutil.StringEnumFlag(cmd, &opts.Status, "status", "s", "", shared.AllStatuses, "Filter runs by status")
+ 	cmdutil.AddJSONFlags(cmd, &opts.Exporter, shared.RunFields)
+ 
+@@ -91,10 +93,11 @@ func listRun(opts *ListOptions) error {
+ 	client := api.NewClientFromHTTP(c)
+ 
+ 	filters := &shared.FilterOptions{
+-		Branch: opts.Branch,
+-		Actor:  opts.Actor,
+-		Status: opts.Status,
+-		Event:  opts.Event,
++		Branch:  opts.Branch,
++		Actor:   opts.Actor,
++		Status:  opts.Status,
++		Event:   opts.Event,
++		Created: opts.Created,
+ 	}
+ 
+ 	opts.IO.StartProgressIndicator()
+diff --git a/pkg/cmd/run/shared/shared.go b/pkg/cmd/run/shared/shared.go
+index f5893b505a8..70d44df952d 100644
+--- a/pkg/cmd/run/shared/shared.go
++++ b/pkg/cmd/run/shared/shared.go
+@@ -304,6 +304,7 @@ type FilterOptions struct {
+ 	WorkflowName string
+ 	Status       string
+ 	Event        string
++	Created      string
+ }
+ 
+ // GetRunsWithFilter fetches 50 runs from the API and filters them in-memory
+@@ -352,6 +353,9 @@ func GetRuns(client *api.Client, repo ghrepo.Interface, opts *FilterOptions, lim
+ 		if opts.Event != "" {
+ 			path += fmt.Sprintf("&event=%s", url.QueryEscape(opts.Event))
+ 		}
++		if opts.Created != "" {
++			path += fmt.Sprintf("&created=%s", url.QueryEscape(opts.Created))
++		}
+ 	}
+ 
+ 	var result *RunsPayload

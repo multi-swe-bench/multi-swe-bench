@@ -1,0 +1,42 @@
+diff --git a/.changeset/seven-cars-drum.md b/.changeset/seven-cars-drum.md
+new file mode 100644
+index 000000000000..1f02e9c80442
+--- /dev/null
++++ b/.changeset/seven-cars-drum.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: support camelCase properties on custom elements
+diff --git a/packages/svelte/src/compiler/compile/render_dom/wrappers/Element/Attribute.js b/packages/svelte/src/compiler/compile/render_dom/wrappers/Element/Attribute.js
+index 8d0199f0cf85..ecf7b797229e 100644
+--- a/packages/svelte/src/compiler/compile/render_dom/wrappers/Element/Attribute.js
++++ b/packages/svelte/src/compiler/compile/render_dom/wrappers/Element/Attribute.js
+@@ -103,8 +103,8 @@ export default class AttributeWrapper extends BaseAttributeWrapper {
+ 				this.parent.has_dynamic_value = true;
+ 			}
+ 		}
+-		if (this.parent.node.namespace == namespaces.foreign) {
+-			// leave attribute case alone for elements in the "foreign" namespace
++		if (this.parent.node.namespace == namespaces.foreign || this.parent.node.name.includes('-')) {
++			// leave attribute case alone for elements in the "foreign" namespace and for custom elements
+ 			this.name = this.node.name;
+ 			this.metadata = this.get_metadata();
+ 			this.is_indirectly_bound_value = false;
+diff --git a/packages/svelte/src/runtime/internal/dom.js b/packages/svelte/src/runtime/internal/dom.js
+index 9e1fd7e261ec..50e943a13071 100644
+--- a/packages/svelte/src/runtime/internal/dom.js
++++ b/packages/svelte/src/runtime/internal/dom.js
+@@ -480,7 +480,10 @@ export function set_custom_element_data_map(node, data_map) {
+ /**
+  * @returns {void} */
+ export function set_custom_element_data(node, prop, value) {
+-	if (prop in node) {
++	const lower = prop.toLowerCase(); // for backwards compatibility with existing behavior we do lowercase first
++	if (lower in node) {
++		node[lower] = typeof node[lower] === 'boolean' && value === '' ? true : value;
++	} else if (prop in node) {
+ 		node[prop] = typeof node[prop] === 'boolean' && value === '' ? true : value;
+ 	} else {
+ 		attr(node, prop, value);

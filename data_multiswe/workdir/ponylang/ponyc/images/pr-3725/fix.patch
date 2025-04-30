@@ -1,0 +1,43 @@
+diff --git a/.release-notes/fix-param-type-reference-crash.md b/.release-notes/fix-param-type-reference-crash.md
+new file mode 100644
+index 0000000000..2a2dcbb62d
+--- /dev/null
++++ b/.release-notes/fix-param-type-reference-crash.md
+@@ -0,0 +1,5 @@
++## Fix compiler crash related to type parameter references
++
++Previously, if a method signature in a trait or interface referenced a type
++parameter before the type parameter itself was defined, the compiler would
++crash. This is now fixed.
+diff --git a/src/libponyc/pass/traits.c b/src/libponyc/pass/traits.c
+index b4bc9e1ee4..99c46752d4 100644
+--- a/src/libponyc/pass/traits.c
++++ b/src/libponyc/pass/traits.c
+@@ -417,7 +417,6 @@ static ast_result_t rescope(ast_t** astp, pass_opt_t* options)
+     case TK_EMBED:
+     case TK_PARAM:
+     case TK_MATCH_CAPTURE:
+-    case TK_TYPEPARAM:
+     {
+       pony_assert(ast_child(ast) != NULL);
+       ast_set(ast, ast_name(ast_child(ast)), ast, SYM_DEFINED, true);
+@@ -432,6 +431,19 @@ static ast_result_t rescope(ast_t** astp, pass_opt_t* options)
+       break;
+     }
+ 
++    case TK_TYPEPARAMS:
++    {
++      ast_t* typeparam = ast_child(ast);
++      while(typeparam != NULL)
++      {
++        pony_assert(ast_child(typeparam) != NULL);
++        ast_set(ast, ast_name(ast_child(typeparam)), typeparam, SYM_DEFINED, true);
++
++        typeparam = ast_sibling(typeparam);
++      }
++      break;
++    }
++
+     case TK_TYPEPARAMREF:
+     {
+       pony_assert(ast_child(ast) != NULL);

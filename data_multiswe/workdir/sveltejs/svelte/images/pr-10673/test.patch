@@ -1,0 +1,250 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/_config.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/_config.js
+new file mode 100644
+index 000000000000..6df8a5a75f2b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/_config.js
+@@ -0,0 +1,37 @@
++import { test } from '../../test';
++
++/** @type {typeof console.warn} */
++let warn;
++
++/** @type {any[]} */
++let warnings = [];
++
++export default test({
++	html: `<button>[]</button>`,
++
++	compileOptions: {
++		dev: true
++	},
++
++	before_test: () => {
++		warn = console.warn;
++
++		console.warn = (...args) => {
++			warnings.push(...args);
++		};
++	},
++
++	after_test: () => {
++		console.warn = warn;
++		warnings = [];
++	},
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		await btn?.click();
++
++		assert.htmlEqual(target.innerHTML, `<button>[foo]</button>`);
++
++		assert.deepEqual(warnings, [], 'expected getContext to have widened ownership');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/main.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/main.svelte
+new file mode 100644
+index 000000000000..2dd7cab141d6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	import { setContext } from 'svelte';
++	import Sub from './sub.svelte';
++
++	let list = $state([]);
++	setContext('list', list);
++</script>
++
++<Sub />
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/sub.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/sub.svelte
+new file mode 100644
+index 000000000000..7a6a2215223e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-3/sub.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import { getContext } from 'svelte';
++
++	const list = getContext('list');
++</script>
++
++<button onclick={() => list.push('foo')}>[{list.join(',')}]</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/_config.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/_config.js
+new file mode 100644
+index 000000000000..5850cc1de625
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/_config.js
+@@ -0,0 +1,32 @@
++import { test } from '../../test';
++
++/** @type {typeof console.warn} */
++let warn;
++
++/** @type {any[]} */
++let warnings = [];
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	before_test: () => {
++		warn = console.warn;
++
++		console.warn = (...args) => {
++			warnings.push(...args);
++		};
++	},
++
++	after_test: () => {
++		console.warn = warn;
++		warnings = [];
++	},
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		await btn?.click();
++		assert.deepEqual(warnings, []);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/main.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/main.svelte
+new file mode 100644
+index 000000000000..2d40c13949a6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/main.svelte
+@@ -0,0 +1,11 @@
++<script>
++	import { global } from './state.svelte.js';
++	import Sub from './sub.svelte';
++</script>
++
++<Sub />
++<!-- it's important _NOT_ to read global.a.b in the template,
++     else the proxy would set up the structure with its own component context already -->
++<button onclick={() => global.increment_a_b()}>
++	click me
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/state.svelte.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/state.svelte.js
+new file mode 100644
+index 000000000000..40790591712c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/state.svelte.js
+@@ -0,0 +1,13 @@
++class Global {
++	state = $state({});
++
++	add_a(a) {
++		this.state.a = a;
++	}
++
++	increment_a_b() {
++		this.state.a.b++;
++	}
++}
++
++export const global = new Global();
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/sub.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/sub.svelte
+new file mode 100644
+index 000000000000..044904aa187e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-4/sub.svelte
+@@ -0,0 +1,8 @@
++<script>
++	import { global } from "./state.svelte";
++    
++	// The real world use case would be someone manipulating state locally, for example form state,
++	// and then push the values to a global state for everyone else to see / possibly mutate.
++	const local_soon_global = $state({ b: 0 });
++	global.add_a(local_soon_global);
++</script>
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/_config.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/_config.js
+new file mode 100644
+index 000000000000..0d075cca2552
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/_config.js
+@@ -0,0 +1,39 @@
++import { tick } from 'svelte';
++import { test } from '../../test';
++
++/** @type {typeof console.warn} */
++let warn;
++
++/** @type {any[]} */
++let warnings = [];
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	before_test: () => {
++		warn = console.warn;
++
++		console.warn = (...args) => {
++			warnings.push(...args);
++		};
++	},
++
++	after_test: () => {
++		console.warn = warn;
++		warnings = [];
++	},
++
++	async test({ assert, target }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		await btn1.click();
++		await tick();
++		assert.deepEqual(warnings.length, 0);
++
++		await btn2.click();
++		await tick();
++		assert.deepEqual(warnings.length, 1);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/main.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/main.svelte
+new file mode 100644
+index 000000000000..0be7e434e475
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/main.svelte
+@@ -0,0 +1,8 @@
++<script lang="ts">
++	import Sub from './sub.svelte';
++	import { create_my_state } from './state.svelte';
++
++	const myState = create_my_state();
++</script>
++
++<Sub count={myState.my_state} inc={myState.inc} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/state.svelte.js b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/state.svelte.js
+new file mode 100644
+index 000000000000..2906b9bce52b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/state.svelte.js
+@@ -0,0 +1,14 @@
++export function create_my_state() {
++	const my_state = $state({
++		a: 0
++	});
++
++	function inc() {
++		my_state.a++;
++	}
++
++	return {
++		my_state,
++		inc
++	};
++}
+diff --git a/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/sub.svelte b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/sub.svelte
+new file mode 100644
+index 000000000000..154be347b4d1
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/non-local-mutation-inherited-owner-5/sub.svelte
+@@ -0,0 +1,6 @@
++<script>
++	let { count, inc } = $props();
++</script>
++
++<button onclick={inc}>{count.a} (ok)</button>
++<button onclick={() => count.a++}>{count.a} (bad)</button>

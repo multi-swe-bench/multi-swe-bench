@@ -1,0 +1,113 @@
+diff --git a/src/slice/test.rs b/src/slice/test.rs
+index 71743e2a1..4325aa88d 100644
+--- a/src/slice/test.rs
++++ b/src/slice/test.rs
+@@ -146,3 +146,25 @@ fn test_par_chunks_exact_mut_remainder() {
+     assert_eq!(c.take_remainder(), &[]);
+     assert_eq!(c.len(), 2);
+ }
++
++#[test]
++fn test_par_rchunks_exact_remainder() {
++    let v: &[i32] = &[0, 1, 2, 3, 4];
++    let c = v.par_rchunks_exact(2);
++    assert_eq!(c.remainder(), &[0]);
++    assert_eq!(c.len(), 2);
++}
++
++#[test]
++fn test_par_rchunks_exact_mut_remainder() {
++    let v: &mut [i32] = &mut [0, 1, 2, 3, 4];
++    let mut c = v.par_rchunks_exact_mut(2);
++    assert_eq!(c.remainder(), &[0]);
++    assert_eq!(c.len(), 2);
++    assert_eq!(c.into_remainder(), &[0]);
++
++    let mut c = v.par_rchunks_exact_mut(2);
++    assert_eq!(c.take_remainder(), &[0]);
++    assert_eq!(c.take_remainder(), &[]);
++    assert_eq!(c.len(), 2);
++}
+diff --git a/tests/clones.rs b/tests/clones.rs
+index 9add775e7..2f512ca05 100644
+--- a/tests/clones.rs
++++ b/tests/clones.rs
+@@ -102,6 +102,8 @@ fn clone_vec() {
+     check(v.par_iter());
+     check(v.par_chunks(42));
+     check(v.par_chunks_exact(42));
++    check(v.par_rchunks(42));
++    check(v.par_rchunks_exact(42));
+     check(v.par_windows(42));
+     check(v.par_split(|x| x % 3 == 0));
+     check(v.into_par_iter());
+diff --git a/tests/debug.rs b/tests/debug.rs
+index 3584ba0e5..d107b1377 100644
+--- a/tests/debug.rs
++++ b/tests/debug.rs
+@@ -123,6 +123,10 @@ fn debug_vec() {
+     check(v.par_chunks_exact(42));
+     check(v.par_chunks_mut(42));
+     check(v.par_chunks_exact_mut(42));
++    check(v.par_rchunks(42));
++    check(v.par_rchunks_exact(42));
++    check(v.par_rchunks_mut(42));
++    check(v.par_rchunks_exact_mut(42));
+     check(v.par_windows(42));
+     check(v.par_split(|x| x % 3 == 0));
+     check(v.par_split_mut(|x| x % 3 == 0));
+diff --git a/tests/producer_split_at.rs b/tests/producer_split_at.rs
+index 3a4905954..d71050492 100644
+--- a/tests/producer_split_at.rs
++++ b/tests/producer_split_at.rs
+@@ -213,6 +213,50 @@ fn slice_chunks_exact_mut() {
+     }
+ }
+ 
++#[test]
++fn slice_rchunks() {
++    let s: Vec<_> = (0..10).collect();
++    for len in 1..s.len() + 2 {
++        let v: Vec<_> = s.rchunks(len).collect();
++        check(&v, || s.par_rchunks(len));
++    }
++}
++
++#[test]
++fn slice_rchunks_exact() {
++    let s: Vec<_> = (0..10).collect();
++    for len in 1..s.len() + 2 {
++        let v: Vec<_> = s.rchunks_exact(len).collect();
++        check(&v, || s.par_rchunks_exact(len));
++    }
++}
++
++#[test]
++fn slice_rchunks_mut() {
++    let mut s: Vec<_> = (0..10).collect();
++    let mut v: Vec<_> = s.clone();
++    for len in 1..s.len() + 2 {
++        let expected: Vec<_> = v.rchunks_mut(len).collect();
++        map_triples(expected.len() + 1, |i, j, k| {
++            Split::forward(s.par_rchunks_mut(len), i, j, k, &expected);
++            Split::reverse(s.par_rchunks_mut(len), i, j, k, &expected);
++        });
++    }
++}
++
++#[test]
++fn slice_rchunks_exact_mut() {
++    let mut s: Vec<_> = (0..10).collect();
++    let mut v: Vec<_> = s.clone();
++    for len in 1..s.len() + 2 {
++        let expected: Vec<_> = v.rchunks_exact_mut(len).collect();
++        map_triples(expected.len() + 1, |i, j, k| {
++            Split::forward(s.par_rchunks_exact_mut(len), i, j, k, &expected);
++            Split::reverse(s.par_rchunks_exact_mut(len), i, j, k, &expected);
++        });
++    }
++}
++
+ #[test]
+ fn slice_windows() {
+     let s: Vec<_> = (0..10).collect();

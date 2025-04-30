@@ -1,0 +1,72 @@
+diff --git a/.changeset/tidy-lizards-happen.md b/.changeset/tidy-lizards-happen.md
+new file mode 100644
+index 000000000000..1b280937a0c5
+--- /dev/null
++++ b/.changeset/tidy-lizards-happen.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: make `$state` component exports settable
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 4a15f0e46f43..aab31869cd6b 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -1010,6 +1010,9 @@ const runes_scope_tweaker = {
+ 			name: node.local.name,
+ 			alias: node.exported.name
+ 		});
++
++		const binding = state.scope.get(node.local.name);
++		if (binding) binding.reassigned = true;
+ 	},
+ 	ExportNamedDeclaration(node, { next, state }) {
+ 		if (!node.declaration || state.ast_type !== 'instance') {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index d0dd2315a564..a8438c0aca3c 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -198,14 +198,38 @@ export function client_component(source, analysis, options) {
+ 	}
+ 
+ 	/** @type {Array<ESTree.Property | ESTree.SpreadElement>} */
+-	const component_returned_object = analysis.exports.map(({ name, alias }) => {
++	const component_returned_object = analysis.exports.flatMap(({ name, alias }) => {
++		const binding = instance_state.scope.get(name);
+ 		const expression = serialize_get_binding(b.id(name), instance_state);
++		const getter = b.get(alias ?? name, [b.return(expression)]);
++
++		if (expression.type === 'Identifier') {
++			if (binding?.declaration_kind === 'let' || binding?.declaration_kind === 'var') {
++				return [
++					getter,
++					b.set(alias ?? name, [b.stmt(b.assignment('=', expression, b.id('$$value')))])
++				];
++			} else if (!options.dev) {
++				return b.init(alias ?? name, expression);
++			}
++		}
+ 
+-		if (expression.type === 'Identifier' && !options.dev) {
+-			return b.init(alias ?? name, expression);
++		if (binding?.kind === 'state' || binding?.kind === 'frozen_state') {
++			return [
++				getter,
++				b.set(alias ?? name, [
++					b.stmt(
++						b.call(
++							'$.set',
++							b.id(name),
++							b.call(binding.kind === 'state' ? '$.proxy' : '$.freeze', b.id('$$value'))
++						)
++					)
++				])
++			];
+ 		}
+ 
+-		return b.get(alias ?? name, [b.return(expression)]);
++		return getter;
+ 	});
+ 
+ 	const properties = [...analysis.instance.scope.declarations].filter(

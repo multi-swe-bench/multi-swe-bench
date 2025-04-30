@@ -1,0 +1,84 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/_config.js b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/_config.js
+new file mode 100644
+index 000000000000..18880650d7c4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/_config.js
+@@ -0,0 +1,18 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	test({ assert, target, ok }) {
++		const button = target.querySelector('button');
++
++		flushSync(() => {
++			button?.click();
++		});
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<button>1</button>
++		`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/child.svelte b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/child.svelte
+new file mode 100644
+index 000000000000..a89955d5e426
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/child.svelte
+@@ -0,0 +1,5 @@
++<script>
++	let { state } = $props();
++</script>
++
++<button onclick={()=> $state++}>{$state}</button>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/main.svelte b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/main.svelte
+new file mode 100644
+index 000000000000..e1d19fc0c756
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/store-from-props-runelike/main.svelte
+@@ -0,0 +1,8 @@
++<svelte:options runes />
++<script>
++	import { writable } from "svelte/store";
++	import Child from "./child.svelte";
++	const state = writable(0);
++</script>
++
++<Child {state} />
+\ No newline at end of file
+diff --git a/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/input.svelte b/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/input.svelte
+new file mode 100644
+index 000000000000..be769e18af92
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/input.svelte
+@@ -0,0 +1,6 @@
++<script>
++	let { state } = $props();
++	let x = $state();
++</script>
++
++{$state}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/warnings.json b/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/warnings.json
+new file mode 100644
+index 000000000000..2db49bf418ad
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/store-rune-conflic-from-props/warnings.json
+@@ -0,0 +1,14 @@
++[
++	{
++		"code": "store_rune_conflict",
++		"message": "It looks like you're using the `$state` rune, but there is a local binding called `state`. Referencing a local variable with a `$` prefix will create a store subscription. Please rename `state` to avoid the ambiguity",
++		"start": {
++			"line": 3,
++			"column": 9
++		},
++		"end": {
++			"line": 3,
++			"column": 15
++		}
++	}
++]

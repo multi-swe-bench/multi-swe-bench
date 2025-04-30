@@ -1,0 +1,104 @@
+diff --git a/packages/mui-material/src/TabScrollButton/TabScrollButton.test.js b/packages/mui-material/src/TabScrollButton/TabScrollButton.test.js
+index bb1f3036843736..f71cb7b1634ac5 100644
+--- a/packages/mui-material/src/TabScrollButton/TabScrollButton.test.js
++++ b/packages/mui-material/src/TabScrollButton/TabScrollButton.test.js
+@@ -2,6 +2,8 @@ import * as React from 'react';
+ import { expect } from 'chai';
+ import { createRenderer, describeConformance } from 'test/utils';
+ import TabScrollButton, { tabScrollButtonClasses as classes } from '@mui/material/TabScrollButton';
++import ArrowBackIcon from '@mui/icons-material/ArrowBack';
++import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+ 
+ describe('<TabScrollButton />', () => {
+   const defaultProps = {
+@@ -49,4 +51,34 @@ describe('<TabScrollButton />', () => {
+       expect(getAllByTestId('KeyboardArrowRightIcon').length).to.equal(1);
+     });
+   });
++
++  it('should render with the custom start icon', () => {
++    const { getAllByTestId } = render(
++      <TabScrollButton
++        {...defaultProps}
++        direction="left"
++        disabled
++        slots={{
++          StartScrollButtonIcon: ArrowBackIcon,
++        }}
++      />,
++    );
++
++    expect(getAllByTestId('ArrowBackIcon')).to.have.lengthOf(1);
++  });
++
++  it('should render with the custom end icon', () => {
++    const { getAllByTestId } = render(
++      <TabScrollButton
++        {...defaultProps}
++        direction="right"
++        disabled
++        slots={{
++          EndScrollButtonIcon: ArrowForwardIcon,
++        }}
++      />,
++    );
++
++    expect(getAllByTestId('ArrowForwardIcon')).to.have.lengthOf(1);
++  });
+ });
+diff --git a/packages/mui-material/src/Tabs/Tabs.test.js b/packages/mui-material/src/Tabs/Tabs.test.js
+index fa0c83a8a45ea4..4db5634812d357 100644
+--- a/packages/mui-material/src/Tabs/Tabs.test.js
++++ b/packages/mui-material/src/Tabs/Tabs.test.js
+@@ -11,7 +11,10 @@ import {
+ } from 'test/utils';
+ import Tab from '@mui/material/Tab';
+ import Tabs, { tabsClasses as classes } from '@mui/material/Tabs';
++import { svgIconClasses } from '@mui/material/SvgIcon';
+ import { createTheme, ThemeProvider } from '@mui/material/styles';
++import ArrowBackIcon from '@mui/icons-material/ArrowBack';
++import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+ import capitalize from '../utils/capitalize';
+ 
+ function findScrollButton(container, direction) {
+@@ -163,6 +166,40 @@ describe('<Tabs />', () => {
+     });
+   });
+ 
++  it('props: slots and slotProps, should render custom start and end icons', () => {
++    const tabs = (
++      <Tabs
++        value={0}
++        variant="scrollable"
++        scrollButtons
++        textColor="secondary"
++        slots={{
++          StartScrollButtonIcon: ArrowBackIcon,
++          EndScrollButtonIcon: ArrowForwardIcon,
++        }}
++        slotProps={{
++          endScrollButtonIcon: (ownerState) => ({
++            'data-testid': 'test-label-scrollButtonEnd',
++            fontSize: ownerState.textColor === 'secondary' ? 'large' : 'small',
++          }),
++          startScrollButtonIcon: (ownerState) => ({
++            'data-testid': 'test-label-scrollButtonStart',
++            fontSize: ownerState.textColor === 'secondary' ? 'large' : 'small',
++          }),
++        }}
++      >
++        <Tab />
++        <Tab />
++      </Tabs>
++    );
++
++    const { getAllByTestId, getByTestId } = render(tabs);
++    expect(getAllByTestId('test-label-scrollButtonStart')).to.have.lengthOf(1);
++    expect(getAllByTestId('test-label-scrollButtonEnd')).to.have.lengthOf(1);
++    expect(getByTestId('test-label-scrollButtonStart')).to.have.class(svgIconClasses.fontSizeLarge);
++    expect(getByTestId('test-label-scrollButtonEnd')).to.have.class(svgIconClasses.fontSizeLarge);
++  });
++
+   describe('prop: value', () => {
+     const tabs = (
+       <Tabs value={1}>

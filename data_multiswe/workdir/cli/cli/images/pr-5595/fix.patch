@@ -1,0 +1,54 @@
+diff --git a/pkg/cmd/release/list/http.go b/pkg/cmd/release/list/http.go
+index f502b75d4e1..2a761396af6 100644
+--- a/pkg/cmd/release/list/http.go
++++ b/pkg/cmd/release/list/http.go
+@@ -21,7 +21,7 @@ type Release struct {
+ 	PublishedAt  time.Time
+ }
+ 
+-func fetchReleases(httpClient *http.Client, repo ghrepo.Interface, limit int) ([]Release, error) {
++func fetchReleases(httpClient *http.Client, repo ghrepo.Interface, limit int, excludeDrafts bool) ([]Release, error) {
+ 	type responseData struct {
+ 		Repository struct {
+ 			Releases struct {
+@@ -58,6 +58,9 @@ loop:
+ 		}
+ 
+ 		for _, r := range query.Repository.Releases.Nodes {
++			if excludeDrafts && r.IsDraft {
++				continue
++			}
+ 			releases = append(releases, r)
+ 			if len(releases) == limit {
+ 				break loop
+diff --git a/pkg/cmd/release/list/list.go b/pkg/cmd/release/list/list.go
+index f46059a9ad1..1747d56b001 100644
+--- a/pkg/cmd/release/list/list.go
++++ b/pkg/cmd/release/list/list.go
+@@ -18,7 +18,8 @@ type ListOptions struct {
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
+-	LimitResults int
++	LimitResults  int
++	ExcludeDrafts bool
+ }
+ 
+ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+@@ -44,6 +45,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd.Flags().IntVarP(&opts.LimitResults, "limit", "L", 30, "Maximum number of items to fetch")
++	cmd.Flags().BoolVar(&opts.ExcludeDrafts, "exclude-drafts", false, "Exclude draft releases")
+ 
+ 	return cmd
+ }
+@@ -59,7 +61,7 @@ func listRun(opts *ListOptions) error {
+ 		return err
+ 	}
+ 
+-	releases, err := fetchReleases(httpClient, baseRepo, opts.LimitResults)
++	releases, err := fetchReleases(httpClient, baseRepo, opts.LimitResults, opts.ExcludeDrafts)
+ 	if err != nil {
+ 		return err
+ 	}

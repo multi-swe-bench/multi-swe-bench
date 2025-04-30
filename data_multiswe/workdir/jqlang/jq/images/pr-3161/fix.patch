@@ -1,0 +1,123 @@
+diff --git a/Makefile.am b/Makefile.am
+index 0b4b81e78e..a183477fde 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -141,7 +141,7 @@ endif
+ 
+ ### Tests (make check)
+ 
+-TESTS = tests/mantest tests/jqtest tests/shtest tests/utf8test tests/base64test
++TESTS = tests/mantest tests/jqtest tests/shtest tests/utf8test tests/base64test tests/uritest
+ if !WIN32
+ TESTS += tests/optionaltest
+ endif
+@@ -218,7 +218,6 @@ EXTRA_DIST = $(DOC_FILES) $(man_MANS) $(TESTS) $(TEST_LOG_COMPILER)     \
+         jq.1.prebuilt jq.spec src/lexer.c src/lexer.h src/parser.c      \
+         src/parser.h src/version.h src/builtin.jq scripts/version       \
+         libjq.pc                                                        \
+-        tests/base64.test tests/jq-f-test.sh tests/jq.test              \
+         tests/modules/a.jq tests/modules/b/b.jq tests/modules/c/c.jq    \
+         tests/modules/c/d.jq tests/modules/data.json                    \
+         tests/modules/home1/.jq tests/modules/home2/.jq/g.jq            \
+@@ -232,7 +231,7 @@ EXTRA_DIST = $(DOC_FILES) $(man_MANS) $(TESTS) $(TEST_LOG_COMPILER)     \
+         tests/onig.supp tests/local.supp                                \
+         tests/setup tests/torture/input0.json                           \
+         tests/optional.test tests/man.test tests/manonig.test           \
+-        tests/jq.test tests/onig.test tests/base64.test                 \
++        tests/jq.test tests/onig.test tests/base64.test tests/uri.test  \
+         tests/utf8-truncate.jq tests/jq-f-test.sh                       \
+         tests/no-main-program.jq tests/yes-main-program.jq
+ 
+diff --git a/docs/content/manual/dev/manual.yml b/docs/content/manual/dev/manual.yml
+index 2ec138fc42..90bd033064 100644
+--- a/docs/content/manual/dev/manual.yml
++++ b/docs/content/manual/dev/manual.yml
+@@ -2141,6 +2141,11 @@ sections:
+             Applies percent-encoding, by mapping all reserved URI
+             characters to a `%XX` sequence.
+ 
++          * `@urid`:
++
++            The inverse of `@uri`, applies percent-decoding, by mapping
++            all `%XX` sequences to their corresponding URI characters.
++
+           * `@csv`:
+ 
+             The input must be an array, and it is rendered as CSV
+diff --git a/jq.1.prebuilt b/jq.1.prebuilt
+index 151868fddf..553b63fc15 100644
+--- a/jq.1.prebuilt
++++ b/jq.1.prebuilt
+@@ -1,5 +1,5 @@
+ .
+-.TH "JQ" "1" "July 2024" "" ""
++.TH "JQ" "1" "August 2024" "" ""
+ .
+ .SH "NAME"
+ \fBjq\fR \- Command\-line JSON processor
+@@ -2330,6 +2330,12 @@ Applies HTML/XML escaping, by mapping the characters \fB<>&\'"\fR to their entit
+ Applies percent\-encoding, by mapping all reserved URI characters to a \fB%XX\fR sequence\.
+ .
+ .TP
++\fB@urid\fR:
++.
++.IP
++The inverse of \fB@uri\fR, applies percent\-decoding, by mapping all \fB%XX\fR sequences to their corresponding URI characters\.
++.
++.TP
+ \fB@csv\fR:
+ .
+ .IP
+diff --git a/src/builtin.c b/src/builtin.c
+index e39975b0a0..69e9b07214 100644
+--- a/src/builtin.c
++++ b/src/builtin.c
+@@ -657,6 +657,48 @@ static jv f_format(jq_state *jq, jv input, jv fmt) {
+     }
+     jv_free(input);
+     return line;
++  } else if (!strcmp(fmt_s, "urid")) {
++    jv_free(fmt);
++    input = f_tostring(jq, input);
++
++    jv line = jv_string("");
++    const char *errmsg =  "is not a valid uri encoding";
++    const char *s = jv_string_value(input);
++    while (*s) {
++      if (*s != '%') {
++        line = jv_string_append_buf(line, s++, 1);
++      } else {
++        unsigned char unicode[4] = {0};
++        int b = 0;
++        // check leading bits of first octet to determine length of unicode character
++        // (https://datatracker.ietf.org/doc/html/rfc3629#section-3)
++        while (b == 0 || (b < 4 && unicode[0] >> 7 & 1 && unicode[0] >> (7-b) & 1)) {
++          if (*(s++) != '%') {
++            jv_free(line);
++            return type_error(input, errmsg);
++          }
++          for (int i=0; i<2; i++) {
++            unicode[b] <<= 4;
++            char c = *(s++);
++            if ('0' <= c && c <= '9') unicode[b] |= c - '0';
++            else if ('a' <= c && c <= 'f') unicode[b] |= c - 'a' + 10;
++            else if ('A' <= c && c <= 'F') unicode[b] |= c - 'A' + 10;
++            else {
++              jv_free(line);
++              return type_error(input, errmsg);
++            }
++          }
++          b++;
++        }
++        if (!jvp_utf8_is_valid((const char *)unicode, (const char *)unicode+b)) {
++          jv_free(line);
++          return type_error(input, errmsg);
++        }
++        line = jv_string_append_buf(line, (const char *)unicode, b);
++      }
++    }
++    jv_free(input);
++    return line;
+   } else if (!strcmp(fmt_s, "sh")) {
+     jv_free(fmt);
+     if (jv_get_kind(input) != JV_KIND_ARRAY)

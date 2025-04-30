@@ -1,0 +1,73 @@
+diff --git a/packages/mui-joy/src/Autocomplete/Autocomplete.test.tsx b/packages/mui-joy/src/Autocomplete/Autocomplete.test.tsx
+index faea03ce414dd8..319b7386778fb0 100644
+--- a/packages/mui-joy/src/Autocomplete/Autocomplete.test.tsx
++++ b/packages/mui-joy/src/Autocomplete/Autocomplete.test.tsx
+@@ -1349,6 +1349,31 @@ describe('Joy <Autocomplete />', () => {
+       checkHighlightIs(listbox, null);
+     });
+ 
++    it('should reset the highlight when the input changed', () => {
++      const filterOptions = createFilterOptions({});
++      const { getByRole } = render(
++        <Autocomplete
++          open
++          autoHighlight
++          autoFocus
++          options={['one', 'two', 'three']}
++          filterOptions={filterOptions}
++        />,
++      );
++      const textbox = getByRole('combobox');
++      const listbox = getByRole('listbox');
++
++      fireEvent.change(textbox, { target: { value: 't' } });
++
++      checkHighlightIs(listbox, 'two');
++
++      fireEvent.change(textbox, { target: { value: '' } });
++
++      checkHighlightIs(listbox, 'one');
++      fireEvent.keyDown(textbox, { key: 'Enter' });
++      expect(textbox).has.value('one');
++    });
++
+     it('should not select undefined', () => {
+       const handleChange = spy();
+       const { getByRole } = render(
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.test.js b/packages/mui-material/src/Autocomplete/Autocomplete.test.js
+index 6889a96c3d295c..3d46f9db383eb0 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.test.js
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.test.js
+@@ -1677,6 +1677,32 @@ describe('<Autocomplete />', () => {
+       checkHighlightIs(listbox, 'two');
+     });
+ 
++    it('should reset the highlight when the input changed', () => {
++      const filterOptions = createFilterOptions({});
++      render(
++        <Autocomplete
++          open
++          autoFocus
++          autoHighlight
++          options={['one', 'two', 'three']}
++          renderInput={(params) => <TextField {...params} autoFocus />}
++          filterOptions={filterOptions}
++        />,
++      );
++      const textbox = screen.getByRole('combobox');
++      const listbox = screen.getByRole('listbox');
++
++      fireEvent.change(textbox, { target: { value: 't' } });
++
++      checkHighlightIs(listbox, 'two');
++
++      fireEvent.change(textbox, { target: { value: '' } });
++
++      checkHighlightIs(listbox, 'one');
++      fireEvent.keyDown(textbox, { key: 'Enter' });
++      expect(textbox).has.value('one');
++    });
++
+     it("should reset the highlight when previously highlighted option doesn't exists in new options", () => {
+       const { setProps } = render(
+         <Autocomplete

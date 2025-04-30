@@ -1,0 +1,372 @@
+diff --git a/include/nlohmann/detail/iterators/iteration_proxy.hpp b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+index e2d57c5dcf..d3b6b760f4 100644
+--- a/include/nlohmann/detail/iterators/iteration_proxy.hpp
++++ b/include/nlohmann/detail/iterators/iteration_proxy.hpp
+@@ -10,7 +10,6 @@
+ 
+ #include <cstddef> // size_t
+ #include <iterator> // forward_iterator_tag
+-#include <string> // string, to_string
+ #include <tuple> // tuple_size, get, tuple_element
+ #include <utility> // move
+ 
+@@ -20,19 +19,13 @@
+ 
+ #include <nlohmann/detail/abi_macros.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
++#include <nlohmann/detail/string_utils.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
+ NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+-template<typename string_type>
+-void int_to_string( string_type& target, std::size_t value )
+-{
+-    // For ADL
+-    using std::to_string;
+-    target = to_string(value);
+-}
+ template<typename IteratorType> class iteration_proxy_value
+ {
+   public:
+diff --git a/include/nlohmann/detail/string_utils.hpp b/include/nlohmann/detail/string_utils.hpp
+new file mode 100644
+index 0000000000..0ac28c6565
+--- /dev/null
++++ b/include/nlohmann/detail/string_utils.hpp
+@@ -0,0 +1,37 @@
++//     __ _____ _____ _____
++//  __|  |   __|     |   | |  JSON for Modern C++
++// |  |  |__   |  |  | | | |  version 3.11.3
++// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
++//
++// SPDX-FileCopyrightText: 2013 - 2024 Niels Lohmann <https://nlohmann.me>
++// SPDX-License-Identifier: MIT
++
++#pragma once
++
++#include <cstddef> // size_t
++#include <string> // string, to_string
++
++#include <nlohmann/detail/abi_macros.hpp>
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++
++template<typename StringType>
++void int_to_string(StringType& target, std::size_t value)
++{
++    // For ADL
++    using std::to_string;
++    target = to_string(value);
++}
++
++template<typename StringType>
++StringType to_string(std::size_t value)
++{
++    StringType result;
++    int_to_string(result, value);
++    return result;
++}
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
+diff --git a/include/nlohmann/json.hpp b/include/nlohmann/json.hpp
+index 763fd95783..0d67c1abeb 100644
+--- a/include/nlohmann/json.hpp
++++ b/include/nlohmann/json.hpp
+@@ -52,6 +52,7 @@
+ #include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/string_concat.hpp>
+ #include <nlohmann/detail/string_escape.hpp>
++#include <nlohmann/detail/string_utils.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/output/binary_writer.hpp>
+@@ -4702,7 +4703,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+         // the valid JSON Patch operations
+         enum class patch_operations {add, remove, replace, move, copy, test, invalid};
+ 
+-        const auto get_op = [](const std::string & op)
++        const auto get_op = [](const string_t& op)
+         {
+             if (op == "add")
+             {
+@@ -4839,8 +4840,8 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+         for (const auto& val : json_patch)
+         {
+             // wrapper to get a value for an operation
+-            const auto get_value = [&val](const std::string & op,
+-                                          const std::string & member,
++            const auto get_value = [&val](const string_t& op,
++                                          const string_t& member,
+                                           bool string_type) -> basic_json &
+             {
+                 // find value
+@@ -4874,8 +4875,8 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+             }
+ 
+             // collect mandatory members
+-            const auto op = get_value("op", "op", true).template get<std::string>();
+-            const auto path = get_value(op, "path", true).template get<std::string>();
++            const auto op = get_value("op", "op", true).template get<string_t>();
++            const auto path = get_value(op, "path", true).template get<string_t>();
+             json_pointer ptr(path);
+ 
+             switch (get_op(op))
+@@ -4901,7 +4902,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+ 
+                 case patch_operations::move:
+                 {
+-                    const auto from_path = get_value("move", "from", true).template get<std::string>();
++                    const auto from_path = get_value("move", "from", true).template get<string_t>();
+                     json_pointer from_ptr(from_path);
+ 
+                     // the "from" location must exist - use at()
+@@ -4918,7 +4919,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+ 
+                 case patch_operations::copy:
+                 {
+-                    const auto from_path = get_value("copy", "from", true).template get<std::string>();
++                    const auto from_path = get_value("copy", "from", true).template get<string_t>();
+                     const json_pointer from_ptr(from_path);
+ 
+                     // the "from" location must exist - use at()
+@@ -4978,7 +4979,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+     /// @sa https://json.nlohmann.me/api/basic_json/diff/
+     JSON_HEDLEY_WARN_UNUSED_RESULT
+     static basic_json diff(const basic_json& source, const basic_json& target,
+-                           const std::string& path = "")
++                           const string_t& path = "")
+     {
+         // the patch
+         basic_json result(value_t::array);
+@@ -5008,7 +5009,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                 while (i < source.size() && i < target.size())
+                 {
+                     // recursive call to compare array values at index i
+-                    auto temp_diff = diff(source[i], target[i], detail::concat(path, '/', std::to_string(i)));
++                    auto temp_diff = diff(source[i], target[i], detail::concat<string_t>(path, '/', detail::to_string<string_t>(i)));
+                     result.insert(result.end(), temp_diff.begin(), temp_diff.end());
+                     ++i;
+                 }
+@@ -5025,7 +5026,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     result.insert(result.begin() + end_index, object(
+                     {
+                         {"op", "remove"},
+-                        {"path", detail::concat(path, '/', std::to_string(i))}
++                        {"path", detail::concat<string_t>(path, '/', detail::to_string<string_t>(i))}
+                     }));
+                     ++i;
+                 }
+@@ -5036,7 +5037,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     result.push_back(
+                     {
+                         {"op", "add"},
+-                        {"path", detail::concat(path, "/-")},
++                        {"path", detail::concat<string_t>(path, "/-")},
+                         {"value", target[i]}
+                     });
+                     ++i;
+@@ -5051,7 +5052,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                 for (auto it = source.cbegin(); it != source.cend(); ++it)
+                 {
+                     // escape the key name to be used in a JSON patch
+-                    const auto path_key = detail::concat(path, '/', detail::escape(it.key()));
++                    const auto path_key = detail::concat<string_t>(path, '/', detail::escape(it.key()));
+ 
+                     if (target.find(it.key()) != target.end())
+                     {
+@@ -5075,7 +5076,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     if (source.find(it.key()) == source.end())
+                     {
+                         // found a key that is not in this -> add it
+-                        const auto path_key = detail::concat(path, '/', detail::escape(it.key()));
++                        const auto path_key = detail::concat<string_t>(path, '/', detail::escape(it.key()));
+                         result.push_back(
+                         {
+                             {"op", "add"}, {"path", path_key},
+diff --git a/single_include/nlohmann/json.hpp b/single_include/nlohmann/json.hpp
+index 7979227a05..6fb0308605 100644
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -5275,7 +5275,6 @@ NLOHMANN_JSON_NAMESPACE_END
+ 
+ #include <cstddef> // size_t
+ #include <iterator> // forward_iterator_tag
+-#include <string> // string, to_string
+ #include <tuple> // tuple_size, get, tuple_element
+ #include <utility> // move
+ 
+@@ -5287,20 +5286,53 @@ NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+ 
+-// #include <nlohmann/detail/value_t.hpp>
++// #include <nlohmann/detail/string_utils.hpp>
++//     __ _____ _____ _____
++//  __|  |   __|     |   | |  JSON for Modern C++
++// |  |  |__   |  |  | | | |  version 3.11.3
++// |_____|_____|_____|_|___|  https://github.com/nlohmann/json
++//
++// SPDX-FileCopyrightText: 2013 - 2024 Niels Lohmann <https://nlohmann.me>
++// SPDX-License-Identifier: MIT
++
++
++
++#include <cstddef> // size_t
++#include <string> // string, to_string
++
++// #include <nlohmann/detail/abi_macros.hpp>
+ 
+ 
+ NLOHMANN_JSON_NAMESPACE_BEGIN
+ namespace detail
+ {
+ 
+-template<typename string_type>
+-void int_to_string( string_type& target, std::size_t value )
++template<typename StringType>
++void int_to_string(StringType& target, std::size_t value)
+ {
+     // For ADL
+     using std::to_string;
+     target = to_string(value);
+ }
++
++template<typename StringType>
++StringType to_string(std::size_t value)
++{
++    StringType result;
++    int_to_string(result, value);
++    return result;
++}
++
++}  // namespace detail
++NLOHMANN_JSON_NAMESPACE_END
++
++// #include <nlohmann/detail/value_t.hpp>
++
++
++NLOHMANN_JSON_NAMESPACE_BEGIN
++namespace detail
++{
++
+ template<typename IteratorType> class iteration_proxy_value
+ {
+   public:
+@@ -15125,6 +15157,8 @@ NLOHMANN_JSON_NAMESPACE_END
+ 
+ // #include <nlohmann/detail/string_escape.hpp>
+ 
++// #include <nlohmann/detail/string_utils.hpp>
++
+ // #include <nlohmann/detail/meta/cpp_future.hpp>
+ 
+ // #include <nlohmann/detail/meta/type_traits.hpp>
+@@ -24249,7 +24283,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+         // the valid JSON Patch operations
+         enum class patch_operations {add, remove, replace, move, copy, test, invalid};
+ 
+-        const auto get_op = [](const std::string & op)
++        const auto get_op = [](const string_t& op)
+         {
+             if (op == "add")
+             {
+@@ -24386,8 +24420,8 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+         for (const auto& val : json_patch)
+         {
+             // wrapper to get a value for an operation
+-            const auto get_value = [&val](const std::string & op,
+-                                          const std::string & member,
++            const auto get_value = [&val](const string_t& op,
++                                          const string_t& member,
+                                           bool string_type) -> basic_json &
+             {
+                 // find value
+@@ -24421,8 +24455,8 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+             }
+ 
+             // collect mandatory members
+-            const auto op = get_value("op", "op", true).template get<std::string>();
+-            const auto path = get_value(op, "path", true).template get<std::string>();
++            const auto op = get_value("op", "op", true).template get<string_t>();
++            const auto path = get_value(op, "path", true).template get<string_t>();
+             json_pointer ptr(path);
+ 
+             switch (get_op(op))
+@@ -24448,7 +24482,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+ 
+                 case patch_operations::move:
+                 {
+-                    const auto from_path = get_value("move", "from", true).template get<std::string>();
++                    const auto from_path = get_value("move", "from", true).template get<string_t>();
+                     json_pointer from_ptr(from_path);
+ 
+                     // the "from" location must exist - use at()
+@@ -24465,7 +24499,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+ 
+                 case patch_operations::copy:
+                 {
+-                    const auto from_path = get_value("copy", "from", true).template get<std::string>();
++                    const auto from_path = get_value("copy", "from", true).template get<string_t>();
+                     const json_pointer from_ptr(from_path);
+ 
+                     // the "from" location must exist - use at()
+@@ -24525,7 +24559,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+     /// @sa https://json.nlohmann.me/api/basic_json/diff/
+     JSON_HEDLEY_WARN_UNUSED_RESULT
+     static basic_json diff(const basic_json& source, const basic_json& target,
+-                           const std::string& path = "")
++                           const string_t& path = "")
+     {
+         // the patch
+         basic_json result(value_t::array);
+@@ -24555,7 +24589,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                 while (i < source.size() && i < target.size())
+                 {
+                     // recursive call to compare array values at index i
+-                    auto temp_diff = diff(source[i], target[i], detail::concat(path, '/', std::to_string(i)));
++                    auto temp_diff = diff(source[i], target[i], detail::concat<string_t>(path, '/', detail::to_string<string_t>(i)));
+                     result.insert(result.end(), temp_diff.begin(), temp_diff.end());
+                     ++i;
+                 }
+@@ -24572,7 +24606,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     result.insert(result.begin() + end_index, object(
+                     {
+                         {"op", "remove"},
+-                        {"path", detail::concat(path, '/', std::to_string(i))}
++                        {"path", detail::concat<string_t>(path, '/', detail::to_string<string_t>(i))}
+                     }));
+                     ++i;
+                 }
+@@ -24583,7 +24617,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     result.push_back(
+                     {
+                         {"op", "add"},
+-                        {"path", detail::concat(path, "/-")},
++                        {"path", detail::concat<string_t>(path, "/-")},
+                         {"value", target[i]}
+                     });
+                     ++i;
+@@ -24598,7 +24632,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                 for (auto it = source.cbegin(); it != source.cend(); ++it)
+                 {
+                     // escape the key name to be used in a JSON patch
+-                    const auto path_key = detail::concat(path, '/', detail::escape(it.key()));
++                    const auto path_key = detail::concat<string_t>(path, '/', detail::escape(it.key()));
+ 
+                     if (target.find(it.key()) != target.end())
+                     {
+@@ -24622,7 +24656,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+                     if (source.find(it.key()) == source.end())
+                     {
+                         // found a key that is not in this -> add it
+-                        const auto path_key = detail::concat(path, '/', detail::escape(it.key()));
++                        const auto path_key = detail::concat<string_t>(path, '/', detail::escape(it.key()));
+                         result.push_back(
+                         {
+                             {"op", "add"}, {"path", path_key},

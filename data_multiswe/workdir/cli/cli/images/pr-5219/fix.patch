@@ -1,0 +1,118 @@
+diff --git a/pkg/cmd/extension/command.go b/pkg/cmd/extension/command.go
+index baec485d0f5..080b0dcefb4 100644
+--- a/pkg/cmd/extension/command.go
++++ b/pkg/cmd/extension/command.go
+@@ -60,6 +60,11 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
+ 
+ 					t.AddField(fmt.Sprintf("gh %s", c.Name()), nil, nil)
+ 					t.AddField(repo, nil, nil)
++					version := c.CurrentVersion()
++					if !c.IsBinary() && len(version) > 8 {
++						version = version[:8]
++					}
++					t.AddField(version, nil, nil)
+ 					var updateAvailable string
+ 					if c.UpdateAvailable() {
+ 						updateAvailable = "Upgrade available"
+diff --git a/pkg/cmd/extension/extension.go b/pkg/cmd/extension/extension.go
+index b4106228f80..d1b814c57fd 100644
+--- a/pkg/cmd/extension/extension.go
++++ b/pkg/cmd/extension/extension.go
+@@ -39,6 +39,10 @@ func (e *Extension) IsLocal() bool {
+ 	return e.isLocal
+ }
+ 
++func (e *Extension) CurrentVersion() string {
++	return e.currentVersion
++}
++
+ func (e *Extension) UpdateAvailable() bool {
+ 	if e.isLocal ||
+ 		e.currentVersion == "" ||
+diff --git a/pkg/extensions/extension.go b/pkg/extensions/extension.go
+index 5826f4cd66c..a9e120dc9b9 100644
+--- a/pkg/extensions/extension.go
++++ b/pkg/extensions/extension.go
+@@ -20,6 +20,7 @@ type Extension interface {
+ 	Path() string // Path to executable
+ 	URL() string
+ 	IsLocal() bool
++	CurrentVersion() string
+ 	UpdateAvailable() bool
+ 	IsBinary() bool
+ }
+diff --git a/pkg/extensions/extension_mock.go b/pkg/extensions/extension_mock.go
+index b999ab95598..5b418c3f107 100644
+--- a/pkg/extensions/extension_mock.go
++++ b/pkg/extensions/extension_mock.go
+@@ -17,6 +17,9 @@ var _ Extension = &ExtensionMock{}
+ //
+ // 		// make and configure a mocked Extension
+ // 		mockedExtension := &ExtensionMock{
++// 			CurrentVersionFunc: func() string {
++// 				panic("mock out the CurrentVersion method")
++// 			},
+ // 			IsBinaryFunc: func() bool {
+ // 				panic("mock out the IsBinary method")
+ // 			},
+@@ -42,6 +45,9 @@ var _ Extension = &ExtensionMock{}
+ //
+ // 	}
+ type ExtensionMock struct {
++	// CurrentVersionFunc mocks the CurrentVersion method.
++	CurrentVersionFunc func() string
++
+ 	// IsBinaryFunc mocks the IsBinary method.
+ 	IsBinaryFunc func() bool
+ 
+@@ -62,6 +68,9 @@ type ExtensionMock struct {
+ 
+ 	// calls tracks calls to the methods.
+ 	calls struct {
++		// CurrentVersion holds details about calls to the CurrentVersion method.
++		CurrentVersion []struct {
++		}
+ 		// IsBinary holds details about calls to the IsBinary method.
+ 		IsBinary []struct {
+ 		}
+@@ -81,6 +90,7 @@ type ExtensionMock struct {
+ 		UpdateAvailable []struct {
+ 		}
+ 	}
++	lockCurrentVersion  sync.RWMutex
+ 	lockIsBinary        sync.RWMutex
+ 	lockIsLocal         sync.RWMutex
+ 	lockName            sync.RWMutex
+@@ -89,6 +99,32 @@ type ExtensionMock struct {
+ 	lockUpdateAvailable sync.RWMutex
+ }
+ 
++// CurrentVersion calls CurrentVersionFunc.
++func (mock *ExtensionMock) CurrentVersion() string {
++	if mock.CurrentVersionFunc == nil {
++		panic("ExtensionMock.CurrentVersionFunc: method is nil but Extension.CurrentVersion was just called")
++	}
++	callInfo := struct {
++	}{}
++	mock.lockCurrentVersion.Lock()
++	mock.calls.CurrentVersion = append(mock.calls.CurrentVersion, callInfo)
++	mock.lockCurrentVersion.Unlock()
++	return mock.CurrentVersionFunc()
++}
++
++// CurrentVersionCalls gets all the calls that were made to CurrentVersion.
++// Check the length with:
++//     len(mockedExtension.CurrentVersionCalls())
++func (mock *ExtensionMock) CurrentVersionCalls() []struct {
++} {
++	var calls []struct {
++	}
++	mock.lockCurrentVersion.RLock()
++	calls = mock.calls.CurrentVersion
++	mock.lockCurrentVersion.RUnlock()
++	return calls
++}
++
+ // IsBinary calls IsBinaryFunc.
+ func (mock *ExtensionMock) IsBinary() bool {
+ 	if mock.IsBinaryFunc == nil {

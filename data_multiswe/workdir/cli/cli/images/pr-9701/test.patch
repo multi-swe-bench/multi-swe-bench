@@ -1,0 +1,93 @@
+diff --git a/pkg/cmd/issue/create/create_test.go b/pkg/cmd/issue/create/create_test.go
+index b95b5ef6621..8e49700a012 100644
+--- a/pkg/cmd/issue/create/create_test.go
++++ b/pkg/cmd/issue/create/create_test.go
+@@ -611,7 +611,7 @@ func TestIssueCreate_recover(t *testing.T) {
+ 
+ 	pm := &prompter.PrompterMock{}
+ 	pm.InputFunc = func(p, d string) (string, error) {
+-		if p == "Title" {
++		if p == "Title (required)" {
+ 			return d, nil
+ 		} else {
+ 			return "", prompter.NoSuchPromptErr(p)
+@@ -736,7 +736,7 @@ func TestIssueCreate_continueInBrowser(t *testing.T) {
+ 
+ 	pm := &prompter.PrompterMock{}
+ 	pm.InputFunc = func(p, d string) (string, error) {
+-		if p == "Title" {
++		if p == "Title (required)" {
+ 			return "hello", nil
+ 		} else {
+ 			return "", prompter.NoSuchPromptErr(p)
+diff --git a/pkg/cmd/pr/create/create_test.go b/pkg/cmd/pr/create/create_test.go
+index cba5521011d..81684ff00f9 100644
+--- a/pkg/cmd/pr/create/create_test.go
++++ b/pkg/cmd/pr/create/create_test.go
+@@ -1210,7 +1210,7 @@ func Test_createRun(t *testing.T) {
+ 			},
+ 			promptStubs: func(pm *prompter.PrompterMock) {
+ 				pm.InputFunc = func(p, d string) (string, error) {
+-					if p == "Title" {
++					if p == "Title (required)" {
+ 						return d, nil
+ 					} else {
+ 						return "", prompter.NoSuchPromptErr(p)
+@@ -1316,7 +1316,7 @@ func Test_createRun(t *testing.T) {
+ 				}
+ 
+ 				pm.InputFunc = func(p, d string) (string, error) {
+-					if p == "Title" {
++					if p == "Title (required)" {
+ 						return d, nil
+ 					} else if p == "Body" {
+ 						return d, nil
+diff --git a/pkg/cmd/pr/shared/survey_test.go b/pkg/cmd/pr/shared/survey_test.go
+index 8df49278507..d74696460a2 100644
+--- a/pkg/cmd/pr/shared/survey_test.go
++++ b/pkg/cmd/pr/shared/survey_test.go
+@@ -158,3 +158,44 @@ type testEditor struct {
+ func (e testEditor) Edit(filename, text string) (string, error) {
+ 	return e.edit(text)
+ }
++
++func TestTitleSurvey(t *testing.T) {
++	tests := []struct {
++		name               string
++		prompterMockInputs []string
++		expectedTitle      string
++		expectStderr       bool
++	}{
++		{
++			name:               "title provided",
++			prompterMockInputs: []string{"title"},
++			expectedTitle:      "title",
++		},
++		{
++			name:               "first input empty",
++			prompterMockInputs: []string{"", "title"},
++			expectedTitle:      "title",
++			expectStderr:       true,
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			io, _, _, stderr := iostreams.Test()
++			pm := prompter.NewMockPrompter(t)
++			for _, input := range tt.prompterMockInputs {
++				pm.RegisterInput("Title (required)", func(string, string) (string, error) {
++					return input, nil
++				})
++			}
++
++			state := &IssueMetadataState{}
++			err := TitleSurvey(pm, io, state)
++
++			assert.NoError(t, err)
++			assert.Equal(t, tt.expectedTitle, state.Title)
++			if tt.expectStderr {
++				assert.Equal(t, "X Title cannot be blank\n", stderr.String())
++			}
++		})
++	}
++}

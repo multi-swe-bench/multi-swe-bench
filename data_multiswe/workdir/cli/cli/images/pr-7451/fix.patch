@@ -1,0 +1,170 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 982e79d6214..36f3c2eef03 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -196,8 +196,8 @@ type CheckContext struct {
+ 	DetailsURL  string               `json:"detailsUrl"`
+ 
+ 	/* StatusContext fields */
+-
+-	Context string `json:"context"`
++	Context     string `json:"context"`
++	Description string `json:"description"`
+ 	// EXPECTED ERROR FAILURE PENDING SUCCESS
+ 	State     StatusState `json:"state"`
+ 	TargetURL string      `json:"targetUrl"`
+diff --git a/api/query_builder.go b/api/query_builder.go
+index 47b2cdfc931..b74f9519bd1 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -184,7 +184,8 @@ func StatusCheckRollupGraphQLWithoutCountByState(after string) string {
+ 								context,
+ 								state,
+ 								targetUrl,
+-								createdAt
++								createdAt,
++								description
+ 							},
+ 							...on CheckRun {
+ 								name,
+@@ -222,6 +223,7 @@ func RequiredStatusCheckRollupGraphQL(prID, after string) string {
+ 								state,
+ 								targetUrl,
+ 								createdAt,
++								description,
+ 								isRequired(pullRequestId: %[2]s)
+ 							},
+ 							...on CheckRun {
+diff --git a/pkg/cmd/pr/checks/aggregate.go b/pkg/cmd/pr/checks/aggregate.go
+index f6dd036adba..f9f0b73cb98 100644
+--- a/pkg/cmd/pr/checks/aggregate.go
++++ b/pkg/cmd/pr/checks/aggregate.go
+@@ -17,6 +17,7 @@ type check struct {
+ 	Bucket      string    `json:"bucket"`
+ 	Event       string    `json:"event"`
+ 	Workflow    string    `json:"workflow"`
++	Description string    `json:"description"`
+ }
+ 
+ type checkCounts struct {
+@@ -59,6 +60,7 @@ func aggregateChecks(checkContexts []api.CheckContext, requiredChecks bool) (che
+ 			Link:        link,
+ 			Event:       c.CheckSuite.WorkflowRun.Event,
+ 			Workflow:    c.CheckSuite.WorkflowRun.Workflow.Name,
++			Description: c.Description,
+ 		}
+ 
+ 		switch state {
+diff --git a/pkg/cmd/pr/checks/fixtures/withDescriptions.json b/pkg/cmd/pr/checks/fixtures/withDescriptions.json
+new file mode 100644
+index 00000000000..fd5bc9463da
+--- /dev/null
++++ b/pkg/cmd/pr/checks/fixtures/withDescriptions.json
+@@ -0,0 +1,48 @@
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "description": "cool description",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "description": "rad description",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "awesome tests",
++                      "description": "awesome description",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
++                }
++              }
++            }
++          }
++        ]
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/checks/output.go b/pkg/cmd/pr/checks/output.go
+index 524d3a4f518..a1e3f889afa 100644
+--- a/pkg/cmd/pr/checks/output.go
++++ b/pkg/cmd/pr/checks/output.go
+@@ -4,11 +4,11 @@ import (
+ 	"fmt"
+ 	"sort"
+ 
++	"github.com/cli/cli/v2/internal/tableprinter"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+-	"github.com/cli/cli/v2/utils"
+ )
+ 
+-func addRow(tp utils.TablePrinter, io *iostreams.IOStreams, o check) {
++func addRow(tp *tableprinter.TablePrinter, io *iostreams.IOStreams, o check) {
+ 	cs := io.ColorScheme()
+ 	elapsed := ""
+ 
+@@ -42,19 +42,21 @@ func addRow(tp utils.TablePrinter, io *iostreams.IOStreams, o check) {
+ 		if o.Event != "" {
+ 			name += fmt.Sprintf(" (%s)", o.Event)
+ 		}
+-		tp.AddField(mark, nil, markColor)
+-		tp.AddField(name, nil, nil)
+-		tp.AddField(elapsed, nil, nil)
+-		tp.AddField(o.Link, nil, nil)
++		tp.AddField(mark, tableprinter.WithColor(markColor))
++		tp.AddField(name)
++		tp.AddField(o.Description)
++		tp.AddField(elapsed)
++		tp.AddField(o.Link)
+ 	} else {
+-		tp.AddField(o.Name, nil, nil)
+-		tp.AddField(o.Bucket, nil, nil)
++		tp.AddField(o.Name)
++		tp.AddField(o.Bucket)
+ 		if elapsed == "" {
+-			tp.AddField("0", nil, nil)
++			tp.AddField("0")
+ 		} else {
+-			tp.AddField(elapsed, nil, nil)
++			tp.AddField(elapsed)
+ 		}
+-		tp.AddField(o.Link, nil, nil)
++		tp.AddField(o.Link)
++		tp.AddField(o.Description)
+ 	}
+ 
+ 	tp.EndRow()
+@@ -84,8 +86,7 @@ func printSummary(io *iostreams.IOStreams, counts checkCounts) {
+ }
+ 
+ func printTable(io *iostreams.IOStreams, checks []check) error {
+-	//nolint:staticcheck // SA1019: utils.NewTablePrinter is deprecated: use internal/tableprinter
+-	tp := utils.NewTablePrinter(io)
++	tp := tableprinter.New(io)
+ 
+ 	sort.Slice(checks, func(i, j int) bool {
+ 		b0 := checks[i].Bucket

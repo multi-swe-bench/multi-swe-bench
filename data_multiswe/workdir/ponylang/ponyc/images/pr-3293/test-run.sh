@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+cd /home/ponyc
+git apply --whitespace=nowarn /home/test.patch
+make -f Makefile-lib-llvm
+make -f Makefile-lib-llvm test
+
+    

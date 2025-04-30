@@ -1,0 +1,178 @@
+diff --git a/.changeset/two-dogs-accept.md b/.changeset/two-dogs-accept.md
+new file mode 100644
+index 000000000000..ac854908e89a
+--- /dev/null
++++ b/.changeset/two-dogs-accept.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: prevent false positive ownership warning
+diff --git a/packages/svelte/src/internal/client/dev/ownership.js b/packages/svelte/src/internal/client/dev/ownership.js
+index 4367a5be2b17..3fb8ac6320a2 100644
+--- a/packages/svelte/src/internal/client/dev/ownership.js
++++ b/packages/svelte/src/internal/client/dev/ownership.js
+@@ -2,7 +2,7 @@
+ 
+ import { STATE_SYMBOL } from '../constants.js';
+ import { render_effect, user_pre_effect } from '../reactivity/effects.js';
+-import { dev_current_component_function, set_dev_current_component_function } from '../runtime.js';
++import { dev_current_component_function } from '../runtime.js';
+ import { get_prototype_of } from '../utils.js';
+ import * as w from '../warnings.js';
+ 
+@@ -128,12 +128,8 @@ export function add_owner(object, owner, global = false) {
+  * @param {any} Component
+  */
+ export function add_owner_effect(get_object, Component) {
+-	var component = dev_current_component_function;
+ 	user_pre_effect(() => {
+-		var prev = dev_current_component_function;
+-		set_dev_current_component_function(component);
+ 		add_owner(get_object(), Component);
+-		set_dev_current_component_function(prev);
+ 	});
+ }
+ 
+diff --git a/packages/svelte/src/internal/client/dom/blocks/await.js b/packages/svelte/src/internal/client/dom/blocks/await.js
+index 6d8d3e55bc61..a570cc6bcaf6 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/await.js
++++ b/packages/svelte/src/internal/client/dom/blocks/await.js
+@@ -4,10 +4,12 @@ import {
+ 	flush_sync,
+ 	set_current_component_context,
+ 	set_current_effect,
+-	set_current_reaction
++	set_current_reaction,
++	set_dev_current_component_function
+ } from '../../runtime.js';
+ import { block, branch, destroy_effect, pause_effect } from '../../reactivity/effects.js';
+ import { INERT } from '../../constants.js';
++import { DEV } from 'esm-env';
+ 
+ /**
+  * @template V
+@@ -20,6 +22,11 @@ import { INERT } from '../../constants.js';
+  */
+ export function await_block(anchor, get_input, pending_fn, then_fn, catch_fn) {
+ 	const component_context = current_component_context;
++	/** @type {any} */
++	let component_function;
++	if (DEV) {
++		component_function = component_context?.function ?? null;
++	}
+ 
+ 	/** @type {any} */
+ 	let input;
+@@ -41,7 +48,13 @@ export function await_block(anchor, get_input, pending_fn, then_fn, catch_fn) {
+ 		set_current_effect(effect);
+ 		set_current_reaction(effect); // TODO do we need both?
+ 		set_current_component_context(component_context);
++		if (DEV) {
++			set_dev_current_component_function(component_function);
++		}
+ 		var e = branch(() => fn(anchor, value));
++		if (DEV) {
++			set_dev_current_component_function(null);
++		}
+ 		set_current_component_context(null);
+ 		set_current_reaction(null);
+ 		set_current_effect(null);
+diff --git a/packages/svelte/src/internal/client/reactivity/effects.js b/packages/svelte/src/internal/client/reactivity/effects.js
+index 22b2a63a691b..823c9dbc7cd7 100644
+--- a/packages/svelte/src/internal/client/reactivity/effects.js
++++ b/packages/svelte/src/internal/client/reactivity/effects.js
+@@ -4,6 +4,7 @@ import {
+ 	current_effect,
+ 	current_reaction,
+ 	destroy_effect_children,
++	dev_current_component_function,
+ 	execute_effect,
+ 	get,
+ 	is_destroying_effect,
+@@ -30,6 +31,7 @@ import {
+ import { set } from './sources.js';
+ import { remove } from '../dom/reconciler.js';
+ import * as e from '../errors.js';
++import { DEV } from 'esm-env';
+ 
+ /**
+  * @param {import('#client').Effect | null} effect
+@@ -86,6 +88,10 @@ function create_effect(type, fn, sync) {
+ 		transitions: null
+ 	};
+ 
++	if (DEV) {
++		effect.component_function = dev_current_component_function;
++	}
++
+ 	if (current_reaction !== null && !is_root) {
+ 		push_effect(effect, current_reaction);
+ 	}
+diff --git a/packages/svelte/src/internal/client/reactivity/types.d.ts b/packages/svelte/src/internal/client/reactivity/types.d.ts
+index c19b17ba1981..7502443bd10c 100644
+--- a/packages/svelte/src/internal/client/reactivity/types.d.ts
++++ b/packages/svelte/src/internal/client/reactivity/types.d.ts
+@@ -49,6 +49,8 @@ export interface Effect extends Reaction {
+ 	prev: null | Effect;
+ 	/** Next sibling child effect created inside the parent signal */
+ 	next: null | Effect;
++	/** Dev only */
++	component_function?: any;
+ }
+ 
+ export interface ValueDebug<V = unknown> extends Value<V> {
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index cb5bb185c059..97f7c5c813f0 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -113,9 +113,6 @@ export let current_component_context = null;
+ /** @param {import('#client').ComponentContext | null} context */
+ export function set_current_component_context(context) {
+ 	current_component_context = context;
+-	if (DEV) {
+-		dev_current_component_function = context?.function;
+-	}
+ }
+ 
+ /**
+@@ -420,7 +417,12 @@ export function execute_effect(effect) {
+ 	var previous_component_context = current_component_context;
+ 
+ 	current_effect = effect;
+-	set_current_component_context(component_context);
++	current_component_context = component_context;
++
++	if (DEV) {
++		var previous_component_fn = dev_current_component_function;
++		dev_current_component_function = effect.component_function;
++	}
+ 
+ 	try {
+ 		if ((flags & BLOCK_EFFECT) === 0) {
+@@ -432,7 +434,11 @@ export function execute_effect(effect) {
+ 		effect.teardown = typeof teardown === 'function' ? teardown : null;
+ 	} finally {
+ 		current_effect = previous_effect;
+-		set_current_component_context(previous_component_context);
++		current_component_context = previous_component_context;
++
++		if (DEV) {
++			dev_current_component_function = previous_component_fn;
++		}
+ 	}
+ }
+ 
+@@ -1108,7 +1114,10 @@ export function pop(component) {
+ 				effect(effects[i]);
+ 			}
+ 		}
+-		set_current_component_context(context_stack_item.p);
++		current_component_context = context_stack_item.p;
++		if (DEV) {
++			dev_current_component_function = context_stack_item.p?.function ?? null;
++		}
+ 		context_stack_item.m = true;
+ 	}
+ 	// Micro-optimization: Don't set .a above to the empty object

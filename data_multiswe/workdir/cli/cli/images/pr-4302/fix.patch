@@ -1,0 +1,507 @@
+diff --git a/pkg/cmd/repo/deploy-key/add/add.go b/pkg/cmd/repo/deploy-key/add/add.go
+new file mode 100644
+index 00000000000..473d42498c9
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/add/add.go
+@@ -0,0 +1,99 @@
++package add
++
++import (
++	"fmt"
++	"io"
++	"net/http"
++	"os"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/spf13/cobra"
++)
++
++type AddOptions struct {
++	IO         *iostreams.IOStreams
++	HTTPClient func() (*http.Client, error)
++	BaseRepo   func() (ghrepo.Interface, error)
++
++	KeyFile    string
++	Title      string
++	AllowWrite bool
++}
++
++func NewCmdAdd(f *cmdutil.Factory, runF func(*AddOptions) error) *cobra.Command {
++	opts := &AddOptions{
++		HTTPClient: f.HttpClient,
++		IO:         f.IOStreams,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "add <key-file>",
++		Short: "Add a deploy key to a GitHub repository",
++		Long: heredoc.Doc(`
++			Add a deploy key to a GitHub repository.
++			
++			Note that any key added by gh will be associated with the current authentication token.
++			If you de-authorize the GitHub CLI app or authentication token from your account, any
++			deploy keys added by GitHub CLI will be removed as well.
++		`),
++		Example: heredoc.Doc(`
++			# generate a passwordless SSH key and add it as a deploy key to a repository
++			$ ssh-keygen -t ed25519 -C "my description" -N "" -f ~/.ssh/gh-test
++			$ gh repo deploy-key add ~/.ssh/gh-test.pub
++		`),
++		Args: cobra.ExactArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++			opts.KeyFile = args[0]
++
++			if runF != nil {
++				return runF(opts)
++			}
++			return addRun(opts)
++		},
++	}
++
++	cmd.Flags().StringVarP(&opts.Title, "title", "t", "", "Title of the new key")
++	cmd.Flags().BoolVarP(&opts.AllowWrite, "allow-write", "w", false, "Allow write access for the key")
++	return cmd
++}
++
++func addRun(opts *AddOptions) error {
++	httpClient, err := opts.HTTPClient()
++	if err != nil {
++		return err
++	}
++
++	var keyReader io.Reader
++	if opts.KeyFile == "-" {
++		keyReader = opts.IO.In
++		defer opts.IO.In.Close()
++	} else {
++		f, err := os.Open(opts.KeyFile)
++		if err != nil {
++			return err
++		}
++		defer f.Close()
++		keyReader = f
++	}
++
++	repo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	if err := uploadDeployKey(httpClient, repo, keyReader, opts.Title, opts.AllowWrite); err != nil {
++		return err
++	}
++
++	if !opts.IO.IsStdoutTTY() {
++		return nil
++	}
++
++	cs := opts.IO.ColorScheme()
++	_, err = fmt.Fprintf(opts.IO.Out, "%s Deploy key added to %s\n", cs.SuccessIcon(), cs.Bold(ghrepo.FullName(repo)))
++	return err
++}
+diff --git a/pkg/cmd/repo/deploy-key/add/http.go b/pkg/cmd/repo/deploy-key/add/http.go
+new file mode 100644
+index 00000000000..0ec670a851c
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/add/http.go
+@@ -0,0 +1,57 @@
++package add
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"io"
++	"io/ioutil"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++func uploadDeployKey(httpClient *http.Client, repo ghrepo.Interface, keyFile io.Reader, title string, isWritable bool) error {
++	path := fmt.Sprintf("repos/%s/%s/keys", repo.RepoOwner(), repo.RepoName())
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++
++	keyBytes, err := ioutil.ReadAll(keyFile)
++	if err != nil {
++		return err
++	}
++
++	payload := map[string]interface{}{
++		"title":     title,
++		"key":       string(keyBytes),
++		"read_only": !isWritable,
++	}
++
++	payloadBytes, err := json.Marshal(payload)
++	if err != nil {
++		return err
++	}
++
++	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
++	if err != nil {
++		return err
++	}
++
++	resp, err := httpClient.Do(req)
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode > 299 {
++		return api.HandleHTTPError(resp)
++	}
++
++	_, err = io.Copy(ioutil.Discard, resp.Body)
++	if err != nil {
++		return err
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/deploy-key/delete/delete.go b/pkg/cmd/repo/deploy-key/delete/delete.go
+new file mode 100644
+index 00000000000..20b4974ad3a
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/delete/delete.go
+@@ -0,0 +1,67 @@
++package delete
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/spf13/cobra"
++)
++
++type DeleteOptions struct {
++	IO         *iostreams.IOStreams
++	HTTPClient func() (*http.Client, error)
++	BaseRepo   func() (ghrepo.Interface, error)
++
++	KeyID string
++}
++
++func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
++	opts := &DeleteOptions{
++		HTTPClient: f.HttpClient,
++		IO:         f.IOStreams,
++		BaseRepo:   f.BaseRepo,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "delete <key-id>",
++		Short: "Delete a deploy key from a GitHub repository",
++		Args:  cobra.ExactArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.KeyID = args[0]
++
++			if runF != nil {
++				return runF(opts)
++			}
++			return deleteRun(opts)
++		},
++	}
++
++	return cmd
++}
++
++func deleteRun(opts *DeleteOptions) error {
++	httpClient, err := opts.HTTPClient()
++	if err != nil {
++		return err
++	}
++
++	repo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	if err := deleteDeployKey(httpClient, repo, opts.KeyID); err != nil {
++		return err
++	}
++
++	if !opts.IO.IsStdoutTTY() {
++		return nil
++	}
++
++	cs := opts.IO.ColorScheme()
++	_, err = fmt.Fprintf(opts.IO.Out, "%s Deploy key deleted from %s\n", cs.SuccessIconWithColor(cs.Red), cs.Bold(ghrepo.FullName(repo)))
++	return err
++}
+diff --git a/pkg/cmd/repo/deploy-key/delete/http.go b/pkg/cmd/repo/deploy-key/delete/http.go
+new file mode 100644
+index 00000000000..fbbfc601a51
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/delete/http.go
+@@ -0,0 +1,39 @@
++package delete
++
++import (
++	"fmt"
++	"io"
++	"io/ioutil"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++func deleteDeployKey(httpClient *http.Client, repo ghrepo.Interface, id string) error {
++	path := fmt.Sprintf("repos/%s/%s/keys/%s", repo.RepoOwner(), repo.RepoName(), id)
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++
++	req, err := http.NewRequest("DELETE", url, nil)
++	if err != nil {
++		return err
++	}
++
++	resp, err := httpClient.Do(req)
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode > 299 {
++		return api.HandleHTTPError(resp)
++	}
++
++	_, err = io.Copy(ioutil.Discard, resp.Body)
++	if err != nil {
++		return err
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/deploy-key/deploy-key.go b/pkg/cmd/repo/deploy-key/deploy-key.go
+new file mode 100644
+index 00000000000..5a2aa8be5cb
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/deploy-key.go
+@@ -0,0 +1,24 @@
++package deploykey
++
++import (
++	cmdAdd "github.com/cli/cli/v2/pkg/cmd/repo/deploy-key/add"
++	cmdDelete "github.com/cli/cli/v2/pkg/cmd/repo/deploy-key/delete"
++	cmdList "github.com/cli/cli/v2/pkg/cmd/repo/deploy-key/list"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/spf13/cobra"
++)
++
++func NewCmdDeployKey(f *cmdutil.Factory) *cobra.Command {
++	cmd := &cobra.Command{
++		Use:   "deploy-key <command>",
++		Short: "Manage deploy keys in a repository",
++	}
++
++	cmdutil.EnableRepoOverride(cmd, f)
++
++	cmd.AddCommand(cmdList.NewCmdList(f, nil))
++	cmd.AddCommand(cmdAdd.NewCmdAdd(f, nil))
++	cmd.AddCommand(cmdDelete.NewCmdDelete(f, nil))
++
++	return cmd
++}
+diff --git a/pkg/cmd/repo/deploy-key/list/http.go b/pkg/cmd/repo/deploy-key/list/http.go
+new file mode 100644
+index 00000000000..597764ae809
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/list/http.go
+@@ -0,0 +1,53 @@
++package list
++
++import (
++	"encoding/json"
++	"fmt"
++	"io/ioutil"
++	"net/http"
++	"time"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++type deployKey struct {
++	ID        int
++	Key       string
++	Title     string
++	CreatedAt time.Time `json:"created_at"`
++	ReadOnly  bool      `json:"read_only"`
++}
++
++func repoKeys(httpClient *http.Client, repo ghrepo.Interface) ([]deployKey, error) {
++	path := fmt.Sprintf("repos/%s/%s/keys?per_page=100", repo.RepoOwner(), repo.RepoName())
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++	req, err := http.NewRequest("GET", url, nil)
++	if err != nil {
++		return nil, err
++	}
++
++	resp, err := httpClient.Do(req)
++	if err != nil {
++		return nil, err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode > 299 {
++		return nil, api.HandleHTTPError(resp)
++	}
++
++	b, err := ioutil.ReadAll(resp.Body)
++	if err != nil {
++		return nil, err
++	}
++
++	var keys []deployKey
++	err = json.Unmarshal(b, &keys)
++	if err != nil {
++		return nil, err
++	}
++
++	return keys, nil
++}
+diff --git a/pkg/cmd/repo/deploy-key/list/list.go b/pkg/cmd/repo/deploy-key/list/list.go
+new file mode 100644
+index 00000000000..599c2e55e1d
+--- /dev/null
++++ b/pkg/cmd/repo/deploy-key/list/list.go
+@@ -0,0 +1,106 @@
++package list
++
++import (
++	"fmt"
++	"net/http"
++	"strconv"
++	"time"
++
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/utils"
++	"github.com/spf13/cobra"
++)
++
++type ListOptions struct {
++	IO         *iostreams.IOStreams
++	HTTPClient func() (*http.Client, error)
++	BaseRepo   func() (ghrepo.Interface, error)
++}
++
++func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
++	opts := &ListOptions{
++		IO:         f.IOStreams,
++		HTTPClient: f.HttpClient,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "list",
++		Short: "List deploy keys in a GitHub repository",
++		Args:  cobra.ExactArgs(0),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++
++			if runF != nil {
++				return runF(opts)
++			}
++			return listRun(opts)
++		},
++	}
++
++	return cmd
++}
++
++func listRun(opts *ListOptions) error {
++	apiClient, err := opts.HTTPClient()
++	if err != nil {
++		return err
++	}
++
++	repo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	deployKeys, err := repoKeys(apiClient, repo)
++	if err != nil {
++		return err
++	}
++
++	if len(deployKeys) == 0 {
++		fmt.Fprintf(opts.IO.ErrOut, "No deploy keys found in %s\n", ghrepo.FullName(repo))
++		return cmdutil.SilentError
++	}
++
++	t := utils.NewTablePrinter(opts.IO)
++	cs := opts.IO.ColorScheme()
++	now := time.Now()
++
++	for _, deployKey := range deployKeys {
++		sshID := strconv.Itoa(deployKey.ID)
++		t.AddField(sshID, nil, nil)
++		t.AddField(deployKey.Title, nil, nil)
++
++		sshType := "read-only"
++		if !deployKey.ReadOnly {
++			sshType = "read-write"
++		}
++		t.AddField(sshType, nil, nil)
++		t.AddField(deployKey.Key, truncateMiddle, nil)
++
++		createdAt := deployKey.CreatedAt.Format(time.RFC3339)
++		if t.IsTTY() {
++			createdAt = utils.FuzzyAgoAbbr(now, deployKey.CreatedAt)
++		}
++		t.AddField(createdAt, nil, cs.Gray)
++		t.EndRow()
++	}
++
++	return t.Render()
++}
++
++func truncateMiddle(maxWidth int, t string) string {
++	if len(t) <= maxWidth {
++		return t
++	}
++
++	ellipsis := "..."
++	if maxWidth < len(ellipsis)+2 {
++		return t[0:maxWidth]
++	}
++
++	halfWidth := (maxWidth - len(ellipsis)) / 2
++	remainder := (maxWidth - len(ellipsis)) % 2
++	return t[0:halfWidth+remainder] + ellipsis + t[len(t)-halfWidth:]
++}
+diff --git a/pkg/cmd/repo/repo.go b/pkg/cmd/repo/repo.go
+index bc0909cd278..52058d8683b 100644
+--- a/pkg/cmd/repo/repo.go
++++ b/pkg/cmd/repo/repo.go
+@@ -7,6 +7,7 @@ import (
+ 	repoCreateCmd "github.com/cli/cli/v2/pkg/cmd/repo/create"
+ 	creditsCmd "github.com/cli/cli/v2/pkg/cmd/repo/credits"
+ 	repoDeleteCmd "github.com/cli/cli/v2/pkg/cmd/repo/delete"
++	deployKeyCmd "github.com/cli/cli/v2/pkg/cmd/repo/deploy-key"
+ 	repoEditCmd "github.com/cli/cli/v2/pkg/cmd/repo/edit"
+ 	repoForkCmd "github.com/cli/cli/v2/pkg/cmd/repo/fork"
+ 	gardenCmd "github.com/cli/cli/v2/pkg/cmd/repo/garden"
+@@ -47,6 +48,7 @@ func NewCmdRepo(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(repoSyncCmd.NewCmdSync(f, nil))
+ 	cmd.AddCommand(creditsCmd.NewCmdRepoCredits(f, nil))
+ 	cmd.AddCommand(gardenCmd.NewCmdGarden(f, nil))
++	cmd.AddCommand(deployKeyCmd.NewCmdDeployKey(f))
+ 	cmd.AddCommand(repoRenameCmd.NewCmdRename(f, nil))
+ 	cmd.AddCommand(repoDeleteCmd.NewCmdDelete(f, nil))
+ 	cmd.AddCommand(repoArchiveCmd.NewCmdArchive(f, nil))

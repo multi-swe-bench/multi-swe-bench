@@ -1,0 +1,200 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 3c95cf9fa0..613fb8b94f 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -3,6 +3,9 @@
+ ## Features
+ 
+ - Set terminal title to file names when Paging is not Paging::Never #2807 (@Oliver-Looney)
++- `bat --squeeze-blank`/`bat -s` will now squeeze consecutive empty lines, see #1441 (@eth-p) and #2665 (@einfachIrgendwer0815)
++- `bat --squeeze-limit` to set the maximum number of empty consecutive when using `--squeeze-blank`, see #1441 (@eth-p) and #2665 (@einfachIrgendwer0815)
++- `PrettyPrinter::squeeze_empty_lines` to support line squeezing for bat as a library, see #1441 (@eth-p) and #2665 (@einfachIrgendwer0815)
+ 
+ ## Bugfixes
+ 
+diff --git a/doc/long-help.txt b/doc/long-help.txt
+index 1aae60d83c..a6ffe962a7 100644
+--- a/doc/long-help.txt
++++ b/doc/long-help.txt
+@@ -116,6 +116,12 @@ Options:
+       --list-themes
+           Display a list of supported themes for syntax highlighting.
+ 
++  -s, --squeeze-blank
++          Squeeze consecutive empty lines into a single empty line.
++
++      --squeeze-limit <squeeze-limit>
++          Set the maximum number of consecutive empty lines to be printed.
++
+       --style <components>
+           Configure which elements (line numbers, file headers, grid borders, Git modifications, ..)
+           to display in addition to the file contents. The argument is a comma-separated list of
+diff --git a/doc/short-help.txt b/doc/short-help.txt
+index 118dbce2d9..305bbf3ddd 100644
+--- a/doc/short-help.txt
++++ b/doc/short-help.txt
+@@ -43,6 +43,8 @@ Options:
+           Set the color theme for syntax highlighting.
+       --list-themes
+           Display all supported highlighting themes.
++  -s, --squeeze-blank
++          Squeeze consecutive empty lines.
+       --style <components>
+           Comma-separated list of style elements to display (*default*, auto, full, plain, changes,
+           header, header-filename, header-filesize, grid, rule, numbers, snip).
+diff --git a/src/bin/bat/app.rs b/src/bin/bat/app.rs
+index 8843d53b4b..c382975ea1 100644
+--- a/src/bin/bat/app.rs
++++ b/src/bin/bat/app.rs
+@@ -290,6 +290,16 @@ impl App {
+             #[cfg(feature = "lessopen")]
+             use_lessopen: self.matches.get_flag("lessopen"),
+             set_terminal_title: self.matches.get_flag("set-terminal-title"),
++            squeeze_lines: if self.matches.get_flag("squeeze-blank") {
++                Some(
++                    self.matches
++                        .get_one::<usize>("squeeze-limit")
++                        .map(|limit| limit.to_owned())
++                        .unwrap_or(1),
++                )
++            } else {
++                None
++            },
+         })
+     }
+ 
+diff --git a/src/bin/bat/clap_app.rs b/src/bin/bat/clap_app.rs
+index d3cb92765e..ac7f5c187a 100644
+--- a/src/bin/bat/clap_app.rs
++++ b/src/bin/bat/clap_app.rs
+@@ -387,6 +387,21 @@ pub fn build_app(interactive_output: bool) -> Command {
+                 .help("Display all supported highlighting themes.")
+                 .long_help("Display a list of supported themes for syntax highlighting."),
+         )
++        .arg(
++            Arg::new("squeeze-blank")
++                .long("squeeze-blank")
++                .short('s')
++                .action(ArgAction::SetTrue)
++                .help("Squeeze consecutive empty lines.")
++                .long_help("Squeeze consecutive empty lines into a single empty line.")
++        )
++        .arg(
++            Arg::new("squeeze-limit")
++                .long("squeeze-limit")
++                .value_parser(|s: &str| s.parse::<usize>().map_err(|_| "Requires a non-negative number".to_owned()))
++                .long_help("Set the maximum number of consecutive empty lines to be printed.")
++                .hide_short_help(true)
++        )
+         .arg(
+             Arg::new("style")
+                 .long("style")
+diff --git a/src/config.rs b/src/config.rs
+index c5cc2abd1c..0298bb2a25 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -97,6 +97,9 @@ pub struct Config<'a> {
+ 
+     // Weather or not to set terminal title when using a pager
+     pub set_terminal_title: bool,
++
++    /// The maximum number of consecutive empty lines to display
++    pub squeeze_lines: Option<usize>,
+ }
+ 
+ #[cfg(all(feature = "minimal-application", feature = "paging"))]
+diff --git a/src/pretty_printer.rs b/src/pretty_printer.rs
+index 121637f1f0..c6203aa9d4 100644
+--- a/src/pretty_printer.rs
++++ b/src/pretty_printer.rs
+@@ -230,6 +230,12 @@ impl<'a> PrettyPrinter<'a> {
+         self
+     }
+ 
++    /// Specify the maximum number of consecutive empty lines to print.
++    pub fn squeeze_empty_lines(&mut self, maximum: Option<usize>) -> &mut Self {
++        self.config.squeeze_lines = maximum;
++        self
++    }
++
+     /// Specify the highlighting theme
+     pub fn theme(&mut self, theme: impl AsRef<str>) -> &mut Self {
+         self.config.theme = theme.as_ref().to_owned();
+diff --git a/src/printer.rs b/src/printer.rs
+index 8fd6bc8e4a..fc6c16f0c1 100644
+--- a/src/printer.rs
++++ b/src/printer.rs
+@@ -101,11 +101,15 @@ pub(crate) trait Printer {
+ 
+ pub struct SimplePrinter<'a> {
+     config: &'a Config<'a>,
++    consecutive_empty_lines: usize,
+ }
+ 
+ impl<'a> SimplePrinter<'a> {
+     pub fn new(config: &'a Config) -> Self {
+-        SimplePrinter { config }
++        SimplePrinter {
++            config,
++            consecutive_empty_lines: 0,
++        }
+     }
+ }
+ 
+@@ -134,6 +138,21 @@ impl<'a> Printer for SimplePrinter<'a> {
+         _line_number: usize,
+         line_buffer: &[u8],
+     ) -> Result<()> {
++        // Skip squeezed lines.
++        if let Some(squeeze_limit) = self.config.squeeze_lines {
++            if String::from_utf8_lossy(line_buffer)
++                .trim_end_matches(|c| c == '\r' || c == '\n')
++                .is_empty()
++            {
++                self.consecutive_empty_lines += 1;
++                if self.consecutive_empty_lines > squeeze_limit {
++                    return Ok(());
++                }
++            } else {
++                self.consecutive_empty_lines = 0;
++            }
++        }
++
+         if !out_of_range {
+             if self.config.show_nonprintable {
+                 let line = replace_nonprintable(
+@@ -187,6 +206,7 @@ pub(crate) struct InteractivePrinter<'a> {
+     pub line_changes: &'a Option<LineChanges>,
+     highlighter_from_set: Option<HighlighterFromSet<'a>>,
+     background_color_highlight: Option<Color>,
++    consecutive_empty_lines: usize,
+ }
+ 
+ impl<'a> InteractivePrinter<'a> {
+@@ -272,6 +292,7 @@ impl<'a> InteractivePrinter<'a> {
+             line_changes,
+             highlighter_from_set,
+             background_color_highlight,
++            consecutive_empty_lines: 0,
+         })
+     }
+ 
+@@ -577,6 +598,18 @@ impl<'a> Printer for InteractivePrinter<'a> {
+             return Ok(());
+         }
+ 
++        // Skip squeezed lines.
++        if let Some(squeeze_limit) = self.config.squeeze_lines {
++            if line.trim_end_matches(|c| c == '\r' || c == '\n').is_empty() {
++                self.consecutive_empty_lines += 1;
++                if self.consecutive_empty_lines > squeeze_limit {
++                    return Ok(());
++                }
++            } else {
++                self.consecutive_empty_lines = 0;
++            }
++        }
++
+         let mut cursor: usize = 0;
+         let mut cursor_max: usize = self.config.term_width;
+         let mut cursor_total: usize = 0;

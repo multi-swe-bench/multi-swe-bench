@@ -1,0 +1,141 @@
+diff --git a/.changeset/tough-radios-punch.md b/.changeset/tough-radios-punch.md
+new file mode 100644
+index 000000000000..7eeaac38f0c1
+--- /dev/null
++++ b/.changeset/tough-radios-punch.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: add `$set` and `$on` methods in legacy compat mode
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index f2e2a3dec2e6..6a00e81f58b8 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -357,7 +357,11 @@ export function analyze_component(root, options) {
+ 		uses_component_bindings: false,
+ 		custom_element: options.customElement,
+ 		inject_styles: options.css === 'injected' || !!options.customElement,
+-		accessors: options.customElement ? true : !!options.accessors,
++		accessors: options.customElement
++			? true
++			: !!options.accessors ||
++				// because $set method needs accessors
++				!!options.legacy?.componentApi,
+ 		reactive_statements: new Map(),
+ 		binding_groups: new Map(),
+ 		slot_names: new Set(),
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index 16b7b476fe82..ed7da2333b18 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -258,6 +258,60 @@ export function client_component(source, analysis, options) {
+ 		}
+ 	}
+ 
++	if (options.legacy.componentApi) {
++		properties.push(
++			b.init('$set', b.id('$.update_legacy_props')),
++			b.init(
++				'$on',
++				b.arrow(
++					[b.id('$$event_name'), b.id('$$event_cb')],
++					b.call(
++						'$.add_legacy_event_listener',
++						b.id('$$props'),
++						b.id('$$event_name'),
++						b.id('$$event_cb')
++					)
++				)
++			)
++		);
++	} else if (options.dev) {
++		properties.push(
++			b.init(
++				'$set',
++				b.thunk(
++					b.block([
++						b.throw_error(
++							`The component shape you get when doing bind:this changed. Updating its properties via $set is no longer valid in Svelte 5. ` +
++								'See https://svelte-5-preview.vercel.app/docs/breaking-changes#components-are-no-longer-classes for more information'
++						)
++					])
++				)
++			),
++			b.init(
++				'$on',
++				b.thunk(
++					b.block([
++						b.throw_error(
++							`The component shape you get when doing bind:this changed. Listening to events via $on is no longer valid in Svelte 5. ` +
++								'See https://svelte-5-preview.vercel.app/docs/breaking-changes#components-are-no-longer-classes for more information'
++						)
++					])
++				)
++			),
++			b.init(
++				'$destroy',
++				b.thunk(
++					b.block([
++						b.throw_error(
++							`The component shape you get when doing bind:this changed. Destroying such a component via $destroy is no longer valid in Svelte 5. ` +
++								'See https://svelte-5-preview.vercel.app/docs/breaking-changes#components-are-no-longer-classes for more information'
++						)
++					])
++				)
++			)
++		);
++	}
++
+ 	const push_args = [b.id('$$props'), b.literal(analysis.runes)];
+ 	if (options.dev) push_args.push(b.id(analysis.name));
+ 
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index 0861acdfce9d..6cac0c7bad67 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -2929,3 +2929,30 @@ export function bubble_event($$props, event) {
+ 		fn.call(this, event);
+ 	}
+ }
++
++/**
++ * Used to simulate `$on` on a component instance when `legacy.componentApi` is `true`
++ * @param {Record<string, any>} $$props
++ * @param {string} event_name
++ * @param {Function} event_callback
++ */
++export function add_legacy_event_listener($$props, event_name, event_callback) {
++	$$props.$$events ||= {};
++	$$props.$$events[event_name] ||= [];
++	$$props.$$events[event_name].push(event_callback);
++}
++
++/**
++ * Used to simulate `$set` on a component instance when `legacy.componentApi` is `true`.
++ * Needs component accessors so that it can call the setter of the prop. Therefore doesn't
++ * work for updating props in `$$props` or `$$restProps`.
++ * @this {Record<string, any>}
++ * @param {Record<string, any>} $$new_props
++ */
++export function update_legacy_props($$new_props) {
++	for (const key in $$new_props) {
++		if (key in this) {
++			this[key] = $$new_props[key];
++		}
++	}
++}
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 2f804fc9828d..205bdd2bf20d 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -70,7 +70,7 @@ import App from './App.svelte'
+ export default app;
+ ```
+ 
+-If this component is not under your control, you can use the `legacy.componentApi` compiler option for auto-applied backwards compatibility (note that this adds a bit of overhead to each component).
++If this component is not under your control, you can use the `legacy.componentApi` compiler option for auto-applied backwards compatibility (note that this adds a bit of overhead to each component). This will also add `$set` and `$on` methods for all component instances you get through `bind:this`.
+ 
+ ### Server API changes
+ 

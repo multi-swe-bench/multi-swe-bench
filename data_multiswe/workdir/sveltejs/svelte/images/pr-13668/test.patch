@@ -1,0 +1,89 @@
+diff --git a/packages/svelte/tests/migrate/samples/impossible-migrate-beforeUpdate-afterUpdate/_config.js b/packages/svelte/tests/migrate/samples/impossible-migrate-beforeUpdate-afterUpdate/_config.js
+new file mode 100644
+index 000000000000..ef889d5f2395
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/impossible-migrate-beforeUpdate-afterUpdate/_config.js
+@@ -0,0 +1,7 @@
++import { test } from '../../test';
++
++export default test({
++	logs: [
++		'One or more `@migration-task` comments were added to `output.svelte`, please check them and complete the migration manually.'
++	]
++});
+diff --git a/packages/svelte/tests/migrate/samples/impossible-migrate-prop-and-$$props/_config.js b/packages/svelte/tests/migrate/samples/impossible-migrate-prop-and-$$props/_config.js
+new file mode 100644
+index 000000000000..ef889d5f2395
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/impossible-migrate-prop-and-$$props/_config.js
+@@ -0,0 +1,7 @@
++import { test } from '../../test';
++
++export default test({
++	logs: [
++		'One or more `@migration-task` comments were added to `output.svelte`, please check them and complete the migration manually.'
++	]
++});
+diff --git a/packages/svelte/tests/migrate/samples/impossible-migrate-prop-non-identifier/_config.js b/packages/svelte/tests/migrate/samples/impossible-migrate-prop-non-identifier/_config.js
+new file mode 100644
+index 000000000000..ef889d5f2395
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/impossible-migrate-prop-non-identifier/_config.js
+@@ -0,0 +1,7 @@
++import { test } from '../../test';
++
++export default test({
++	logs: [
++		'One or more `@migration-task` comments were added to `output.svelte`, please check them and complete the migration manually.'
++	]
++});
+diff --git a/packages/svelte/tests/migrate/samples/svelte-self-skip-filename/_config.js b/packages/svelte/tests/migrate/samples/svelte-self-skip-filename/_config.js
+index 9c8f6f9c78f1..8771de356011 100644
+--- a/packages/svelte/tests/migrate/samples/svelte-self-skip-filename/_config.js
++++ b/packages/svelte/tests/migrate/samples/svelte-self-skip-filename/_config.js
+@@ -1,5 +1,8 @@
+ import { test } from '../../test';
+ 
+ export default test({
+-	skip_filename: true
++	skip_filename: true,
++	logs: [
++		"One or more `@migration-task` comments were added to a file (unfortunately we don't know the name), please check them and complete the migration manually."
++	]
+ });
+diff --git a/packages/svelte/tests/migrate/test.ts b/packages/svelte/tests/migrate/test.ts
+index e26e8e376bba..940eecb34478 100644
+--- a/packages/svelte/tests/migrate/test.ts
++++ b/packages/svelte/tests/migrate/test.ts
+@@ -6,6 +6,7 @@ import { suite, type BaseTest } from '../suite.js';
+ 
+ interface ParserTest extends BaseTest {
+ 	skip_filename?: boolean;
++	logs?: string[];
+ }
+ 
+ const { test, run } = suite<ParserTest>(async (config, cwd) => {
+@@ -14,10 +15,22 @@ const { test, run } = suite<ParserTest>(async (config, cwd) => {
+ 		.replace(/\s+$/, '')
+ 		.replace(/\r/g, '');
+ 
++	const logs: any[] = [];
++
++	if (config.logs) {
++		console.log = (...args) => {
++			logs.push(...args);
++		};
++	}
++
+ 	const actual = migrate(input, {
+-		filename: config.skip_filename ? undefined : `${cwd}/output.svelte`
++		filename: config.skip_filename ? undefined : `output.svelte`
+ 	}).code;
+ 
++	if (config.logs) {
++		assert.deepEqual(logs, config.logs);
++	}
++
+ 	// run `UPDATE_SNAPSHOTS=true pnpm test migrate` to update parser tests
+ 	if (process.env.UPDATE_SNAPSHOTS || !fs.existsSync(`${cwd}/output.svelte`)) {
+ 		fs.writeFileSync(`${cwd}/output.svelte`, actual);

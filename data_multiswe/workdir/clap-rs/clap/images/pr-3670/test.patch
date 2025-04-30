@@ -1,0 +1,113 @@
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.bash b/clap_complete/tests/snapshots/sub_subcommands.bash
+index dec4d2d78f6..c39eb589e66 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.bash
++++ b/clap_complete/tests/snapshots/sub_subcommands.bash
+@@ -73,7 +73,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__some_cmd__help)
+-            opts="-h -V --help --version <SUBCOMMAND>..."
++            opts="<SUBCOMMAND>..."
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.elvish b/clap_complete/tests/snapshots/sub_subcommands.elvish
+index a096a6c004f..da121c11c41 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.elvish
++++ b/clap_complete/tests/snapshots/sub_subcommands.elvish
+@@ -53,10 +53,6 @@ set edit:completion:arg-completer[my-app] = {|@words|
+             cand --version 'Print version information'
+         }
+         &'my-app;some_cmd;help'= {
+-            cand -h 'Print help information'
+-            cand --help 'Print help information'
+-            cand -V 'Print version information'
+-            cand --version 'Print version information'
+         }
+         &'my-app;help'= {
+         }
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.fish b/clap_complete/tests/snapshots/sub_subcommands.fish
+index 95685111b1b..8bdeb01958a 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.fish
++++ b/clap_complete/tests/snapshots/sub_subcommands.fish
+@@ -14,5 +14,3 @@ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and not __fish_seen
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -l config -d 'the other case to test' -r -f -a "{Lest quotes aren/'t escaped.	}"
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -s V -l version -d 'Print version information'
+-complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+-complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from help" -s V -l version -d 'Print version information'
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.ps1 b/clap_complete/tests/snapshots/sub_subcommands.ps1
+index a17fe3ccb84..2762ab5ce3c 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.ps1
++++ b/clap_complete/tests/snapshots/sub_subcommands.ps1
+@@ -60,10 +60,6 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+             break
+         }
+         'my-app;some_cmd;help' {
+-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
+-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
+-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')
+             break
+         }
+         'my-app;help' {
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.zsh b/clap_complete/tests/snapshots/sub_subcommands.zsh
+index 4b84a203af2..947d0cb4ec8 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.zsh
++++ b/clap_complete/tests/snapshots/sub_subcommands.zsh
+@@ -70,10 +70,6 @@ _arguments "${_arguments_options[@]}" /
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'-h[Print help information]' /
+-'--help[Print help information]' /
+-'-V[Print version information]' /
+-'--version[Print version information]' /
+ '*::subcommand -- The subcommand whose help message to display:' /
+ && ret=0
+ ;;
+diff --git a/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js b/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
+index 46352ea8272..8d6dbca78eb 100644
+--- a/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
++++ b/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
+@@ -56,16 +56,6 @@ const completion: Fig.Spec = {
+         {
+           name: "help",
+           description: "Print this message or the help of the given subcommand(s)",
+-          options: [
+-            {
+-              name: ["-h", "--help"],
+-              description: "Print help information",
+-            },
+-            {
+-              name: ["-V", "--version"],
+-              description: "Print version information",
+-            },
+-          ],
+           args: {
+             name: "subcommand",
+             isOptional: true,
+diff --git a/tests/builder/tests.rs b/tests/builder/tests.rs
+index 26ca2964d83..841309ae573 100644
+--- a/tests/builder/tests.rs
++++ b/tests/builder/tests.rs
+@@ -408,3 +408,19 @@ fn mut_arg_all() {
+         cmd = cmd.mut_arg(arg_name, |arg| arg.hide_possible_values(true));
+     }
+ }
++
++#[test]
++fn issue_3669_command_build_recurses() {
++    let mut cmd = Command::new("ctest").subcommand(
++        Command::new("subcmd").subcommand(
++            Command::new("multi")
++                .about("tests subcommands")
++                .author("Kevin K. <kbknapp@gmail.com>")
++                .version("0.1")
++                .arg(clap::arg!(
++                    <FLAG>                    "tests flags"
++                )),
++        ),
++    );
++    cmd.build();
++}

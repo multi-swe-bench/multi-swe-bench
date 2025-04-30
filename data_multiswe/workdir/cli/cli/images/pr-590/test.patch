@@ -1,0 +1,1069 @@
+diff --git a/command/issue_test.go b/command/issue_test.go
+index a4de959e16b..3fb35969330 100644
+--- a/command/issue_test.go
++++ b/command/issue_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"strings"
+ 	"testing"
+ 
++	"github.com/cli/cli/test"
+ 	"github.com/cli/cli/utils"
+ )
+ 
+@@ -226,7 +227,7 @@ func TestIssueView(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -260,7 +261,7 @@ func TestIssueView_numberArgWithHash(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -383,7 +384,7 @@ func TestIssueView_notFound(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -430,7 +431,7 @@ func TestIssueView_urlArg(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -515,7 +516,7 @@ func TestIssueCreate_web(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -541,7 +542,7 @@ func TestIssueCreate_webTitleBody(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+diff --git a/command/pr_checkout_test.go b/command/pr_checkout_test.go
+index ba0ddff2291..ce0266c5e12 100644
+--- a/command/pr_checkout_test.go
++++ b/command/pr_checkout_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"testing"
+ 
+ 	"github.com/cli/cli/context"
++	"github.com/cli/cli/test"
+ 	"github.com/cli/cli/utils"
+ )
+ 
+@@ -46,7 +47,7 @@ func TestPRCheckout_sameRepo(t *testing.T) {
+ 			return &errorStub{"exit status: 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -98,7 +99,7 @@ func TestPRCheckout_urlArg(t *testing.T) {
+ 			return &errorStub{"exit status: 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -147,7 +148,7 @@ func TestPRCheckout_branchArg(t *testing.T) {
+ 			return &errorStub{"exit status: 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -193,10 +194,10 @@ func TestPRCheckout_existingBranch(t *testing.T) {
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case "git show-ref --verify --quiet refs/heads/feature":
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -248,7 +249,7 @@ func TestPRCheckout_differentRepo_remoteExists(t *testing.T) {
+ 			return &errorStub{"exit status: 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -300,7 +301,7 @@ func TestPRCheckout_differentRepo(t *testing.T) {
+ 			return &errorStub{"exit status 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -349,10 +350,10 @@ func TestPRCheckout_differentRepo_existingBranch(t *testing.T) {
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case "git config branch.feature.merge":
+-			return &outputStub{[]byte("refs/heads/feature\n")}
++			return &test.OutputStub{[]byte("refs/heads/feature\n")}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -399,10 +400,10 @@ func TestPRCheckout_differentRepo_currentBranch(t *testing.T) {
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case "git config branch.feature.merge":
+-			return &outputStub{[]byte("refs/heads/feature\n")}
++			return &test.OutputStub{[]byte("refs/heads/feature\n")}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -452,7 +453,7 @@ func TestPRCheckout_maintainerCanModify(t *testing.T) {
+ 			return &errorStub{"exit status 1"}
+ 		default:
+ 			ranCommands = append(ranCommands, cmd.Args)
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+diff --git a/command/pr_create_test.go b/command/pr_create_test.go
+index b0813d30b51..2bae8075128 100644
+--- a/command/pr_create_test.go
++++ b/command/pr_create_test.go
+@@ -3,43 +3,13 @@ package command
+ import (
+ 	"bytes"
+ 	"encoding/json"
+-	"fmt"
+ 	"io/ioutil"
+-	"os"
+-	"os/exec"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/context"
+-	"github.com/cli/cli/git"
+-	"github.com/cli/cli/test"
+-	"github.com/cli/cli/utils"
+ )
+ 
+-func TestPrCreateHelperProcess(*testing.T) {
+-	if test.SkipTestHelperProcess() {
+-		return
+-	}
+-
+-	args := test.GetTestHelperProcessArgs()
+-	switch args[1] {
+-	case "status":
+-		switch args[0] {
+-		case "clean":
+-		case "dirty":
+-			fmt.Println(" M git/git.go")
+-		default:
+-			fmt.Fprintf(os.Stderr, "unknown scenario: %q", args[0])
+-			os.Exit(1)
+-		}
+-	case "push":
+-	default:
+-		fmt.Fprintf(os.Stderr, "unknown command: %q", args[1])
+-		os.Exit(1)
+-	}
+-	os.Exit(0)
+-}
+-
+ func TestPRCreate(t *testing.T) {
+ 	initBlankContext("OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+@@ -50,11 +20,12 @@ func TestPRCreate(t *testing.T) {
+ 		} } } }
+ 	`))
+ 
+-	origGitCommand := git.GitCommand
+-	git.GitCommand = test.StubExecCommand("TestPrCreateHelperProcess", "clean")
+-	defer func() {
+-		git.GitCommand = origGitCommand
+-	}()
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                         // git status
++	cs.Stub("1234567890,commit 0\n2345678901,commit 1") // git log
++	cs.Stub("")                                         // git push
+ 
+ 	output, err := RunCommand(prCreateCmd, `pr create -t "my title" -b "my body"`)
+ 	eq(t, err, nil)
+@@ -87,12 +58,13 @@ func TestPRCreate_web(t *testing.T) {
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+-	ranCommands := [][]string{}
+-	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+-		ranCommands = append(ranCommands, cmd.Args)
+-		return &outputStub{}
+-	})
+-	defer restoreCmd()
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                         // git status
++	cs.Stub("1234567890,commit 0\n2345678901,commit 1") // git log
++	cs.Stub("")                                         // git push
++	cs.Stub("")                                         // browser
+ 
+ 	output, err := RunCommand(prCreateCmd, `pr create --web`)
+ 	eq(t, err, nil)
+@@ -100,9 +72,10 @@ func TestPRCreate_web(t *testing.T) {
+ 	eq(t, output.String(), "")
+ 	eq(t, output.Stderr(), "Opening github.com/OWNER/REPO/compare/master...feature in your browser.\n")
+ 
+-	eq(t, len(ranCommands), 3)
+-	eq(t, strings.Join(ranCommands[1], " "), "git push --set-upstream origin HEAD:feature")
+-	eq(t, ranCommands[2][len(ranCommands[2])-1], "https://github.com/OWNER/REPO/compare/master...feature?expand=1")
++	eq(t, len(cs.Calls), 4)
++	eq(t, strings.Join(cs.Calls[2].Args, " "), "git push --set-upstream origin HEAD:feature")
++	browserCall := cs.Calls[3].Args
++	eq(t, browserCall[len(browserCall)-1], "https://github.com/OWNER/REPO/compare/master...feature?expand=1")
+ }
+ 
+ func TestPRCreate_ReportsUncommittedChanges(t *testing.T) {
+@@ -116,11 +89,12 @@ func TestPRCreate_ReportsUncommittedChanges(t *testing.T) {
+ 		} } } }
+ 	`))
+ 
+-	origGitCommand := git.GitCommand
+-	git.GitCommand = test.StubExecCommand("TestPrCreateHelperProcess", "dirty")
+-	defer func() {
+-		git.GitCommand = origGitCommand
+-	}()
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub(" M git/git.go")                            // git status
++	cs.Stub("1234567890,commit 0\n2345678901,commit 1") // git log
++	cs.Stub("")                                         // git push
+ 
+ 	output, err := RunCommand(prCreateCmd, `pr create -t "my title" -b "my body"`)
+ 	eq(t, err, nil)
+@@ -181,11 +155,12 @@ func TestPRCreate_cross_repo_same_branch(t *testing.T) {
+ 		} } } }
+ 	`))
+ 
+-	origGitCommand := git.GitCommand
+-	git.GitCommand = test.StubExecCommand("TestPrCreateHelperProcess", "clean")
+-	defer func() {
+-		git.GitCommand = origGitCommand
+-	}()
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                         // git status
++	cs.Stub("1234567890,commit 0\n2345678901,commit 1") // git log
++	cs.Stub("")                                         // git push
+ 
+ 	output, err := RunCommand(prCreateCmd, `pr create -t "cross repo" -b "same branch"`)
+ 	eq(t, err, nil)
+@@ -214,3 +189,262 @@ func TestPRCreate_cross_repo_same_branch(t *testing.T) {
+ 
+ 	// goal: only care that gql is formatted properly
+ }
++
++func TestPRCreate_survey_defaults_multicommit(t *testing.T) {
++	initBlankContext("OWNER/REPO", "cool_bug-fixes")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++	http.StubResponse(200, bytes.NewBufferString(`
++		{ "data": { "createPullRequest": { "pullRequest": {
++			"URL": "https://github.com/OWNER/REPO/pull/12"
++		} } } }
++	`))
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                         // git status
++	cs.Stub("1234567890,commit 0\n2345678901,commit 1") // git log
++	cs.Stub("")                                         // git rev-parse
++	cs.Stub("")                                         // git push
++
++	as, surveyTeardown := initAskStubber()
++	defer surveyTeardown()
++
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:    "title",
++			Default: true,
++		},
++		&QuestionStub{
++			Name:    "body",
++			Default: true,
++		},
++	})
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:  "confirmation",
++			Value: 1,
++		},
++	})
++
++	output, err := RunCommand(prCreateCmd, `pr create`)
++	eq(t, err, nil)
++
++	bodyBytes, _ := ioutil.ReadAll(http.Requests[1].Body)
++	reqBody := struct {
++		Variables struct {
++			Input struct {
++				RepositoryID string
++				Title        string
++				Body         string
++				BaseRefName  string
++				HeadRefName  string
++			}
++		}
++	}{}
++	json.Unmarshal(bodyBytes, &reqBody)
++
++	expectedBody := "- commit 0\n- commit 1\n"
++
++	eq(t, reqBody.Variables.Input.RepositoryID, "REPOID")
++	eq(t, reqBody.Variables.Input.Title, "cool bug fixes")
++	eq(t, reqBody.Variables.Input.Body, expectedBody)
++	eq(t, reqBody.Variables.Input.BaseRefName, "master")
++	eq(t, reqBody.Variables.Input.HeadRefName, "cool_bug-fixes")
++
++	eq(t, output.String(), "https://github.com/OWNER/REPO/pull/12\n")
++}
++
++func TestPRCreate_survey_defaults_monocommit(t *testing.T) {
++	initBlankContext("OWNER/REPO", "feature")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++	http.StubResponse(200, bytes.NewBufferString(`
++		{ "data": { "createPullRequest": { "pullRequest": {
++			"URL": "https://github.com/OWNER/REPO/pull/12"
++		} } } }
++	`))
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                                        // git status
++	cs.Stub("1234567890,the sky above the port")                       // git log
++	cs.Stub("was the color of a television, turned to a dead channel") // git show
++	cs.Stub("")                                                        // git rev-parse
++	cs.Stub("")                                                        // git push
++
++	as, surveyTeardown := initAskStubber()
++	defer surveyTeardown()
++
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:    "title",
++			Default: true,
++		},
++		&QuestionStub{
++			Name:    "body",
++			Default: true,
++		},
++	})
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:  "confirmation",
++			Value: 1,
++		},
++	})
++
++	output, err := RunCommand(prCreateCmd, `pr create`)
++	eq(t, err, nil)
++
++	bodyBytes, _ := ioutil.ReadAll(http.Requests[1].Body)
++	reqBody := struct {
++		Variables struct {
++			Input struct {
++				RepositoryID string
++				Title        string
++				Body         string
++				BaseRefName  string
++				HeadRefName  string
++			}
++		}
++	}{}
++	json.Unmarshal(bodyBytes, &reqBody)
++
++	expectedBody := "was the color of a television, turned to a dead channel"
++
++	eq(t, reqBody.Variables.Input.RepositoryID, "REPOID")
++	eq(t, reqBody.Variables.Input.Title, "the sky above the port")
++	eq(t, reqBody.Variables.Input.Body, expectedBody)
++	eq(t, reqBody.Variables.Input.BaseRefName, "master")
++	eq(t, reqBody.Variables.Input.HeadRefName, "feature")
++
++	eq(t, output.String(), "https://github.com/OWNER/REPO/pull/12\n")
++}
++
++func TestPRCreate_survey_autofill(t *testing.T) {
++	initBlankContext("OWNER/REPO", "feature")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++	http.StubResponse(200, bytes.NewBufferString(`
++		{ "data": { "createPullRequest": { "pullRequest": {
++			"URL": "https://github.com/OWNER/REPO/pull/12"
++		} } } }
++	`))
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("")                                                        // git status
++	cs.Stub("1234567890,the sky above the port")                       // git log
++	cs.Stub("was the color of a television, turned to a dead channel") // git show
++	cs.Stub("")                                                        // git rev-parse
++	cs.Stub("")                                                        // git push
++	cs.Stub("")                                                        // browser open
++
++	output, err := RunCommand(prCreateCmd, `pr create -f`)
++	eq(t, err, nil)
++
++	bodyBytes, _ := ioutil.ReadAll(http.Requests[1].Body)
++	reqBody := struct {
++		Variables struct {
++			Input struct {
++				RepositoryID string
++				Title        string
++				Body         string
++				BaseRefName  string
++				HeadRefName  string
++			}
++		}
++	}{}
++	json.Unmarshal(bodyBytes, &reqBody)
++
++	expectedBody := "was the color of a television, turned to a dead channel"
++
++	eq(t, reqBody.Variables.Input.RepositoryID, "REPOID")
++	eq(t, reqBody.Variables.Input.Title, "the sky above the port")
++	eq(t, reqBody.Variables.Input.Body, expectedBody)
++	eq(t, reqBody.Variables.Input.BaseRefName, "master")
++	eq(t, reqBody.Variables.Input.HeadRefName, "feature")
++
++	eq(t, output.String(), "https://github.com/OWNER/REPO/pull/12\n")
++}
++
++func TestPRCreate_defaults_error_autofill(t *testing.T) {
++	initBlankContext("OWNER/REPO", "feature")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("") // git status
++	cs.Stub("") // git log
++
++	_, err := RunCommand(prCreateCmd, "pr create -f")
++
++	eq(t, err.Error(), "could not compute title or body defaults: could not find any commits between master and feature")
++}
++
++func TestPRCreate_defaults_error_web(t *testing.T) {
++	initBlankContext("OWNER/REPO", "feature")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("") // git status
++	cs.Stub("") // git log
++
++	_, err := RunCommand(prCreateCmd, "pr create -w")
++
++	eq(t, err.Error(), "could not compute title or body defaults: could not find any commits between master and feature")
++}
++
++func TestPRCreate_defaults_error_interactive(t *testing.T) {
++	initBlankContext("OWNER/REPO", "feature")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++	http.StubResponse(200, bytes.NewBufferString(`
++		{ "data": { "createPullRequest": { "pullRequest": {
++			"URL": "https://github.com/OWNER/REPO/pull/12"
++		} } } }
++	`))
++
++	cs, cmdTeardown := initCmdStubber()
++	defer cmdTeardown()
++
++	cs.Stub("") // git status
++	cs.Stub("") // git log
++	cs.Stub("") // git rev-parse
++	cs.Stub("") // git push
++	cs.Stub("") // browser open
++
++	as, surveyTeardown := initAskStubber()
++	defer surveyTeardown()
++
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:    "title",
++			Default: true,
++		},
++		&QuestionStub{
++			Name:  "body",
++			Value: "social distancing",
++		},
++	})
++	as.Stub([]*QuestionStub{
++		&QuestionStub{
++			Name:  "confirmation",
++			Value: 0,
++		},
++	})
++
++	output, err := RunCommand(prCreateCmd, `pr create`)
++	eq(t, err, nil)
++
++	stderr := string(output.Stderr())
++	eq(t, strings.Contains(stderr, "warning: could not compute title or body defaults: could not find any commits"), true)
++}
+diff --git a/command/pr_test.go b/command/pr_test.go
+index f024792e3b1..3fd4d9e9b8f 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -11,6 +11,7 @@ import (
+ 	"strings"
+ 	"testing"
+ 
++	"github.com/cli/cli/test"
+ 	"github.com/cli/cli/utils"
+ 	"github.com/google/shlex"
+ 	"github.com/spf13/cobra"
+@@ -110,7 +111,7 @@ func TestPRStatus_fork(t *testing.T) {
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case `git config --get-regexp ^branch\.blueberries\.(remote|merge)$`:
+-			return &outputStub{[]byte(`branch.blueberries.remote origin
++			return &test.OutputStub{[]byte(`branch.blueberries.remote origin
+ branch.blueberries.merge refs/heads/blueberries`)}
+ 		default:
+ 			panic("not implemented")
+@@ -421,7 +422,7 @@ func TestPRView_previewCurrentBranch(t *testing.T) {
+ 	http.StubResponse(200, jsonFile)
+ 
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -456,7 +457,7 @@ func TestPRView_previewCurrentBranchWithEmptyBody(t *testing.T) {
+ 	http.StubResponse(200, jsonFile)
+ 
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -493,10 +494,10 @@ func TestPRView_currentBranch(t *testing.T) {
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case `git config --get-regexp ^branch\.blueberries\.(remote|merge)$`:
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		default:
+ 			seenCmd = cmd
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -531,10 +532,10 @@ func TestPRView_noResultsForBranch(t *testing.T) {
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		switch strings.Join(cmd.Args, " ") {
+ 		case `git config --get-regexp ^branch\.blueberries\.(remote|merge)$`:
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		default:
+ 			seenCmd = cmd
+-			return &outputStub{}
++			return &test.OutputStub{}
+ 		}
+ 	})
+ 	defer restoreCmd()
+@@ -563,7 +564,7 @@ func TestPRView_numberArg(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -595,7 +596,7 @@ func TestPRView_numberArgWithHash(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -627,7 +628,7 @@ func TestPRView_urlArg(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -661,7 +662,7 @@ func TestPRView_branchArg(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -696,7 +697,7 @@ func TestPRView_branchWithOwnerArg(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+diff --git a/command/repo_test.go b/command/repo_test.go
+index a3ba656c3aa..6001be817dd 100644
+--- a/command/repo_test.go
++++ b/command/repo_test.go
+@@ -11,6 +11,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/cli/cli/context"
++	"github.com/cli/cli/test"
+ 	"github.com/cli/cli/utils"
+ )
+ 
+@@ -117,7 +118,7 @@ func TestRepoFork_in_parent_yes(t *testing.T) {
+ 	var seenCmds []*exec.Cmd
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmds = append(seenCmds, cmd)
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	output, err := RunCommand(repoForkCmd, "repo fork --remote")
+@@ -156,7 +157,7 @@ func TestRepoFork_outside_yes(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	output, err := RunCommand(repoForkCmd, "repo fork --clone OWNER/REPO")
+@@ -188,7 +189,7 @@ func TestRepoFork_outside_survey_yes(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	oldConfirm := Confirm
+@@ -227,7 +228,7 @@ func TestRepoFork_outside_survey_no(t *testing.T) {
+ 	cmdRun := false
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		cmdRun = true
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	oldConfirm := Confirm
+@@ -263,7 +264,7 @@ func TestRepoFork_in_parent_survey_yes(t *testing.T) {
+ 	var seenCmds []*exec.Cmd
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmds = append(seenCmds, cmd)
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	oldConfirm := Confirm
+@@ -311,7 +312,7 @@ func TestRepoFork_in_parent_survey_no(t *testing.T) {
+ 	cmdRun := false
+ 	defer utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		cmdRun = true
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})()
+ 
+ 	oldConfirm := Confirm
+@@ -369,7 +370,7 @@ func TestRepoClone(t *testing.T) {
+ 			var seenCmd *exec.Cmd
+ 			restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 				seenCmd = cmd
+-				return &outputStub{}
++				return &test.OutputStub{}
+ 			})
+ 			defer restoreCmd()
+ 
+@@ -409,7 +410,7 @@ func TestRepoCreate(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -474,7 +475,7 @@ func TestRepoCreate_org(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -539,7 +540,7 @@ func TestRepoCreate_orgWithTeam(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -591,7 +592,7 @@ func TestRepoView(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -624,7 +625,7 @@ func TestRepoView_ownerRepo(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+@@ -656,7 +657,7 @@ func TestRepoView_fullURL(t *testing.T) {
+ 	var seenCmd *exec.Cmd
+ 	restoreCmd := utils.SetPrepareCmd(func(cmd *exec.Cmd) utils.Runnable {
+ 		seenCmd = cmd
+-		return &outputStub{}
++		return &test.OutputStub{}
+ 	})
+ 	defer restoreCmd()
+ 
+diff --git a/command/testing.go b/command/testing.go
+index 206c8517d55..0221ce8cf05 100644
+--- a/command/testing.go
++++ b/command/testing.go
+@@ -2,11 +2,103 @@ package command
+ 
+ import (
+ 	"errors"
++	"fmt"
++	"os/exec"
++	"reflect"
++
++	"github.com/AlecAivazis/survey/v2"
++	"github.com/AlecAivazis/survey/v2/core"
+ 
+ 	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/context"
++	"github.com/cli/cli/test"
++	"github.com/cli/cli/utils"
+ )
+ 
++// TODO this is split between here and test/helpers.go. I did that because otherwise our test
++// package would have to import utils (for utils.Runnable) which felt wrong. while utils_test
++// currently doesn't import test helpers, i don't see why that ought to be precluded.
++// I'm wondering if this is a case for having a global package just for storing Interfaces.
++type CmdStubber struct {
++	Stubs []*test.OutputStub
++	Count int
++	Calls []*exec.Cmd
++}
++
++func initCmdStubber() (*CmdStubber, func()) {
++	cs := CmdStubber{}
++	teardown := utils.SetPrepareCmd(createStubbedPrepareCmd(&cs))
++	return &cs, teardown
++}
++
++func (cs *CmdStubber) Stub(desiredOutput string) {
++	// TODO maybe have some kind of command mapping but going simple for now
++	cs.Stubs = append(cs.Stubs, &test.OutputStub{[]byte(desiredOutput)})
++}
++
++func createStubbedPrepareCmd(cs *CmdStubber) func(*exec.Cmd) utils.Runnable {
++	return func(cmd *exec.Cmd) utils.Runnable {
++		cs.Calls = append(cs.Calls, cmd)
++		call := cs.Count
++		cs.Count += 1
++		if call >= len(cs.Stubs) {
++			panic(fmt.Sprintf("more execs than stubs. most recent call: %v", cmd))
++		}
++		return cs.Stubs[call]
++	}
++}
++
++type askStubber struct {
++	Asks  [][]*survey.Question
++	Count int
++	Stubs [][]*QuestionStub
++}
++
++func initAskStubber() (*askStubber, func()) {
++	origSurveyAsk := SurveyAsk
++	as := askStubber{}
++	SurveyAsk = func(qs []*survey.Question, response interface{}, opts ...survey.AskOpt) error {
++		as.Asks = append(as.Asks, qs)
++		count := as.Count
++		as.Count += 1
++		if count >= len(as.Stubs) {
++			panic(fmt.Sprintf("more asks than stubs. most recent call: %v", qs))
++		}
++
++		// actually set response
++		stubbedQuestions := as.Stubs[count]
++		for i, sq := range stubbedQuestions {
++			q := qs[i]
++			if q.Name != sq.Name {
++				panic(fmt.Sprintf("stubbed question mismatch: %s != %s", q.Name, sq.Name))
++			}
++			if sq.Default {
++				defaultValue := reflect.ValueOf(q.Prompt).Elem().FieldByName("Default")
++				core.WriteAnswer(response, q.Name, defaultValue)
++			} else {
++				core.WriteAnswer(response, q.Name, sq.Value)
++			}
++		}
++
++		return nil
++	}
++	teardown := func() {
++		SurveyAsk = origSurveyAsk
++	}
++	return &as, teardown
++}
++
++type QuestionStub struct {
++	Name    string
++	Value   interface{}
++	Default bool
++}
++
++func (as *askStubber) Stub(stubbedQuestions []*QuestionStub) {
++	// A call to .Ask takes a list of questions; a stub is then a list of questions in the same order.
++	as.Stubs = append(as.Stubs, stubbedQuestions)
++}
++
+ func initBlankContext(repo, branch string) {
+ 	initContext = func() context.Context {
+ 		ctx := context.NewBlank()
+@@ -27,19 +119,6 @@ func initFakeHTTP() *api.FakeHTTP {
+ 	return http
+ }
+ 
+-// outputStub implements a simple utils.Runnable
+-type outputStub struct {
+-	output []byte
+-}
+-
+-func (s outputStub) Output() ([]byte, error) {
+-	return s.output, nil
+-}
+-
+-func (s outputStub) Run() error {
+-	return nil
+-}
+-
+ type errorStub struct {
+ 	message string
+ }
+diff --git a/git/git_test.go b/git/git_test.go
+index 6ac80e89618..9e3f9a33392 100644
+--- a/git/git_test.go
++++ b/git/git_test.go
+@@ -1,58 +1,38 @@
+ package git
+ 
+ import (
+-	"fmt"
+-	"os"
+-	"regexp"
++	"os/exec"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/test"
++	"github.com/cli/cli/utils"
+ )
+ 
+-func TestGitStatusHelperProcess(*testing.T) {
+-	if test.SkipTestHelperProcess() {
+-		return
++func Test_UncommittedChangeCount(t *testing.T) {
++	type c struct {
++		Label    string
++		Expected int
++		Output   string
+ 	}
+-
+-	args := test.GetTestHelperProcessArgs()
+-	switch args[0] {
+-	case "no changes":
+-	case "one change":
+-		fmt.Println(" M poem.txt")
+-	case "untracked file":
+-		fmt.Println(" M poem.txt")
+-		fmt.Println("?? new.txt")
+-	case "boom":
+-		os.Exit(1)
++	cases := []c{
++		c{Label: "no changes", Expected: 0, Output: ""},
++		c{Label: "one change", Expected: 1, Output: " M poem.txt"},
++		c{Label: "untracked file", Expected: 2, Output: " M poem.txt\n?? new.txt"},
+ 	}
+-	os.Exit(0)
+-}
+-
+-func Test_UncommittedChangeCount(t *testing.T) {
+-	origGitCommand := GitCommand
+-	defer func() {
+-		GitCommand = origGitCommand
+-	}()
+ 
+-	cases := map[string]int{
+-		"no changes":     0,
+-		"one change":     1,
+-		"untracked file": 2,
+-	}
++	teardown := utils.SetPrepareCmd(func(*exec.Cmd) utils.Runnable {
++		return &test.OutputStub{}
++	})
++	defer teardown()
+ 
+-	for k, v := range cases {
+-		GitCommand = test.StubExecCommand("TestGitStatusHelperProcess", k)
++	for _, v := range cases {
++		_ = utils.SetPrepareCmd(func(*exec.Cmd) utils.Runnable {
++			return &test.OutputStub{[]byte(v.Output)}
++		})
+ 		ucc, _ := UncommittedChangeCount()
+ 
+-		if ucc != v {
+-			t.Errorf("got unexpected ucc value: %d for case %s", ucc, k)
++		if ucc != v.Expected {
++			t.Errorf("got unexpected ucc value: %d for case %s", ucc, v.Label)
+ 		}
+ 	}
+-
+-	GitCommand = test.StubExecCommand("TestGitStatusHelperProcess", "boom")
+-	_, err := UncommittedChangeCount()
+-	errorRE := regexp.MustCompile(`git\.test(\.exe)?: exit status 1$`)
+-	if !errorRE.MatchString(err.Error()) {
+-		t.Errorf("got unexpected error message: %s", err)
+-	}
+ }
+diff --git a/test/helpers.go b/test/helpers.go
+index f21bb57e011..6bcfcadca7d 100644
+--- a/test/helpers.go
++++ b/test/helpers.go
+@@ -8,36 +8,17 @@ import (
+ 	"path/filepath"
+ )
+ 
+-func GetTestHelperProcessArgs() []string {
+-	args := os.Args
+-	for len(args) > 0 {
+-		if args[0] == "--" {
+-			args = args[1:]
+-			break
+-		}
+-		args = args[1:]
+-	}
+-	return args
++// OutputStub implements a simple utils.Runnable
++type OutputStub struct {
++	Out []byte
+ }
+ 
+-func SkipTestHelperProcess() bool {
+-	return os.Getenv("GO_WANT_HELPER_PROCESS") != "1"
++func (s OutputStub) Output() ([]byte, error) {
++	return s.Out, nil
+ }
+ 
+-func StubExecCommand(testHelper string, desiredOutput string) func(...string) *exec.Cmd {
+-	return func(args ...string) *exec.Cmd {
+-		cs := []string{
+-			fmt.Sprintf("-test.run=%s", testHelper),
+-			"--", desiredOutput}
+-		cs = append(cs, args...)
+-		env := []string{
+-			"GO_WANT_HELPER_PROCESS=1",
+-		}
+-
+-		cmd := exec.Command(os.Args[0], cs...)
+-		cmd.Env = append(env, os.Environ()...)
+-		return cmd
+-	}
++func (s OutputStub) Run() error {
++	return nil
+ }
+ 
+ type TempGitRepo struct {

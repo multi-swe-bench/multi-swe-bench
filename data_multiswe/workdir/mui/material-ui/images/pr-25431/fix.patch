@@ -1,0 +1,57 @@
+diff --git a/docs/pages/api-docs/snackbar.json b/docs/pages/api-docs/snackbar.json
+index db3f0416297c06..af6eb6327891f3 100644
+--- a/docs/pages/api-docs/snackbar.json
++++ b/docs/pages/api-docs/snackbar.json
+@@ -14,7 +14,7 @@
+     "ClickAwayListenerProps": { "type": { "name": "object" } },
+     "ContentProps": { "type": { "name": "object" } },
+     "disableWindowBlurListener": { "type": { "name": "bool" } },
+-    "key": { "type": { "name": "any" } },
++    "key": { "type": { "name": "custom", "description": "any" } },
+     "message": { "type": { "name": "node" } },
+     "onClose": { "type": { "name": "func" } },
+     "open": { "type": { "name": "bool" } },
+diff --git a/docs/src/modules/utils/generatePropTypeDescription.ts b/docs/src/modules/utils/generatePropTypeDescription.ts
+index 5f339bfe3c14e1..e2d30848e2801c 100644
+--- a/docs/src/modules/utils/generatePropTypeDescription.ts
++++ b/docs/src/modules/utils/generatePropTypeDescription.ts
+@@ -86,6 +86,9 @@ export default function generatePropTypeDescription(type: PropTypeDescriptor): s
+       if (type.raw === 'HTMLElementType') {
+         return 'HTML element';
+       }
++      if (type.raw === '() => null') {
++        return 'any';
++      }
+ 
+       const deprecatedInfo = getDeprecatedInfo(type);
+       if (deprecatedInfo !== false) {
+diff --git a/packages/material-ui/src/Snackbar/Snackbar.js b/packages/material-ui/src/Snackbar/Snackbar.js
+index 62e4d39ec7fcc0..b71e6d535c67e7 100644
+--- a/packages/material-ui/src/Snackbar/Snackbar.js
++++ b/packages/material-ui/src/Snackbar/Snackbar.js
+@@ -297,7 +297,7 @@ Snackbar.propTypes /* remove-proptypes */ = {
+    * e.g. <Snackbar key={message} />, otherwise, the message may update-in-place and
+    * features such as autoHideDuration may be canceled.
+    */
+-  key: PropTypes.any,
++  key: () => null,
+   /**
+    * The message to display.
+    */
+diff --git a/packages/typescript-to-proptypes/src/generator.ts b/packages/typescript-to-proptypes/src/generator.ts
+index ae709f6cd3cfb0..165db919624fcb 100644
+--- a/packages/typescript-to-proptypes/src/generator.ts
++++ b/packages/typescript-to-proptypes/src/generator.ts
+@@ -161,6 +161,12 @@ export function generate(component: t.Component, options: GenerateOptions = {}):
+     }
+ 
+     if (propType.type === 'any') {
++      // key isn't a prop like the others, see
++      // https://github.com/mui-org/material-ui/issues/25304
++      if (context.propTypeDefinition.name === 'key') {
++        return '() => null';
++      }
++
+       return `${importedName}.any`;
+     }
+ 

@@ -1,0 +1,107 @@
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index 9074ea117f9..8b5dd515a4a 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -855,7 +855,7 @@ func interactiveRepoInfo(client *http.Client, hostname string, prompter iprompte
+ 		return "", "", "", err
+ 	}
+ 
+-	visibilityOptions := []string{"Public", "Private", "Internal"}
++	visibilityOptions := getRepoVisibilityOptions(owner)
+ 	selected, err := prompter.Select("Visibility", "Public", visibilityOptions)
+ 	if err != nil {
+ 		return "", "", "", err
+@@ -864,6 +864,15 @@ func interactiveRepoInfo(client *http.Client, hostname string, prompter iprompte
+ 	return name, description, strings.ToUpper(visibilityOptions[selected]), nil
+ }
+ 
++func getRepoVisibilityOptions(owner string) []string {
++	visibilityOptions := []string{"Public", "Private"}
++	// orgs can also create internal repos
++	if owner != "" {
++		visibilityOptions = append(visibilityOptions, "Internal")
++	}
++	return visibilityOptions
++}
++
+ func interactiveRepoNameAndOwner(client *http.Client, hostname string, prompter iprompter, defaultName string) (string, string, error) {
+ 	name, err := prompter.Input("Repository name", defaultName)
+ 	if err != nil {
+diff --git a/pkg/cmd/repo/create/http.go b/pkg/cmd/repo/create/http.go
+index ffe9dbb6fd2..120683c08b6 100644
+--- a/pkg/cmd/repo/create/http.go
++++ b/pkg/cmd/repo/create/http.go
+@@ -99,6 +99,11 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput) (*a
+ 		isOrg = owner.IsOrganization()
+ 	}
+ 
++	isInternal := strings.ToLower(input.Visibility) == "internal"
++	if isInternal && !isOrg {
++		return nil, fmt.Errorf("internal repositories can only be created within an organization")
++	}
++
+ 	if input.TemplateRepositoryID != "" {
+ 		var response struct {
+ 			CloneTemplateRepository struct {
+diff --git a/pkg/httpmock/registry.go b/pkg/httpmock/registry.go
+index e36f71a9210..387d0fc9560 100644
+--- a/pkg/httpmock/registry.go
++++ b/pkg/httpmock/registry.go
+@@ -4,6 +4,9 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"sync"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
+ )
+ 
+ // Replace http.Client transport layer with registry so all requests get
+@@ -25,6 +28,18 @@ func (r *Registry) Register(m Matcher, resp Responder) {
+ 	})
+ }
+ 
++func (r *Registry) Exclude(t *testing.T, m Matcher) {
++	excludedStub := &Stub{
++		Matcher: m,
++		Responder: func(req *http.Request) (*http.Response, error) {
++			assert.FailNowf(t, "Exclude error", "API called when excluded: %v", req.URL)
++			return nil, nil
++		},
++		exclude: true,
++	}
++	r.stubs = append(r.stubs, excludedStub)
++}
++
+ type Testing interface {
+ 	Errorf(string, ...interface{})
+ 	Helper()
+@@ -33,7 +48,7 @@ type Testing interface {
+ func (r *Registry) Verify(t Testing) {
+ 	n := 0
+ 	for _, s := range r.stubs {
+-		if !s.matched {
++		if !s.matched && !s.exclude {
+ 			n++
+ 		}
+ 	}
+@@ -62,6 +77,7 @@ func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
+ 		stub = s
+ 		break // TODO: remove
+ 	}
++
+ 	if stub != nil {
+ 		stub.matched = true
+ 	}
+diff --git a/pkg/httpmock/stub.go b/pkg/httpmock/stub.go
+index e7534d7f807..787cdcf9dc6 100644
+--- a/pkg/httpmock/stub.go
++++ b/pkg/httpmock/stub.go
+@@ -18,6 +18,7 @@ type Stub struct {
+ 	matched   bool
+ 	Matcher   Matcher
+ 	Responder Responder
++	exclude   bool
+ }
+ 
+ func MatchAny(*http.Request) bool {

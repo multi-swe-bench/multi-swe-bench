@@ -1,0 +1,155 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/_config.js b/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/_config.js
+new file mode 100644
+index 000000000000..eac7b7291495
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/_config.js
+@@ -0,0 +1,29 @@
++import { test } from '../../test';
++
++export default test({
++	// There's a slight difference in the output between modes, because the server doesn't know
++	// whether or not the custom element has the readonly boolean, so it plays it save and
++	// assumes it does.
++	html: `
++		<button>click me</button>
++		<input>
++		<input>
++
++		<custom-element readonly="false"></custom-element>
++		<custom-element readonly="false"></custom-element>
++
++		<svg readonly="false"></svg>
++		<svg readonly="false"></svg>
++	`,
++	ssrHtml: `
++		<button>click me</button>
++		<input>
++		<input>
++
++		<custom-element></custom-element>
++		<custom-element readonly="false"></custom-element>
++
++		<svg readonly="false"></svg>
++		<svg readonly="false"></svg>
++`
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/main.svelte b/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/main.svelte
+new file mode 100644
+index 000000000000..88cb1cfee5a9
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-casing/main.svelte
+@@ -0,0 +1,18 @@
++<script>
++	const disabled = { dIsAbLeD: false };
++	const readonly = { readonly: false  }
++	const readOnly = { readOnly: false }
++</script>
++
++<!-- lowercase, then compare -->
++<button {...disabled}>click me</button>
++<input {...readonly}>
++<input {...readOnly}>
++
++<!-- keep casing -->
++<custom-element {...readonly}></custom-element>
++<custom-element {...readOnly}></custom-element>
++
++<!-- keep casing -->
++<svg {...readonly}></svg>
++<svg {...readOnly}></svg>
+diff --git a/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js
+new file mode 100644
+index 000000000000..6f53521673fb
+--- /dev/null
++++ b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/client/main.svelte.js
+@@ -0,0 +1,48 @@
++// main.svelte (Svelte VERSION)
++// Note: compiler output will change before 5.0 is released!
++import "svelte/internal/disclose-version";
++import * as $ from "svelte/internal";
++
++var frag = $.template(`<div></div> <svg></svg> <custom-element></custom-element> <div></div> <svg></svg> <custom-element></custom-element>`, true);
++
++export default function Main($$anchor, $$props) {
++	$.push($$props, true);
++
++	// needs to be a snapshot test because jsdom does auto-correct the attribute casing
++	let x = $.source('test');
++	let y = $.source(() => 'test');
++	/* Init */
++	var fragment = $.open_frag($$anchor, false, frag);
++	var node = $.child_frag(fragment);
++	var svg = $.sibling($.sibling(node));
++	var custom_element = $.sibling($.sibling(svg));
++	var div = $.sibling($.sibling(custom_element));
++	var svg_1 = $.sibling($.sibling(div));
++	var custom_element_1 = $.sibling($.sibling(svg_1));
++
++	/* Update */
++	$.attr_effect(div, "foobar", () => $.get(y)());
++	$.attr_effect(svg_1, "viewBox", () => $.get(y)());
++	$.set_custom_element_data_effect(custom_element_1, "fooBar", () => $.get(y)());
++
++	var node_foobar;
++	var svg_viewBox;
++	var custom_element_fooBar;
++
++	$.render_effect(() => {
++		if (node_foobar !== (node_foobar = $.get(x))) {
++			$.attr(node, "foobar", node_foobar);
++		}
++
++		if (svg_viewBox !== (svg_viewBox = $.get(x))) {
++			$.attr(svg, "viewBox", svg_viewBox);
++		}
++
++		if (custom_element_fooBar !== (custom_element_fooBar = $.get(x))) {
++			$.set_custom_element_data(custom_element, "fooBar", custom_element_fooBar);
++		}
++	});
++
++	$.close_frag($$anchor, fragment);
++	$.pop();
++}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/server/main.svelte.js b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/server/main.svelte.js
+new file mode 100644
+index 000000000000..0352ce77aa33
+--- /dev/null
++++ b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/_expected/server/main.svelte.js
+@@ -0,0 +1,14 @@
++// main.svelte (Svelte VERSION)
++// Note: compiler output will change before 5.0 is released!
++import * as $ from "svelte/internal/server";
++
++export default function Main($$payload, $$props) {
++	$.push(true);
++
++	// needs to be a snapshot test because jsdom does auto-correct the attribute casing
++	let x = 'test';
++	let y = () => 'test';
++
++	$$payload.out += `<div${$.attr("foobar", x, false)}></div> <svg${$.attr("viewBox", x, false)}></svg> <custom-element${$.attr("foobar", x, false)}></custom-element> <div${$.attr("foobar", y(), false)}></div> <svg${$.attr("viewBox", y(), false)}></svg> <custom-element${$.attr("foobar", y(), false)}></custom-element>`;
++	$.pop();
++}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/main.svelte b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/main.svelte
+new file mode 100644
+index 000000000000..a38659a486e2
+--- /dev/null
++++ b/packages/svelte/tests/snapshot/samples/dynamic-attributes-casing/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++    // needs to be a snapshot test because jsdom does auto-correct the attribute casing
++    let x = $state('test');
++    let y = $state(() => 'test');
++</script>
++
++<div fooBar={x}></div>
++<svg viewBox={x}></svg>
++<custom-element fooBar={x}></custom-element>
++
++<!-- force them into singular render effects by using function invocations -->
++<div fooBar={y()}></div>
++<svg viewBox={y()} ></svg>
++<custom-element fooBar={y()}></custom-element>

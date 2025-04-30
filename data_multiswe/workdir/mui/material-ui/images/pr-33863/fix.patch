@@ -1,0 +1,457 @@
+diff --git a/docs/pages/material-ui/api/tab-scroll-button.json b/docs/pages/material-ui/api/tab-scroll-button.json
+index 2338234e3219e5..d1d162842ba7f3 100644
+--- a/docs/pages/material-ui/api/tab-scroll-button.json
++++ b/docs/pages/material-ui/api/tab-scroll-button.json
+@@ -11,6 +11,20 @@
+     "children": { "type": { "name": "node" } },
+     "classes": { "type": { "name": "object" } },
+     "disabled": { "type": { "name": "bool" }, "default": "false" },
++    "slotProps": {
++      "type": {
++        "name": "shape",
++        "description": "{ endScrollButtonIcon?: func<br>&#124;&nbsp;object, startScrollButtonIcon?: func<br>&#124;&nbsp;object }"
++      },
++      "default": "{}"
++    },
++    "slots": {
++      "type": {
++        "name": "shape",
++        "description": "{ EndScrollButtonIcon?: elementType, StartScrollButtonIcon?: elementType }"
++      },
++      "default": "{}"
++    },
+     "sx": {
+       "type": {
+         "name": "union",
+diff --git a/docs/pages/material-ui/api/tabs.json b/docs/pages/material-ui/api/tabs.json
+index eb8a853409a260..ea85edeb9456c8 100644
+--- a/docs/pages/material-ui/api/tabs.json
++++ b/docs/pages/material-ui/api/tabs.json
+@@ -26,6 +26,20 @@
+       "default": "'auto'"
+     },
+     "selectionFollowsFocus": { "type": { "name": "bool" } },
++    "slotProps": {
++      "type": {
++        "name": "shape",
++        "description": "{ endScrollButtonIcon?: func<br>&#124;&nbsp;object, startScrollButtonIcon?: func<br>&#124;&nbsp;object }"
++      },
++      "default": "{}"
++    },
++    "slots": {
++      "type": {
++        "name": "shape",
++        "description": "{ EndScrollButtonIcon?: elementType, StartScrollButtonIcon?: elementType }"
++      },
++      "default": "{}"
++    },
+     "sx": {
+       "type": {
+         "name": "union",
+diff --git a/docs/translations/api-docs/tab-scroll-button/tab-scroll-button.json b/docs/translations/api-docs/tab-scroll-button/tab-scroll-button.json
+index 4e28488d137e17..7b1f00b7b6089a 100644
+--- a/docs/translations/api-docs/tab-scroll-button/tab-scroll-button.json
++++ b/docs/translations/api-docs/tab-scroll-button/tab-scroll-button.json
+@@ -6,6 +6,8 @@
+     "direction": "The direction the button should indicate.",
+     "disabled": "If <code>true</code>, the component is disabled.",
+     "orientation": "The component orientation (layout flow direction).",
++    "slotProps": "The extra props for the slot components. You can override the existing props or add new ones.",
++    "slots": "The components used for each slot inside.",
+     "sx": "The system prop that allows defining system overrides as well as additional CSS styles. See the <a href=\"/system/getting-started/the-sx-prop/\">`sx` page</a> for more details."
+   },
+   "classDescriptions": {
+diff --git a/docs/translations/api-docs/tabs/tabs.json b/docs/translations/api-docs/tabs/tabs.json
+index c52c0548d47842..4fae2073b12685 100644
+--- a/docs/translations/api-docs/tabs/tabs.json
++++ b/docs/translations/api-docs/tabs/tabs.json
+@@ -15,6 +15,8 @@
+     "ScrollButtonComponent": "The component used to render the scroll buttons.",
+     "scrollButtons": "Determine behavior of scroll buttons when tabs are set to scroll:<br>- <code>auto</code> will only present them when not all the items are visible. - <code>true</code> will always present them. - <code>false</code> will never present them.<br>By default the scroll buttons are hidden on mobile. This behavior can be disabled with <code>allowScrollButtonsMobile</code>.",
+     "selectionFollowsFocus": "If <code>true</code> the selected tab changes on focus. Otherwise it only changes on activation.",
++    "slotProps": "The extra props for the slot components. You can override the existing props or add new ones.",
++    "slots": "The components used for each slot inside.",
+     "sx": "The system prop that allows defining system overrides as well as additional CSS styles. See the <a href=\"/system/getting-started/the-sx-prop/\">`sx` page</a> for more details.",
+     "TabIndicatorProps": "Props applied to the tab indicator element.",
+     "TabScrollButtonProps": "Props applied to the <a href=\"/material-ui/api/tab-scroll-button/\"><code>TabScrollButton</code></a> element.",
+diff --git a/packages/mui-material/src/TabScrollButton/TabScrollButton.d.ts b/packages/mui-material/src/TabScrollButton/TabScrollButton.d.ts
+index adb2a62c236c0f..3af46711d867a4 100644
+--- a/packages/mui-material/src/TabScrollButton/TabScrollButton.d.ts
++++ b/packages/mui-material/src/TabScrollButton/TabScrollButton.d.ts
+@@ -1,8 +1,16 @@
+ import * as React from 'react';
+ import { SxProps } from '@mui/system';
+-import { InternalStandardProps as StandardProps, Theme } from '..';
++import { SlotComponentProps } from '@mui/base';
++import { InternalStandardProps as StandardProps, SvgIcon, Theme } from '..';
+ import { TabScrollButtonClasses } from './tabScrollButtonClasses';
+ 
++export interface TabScrollButtonStartIconSlotPropsOverrides {}
++export interface TabScrollButtonEndIconSlotPropsOverrides {}
++
++export interface TabScrollButtonOwnerState extends TabScrollButtonProps {
++  isRtl: boolean;
++}
++
+ export interface TabScrollButtonProps extends StandardProps<React.HTMLAttributes<HTMLDivElement>> {
+   /**
+    * The content of the component.
+@@ -12,6 +20,31 @@ export interface TabScrollButtonProps extends StandardProps<React.HTMLAttributes
+    * Override or extend the styles applied to the component.
+    */
+   classes?: Partial<TabScrollButtonClasses>;
++  /**
++   * The components used for each slot inside.
++   * @default {}
++   */
++  slots?: {
++    StartScrollButtonIcon?: React.ElementType;
++    EndScrollButtonIcon?: React.ElementType;
++  };
++  /**
++   * The extra props for the slot components.
++   * You can override the existing props or add new ones.
++   * @default {}
++   */
++  slotProps?: {
++    startScrollButtonIcon?: SlotComponentProps<
++      typeof SvgIcon,
++      TabScrollButtonStartIconSlotPropsOverrides,
++      TabScrollButtonOwnerState
++    >;
++    endScrollButtonIcon?: SlotComponentProps<
++      typeof SvgIcon,
++      TabScrollButtonEndIconSlotPropsOverrides,
++      TabScrollButtonOwnerState
++    >;
++  };
+   /**
+    * The direction the button should indicate.
+    */
+diff --git a/packages/mui-material/src/TabScrollButton/TabScrollButton.js b/packages/mui-material/src/TabScrollButton/TabScrollButton.js
+index d804bf95074803..03d62efbd3c243 100644
+--- a/packages/mui-material/src/TabScrollButton/TabScrollButton.js
++++ b/packages/mui-material/src/TabScrollButton/TabScrollButton.js
+@@ -2,7 +2,7 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+-import { unstable_composeClasses as composeClasses } from '@mui/base';
++import { unstable_composeClasses as composeClasses, useSlotProps } from '@mui/base';
+ import KeyboardArrowLeft from '../internal/svg-icons/KeyboardArrowLeft';
+ import KeyboardArrowRight from '../internal/svg-icons/KeyboardArrowRight';
+ import ButtonBase from '../ButtonBase';
+@@ -47,7 +47,15 @@ const TabScrollButtonRoot = styled(ButtonBase, {
+ 
+ const TabScrollButton = React.forwardRef(function TabScrollButton(inProps, ref) {
+   const props = useThemeProps({ props: inProps, name: 'MuiTabScrollButton' });
+-  const { className, direction, orientation, disabled, ...other } = props;
++  const {
++    className,
++    slots = {},
++    slotProps = {},
++    direction,
++    orientation,
++    disabled,
++    ...other
++  } = props;
+ 
+   const theme = useTheme();
+   const isRtl = theme.direction === 'rtl';
+@@ -56,6 +64,27 @@ const TabScrollButton = React.forwardRef(function TabScrollButton(inProps, ref)
+ 
+   const classes = useUtilityClasses(ownerState);
+ 
++  const StartButtonIcon = slots.StartScrollButtonIcon ?? KeyboardArrowLeft;
++  const EndButtonIcon = slots.EndScrollButtonIcon ?? KeyboardArrowRight;
++
++  const startButtonIconProps = useSlotProps({
++    elementType: StartButtonIcon,
++    externalSlotProps: slotProps.startScrollButtonIcon,
++    additionalProps: {
++      fontSize: 'small',
++    },
++    ownerState,
++  });
++
++  const endButtonIconProps = useSlotProps({
++    elementType: EndButtonIcon,
++    externalSlotProps: slotProps.endScrollButtonIcon,
++    additionalProps: {
++      fontSize: 'small',
++    },
++    ownerState,
++  });
++
+   return (
+     <TabScrollButtonRoot
+       component="div"
+@@ -67,9 +96,9 @@ const TabScrollButton = React.forwardRef(function TabScrollButton(inProps, ref)
+       {...other}
+     >
+       {direction === 'left' ? (
+-        <KeyboardArrowLeft fontSize="small" />
++        <StartButtonIcon {...startButtonIconProps} />
+       ) : (
+-        <KeyboardArrowRight fontSize="small" />
++        <EndButtonIcon {...endButtonIconProps} />
+       )}
+     </TabScrollButtonRoot>
+   );
+@@ -105,6 +134,23 @@ TabScrollButton.propTypes /* remove-proptypes */ = {
+    * The component orientation (layout flow direction).
+    */
+   orientation: PropTypes.oneOf(['horizontal', 'vertical']).isRequired,
++  /**
++   * The extra props for the slot components.
++   * You can override the existing props or add new ones.
++   * @default {}
++   */
++  slotProps: PropTypes.shape({
++    endScrollButtonIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++    startScrollButtonIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++  }),
++  /**
++   * The components used for each slot inside.
++   * @default {}
++   */
++  slots: PropTypes.shape({
++    EndScrollButtonIcon: PropTypes.elementType,
++    StartScrollButtonIcon: PropTypes.elementType,
++  }),
+   /**
+    * The system prop that allows defining system overrides as well as additional CSS styles.
+    */
+diff --git a/packages/mui-material/src/TabScrollButton/TabScrollButton.spec.tsx b/packages/mui-material/src/TabScrollButton/TabScrollButton.spec.tsx
+new file mode 100644
+index 00000000000000..c0449118ae062f
+--- /dev/null
++++ b/packages/mui-material/src/TabScrollButton/TabScrollButton.spec.tsx
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import TabScrollButton from '@mui/material/TabScrollButton';
++import SvgIcon from '@mui/material/SvgIcon';
++
++function SampleIcon() {
++  return (
++    <SvgIcon>
++      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
++    </SvgIcon>
++  );
++}
++
++// Test for slots and slotProps
++<TabScrollButton
++  direction="left"
++  orientation="horizontal"
++  slots={{
++    StartScrollButtonIcon: SampleIcon,
++    EndScrollButtonIcon: SampleIcon,
++  }}
++  slotProps={{
++    endScrollButtonIcon: (ownerState) => ({
++      'data-testid': 'test-label-scrollButtonEnd',
++      fontSize: ownerState.disabled ? 'large' : 'small',
++    }),
++    startScrollButtonIcon: (ownerState) => ({
++      'data-testid': 'test-label-scrollButtonStart',
++      fontSize: ownerState.disabled ? 'large' : 'small',
++    }),
++  }}
++/>;
+diff --git a/packages/mui-material/src/Tabs/Tabs.d.ts b/packages/mui-material/src/Tabs/Tabs.d.ts
+index 30de5788480316..4fc93a32af82b1 100644
+--- a/packages/mui-material/src/Tabs/Tabs.d.ts
++++ b/packages/mui-material/src/Tabs/Tabs.d.ts
+@@ -1,14 +1,29 @@
+ import * as React from 'react';
+ import { SxProps } from '@mui/system';
++import { SlotComponentProps } from '@mui/base';
+ import { OverridableStringUnion } from '@mui/types';
+ import { Theme } from '../styles';
+ import ButtonBase from '../ButtonBase';
+ import { TabScrollButtonProps } from '../TabScrollButton';
+ import { OverridableComponent, OverrideProps } from '../OverridableComponent';
+ import { TabsClasses } from './tabsClasses';
++import SvgIcon from '../SvgIcon';
+ 
+ export interface TabsPropsIndicatorColorOverrides {}
+ 
++export interface TabsStartScrollButtonIconSlotPropsOverrides {}
++export interface TabsEndScrollButtonIconSlotPropsOverrides {}
++
++export interface TabsOwnerState extends TabsProps {
++  vertical: boolean;
++  fixed: boolean;
++  hideScrollbar: boolean;
++  scrollableX: boolean;
++  scrollableY: boolean;
++  centered: boolean;
++  scrollButtonsHideMobile: boolean;
++}
++
+ export interface TabsTypeMap<P = {}, D extends React.ElementType = typeof ButtonBase> {
+   props: P & {
+     /**
+@@ -48,6 +63,31 @@ export interface TabsTypeMap<P = {}, D extends React.ElementType = typeof Button
+      * Override or extend the styles applied to the component.
+      */
+     classes?: Partial<TabsClasses>;
++    /**
++     * The components used for each slot inside.
++     * @default {}
++     */
++    slots?: {
++      StartScrollButtonIcon?: React.ElementType;
++      EndScrollButtonIcon?: React.ElementType;
++    };
++    /**
++     * The extra props for the slot components.
++     * You can override the existing props or add new ones.
++     * @default {}
++     */
++    slotProps?: {
++      startScrollButtonIcon?: SlotComponentProps<
++        typeof SvgIcon,
++        TabsStartScrollButtonIconSlotPropsOverrides,
++        TabsOwnerState
++      >;
++      endScrollButtonIcon?: SlotComponentProps<
++        typeof SvgIcon,
++        TabsEndScrollButtonIconSlotPropsOverrides,
++        TabsOwnerState
++      >;
++    };
+     /**
+      * Determines the color of the indicator.
+      * @default 'primary'
+diff --git a/packages/mui-material/src/Tabs/Tabs.js b/packages/mui-material/src/Tabs/Tabs.js
+index 8e503ee2d66064..46c7cee6a62ceb 100644
+--- a/packages/mui-material/src/Tabs/Tabs.js
++++ b/packages/mui-material/src/Tabs/Tabs.js
+@@ -3,7 +3,7 @@ import { isFragment } from 'react-is';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+ import { refType } from '@mui/utils';
+-import { unstable_composeClasses as composeClasses } from '@mui/base';
++import { unstable_composeClasses as composeClasses, useSlotProps } from '@mui/base';
+ import styled from '../styles/styled';
+ import useThemeProps from '../styles/useThemeProps';
+ import useTheme from '../styles/useTheme';
+@@ -248,6 +248,8 @@ const Tabs = React.forwardRef(function Tabs(inProps, ref) {
+     ScrollButtonComponent = TabScrollButton,
+     scrollButtons = 'auto',
+     selectionFollowsFocus,
++    slots = {},
++    slotProps = {},
+     TabIndicatorProps = {},
+     TabScrollButtonProps = {},
+     textColor = 'primary',
+@@ -286,6 +288,18 @@ const Tabs = React.forwardRef(function Tabs(inProps, ref) {
+ 
+   const classes = useUtilityClasses(ownerState);
+ 
++  const startScrollButtonIconProps = useSlotProps({
++    elementType: slots.StartScrollButtonIcon,
++    externalSlotProps: slotProps.startScrollButtonIcon,
++    ownerState,
++  });
++
++  const endScrollButtonIconProps = useSlotProps({
++    elementType: slots.EndScrollButtonIcon,
++    externalSlotProps: slotProps.endScrollButtonIcon,
++    ownerState,
++  });
++
+   if (process.env.NODE_ENV !== 'production') {
+     if (centered && scrollable) {
+       console.error(
+@@ -499,6 +513,8 @@ const Tabs = React.forwardRef(function Tabs(inProps, ref) {
+ 
+     conditionalElements.scrollButtonStart = showScrollButtons ? (
+       <ScrollButtonComponent
++        slots={{ StartScrollButtonIcon: slots.StartScrollButtonIcon }}
++        slotProps={{ startScrollButtonIcon: startScrollButtonIconProps }}
+         orientation={orientation}
+         direction={isRtl ? 'right' : 'left'}
+         onClick={handleStartScrollClick}
+@@ -510,6 +526,10 @@ const Tabs = React.forwardRef(function Tabs(inProps, ref) {
+ 
+     conditionalElements.scrollButtonEnd = showScrollButtons ? (
+       <ScrollButtonComponent
++        slots={{ EndScrollButtonIcon: slots.EndScrollButtonIcon }}
++        slotProps={{
++          endScrollButtonIcon: endScrollButtonIconProps,
++        }}
+         orientation={orientation}
+         direction={isRtl ? 'left' : 'right'}
+         onClick={handleEndScrollClick}
+@@ -857,6 +877,23 @@ Tabs.propTypes /* remove-proptypes */ = {
+    * changes on activation.
+    */
+   selectionFollowsFocus: PropTypes.bool,
++  /**
++   * The extra props for the slot components.
++   * You can override the existing props or add new ones.
++   * @default {}
++   */
++  slotProps: PropTypes.shape({
++    endScrollButtonIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++    startScrollButtonIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++  }),
++  /**
++   * The components used for each slot inside.
++   * @default {}
++   */
++  slots: PropTypes.shape({
++    EndScrollButtonIcon: PropTypes.elementType,
++    StartScrollButtonIcon: PropTypes.elementType,
++  }),
+   /**
+    * The system prop that allows defining system overrides as well as additional CSS styles.
+    */
+diff --git a/packages/mui-material/src/Tabs/Tabs.spec.tsx b/packages/mui-material/src/Tabs/Tabs.spec.tsx
+index 249ed42187eac9..c52c946895b1db 100644
+--- a/packages/mui-material/src/Tabs/Tabs.spec.tsx
++++ b/packages/mui-material/src/Tabs/Tabs.spec.tsx
+@@ -1,5 +1,6 @@
+ import * as React from 'react';
+ import Tabs from '@mui/material/Tabs';
++import SvgIcon from '@mui/material/SvgIcon';
+ 
+ function testOnChange() {
+   function handleTabsChange(event: React.SyntheticEvent, tabsValue: unknown) {}
+@@ -19,3 +20,33 @@ function TabTest() {
+ function TabIndicatorSxTest() {
+   return <Tabs TabIndicatorProps={{ sx: {} }} />;
+ }
++
++function SampleIcon() {
++  return (
++    <SvgIcon>
++      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
++    </SvgIcon>
++  );
++}
++
++// Test for slots and slotProps
++<Tabs
++  value={0}
++  variant="scrollable"
++  scrollButtons
++  textColor="secondary"
++  slots={{
++    StartScrollButtonIcon: SampleIcon,
++    EndScrollButtonIcon: SampleIcon,
++  }}
++  slotProps={{
++    endScrollButtonIcon: (ownerState) => ({
++      'data-testid': 'test-label-scrollButtonEnd',
++      fontSize: ownerState.textColor === 'secondary' ? 'large' : 'small',
++    }),
++    startScrollButtonIcon: (ownerState) => ({
++      'data-testid': 'test-label-scrollButtonStart',
++      fontSize: ownerState.textColor === 'secondary' ? 'large' : 'small',
++    }),
++  }}
++/>;

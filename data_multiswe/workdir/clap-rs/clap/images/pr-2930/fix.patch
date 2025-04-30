@@ -1,0 +1,62 @@
+diff --git a/clap_derive/src/attrs.rs b/clap_derive/src/attrs.rs
+index 283027aa972..e442a37237c 100644
+--- a/clap_derive/src/attrs.rs
++++ b/clap_derive/src/attrs.rs
+@@ -812,6 +812,11 @@ impl Attrs {
+         }
+     }
+ 
++    pub fn help_heading(&self) -> TokenStream {
++        let help_heading = self.help_heading.as_ref().into_iter();
++        quote!( #(#help_heading)* )
++    }
++
+     pub fn cased_name(&self) -> TokenStream {
+         self.name.clone().translate(*self.casing)
+     }
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index 5ce28376b8c..b25dc9c99fc 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -199,15 +199,18 @@ pub fn gen_augment(
+             Kind::Flatten => {
+                 let ty = &field.ty;
+                 let old_heading_var = format_ident!("__clap_old_heading");
++                let help_heading = attrs.help_heading();
+                 if override_required {
+                     Some(quote_spanned! { kind.span()=>
+                         let #old_heading_var = #app_var.get_help_heading();
++                        let #app_var = #app_var #help_heading;
+                         let #app_var = <#ty as clap::Args>::augment_args_for_update(#app_var);
+                         let #app_var = #app_var.help_heading(#old_heading_var);
+                     })
+                 } else {
+                     Some(quote_spanned! { kind.span()=>
+                         let #old_heading_var = #app_var.get_help_heading();
++                        let #app_var = #app_var #help_heading;
+                         let #app_var = <#ty as clap::Args>::augment_args(#app_var);
+                         let #app_var = #app_var.help_heading(#old_heading_var);
+                     })
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index d97144bbd75..47c7956266f 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -171,15 +171,18 @@ fn gen_augment(
+                     Unnamed(FieldsUnnamed { ref unnamed, .. }) if unnamed.len() == 1 => {
+                         let ty = &unnamed[0];
+                         let old_heading_var = format_ident!("__clap_old_heading");
++                        let help_heading = attrs.help_heading();
+                         let subcommand = if override_required {
+                             quote! {
+                                 let #old_heading_var = #app_var.get_help_heading();
++                                let #app_var = #app_var #help_heading;
+                                 let #app_var = <#ty as clap::Subcommand>::augment_subcommands_for_update(#app_var);
+                                 let #app_var = #app_var.help_heading(#old_heading_var);
+                             }
+                         } else {
+                             quote! {
+                                 let #old_heading_var = #app_var.get_help_heading();
++                                let #app_var = #app_var #help_heading;
+                                 let #app_var = <#ty as clap::Subcommand>::augment_subcommands(#app_var);
+                                 let #app_var = #app_var.help_heading(#old_heading_var);
+                             }

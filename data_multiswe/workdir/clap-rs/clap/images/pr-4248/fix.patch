@@ -1,0 +1,254 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 2bc7d3ae3a9..aabce8f73fc 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -227,6 +227,7 @@ Easier to catch changes:
+ - `ErrorKind::EmptyValue` replaced with `ErrorKind::InvalidValue` to remove an unnecessary special case (#3676, #3968)
+ - `ErrorKind::UnrecognizedSubcommand` replaced with `ErrorKind::InvalidSubcommand` to remove an unnecessary special case (#3676)
+ - Changed the default type of `allow_external_subcommands` from `String` to `OsString` as that is less likely to cause bugs in user applications (#3990)
++- `Command::render_usage` now returns a `StyledStr`
+ - *(derive)* Changed the default for arguments from `parse` to `value_parser`, removing `parse` support (#3827, #3981)
+   - `#[clap(value_parser)]` and `#[clap(action)]` are now redundant
+ - *(derive)* `subcommand_required(true).arg_required_else_help(true)` is set instead of `SubcommandRequiredElseHelp` to give more meaningful errors when subcommands are missing and to reduce redundancy (#3280)
+@@ -256,6 +257,7 @@ Deprecated
+ - `Command::trailing_var_arg` in favor of `Arg::trailing_var_arg` to make it clearer which arg it is meant to apply to (#4187)
+ - `Command::allow_hyphen_values` in favor of `Arg::allow_hyphen_values` to make it clearer which arg it is meant to apply to (#4187)
+ - `Command::allow_negative_numbers` in favor of `Arg::allow_negative_numbers` to make it clearer which arg it is meant to apply to (#4187)
++- *(help)* Deprecated `Command::write_help` and `Command::write_long_help` in favor of `Command::render_help` and `Command::render_long_help`
+ - *(derive)* `structopt` and `clap` attributes in favor of the more specific `command`, `arg`, and `value` to open the door for [more features](https://github.com/clap-rs/clap/issues/1807) and [clarify relationship to the builder](https://github.com/clap-rs/clap/discussions/4090) (#1807, #4180)
+ - *(derive)* `#[clap(value_parser)]` and `#[clap(action)]` defaulted attributes (its the default) (#3976)
+ 
+@@ -270,8 +272,11 @@ Behavior Changes
+ - Can now pass runtime generated data to `Command`, `Arg`, `ArgGroup`, `PossibleValue`, etc without managing lifetimes with the `string` feature flag (#2150, #4223)
+ - New default `error-context`, `help` and `usage` feature flags that can be turned off for smaller binaries (#4236)
+ - *(error)* `Error::apply` for changing the formatter for dropping binary size (#4111)
++- *(error)* `Command::render` which can render to plain text or ANSI escape codes
+ - *(help)* Show `PossibleValue::help` in long help (`--help`) (#3312)
+ - *(help)* New `{tab}` variable for `Command::help_template` (#4161)
++- *(help)* `Command::render_help` and `Command::render_long_help` which can render to plain text or ANSI escape codes
++- *(help)* `Command::render_usage` now returns a `StyledStr` which can render to plain text or ANSI escape codes
+ 
+ ### Fixes
+ 
+diff --git a/clap_bench/benches/04_new_help.rs b/clap_bench/benches/04_new_help.rs
+index 16deab26125..3398b58ef4b 100644
+--- a/clap_bench/benches/04_new_help.rs
++++ b/clap_bench/benches/04_new_help.rs
+@@ -1,13 +1,10 @@
+ use clap::Command;
+ use clap::{arg, Arg, ArgAction};
+ use criterion::{criterion_group, criterion_main, Criterion};
+-use std::io::Cursor;
+ 
+ fn build_help(cmd: &mut Command) -> String {
+-    let mut buf = Cursor::new(Vec::with_capacity(50));
+-    cmd.write_help(&mut buf).unwrap();
+-    let content = buf.into_inner();
+-    String::from_utf8(content).unwrap()
++    let help = cmd.render_help();
++    help.to_string()
+ }
+ 
+ fn app_example1() -> Command {
+diff --git a/clap_bench/benches/05_ripgrep.rs b/clap_bench/benches/05_ripgrep.rs
+index 36b72a58490..efca09c835b 100644
+--- a/clap_bench/benches/05_ripgrep.rs
++++ b/clap_bench/benches/05_ripgrep.rs
+@@ -6,7 +6,6 @@
+ use clap::{value_parser, Arg, ArgAction, Command};
+ use criterion::{criterion_group, criterion_main, Criterion};
+ use std::collections::HashMap;
+-use std::io::Cursor;
+ 
+ use lazy_static::lazy_static;
+ 
+@@ -281,10 +280,8 @@ fn app_long() -> Command {
+ 
+ /// Build the help text of an application.
+ fn build_help(cmd: &mut Command) -> String {
+-    let mut buf = Cursor::new(Vec::with_capacity(50));
+-    cmd.write_help(&mut buf).unwrap();
+-    let content = buf.into_inner();
+-    String::from_utf8(content).unwrap()
++    let help = cmd.render_help();
++    help.to_string()
+ }
+ 
+ /// Build a clap application parameterized by usage strings.
+diff --git a/src/builder/command.rs b/src/builder/command.rs
+index def9139452b..c0c115abec9 100644
+--- a/src/builder/command.rs
++++ b/src/builder/command.rs
+@@ -759,9 +759,9 @@ impl Command {
+         c.print()
+     }
+ 
+-    /// Writes the short help message (`-h`) to a [`io::Write`] object.
++    /// Render the short help message (`-h`) to a [`StyledStr`]
+     ///
+-    /// See also [`Command::write_long_help`].
++    /// See also [`Command::render_long_help`].
+     ///
+     /// # Examples
+     ///
+@@ -770,24 +770,24 @@ impl Command {
+     /// use std::io;
+     /// let mut cmd = Command::new("myprog");
+     /// let mut out = io::stdout();
+-    /// cmd.write_help(&mut out).expect("failed to write to stdout");
++    /// let help = cmd.render_help();
++    /// println!("{}", help);
+     /// ```
+     /// [`io::Write`]: std::io::Write
+     /// [`-h` (short)]: Arg::help()
+     /// [`--help` (long)]: Arg::long_help()
+-    pub fn write_help<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
++    pub fn render_help(&mut self) -> StyledStr {
+         self._build_self(false);
+ 
+         let mut styled = StyledStr::new();
+         let usage = Usage::new(self);
+         write_help(&mut styled, self, &usage, false);
+-        write!(w, "{}", styled)?;
+-        w.flush()
++        styled
+     }
+ 
+-    /// Writes the long help message (`--help`) to a [`io::Write`] object.
++    /// Render the long help message (`--help`) to a [`StyledStr`].
+     ///
+-    /// See also [`Command::write_help`].
++    /// See also [`Command::render_help`].
+     ///
+     /// # Examples
+     ///
+@@ -796,11 +796,41 @@ impl Command {
+     /// use std::io;
+     /// let mut cmd = Command::new("myprog");
+     /// let mut out = io::stdout();
+-    /// cmd.write_long_help(&mut out).expect("failed to write to stdout");
++    /// let help = cmd.render_long_help();
++    /// println!("{}", help);
+     /// ```
+     /// [`io::Write`]: std::io::Write
+     /// [`-h` (short)]: Arg::help()
+     /// [`--help` (long)]: Arg::long_help()
++    pub fn render_long_help(&mut self) -> StyledStr {
++        self._build_self(false);
++
++        let mut styled = StyledStr::new();
++        let usage = Usage::new(self);
++        write_help(&mut styled, self, &usage, true);
++        styled
++    }
++
++    #[doc(hidden)]
++    #[cfg_attr(
++        feature = "deprecated",
++        deprecated(since = "4.0.0", note = "Replaced with `Command::render_help`")
++    )]
++    pub fn write_help<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
++        self._build_self(false);
++
++        let mut styled = StyledStr::new();
++        let usage = Usage::new(self);
++        write_help(&mut styled, self, &usage, false);
++        write!(w, "{}", styled)?;
++        w.flush()
++    }
++
++    #[doc(hidden)]
++    #[cfg_attr(
++        feature = "deprecated",
++        deprecated(since = "4.0.0", note = "Replaced with `Command::render_long_help`")
++    )]
+     pub fn write_long_help<W: io::Write>(&mut self, w: &mut W) -> io::Result<()> {
+         self._build_self(false);
+ 
+@@ -869,8 +899,8 @@ impl Command {
+     /// let mut cmd = Command::new("myprog");
+     /// println!("{}", cmd.render_usage());
+     /// ```
+-    pub fn render_usage(&mut self) -> String {
+-        self.render_usage_().unwrap_or_default().to_string()
++    pub fn render_usage(&mut self) -> StyledStr {
++        self.render_usage_().unwrap_or_default()
+     }
+ 
+     pub(crate) fn render_usage_(&mut self) -> Option<StyledStr> {
+diff --git a/src/builder/styled_str.rs b/src/builder/styled_str.rs
+index 5f2969e0405..01017e0f381 100644
+--- a/src/builder/styled_str.rs
++++ b/src/builder/styled_str.rs
+@@ -22,6 +22,12 @@ impl StyledStr {
+         }
+     }
+ 
++    /// Display using [ANSI Escape Code](https://en.wikipedia.org/wiki/ANSI_escape_code) styling
++    #[cfg(feature = "color")]
++    pub fn ansi(&self) -> impl std::fmt::Display + '_ {
++        AnsiDisplay { styled: self }
++    }
++
+     pub(crate) fn header(&mut self, msg: impl Into<String>) {
+         self.stylize_(Some(Style::Header), msg.into());
+     }
+@@ -289,6 +295,26 @@ impl std::fmt::Display for StyledStr {
+     }
+ }
+ 
++#[cfg(feature = "color")]
++struct AnsiDisplay<'s> {
++    styled: &'s StyledStr,
++}
++
++#[cfg(feature = "color")]
++impl std::fmt::Display for AnsiDisplay<'_> {
++    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
++        let mut buffer = termcolor::Buffer::ansi();
++        self.styled
++            .write_colored(&mut buffer)
++            .map_err(|_| std::fmt::Error)?;
++        let buffer = buffer.into_inner();
++        let buffer = String::from_utf8(buffer).map_err(|_| std::fmt::Error)?;
++        std::fmt::Display::fmt(&buffer, f)?;
++
++        Ok(())
++    }
++}
++
+ #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+ pub(crate) enum Style {
+     Header,
+diff --git a/src/error/mod.rs b/src/error/mod.rs
+index 181fd68aa67..58a409f84dd 100644
+--- a/src/error/mod.rs
++++ b/src/error/mod.rs
+@@ -195,6 +195,27 @@ impl<F: ErrorFormatter> Error<F> {
+         c.print()
+     }
+ 
++    /// Render the error message to a [`StyledStr`].
++    ///
++    /// # Example
++    /// ```no_run
++    /// use clap::Command;
++    ///
++    /// match Command::new("Command").try_get_matches() {
++    ///     Ok(matches) => {
++    ///         // do_something
++    ///     },
++    ///     Err(err) => {
++    ///         let err = err.render();
++    ///         println!("{}", err);
++    ///         // do_something
++    ///     },
++    /// };
++    /// ```
++    pub fn render(&self) -> StyledStr {
++        self.formatted().into_owned()
++    }
++
+     fn new(kind: ErrorKind) -> Self {
+         Self {
+             inner: Box::new(ErrorInner {

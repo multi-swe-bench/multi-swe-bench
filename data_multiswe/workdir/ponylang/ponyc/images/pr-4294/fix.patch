@@ -1,0 +1,35 @@
+diff --git a/.release-notes/fix-4284.md b/.release-notes/fix-4284.md
+new file mode 100644
+index 0000000000..77465a82c1
+--- /dev/null
++++ b/.release-notes/fix-4284.md
+@@ -0,0 +1,5 @@
++## Fix runtime segfault
++
++A segfault was introduced in ["Fix segfault caused by unsafe garbage collection optimization"](https://github.com/ponylang/ponyc/pull/4256). `tag` objects were being incorrectly traced which could eventually result in a segfault.
++
++If you are using Pony version 0.52.3 to 0.52.5, we recommend upgrading as soon as possible.
+diff --git a/src/libponyrt/gc/gc.c b/src/libponyrt/gc/gc.c
+index a99ce194b4..db8297fd5a 100644
+--- a/src/libponyrt/gc/gc.c
++++ b/src/libponyrt/gc/gc.c
+@@ -322,6 +322,9 @@ static void send_remote_object(pony_ctx_t* ctx, pony_actor_t* actor,
+     obj->rc--;
+   }
+ 
++  if(mutability == PONY_TRACE_OPAQUE)
++    return;
++
+   if(mutability == PONY_TRACE_MUTABLE || might_reference_actor(t))
+     recurse(ctx, p, t->trace);
+ }
+@@ -443,6 +446,9 @@ static void mark_remote_object(pony_ctx_t* ctx, pony_actor_t* actor,
+     acquire_object(ctx, actor, p, obj->immutable);
+   }
+ 
++  if(mutability == PONY_TRACE_OPAQUE)
++    return;
++
+   if(mutability == PONY_TRACE_MUTABLE || might_reference_actor(t))
+     recurse(ctx, p, t->trace);
+ }

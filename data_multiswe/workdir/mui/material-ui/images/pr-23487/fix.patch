@@ -1,0 +1,88 @@
+diff --git a/docs/src/pages/components/autocomplete/autocomplete.md b/docs/src/pages/components/autocomplete/autocomplete.md
+index 12871bd81873d1..358e5388269b60 100644
+--- a/docs/src/pages/components/autocomplete/autocomplete.md
++++ b/docs/src/pages/components/autocomplete/autocomplete.md
+@@ -274,6 +274,22 @@ Search within 10,000 randomly generated options. The list is virtualized thanks
+ 
+ {{"demo": "pages/components/autocomplete/Virtualize.js"}}
+ 
++## Events
++
++If you would like to prevent the default key handler behavior, you can set the event's `defaultMuiPrevented` property to `true`:
++
++```jsx
++<Autocomplete
++  onKeyDown={(event) => {
++    if (event.key === 'Enter') {
++      // Prevent's default 'Enter' behavior.
++      event.defaultMuiPrevented = false;
++      // your handler code
++    }
++  }}
++/>
++```
++
+ ## Limitations
+ 
+ ### autocomplete/autofill
+diff --git a/packages/material-ui/src/SwipeableDrawer/SwipeableDrawer.js b/packages/material-ui/src/SwipeableDrawer/SwipeableDrawer.js
+index 0a9394410cfb35..c1690a6b130f88 100644
+--- a/packages/material-ui/src/SwipeableDrawer/SwipeableDrawer.js
++++ b/packages/material-ui/src/SwipeableDrawer/SwipeableDrawer.js
+@@ -429,7 +429,7 @@ const SwipeableDrawer = React.forwardRef(function SwipeableDrawer(inProps, ref)
+     }
+ 
+     // We can only have one node at the time claiming ownership for handling the swipe.
+-    if (event.muiHandled) {
++    if (event.defaultMuiPrevented) {
+       return;
+     }
+ 
+@@ -466,7 +466,7 @@ const SwipeableDrawer = React.forwardRef(function SwipeableDrawer(inProps, ref)
+       }
+     }
+ 
+-    event.muiHandled = true;
++    event.defaultMuiPrevented = true;
+     nodeThatClaimedTheSwipe = null;
+     swipeInstance.current.startX = currentX;
+     swipeInstance.current.startY = currentY;
+diff --git a/packages/material-ui/src/useAutocomplete/useAutocomplete.js b/packages/material-ui/src/useAutocomplete/useAutocomplete.js
+index c5ae7de12867a3..1bc987e2cc5088 100644
+--- a/packages/material-ui/src/useAutocomplete/useAutocomplete.js
++++ b/packages/material-ui/src/useAutocomplete/useAutocomplete.js
+@@ -656,6 +656,14 @@ export default function useAutocomplete(props) {
+   };
+ 
+   const handleKeyDown = (other) => (event) => {
++    if (other.onKeyDown) {
++      other.onKeyDown(event);
++    }
++
++    if (event.defaultMuiPrevented) {
++      return;
++    }
++
+     if (focusedTag !== -1 && ['ArrowLeft', 'ArrowRight'].indexOf(event.key) === -1) {
+       setFocusedTag(-1);
+       focusTag(-1);
+@@ -723,7 +731,7 @@ export default function useAutocomplete(props) {
+             const option = filteredOptions[highlightedIndexRef.current];
+             const disabled = getOptionDisabled ? getOptionDisabled(option) : false;
+ 
+-            // We don't want to validate the form.
++            // Avoid early form validation, let the end-users continue filling the form.
+             event.preventDefault();
+ 
+             if (disabled) {
+@@ -775,10 +783,6 @@ export default function useAutocomplete(props) {
+         default:
+       }
+     }
+-
+-    if (other.onKeyDown) {
+-      other.onKeyDown(event);
+-    }
+   };
+ 
+   const handleFocus = (event) => {

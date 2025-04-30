@@ -1,0 +1,56 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/_config.js b/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/_config.js
+new file mode 100644
+index 000000000000..9cff16d9f54b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/_config.js
+@@ -0,0 +1,32 @@
++import { ok, test } from '../../test';
++import { flushSync } from 'svelte';
++
++export default test({
++	async test({ assert, target, instance }) {
++		const p = target.querySelector('p');
++		const btn = target.querySelector('button');
++		const input = target.querySelector('input');
++		ok(p);
++
++		flushSync(() => {
++			btn?.click();
++		});
++		assert.equal(p.innerHTML, '1');
++
++		flushSync(() => {
++			input?.click();
++		});
++		flushSync(() => {
++			btn?.click();
++		});
++		assert.equal(p.innerHTML, '1');
++
++		flushSync(() => {
++			input?.click();
++		});
++		flushSync(() => {
++			btn?.click();
++		});
++		assert.equal(p.innerHTML, '2');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/main.svelte b/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/main.svelte
+new file mode 100644
+index 000000000000..4ca6e613392b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/remove-spreaded-handlers/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	let checked = $state(true)
++	let count = $state(0)
++
++	const onclick = $derived(checked ? (() => { count++ }) : undefined)
++</script>
++
++<p>
++	{count}
++</p>
++<input type="checkbox" bind:checked />
++<button {...{onclick}}></button>

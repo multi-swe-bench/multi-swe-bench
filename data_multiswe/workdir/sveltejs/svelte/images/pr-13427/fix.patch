@@ -1,0 +1,292 @@
+diff --git a/.changeset/neat-ways-allow.md b/.changeset/neat-ways-allow.md
+new file mode 100644
+index 000000000000..9e821f6c7dce
+--- /dev/null
++++ b/.changeset/neat-ways-allow.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: enable snippets to fill slots
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SlotElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SlotElement.js
+index 9a2240a4d6f5..86734a07ab12 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SlotElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SlotElement.js
+@@ -1,4 +1,4 @@
+-/** @import { BlockStatement, Expression, ExpressionStatement, Property } from 'estree' */
++/** @import { BlockStatement, Expression, ExpressionStatement, Literal, Property } from 'estree' */
+ /** @import { AST } from '#compiler' */
+ /** @import { ComponentContext } from '../types' */
+ import * as b from '../../../../utils/builders.js';
+@@ -23,7 +23,6 @@ export function SlotElement(node, context) {
+ 
+ 	let is_default = true;
+ 
+-	/** @type {Expression} */
+ 	let name = b.literal('default');
+ 
+ 	for (const attribute of node.attributes) {
+@@ -33,7 +32,7 @@ export function SlotElement(node, context) {
+ 			const { value } = build_attribute_value(attribute.value, context);
+ 
+ 			if (attribute.name === 'name') {
+-				name = value;
++				name = /** @type {Literal} */ (value);
+ 				is_default = false;
+ 			} else if (attribute.name !== 'slot') {
+ 				if (attribute.metadata.expression.has_state) {
+@@ -58,10 +57,14 @@ export function SlotElement(node, context) {
+ 			? b.literal(null)
+ 			: b.arrow([b.id('$$anchor')], /** @type {BlockStatement} */ (context.visit(node.fragment)));
+ 
+-	const expression = is_default
+-		? b.call('$.default_slot', b.id('$$props'))
+-		: b.member(b.member(b.id('$$props'), '$$slots'), name, true, true);
++	const slot = b.call(
++		'$.slot',
++		context.state.node,
++		b.id('$$props'),
++		name,
++		props_expression,
++		fallback
++	);
+ 
+-	const slot = b.call('$.slot', context.state.node, expression, props_expression, fallback);
+ 	context.state.init.push(b.stmt(slot));
+ }
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/component.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/component.js
+index 03d873ba78b5..4463b5a1d0ae 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/component.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/component.js
+@@ -45,9 +45,7 @@ export function build_component(node, component_name, context, anchor = context.
+ 	/** @type {Identifier | MemberExpression | null} */
+ 	let bind_this = null;
+ 
+-	/**
+-	 * @type {ExpressionStatement[]}
+-	 */
++	/** @type {ExpressionStatement[]} */
+ 	const binding_initializers = [];
+ 
+ 	/**
+@@ -216,6 +214,9 @@ export function build_component(node, component_name, context, anchor = context.
+ 	/** @type {Statement[]} */
+ 	const snippet_declarations = [];
+ 
++	/** @type {import('estree').Property[]} */
++	const serialized_slots = [];
++
+ 	// Group children by slot
+ 	for (const child of node.fragment.nodes) {
+ 		if (child.type === 'SnippetBlock') {
+@@ -229,6 +230,9 @@ export function build_component(node, component_name, context, anchor = context.
+ 
+ 			push_prop(b.prop('init', child.expression, child.expression));
+ 
++			// Interop: allows people to pass snippets when component still uses slots
++			serialized_slots.push(b.init(child.expression.name, b.true));
++
+ 			continue;
+ 		}
+ 
+@@ -238,8 +242,6 @@ export function build_component(node, component_name, context, anchor = context.
+ 	}
+ 
+ 	// Serialize each slot
+-	/** @type {Property[]} */
+-	const serialized_slots = [];
+ 	for (const slot_name of Object.keys(children)) {
+ 		const block = /** @type {BlockStatement} */ (
+ 			context.visit(
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/visitors/SlotElement.js b/packages/svelte/src/compiler/phases/3-transform/server/visitors/SlotElement.js
+index 6627b7b97d01..7ece04ae3d66 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/visitors/SlotElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/visitors/SlotElement.js
+@@ -1,4 +1,4 @@
+-/** @import { BlockStatement, Expression, Property } from 'estree' */
++/** @import { BlockStatement, Expression, Literal, Property } from 'estree' */
+ /** @import { AST } from '#compiler' */
+ /** @import { ComponentContext } from '../types.js' */
+ import * as b from '../../../../utils/builders.js';
+@@ -15,8 +15,7 @@ export function SlotElement(node, context) {
+ 	/** @type {Expression[]} */
+ 	const spreads = [];
+ 
+-	/** @type {Expression} */
+-	let expression = b.call('$.default_slot', b.id('$$props'));
++	let name = b.literal('default');
+ 
+ 	for (const attribute of node.attributes) {
+ 		if (attribute.type === 'SpreadAttribute') {
+@@ -25,7 +24,7 @@ export function SlotElement(node, context) {
+ 			const value = build_attribute_value(attribute.value, context, false, true);
+ 
+ 			if (attribute.name === 'name') {
+-				expression = b.member(b.member_id('$$props.$$slots'), value, true, true);
++				name = /** @type {Literal} */ (value);
+ 			} else if (attribute.name !== 'slot') {
+ 				props.push(b.init(attribute.name, value));
+ 			}
+@@ -42,7 +41,14 @@ export function SlotElement(node, context) {
+ 			? b.literal(null)
+ 			: b.thunk(/** @type {BlockStatement} */ (context.visit(node.fragment)));
+ 
+-	const slot = b.call('$.slot', b.id('$$payload'), expression, props_expression, fallback);
++	const slot = b.call(
++		'$.slot',
++		b.id('$$payload'),
++		b.id('$$props'),
++		name,
++		props_expression,
++		fallback
++	);
+ 
+ 	context.state.template.push(empty_comment, b.stmt(slot), empty_comment);
+ }
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/component.js b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/component.js
+index 247f51ac8a1b..7da60cad21ca 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/component.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/component.js
+@@ -59,6 +59,7 @@ export function build_inline_component(node, expression, context) {
+ 			props_and_spreads.push(props);
+ 		}
+ 	}
++
+ 	for (const attribute of node.attributes) {
+ 		if (attribute.type === 'LetDirective') {
+ 			if (!slot_scope_applies_to_itself) {
+@@ -102,6 +103,9 @@ export function build_inline_component(node, expression, context) {
+ 	/** @type {Statement[]} */
+ 	const snippet_declarations = [];
+ 
++	/** @type {Property[]} */
++	const serialized_slots = [];
++
+ 	// Group children by slot
+ 	for (const child of node.fragment.nodes) {
+ 		if (child.type === 'SnippetBlock') {
+@@ -115,6 +119,9 @@ export function build_inline_component(node, expression, context) {
+ 
+ 			push_prop(b.prop('init', child.expression, child.expression));
+ 
++			// Interop: allows people to pass snippets when component still uses slots
++			serialized_slots.push(b.init(child.expression.name, b.true));
++
+ 			continue;
+ 		}
+ 
+@@ -142,9 +149,6 @@ export function build_inline_component(node, expression, context) {
+ 	}
+ 
+ 	// Serialize each slot
+-	/** @type {Property[]} */
+-	const serialized_slots = [];
+-
+ 	for (const slot_name of Object.keys(children)) {
+ 		const block = /** @type {BlockStatement} */ (
+ 			context.visit(
+diff --git a/packages/svelte/src/internal/client/dom/blocks/slot.js b/packages/svelte/src/internal/client/dom/blocks/slot.js
+index f6b48b6ec6d5..10b295958280 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/slot.js
++++ b/packages/svelte/src/internal/client/dom/blocks/slot.js
+@@ -2,21 +2,30 @@ import { hydrate_next, hydrating } from '../hydration.js';
+ 
+ /**
+  * @param {Comment} anchor
+- * @param {void | ((anchor: Comment, slot_props: Record<string, unknown>) => void)} slot_fn
++ * @param {Record<string, any>} $$props
++ * @param {string} name
+  * @param {Record<string, unknown>} slot_props
+  * @param {null | ((anchor: Comment) => void)} fallback_fn
+  */
+-export function slot(anchor, slot_fn, slot_props, fallback_fn) {
++export function slot(anchor, $$props, name, slot_props, fallback_fn) {
+ 	if (hydrating) {
+ 		hydrate_next();
+ 	}
+ 
++	var slot_fn = $$props.$$slots?.[name];
++	// Interop: Can use snippets to fill slots
++	var is_interop = false;
++	if (slot_fn === true) {
++		slot_fn = $$props[name === 'default' ? 'children' : name];
++		is_interop = true;
++	}
++
+ 	if (slot_fn === undefined) {
+ 		if (fallback_fn !== null) {
+ 			fallback_fn(anchor);
+ 		}
+ 	} else {
+-		slot_fn(anchor, slot_props);
++		slot_fn(anchor, is_interop ? () => slot_props : slot_props);
+ 	}
+ }
+ 
+diff --git a/packages/svelte/src/internal/client/dom/legacy/misc.js b/packages/svelte/src/internal/client/dom/legacy/misc.js
+index 82362e17c42d..f09a01e364ec 100644
+--- a/packages/svelte/src/internal/client/dom/legacy/misc.js
++++ b/packages/svelte/src/internal/client/dom/legacy/misc.js
+@@ -66,15 +66,3 @@ export function update_legacy_props($$new_props) {
+ 		}
+ 	}
+ }
+-
+-/**
+- * @param {Record<string, any>} $$props
+- */
+-export function default_slot($$props) {
+-	var children = $$props.$$slots?.default;
+-	if (children === true) {
+-		return $$props.children;
+-	} else {
+-		return children;
+-	}
+-}
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index 766494e856d9..306fc69ca745 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -80,8 +80,7 @@ export {
+ 	add_legacy_event_listener,
+ 	bubble_event,
+ 	reactive_import,
+-	update_legacy_props,
+-	default_slot
++	update_legacy_props
+ } from './dom/legacy/misc.js';
+ export {
+ 	append,
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 8889d5216450..5d0355b043c5 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -405,12 +405,19 @@ export function unsubscribe_stores(store_values) {
+ 
+ /**
+  * @param {Payload} payload
+- * @param {void | ((payload: Payload, props: Record<string, unknown>) => void)} slot_fn
++ * @param {Record<string, any>} $$props
++ * @param {string} name
+  * @param {Record<string, unknown>} slot_props
+  * @param {null | (() => void)} fallback_fn
+  * @returns {void}
+  */
+-export function slot(payload, slot_fn, slot_props, fallback_fn) {
++export function slot(payload, $$props, name, slot_props, fallback_fn) {
++	var slot_fn = $$props.$$slots?.[name];
++	// Interop: Can use snippets to fill slots
++	if (slot_fn === true) {
++		slot_fn = $$props[name === 'default' ? 'children' : name];
++	}
++
+ 	if (slot_fn !== undefined) {
+ 		slot_fn(payload, slot_props);
+ 	} else {
+@@ -545,5 +552,3 @@ export {
+ } from '../shared/validate.js';
+ 
+ export { escape_html as escape };
+-
+-export { default_slot } from '../client/dom/legacy/misc.js';

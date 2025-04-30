@@ -1,0 +1,69 @@
+diff --git a/.changeset/light-pens-watch.md b/.changeset/light-pens-watch.md
+new file mode 100644
+index 000000000000..62debd2eb4c3
+--- /dev/null
++++ b/.changeset/light-pens-watch.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: prevent reactive snippet from reinitializing unnecessarily
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index b5b58c34dc8b..9640e6c2757b 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -1734,18 +1734,20 @@ export const template_visitors = {
+ 		if (node.argument) {
+ 			args.push(b.thunk(/** @type {import('estree').Expression} */ (context.visit(node.argument))));
+ 		}
+-		const snippet_function = /** @type {import('estree').Expression} */ (
++
++		let snippet_function = /** @type {import('estree').Expression} */ (
+ 			context.visit(node.expression)
+ 		);
+-		const init = b.call(
+-			context.state.options.dev ? b.call('$.validate_snippet', snippet_function) : snippet_function,
+-			...args
+-		);
++		if (context.state.options.dev) {
++			snippet_function = b.call('$.validate_snippet', snippet_function);
++		}
+ 
+ 		if (is_reactive) {
+-			context.state.init.push(b.stmt(b.call('$.snippet_effect', b.thunk(init))));
++			context.state.init.push(
++				b.stmt(b.call('$.snippet_effect', b.thunk(snippet_function), ...args))
++			);
+ 		} else {
+-			context.state.init.push(b.stmt(init));
++			context.state.init.push(b.stmt(b.call(snippet_function, ...args)));
+ 		}
+ 	},
+ 	AnimateDirective(node, { state, visit }) {
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index afb060639a54..54c760a4a541 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -3170,13 +3170,18 @@ export function sanitize_slots(props) {
+ }
+ 
+ /**
+- * @param {() => void} create_snippet
++ * @param {() => Function} get_snippet
++ * @param {Node} node
++ * @param {() => any} args
+  * @returns {void}
+  */
+-export function snippet_effect(create_snippet) {
++export function snippet_effect(get_snippet, node, args) {
+ 	const block = create_snippet_block();
+ 	render_effect(() => {
+-		create_snippet();
++		// Only rerender when the snippet function itself changes,
++		// not when an eagerly-read prop inside the snippet function changes
++		const snippet = get_snippet();
++		untrack(() => snippet(node, args));
+ 		return () => {
+ 			if (block.d !== null) {
+ 				remove(block.d);

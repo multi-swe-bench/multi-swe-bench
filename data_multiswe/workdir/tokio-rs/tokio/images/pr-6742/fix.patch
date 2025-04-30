@@ -1,0 +1,686 @@
+diff --git a/tokio/src/runtime/blocking/schedule.rs b/tokio/src/runtime/blocking/schedule.rs
+index 6c9fdf3f8e3..875bf1c314e 100644
+--- a/tokio/src/runtime/blocking/schedule.rs
++++ b/tokio/src/runtime/blocking/schedule.rs
+@@ -1,6 +1,6 @@
+ #[cfg(feature = "test-util")]
+ use crate::runtime::scheduler;
+-use crate::runtime::task::{self, Task};
++use crate::runtime::task::{self, Task, TaskHarnessScheduleHooks};
+ use crate::runtime::Handle;
+ 
+ /// `task::Schedule` implementation that does nothing (except some bookkeeping
+@@ -12,6 +12,7 @@ use crate::runtime::Handle;
+ pub(crate) struct BlockingSchedule {
+     #[cfg(feature = "test-util")]
+     handle: Handle,
++    hooks: TaskHarnessScheduleHooks,
+ }
+ 
+ impl BlockingSchedule {
+@@ -32,6 +33,9 @@ impl BlockingSchedule {
+         BlockingSchedule {
+             #[cfg(feature = "test-util")]
+             handle: handle.clone(),
++            hooks: TaskHarnessScheduleHooks {
++                task_terminate_callback: handle.inner.hooks().task_terminate_callback.clone(),
++            },
+         }
+     }
+ }
+@@ -57,4 +61,10 @@ impl task::Schedule for BlockingSchedule {
+     fn schedule(&self, _task: task::Notified<Self>) {
+         unreachable!();
+     }
++
++    fn hooks(&self) -> TaskHarnessScheduleHooks {
++        TaskHarnessScheduleHooks {
++            task_terminate_callback: self.hooks.task_terminate_callback.clone(),
++        }
++    }
+ }
+diff --git a/tokio/src/runtime/builder.rs b/tokio/src/runtime/builder.rs
+index 16be770985c..b5bf35d69b4 100644
+--- a/tokio/src/runtime/builder.rs
++++ b/tokio/src/runtime/builder.rs
+@@ -1,5 +1,9 @@
++#![cfg_attr(loom, allow(unused_imports))]
++
+ use crate::runtime::handle::Handle;
+-use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime};
++#[cfg(tokio_unstable)]
++use crate::runtime::TaskMeta;
++use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime, TaskCallback};
+ use crate::util::rand::{RngSeed, RngSeedGenerator};
+ 
+ use std::fmt;
+@@ -78,6 +82,12 @@ pub struct Builder {
+     /// To run after each thread is unparked.
+     pub(super) after_unpark: Option<Callback>,
+ 
++    /// To run before each task is spawned.
++    pub(super) before_spawn: Option<TaskCallback>,
++
++    /// To run after each task is terminated.
++    pub(super) after_termination: Option<TaskCallback>,
++
+     /// Customizable keep alive timeout for `BlockingPool`
+     pub(super) keep_alive: Option<Duration>,
+ 
+@@ -290,6 +300,9 @@ impl Builder {
+             before_park: None,
+             after_unpark: None,
+ 
++            before_spawn: None,
++            after_termination: None,
++
+             keep_alive: None,
+ 
+             // Defaults for these values depend on the scheduler kind, so we get them
+@@ -677,6 +690,91 @@ impl Builder {
+         self
+     }
+ 
++    /// Executes function `f` just before a task is spawned.
++    ///
++    /// `f` is called within the Tokio context, so functions like
++    /// [`tokio::spawn`](crate::spawn) can be called, and may result in this callback being
++    /// invoked immediately.
++    ///
++    /// This can be used for bookkeeping or monitoring purposes.
++    ///
++    /// Note: There can only be one spawn callback for a runtime; calling this function more
++    /// than once replaces the last callback defined, rather than adding to it.
++    ///
++    /// This *does not* support [`LocalSet`](crate::task::LocalSet) at this time.
++    ///
++    /// # Examples
++    ///
++    /// ```
++    /// # use tokio::runtime;
++    /// # pub fn main() {
++    /// let runtime = runtime::Builder::new_current_thread()
++    ///     .on_task_spawn(|_| {
++    ///         println!("spawning task");
++    ///     })
++    ///     .build()
++    ///     .unwrap();
++    ///
++    /// runtime.block_on(async {
++    ///     tokio::task::spawn(std::future::ready(()));
++    ///
++    ///     for _ in 0..64 {
++    ///         tokio::task::yield_now().await;
++    ///     }
++    /// })
++    /// # }
++    /// ```
++    #[cfg(all(not(loom), tokio_unstable))]
++    pub fn on_task_spawn<F>(&mut self, f: F) -> &mut Self
++    where
++        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
++    {
++        self.before_spawn = Some(std::sync::Arc::new(f));
++        self
++    }
++
++    /// Executes function `f` just after a task is terminated.
++    ///
++    /// `f` is called within the Tokio context, so functions like
++    /// [`tokio::spawn`](crate::spawn) can be called.
++    ///
++    /// This can be used for bookkeeping or monitoring purposes.
++    ///
++    /// Note: There can only be one task termination callback for a runtime; calling this
++    /// function more than once replaces the last callback defined, rather than adding to it.
++    ///
++    /// This *does not* support [`LocalSet`](crate::task::LocalSet) at this time.
++    ///
++    /// # Examples
++    ///
++    /// ```
++    /// # use tokio::runtime;
++    /// # pub fn main() {
++    /// let runtime = runtime::Builder::new_current_thread()
++    ///     .on_task_terminate(|_| {
++    ///         println!("killing task");
++    ///     })
++    ///     .build()
++    ///     .unwrap();
++    ///
++    /// runtime.block_on(async {
++    ///     tokio::task::spawn(std::future::ready(()));
++    ///
++    ///     for _ in 0..64 {
++    ///         tokio::task::yield_now().await;
++    ///     }
++    /// })
++    /// # }
++    /// ```
++    #[cfg(all(not(loom), tokio_unstable))]
++    pub fn on_task_terminate<F>(&mut self, f: F) -> &mut Self
++    where
++        F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
++    {
++        self.after_termination = Some(std::sync::Arc::new(f));
++        self
++    }
++
+     /// Creates the configured `Runtime`.
+     ///
+     /// The returned `Runtime` instance is ready to spawn tasks.
+@@ -1118,6 +1216,8 @@ impl Builder {
+             Config {
+                 before_park: self.before_park.clone(),
+                 after_unpark: self.after_unpark.clone(),
++                before_spawn: self.before_spawn.clone(),
++                after_termination: self.after_termination.clone(),
+                 global_queue_interval: self.global_queue_interval,
+                 event_interval: self.event_interval,
+                 local_queue_capacity: self.local_queue_capacity,
+@@ -1269,6 +1369,8 @@ cfg_rt_multi_thread! {
+                 Config {
+                     before_park: self.before_park.clone(),
+                     after_unpark: self.after_unpark.clone(),
++                    before_spawn: self.before_spawn.clone(),
++                    after_termination: self.after_termination.clone(),
+                     global_queue_interval: self.global_queue_interval,
+                     event_interval: self.event_interval,
+                     local_queue_capacity: self.local_queue_capacity,
+@@ -1316,6 +1418,8 @@ cfg_rt_multi_thread! {
+                     Config {
+                         before_park: self.before_park.clone(),
+                         after_unpark: self.after_unpark.clone(),
++                        before_spawn: self.before_spawn.clone(),
++                        after_termination: self.after_termination.clone(),
+                         global_queue_interval: self.global_queue_interval,
+                         event_interval: self.event_interval,
+                         local_queue_capacity: self.local_queue_capacity,
+diff --git a/tokio/src/runtime/config.rs b/tokio/src/runtime/config.rs
+index d846a0d224a..eb4bf81aa4f 100644
+--- a/tokio/src/runtime/config.rs
++++ b/tokio/src/runtime/config.rs
+@@ -2,7 +2,7 @@
+     any(not(all(tokio_unstable, feature = "full")), target_family = "wasm"),
+     allow(dead_code)
+ )]
+-use crate::runtime::Callback;
++use crate::runtime::{Callback, TaskCallback};
+ use crate::util::RngSeedGenerator;
+ 
+ pub(crate) struct Config {
+@@ -21,6 +21,12 @@ pub(crate) struct Config {
+     /// Callback for a worker unparking itself
+     pub(crate) after_unpark: Option<Callback>,
+ 
++    /// To run before each task is spawned.
++    pub(crate) before_spawn: Option<TaskCallback>,
++
++    /// To run after each task is terminated.
++    pub(crate) after_termination: Option<TaskCallback>,
++
+     /// The multi-threaded scheduler includes a per-worker LIFO slot used to
+     /// store the last scheduled task. This can improve certain usage patterns,
+     /// especially message passing between tasks. However, this LIFO slot is not
+diff --git a/tokio/src/runtime/mod.rs b/tokio/src/runtime/mod.rs
+index 38a0285b3be..b652c8fdaeb 100644
+--- a/tokio/src/runtime/mod.rs
++++ b/tokio/src/runtime/mod.rs
+@@ -379,6 +379,13 @@ cfg_rt! {
+         pub use dump::Dump;
+     }
+ 
++    mod task_hooks;
++    pub(crate) use task_hooks::{TaskHooks, TaskCallback};
++    #[cfg(tokio_unstable)]
++    pub use task_hooks::TaskMeta;
++    #[cfg(not(tokio_unstable))]
++    pub(crate) use task_hooks::TaskMeta;
++
+     mod handle;
+     pub use handle::{EnterGuard, Handle, TryCurrentError};
+ 
+diff --git a/tokio/src/runtime/scheduler/current_thread/mod.rs b/tokio/src/runtime/scheduler/current_thread/mod.rs
+index 5c952061e72..8cf6463f06d 100644
+--- a/tokio/src/runtime/scheduler/current_thread/mod.rs
++++ b/tokio/src/runtime/scheduler/current_thread/mod.rs
+@@ -3,8 +3,12 @@ use crate::loom::sync::atomic::AtomicBool;
+ use crate::loom::sync::Arc;
+ use crate::runtime::driver::{self, Driver};
+ use crate::runtime::scheduler::{self, Defer, Inject};
+-use crate::runtime::task::{self, JoinHandle, OwnedTasks, Schedule, Task};
+-use crate::runtime::{blocking, context, Config, MetricsBatch, SchedulerMetrics, WorkerMetrics};
++use crate::runtime::task::{
++    self, JoinHandle, OwnedTasks, Schedule, Task, TaskHarnessScheduleHooks,
++};
++use crate::runtime::{
++    blocking, context, Config, MetricsBatch, SchedulerMetrics, TaskHooks, TaskMeta, WorkerMetrics,
++};
+ use crate::sync::notify::Notify;
+ use crate::util::atomic_cell::AtomicCell;
+ use crate::util::{waker_ref, RngSeedGenerator, Wake, WakerRef};
+@@ -41,6 +45,9 @@ pub(crate) struct Handle {
+ 
+     /// Current random number generator seed
+     pub(crate) seed_generator: RngSeedGenerator,
++
++    /// User-supplied hooks to invoke for things
++    pub(crate) task_hooks: TaskHooks,
+ }
+ 
+ /// Data required for executing the scheduler. The struct is passed around to
+@@ -131,6 +138,10 @@ impl CurrentThread {
+             .unwrap_or(DEFAULT_GLOBAL_QUEUE_INTERVAL);
+ 
+         let handle = Arc::new(Handle {
++            task_hooks: TaskHooks {
++                task_spawn_callback: config.before_spawn.clone(),
++                task_terminate_callback: config.after_termination.clone(),
++            },
+             shared: Shared {
+                 inject: Inject::new(),
+                 owned: OwnedTasks::new(1),
+@@ -436,6 +447,12 @@ impl Handle {
+     {
+         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
+ 
++        me.task_hooks.spawn(&TaskMeta {
++            #[cfg(tokio_unstable)]
++            id,
++            _phantom: Default::default(),
++        });
++
+         if let Some(notified) = notified {
+             me.schedule(notified);
+         }
+@@ -600,6 +617,12 @@ impl Schedule for Arc<Handle> {
+         });
+     }
+ 
++    fn hooks(&self) -> TaskHarnessScheduleHooks {
++        TaskHarnessScheduleHooks {
++            task_terminate_callback: self.task_hooks.task_terminate_callback.clone(),
++        }
++    }
++
+     cfg_unstable! {
+         fn unhandled_panic(&self) {
+             use crate::runtime::UnhandledPanic;
+diff --git a/tokio/src/runtime/scheduler/mod.rs b/tokio/src/runtime/scheduler/mod.rs
+index 29c17d16465..6052e67bb2d 100644
+--- a/tokio/src/runtime/scheduler/mod.rs
++++ b/tokio/src/runtime/scheduler/mod.rs
+@@ -7,6 +7,8 @@ cfg_rt! {
+ 
+     pub(crate) mod inject;
+     pub(crate) use inject::Inject;
++
++    use crate::runtime::TaskHooks;
+ }
+ 
+ cfg_rt_multi_thread! {
+@@ -151,6 +153,16 @@ cfg_rt! {
+             }
+         }
+ 
++        pub(crate) fn hooks(&self) -> &TaskHooks {
++            match self {
++                Handle::CurrentThread(h) => &h.task_hooks,
++                #[cfg(feature = "rt-multi-thread")]
++                Handle::MultiThread(h) => &h.task_hooks,
++                #[cfg(all(tokio_unstable, feature = "rt-multi-thread"))]
++                Handle::MultiThreadAlt(h) => &h.task_hooks,
++            }
++        }
++
+         cfg_rt_multi_thread! {
+             cfg_unstable! {
+                 pub(crate) fn expect_multi_thread_alt(&self) -> &Arc<multi_thread_alt::Handle> {
+diff --git a/tokio/src/runtime/scheduler/multi_thread/handle.rs b/tokio/src/runtime/scheduler/multi_thread/handle.rs
+index 72f776e47fa..029a68493a6 100644
+--- a/tokio/src/runtime/scheduler/multi_thread/handle.rs
++++ b/tokio/src/runtime/scheduler/multi_thread/handle.rs
+@@ -4,6 +4,7 @@ use crate::runtime::scheduler::multi_thread::worker;
+ use crate::runtime::{
+     blocking, driver,
+     task::{self, JoinHandle},
++    TaskHooks, TaskMeta,
+ };
+ use crate::util::RngSeedGenerator;
+ 
+@@ -28,6 +29,9 @@ pub(crate) struct Handle {
+ 
+     /// Current random number generator seed
+     pub(crate) seed_generator: RngSeedGenerator,
++
++    /// User-supplied hooks to invoke for things
++    pub(crate) task_hooks: TaskHooks,
+ }
+ 
+ impl Handle {
+@@ -51,6 +55,12 @@ impl Handle {
+     {
+         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
+ 
++        me.task_hooks.spawn(&TaskMeta {
++            #[cfg(tokio_unstable)]
++            id,
++            _phantom: Default::default(),
++        });
++
+         me.schedule_option_task_without_yield(notified);
+ 
+         handle
+diff --git a/tokio/src/runtime/scheduler/multi_thread/worker.rs b/tokio/src/runtime/scheduler/multi_thread/worker.rs
+index 9b521efc9b1..62921ed2569 100644
+--- a/tokio/src/runtime/scheduler/multi_thread/worker.rs
++++ b/tokio/src/runtime/scheduler/multi_thread/worker.rs
+@@ -58,15 +58,15 @@
+ 
+ use crate::loom::sync::{Arc, Mutex};
+ use crate::runtime;
+-use crate::runtime::context;
+ use crate::runtime::scheduler::multi_thread::{
+     idle, queue, Counters, Handle, Idle, Overflow, Parker, Stats, TraceStatus, Unparker,
+ };
+ use crate::runtime::scheduler::{inject, Defer, Lock};
+-use crate::runtime::task::OwnedTasks;
++use crate::runtime::task::{OwnedTasks, TaskHarnessScheduleHooks};
+ use crate::runtime::{
+     blocking, coop, driver, scheduler, task, Config, SchedulerMetrics, WorkerMetrics,
+ };
++use crate::runtime::{context, TaskHooks};
+ use crate::util::atomic_cell::AtomicCell;
+ use crate::util::rand::{FastRand, RngSeedGenerator};
+ 
+@@ -284,6 +284,10 @@ pub(super) fn create(
+ 
+     let remotes_len = remotes.len();
+     let handle = Arc::new(Handle {
++        task_hooks: TaskHooks {
++            task_spawn_callback: config.before_spawn.clone(),
++            task_terminate_callback: config.after_termination.clone(),
++        },
+         shared: Shared {
+             remotes: remotes.into_boxed_slice(),
+             inject,
+@@ -1037,6 +1041,12 @@ impl task::Schedule for Arc<Handle> {
+         self.schedule_task(task, false);
+     }
+ 
++    fn hooks(&self) -> TaskHarnessScheduleHooks {
++        TaskHarnessScheduleHooks {
++            task_terminate_callback: self.task_hooks.task_terminate_callback.clone(),
++        }
++    }
++
+     fn yield_now(&self, task: Notified) {
+         self.schedule_task(task, true);
+     }
+diff --git a/tokio/src/runtime/scheduler/multi_thread_alt/handle.rs b/tokio/src/runtime/scheduler/multi_thread_alt/handle.rs
+index 1f5b7818521..3b730974925 100644
+--- a/tokio/src/runtime/scheduler/multi_thread_alt/handle.rs
++++ b/tokio/src/runtime/scheduler/multi_thread_alt/handle.rs
+@@ -4,6 +4,7 @@ use crate::runtime::scheduler::multi_thread_alt::worker;
+ use crate::runtime::{
+     blocking, driver,
+     task::{self, JoinHandle},
++    TaskHooks, TaskMeta,
+ };
+ use crate::util::RngSeedGenerator;
+ 
+@@ -26,6 +27,9 @@ pub(crate) struct Handle {
+ 
+     /// Current random number generator seed
+     pub(crate) seed_generator: RngSeedGenerator,
++
++    /// User-supplied hooks to invoke for things
++    pub(crate) task_hooks: TaskHooks,
+ }
+ 
+ impl Handle {
+@@ -50,6 +54,12 @@ impl Handle {
+     {
+         let (handle, notified) = me.shared.owned.bind(future, me.clone(), id);
+ 
++        me.task_hooks.spawn(&TaskMeta {
++            #[cfg(tokio_unstable)]
++            id,
++            _phantom: Default::default(),
++        });
++
+         if let Some(notified) = notified {
+             me.shared.schedule_task(notified, false);
+         }
+diff --git a/tokio/src/runtime/scheduler/multi_thread_alt/worker.rs b/tokio/src/runtime/scheduler/multi_thread_alt/worker.rs
+index 9f6af9d4d7a..fe737fac341 100644
+--- a/tokio/src/runtime/scheduler/multi_thread_alt/worker.rs
++++ b/tokio/src/runtime/scheduler/multi_thread_alt/worker.rs
+@@ -58,14 +58,14 @@
+ 
+ use crate::loom::sync::{Arc, Condvar, Mutex, MutexGuard};
+ use crate::runtime;
+-use crate::runtime::context;
+ use crate::runtime::driver::Driver;
+ use crate::runtime::scheduler::multi_thread_alt::{
+     idle, queue, stats, Counters, Handle, Idle, Overflow, Stats, TraceStatus,
+ };
+ use crate::runtime::scheduler::{self, inject, Lock};
+-use crate::runtime::task::OwnedTasks;
++use crate::runtime::task::{OwnedTasks, TaskHarnessScheduleHooks};
+ use crate::runtime::{blocking, coop, driver, task, Config, SchedulerMetrics, WorkerMetrics};
++use crate::runtime::{context, TaskHooks};
+ use crate::util::atomic_cell::AtomicCell;
+ use crate::util::rand::{FastRand, RngSeedGenerator};
+ 
+@@ -303,6 +303,10 @@ pub(super) fn create(
+     let (inject, inject_synced) = inject::Shared::new();
+ 
+     let handle = Arc::new(Handle {
++        task_hooks: TaskHooks {
++            task_spawn_callback: config.before_spawn.clone(),
++            task_terminate_callback: config.after_termination.clone(),
++        },
+         shared: Shared {
+             remotes: remotes.into_boxed_slice(),
+             inject,
+@@ -1556,6 +1560,12 @@ impl task::Schedule for Arc<Handle> {
+         self.shared.schedule_task(task, false);
+     }
+ 
++    fn hooks(&self) -> TaskHarnessScheduleHooks {
++        TaskHarnessScheduleHooks {
++            task_terminate_callback: self.task_hooks.task_terminate_callback.clone(),
++        }
++    }
++
+     fn yield_now(&self, task: Notified) {
+         self.shared.schedule_task(task, true);
+     }
+diff --git a/tokio/src/runtime/task/core.rs b/tokio/src/runtime/task/core.rs
+index 108b06bc8b6..a0df0be3d03 100644
+--- a/tokio/src/runtime/task/core.rs
++++ b/tokio/src/runtime/task/core.rs
+@@ -14,7 +14,7 @@ use crate::loom::cell::UnsafeCell;
+ use crate::runtime::context;
+ use crate::runtime::task::raw::{self, Vtable};
+ use crate::runtime::task::state::State;
+-use crate::runtime::task::{Id, Schedule};
++use crate::runtime::task::{Id, Schedule, TaskHarnessScheduleHooks};
+ use crate::util::linked_list;
+ 
+ use std::num::NonZeroU64;
+@@ -185,6 +185,8 @@ pub(super) struct Trailer {
+     pub(super) owned: linked_list::Pointers<Header>,
+     /// Consumer task waiting on completion of this task.
+     pub(super) waker: UnsafeCell<Option<Waker>>,
++    /// Optional hooks needed in the harness.
++    pub(super) hooks: TaskHarnessScheduleHooks,
+ }
+ 
+ generate_addr_of_methods! {
+@@ -226,6 +228,7 @@ impl<T: Future, S: Schedule> Cell<T, S> {
+         let tracing_id = future.id();
+         let vtable = raw::vtable::<T, S>();
+         let result = Box::new(Cell {
++            trailer: Trailer::new(scheduler.hooks()),
+             header: new_header(
+                 state,
+                 vtable,
+@@ -239,7 +242,6 @@ impl<T: Future, S: Schedule> Cell<T, S> {
+                 },
+                 task_id,
+             },
+-            trailer: Trailer::new(),
+         });
+ 
+         #[cfg(debug_assertions)]
+@@ -459,10 +461,11 @@ impl Header {
+ }
+ 
+ impl Trailer {
+-    fn new() -> Self {
++    fn new(hooks: TaskHarnessScheduleHooks) -> Self {
+         Trailer {
+             waker: UnsafeCell::new(None),
+             owned: linked_list::Pointers::new(),
++            hooks,
+         }
+     }
+ 
+diff --git a/tokio/src/runtime/task/harness.rs b/tokio/src/runtime/task/harness.rs
+index 8479becd80a..be406ff486e 100644
+--- a/tokio/src/runtime/task/harness.rs
++++ b/tokio/src/runtime/task/harness.rs
+@@ -4,6 +4,7 @@ use crate::runtime::task::state::{Snapshot, State};
+ use crate::runtime::task::waker::waker_ref;
+ use crate::runtime::task::{Id, JoinError, Notified, RawTask, Schedule, Task};
+ 
++use crate::runtime::TaskMeta;
+ use std::any::Any;
+ use std::mem;
+ use std::mem::ManuallyDrop;
+@@ -329,6 +330,20 @@ where
+             }
+         }));
+ 
++        // We catch panics here in case invoking a hook panics.
++        //
++        // We call this in a separate block so that it runs after the task appears to have
++        // completed and will still run if the destructor panics.
++        if let Some(f) = self.trailer().hooks.task_terminate_callback.as_ref() {
++            let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| {
++                f(&TaskMeta {
++                    #[cfg(tokio_unstable)]
++                    id: self.core().task_id,
++                    _phantom: Default::default(),
++                })
++            }));
++        }
++
+         // The task has completed execution and will no longer be scheduled.
+         let num_release = self.release();
+ 
+diff --git a/tokio/src/runtime/task/mod.rs b/tokio/src/runtime/task/mod.rs
+index aa799bf2be1..32167c82865 100644
+--- a/tokio/src/runtime/task/mod.rs
++++ b/tokio/src/runtime/task/mod.rs
+@@ -210,6 +210,7 @@ use crate::future::Future;
+ use crate::util::linked_list;
+ use crate::util::sharded_list;
+ 
++use crate::runtime::TaskCallback;
+ use std::marker::PhantomData;
+ use std::ptr::NonNull;
+ use std::{fmt, mem};
+@@ -255,6 +256,12 @@ unsafe impl<S> Sync for UnownedTask<S> {}
+ /// Task result sent back.
+ pub(crate) type Result<T> = std::result::Result<T, JoinError>;
+ 
++/// Hooks for scheduling tasks which are needed in the task harness.
++#[derive(Clone)]
++pub(crate) struct TaskHarnessScheduleHooks {
++    pub(crate) task_terminate_callback: Option<TaskCallback>,
++}
++
+ pub(crate) trait Schedule: Sync + Sized + 'static {
+     /// The task has completed work and is ready to be released. The scheduler
+     /// should release it immediately and return it. The task module will batch
+@@ -266,6 +273,8 @@ pub(crate) trait Schedule: Sync + Sized + 'static {
+     /// Schedule the task
+     fn schedule(&self, task: Notified<Self>);
+ 
++    fn hooks(&self) -> TaskHarnessScheduleHooks;
++
+     /// Schedule the task to run in the near future, yielding the thread to
+     /// other tasks.
+     fn yield_now(&self, task: Notified<Self>) {
+diff --git a/tokio/src/runtime/task_hooks.rs b/tokio/src/runtime/task_hooks.rs
+new file mode 100644
+index 00000000000..d60a7fd64b1
+--- /dev/null
++++ b/tokio/src/runtime/task_hooks.rs
+@@ -0,0 +1,36 @@
++use std::marker::PhantomData;
++
++impl TaskHooks {
++    pub(crate) fn spawn(&self, meta: &TaskMeta<'_>) {
++        if let Some(f) = self.task_spawn_callback.as_ref() {
++            f(meta)
++        }
++    }
++}
++
++#[derive(Clone)]
++pub(crate) struct TaskHooks {
++    pub(crate) task_spawn_callback: Option<TaskCallback>,
++    pub(crate) task_terminate_callback: Option<TaskCallback>,
++}
++
++/// Task metadata supplied to user-provided hooks for task events.
++#[allow(missing_debug_implementations)]
++#[cfg_attr(not(tokio_unstable), allow(unreachable_pub))]
++pub struct TaskMeta<'a> {
++    /// The opaque ID of the task.
++    #[cfg(tokio_unstable)]
++    pub(crate) id: super::task::Id,
++    pub(crate) _phantom: PhantomData<&'a ()>,
++}
++
++impl<'a> TaskMeta<'a> {
++    /// Return the opaque ID of the task.
++    #[cfg(tokio_unstable)]
++    pub fn id(&self) -> super::task::Id {
++        self.id
++    }
++}
++
++/// Runs on specific task-related events
++pub(crate) type TaskCallback = std::sync::Arc<dyn Fn(&TaskMeta<'_>) + Send + Sync>;
+diff --git a/tokio/src/task/local.rs b/tokio/src/task/local.rs
+index 08d89c49c03..3f3a69fc967 100644
+--- a/tokio/src/task/local.rs
++++ b/tokio/src/task/local.rs
+@@ -3,7 +3,7 @@ use crate::loom::cell::UnsafeCell;
+ use crate::loom::sync::{Arc, Mutex};
+ #[cfg(tokio_unstable)]
+ use crate::runtime;
+-use crate::runtime::task::{self, JoinHandle, LocalOwnedTasks, Task};
++use crate::runtime::task::{self, JoinHandle, LocalOwnedTasks, Task, TaskHarnessScheduleHooks};
+ use crate::runtime::{context, ThreadId, BOX_FUTURE_THRESHOLD};
+ use crate::sync::AtomicWaker;
+ use crate::util::RcCell;
+@@ -1071,6 +1071,13 @@ impl task::Schedule for Arc<Shared> {
+         Shared::schedule(self, task);
+     }
+ 
++    // localset does not currently support task hooks
++    fn hooks(&self) -> TaskHarnessScheduleHooks {
++        TaskHarnessScheduleHooks {
++            task_terminate_callback: None,
++        }
++    }
++
+     cfg_unstable! {
+         fn unhandled_panic(&self) {
+             use crate::runtime::UnhandledPanic;

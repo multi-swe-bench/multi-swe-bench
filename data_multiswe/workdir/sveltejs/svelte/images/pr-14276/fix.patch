@@ -1,0 +1,29 @@
+diff --git a/.changeset/plenty-hairs-kneel.md b/.changeset/plenty-hairs-kneel.md
+new file mode 100644
+index 000000000000..ea7ce094b624
+--- /dev/null
++++ b/.changeset/plenty-hairs-kneel.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: disregard TypeScript nodes when pruning CSS
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/utils.js b/packages/svelte/src/compiler/phases/2-analyze/css/utils.js
+index 99603fad291d..bbe33a564744 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/utils.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/utils.js
+@@ -7,6 +7,13 @@ const UNKNOWN = {};
+  * @param {Set<any>} set
+  */
+ function gather_possible_values(node, set) {
++	// @ts-expect-error
++	if (node.type === 'TSAsExpression') {
++		// @ts-expect-error
++		gather_possible_values(node.expression, set);
++		return;
++	}
++
+ 	if (node.type === 'Literal') {
+ 		set.add(String(node.value));
+ 	} else if (node.type === 'ConditionalExpression') {

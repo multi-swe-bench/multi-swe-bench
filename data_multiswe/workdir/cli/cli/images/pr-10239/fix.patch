@@ -1,0 +1,43 @@
+diff --git a/pkg/cmd/root/extension.go b/pkg/cmd/root/extension.go
+index 7f2325e18c5..7e2d7aca75f 100644
+--- a/pkg/cmd/root/extension.go
++++ b/pkg/cmd/root/extension.go
+@@ -52,20 +52,25 @@ func NewCmdExtension(io *iostreams.IOStreams, em extensions.ExtensionManager, ex
+ 		},
+ 		// PostRun handles communicating extension release information if found
+ 		PostRun: func(c *cobra.Command, args []string) {
+-			releaseInfo := <-updateMessageChan
+-			if releaseInfo != nil {
+-				stderr := io.ErrOut
+-				fmt.Fprintf(stderr, "\n\n%s %s → %s\n",
+-					cs.Yellowf("A new release of %s is available:", ext.Name()),
+-					cs.Cyan(strings.TrimPrefix(ext.CurrentVersion(), "v")),
+-					cs.Cyan(strings.TrimPrefix(releaseInfo.Version, "v")))
+-				if ext.IsPinned() {
+-					fmt.Fprintf(stderr, "To upgrade, run: gh extension upgrade %s --force\n", ext.Name())
+-				} else {
+-					fmt.Fprintf(stderr, "To upgrade, run: gh extension upgrade %s\n", ext.Name())
++			select {
++			case releaseInfo := <-updateMessageChan:
++				if releaseInfo != nil {
++					stderr := io.ErrOut
++					fmt.Fprintf(stderr, "\n\n%s %s → %s\n",
++						cs.Yellowf("A new release of %s is available:", ext.Name()),
++						cs.Cyan(strings.TrimPrefix(ext.CurrentVersion(), "v")),
++						cs.Cyan(strings.TrimPrefix(releaseInfo.Version, "v")))
++					if ext.IsPinned() {
++						fmt.Fprintf(stderr, "To upgrade, run: gh extension upgrade %s --force\n", ext.Name())
++					} else {
++						fmt.Fprintf(stderr, "To upgrade, run: gh extension upgrade %s\n", ext.Name())
++					}
++					fmt.Fprintf(stderr, "%s\n\n",
++						cs.Yellow(releaseInfo.URL))
+ 				}
+-				fmt.Fprintf(stderr, "%s\n\n",
+-					cs.Yellow(releaseInfo.URL))
++			default:
++				// Do not make the user wait for extension update check if incomplete by this time.
++				// This is being handled in non-blocking default as there is no context to cancel like in gh update checks.
+ 			}
+ 		},
+ 		GroupID: "extension",

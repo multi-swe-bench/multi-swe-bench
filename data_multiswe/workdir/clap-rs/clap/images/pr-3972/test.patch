@@ -1,0 +1,339 @@
+diff --git a/tests/builder/groups.rs b/tests/builder/groups.rs
+index f3d9749b19f..a54c741fbe7 100644
+--- a/tests/builder/groups.rs
++++ b/tests/builder/groups.rs
+@@ -86,9 +86,9 @@ fn arg_group_new_of_arg_name() {
+ #[test]
+ fn group_single_value() {
+     let res = Command::new("group")
+-        .arg(arg!(-f --flag "some flag"))
+         .arg(arg!(-c --color [color] "some option"))
+-        .group(ArgGroup::new("grp").args(&["flag", "color"]))
++        .arg(arg!(-h --hostname <name> "another option").required(false))
++        .group(ArgGroup::new("grp").args(&["hostname", "color"]))
+         .try_get_matches_from(vec!["", "-c", "blue"]);
+     assert!(res.is_ok(), "{}", res.unwrap_err());
+ 
+@@ -100,26 +100,12 @@ fn group_single_value() {
+     );
+ }
+ 
+-#[test]
+-fn group_single_flag() {
+-    let res = Command::new("group")
+-        .arg(arg!(-f --flag "some flag"))
+-        .arg(arg!(-c --color [color] "some option"))
+-        .group(ArgGroup::new("grp").args(&["flag", "color"]))
+-        .try_get_matches_from(vec!["", "-f"]);
+-    assert!(res.is_ok(), "{}", res.unwrap_err());
+-
+-    let m = res.unwrap();
+-    assert!(m.contains_id("grp"));
+-    assert!(m.get_one::<String>("grp").map(|v| v.as_str()).is_none());
+-}
+-
+ #[test]
+ fn group_empty() {
+     let res = Command::new("group")
+-        .arg(arg!(-f --flag "some flag"))
+         .arg(arg!(-c --color [color] "some option"))
+-        .group(ArgGroup::new("grp").args(&["flag", "color"]))
++        .arg(arg!(-h --hostname <name> "another option").required(false))
++        .group(ArgGroup::new("grp").args(&["hostname", "color"]))
+         .try_get_matches_from(vec![""]);
+     assert!(res.is_ok(), "{}", res.unwrap_err());
+ 
+@@ -129,11 +115,15 @@ fn group_empty() {
+ }
+ 
+ #[test]
+-fn group_reqired_flags_empty() {
++fn group_required_flags_empty() {
+     let result = Command::new("group")
+-        .arg(arg!(-f --flag "some flag"))
+         .arg(arg!(-c --color "some option"))
+-        .group(ArgGroup::new("grp").required(true).args(&["flag", "color"]))
++        .arg(arg!(-h --hostname <name> "another option").required(false))
++        .group(
++            ArgGroup::new("grp")
++                .required(true)
++                .args(&["hostname", "color"]),
++        )
+         .try_get_matches_from(vec![""]);
+     assert!(result.is_err());
+     let err = result.err().unwrap();
+@@ -143,9 +133,9 @@ fn group_reqired_flags_empty() {
+ #[test]
+ fn group_multi_value_single_arg() {
+     let res = Command::new("group")
+-        .arg(arg!(-f --flag "some flag"))
+         .arg(arg!(-c --color <color> "some option").multiple_values(true))
+-        .group(ArgGroup::new("grp").args(&["flag", "color"]))
++        .arg(arg!(-h --hostname <name> "another option").required(false))
++        .group(ArgGroup::new("grp").args(&["hostname", "color"]))
+         .try_get_matches_from(vec!["", "-c", "blue", "red", "green"]);
+     assert!(res.is_ok(), "{:?}", res.unwrap_err().kind());
+ 
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index 50b292e19d1..b96498f5788 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -1731,7 +1731,7 @@ fn issue_1052_require_delim_help() {
+         .about("tests stuff")
+         .version("1.3")
+         .arg(
+-            arg!(-f --fake "some help")
++            arg!(-f --fake <s> "some help")
+                 .required(true)
+                 .value_names(&["some", "val"])
+                 .takes_value(true)
+@@ -1750,7 +1750,7 @@ fn custom_headers_headers() {
+         .about("does stuff")
+         .version("1.4")
+         .arg(
+-            arg!(-f --fake "some help")
++            arg!(-f --fake <s> "some help")
+                 .required(true)
+                 .value_names(&["some", "val"])
+                 .takes_value(true)
+@@ -1802,7 +1802,7 @@ fn multiple_custom_help_headers() {
+         .about("does stuff")
+         .version("1.4")
+         .arg(
+-            arg!(-f --fake "some help")
++            arg!(-f --fake <s> "some help")
+                 .required(true)
+                 .value_names(&["some", "val"])
+                 .takes_value(true)
+diff --git a/tests/builder/utils.rs b/tests/builder/utils.rs
+index b64d7647d7c..d586fa42c73 100644
+--- a/tests/builder/utils.rs
++++ b/tests/builder/utils.rs
+@@ -72,10 +72,10 @@ pub fn complex_app() -> Command<'static> {
+                 .required(false)
+                 .value_parser(opt3_vals),
+             arg!([positional3] ... "tests specific values").value_parser(pos3_vals),
+-            arg!(--multvals "Tests multiple values, not mult occs")
++            arg!(--multvals <val> "Tests multiple values, not mult occs")
+                 .value_names(&["one", "two"])
+                 .required(false),
+-            arg!(--multvalsmo ... "Tests multiple values, and mult occs")
++            arg!(--multvalsmo <val> ... "Tests multiple values, and mult occs")
+                 .value_names(&["one", "two"])
+                 .required(false),
+             arg!(--minvals2 <minvals> "Tests 2 min vals")
+diff --git a/tests/macros.rs b/tests/macros.rs
+index 069af61c256..119721b5cff 100644
+--- a/tests/macros.rs
++++ b/tests/macros.rs
+@@ -43,40 +43,32 @@ mod arg {
+         let arg = clap::arg!(foo: -b);
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -'b');
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b ...);
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b "How to use it");
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), Some("How to use it"));
+     }
+@@ -87,10 +79,8 @@ mod arg {
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+@@ -98,10 +88,8 @@ mod arg {
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+@@ -109,10 +97,8 @@ mod arg {
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+@@ -120,73 +106,94 @@ mod arg {
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), Some("How to use it"));
+     }
+ 
++    #[test]
++    fn short_with_value() {
++        let arg = clap::arg!(foo: -b <NUM>);
++        assert_eq!(arg.get_id(), "foo");
++        assert_eq!(arg.get_short(), Some('b'));
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
++        assert!(arg.is_required_set());
++        assert_eq!(arg.get_help(), None);
++
++        let arg = clap::arg!(foo: -'b' <NUM>);
++        assert_eq!(arg.get_id(), "foo");
++        assert_eq!(arg.get_short(), Some('b'));
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
++        assert!(arg.is_required_set());
++        assert_eq!(arg.get_help(), None);
++
++        let arg = clap::arg!(foo: -b  <NUM> ...);
++        assert_eq!(arg.get_id(), "foo");
++        assert_eq!(arg.get_short(), Some('b'));
++        assert!(matches!(arg.get_action(), clap::ArgAction::Append));
++        assert!(!arg.is_multiple_values_set());
++        assert!(arg.is_required_set());
++        assert_eq!(arg.get_help(), None);
++
++        let arg = clap::arg!(foo: -b  <NUM> "How to use it");
++        assert_eq!(arg.get_id(), "foo");
++        assert_eq!(arg.get_short(), Some('b'));
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
++        assert!(arg.is_required_set());
++        assert_eq!(arg.get_help(), Some("How to use it"));
++    }
++
+     #[test]
+     fn positional() {
+         let arg = clap::arg!(<NUM>);
+         assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!([NUM]);
+         assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM>);
+         assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: <NUM>);
+         assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM> ...);
+         assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(arg.is_multiple_values_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM> "How to use it");
+         assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+-        #[allow(deprecated)]
+-        {
+-            assert!(!arg.is_multiple_occurrences_set());
+-        }
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        assert!(!arg.is_multiple_values_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), Some("How to use it"));
+     }

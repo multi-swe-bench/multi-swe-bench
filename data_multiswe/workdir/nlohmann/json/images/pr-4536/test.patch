@@ -1,0 +1,70 @@
+diff --git a/tests/src/unit-alt-string.cpp b/tests/src/unit-alt-string.cpp
+index 53dcd80c8d..2999959798 100644
+--- a/tests/src/unit-alt-string.cpp
++++ b/tests/src/unit-alt-string.cpp
+@@ -35,10 +35,21 @@ class alt_string
+     alt_string(size_t count, char chr): str_impl(count, chr) {}
+     alt_string() = default;
+ 
+-    template <typename...TParams>
+-    alt_string& append(TParams&& ...params)
++    alt_string& append(char ch)
+     {
+-        str_impl.append(std::forward<TParams>(params)...);
++        str_impl.push_back(ch);
++        return *this;
++    }
++
++    alt_string& append(const alt_string& str)
++    {
++        str_impl.append(str.str_impl);
++        return *this;
++    }
++
++    alt_string& append(const char* s, std::size_t length)
++    {
++        str_impl.append(s, length);
+         return *this;
+     }
+ 
+@@ -157,6 +168,11 @@ class alt_string
+         return *this;
+     }
+ 
++    void reserve( std::size_t new_cap = 0 )
++    {
++        str_impl.reserve(new_cap);
++    }
++
+   private:
+     std::string str_impl {}; // NOLINT(readability-redundant-member-init)
+ 
+@@ -319,4 +335,28 @@ TEST_CASE("alternative string type")
+         CHECK(j.at(alt_json::json_pointer("/foo/0")) == j["foo"][0]);
+         CHECK(j.at(alt_json::json_pointer("/foo/1")) == j["foo"][1]);
+     }
++
++    SECTION("patch")
++    {
++        alt_json const patch1 = alt_json::parse(R"([{ "op": "add", "path": "/a/b", "value": [ "foo", "bar" ] }])");
++        alt_json const doc1 = alt_json::parse(R"({ "a": { "foo": 1 } })");
++
++        CHECK_NOTHROW(doc1.patch(patch1));
++        alt_json doc1_ans = alt_json::parse(R"(
++                {
++                    "a": {
++                        "foo": 1,
++                        "b": [ "foo", "bar" ]
++                    }
++                }
++            )");
++        CHECK(doc1.patch(patch1) == doc1_ans);
++    }
++
++    SECTION("diff")
++    {
++        alt_json const j1 = {"foo", "bar", "baz"};
++        alt_json const j2 = {"foo", "bam"};
++        CHECK(alt_json::diff(j1, j2).dump() == "[{\"op\":\"replace\",\"path\":\"/1\",\"value\":\"bam\"},{\"op\":\"remove\",\"path\":\"/2\"}]");
++    }
+ }

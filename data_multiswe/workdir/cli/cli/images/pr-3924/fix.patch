@@ -1,0 +1,82 @@
+diff --git a/pkg/cmd/factory/http.go b/pkg/cmd/factory/http.go
+index 0c0abd7b25e..28dac1ed685 100644
+--- a/pkg/cmd/factory/http.go
++++ b/pkg/cmd/factory/http.go
+@@ -113,6 +113,7 @@ func NewHTTPClient(io *iostreams.IOStreams, cfg configGetter, appVersion string,
+ 		opts = append(opts,
+ 			api.AddHeaderFunc("Accept", func(req *http.Request) (string, error) {
+ 				accept := "application/vnd.github.merge-info-preview+json" // PullRequest.mergeStateStatus
++				accept += ", application/vnd.github.nebula-preview"        // visibility when RESTing repos into an org
+ 				if ghinstance.IsEnterprise(getHost(req)) {
+ 					accept += ", application/vnd.github.antiope-preview"    // Commit.statusCheckRollup
+ 					accept += ", application/vnd.github.shadow-cat-preview" // PullRequest.isDraft
+diff --git a/pkg/cmd/repo/create/http.go b/pkg/cmd/repo/create/http.go
+index 305ae6a1c78..5cad4857a85 100644
+--- a/pkg/cmd/repo/create/http.go
++++ b/pkg/cmd/repo/create/http.go
+@@ -5,6 +5,7 @@ import (
+ 	"encoding/json"
+ 	"fmt"
+ 	"net/http"
++	"strings"
+ 
+ 	"github.com/cli/cli/api"
+ )
+@@ -38,6 +39,9 @@ type repoTemplateInput struct {
+ func repoCreate(client *http.Client, hostname string, input repoCreateInput, templateRepositoryID string) (*api.Repository, error) {
+ 	apiClient := api.NewClientFromHTTP(client)
+ 
++	ownerName := input.OwnerID
++	isOrg := false
++
+ 	if input.TeamID != "" {
+ 		orgID, teamID, err := resolveOrganizationTeam(apiClient, hostname, input.OwnerID, input.TeamID)
+ 		if err != nil {
+@@ -46,7 +50,9 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput, tem
+ 		input.TeamID = teamID
+ 		input.OwnerID = orgID
+ 	} else if input.OwnerID != "" {
+-		orgID, err := resolveOrganization(apiClient, hostname, input.OwnerID)
++		var orgID string
++		var err error
++		orgID, isOrg, err = resolveOrganization(apiClient, hostname, input.OwnerID)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -109,12 +115,19 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput, tem
+ 	}
+ 
+ 	if input.GitIgnoreTemplate != "" || input.LicenseTemplate != "" {
++		input.Visibility = strings.ToLower(input.Visibility)
+ 		body := &bytes.Buffer{}
+ 		enc := json.NewEncoder(body)
+ 		if err := enc.Encode(input); err != nil {
+ 			return nil, err
+ 		}
+-		repo, err := api.CreateRepoTransformToV4(apiClient, hostname, "POST", "user/repos", body)
++
++		path := "user/repos"
++		if isOrg {
++			path = fmt.Sprintf("orgs/%s/repos", ownerName)
++		}
++
++		repo, err := api.CreateRepoTransformToV4(apiClient, hostname, "POST", path, body)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -141,12 +154,13 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput, tem
+ }
+ 
+ // using API v3 here because the equivalent in GraphQL needs `read:org` scope
+-func resolveOrganization(client *api.Client, hostname, orgName string) (string, error) {
++func resolveOrganization(client *api.Client, hostname, orgName string) (string, bool, error) {
+ 	var response struct {
+ 		NodeID string `json:"node_id"`
++		Type   string
+ 	}
+ 	err := client.REST(hostname, "GET", fmt.Sprintf("users/%s", orgName), nil, &response)
+-	return response.NodeID, err
++	return response.NodeID, response.Type == "Organization", err
+ }
+ 
+ // using API v3 here because the equivalent in GraphQL needs `read:org` scope

@@ -1,0 +1,171 @@
+diff --git a/docs/pages/api-docs/avatar-group.json b/docs/pages/api-docs/avatar-group.json
+index fd80549444fcaf..12459dbb69704f 100644
+--- a/docs/pages/api-docs/avatar-group.json
++++ b/docs/pages/api-docs/avatar-group.json
+@@ -16,6 +16,7 @@
+         "description": "Array&lt;func<br>&#124;&nbsp;object<br>&#124;&nbsp;bool&gt;<br>&#124;&nbsp;func<br>&#124;&nbsp;object"
+       }
+     },
++    "total": { "type": { "name": "number" }, "default": "children.length" },
+     "variant": {
+       "type": {
+         "name": "union",
+diff --git a/docs/src/pages/components/avatars/TotalAvatars.js b/docs/src/pages/components/avatars/TotalAvatars.js
+new file mode 100644
+index 00000000000000..1bc9b6aea05720
+--- /dev/null
++++ b/docs/src/pages/components/avatars/TotalAvatars.js
+@@ -0,0 +1,14 @@
++import * as React from 'react';
++import Avatar from '@mui/material/Avatar';
++import AvatarGroup from '@mui/material/AvatarGroup';
++
++export default function TotalAvatars() {
++  return (
++    <AvatarGroup total={24}>
++      <Avatar alt="Remy Sharp" src="/static/images/avatar/1.jpg" />
++      <Avatar alt="Travis Howard" src="/static/images/avatar/2.jpg" />
++      <Avatar alt="Agnes Walker" src="/static/images/avatar/4.jpg" />
++      <Avatar alt="Trevor Henderson" src="/static/images/avatar/5.jpg" />
++    </AvatarGroup>
++  );
++}
+diff --git a/docs/src/pages/components/avatars/TotalAvatars.tsx b/docs/src/pages/components/avatars/TotalAvatars.tsx
+new file mode 100644
+index 00000000000000..1bc9b6aea05720
+--- /dev/null
++++ b/docs/src/pages/components/avatars/TotalAvatars.tsx
+@@ -0,0 +1,14 @@
++import * as React from 'react';
++import Avatar from '@mui/material/Avatar';
++import AvatarGroup from '@mui/material/AvatarGroup';
++
++export default function TotalAvatars() {
++  return (
++    <AvatarGroup total={24}>
++      <Avatar alt="Remy Sharp" src="/static/images/avatar/1.jpg" />
++      <Avatar alt="Travis Howard" src="/static/images/avatar/2.jpg" />
++      <Avatar alt="Agnes Walker" src="/static/images/avatar/4.jpg" />
++      <Avatar alt="Trevor Henderson" src="/static/images/avatar/5.jpg" />
++    </AvatarGroup>
++  );
++}
+diff --git a/docs/src/pages/components/avatars/TotalAvatars.tsx.preview b/docs/src/pages/components/avatars/TotalAvatars.tsx.preview
+new file mode 100644
+index 00000000000000..ac1e5cce7ef76b
+--- /dev/null
++++ b/docs/src/pages/components/avatars/TotalAvatars.tsx.preview
+@@ -0,0 +1,6 @@
++<AvatarGroup total={24}>
++  <Avatar alt="Remy Sharp" src="/static/images/avatar/1.jpg" />
++  <Avatar alt="Travis Howard" src="/static/images/avatar/2.jpg" />
++  <Avatar alt="Agnes Walker" src="/static/images/avatar/4.jpg" />
++  <Avatar alt="Trevor Henderson" src="/static/images/avatar/5.jpg" />
++</AvatarGroup>
+\ No newline at end of file
+diff --git a/docs/src/pages/components/avatars/avatars.md b/docs/src/pages/components/avatars/avatars.md
+index 4aee857c89346f..8a6ec44a3cb4b3 100644
+--- a/docs/src/pages/components/avatars/avatars.md
++++ b/docs/src/pages/components/avatars/avatars.md
+@@ -57,10 +57,16 @@ If there is an error loading the avatar image, the component falls back to an al
+ 
+ ## Grouped
+ 
+-`AvatarGroup` renders its children as a stack.
++`AvatarGroup` renders its children as a stack. Use the `max` prop to limit the number of avatars.
+ 
+ {{"demo": "pages/components/avatars/GroupAvatars.js"}}
+ 
++### Total avatars
++
++If you need to control the total number of avatars not shown, you can use the `total` prop.
++
++{{"demo": "pages/components/avatars/TotalAvatars.js"}}
++
+ ## With badge
+ 
+ {{"demo": "pages/components/avatars/BadgeAvatars.js"}}
+diff --git a/docs/translations/api-docs/avatar-group/avatar-group.json b/docs/translations/api-docs/avatar-group/avatar-group.json
+index 93f25ec0beddcd..408fafc9284b3f 100644
+--- a/docs/translations/api-docs/avatar-group/avatar-group.json
++++ b/docs/translations/api-docs/avatar-group/avatar-group.json
+@@ -6,6 +6,7 @@
+     "max": "Max avatars to show before +x.",
+     "spacing": "Spacing between avatars.",
+     "sx": "The system prop that allows defining system overrides as well as additional CSS styles. See the <a href=\"/system/the-sx-prop/\">`sx` page</a> for more details.",
++    "total": "The total number of avatars. Used for calculating the number of extra avatars.",
+     "variant": "The variant to use."
+   },
+   "classDescriptions": {
+diff --git a/packages/mui-material/src/AvatarGroup/AvatarGroup.d.ts b/packages/mui-material/src/AvatarGroup/AvatarGroup.d.ts
+index 32a1c768de14fc..793fa31a678a54 100644
+--- a/packages/mui-material/src/AvatarGroup/AvatarGroup.d.ts
++++ b/packages/mui-material/src/AvatarGroup/AvatarGroup.d.ts
+@@ -29,6 +29,11 @@ export interface AvatarGroupProps extends StandardProps<React.HTMLAttributes<HTM
+    * The system prop that allows defining system overrides as well as additional CSS styles.
+    */
+   sx?: SxProps<Theme>;
++  /**
++   * The total number of avatars. Used for calculating the number of extra avatars.
++   * @default children.length
++   */
++  total?: number;
+   /**
+    * The variant to use.
+    * @default 'circular'
+diff --git a/packages/mui-material/src/AvatarGroup/AvatarGroup.js b/packages/mui-material/src/AvatarGroup/AvatarGroup.js
+index 63ae496ecd82b1..d5d8d094b8e621 100644
+--- a/packages/mui-material/src/AvatarGroup/AvatarGroup.js
++++ b/packages/mui-material/src/AvatarGroup/AvatarGroup.js
+@@ -69,10 +69,11 @@ const AvatarGroup = React.forwardRef(function AvatarGroup(inProps, ref) {
+     className,
+     max = 5,
+     spacing = 'medium',
++    total,
+     variant = 'circular',
+     ...other
+   } = props;
+-  const clampedMax = max < 2 ? 2 : max;
++  let clampedMax = max < 2 ? 2 : max;
+ 
+   const ownerState = {
+     ...props,
+@@ -98,7 +99,16 @@ const AvatarGroup = React.forwardRef(function AvatarGroup(inProps, ref) {
+     return React.isValidElement(child);
+   });
+ 
+-  const extraAvatars = children.length > clampedMax ? children.length - clampedMax + 1 : 0;
++  const totalAvatars = total || children.length;
++
++  if (totalAvatars === clampedMax) {
++    clampedMax += 1;
++  }
++
++  clampedMax = Math.min(totalAvatars + 1, clampedMax);
++
++  const maxAvatars = Math.min(children.length, clampedMax - 1);
++  const extraAvatars = Math.max(totalAvatars - clampedMax, totalAvatars - maxAvatars, 0);
+ 
+   const marginLeft = spacing && SPACINGS[spacing] !== undefined ? SPACINGS[spacing] : -spacing;
+ 
+@@ -122,7 +132,7 @@ const AvatarGroup = React.forwardRef(function AvatarGroup(inProps, ref) {
+         </AvatarGroupAvatar>
+       ) : null}
+       {children
+-        .slice(0, children.length - extraAvatars)
++        .slice(0, maxAvatars)
+         .reverse()
+         .map((child) => {
+           return React.cloneElement(child, {
+@@ -184,6 +194,11 @@ AvatarGroup.propTypes /* remove-proptypes */ = {
+     PropTypes.func,
+     PropTypes.object,
+   ]),
++  /**
++   * The total number of avatars. Used for calculating the number of extra avatars.
++   * @default children.length
++   */
++  total: PropTypes.number,
+   /**
+    * The variant to use.
+    * @default 'circular'

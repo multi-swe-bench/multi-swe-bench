@@ -1,0 +1,5073 @@
+diff --git a/.clippy.toml b/.clippy.toml
+index fc3ef79a390..97dd653d334 100644
+--- a/.clippy.toml
++++ b/.clippy.toml
+@@ -1,1 +1,1 @@
+-msrv = "1.54.0"  # MSRV
++msrv = "1.56.0"  # MSRV
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index bacec0041a4..e9ce379c37e 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -78,7 +78,7 @@ jobs:
+         build: [msrv, wasm, wasm-wasi, debug, release]
+         include:
+           - build: msrv
+-            rust: 1.54.0  # MSRV
++            rust: 1.56.0  # MSRV
+             target: x86_64-unknown-linux-gnu
+             features: full
+           - build: wasm
+@@ -122,7 +122,7 @@ jobs:
+     - name: Install Rust
+       uses: actions-rs/toolchain@v1
+       with:
+-        toolchain: 1.54.0  # MSRV
++        toolchain: 1.56.0  # MSRV
+         profile: minimal
+         override: true
+     - uses: Swatinem/rust-cache@v1
+@@ -172,7 +172,7 @@ jobs:
+     - name: Install Rust
+       uses: actions-rs/toolchain@v1
+       with:
+-        toolchain: 1.54.0  # MSRV
++        toolchain: 1.56.0  # MSRV
+         profile: minimal
+         override: true
+         components: clippy
+diff --git a/.github/workflows/rust-next.yml b/.github/workflows/rust-next.yml
+index 6910a7f0c81..4a67ac6bd40 100644
+--- a/.github/workflows/rust-next.yml
++++ b/.github/workflows/rust-next.yml
+@@ -92,9 +92,9 @@ jobs:
+     strategy:
+       matrix:
+         rust:
+-        - 1.54.0  # MSRV
++        - 1.56.0  # MSRV
+         - stable
+-    continue-on-error: ${{ matrix.rust != '1.54.0' }}  # MSRV
++    continue-on-error: ${{ matrix.rust != '1.56.0' }}  # MSRV
+     runs-on: ubuntu-latest
+     steps:
+     - name: Checkout repository
+diff --git a/Cargo.toml b/Cargo.toml
+index 4161f36c6c2..563fc681c1a 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -10,6 +10,7 @@ members = [
+ [package]
+ name = "clap"
+ version = "3.1.18"
++rust-version = "1.56.0"  # MSRV
+ description = "A simple to use, efficient, and full-featured Command Line Argument Parser"
+ repository = "https://github.com/clap-rs/clap"
+ documentation = "https://docs.rs/clap/"
+diff --git a/Makefile b/Makefile
+index a8a1acc54f6..19e9b8c757a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -10,7 +10,7 @@ ifneq (${TOOLCHAIN_TARGET},)
+   ARGS+=--target ${TOOLCHAIN_TARGET}
+ endif
+ 
+-MSRV?=1.54.0
++MSRV?=1.56.0
+ 
+ _FEATURES = minimal default wasm full debug release
+ _FEATURES_minimal = --no-default-features --features "std"
+diff --git a/README.md b/README.md
+index ee6d9f3d8c6..8d9d4398012 100644
+--- a/README.md
++++ b/README.md
+@@ -93,7 +93,7 @@ OPTIONS:
+   - Leverage feature flags to keep to one active branch
+   - Being under [WG-CLI](https://github.com/rust-cli/team/) to increase the bus factor
+ - We follow semver and will wait about 6-9 months between major breaking changes
+-- We will support the last two minor Rust releases (MSRV, currently 1.54.0)
++- We will support the last two minor Rust releases (MSRV, currently 1.56.0)
+ 
+ While these aspirations can be at odds with fast build times and low binary
+ size, we will still strive to keep these reasonable for the flexibility you
+diff --git a/clap_complete/src/dynamic.rs b/clap_complete/src/dynamic.rs
+index a8efd1616fb..9112ac5ee8e 100644
+--- a/clap_complete/src/dynamic.rs
++++ b/clap_complete/src/dynamic.rs
+@@ -438,7 +438,7 @@ complete OPTIONS -F _clap_complete_NAME EXECUTABLES
+         let mut values = Vec::new();
+         debug!("complete_arg_value: arg={:?}, value={:?}", arg, value);
+ 
+-        if let Some(possible_values) = arg.get_possible_values() {
++        if let Some(possible_values) = crate::generator::utils::possible_values(arg) {
+             if let Ok(value) = value {
+                 values.extend(possible_values.into_iter().filter_map(|p| {
+                     let name = p.get_name();
+diff --git a/clap_complete/src/generator/utils.rs b/clap_complete/src/generator/utils.rs
+index 054ee2b8b0d..735cad60d7e 100644
+--- a/clap_complete/src/generator/utils.rs
++++ b/clap_complete/src/generator/utils.rs
+@@ -126,6 +126,19 @@ pub fn flags<'help>(p: &Command<'help>) -> Vec<Arg<'help>> {
+         .collect()
+ }
+ 
++/// Get the possible values for completion
++pub fn possible_values<'help>(a: &Arg<'help>) -> Option<Vec<clap::PossibleValue<'help>>> {
++    if let Some(pvs) = a.get_possible_values() {
++        // Check old first in case the user explicitly set possible values and the derive inferred
++        // a `ValueParser` with some.
++        Some(pvs.to_vec())
++    } else {
++        a.get_value_parser()
++            .possible_values()
++            .map(|pvs| pvs.collect())
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/clap_complete/src/shells/bash.rs b/clap_complete/src/shells/bash.rs
+index a95047df7e3..d017d0ec9f5 100644
+--- a/clap_complete/src/shells/bash.rs
++++ b/clap_complete/src/shells/bash.rs
+@@ -174,7 +174,7 @@ fn option_details_for_path(cmd: &Command, path: &str) -> String {
+ fn vals_for(o: &Arg) -> String {
+     debug!("vals_for: o={}", o.get_id());
+ 
+-    if let Some(vals) = o.get_possible_values() {
++    if let Some(vals) = crate::generator::utils::possible_values(o) {
+         format!(
+             "$(compgen -W \"{}\" -- \"${{cur}}\")",
+             vals.iter()
+diff --git a/clap_complete/src/shells/fish.rs b/clap_complete/src/shells/fish.rs
+index 9b516084b9f..eb1e44b52c5 100644
+--- a/clap_complete/src/shells/fish.rs
++++ b/clap_complete/src/shells/fish.rs
+@@ -152,7 +152,7 @@ fn value_completion(option: &Arg) -> String {
+         return "".to_string();
+     }
+ 
+-    if let Some(data) = option.get_possible_values() {
++    if let Some(data) = crate::generator::utils::possible_values(option) {
+         // We return the possible values with their own empty description e.g. {a\t,b\t}
+         // this makes sure that a and b don't get the description of the option or argument
+         format!(
+diff --git a/clap_complete/src/shells/zsh.rs b/clap_complete/src/shells/zsh.rs
+index 2b64739cedf..2563ad9329b 100644
+--- a/clap_complete/src/shells/zsh.rs
++++ b/clap_complete/src/shells/zsh.rs
+@@ -359,7 +359,7 @@ fn get_args_of(parent: &Command, p_global: Option<&Command>) -> String {
+ 
+ // Uses either `possible_vals` or `value_hint` to give hints about possible argument values
+ fn value_completion(arg: &Arg) -> Option<String> {
+-    if let Some(values) = &arg.get_possible_values() {
++    if let Some(values) = crate::generator::utils::possible_values(arg) {
+         if values
+             .iter()
+             .any(|value| !value.is_hide_set() && value.get_help().is_some())
+diff --git a/clap_complete_fig/src/fig.rs b/clap_complete_fig/src/fig.rs
+index 07255207911..f8e0d233a5a 100644
+--- a/clap_complete_fig/src/fig.rs
++++ b/clap_complete_fig/src/fig.rs
+@@ -350,7 +350,7 @@ fn gen_args(arg: &Arg, indent: usize) -> String {
+         ));
+     }
+ 
+-    if let Some(data) = arg.get_possible_values() {
++    if let Some(data) = generator::utils::possible_values(arg) {
+         buffer.push_str(&format!(
+             "{:indent$}suggestions: [\n",
+             "",
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index e1486ea2bd3..dddddbef008 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -529,25 +529,25 @@ fn gen_parsers(
+     let span = parser.kind.span();
+     let convert_type = inner_type(**ty, &field.ty);
+     let id = attrs.id();
+-    let (value_of, values_of, mut parse) = match *parser.kind {
++    let (get_one, get_many, mut parse) = match *parser.kind {
+         FromStr => (
+-            quote_spanned!(span=> value_of),
+-            quote_spanned!(span=> values_of),
++            quote_spanned!(span=> get_one::<String>),
++            quote_spanned!(span=> get_many::<String>),
+             quote_spanned!(func.span()=> |s| ::std::result::Result::Ok::<_, clap::Error>(#func(s))),
+         ),
+         TryFromStr => (
+-            quote_spanned!(span=> value_of),
+-            quote_spanned!(span=> values_of),
++            quote_spanned!(span=> get_one::<String>),
++            quote_spanned!(span=> get_many::<String>),
+             quote_spanned!(func.span()=> |s| #func(s).map_err(|err| clap::Error::raw(clap::ErrorKind::ValueValidation, format!("Invalid value for {}: {}", #id, err)))),
+         ),
+         FromOsStr => (
+-            quote_spanned!(span=> value_of_os),
+-            quote_spanned!(span=> values_of_os),
++            quote_spanned!(span=> get_one::<::std::ffi::OsString>),
++            quote_spanned!(span=> get_many::<::std::ffi::OsString>),
+             quote_spanned!(func.span()=> |s| ::std::result::Result::Ok::<_, clap::Error>(#func(s))),
+         ),
+         TryFromOsStr => (
+-            quote_spanned!(span=> value_of_os),
+-            quote_spanned!(span=> values_of_os),
++            quote_spanned!(span=> get_one::<::std::ffi::OsString>),
++            quote_spanned!(span=> get_many::<::std::ffi::OsString>),
+             quote_spanned!(func.span()=> |s| #func(s).map_err(|err| clap::Error::raw(clap::ErrorKind::ValueValidation, format!("Invalid value for {}: {}", #id, err)))),
+         ),
+         FromOccurrences => (
+@@ -587,7 +587,9 @@ fn gen_parsers(
+ 
+         Ty::Option => {
+             quote_spanned! { ty.span()=>
+-                #arg_matches.#value_of(#id)
++                #arg_matches.#get_one(#id)
++                    .expect("unexpected type")
++                    .map(|s| ::std::ops::Deref::deref(s))
+                     .map(#parse)
+                     .transpose()?
+             }
+@@ -595,7 +597,12 @@ fn gen_parsers(
+ 
+         Ty::OptionOption => quote_spanned! { ty.span()=>
+             if #arg_matches.is_present(#id) {
+-                Some(#arg_matches.#value_of(#id).map(#parse).transpose()?)
++                Some(
++                    #arg_matches.#get_one(#id)
++                        .expect("unexpected type")
++                        .map(|s| ::std::ops::Deref::deref(s))
++                        .map(#parse).transpose()?
++                )
+             } else {
+                 None
+             }
+@@ -603,8 +610,9 @@ fn gen_parsers(
+ 
+         Ty::OptionVec => quote_spanned! { ty.span()=>
+             if #arg_matches.is_present(#id) {
+-                Some(#arg_matches.#values_of(#id)
+-                    .map(|v| v.map::<::std::result::Result<#convert_type, clap::Error>, _>(#parse).collect::<::std::result::Result<Vec<_>, clap::Error>>())
++                Some(#arg_matches.#get_many(#id)
++                    .expect("unexpected type")
++                    .map(|v| v.map(|s| ::std::ops::Deref::deref(s)).map::<::std::result::Result<#convert_type, clap::Error>, _>(#parse).collect::<::std::result::Result<Vec<_>, clap::Error>>())
+                     .transpose()?
+                     .unwrap_or_else(Vec::new))
+             } else {
+@@ -614,24 +622,31 @@ fn gen_parsers(
+ 
+         Ty::Vec => {
+             quote_spanned! { ty.span()=>
+-                #arg_matches.#values_of(#id)
+-                    .map(|v| v.map::<::std::result::Result<#convert_type, clap::Error>, _>(#parse).collect::<::std::result::Result<Vec<_>, clap::Error>>())
++                #arg_matches.#get_many(#id)
++                    .expect("unexpected type")
++                    .map(|v| v.map(|s| ::std::ops::Deref::deref(s)).map::<::std::result::Result<#convert_type, clap::Error>, _>(#parse).collect::<::std::result::Result<Vec<_>, clap::Error>>())
+                     .transpose()?
+                     .unwrap_or_else(Vec::new)
+             }
+         }
+ 
+         Ty::Other if occurrences => quote_spanned! { ty.span()=>
+-            #parse(#arg_matches.#value_of(#id))
++            #parse(
++                #arg_matches.#get_one(#id)
++            )
+         },
+ 
+         Ty::Other if flag => quote_spanned! { ty.span()=>
+-            #parse(#arg_matches.is_present(#id))
++            #parse(
++                #arg_matches.is_present(#id)
++            )
+         },
+ 
+         Ty::Other => {
+             quote_spanned! { ty.span()=>
+-                #arg_matches.#value_of(#id)
++                #arg_matches.#get_one(#id)
++                    .expect("unexpected type")
++                    .map(|s| ::std::ops::Deref::deref(s))
+                     .ok_or_else(|| clap::Error::raw(clap::ErrorKind::MissingRequiredArgument, format!("The following required argument was not provided: {}", #id)))
+                     .and_then(#parse)?
+             }
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index 7d123479857..ac7a8a1dcdf 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -430,20 +430,12 @@ fn gen_from_arg_matches(
+                     ),
+                 };
+ 
+-                let (span, str_ty, values_of) = match subty_if_name(ty, "Vec") {
++                let (span, str_ty) = match subty_if_name(ty, "Vec") {
+                     Some(subty) => {
+                         if is_simple_ty(subty, "String") {
+-                            (
+-                                subty.span(),
+-                                quote!(::std::string::String),
+-                                quote!(values_of),
+-                            )
++                            (subty.span(), quote!(::std::string::String))
+                         } else if is_simple_ty(subty, "OsString") {
+-                            (
+-                                subty.span(),
+-                                quote!(::std::ffi::OsString),
+-                                quote!(values_of_os),
+-                            )
++                            (subty.span(), quote!(::std::ffi::OsString))
+                         } else {
+                             abort!(
+                                 ty.span(),
+@@ -460,7 +452,7 @@ fn gen_from_arg_matches(
+                     ),
+                 };
+ 
+-                ext_subcmd = Some((span, &variant.ident, str_ty, values_of));
++                ext_subcmd = Some((span, &variant.ident, str_ty));
+                 None
+             } else {
+                 Some((variant, attrs))
+@@ -518,11 +510,15 @@ fn gen_from_arg_matches(
+     });
+ 
+     let wildcard = match ext_subcmd {
+-        Some((span, var_name, str_ty, values_of)) => quote_spanned! { span=>
++        Some((span, var_name, str_ty)) => quote_spanned! { span=>
+                 ::std::result::Result::Ok(#name::#var_name(
+                     ::std::iter::once(#str_ty::from(#subcommand_name_var))
+                     .chain(
+-                        #sub_arg_matches_var.#values_of("").into_iter().flatten().map(#str_ty::from)
++                        #sub_arg_matches_var
++                            .get_many::<#str_ty>("")
++                            .expect("unexpected type")
++                            .into_iter().flatten()  // `""` isn't present, bug in `unstable-v4`
++                            .map(#str_ty::from)
+                     )
+                     .collect::<::std::vec::Vec<_>>()
+                 ))
+diff --git a/clap_lex/src/lib.rs b/clap_lex/src/lib.rs
+index f1c8da35be4..f205c3de015 100644
+--- a/clap_lex/src/lib.rs
++++ b/clap_lex/src/lib.rs
+@@ -235,6 +235,11 @@ impl RawArgs {
+             insert_items.iter().map(OsString::from),
+         );
+     }
++
++    /// Any remaining args?
++    pub fn is_end(&self, cursor: &ArgCursor) -> bool {
++        self.peek_os(cursor).is_none()
++    }
+ }
+ 
+ impl<I, T> From<I> for RawArgs
+diff --git a/src/builder/arg.rs b/src/builder/arg.rs
+index 07ece27ac57..33e50818319 100644
+--- a/src/builder/arg.rs
++++ b/src/builder/arg.rs
+@@ -63,6 +63,7 @@ pub struct Arg<'help> {
+     pub(crate) name: &'help str,
+     pub(crate) help: Option<&'help str>,
+     pub(crate) long_help: Option<&'help str>,
++    pub(crate) value_parser: Option<super::ValueParser>,
+     pub(crate) blacklist: Vec<Id>,
+     pub(crate) settings: ArgFlags,
+     pub(crate) overrides: Vec<Id>,
+@@ -94,7 +95,7 @@ pub struct Arg<'help> {
+     pub(crate) terminator: Option<&'help str>,
+     pub(crate) index: Option<usize>,
+     pub(crate) help_heading: Option<Option<&'help str>>,
+-    pub(crate) value_hint: ValueHint,
++    pub(crate) value_hint: Option<ValueHint>,
+ }
+ 
+ /// # Basic API
+@@ -1000,6 +1001,63 @@ impl<'help> Arg<'help> {
+         }
+     }
+ 
++    /// Specify the type of the argument.
++    ///
++    /// This allows parsing and validating a value before storing it into
++    /// [`ArgMatches`][crate::ArgMatches].
++    ///
++    /// See also
++    /// - [`value_parser!`][crate::value_parser!] for auto-selecting a value parser for a given type
++    ///   - [`BoolishValueParser`][crate::builder::BoolishValueParser], and [`FalseyValueParser`][crate::builder::FalseyValueParser] for alternative `bool` implementations
++    ///   - [`NonEmptyStringValueParser`][crate::builder::NonEmptyStringValueParser] for basic validation for strings
++    /// - [`RangedI64ValueParser`][crate::builder::RangedI64ValueParser] for numeric ranges
++    /// - [`ArgEnumValueParser`][crate::builder::ArgEnumValueParser] and  [`PossibleValuesParser`][crate::builder::PossibleValuesParser] for static enumerated values
++    /// - or any other [`TypedValueParser`][crate::builder::TypedValueParser] implementation
++    ///
++    /// ```rust
++    /// let mut cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("color")
++    ///             .long("color")
++    ///             .value_parser(["always", "auto", "never"])
++    ///             .default_value("auto")
++    ///     )
++    ///     .arg(
++    ///         clap::Arg::new("hostname")
++    ///             .long("hostname")
++    ///             .value_parser(clap::builder::NonEmptyStringValueParser::new())
++    ///             .takes_value(true)
++    ///             .required(true)
++    ///     )
++    ///     .arg(
++    ///         clap::Arg::new("port")
++    ///             .long("port")
++    ///             .value_parser(clap::value_parser!(u16).range(3000..))
++    ///             .takes_value(true)
++    ///             .required(true)
++    ///     );
++    ///
++    /// let m = cmd.try_get_matches_from_mut(
++    ///     ["cmd", "--hostname", "rust-lang.org", "--port", "3001"]
++    /// ).unwrap();
++    ///
++    /// let color: &String = m.get_one("color")
++    ///     .expect("matches definition").expect("default");
++    /// assert_eq!(color, "auto");
++    ///
++    /// let hostname: &String = m.get_one("hostname")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(hostname, "rust-lang.org");
++    ///
++    /// let port: u16 = *m.get_one("port")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(port, 3001);
++    /// ```
++    pub fn value_parser(mut self, parser: impl Into<super::ValueParser>) -> Self {
++        self.value_parser = Some(parser.into());
++        self
++    }
++
+     /// Specifies that the argument may have an unknown number of values
+     ///
+     /// Without any other settings, this argument may appear only *once*.
+@@ -1495,7 +1553,7 @@ impl<'help> Arg<'help> {
+     /// ```
+     #[must_use]
+     pub fn value_hint(mut self, value_hint: ValueHint) -> Self {
+-        self.value_hint = value_hint;
++        self.value_hint = Some(value_hint);
+         self.takes_value(true)
+     }
+ 
+@@ -4611,7 +4669,7 @@ impl<'help> Arg<'help> {
+ 
+     /// Get the list of the possible values for this argument, if any
+     #[inline]
+-    pub fn get_possible_values(&self) -> Option<&[PossibleValue]> {
++    pub fn get_possible_values(&self) -> Option<&[PossibleValue<'help>]> {
+         if self.possible_vals.is_empty() {
+             None
+         } else {
+@@ -4649,7 +4707,18 @@ impl<'help> Arg<'help> {
+ 
+     /// Get the value hint of this argument
+     pub fn get_value_hint(&self) -> ValueHint {
+-        self.value_hint
++        self.value_hint.unwrap_or_else(|| {
++            if self.is_takes_value_set() {
++                let type_id = self.get_value_parser().type_id();
++                if type_id == crate::parser::AnyValueId::of::<std::path::PathBuf>() {
++                    ValueHint::AnyPath
++                } else {
++                    ValueHint::default()
++                }
++            } else {
++                ValueHint::default()
++            }
++        })
+     }
+ 
+     /// Deprecated, replaced with [`Arg::is_global_set`]
+@@ -4737,6 +4806,31 @@ impl<'help> Arg<'help> {
+         self.is_set(ArgSettings::AllowInvalidUtf8)
+     }
+ 
++    /// Configured parser for argument values
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// let cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("port")
++    ///             .value_parser(clap::value_parser!(usize))
++    ///     );
++    /// let value_parser = cmd.get_arguments()
++    ///     .find(|a| a.get_id() == "port").unwrap()
++    ///     .get_value_parser();
++    /// println!("{:?}", value_parser);
++    /// ```
++    pub fn get_value_parser(&self) -> &super::ValueParser {
++        if let Some(value_parser) = self.value_parser.as_ref() {
++            value_parser
++        } else if self.is_allow_invalid_utf8_set() {
++            &super::ValueParser(super::ValueParserInner::OsString)
++        } else {
++            &super::ValueParser(super::ValueParserInner::String)
++        }
++    }
++
+     /// Report whether [`Arg::global`] is set
+     pub fn is_global_set(&self) -> bool {
+         self.is_set(ArgSettings::Global)
+@@ -5039,6 +5133,14 @@ impl<'help> Arg<'help> {
+             self.settings.set(ArgSettings::TakesValue);
+         }
+ 
++        if self.value_parser.is_none() {
++            if self.is_allow_invalid_utf8_set() {
++                self.value_parser = Some(super::ValueParser::os_string());
++            } else {
++                self.value_parser = Some(super::ValueParser::string());
++            }
++        }
++
+         if (self.is_use_value_delimiter_set() || self.is_require_value_delimiter_set())
+             && self.val_delim.is_none()
+         {
+diff --git a/src/builder/command.rs b/src/builder/command.rs
+index fc806a40bd0..36b160aff15 100644
+--- a/src/builder/command.rs
++++ b/src/builder/command.rs
+@@ -3678,6 +3678,27 @@ impl<'help> App<'help> {
+         self.is_set(AppSettings::AllowInvalidUtf8ForExternalSubcommands)
+     }
+ 
++    /// Configured parser for values passed to an external subcommand
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// let cmd = clap::Command::new("raw")
++    ///     .allow_external_subcommands(true)
++    ///     .allow_invalid_utf8_for_external_subcommands(true);
++    /// let value_parser = cmd.get_external_subcommand_value_parser();
++    /// println!("{:?}", value_parser);
++    /// ```
++    pub fn get_external_subcommand_value_parser(&self) -> Option<&super::ValueParser> {
++        if !self.is_allow_external_subcommands_set() {
++            None
++        } else if self.is_allow_invalid_utf8_for_external_subcommands_set() {
++            Some(&super::ValueParser(super::ValueParserInner::OsString))
++        } else {
++            Some(&super::ValueParser(super::ValueParserInner::String))
++        }
++    }
++
+     /// Report whether [`Command::args_conflicts_with_subcommands`] is set
+     pub fn is_args_conflicts_with_subcommands_set(&self) -> bool {
+         self.is_set(AppSettings::ArgsNegateSubcommands)
+diff --git a/src/builder/debug_asserts.rs b/src/builder/debug_asserts.rs
+index 33db293d01a..ae656471774 100644
+--- a/src/builder/debug_asserts.rs
++++ b/src/builder/debug_asserts.rs
+@@ -267,7 +267,7 @@ pub(crate) fn assert_app(cmd: &Command) {
+             arg.name
+         );
+ 
+-        if arg.value_hint == ValueHint::CommandWithArguments {
++        if arg.get_value_hint() == ValueHint::CommandWithArguments {
+             assert!(
+                 arg.is_positional(),
+                 "Command {}: Argument '{}' has hint CommandWithArguments and must be positional.",
+@@ -646,14 +646,14 @@ fn assert_arg(arg: &Arg) {
+         arg.name,
+     );
+ 
+-    if arg.value_hint != ValueHint::Unknown {
++    if arg.get_value_hint() != ValueHint::Unknown {
+         assert!(
+             arg.is_takes_value_set(),
+             "Argument '{}' has value hint but takes no value",
+             arg.name
+         );
+ 
+-        if arg.value_hint == ValueHint::CommandWithArguments {
++        if arg.get_value_hint() == ValueHint::CommandWithArguments {
+             assert!(
+                 arg.is_multiple_values_set(),
+                 "Argument '{}' uses hint CommandWithArguments and must accept multiple values",
+diff --git a/src/builder/mod.rs b/src/builder/mod.rs
+index b38f95e1e11..5cd8e154bcf 100644
+--- a/src/builder/mod.rs
++++ b/src/builder/mod.rs
+@@ -12,6 +12,7 @@ mod command;
+ mod possible_value;
+ mod usage_parser;
+ mod value_hint;
++mod value_parser;
+ 
+ #[cfg(feature = "regex")]
+ mod regex;
+@@ -29,6 +30,21 @@ pub use arg_settings::{ArgFlags, ArgSettings};
+ pub use command::Command;
+ pub use possible_value::PossibleValue;
+ pub use value_hint::ValueHint;
++pub use value_parser::via_prelude;
++pub use value_parser::AnyValueParser;
++pub use value_parser::ArgEnumValueParser;
++pub use value_parser::AutoValueParser;
++pub use value_parser::BoolValueParser;
++pub use value_parser::BoolishValueParser;
++pub use value_parser::FalseyValueParser;
++pub use value_parser::NonEmptyStringValueParser;
++pub use value_parser::OsStringValueParser;
++pub use value_parser::PathBufValueParser;
++pub use value_parser::PossibleValuesParser;
++pub use value_parser::RangedI64ValueParser;
++pub use value_parser::StringValueParser;
++pub use value_parser::TypedValueParser;
++pub use value_parser::ValueParser;
+ 
+ #[allow(deprecated)]
+ pub use command::App;
+@@ -38,3 +54,4 @@ pub use self::regex::RegexRef;
+ 
+ pub(crate) use arg::display_arg_val;
+ pub(crate) use arg_predicate::ArgPredicate;
++pub(crate) use value_parser::ValueParserInner;
+diff --git a/src/builder/value_parser.rs b/src/builder/value_parser.rs
+new file mode 100644
+index 00000000000..88cbd1ccead
+--- /dev/null
++++ b/src/builder/value_parser.rs
+@@ -0,0 +1,1803 @@
++use std::convert::TryInto;
++use std::ops::RangeBounds;
++use std::sync::Arc;
++
++use crate::parser::AnyValue;
++use crate::parser::AnyValueId;
++
++/// Parse/validate argument values
++///
++/// Specified with [`Arg::value_parser`][crate::Arg::value_parser].
++///
++/// `ValueParser` defines how to convert a raw argument value into a validated and typed value for
++/// use within an application.
++///
++/// See
++/// - [`value_parser!`] for automatically selecting an implementation for a given type
++/// - [`ValueParser::new`] for additional [`TypedValueParser`] that can be used
++///
++/// # Example
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("color")
++///             .long("color")
++///             .value_parser(["always", "auto", "never"])
++///             .default_value("auto")
++///     )
++///     .arg(
++///         clap::Arg::new("hostname")
++///             .long("hostname")
++///             .value_parser(clap::builder::NonEmptyStringValueParser::new())
++///             .takes_value(true)
++///             .required(true)
++///     )
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(clap::value_parser!(u16).range(3000..))
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(
++///     ["cmd", "--hostname", "rust-lang.org", "--port", "3001"]
++/// ).unwrap();
++///
++/// let color: &String = m.get_one("color")
++///     .expect("matches definition").expect("default");
++/// assert_eq!(color, "auto");
++///
++/// let hostname: &String = m.get_one("hostname")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(hostname, "rust-lang.org");
++///
++/// let port: u16 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++#[derive(Clone)]
++pub struct ValueParser(pub(crate) ValueParserInner);
++
++#[derive(Clone)]
++pub(crate) enum ValueParserInner {
++    // Common enough to optimize and for possible values
++    Bool,
++    // Common enough to optimize
++    String,
++    // Common enough to optimize
++    OsString,
++    // Common enough to optimize
++    PathBuf,
++    Other(Arc<dyn AnyValueParser + Send + Sync + 'static>),
++}
++
++impl ValueParser {
++    /// Custom parser for argument values
++    ///
++    /// To create a custom parser, see [`TypedValueParser`]
++    ///
++    /// Pre-existing implementations include:
++    /// - [`ArgEnumValueParser`] and  [`PossibleValuesParser`] for static enumerated values
++    /// - [`BoolishValueParser`] and [`FalseyValueParser`] for alternative `bool` implementations
++    /// - [`RangedI64ValueParser`]
++    /// - [`NonEmptyStringValueParser`]
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// type EnvVar = (String, Option<String>);
++    /// fn parse_env_var(env: &str) -> Result<EnvVar, std::io::Error> {
++    ///     if let Some((var, value)) = env.split_once('=') {
++    ///         Ok((var.to_owned(), Some(value.to_owned())))
++    ///     } else {
++    ///         Ok((env.to_owned(), None))
++    ///     }
++    /// }
++    ///
++    /// let mut cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("env")
++    ///             .value_parser(clap::builder::ValueParser::new(parse_env_var))
++    ///             .required(true)
++    ///     );
++    ///
++    /// let m = cmd.try_get_matches_from_mut(["cmd", "key=value"]).unwrap();
++    /// let port: &EnvVar = m.get_one("env")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(*port, ("key".into(), Some("value".into())));
++    /// ```
++    pub fn new(other: impl AnyValueParser + Send + Sync + 'static) -> Self {
++        Self(ValueParserInner::Other(Arc::new(other)))
++    }
++
++    /// [`bool`] parser for argument values
++    ///
++    /// See also:
++    /// - [`BoolishValueParser`] for different human readable bool representations
++    /// - [`FalseyValueParser`] for assuming non-false is true
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// let mut cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("download")
++    ///             .value_parser(clap::value_parser!(bool))
++    ///             .required(true)
++    ///     );
++    ///
++    /// let m = cmd.try_get_matches_from_mut(["cmd", "true"]).unwrap();
++    /// let port: bool = *m.get_one("download")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(port, true);
++    ///
++    /// assert!(cmd.try_get_matches_from_mut(["cmd", "forever"]).is_err());
++    /// ```
++    pub const fn bool() -> Self {
++        Self(ValueParserInner::Bool)
++    }
++
++    /// [`String`] parser for argument values
++    ///
++    /// See also:
++    /// - [`NonEmptyStringValueParser`]
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// let mut cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("port")
++    ///             .value_parser(clap::value_parser!(String))
++    ///             .required(true)
++    ///     );
++    ///
++    /// let m = cmd.try_get_matches_from_mut(["cmd", "80"]).unwrap();
++    /// let port: &String = m.get_one("port")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(port, "80");
++    /// ```
++    pub const fn string() -> Self {
++        Self(ValueParserInner::String)
++    }
++
++    /// [`OsString`][std::ffi::OsString] parser for argument values
++    pub const fn os_string() -> Self {
++        Self(ValueParserInner::OsString)
++    }
++
++    /// [`PathBuf`][std::path::PathBuf] parser for argument values
++    ///
++    /// # Example
++    ///
++    /// ```rust
++    /// # use std::path::PathBuf;
++    /// # use std::path::Path;
++    /// let mut cmd = clap::Command::new("raw")
++    ///     .arg(
++    ///         clap::Arg::new("output")
++    ///             .value_parser(clap::value_parser!(PathBuf))
++    ///             .required(true)
++    ///     );
++    ///
++    /// let m = cmd.try_get_matches_from_mut(["cmd", "hello.txt"]).unwrap();
++    /// let port: &PathBuf = m.get_one("output")
++    ///     .expect("matches definition").expect("required");
++    /// assert_eq!(port, Path::new("hello.txt"));
++    ///
++    /// assert!(cmd.try_get_matches_from_mut(["cmd", ""]).is_err());
++    /// ```
++    pub const fn path_buf() -> Self {
++        Self(ValueParserInner::PathBuf)
++    }
++}
++
++impl ValueParser {
++    /// Parse into a `AnyValue`
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    pub fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<AnyValue, crate::Error> {
++        self.any_value_parser().parse_ref(cmd, arg, value)
++    }
++
++    /// Parse into a `AnyValue`
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    pub fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<AnyValue, crate::Error> {
++        self.any_value_parser().parse(cmd, arg, value)
++    }
++
++    /// Describes the content of `AnyValue`
++    pub fn type_id(&self) -> AnyValueId {
++        self.any_value_parser().type_id()
++    }
++
++    /// Reflect on enumerated value properties
++    ///
++    /// Error checking should not be done with this; it is mostly targeted at user-facing
++    /// applications like errors and completion.
++    pub fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        self.any_value_parser().possible_values()
++    }
++
++    fn any_value_parser(&self) -> &dyn AnyValueParser {
++        match &self.0 {
++            ValueParserInner::Bool => &BoolValueParser {},
++            ValueParserInner::String => &StringValueParser {},
++            ValueParserInner::OsString => &OsStringValueParser {},
++            ValueParserInner::PathBuf => &PathBufValueParser {},
++            ValueParserInner::Other(o) => o.as_ref(),
++        }
++    }
++}
++
++/// Convert a [`TypedValueParser`] to [`ValueParser`]
++///
++/// # Example
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("hostname")
++///             .long("hostname")
++///             .value_parser(clap::builder::NonEmptyStringValueParser::new())
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(
++///     ["cmd", "--hostname", "rust-lang.org"]
++/// ).unwrap();
++///
++/// let hostname: &String = m.get_one("hostname")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(hostname, "rust-lang.org");
++/// ```
++impl<P: AnyValueParser + Send + Sync + 'static> From<P> for ValueParser {
++    fn from(p: P) -> Self {
++        ValueParser(ValueParserInner::Other(Arc::new(p)))
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `N..M` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(3000..4000)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "3001"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++impl From<std::ops::Range<i64>> for ValueParser {
++    fn from(value: std::ops::Range<i64>) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(value.start..value.end);
++        Self::from(inner)
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `N..=M` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(3000..=4000)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "3001"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++impl From<std::ops::RangeInclusive<i64>> for ValueParser {
++    fn from(value: std::ops::RangeInclusive<i64>) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(value.start()..=value.end());
++        Self::from(inner)
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `N..` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(3000..)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "3001"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++impl From<std::ops::RangeFrom<i64>> for ValueParser {
++    fn from(value: std::ops::RangeFrom<i64>) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(value.start..);
++        Self::from(inner)
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `..M` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(..3000)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "80"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 80);
++/// ```
++impl From<std::ops::RangeTo<i64>> for ValueParser {
++    fn from(value: std::ops::RangeTo<i64>) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(..value.end);
++        Self::from(inner)
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `..=M` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(..=3000)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "80"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 80);
++/// ```
++impl From<std::ops::RangeToInclusive<i64>> for ValueParser {
++    fn from(value: std::ops::RangeToInclusive<i64>) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(..=value.end);
++        Self::from(inner)
++    }
++}
++
++/// Create an `i64` [`ValueParser`] from a `..` range
++///
++/// See [`RangedI64ValueParser`] for more control over the output type.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(..)
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "3001"]).unwrap();
++/// let port: i64 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++impl From<std::ops::RangeFull> for ValueParser {
++    fn from(value: std::ops::RangeFull) -> Self {
++        let inner = RangedI64ValueParser::<i64>::new().range(value);
++        Self::from(inner)
++    }
++}
++
++/// Create a [`ValueParser`] with [`PossibleValuesParser`]
++///
++/// See [`PossibleValuesParser`] for more flexibility in creating the
++/// [`PossibleValue`][crate::PossibleValue]s.
++///
++/// # Examples
++///
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("color")
++///             .long("color")
++///             .value_parser(["always", "auto", "never"])
++///             .default_value("auto")
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(
++///     ["cmd", "--color", "never"]
++/// ).unwrap();
++///
++/// let color: &String = m.get_one("color")
++///     .expect("matches definition").expect("default");
++/// assert_eq!(color, "never");
++/// ```
++impl<P, const C: usize> From<[P; C]> for ValueParser
++where
++    P: Into<super::PossibleValue<'static>>,
++{
++    fn from(values: [P; C]) -> Self {
++        let inner = PossibleValuesParser::from(values);
++        Self::from(inner)
++    }
++}
++
++impl<'help> std::fmt::Debug for ValueParser {
++    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
++        match &self.0 {
++            ValueParserInner::Bool => f.debug_struct("ValueParser::bool").finish(),
++            ValueParserInner::String => f.debug_struct("ValueParser::string").finish(),
++            ValueParserInner::OsString => f.debug_struct("ValueParser::os_string").finish(),
++            ValueParserInner::PathBuf => f.debug_struct("ValueParser::path_buf").finish(),
++            ValueParserInner::Other(o) => write!(f, "ValueParser::other({:?})", o.type_id()),
++        }
++    }
++}
++
++// Require people to implement `TypedValueParser` rather than `AnyValueParser`:
++// - Make implementing the user-facing trait easier
++// - Enforce in the type-system that a given `AnyValueParser::parse` always returns the same type
++//   on each call and that it matches `type_id`
++/// Parse/validate argument values into a `AnyValue`
++///
++/// This is a type-erased wrapper for [`TypedValueParser`].
++pub trait AnyValueParser: private::AnyValueParserSealed {
++    /// Parse into a `AnyValue`
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<AnyValue, crate::Error>;
++
++    /// Parse into a `AnyValue`
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<AnyValue, crate::Error>;
++
++    /// Describes the content of `AnyValue`
++    fn type_id(&self) -> AnyValueId;
++
++    /// Reflect on enumerated value properties
++    ///
++    /// Error checking should not be done with this; it is mostly targeted at user-facing
++    /// applications like errors and completion.
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        None
++    }
++}
++
++impl<T, P> AnyValueParser for P
++where
++    T: std::any::Any + Send + Sync + 'static,
++    P: TypedValueParser<Value = T>,
++{
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<AnyValue, crate::Error> {
++        let value = TypedValueParser::parse_ref(self, cmd, arg, value)?;
++        Ok(AnyValue::new(value))
++    }
++
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<AnyValue, crate::Error> {
++        let value = TypedValueParser::parse(self, cmd, arg, value)?;
++        Ok(AnyValue::new(value))
++    }
++
++    fn type_id(&self) -> AnyValueId {
++        AnyValueId::of::<T>()
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        P::possible_values(self)
++    }
++}
++
++/// Parse/validate argument values
++pub trait TypedValueParser {
++    /// Argument's value type
++    type Value;
++
++    /// Parse the argument value
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error>;
++
++    /// Parse the argument value
++    ///
++    /// When `arg` is `None`, an external subcommand value is being parsed.
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<Self::Value, crate::Error> {
++        self.parse_ref(cmd, arg, &value)
++    }
++
++    /// Reflect on enumerated value properties
++    ///
++    /// Error checking should not be done with this; it is mostly targeted at user-facing
++    /// applications like errors and completion.
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        None
++    }
++}
++
++impl<F, T, E> TypedValueParser for F
++where
++    F: Fn(&str) -> Result<T, E>,
++    E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
++{
++    type Value = T;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = value.to_str().ok_or_else(|| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        let value = (self)(value).map_err(|e| {
++            let arg = arg
++                .map(|a| a.to_string())
++                .unwrap_or_else(|| "...".to_owned());
++            crate::Error::value_validation(arg, value.to_owned(), e.into()).with_cmd(cmd)
++        })?;
++        Ok(value)
++    }
++}
++
++/// Implementation for [`ValueParser::string`]
++///
++/// Useful for composing new [`TypedValueParser`]s
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct StringValueParser {}
++
++impl StringValueParser {
++    /// Implementation for [`ValueParser::string`]
++    pub fn new() -> Self {
++        Self {}
++    }
++}
++
++impl TypedValueParser for StringValueParser {
++    type Value = String;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        TypedValueParser::parse(self, cmd, arg, value.to_owned())
++    }
++
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        _arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = value.into_string().map_err(|_| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        Ok(value)
++    }
++}
++
++impl Default for StringValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Implementation for [`ValueParser::os_string`]
++///
++/// Useful for composing new [`TypedValueParser`]s
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct OsStringValueParser {}
++
++impl OsStringValueParser {
++    /// Implementation for [`ValueParser::os_string`]
++    pub fn new() -> Self {
++        Self {}
++    }
++}
++
++impl TypedValueParser for OsStringValueParser {
++    type Value = std::ffi::OsString;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        TypedValueParser::parse(self, cmd, arg, value.to_owned())
++    }
++
++    fn parse(
++        &self,
++        _cmd: &crate::Command,
++        _arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<Self::Value, crate::Error> {
++        Ok(value)
++    }
++}
++
++impl Default for OsStringValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Implementation for [`ValueParser::path_buf`]
++///
++/// Useful for composing new [`TypedValueParser`]s
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct PathBufValueParser {}
++
++impl PathBufValueParser {
++    /// Implementation for [`ValueParser::path_buf`]
++    pub fn new() -> Self {
++        Self {}
++    }
++}
++
++impl TypedValueParser for PathBufValueParser {
++    type Value = std::path::PathBuf;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        TypedValueParser::parse(self, cmd, arg, value.to_owned())
++    }
++
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<Self::Value, crate::Error> {
++        if value.is_empty() {
++            return Err(crate::Error::empty_value(
++                cmd,
++                &[],
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            ));
++        }
++        Ok(Self::Value::from(value))
++    }
++}
++
++impl Default for PathBufValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Parse an [`ArgEnum`][crate::ArgEnum] value.
++///
++/// See also:
++/// - [`PossibleValuesParser`]
++///
++/// # Example
++///
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++///
++/// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
++/// enum ColorChoice {
++///     Always,
++///     Auto,
++///     Never,
++/// }
++///
++/// impl clap::ArgEnum for ColorChoice {
++///     fn value_variants<'a>() -> &'a [Self] {
++///         &[Self::Always, Self::Auto, Self::Never]
++///     }
++///
++///     fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
++///         match self {
++///             Self::Always => Some(clap::PossibleValue::new("always")),
++///             Self::Auto => Some(clap::PossibleValue::new("auto")),
++///             Self::Never => Some(clap::PossibleValue::new("never")),
++///         }
++///     }
++/// }
++///
++/// // Usage
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("color")
++///             .value_parser(clap::builder::ArgEnumValueParser::<ColorChoice>::new())
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "always"]).unwrap();
++/// let port: ColorChoice = *m.get_one("color")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, ColorChoice::Always);
++///
++/// // Semantics
++/// let value_parser = clap::builder::ArgEnumValueParser::<ColorChoice>::new();
++/// // or
++/// let value_parser = clap::value_parser!(ColorChoice);
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).is_err());
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("always")).unwrap(), ColorChoice::Always);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("auto")).unwrap(), ColorChoice::Auto);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("never")).unwrap(), ColorChoice::Never);
++/// ```
++#[derive(Clone, Debug)]
++pub struct ArgEnumValueParser<E: crate::ArgEnum + Clone + Send + Sync + 'static>(
++    std::marker::PhantomData<E>,
++);
++
++impl<E: crate::ArgEnum + Clone + Send + Sync + 'static> ArgEnumValueParser<E> {
++    /// Parse an [`ArgEnum`][crate::ArgEnum]
++    pub fn new() -> Self {
++        let phantom: std::marker::PhantomData<E> = Default::default();
++        Self(phantom)
++    }
++}
++
++impl<E: crate::ArgEnum + Clone + Send + Sync + 'static> TypedValueParser for ArgEnumValueParser<E> {
++    type Value = E;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let ignore_case = arg.map(|a| a.is_ignore_case_set()).unwrap_or(false);
++        let possible_vals = || {
++            E::value_variants()
++                .iter()
++                .filter_map(|v| v.to_possible_value())
++                .filter(|v| !v.is_hide_set())
++                .map(|v| v.get_name())
++                .collect::<Vec<_>>()
++        };
++
++        let value = value.to_str().ok_or_else(|| {
++            crate::Error::invalid_value(
++                cmd,
++                value.to_string_lossy().into_owned(),
++                &possible_vals(),
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        let value = E::value_variants()
++            .iter()
++            .find(|v| {
++                v.to_possible_value()
++                    .expect("ArgEnum::value_variants contains only values with a corresponding ArgEnum::to_possible_value")
++                    .matches(value, ignore_case)
++            })
++            .ok_or_else(|| {
++            crate::Error::invalid_value(
++                cmd,
++                value.to_owned(),
++                &possible_vals(),
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++            })?
++            .clone();
++        Ok(value)
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        Some(Box::new(
++            E::value_variants()
++                .iter()
++                .filter_map(|v| v.to_possible_value()),
++        ))
++    }
++}
++
++impl<E: crate::ArgEnum + Clone + Send + Sync + 'static> Default for ArgEnumValueParser<E> {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Verify the value is from an enumerated set of [`PossibleValue`][crate::PossibleValue].
++///
++/// See also:
++/// - [`ArgEnumValueParser`]
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("color")
++///             .value_parser(clap::builder::PossibleValuesParser::new(["always", "auto", "never"]))
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "always"]).unwrap();
++/// let port: &String = m.get_one("color")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, "always");
++/// ```
++///
++/// Semantics:
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++/// let value_parser = clap::builder::PossibleValuesParser::new(["always", "auto", "never"]);
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).is_err());
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("always")).unwrap(), "always");
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("auto")).unwrap(), "auto");
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("never")).unwrap(), "never");
++/// ```
++#[derive(Clone, Debug)]
++pub struct PossibleValuesParser(Vec<super::PossibleValue<'static>>);
++
++impl PossibleValuesParser {
++    /// Verify the value is from an enumerated set pf [`PossibleValue`][crate::PossibleValue].
++    pub fn new(values: impl Into<PossibleValuesParser>) -> Self {
++        values.into()
++    }
++}
++
++impl TypedValueParser for PossibleValuesParser {
++    type Value = String;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        TypedValueParser::parse(self, cmd, arg, value.to_owned())
++    }
++
++    fn parse(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: std::ffi::OsString,
++    ) -> Result<String, crate::Error> {
++        let value = value.into_string().map_err(|_| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++
++        let ignore_case = arg.map(|a| a.is_ignore_case_set()).unwrap_or(false);
++        if self.0.iter().any(|v| v.matches(&value, ignore_case)) {
++            Ok(value)
++        } else {
++            let possible_vals = self
++                .0
++                .iter()
++                .filter(|v| !v.is_hide_set())
++                .map(crate::builder::PossibleValue::get_name)
++                .collect::<Vec<_>>();
++
++            Err(crate::Error::invalid_value(
++                cmd,
++                value,
++                &possible_vals,
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            ))
++        }
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        Some(Box::new(self.0.iter().cloned()))
++    }
++}
++
++impl<I, T> From<I> for PossibleValuesParser
++where
++    I: IntoIterator<Item = T>,
++    T: Into<super::PossibleValue<'static>>,
++{
++    fn from(values: I) -> Self {
++        Self(values.into_iter().map(|t| t.into()).collect())
++    }
++}
++
++/// Parse number that fall within a range of values
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("port")
++///             .long("port")
++///             .value_parser(clap::value_parser!(u16).range(3000..))
++///             .takes_value(true)
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "--port", "3001"]).unwrap();
++/// let port: u16 = *m.get_one("port")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, 3001);
++/// ```
++///
++/// Semantics:
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++/// let value_parser = clap::builder::RangedI64ValueParser::<i32>::new().range(-1..200);
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("-200")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("300")).is_err());
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("-1")).unwrap(), -1);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("0")).unwrap(), 0);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("50")).unwrap(), 50);
++/// ```
++#[derive(Copy, Clone, Debug)]
++pub struct RangedI64ValueParser<T: std::convert::TryFrom<i64> = i64> {
++    bounds: (std::ops::Bound<i64>, std::ops::Bound<i64>),
++    target: std::marker::PhantomData<T>,
++}
++
++impl<T: std::convert::TryFrom<i64>> RangedI64ValueParser<T> {
++    /// Select full range of `i64`
++    pub fn new() -> Self {
++        Self::from(..)
++    }
++
++    /// Narrow the supported range
++    pub fn range<B: RangeBounds<i64>>(mut self, range: B) -> Self {
++        // Consideration: when the user does `value_parser!(u8).range()`
++        // - Avoid programming mistakes by accidentally expanding the range
++        // - Make it convenient to limit the range like with `..10`
++        let start = match range.start_bound() {
++            l @ std::ops::Bound::Included(i) => {
++                debug_assert!(
++                    self.bounds.contains(i),
++                    "{} must be in {:?}",
++                    i,
++                    self.bounds
++                );
++                l.cloned()
++            }
++            l @ std::ops::Bound::Excluded(i) => {
++                debug_assert!(
++                    self.bounds.contains(&i.saturating_add(1)),
++                    "{} must be in {:?}",
++                    i,
++                    self.bounds
++                );
++                l.cloned()
++            }
++            std::ops::Bound::Unbounded => self.bounds.start_bound().cloned(),
++        };
++        let end = match range.end_bound() {
++            l @ std::ops::Bound::Included(i) => {
++                debug_assert!(
++                    self.bounds.contains(i),
++                    "{} must be in {:?}",
++                    i,
++                    self.bounds
++                );
++                l.cloned()
++            }
++            l @ std::ops::Bound::Excluded(i) => {
++                debug_assert!(
++                    self.bounds.contains(&i.saturating_sub(1)),
++                    "{} must be in {:?}",
++                    i,
++                    self.bounds
++                );
++                l.cloned()
++            }
++            std::ops::Bound::Unbounded => self.bounds.end_bound().cloned(),
++        };
++        self.bounds = (start, end);
++        self
++    }
++
++    fn format_bounds(&self) -> String {
++        let mut result = match self.bounds.0 {
++            std::ops::Bound::Included(i) => i.to_string(),
++            std::ops::Bound::Excluded(i) => i.saturating_add(1).to_string(),
++            std::ops::Bound::Unbounded => i64::MIN.to_string(),
++        };
++        result.push_str("..");
++        match self.bounds.0 {
++            std::ops::Bound::Included(i) => {
++                result.push('=');
++                result.push_str(&i.to_string());
++            }
++            std::ops::Bound::Excluded(i) => {
++                result.push_str(&i.to_string());
++            }
++            std::ops::Bound::Unbounded => {
++                result.push_str(&i64::MAX.to_string());
++            }
++        }
++        result
++    }
++}
++
++impl<T: std::convert::TryFrom<i64>> TypedValueParser for RangedI64ValueParser<T>
++where
++    <T as std::convert::TryFrom<i64>>::Error: Send + Sync + 'static + std::error::Error + ToString,
++{
++    type Value = T;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        raw_value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = raw_value.to_str().ok_or_else(|| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        let value = value.parse::<i64>().map_err(|err| {
++            let arg = arg
++                .map(|a| a.to_string())
++                .unwrap_or_else(|| "...".to_owned());
++            crate::Error::value_validation(
++                arg,
++                raw_value.to_string_lossy().into_owned(),
++                err.into(),
++            )
++            .with_cmd(cmd)
++        })?;
++        if !self.bounds.contains(&value) {
++            let arg = arg
++                .map(|a| a.to_string())
++                .unwrap_or_else(|| "...".to_owned());
++            return Err(crate::Error::value_validation(
++                arg,
++                raw_value.to_string_lossy().into_owned(),
++                format!("{} is not in {}", value, self.format_bounds()).into(),
++            )
++            .with_cmd(cmd));
++        }
++
++        let value: Result<Self::Value, _> = value.try_into();
++        let value = value.map_err(|err| {
++            let arg = arg
++                .map(|a| a.to_string())
++                .unwrap_or_else(|| "...".to_owned());
++            crate::Error::value_validation(
++                arg,
++                raw_value.to_string_lossy().into_owned(),
++                err.into(),
++            )
++            .with_cmd(cmd)
++        })?;
++
++        Ok(value)
++    }
++}
++
++impl<T: std::convert::TryFrom<i64>, B: RangeBounds<i64>> From<B> for RangedI64ValueParser<T> {
++    fn from(range: B) -> Self {
++        Self {
++            bounds: (range.start_bound().cloned(), range.end_bound().cloned()),
++            target: Default::default(),
++        }
++    }
++}
++
++impl<T: std::convert::TryFrom<i64>> Default for RangedI64ValueParser<T> {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Implementation for [`ValueParser::bool`]
++///
++/// Useful for composing new [`TypedValueParser`]s
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct BoolValueParser {}
++
++impl BoolValueParser {
++    /// Implementation for [`ValueParser::bool`]
++    pub fn new() -> Self {
++        Self {}
++    }
++
++    fn possible_values() -> impl Iterator<Item = crate::PossibleValue<'static>> {
++        ["true", "false"]
++            .iter()
++            .copied()
++            .map(|l| crate::PossibleValue::new(l).hide(true))
++    }
++}
++
++impl TypedValueParser for BoolValueParser {
++    type Value = bool;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = if value == std::ffi::OsStr::new("true") {
++            true
++        } else if value == std::ffi::OsStr::new("false") {
++            false
++        } else {
++            // Intentionally showing hidden as we hide all of them
++            let possible_vals = Self::possible_values()
++                .map(|v| v.get_name())
++                .collect::<Vec<_>>();
++
++            return Err(crate::Error::invalid_value(
++                cmd,
++                value.to_string_lossy().into_owned(),
++                &possible_vals,
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            ));
++        };
++        Ok(value)
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        Some(Box::new(Self::possible_values()))
++    }
++}
++
++impl Default for BoolValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Parse false-like string values, everything else is `true`
++///
++/// See also:
++/// - [`ValueParser::bool`] for assuming non-false is true
++/// - [`BoolishValueParser`] for different human readable bool representations
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("append")
++///             .value_parser(clap::builder::FalseyValueParser::new())
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "true"]).unwrap();
++/// let port: bool = *m.get_one("append")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, true);
++/// ```
++///
++/// Semantics:
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++/// let value_parser = clap::builder::FalseyValueParser::new();
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("100")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("false")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("No")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("oFF")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("0")).unwrap(), false);
++/// ```
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct FalseyValueParser {}
++
++impl FalseyValueParser {
++    /// Parse false-like string values, everything else is `true`
++    pub fn new() -> Self {
++        Self {}
++    }
++
++    fn possible_values() -> impl Iterator<Item = crate::PossibleValue<'static>> {
++        crate::util::TRUE_LITERALS
++            .iter()
++            .chain(crate::util::FALSE_LITERALS.iter())
++            .copied()
++            .map(|l| crate::PossibleValue::new(l).hide(true))
++    }
++}
++
++impl TypedValueParser for FalseyValueParser {
++    type Value = bool;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        _arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = value.to_str().ok_or_else(|| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        let value = if value.is_empty() {
++            false
++        } else {
++            crate::util::str_to_bool(value).unwrap_or(true)
++        };
++        Ok(value)
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        Some(Box::new(Self::possible_values()))
++    }
++}
++
++impl Default for FalseyValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Parse bool-like string values, everything else is `true`
++///
++/// See also:
++/// - [`ValueParser::bool`] for different human readable bool representations
++/// - [`FalseyValueParser`] for assuming non-false is true
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("append")
++///             .value_parser(clap::builder::BoolishValueParser::new())
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "true"]).unwrap();
++/// let port: bool = *m.get_one("append")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, true);
++/// ```
++///
++/// Semantics:
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++/// let value_parser = clap::builder::BoolishValueParser::new();
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).is_err());
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("100")).is_err());
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("true")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("Yes")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("oN")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("1")).unwrap(), true);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("false")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("No")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("oFF")).unwrap(), false);
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("0")).unwrap(), false);
++/// ```
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct BoolishValueParser {}
++
++impl BoolishValueParser {
++    /// Parse bool-like string values, everything else is `true`
++    pub fn new() -> Self {
++        Self {}
++    }
++
++    fn possible_values() -> impl Iterator<Item = crate::PossibleValue<'static>> {
++        crate::util::TRUE_LITERALS
++            .iter()
++            .chain(crate::util::FALSE_LITERALS.iter())
++            .copied()
++            .map(|l| crate::PossibleValue::new(l).hide(true))
++    }
++}
++
++impl TypedValueParser for BoolishValueParser {
++    type Value = bool;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let value = value.to_str().ok_or_else(|| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        let value = crate::util::str_to_bool(value).ok_or_else(|| {
++            let arg = arg
++                .map(|a| a.to_string())
++                .unwrap_or_else(|| "...".to_owned());
++            crate::Error::value_validation(arg, value.to_owned(), "value was not a boolean".into())
++                .with_cmd(cmd)
++        })?;
++        Ok(value)
++    }
++
++    fn possible_values(
++        &self,
++    ) -> Option<Box<dyn Iterator<Item = crate::PossibleValue<'static>> + '_>> {
++        Some(Box::new(Self::possible_values()))
++    }
++}
++
++impl Default for BoolishValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++/// Parse non-empty string values
++///
++/// See also:
++/// - [`ValueParser::string`]
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("append")
++///             .value_parser(clap::builder::NonEmptyStringValueParser::new())
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "true"]).unwrap();
++/// let port: &String = m.get_one("append")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, "true");
++/// ```
++///
++/// Semantics:
++/// ```rust
++/// # use std::ffi::OsStr;
++/// # use clap::builder::TypedValueParser;
++/// # let cmd = clap::Command::new("test");
++/// # let arg = None;
++/// let value_parser = clap::builder::NonEmptyStringValueParser::new();
++/// assert_eq!(value_parser.parse_ref(&cmd, arg, OsStr::new("random")).unwrap(), "random");
++/// assert!(value_parser.parse_ref(&cmd, arg, OsStr::new("")).is_err());
++/// ```
++#[derive(Copy, Clone, Debug)]
++#[non_exhaustive]
++pub struct NonEmptyStringValueParser {}
++
++impl NonEmptyStringValueParser {
++    /// Parse non-empty string values
++    pub fn new() -> Self {
++        Self {}
++    }
++}
++
++impl TypedValueParser for NonEmptyStringValueParser {
++    type Value = String;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        if value.is_empty() {
++            return Err(crate::Error::empty_value(
++                cmd,
++                &[],
++                arg.map(ToString::to_string)
++                    .unwrap_or_else(|| "...".to_owned()),
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            ));
++        }
++        let value = value.to_str().ok_or_else(|| {
++            crate::Error::invalid_utf8(
++                cmd,
++                crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++            )
++        })?;
++        Ok(value.to_owned())
++    }
++}
++
++impl Default for NonEmptyStringValueParser {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++#[doc(hidden)]
++#[derive(Debug)]
++pub struct AutoValueParser<T>(std::marker::PhantomData<T>);
++
++impl<T> AutoValueParser<T> {
++    #[doc(hidden)]
++    #[allow(clippy::new_without_default)]
++    pub fn new() -> Self {
++        Self(Default::default())
++    }
++}
++
++#[doc(hidden)]
++pub mod via_prelude {
++    use super::*;
++
++    #[doc(hidden)]
++    pub trait ValueParserViaBuiltIn: private::ValueParserViaBuiltInSealed {
++        type Parser;
++        fn value_parser(&self) -> Self::Parser;
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<String> {
++        type Parser = ValueParser;
++        fn value_parser(&self) -> Self::Parser {
++            ValueParser::string()
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<std::ffi::OsString> {
++        type Parser = ValueParser;
++        fn value_parser(&self) -> Self::Parser {
++            ValueParser::os_string()
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<std::path::PathBuf> {
++        type Parser = ValueParser;
++        fn value_parser(&self) -> Self::Parser {
++            ValueParser::path_buf()
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<u8> {
++        type Parser = RangedI64ValueParser<u8>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = u8::MIN.into();
++            let end: i64 = u8::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<i8> {
++        type Parser = RangedI64ValueParser<i8>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = i8::MIN.into();
++            let end: i64 = i8::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<u16> {
++        type Parser = RangedI64ValueParser<u16>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = u16::MIN.into();
++            let end: i64 = u16::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<i16> {
++        type Parser = RangedI64ValueParser<i16>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = i16::MIN.into();
++            let end: i64 = i16::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<u32> {
++        type Parser = RangedI64ValueParser<u32>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = u32::MIN.into();
++            let end: i64 = u32::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<i32> {
++        type Parser = RangedI64ValueParser<i32>;
++        fn value_parser(&self) -> Self::Parser {
++            let start: i64 = i32::MIN.into();
++            let end: i64 = i32::MAX.into();
++            RangedI64ValueParser::new().range(start..=end)
++        }
++    }
++    impl ValueParserViaBuiltIn for &&AutoValueParser<i64> {
++        type Parser = RangedI64ValueParser<i64>;
++        fn value_parser(&self) -> Self::Parser {
++            RangedI64ValueParser::new()
++        }
++    }
++
++    #[doc(hidden)]
++    pub trait ValueParserViaArgEnum: private::ValueParserViaArgEnumSealed {
++        type Output;
++
++        fn value_parser(&self) -> Self::Output;
++    }
++    impl<E: crate::ArgEnum + Clone + Send + Sync + 'static> ValueParserViaArgEnum
++        for &AutoValueParser<E>
++    {
++        type Output = ArgEnumValueParser<E>;
++
++        fn value_parser(&self) -> Self::Output {
++            ArgEnumValueParser::<E>::new()
++        }
++    }
++
++    #[doc(hidden)]
++    pub trait ValueParserViaFromStr: private::ValueParserViaFromStrSealed {
++        fn value_parser(&self) -> ValueParser;
++    }
++    impl<FromStr> ValueParserViaFromStr for AutoValueParser<FromStr>
++    where
++        FromStr: std::str::FromStr + std::any::Any + Send + Sync + 'static,
++        <FromStr as std::str::FromStr>::Err:
++            Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
++    {
++        fn value_parser(&self) -> ValueParser {
++            let func: fn(&str) -> Result<FromStr, <FromStr as std::str::FromStr>::Err> =
++                FromStr::from_str;
++            ValueParser::new(func)
++        }
++    }
++}
++
++/// Select a [`ValueParser`] implementation from the intended type
++///
++/// # Example
++///
++/// Usage:
++/// ```rust
++/// # use std::path::PathBuf;
++/// # use std::path::Path;
++/// let mut cmd = clap::Command::new("raw")
++///     .arg(
++///         clap::Arg::new("output")
++///             .value_parser(clap::value_parser!(PathBuf))
++///             .required(true)
++///     );
++///
++/// let m = cmd.try_get_matches_from_mut(["cmd", "file.txt"]).unwrap();
++/// let port: &PathBuf = m.get_one("output")
++///     .expect("matches definition").expect("required");
++/// assert_eq!(port, Path::new("file.txt"));
++/// ```
++///
++/// Supported types:
++/// ```rust
++/// // Built-in types
++/// let parser = clap::value_parser!(String);
++/// assert_eq!(format!("{:?}", parser), "ValueParser::string");
++/// let parser = clap::value_parser!(std::ffi::OsString);
++/// assert_eq!(format!("{:?}", parser), "ValueParser::os_string");
++/// let parser = clap::value_parser!(std::path::PathBuf);
++/// assert_eq!(format!("{:?}", parser), "ValueParser::path_buf");
++/// let parser = clap::value_parser!(u16).range(3000..);
++/// assert_eq!(format!("{:?}", parser), "RangedI64ValueParser { bounds: (Included(3000), Included(65535)), target: PhantomData }");
++///
++/// // FromStr types
++/// let parser = clap::value_parser!(usize);
++/// assert_eq!(format!("{:?}", parser), "ValueParser::other(usize)");
++///
++/// // ArgEnum types
++/// #[derive(Copy, Clone, Debug, PartialEq, Eq)]
++/// enum ColorChoice {
++///     Always,
++///     Auto,
++///     Never,
++/// }
++/// impl clap::ArgEnum for ColorChoice {
++///     // ...
++/// #     fn value_variants<'a>() -> &'a [Self] {
++/// #         &[Self::Always, Self::Auto, Self::Never]
++/// #     }
++/// #     fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
++/// #         match self {
++/// #             Self::Always => Some(clap::PossibleValue::new("always")),
++/// #             Self::Auto => Some(clap::PossibleValue::new("auto")),
++/// #             Self::Never => Some(clap::PossibleValue::new("never")),
++/// #         }
++/// #     }
++/// }
++/// let parser = clap::value_parser!(ColorChoice);
++/// assert_eq!(format!("{:?}", parser), "ArgEnumValueParser(PhantomData)");
++/// ```
++#[macro_export]
++macro_rules! value_parser {
++    ($name:ty) => {{
++        use $crate::builder::via_prelude::*;
++        let auto = $crate::builder::AutoValueParser::<$name>::new();
++        (&&&auto).value_parser()
++    }};
++}
++
++mod private {
++    use super::*;
++
++    pub trait AnyValueParserSealed {}
++    impl<T, P> AnyValueParserSealed for P
++    where
++        T: std::any::Any + Send + Sync + 'static,
++        P: TypedValueParser<Value = T>,
++    {
++    }
++
++    pub trait ValueParserViaSelfSealed {}
++    impl<P: Into<ValueParser>> ValueParserViaSelfSealed for &&&AutoValueParser<P> {}
++
++    pub trait ValueParserViaBuiltInSealed {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<String> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<std::ffi::OsString> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<std::path::PathBuf> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<u8> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<i8> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<u16> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<i16> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<u32> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<i32> {}
++    impl ValueParserViaBuiltInSealed for &&AutoValueParser<i64> {}
++
++    pub trait ValueParserViaArgEnumSealed {}
++    impl<E: crate::ArgEnum> ValueParserViaArgEnumSealed for &AutoValueParser<E> {}
++
++    pub trait ValueParserViaFromStrSealed {}
++    impl<FromStr> ValueParserViaFromStrSealed for AutoValueParser<FromStr>
++    where
++        FromStr: std::str::FromStr + std::any::Any + Send + Sync + 'static,
++        <FromStr as std::str::FromStr>::Err:
++            Into<Box<dyn std::error::Error + Send + Sync + 'static>>,
++    {
++    }
++}
++
++#[cfg(test)]
++mod test {
++    use super::*;
++
++    #[test]
++    fn ensure_typed_applies_to_parse() {
++        fn parse(_: &str) -> Result<usize, std::io::Error> {
++            Ok(10)
++        }
++        let cmd = crate::Command::new("cmd");
++        let arg = None;
++        assert_eq!(
++            TypedValueParser::parse_ref(&parse, &cmd, arg, std::ffi::OsStr::new("foo")).unwrap(),
++            10
++        );
++    }
++}
+diff --git a/src/error/mod.rs b/src/error/mod.rs
+index 14a014be302..6cb27eed0c0 100644
+--- a/src/error/mod.rs
++++ b/src/error/mod.rs
+@@ -17,7 +17,6 @@ use crate::output::fmt::Stream;
+ use crate::parser::features::suggestions;
+ use crate::util::{color::ColorChoice, safe_exit, SUCCESS_CODE, USAGE_CODE};
+ use crate::AppSettings;
+-use crate::Arg;
+ use crate::Command;
+ 
+ mod context;
+@@ -269,7 +268,7 @@ impl Error {
+ 
+     pub(crate) fn argument_conflict(
+         cmd: &Command,
+-        arg: &Arg,
++        arg: String,
+         mut others: Vec<String>,
+         usage: String,
+     ) -> Self {
+@@ -283,25 +282,24 @@ impl Error {
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (ContextKind::PriorArg, others),
+                 (ContextKind::Usage, ContextValue::String(usage)),
+             ])
+     }
+ 
+-    pub(crate) fn empty_value(cmd: &Command, good_vals: &[&str], arg: &Arg, usage: String) -> Self {
+-        let info = vec![arg.to_string()];
++    pub(crate) fn empty_value(
++        cmd: &Command,
++        good_vals: &[&str],
++        arg: String,
++        usage: String,
++    ) -> Self {
++        let info = vec![arg.clone()];
+         let mut err = Self::new(ErrorKind::EmptyValue)
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (ContextKind::Usage, ContextValue::String(usage)),
+             ]);
+         if !good_vals.is_empty() {
+@@ -314,7 +312,7 @@ impl Error {
+     }
+ 
+     pub(crate) fn no_equals(cmd: &Command, arg: String, usage: String) -> Self {
+-        let info = vec![arg.to_string()];
++        let info = vec![arg.clone()];
+         Self::new(ErrorKind::NoEquals)
+             .with_cmd(cmd)
+             .set_info(info)
+@@ -328,10 +326,10 @@ impl Error {
+         cmd: &Command,
+         bad_val: String,
+         good_vals: &[&str],
+-        arg: &Arg,
++        arg: String,
+         usage: String,
+     ) -> Self {
+-        let mut info = vec![arg.to_string(), bad_val.clone()];
++        let mut info = vec![arg.clone(), bad_val.clone()];
+         info.extend(good_vals.iter().map(|s| (*s).to_owned()));
+ 
+         let suggestion = suggestions::did_you_mean(&bad_val, good_vals.iter()).pop();
+@@ -339,10 +337,7 @@ impl Error {
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (ContextKind::InvalidValue, ContextValue::String(bad_val)),
+                 (
+                     ContextKind::ValidValue,
+@@ -432,24 +427,17 @@ impl Error {
+ 
+     pub(crate) fn too_many_occurrences(
+         cmd: &Command,
+-        arg: &Arg,
++        arg: String,
+         max_occurs: usize,
+         curr_occurs: usize,
+         usage: String,
+     ) -> Self {
+-        let info = vec![
+-            arg.to_string(),
+-            curr_occurs.to_string(),
+-            max_occurs.to_string(),
+-        ];
++        let info = vec![arg.clone(), curr_occurs.to_string(), max_occurs.to_string()];
+         Self::new(ErrorKind::TooManyOccurrences)
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (
+                     ContextKind::MaxOccurrences,
+                     ContextValue::Number(max_occurs as isize),
+@@ -463,7 +451,7 @@ impl Error {
+     }
+ 
+     pub(crate) fn too_many_values(cmd: &Command, val: String, arg: String, usage: String) -> Self {
+-        let info = vec![arg.to_string(), val.clone()];
++        let info = vec![arg.clone(), val.clone()];
+         Self::new(ErrorKind::TooManyValues)
+             .with_cmd(cmd)
+             .set_info(info)
+@@ -476,20 +464,17 @@ impl Error {
+ 
+     pub(crate) fn too_few_values(
+         cmd: &Command,
+-        arg: &Arg,
++        arg: String,
+         min_vals: usize,
+         curr_vals: usize,
+         usage: String,
+     ) -> Self {
+-        let info = vec![arg.to_string(), curr_vals.to_string(), min_vals.to_string()];
++        let info = vec![arg.clone(), curr_vals.to_string(), min_vals.to_string()];
+         Self::new(ErrorKind::TooFewValues)
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (
+                     ContextKind::MinValues,
+                     ContextValue::Number(min_vals as isize),
+@@ -507,7 +492,7 @@ impl Error {
+         val: String,
+         err: Box<dyn error::Error + Send + Sync>,
+     ) -> Self {
+-        let info = vec![arg.to_string(), val.to_string(), err.to_string()];
++        let info = vec![arg.clone(), val.to_string(), err.to_string()];
+         Self::new(ErrorKind::ValueValidation)
+             .set_info(info)
+             .set_source(err)
+@@ -519,20 +504,17 @@ impl Error {
+ 
+     pub(crate) fn wrong_number_of_values(
+         cmd: &Command,
+-        arg: &Arg,
++        arg: String,
+         num_vals: usize,
+         curr_vals: usize,
+         usage: String,
+     ) -> Self {
+-        let info = vec![arg.to_string(), curr_vals.to_string(), num_vals.to_string()];
++        let info = vec![arg.clone(), curr_vals.to_string(), num_vals.to_string()];
+         Self::new(ErrorKind::WrongNumberOfValues)
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (
+                     ContextKind::ExpectedNumValues,
+                     ContextValue::Number(num_vals as isize),
+@@ -545,16 +527,13 @@ impl Error {
+             ])
+     }
+ 
+-    pub(crate) fn unexpected_multiple_usage(cmd: &Command, arg: &Arg, usage: String) -> Self {
+-        let info = vec![arg.to_string()];
++    pub(crate) fn unexpected_multiple_usage(cmd: &Command, arg: String, usage: String) -> Self {
++        let info = vec![arg.clone()];
+         Self::new(ErrorKind::UnexpectedMultipleUsage)
+             .with_cmd(cmd)
+             .set_info(info)
+             .extend_context_unchecked([
+-                (
+-                    ContextKind::InvalidArg,
+-                    ContextValue::String(arg.to_string()),
+-                ),
++                (ContextKind::InvalidArg, ContextValue::String(arg)),
+                 (ContextKind::Usage, ContextValue::String(usage)),
+             ])
+     }
+@@ -565,7 +544,7 @@ impl Error {
+         did_you_mean: Option<(String, Option<String>)>,
+         usage: String,
+     ) -> Self {
+-        let info = vec![arg.to_string()];
++        let info = vec![arg.clone()];
+         let mut err = Self::new(ErrorKind::UnknownArgument)
+             .with_cmd(cmd)
+             .set_info(info)
+@@ -589,7 +568,7 @@ impl Error {
+     }
+ 
+     pub(crate) fn unnecessary_double_dash(cmd: &Command, arg: String, usage: String) -> Self {
+-        let info = vec![arg.to_string()];
++        let info = vec![arg.clone()];
+         Self::new(ErrorKind::UnknownArgument)
+             .with_cmd(cmd)
+             .set_info(info)
+@@ -601,7 +580,7 @@ impl Error {
+     }
+ 
+     pub(crate) fn argument_not_found_auto(arg: String) -> Self {
+-        let info = vec![arg.to_string()];
++        let info = vec![arg.clone()];
+         Self::new(ErrorKind::ArgumentNotFound)
+             .set_info(info)
+             .extend_context_unchecked([(ContextKind::InvalidArg, ContextValue::String(arg))])
+diff --git a/src/parser/arg_matcher.rs b/src/parser/arg_matcher.rs
+index 167e6e0ef51..bb26bc3f261 100644
+--- a/src/parser/arg_matcher.rs
++++ b/src/parser/arg_matcher.rs
+@@ -6,8 +6,10 @@ use std::ops::Deref;
+ 
+ // Internal
+ use crate::builder::{Arg, ArgPredicate, Command};
++use crate::parser::AnyValue;
+ use crate::parser::{ArgMatches, MatchedArg, SubCommand, ValueSource};
+ use crate::util::Id;
++use crate::INTERNAL_ERROR_MSG;
+ 
+ // Third party
+ use indexmap::map::Entry;
+@@ -90,15 +92,14 @@ impl ArgMatcher {
+         }
+     }
+ 
+-    #[cfg(not(feature = "unstable-v4"))]
+-    pub(crate) fn get_mut(&mut self, arg: &Id) -> Option<&mut MatchedArg> {
+-        self.0.args.get_mut(arg)
+-    }
+-
+     pub(crate) fn get(&self, arg: &Id) -> Option<&MatchedArg> {
+         self.0.args.get(arg)
+     }
+ 
++    pub(crate) fn get_mut(&mut self, arg: &Id) -> Option<&mut MatchedArg> {
++        self.0.args.get_mut(arg)
++    }
++
+     pub(crate) fn remove(&mut self, arg: &Id) {
+         self.0.args.swap_remove(arg);
+     }
+@@ -131,67 +132,88 @@ impl ArgMatcher {
+         self.get(arg).map_or(false, |a| a.check_explicit(predicate))
+     }
+ 
+-    pub(crate) fn inc_occurrence_of_arg(&mut self, arg: &Arg) {
++    pub(crate) fn start_custom_arg(&mut self, arg: &Arg, source: ValueSource) {
++        let id = &arg.id;
++        debug!(
++            "ArgMatcher::start_custom_arg: id={:?}, source={:?}",
++            id, source
++        );
++        let ma = self.entry(id).or_insert(MatchedArg::new_arg(arg));
++        debug_assert_eq!(ma.type_id(), Some(arg.get_value_parser().type_id()));
++        ma.set_source(source);
++    }
++
++    pub(crate) fn start_custom_group(&mut self, id: &Id, source: ValueSource) {
++        debug!(
++            "ArgMatcher::start_custom_arg: id={:?}, source={:?}",
++            id, source
++        );
++        let ma = self.entry(id).or_insert(MatchedArg::new_group());
++        debug_assert_eq!(ma.type_id(), None);
++        ma.set_source(source);
++    }
++
++    pub(crate) fn start_occurrence_of_arg(&mut self, arg: &Arg) {
+         let id = &arg.id;
+-        debug!("ArgMatcher::inc_occurrence_of_arg: id={:?}", id);
+-        let ma = self.entry(id).or_insert(MatchedArg::new());
+-        ma.update_ty(ValueSource::CommandLine);
+-        ma.set_ignore_case(arg.is_ignore_case_set());
+-        ma.invalid_utf8_allowed(arg.is_allow_invalid_utf8_set());
++        debug!("ArgMatcher::start_occurrence_of_arg: id={:?}", id);
++        let ma = self.entry(id).or_insert(MatchedArg::new_arg(arg));
++        debug_assert_eq!(ma.type_id(), Some(arg.get_value_parser().type_id()));
++        ma.set_source(ValueSource::CommandLine);
+         ma.inc_occurrences();
+     }
+ 
+-    pub(crate) fn inc_occurrence_of_group(&mut self, id: &Id) {
+-        debug!("ArgMatcher::inc_occurrence_of_group: id={:?}", id);
+-        let ma = self.entry(id).or_insert(MatchedArg::new());
+-        ma.update_ty(ValueSource::CommandLine);
++    pub(crate) fn start_occurrence_of_group(&mut self, id: &Id) {
++        debug!("ArgMatcher::start_occurrence_of_group: id={:?}", id);
++        let ma = self.entry(id).or_insert(MatchedArg::new_group());
++        debug_assert_eq!(ma.type_id(), None);
++        ma.set_source(ValueSource::CommandLine);
+         ma.inc_occurrences();
+     }
+ 
+-    #[cfg(feature = "unstable-v4")]
+-    pub(crate) fn inc_occurrence_of_external(&mut self, allow_invalid_utf8: bool) {
++    pub(crate) fn start_occurrence_of_external(&mut self, cmd: &crate::Command) {
+         let id = &Id::empty_hash();
+-        debug!(
+-            "ArgMatcher::inc_occurrence_of_external: id={:?}, allow_invalid_utf8={}",
+-            id, allow_invalid_utf8
++        debug!("ArgMatcher::start_occurrence_of_external: id={:?}", id,);
++        let ma = self.entry(id).or_insert(MatchedArg::new_external(cmd));
++        debug_assert_eq!(
++            ma.type_id(),
++            Some(
++                cmd.get_external_subcommand_value_parser()
++                    .expect(INTERNAL_ERROR_MSG)
++                    .type_id()
++            )
+         );
+-        let ma = self.entry(id).or_insert(MatchedArg::new());
+-        ma.update_ty(ValueSource::CommandLine);
+-        ma.invalid_utf8_allowed(allow_invalid_utf8);
++        ma.set_source(ValueSource::CommandLine);
+         ma.inc_occurrences();
+     }
+ 
+-    pub(crate) fn add_val_to(&mut self, arg: &Id, val: OsString, ty: ValueSource, append: bool) {
++    pub(crate) fn add_val_to(&mut self, arg: &Id, val: AnyValue, raw_val: OsString, append: bool) {
+         if append {
+-            self.append_val_to(arg, val, ty);
++            self.append_val_to(arg, val, raw_val);
+         } else {
+-            self.push_val_to(arg, val, ty);
++            self.push_val_to(arg, val, raw_val);
+         }
+     }
+ 
+-    fn push_val_to(&mut self, arg: &Id, val: OsString, ty: ValueSource) {
++    fn push_val_to(&mut self, arg: &Id, val: AnyValue, raw_val: OsString) {
+         // We will manually inc occurrences later(for flexibility under
+         // specific circumstances, like only add one occurrence for flag
+         // when we met: `--flag=one,two`).
+-        let ma = self.entry(arg).or_default();
+-        ma.update_ty(ty);
+-        ma.push_val(val);
++        let ma = self.get_mut(arg).expect(INTERNAL_ERROR_MSG);
++        ma.push_val(val, raw_val);
+     }
+ 
+-    fn append_val_to(&mut self, arg: &Id, val: OsString, ty: ValueSource) {
+-        let ma = self.entry(arg).or_default();
+-        ma.update_ty(ty);
+-        ma.append_val(val);
++    fn append_val_to(&mut self, arg: &Id, val: AnyValue, raw_val: OsString) {
++        let ma = self.get_mut(arg).expect(INTERNAL_ERROR_MSG);
++        ma.append_val(val, raw_val);
+     }
+ 
+     pub(crate) fn new_val_group(&mut self, arg: &Id) {
+-        let ma = self.entry(arg).or_default();
++        let ma = self.get_mut(arg).expect(INTERNAL_ERROR_MSG);
+         ma.new_val_group();
+     }
+ 
+-    pub(crate) fn add_index_to(&mut self, arg: &Id, idx: usize, ty: ValueSource) {
+-        let ma = self.entry(arg).or_default();
+-        ma.update_ty(ty);
++    pub(crate) fn add_index_to(&mut self, arg: &Id, idx: usize) {
++        let ma = self.get_mut(arg).expect(INTERNAL_ERROR_MSG);
+         ma.push_index(idx);
+     }
+ 
+diff --git a/src/parser/error.rs b/src/parser/error.rs
+new file mode 100644
+index 00000000000..ee47ad254e6
+--- /dev/null
++++ b/src/parser/error.rs
+@@ -0,0 +1,34 @@
++/// Violation of [`ArgMatches`][crate::ArgMatches] assumptions
++#[derive(Clone, Debug, PartialEq, Eq)]
++#[allow(missing_copy_implementations)] // We might add non-Copy types in the future
++#[non_exhaustive]
++pub enum MatchesError {
++    /// Failed to downcast `AnyValue` to the specified type
++    #[non_exhaustive]
++    Downcast {
++        /// Type for value stored in [`ArgMatches`][crate::ArgMatches]
++        actual: super::AnyValueId,
++        /// The target type to downcast to
++        expected: super::AnyValueId,
++    },
++    /// Argument not defined in [`Command`][crate::Command]
++    #[non_exhaustive]
++    UnknownArgument {
++        // Missing `id` but blocked on a public id type which will hopefully come with `unstable-v4`
++    },
++}
++
++impl std::error::Error for MatchesError {}
++
++impl std::fmt::Display for MatchesError {
++    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
++        match self {
++            Self::Downcast { actual, expected } => {
++                writeln!(f, "Could not downcast from {:?} to {:?}", actual, expected)
++            }
++            Self::UnknownArgument {} => {
++                writeln!(f, "Unknown argument or group id.  Make sure you are using the argument id and not the short or long flags")
++            }
++        }
++    }
++}
+diff --git a/src/parser/matches/any_value.rs b/src/parser/matches/any_value.rs
+new file mode 100644
+index 00000000000..b82d4b311b4
+--- /dev/null
++++ b/src/parser/matches/any_value.rs
+@@ -0,0 +1,109 @@
++#[derive(Clone)]
++pub struct AnyValue {
++    inner: std::sync::Arc<dyn std::any::Any + Send + Sync + 'static>,
++    // While we can extract `TypeId` from `inner`, the debug repr is of a number, so let's track
++    // the type_name in debug builds.
++    id: AnyValueId,
++}
++
++impl AnyValue {
++    pub(crate) fn new<V: std::any::Any + Send + Sync + 'static>(inner: V) -> Self {
++        let id = AnyValueId::of::<V>();
++        let inner = std::sync::Arc::new(inner);
++        Self { inner, id }
++    }
++
++    pub(crate) fn downcast_ref<T: std::any::Any>(&self) -> Option<&T> {
++        self.inner.downcast_ref::<T>()
++    }
++
++    pub(crate) fn downcast_into<T: std::any::Any + Send + Sync>(
++        self,
++    ) -> Result<std::sync::Arc<T>, Self> {
++        let id = self.id;
++        std::sync::Arc::downcast::<T>(self.inner).map_err(|inner| Self { inner, id })
++    }
++
++    pub(crate) fn type_id(&self) -> AnyValueId {
++        self.id
++    }
++}
++
++impl std::fmt::Debug for AnyValue {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
++        f.debug_struct("AnyValue").field("inner", &self.id).finish()
++    }
++}
++
++#[derive(Copy, Clone)]
++pub struct AnyValueId {
++    type_id: std::any::TypeId,
++    #[cfg(debug_assertions)]
++    type_name: &'static str,
++}
++
++impl AnyValueId {
++    pub(crate) fn of<A: ?Sized + 'static>() -> Self {
++        Self {
++            type_id: std::any::TypeId::of::<A>(),
++            #[cfg(debug_assertions)]
++            type_name: std::any::type_name::<A>(),
++        }
++    }
++}
++
++impl PartialEq for AnyValueId {
++    fn eq(&self, other: &Self) -> bool {
++        self.type_id == other.type_id
++    }
++}
++
++impl Eq for AnyValueId {}
++
++impl PartialOrd for AnyValueId {
++    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
++        self.type_id.partial_cmp(&other.type_id)
++    }
++}
++
++impl Ord for AnyValueId {
++    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
++        self.type_id.cmp(&other.type_id)
++    }
++}
++
++impl std::hash::Hash for AnyValueId {
++    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
++        self.type_id.hash(state);
++    }
++}
++
++impl std::fmt::Debug for AnyValueId {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
++        #[cfg(not(debug_assertions))]
++        {
++            self.type_id.fmt(f)
++        }
++        #[cfg(debug_assertions)]
++        {
++            f.debug_struct(self.type_name).finish()
++        }
++    }
++}
++
++impl<'a, A: ?Sized + 'static> From<&'a A> for AnyValueId {
++    fn from(_: &'a A) -> Self {
++        Self::of::<A>()
++    }
++}
++
++#[cfg(test)]
++mod test {
++    #[test]
++    #[cfg(debug_assertions)]
++    fn debug_impl() {
++        use super::*;
++
++        assert_eq!(format!("{:?}", AnyValue::new(5)), "AnyValue { inner: i32 }");
++    }
++}
+diff --git a/src/parser/matches/arg_matches.rs b/src/parser/matches/arg_matches.rs
+index 50757e77f26..eb29d7de2d5 100644
+--- a/src/parser/matches/arg_matches.rs
++++ b/src/parser/matches/arg_matches.rs
+@@ -1,4 +1,5 @@
+ // Std
++use std::any::Any;
+ use std::borrow::Cow;
+ use std::ffi::{OsStr, OsString};
+ use std::fmt::{Debug, Display};
+@@ -10,10 +11,14 @@ use std::str::FromStr;
+ use indexmap::IndexMap;
+ 
+ // Internal
++use crate::parser::AnyValue;
++use crate::parser::AnyValueId;
+ use crate::parser::MatchedArg;
++use crate::parser::MatchesError;
+ use crate::parser::ValueSource;
+ use crate::util::{Id, Key};
+-use crate::{Error, INVALID_UTF8};
++use crate::Error;
++use crate::INTERNAL_ERROR_MSG;
+ 
+ /// Container for parse results.
+ ///
+@@ -77,6 +82,239 @@ pub struct ArgMatches {
+ }
+ 
+ impl ArgMatches {
++    /// Gets the value of a specific option or positional argument.
++    ///
++    /// i.e. an argument that [takes an additional value][crate::Arg::takes_value] at runtime.
++    ///
++    /// Returns an error if the wrong type was used.
++    ///
++    /// Returns `None` if the option wasn't present.
++    ///
++    /// *NOTE:* This will always return `Some(value)` if [`default_value`] has been set.
++    /// [`occurrences_of`] can be used to check if a value is present at runtime.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{Command, Arg, value_parser};
++    /// let m = Command::new("myapp")
++    ///     .arg(Arg::new("port")
++    ///         .value_parser(value_parser!(usize))
++    ///         .takes_value(true)
++    ///         .required(true))
++    ///     .get_matches_from(vec!["myapp", "2020"]);
++    ///
++    /// let port: usize = *m
++    ///     .get_one("port")
++    ///     .expect("`port` is a `usize`")
++    ///     .expect("`port`is required");
++    /// assert_eq!(port, 2020);
++    /// ```
++    /// [option]: crate::Arg::takes_value()
++    /// [positional]: crate::Arg::index()
++    /// [`ArgMatches::values_of`]: ArgMatches::values_of()
++    /// [`default_value`]: crate::Arg::default_value()
++    /// [`occurrences_of`]: crate::ArgMatches::occurrences_of()
++    pub fn get_one<T: Any + Send + Sync + 'static>(
++        &self,
++        name: &str,
++    ) -> Result<Option<&T>, MatchesError> {
++        let id = Id::from(name);
++        let arg = self.try_get_arg_t::<T>(&id)?;
++        let value = match arg.and_then(|a| a.first()) {
++            Some(value) => value,
++            None => {
++                return Ok(None);
++            }
++        };
++        Ok(value
++            .downcast_ref::<T>()
++            .map(Some)
++            .expect(INTERNAL_ERROR_MSG)) // enforced by `try_get_arg_t`
++    }
++
++    /// Iterate over values of a specific option or positional argument.
++    ///
++    /// i.e. an argument that takes multiple values at runtime.
++    ///
++    /// Returns an error if the wrong type was used.
++    ///
++    /// Returns `None` if the option wasn't present.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{Command, Arg, value_parser};
++    /// let m = Command::new("myprog")
++    ///     .arg(Arg::new("ports")
++    ///         .multiple_occurrences(true)
++    ///         .value_parser(value_parser!(usize))
++    ///         .short('p')
++    ///         .takes_value(true)
++    ///         .required(true))
++    ///     .get_matches_from(vec![
++    ///         "myprog", "-p", "22", "-p", "80", "-p", "2020"
++    ///     ]);
++    /// let vals: Vec<usize> = m.get_many("ports")
++    ///     .expect("`port` is a `usize`")
++    ///     .expect("`port`is required")
++    ///     .copied()
++    ///     .collect();
++    /// assert_eq!(vals, [22, 80, 2020]);
++    /// ```
++    pub fn get_many<T: Any + Send + Sync + 'static>(
++        &self,
++        name: &str,
++    ) -> Result<Option<impl Iterator<Item = &T>>, MatchesError> {
++        let id = Id::from(name);
++        match self.try_get_arg_t::<T>(&id)? {
++            Some(values) => Ok(Some(
++                values
++                    .vals_flatten()
++                    // enforced by `try_get_arg_t`
++                    .map(|v| v.downcast_ref::<T>().expect(INTERNAL_ERROR_MSG)),
++            )),
++            None => Ok(None),
++        }
++    }
++
++    /// Iterate over the original argument values.
++    ///
++    /// An `OsStr` on Unix-like systems is any series of bytes, regardless of whether or not they
++    /// contain valid UTF-8. Since [`String`]s in Rust are guaranteed to be valid UTF-8, a valid
++    /// filename on a Unix system as an argument value may contain invalid UTF-8.
++    ///
++    /// Returns `None` if the option wasn't present.
++    ///
++    /// # Examples
++    ///
++    #[cfg_attr(not(unix), doc = " ```ignore")]
++    #[cfg_attr(unix, doc = " ```")]
++    /// # use clap::{Command, arg, value_parser};
++    /// # use std::ffi::{OsStr,OsString};
++    /// # use std::os::unix::ffi::{OsStrExt,OsStringExt};
++    /// use std::path::PathBuf;
++    ///
++    /// let m = Command::new("utf8")
++    ///     .arg(arg!(<arg> ... "some arg").value_parser(value_parser!(PathBuf)))
++    ///     .get_matches_from(vec![OsString::from("myprog"),
++    ///                                 // "Hi"
++    ///                                 OsString::from_vec(vec![b'H', b'i']),
++    ///                                 // "{0xe9}!"
++    ///                                 OsString::from_vec(vec![0xe9, b'!'])]);
++    ///
++    /// let mut itr = m.get_raw("arg")
++    ///     .expect("`port` is defined")
++    ///     .expect("`port`is required")
++    ///     .into_iter();
++    /// assert_eq!(itr.next(), Some(OsStr::new("Hi")));
++    /// assert_eq!(itr.next(), Some(OsStr::from_bytes(&[0xe9, b'!'])));
++    /// assert_eq!(itr.next(), None);
++    /// ```
++    /// [`Iterator`]: std::iter::Iterator
++    /// [`OsSt`]: std::ffi::OsStr
++    /// [values]: OsValues
++    /// [`String`]: std::string::String
++    pub fn get_raw<T: Key>(
++        &self,
++        id: T,
++    ) -> Result<Option<impl Iterator<Item = &OsStr>>, MatchesError> {
++        let id = Id::from(id);
++        let arg = self.try_get_arg(&id)?;
++        Ok(arg.map(|arg| arg.raw_vals_flatten().map(|v| v.as_os_str())))
++    }
++
++    /// Returns the value of a specific option or positional argument.
++    ///
++    /// i.e. an argument that [takes an additional value][crate::Arg::takes_value] at runtime.
++    ///
++    /// Returns an error if the wrong type was used.  No item will have been removed.
++    ///
++    /// Returns `None` if the option wasn't present.
++    ///
++    /// *NOTE:* This will always return `Some(value)` if [`default_value`] has been set.
++    /// [`occurrences_of`] can be used to check if a value is present at runtime.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{Command, Arg, value_parser};
++    /// let mut m = Command::new("myprog")
++    ///     .arg(Arg::new("file")
++    ///         .required(true)
++    ///         .takes_value(true))
++    ///     .get_matches_from(vec![
++    ///         "myprog", "file.txt",
++    ///     ]);
++    /// let vals: String = m.remove_one("file")
++    ///     .expect("`file` is a `String`")
++    ///     .map(|f| std::sync::Arc::try_unwrap(f).expect("no clones made"))
++    ///     .expect("`file`is required");
++    /// assert_eq!(vals, "file.txt");
++    /// ```
++    /// [option]: crate::Arg::takes_value()
++    /// [positional]: crate::Arg::index()
++    /// [`ArgMatches::values_of`]: ArgMatches::values_of()
++    /// [`default_value`]: crate::Arg::default_value()
++    /// [`occurrences_of`]: crate::ArgMatches::occurrences_of()
++    pub fn remove_one<T: Any + Send + Sync + 'static>(
++        &mut self,
++        name: &str,
++    ) -> Result<Option<std::sync::Arc<T>>, MatchesError> {
++        let id = Id::from(name);
++        match self.try_remove_arg_t::<T>(&id)? {
++            Some(values) => Ok(values
++                .into_vals_flatten()
++                // enforced by `try_get_arg_t`
++                .map(|v| v.downcast_into::<T>().expect(INTERNAL_ERROR_MSG))
++                .next()),
++            None => Ok(None),
++        }
++    }
++
++    /// Return values of a specific option or positional argument.
++    ///
++    /// i.e. an argument that takes multiple values at runtime.
++    ///
++    /// Returns an error if the wrong type was used.  No item will have been removed.
++    ///
++    /// Returns `None` if the option wasn't present.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{Command, Arg, value_parser};
++    /// let mut m = Command::new("myprog")
++    ///     .arg(Arg::new("file")
++    ///         .multiple_occurrences(true)
++    ///         .required(true)
++    ///         .takes_value(true))
++    ///     .get_matches_from(vec![
++    ///         "myprog", "file1.txt", "file2.txt", "file3.txt", "file4.txt",
++    ///     ]);
++    /// let vals: Vec<String> = m.remove_many("file")
++    ///     .expect("`file` is a `String`")
++    ///     .expect("`file`is required")
++    ///     .map(|f| std::sync::Arc::try_unwrap(f).expect("no clones made"))
++    ///     .collect();
++    /// assert_eq!(vals, ["file1.txt", "file2.txt", "file3.txt", "file4.txt"]);
++    /// ```
++    pub fn remove_many<T: Any + Send + Sync + 'static>(
++        &mut self,
++        name: &str,
++    ) -> Result<Option<impl Iterator<Item = std::sync::Arc<T>>>, MatchesError> {
++        let id = Id::from(name);
++        match self.try_remove_arg_t::<T>(&id)? {
++            Some(values) => Ok(Some(
++                values
++                    .into_vals_flatten()
++                    // enforced by `try_get_arg_t`
++                    .map(|v| v.downcast_into::<T>().expect(INTERNAL_ERROR_MSG)),
++            )),
++            None => Ok(None),
++        }
++    }
++
+     /// Check if any args were present on the command line
+     ///
+     /// # Examples
+@@ -140,9 +378,8 @@ impl ArgMatches {
+     pub fn value_of<T: Key>(&self, id: T) -> Option<&str> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_utf8_validation(arg, &id);
+-        let v = arg.first()?;
+-        Some(v.to_str().expect(INVALID_UTF8))
++        let v = unwrap_string_arg(&id, arg.first()?);
++        Some(v)
+     }
+ 
+     /// Gets the lossy value of a specific option or positional argument.
+@@ -190,8 +427,7 @@ impl ArgMatches {
+     pub fn value_of_lossy<T: Key>(&self, id: T) -> Option<Cow<'_, str>> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_no_utf8_validation(arg, &id);
+-        let v = arg.first()?;
++        let v = unwrap_os_string_arg(&id, arg.first()?);
+         Some(v.to_string_lossy())
+     }
+ 
+@@ -241,9 +477,8 @@ impl ArgMatches {
+     pub fn value_of_os<T: Key>(&self, id: T) -> Option<&OsStr> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_no_utf8_validation(arg, &id);
+-        let v = arg.first()?;
+-        Some(v.as_os_str())
++        let v = unwrap_os_string_arg(&id, arg.first()?);
++        Some(v)
+     }
+ 
+     /// Get an [`Iterator`] over [values] of a specific option or positional argument.
+@@ -280,12 +515,8 @@ impl ArgMatches {
+     pub fn values_of<T: Key>(&self, id: T) -> Option<Values> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_utf8_validation(arg, &id);
+-        fn to_str_slice(o: &OsString) -> &str {
+-            o.to_str().expect(INVALID_UTF8)
+-        }
+         let v = Values {
+-            iter: arg.vals_flatten().map(to_str_slice),
++            iter: arg.vals_flatten().map(unwrap_string),
+             len: arg.num_vals(),
+         };
+         Some(v)
+@@ -329,11 +560,8 @@ impl ArgMatches {
+     pub fn grouped_values_of<T: Key>(&self, id: T) -> Option<GroupedValues> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_utf8_validation(arg, &id);
+         let v = GroupedValues {
+-            iter: arg
+-                .vals()
+-                .map(|g| g.iter().map(|x| x.to_str().expect(INVALID_UTF8)).collect()),
++            iter: arg.vals().map(|g| g.iter().map(unwrap_string).collect()),
+             len: arg.vals().len(),
+         };
+         Some(v)
+@@ -379,10 +607,9 @@ impl ArgMatches {
+     pub fn values_of_lossy<T: Key>(&self, id: T) -> Option<Vec<String>> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_no_utf8_validation(arg, &id);
+         let v = arg
+             .vals_flatten()
+-            .map(|v| v.to_string_lossy().into_owned())
++            .map(|v| unwrap_os_string_arg(&id, v).to_string_lossy().into_owned())
+             .collect();
+         Some(v)
+     }
+@@ -433,12 +660,8 @@ impl ArgMatches {
+     pub fn values_of_os<T: Key>(&self, id: T) -> Option<OsValues> {
+         let id = Id::from(id);
+         let arg = self.get_arg(&id)?;
+-        assert_no_utf8_validation(arg, &id);
+-        fn to_str_slice(o: &OsString) -> &OsStr {
+-            o
+-        }
+         let v = OsValues {
+-            iter: arg.vals_flatten().map(to_str_slice),
++            iter: arg.vals_flatten().map(unwrap_os_string),
+             len: arg.num_vals(),
+         };
+         Some(v)
+@@ -1017,6 +1240,65 @@ impl ArgMatches {
+         self.subcommand.as_ref().map(|sc| (&*sc.name, &sc.matches))
+     }
+ 
++    /// Return the name and `ArgMatches` of the current [subcommand].
++    ///
++    /// Subcommand values are put in a child [`ArgMatches`]
++    ///
++    /// Returns `None` if the subcommand wasn't present at runtime,
++    ///
++    /// # Examples
++    ///
++    /// ```no_run
++    /// # use clap::{Command, Arg, };
++    ///  let mut app_m = Command::new("git")
++    ///      .subcommand(Command::new("clone"))
++    ///      .subcommand(Command::new("push"))
++    ///      .subcommand(Command::new("commit"))
++    ///      .subcommand_required(true)
++    ///      .get_matches();
++    ///
++    /// let (name, sub_m) = app_m.remove_subcommand().expect("required");
++    /// match (name.as_str(), sub_m) {
++    ///     ("clone",  sub_m) => {}, // clone was used
++    ///     ("push",   sub_m) => {}, // push was used
++    ///     ("commit", sub_m) => {}, // commit was used
++    ///     (name, _)         => unimplemented!("{}", name),
++    /// }
++    /// ```
++    ///
++    /// Another useful scenario is when you want to support third party, or external, subcommands.
++    /// In these cases you can't know the subcommand name ahead of time, so use a variable instead
++    /// with pattern matching!
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// // Assume there is an external subcommand named "subcmd"
++    /// let mut app_m = Command::new("myprog")
++    ///     .allow_external_subcommands(true)
++    ///     .get_matches_from(vec![
++    ///         "myprog", "subcmd", "--option", "value", "-fff", "--flag"
++    ///     ]);
++    ///
++    /// // All trailing arguments will be stored under the subcommand's sub-matches using an empty
++    /// // string argument name
++    /// match app_m.remove_subcommand() {
++    ///     Some((external, mut sub_m)) => {
++    ///          let ext_args: Vec<String> = sub_m.remove_many("")
++    ///             .expect("`file` is a `String`")
++    ///             .expect("`file`is required")
++    ///             .map(|f| std::sync::Arc::try_unwrap(f).expect("no clones made"))
++    ///     .collect();
++    ///          assert_eq!(external, "subcmd");
++    ///          assert_eq!(ext_args, ["--option", "value", "-fff", "--flag"]);
++    ///     },
++    ///     _ => {},
++    /// }
++    /// ```
++    /// [subcommand]: crate::Command::subcommand
++    pub fn remove_subcommand(&mut self) -> Option<(String, ArgMatches)> {
++        self.subcommand.take().map(|sc| (sc.name, sc.matches))
++    }
++
+     /// The `ArgMatches` for the current [subcommand].
+     ///
+     /// Subcommand values are put in a child [`ArgMatches`]
+@@ -1127,6 +1409,87 @@ impl ArgMatches {
+ 
+ // Private methods
+ impl ArgMatches {
++    #[inline]
++    fn try_get_arg(&self, arg: &Id) -> Result<Option<&MatchedArg>, MatchesError> {
++        self.verify_arg(arg)?;
++        Ok(self.args.get(arg))
++    }
++
++    #[inline]
++    fn try_get_arg_t<T: Any + Send + Sync + 'static>(
++        &self,
++        arg: &Id,
++    ) -> Result<Option<&MatchedArg>, MatchesError> {
++        let arg = match self.try_get_arg(arg)? {
++            Some(arg) => arg,
++            None => {
++                return Ok(None);
++            }
++        };
++        self.verify_arg_t::<T>(arg)?;
++        Ok(Some(arg))
++    }
++
++    #[inline]
++    fn try_remove_arg_t<T: Any + Send + Sync + 'static>(
++        &mut self,
++        arg: &Id,
++    ) -> Result<Option<MatchedArg>, MatchesError> {
++        self.verify_arg(arg)?;
++        let matched = match self.args.remove(arg) {
++            Some(matched) => matched,
++            None => {
++                return Ok(None);
++            }
++        };
++
++        let expected = AnyValueId::of::<T>();
++        let actual = matched.infer_type_id(expected);
++        if actual == expected {
++            Ok(Some(matched))
++        } else {
++            self.args.insert(arg.clone(), matched);
++            Err(MatchesError::Downcast { actual, expected })
++        }
++    }
++
++    fn verify_arg_t<T: Any + Send + Sync + 'static>(
++        &self,
++        arg: &MatchedArg,
++    ) -> Result<(), MatchesError> {
++        let expected = AnyValueId::of::<T>();
++        let actual = arg.infer_type_id(expected);
++        if expected == actual {
++            Ok(())
++        } else {
++            Err(MatchesError::Downcast { actual, expected })
++        }
++    }
++
++    #[inline]
++    fn verify_arg(&self, _arg: &Id) -> Result<(), MatchesError> {
++        #[cfg(debug_assertions)]
++        {
++            if self.disable_asserts || *_arg == Id::empty_hash() || self.valid_args.contains(_arg) {
++            } else if self.valid_subcommands.contains(_arg) {
++                debug!(
++                    "Subcommand `{:?}` used where an argument or group name was expected.",
++                    _arg
++                );
++                return Err(MatchesError::UnknownArgument {});
++            } else {
++                debug!(
++                    "`{:?}` is not a name of an argument or a group.\n\
++                     Make sure you're using the name of the argument itself \
++                     and not the name of short or long flags.",
++                    _arg
++                );
++                return Err(MatchesError::UnknownArgument {});
++            }
++        }
++        Ok(())
++    }
++
+     #[inline]
+     #[cfg_attr(debug_assertions, track_caller)]
+     fn get_arg(&self, arg: &Id) -> Option<&MatchedArg> {
+@@ -1215,7 +1578,7 @@ pub(crate) struct SubCommand {
+ #[derive(Clone, Debug)]
+ pub struct Values<'a> {
+     #[allow(clippy::type_complexity)]
+-    iter: Map<Flatten<Iter<'a, Vec<OsString>>>, for<'r> fn(&'r OsString) -> &'r str>,
++    iter: Map<Flatten<Iter<'a, Vec<AnyValue>>>, for<'r> fn(&'r AnyValue) -> &'r str>,
+     len: usize,
+ }
+ 
+@@ -1241,7 +1604,7 @@ impl<'a> ExactSizeIterator for Values<'a> {}
+ /// Creates an empty iterator.
+ impl<'a> Default for Values<'a> {
+     fn default() -> Self {
+-        static EMPTY: [Vec<OsString>; 0] = [];
++        static EMPTY: [Vec<AnyValue>; 0] = [];
+         Values {
+             iter: EMPTY[..].iter().flatten().map(|_| unreachable!()),
+             len: 0,
+@@ -1253,7 +1616,7 @@ impl<'a> Default for Values<'a> {
+ #[allow(missing_debug_implementations)]
+ pub struct GroupedValues<'a> {
+     #[allow(clippy::type_complexity)]
+-    iter: Map<Iter<'a, Vec<OsString>>, fn(&Vec<OsString>) -> Vec<&str>>,
++    iter: Map<Iter<'a, Vec<AnyValue>>, fn(&Vec<AnyValue>) -> Vec<&str>>,
+     len: usize,
+ }
+ 
+@@ -1279,7 +1642,7 @@ impl<'a> ExactSizeIterator for GroupedValues<'a> {}
+ /// Creates an empty iterator. Used for `unwrap_or_default()`.
+ impl<'a> Default for GroupedValues<'a> {
+     fn default() -> Self {
+-        static EMPTY: [Vec<OsString>; 0] = [];
++        static EMPTY: [Vec<AnyValue>; 0] = [];
+         GroupedValues {
+             iter: EMPTY[..].iter().map(|_| unreachable!()),
+             len: 0,
+@@ -1309,7 +1672,7 @@ impl<'a> Default for GroupedValues<'a> {
+ #[derive(Clone, Debug)]
+ pub struct OsValues<'a> {
+     #[allow(clippy::type_complexity)]
+-    iter: Map<Flatten<Iter<'a, Vec<OsString>>>, fn(&OsString) -> &OsStr>,
++    iter: Map<Flatten<Iter<'a, Vec<AnyValue>>>, fn(&AnyValue) -> &OsStr>,
+     len: usize,
+ }
+ 
+@@ -1335,7 +1698,7 @@ impl<'a> ExactSizeIterator for OsValues<'a> {}
+ /// Creates an empty iterator.
+ impl Default for OsValues<'_> {
+     fn default() -> Self {
+-        static EMPTY: [Vec<OsString>; 0] = [];
++        static EMPTY: [Vec<AnyValue>; 0] = [];
+         OsValues {
+             iter: EMPTY[..].iter().flatten().map(|_| unreachable!()),
+             len: 0,
+@@ -1402,22 +1765,52 @@ impl<'a> Default for Indices<'a> {
+ 
+ #[cfg_attr(debug_assertions, track_caller)]
+ #[inline]
+-fn assert_utf8_validation(arg: &MatchedArg, id: &Id) {
+-    debug_assert!(
+-        matches!(arg.is_invalid_utf8_allowed(), None | Some(false)),
+-        "Must use `_os` lookups with `Arg::allow_invalid_utf8` at `{:?}`",
+-        id
+-    );
++fn unwrap_string(value: &AnyValue) -> &str {
++    match value.downcast_ref::<String>() {
++        Some(value) => value,
++        None => {
++            panic!("Must use `_os` lookups with `Arg::allow_invalid_utf8`",)
++        }
++    }
++}
++
++#[cfg_attr(debug_assertions, track_caller)]
++#[inline]
++fn unwrap_string_arg<'v>(id: &Id, value: &'v AnyValue) -> &'v str {
++    match value.downcast_ref::<String>() {
++        Some(value) => value,
++        None => {
++            panic!(
++                "Must use `_os` lookups with `Arg::allow_invalid_utf8` at `{:?}`",
++                id
++            )
++        }
++    }
+ }
+ 
+ #[cfg_attr(debug_assertions, track_caller)]
+ #[inline]
+-fn assert_no_utf8_validation(arg: &MatchedArg, id: &Id) {
+-    debug_assert!(
+-        matches!(arg.is_invalid_utf8_allowed(), None | Some(true)),
+-        "Must use `Arg::allow_invalid_utf8` with `_os` lookups at `{:?}`",
+-        id
+-    );
++fn unwrap_os_string(value: &AnyValue) -> &OsStr {
++    match value.downcast_ref::<OsString>() {
++        Some(value) => value,
++        None => {
++            panic!("Must use `Arg::allow_invalid_utf8` with `_os` lookups",)
++        }
++    }
++}
++
++#[cfg_attr(debug_assertions, track_caller)]
++#[inline]
++fn unwrap_os_string_arg<'v>(id: &Id, value: &'v AnyValue) -> &'v OsStr {
++    match value.downcast_ref::<OsString>() {
++        Some(value) => value,
++        None => {
++            panic!(
++                "Must use `Arg::allow_invalid_utf8` with `_os` lookups at `{:?}`",
++                id
++            )
++        }
++    }
+ }
+ 
+ #[cfg(test)]
+diff --git a/src/parser/matches/matched_arg.rs b/src/parser/matches/matched_arg.rs
+index 002920f53da..19590f64d53 100644
+--- a/src/parser/matches/matched_arg.rs
++++ b/src/parser/matches/matched_arg.rs
+@@ -6,29 +6,64 @@ use std::{
+ };
+ 
+ use crate::builder::ArgPredicate;
++use crate::parser::AnyValue;
++use crate::parser::AnyValueId;
+ use crate::parser::ValueSource;
+ use crate::util::eq_ignore_case;
+ use crate::INTERNAL_ERROR_MSG;
+ 
+-#[derive(Debug, Clone, PartialEq, Eq)]
++#[derive(Debug, Clone)]
+ pub(crate) struct MatchedArg {
+     occurs: u64,
+-    ty: Option<ValueSource>,
++    source: Option<ValueSource>,
+     indices: Vec<usize>,
+-    vals: Vec<Vec<OsString>>,
++    type_id: Option<AnyValueId>,
++    vals: Vec<Vec<AnyValue>>,
++    raw_vals: Vec<Vec<OsString>>,
+     ignore_case: bool,
+-    invalid_utf8_allowed: Option<bool>,
+ }
+ 
+ impl MatchedArg {
+-    pub(crate) fn new() -> Self {
+-        MatchedArg {
++    pub(crate) fn new_arg(arg: &crate::Arg) -> Self {
++        let ignore_case = arg.is_ignore_case_set();
++        Self {
+             occurs: 0,
+-            ty: None,
++            source: None,
+             indices: Vec::new(),
++            type_id: Some(arg.get_value_parser().type_id()),
+             vals: Vec::new(),
+-            ignore_case: false,
+-            invalid_utf8_allowed: None,
++            raw_vals: Vec::new(),
++            ignore_case,
++        }
++    }
++
++    pub(crate) fn new_group() -> Self {
++        let ignore_case = false;
++        Self {
++            occurs: 0,
++            source: None,
++            indices: Vec::new(),
++            type_id: None,
++            vals: Vec::new(),
++            raw_vals: Vec::new(),
++            ignore_case,
++        }
++    }
++
++    pub(crate) fn new_external(cmd: &crate::Command) -> Self {
++        let ignore_case = false;
++        Self {
++            occurs: 0,
++            source: None,
++            indices: Vec::new(),
++            type_id: Some(
++                cmd.get_external_subcommand_value_parser()
++                    .expect(INTERNAL_ERROR_MSG)
++                    .type_id(),
++            ),
++            vals: Vec::new(),
++            raw_vals: Vec::new(),
++            ignore_case,
+         }
+     }
+ 
+@@ -52,29 +87,54 @@ impl MatchedArg {
+         self.indices.push(index)
+     }
+ 
+-    pub(crate) fn vals(&self) -> Iter<Vec<OsString>> {
++    #[cfg(test)]
++    pub(crate) fn raw_vals(&self) -> Iter<Vec<OsString>> {
++        self.raw_vals.iter()
++    }
++
++    #[cfg(feature = "unstable-grouped")]
++    pub(crate) fn vals(&self) -> Iter<Vec<AnyValue>> {
+         self.vals.iter()
+     }
+ 
+-    pub(crate) fn vals_flatten(&self) -> Flatten<Iter<Vec<OsString>>> {
++    pub(crate) fn vals_flatten(&self) -> Flatten<Iter<Vec<AnyValue>>> {
+         self.vals.iter().flatten()
+     }
+ 
+-    pub(crate) fn first(&self) -> Option<&OsString> {
++    pub(crate) fn into_vals_flatten(self) -> impl Iterator<Item = AnyValue> {
++        self.vals.into_iter().flatten()
++    }
++
++    pub(crate) fn raw_vals_flatten(&self) -> Flatten<Iter<Vec<OsString>>> {
++        self.raw_vals.iter().flatten()
++    }
++
++    pub(crate) fn first(&self) -> Option<&AnyValue> {
+         self.vals_flatten().next()
+     }
+ 
+-    pub(crate) fn push_val(&mut self, val: OsString) {
+-        self.vals.push(vec![val])
++    #[cfg(test)]
++    pub(crate) fn first_raw(&self) -> Option<&OsString> {
++        self.raw_vals_flatten().next()
++    }
++
++    pub(crate) fn push_val(&mut self, val: AnyValue, raw_val: OsString) {
++        self.vals.push(vec![val]);
++        self.raw_vals.push(vec![raw_val]);
+     }
+ 
+     pub(crate) fn new_val_group(&mut self) {
+-        self.vals.push(vec![])
++        self.vals.push(vec![]);
++        self.raw_vals.push(vec![]);
+     }
+ 
+-    pub(crate) fn append_val(&mut self, val: OsString) {
++    pub(crate) fn append_val(&mut self, val: AnyValue, raw_val: OsString) {
+         // We assume there is always a group created before.
+-        self.vals.last_mut().expect(INTERNAL_ERROR_MSG).push(val)
++        self.vals.last_mut().expect(INTERNAL_ERROR_MSG).push(val);
++        self.raw_vals
++            .last_mut()
++            .expect(INTERNAL_ERROR_MSG)
++            .push(raw_val);
+     }
+ 
+     pub(crate) fn num_vals(&self) -> usize {
+@@ -95,36 +155,13 @@ impl MatchedArg {
+         !self.vals.is_empty()
+     }
+ 
+-    // Will be used later
+-    #[allow(dead_code)]
+-    pub(crate) fn remove_vals(&mut self, len: usize) {
+-        let mut want_remove = len;
+-        let mut remove_group = None;
+-        let mut remove_val = None;
+-        for (i, g) in self.vals().enumerate() {
+-            if g.len() <= want_remove {
+-                want_remove -= g.len();
+-                remove_group = Some(i);
+-            } else {
+-                remove_val = Some(want_remove);
+-                break;
+-            }
+-        }
+-        if let Some(remove_group) = remove_group {
+-            self.vals.drain(0..=remove_group);
+-        }
+-        if let Some(remove_val) = remove_val {
+-            self.vals[0].drain(0..remove_val);
+-        }
+-    }
+-
+     pub(crate) fn check_explicit(&self, predicate: ArgPredicate) -> bool {
+-        if self.ty == Some(ValueSource::DefaultValue) {
++        if self.source == Some(ValueSource::DefaultValue) {
+             return false;
+         }
+ 
+         match predicate {
+-            ArgPredicate::Equals(val) => self.vals_flatten().any(|v| {
++            ArgPredicate::Equals(val) => self.raw_vals_flatten().any(|v| {
+                 if self.ignore_case {
+                     // If `v` isn't utf8, it can't match `val`, so `OsStr::to_str` should be fine
+                     eq_ignore_case(&v.to_string_lossy(), &val.to_string_lossy())
+@@ -137,67 +174,94 @@ impl MatchedArg {
+     }
+ 
+     pub(crate) fn source(&self) -> Option<ValueSource> {
+-        self.ty
++        self.source
+     }
+ 
+-    pub(crate) fn update_ty(&mut self, ty: ValueSource) {
+-        if let Some(existing) = self.ty {
+-            self.ty = Some(existing.max(ty));
++    pub(crate) fn set_source(&mut self, source: ValueSource) {
++        if let Some(existing) = self.source {
++            self.source = Some(existing.max(source));
+         } else {
+-            self.ty = Some(ty)
++            self.source = Some(source)
+         }
+     }
+ 
+-    pub(crate) fn set_ignore_case(&mut self, yes: bool) {
+-        self.ignore_case = yes;
+-    }
+-
+-    pub(crate) fn invalid_utf8_allowed(&mut self, yes: bool) {
+-        self.invalid_utf8_allowed = Some(yes);
++    pub(crate) fn type_id(&self) -> Option<AnyValueId> {
++        self.type_id
+     }
+ 
+-    pub(crate) fn is_invalid_utf8_allowed(&self) -> Option<bool> {
+-        self.invalid_utf8_allowed
++    pub(crate) fn infer_type_id(&self, expected: AnyValueId) -> AnyValueId {
++        self.type_id()
++            .or_else(|| {
++                self.vals_flatten()
++                    .map(|v| v.type_id())
++                    .find(|actual| *actual != expected)
++            })
++            .unwrap_or(expected)
+     }
+ }
+ 
+-impl Default for MatchedArg {
+-    fn default() -> Self {
+-        Self::new()
++impl PartialEq for MatchedArg {
++    fn eq(&self, other: &MatchedArg) -> bool {
++        let MatchedArg {
++            occurs: self_occurs,
++            source: self_source,
++            indices: self_indices,
++            type_id: self_type_id,
++            vals: _,
++            raw_vals: self_raw_vals,
++            ignore_case: self_ignore_case,
++        } = self;
++        let MatchedArg {
++            occurs: other_occurs,
++            source: other_source,
++            indices: other_indices,
++            type_id: other_type_id,
++            vals: _,
++            raw_vals: other_raw_vals,
++            ignore_case: other_ignore_case,
++        } = other;
++        self_occurs == other_occurs
++            && self_source == other_source
++            && self_indices == other_indices
++            && self_type_id == other_type_id
++            && self_raw_vals == other_raw_vals
++            && self_ignore_case == other_ignore_case
+     }
+ }
+ 
++impl Eq for MatchedArg {}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]
+     fn test_grouped_vals_first() {
+-        let mut m = MatchedArg::new();
++        let mut m = MatchedArg::new_group();
+         m.new_val_group();
+         m.new_val_group();
+-        m.append_val("bbb".into());
+-        m.append_val("ccc".into());
+-        assert_eq!(m.first(), Some(&OsString::from("bbb")));
++        m.append_val(AnyValue::new(String::from("bbb")), "bbb".into());
++        m.append_val(AnyValue::new(String::from("ccc")), "ccc".into());
++        assert_eq!(m.first_raw(), Some(&OsString::from("bbb")));
+     }
+ 
+     #[test]
+     fn test_grouped_vals_push_and_append() {
+-        let mut m = MatchedArg::new();
+-        m.push_val("aaa".into());
++        let mut m = MatchedArg::new_group();
++        m.push_val(AnyValue::new(String::from("aaa")), "aaa".into());
+         m.new_val_group();
+-        m.append_val("bbb".into());
+-        m.append_val("ccc".into());
++        m.append_val(AnyValue::new(String::from("bbb")), "bbb".into());
++        m.append_val(AnyValue::new(String::from("ccc")), "ccc".into());
+         m.new_val_group();
+-        m.append_val("ddd".into());
+-        m.push_val("eee".into());
++        m.append_val(AnyValue::new(String::from("ddd")), "ddd".into());
++        m.push_val(AnyValue::new(String::from("eee")), "eee".into());
+         m.new_val_group();
+-        m.append_val("fff".into());
+-        m.append_val("ggg".into());
+-        m.append_val("hhh".into());
+-        m.append_val("iii".into());
++        m.append_val(AnyValue::new(String::from("fff")), "fff".into());
++        m.append_val(AnyValue::new(String::from("ggg")), "ggg".into());
++        m.append_val(AnyValue::new(String::from("hhh")), "hhh".into());
++        m.append_val(AnyValue::new(String::from("iii")), "iii".into());
+ 
+-        let vals: Vec<&Vec<OsString>> = m.vals().collect();
++        let vals: Vec<&Vec<OsString>> = m.raw_vals().collect();
+         assert_eq!(
+             vals,
+             vec![
+@@ -214,152 +278,4 @@ mod tests {
+             ]
+         )
+     }
+-
+-    #[test]
+-    fn test_grouped_vals_removal() {
+-        let m = {
+-            let mut m = MatchedArg::new();
+-            m.push_val("aaa".into());
+-            m.new_val_group();
+-            m.append_val("bbb".into());
+-            m.append_val("ccc".into());
+-            m.new_val_group();
+-            m.append_val("ddd".into());
+-            m.push_val("eee".into());
+-            m.new_val_group();
+-            m.append_val("fff".into());
+-            m.append_val("ggg".into());
+-            m.append_val("hhh".into());
+-            m.append_val("iii".into());
+-            m
+-        };
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(0);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![
+-                    &vec![OsString::from("aaa")],
+-                    &vec![OsString::from("bbb"), OsString::from("ccc"),],
+-                    &vec![OsString::from("ddd")],
+-                    &vec![OsString::from("eee")],
+-                    &vec![
+-                        OsString::from("fff"),
+-                        OsString::from("ggg"),
+-                        OsString::from("hhh"),
+-                        OsString::from("iii"),
+-                    ]
+-                ]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(1);
+-            let vals0 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals0,
+-                vec![
+-                    &vec![OsString::from("bbb"), OsString::from("ccc"),],
+-                    &vec![OsString::from("ddd")],
+-                    &vec![OsString::from("eee")],
+-                    &vec![
+-                        OsString::from("fff"),
+-                        OsString::from("ggg"),
+-                        OsString::from("hhh"),
+-                        OsString::from("iii"),
+-                    ]
+-                ]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(2);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![
+-                    &vec![OsString::from("ccc"),],
+-                    &vec![OsString::from("ddd")],
+-                    &vec![OsString::from("eee")],
+-                    &vec![
+-                        OsString::from("fff"),
+-                        OsString::from("ggg"),
+-                        OsString::from("hhh"),
+-                        OsString::from("iii"),
+-                    ]
+-                ]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(3);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![
+-                    &vec![OsString::from("ddd")],
+-                    &vec![OsString::from("eee")],
+-                    &vec![
+-                        OsString::from("fff"),
+-                        OsString::from("ggg"),
+-                        OsString::from("hhh"),
+-                        OsString::from("iii"),
+-                    ]
+-                ]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(4);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![
+-                    &vec![OsString::from("eee")],
+-                    &vec![
+-                        OsString::from("fff"),
+-                        OsString::from("ggg"),
+-                        OsString::from("hhh"),
+-                        OsString::from("iii"),
+-                    ]
+-                ]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(5);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![&vec![
+-                    OsString::from("fff"),
+-                    OsString::from("ggg"),
+-                    OsString::from("hhh"),
+-                    OsString::from("iii"),
+-                ]]
+-            );
+-        }
+-
+-        {
+-            let mut m = m.clone();
+-            m.remove_vals(7);
+-            let vals1 = m.vals().collect::<Vec<_>>();
+-            assert_eq!(
+-                vals1,
+-                vec![&vec![OsString::from("hhh"), OsString::from("iii"),]]
+-            );
+-        }
+-
+-        {
+-            let mut m = m;
+-            m.remove_vals(9);
+-            assert_eq!(m.vals().next(), None);
+-        }
+-    }
+ }
+diff --git a/src/parser/matches/mod.rs b/src/parser/matches/mod.rs
+index 7efa8b414f3..8bb74e6148e 100644
+--- a/src/parser/matches/mod.rs
++++ b/src/parser/matches/mod.rs
+@@ -1,3 +1,4 @@
++mod any_value;
+ mod arg_matches;
+ mod matched_arg;
+ mod value_source;
+@@ -5,5 +6,7 @@ mod value_source;
+ pub use arg_matches::{ArgMatches, Indices, OsValues, Values};
+ pub use value_source::ValueSource;
+ 
++pub(crate) use any_value::AnyValue;
++pub(crate) use any_value::AnyValueId;
+ pub(crate) use arg_matches::SubCommand;
+ pub(crate) use matched_arg::MatchedArg;
+diff --git a/src/parser/mod.rs b/src/parser/mod.rs
+index 1bfc48c8bbf..3925dbaa5e7 100644
+--- a/src/parser/mod.rs
++++ b/src/parser/mod.rs
+@@ -1,6 +1,7 @@
+ //! [`Command`][crate::Command] line argument parser
+ 
+ mod arg_matcher;
++mod error;
+ mod matches;
+ #[allow(clippy::module_inception)]
+ mod parser;
+@@ -9,8 +10,11 @@ mod validator;
+ pub(crate) mod features;
+ 
+ pub(crate) use self::arg_matcher::ArgMatcher;
++pub(crate) use self::matches::AnyValue;
++pub(crate) use self::matches::AnyValueId;
+ pub(crate) use self::matches::{MatchedArg, SubCommand};
+ pub(crate) use self::parser::{ParseState, Parser};
+ pub(crate) use self::validator::Validator;
+ 
+ pub use self::matches::{ArgMatches, Indices, OsValues, ValueSource, Values};
++pub use error::MatchesError;
+diff --git a/src/parser/parser.rs b/src/parser/parser.rs
+index 76895a4480b..8a1871ffc72 100644
+--- a/src/parser/parser.rs
++++ b/src/parser/parser.rs
+@@ -208,7 +208,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                         &parse_state,
+                         &mut valid_arg_found,
+                         trailing_values,
+-                    );
++                    )?;
+                     debug!(
+                         "Parser::get_matches_with: After parse_long_arg {:?}",
+                         parse_result
+@@ -281,7 +281,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                         pos_counter,
+                         &mut valid_arg_found,
+                         trailing_values,
+-                    );
++                    )?;
+                     // If it's None, we then check if one of those two AppSettings was set
+                     debug!(
+                         "Parser::get_matches_with: After parse_short_arg {:?}",
+@@ -360,10 +360,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                         &self.cmd[id],
+                         arg_os.to_value_os(),
+                         matcher,
+-                        ValueSource::CommandLine,
+                         true,
+                         trailing_values,
+-                    );
++                    )?;
+                     parse_state = match parse_result {
+                         ParseResult::Opt(id) => ParseState::Opt(id),
+                         ParseResult::ValuesDone => ParseState::ValuesDone,
+@@ -392,19 +391,12 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 // Increase occurrence no matter if we are appending, occurrences
+                 // of positional argument equals to number of values rather than
+                 // the number of value groups.
+-                self.inc_occurrence_of_arg(matcher, p);
++                self.start_occurrence_of_arg(matcher, p);
+                 // Creating new value group rather than appending when the arg
+                 // doesn't have any value. This behaviour is right because
+                 // positional arguments are always present continuously.
+                 let append = self.has_val_groups(matcher, p);
+-                self.add_val_to_arg(
+-                    p,
+-                    arg_os.to_value_os(),
+-                    matcher,
+-                    ValueSource::CommandLine,
+-                    append,
+-                    trailing_values,
+-                );
++                self.add_val_to_arg(p, arg_os.to_value_os(), matcher, append, trailing_values)?;
+ 
+                 // Only increment the positional counter if it doesn't allow multiples
+                 if !p.is_multiple() {
+@@ -414,7 +406,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                     parse_state = ParseState::Pos(p.id.clone());
+                 }
+                 valid_arg_found = true;
+-            } else if self.cmd.is_allow_external_subcommands_set() {
++            } else if let Some(external_parser) =
++                self.cmd.get_external_subcommand_value_parser().cloned()
++            {
+                 // Get external subcommand name
+                 let sc_name = match arg_os.to_value() {
+                     Ok(s) => s.to_string(),
+@@ -428,34 +422,14 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+                 // Collect the external subcommand args
+                 let mut sc_m = ArgMatcher::new(self.cmd);
+-                let allow_invalid_utf8 = self
+-                    .cmd
+-                    .is_allow_invalid_utf8_for_external_subcommands_set();
+-                #[cfg(feature = "unstable-v4")]
+-                {
+-                    sc_m.inc_occurrence_of_external(allow_invalid_utf8);
++                if cfg!(feature = "unstable-v4") || !raw_args.is_end(&args_cursor) {
++                    sc_m.start_occurrence_of_external(self.cmd);
+                 }
+ 
+-                for v in raw_args.remaining(&mut args_cursor) {
+-                    if !allow_invalid_utf8 && v.to_str().is_none() {
+-                        return Err(ClapError::invalid_utf8(
+-                            self.cmd,
+-                            Usage::new(self.cmd).create_usage_with_title(&[]),
+-                        ));
+-                    }
++                for raw_val in raw_args.remaining(&mut args_cursor) {
++                    let val = external_parser.parse_ref(self.cmd, None, raw_val)?;
+                     let external_id = &Id::empty_hash();
+-                    sc_m.add_val_to(
+-                        external_id,
+-                        v.to_os_string(),
+-                        ValueSource::CommandLine,
+-                        false,
+-                    );
+-                    #[cfg(not(feature = "unstable-v4"))]
+-                    {
+-                        sc_m.get_mut(external_id)
+-                            .expect("just inserted")
+-                            .invalid_utf8_allowed(allow_invalid_utf8);
+-                    }
++                    sc_m.add_val_to(external_id, val, raw_val.to_os_string(), false);
+                 }
+ 
+                 matcher.subcommand(SubCommand {
+@@ -466,7 +440,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+                 #[cfg(feature = "env")]
+                 self.add_env(matcher, trailing_values)?;
+-                self.add_defaults(matcher, trailing_values);
++                self.add_defaults(matcher, trailing_values)?;
+                 return Validator::new(self.cmd).validate(parse_state, matcher);
+             } else {
+                 // Start error processing
+@@ -486,7 +460,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+         #[cfg(feature = "env")]
+         self.add_env(matcher, trailing_values)?;
+-        self.add_defaults(matcher, trailing_values);
++        self.add_defaults(matcher, trailing_values)?;
+         Validator::new(self.cmd).validate(parse_state, matcher)
+     }
+ 
+@@ -800,14 +774,14 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         parse_state: &ParseState,
+         valid_arg_found: &mut bool,
+         trailing_values: bool,
+-    ) -> ParseResult {
++    ) -> ClapResult<ParseResult> {
+         // maybe here lifetime should be 'a
+         debug!("Parser::parse_long_arg");
+ 
+         if matches!(parse_state, ParseState::Opt(opt) | ParseState::Pos(opt) if
+             self.cmd[opt].is_allow_hyphen_values_set())
+         {
+-            return ParseResult::MaybeHyphenValue;
++            return Ok(ParseResult::MaybeHyphenValue);
+         }
+ 
+         // Update the current index
+@@ -818,14 +792,14 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         let long_arg = match long_arg {
+             Ok(long_arg) => long_arg,
+             Err(long_arg) => {
+-                return ParseResult::NoMatchingArg {
++                return Ok(ParseResult::NoMatchingArg {
+                     arg: long_arg.to_str_lossy().into_owned(),
+-                };
++                });
+             }
+         };
+         if long_arg.is_empty() {
+             debug_assert!(long_value.is_none(), "{:?}", long_value);
+-            return ParseResult::NoArg;
++            return Ok(ParseResult::NoArg);
+         }
+ 
+         let opt = if let Some(opt) = self.cmd.get_keymap().get(long_arg) {
+@@ -868,27 +842,27 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                     .cloned()
+                     .collect();
+ 
+-                ParseResult::UnneededAttachedValue {
++                Ok(ParseResult::UnneededAttachedValue {
+                     rest: rest.to_str_lossy().into_owned(),
+                     used,
+                     arg: opt.to_string(),
+-                }
++                })
+             } else if let Some(parse_result) =
+                 self.check_for_help_and_version_str(RawOsStr::from_str(long_arg))
+             {
+-                parse_result
++                Ok(parse_result)
+             } else {
+                 debug!("Parser::parse_long_arg: Presence validated");
+-                self.parse_flag(opt, matcher)
++                Ok(self.parse_flag(opt, matcher))
+             }
+         } else if let Some(sc_name) = self.possible_long_flag_subcommand(long_arg) {
+-            ParseResult::FlagSubCommand(sc_name.to_string())
++            Ok(ParseResult::FlagSubCommand(sc_name.to_string()))
+         } else if self.cmd.is_allow_hyphen_values_set() {
+-            ParseResult::MaybeHyphenValue
++            Ok(ParseResult::MaybeHyphenValue)
+         } else {
+-            ParseResult::NoMatchingArg {
++            Ok(ParseResult::NoMatchingArg {
+                 arg: long_arg.to_owned(),
+-            }
++            })
+         }
+     }
+ 
+@@ -901,25 +875,25 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         pos_counter: usize,
+         valid_arg_found: &mut bool,
+         trailing_values: bool,
+-    ) -> ParseResult {
++    ) -> ClapResult<ParseResult> {
+         debug!("Parser::parse_short_arg: short_arg={:?}", short_arg);
+ 
+         #[allow(clippy::blocks_in_if_conditions)]
+         if self.cmd.is_allow_negative_numbers_set() && short_arg.is_number() {
+             debug!("Parser::parse_short_arg: negative number");
+-            return ParseResult::MaybeHyphenValue;
++            return Ok(ParseResult::MaybeHyphenValue);
+         } else if self.cmd.is_allow_hyphen_values_set()
+             && short_arg
+                 .clone()
+                 .any(|c| !c.map(|c| self.cmd.contains_short(c)).unwrap_or_default())
+         {
+             debug!("Parser::parse_short_args: contains non-short flag");
+-            return ParseResult::MaybeHyphenValue;
++            return Ok(ParseResult::MaybeHyphenValue);
+         } else if matches!(parse_state, ParseState::Opt(opt) | ParseState::Pos(opt)
+                 if self.cmd[opt].is_allow_hyphen_values_set())
+         {
+             debug!("Parser::parse_short_args: prior arg accepts hyphenated values",);
+-            return ParseResult::MaybeHyphenValue;
++            return Ok(ParseResult::MaybeHyphenValue);
+         } else if self
+             .cmd
+             .get_keymap()
+@@ -932,7 +906,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 "Parser::parse_short_args: positional at {} allows hyphens",
+                 pos_counter
+             );
+-            return ParseResult::MaybeHyphenValue;
++            return Ok(ParseResult::MaybeHyphenValue);
+         }
+ 
+         let mut ret = ParseResult::NoArg;
+@@ -950,9 +924,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+             let c = match c {
+                 Ok(c) => c,
+                 Err(rest) => {
+-                    return ParseResult::NoMatchingArg {
++                    return Ok(ParseResult::NoMatchingArg {
+                         arg: format!("-{}", rest.to_str_lossy()),
+-                    };
++                    });
+                 }
+             };
+             debug!("Parser::parse_short_arg:iter:{}", c);
+@@ -978,7 +952,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 self.seen.push(opt.id.clone());
+                 if !opt.is_takes_value_set() {
+                     if let Some(parse_result) = self.check_for_help_and_version_char(c) {
+-                        return parse_result;
++                        return Ok(parse_result);
+                     }
+                     ret = self.parse_flag(opt, matcher);
+                     continue;
+@@ -1006,9 +980,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 } else {
+                     (val, false)
+                 };
+-                match self.parse_opt(val, opt, matcher, trailing_values, has_eq) {
++                match self.parse_opt(val, opt, matcher, trailing_values, has_eq)? {
+                     ParseResult::AttachedValueNotConsumed => continue,
+-                    x => return x,
++                    x => return Ok(x),
+                 }
+             }
+ 
+@@ -1024,14 +998,14 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 if done_short_args {
+                     self.flag_subcmd_at = None;
+                 }
+-                ParseResult::FlagSubCommand(name)
++                Ok(ParseResult::FlagSubCommand(name))
+             } else {
+-                ParseResult::NoMatchingArg {
++                Ok(ParseResult::NoMatchingArg {
+                     arg: format!("-{}", c),
+-                }
++                })
+             };
+         }
+-        ret
++        Ok(ret)
+     }
+ 
+     fn parse_opt(
+@@ -1041,7 +1015,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         matcher: &mut ArgMatcher,
+         trailing_values: bool,
+         has_eq: bool,
+-    ) -> ParseResult {
++    ) -> ClapResult<ParseResult> {
+         debug!(
+             "Parser::parse_opt; opt={}, val={:?}, has_eq={:?}",
+             opt.name, attached_value, has_eq
+@@ -1053,7 +1027,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         if opt.is_require_equals_set() && !has_eq {
+             if opt.min_vals == Some(0) {
+                 debug!("Requires equals, but min_vals == 0");
+-                self.inc_occurrence_of_arg(matcher, opt);
++                self.start_occurrence_of_arg(matcher, opt);
+                 // We assume this case is valid: require equals, but min_vals == 0.
+                 if !opt.default_missing_vals.is_empty() {
+                     debug!("Parser::parse_opt: has default_missing_vals");
+@@ -1061,40 +1035,32 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                         opt,
+                         opt.default_missing_vals.iter().map(OsString::from),
+                         matcher,
+-                        ValueSource::CommandLine,
+                         false,
+-                    );
++                    )?;
+                 };
+                 if attached_value.is_some() {
+-                    ParseResult::AttachedValueNotConsumed
++                    Ok(ParseResult::AttachedValueNotConsumed)
+                 } else {
+-                    ParseResult::ValuesDone
++                    Ok(ParseResult::ValuesDone)
+                 }
+             } else {
+                 debug!("Requires equals but not provided. Error.");
+-                ParseResult::EqualsNotProvided {
++                Ok(ParseResult::EqualsNotProvided {
+                     arg: opt.to_string(),
+-                }
++                })
+             }
+         } else if let Some(v) = attached_value {
+-            self.inc_occurrence_of_arg(matcher, opt);
+-            self.add_val_to_arg(
+-                opt,
+-                v,
+-                matcher,
+-                ValueSource::CommandLine,
+-                false,
+-                trailing_values,
+-            );
+-            ParseResult::ValuesDone
++            self.start_occurrence_of_arg(matcher, opt);
++            self.add_val_to_arg(opt, v, matcher, false, trailing_values)?;
++            Ok(ParseResult::ValuesDone)
+         } else {
+             debug!("Parser::parse_opt: More arg vals required...");
+-            self.inc_occurrence_of_arg(matcher, opt);
++            self.start_occurrence_of_arg(matcher, opt);
+             matcher.new_val_group(&opt.id);
+             for group in self.cmd.groups_for_arg(&opt.id) {
+                 matcher.new_val_group(&group);
+             }
+-            ParseResult::Opt(opt.id.clone())
++            Ok(ParseResult::Opt(opt.id.clone()))
+         }
+     }
+ 
+@@ -1103,10 +1069,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         arg: &Arg<'help>,
+         val: &RawOsStr,
+         matcher: &mut ArgMatcher,
+-        ty: ValueSource,
+         append: bool,
+         trailing_values: bool,
+-    ) -> ParseResult {
++    ) -> ClapResult<ParseResult> {
+         debug!("Parser::add_val_to_arg; arg={}, val={:?}", arg.name, val);
+         debug!(
+             "Parser::add_val_to_arg; trailing_values={:?}, DontDelimTrailingVals={:?}",
+@@ -1120,7 +1085,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                     .split(delim)
+                     .map(|x| x.to_os_str().into_owned())
+                     .take_while(|val| Some(val.as_os_str()) != terminator);
+-                self.add_multiple_vals_to_arg(arg, vals, matcher, ty, append);
++                self.add_multiple_vals_to_arg(arg, vals, matcher, append)?;
+                 // If there was a delimiter used or we must use the delimiter to
+                 // separate the values or no more vals is needed, we're not
+                 // looking for more values.
+@@ -1128,33 +1093,32 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                     || arg.is_require_value_delimiter_set()
+                     || !matcher.needs_more_vals(arg)
+                 {
+-                    ParseResult::ValuesDone
++                    Ok(ParseResult::ValuesDone)
+                 } else {
+-                    ParseResult::Opt(arg.id.clone())
++                    Ok(ParseResult::Opt(arg.id.clone()))
+                 };
+             }
+         }
+         if let Some(t) = arg.terminator {
+             if t == val {
+-                return ParseResult::ValuesDone;
++                return Ok(ParseResult::ValuesDone);
+             }
+         }
+-        self.add_single_val_to_arg(arg, val.to_os_str().into_owned(), matcher, ty, append);
++        self.add_single_val_to_arg(arg, val.to_os_str().into_owned(), matcher, append)?;
+         if matcher.needs_more_vals(arg) {
+-            ParseResult::Opt(arg.id.clone())
++            Ok(ParseResult::Opt(arg.id.clone()))
+         } else {
+-            ParseResult::ValuesDone
++            Ok(ParseResult::ValuesDone)
+         }
+     }
+ 
+     fn add_multiple_vals_to_arg(
+         &self,
+         arg: &Arg<'help>,
+-        vals: impl Iterator<Item = OsString>,
++        raw_vals: impl Iterator<Item = OsString>,
+         matcher: &mut ArgMatcher,
+-        ty: ValueSource,
+         append: bool,
+-    ) {
++    ) -> ClapResult<()> {
+         // If not appending, create a new val group and then append vals in.
+         if !append {
+             matcher.new_val_group(&arg.id);
+@@ -1162,20 +1126,21 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 matcher.new_val_group(&group);
+             }
+         }
+-        for val in vals {
+-            self.add_single_val_to_arg(arg, val, matcher, ty, true);
++        for raw_val in raw_vals {
++            self.add_single_val_to_arg(arg, raw_val, matcher, true)?;
+         }
++
++        Ok(())
+     }
+ 
+     fn add_single_val_to_arg(
+         &self,
+         arg: &Arg<'help>,
+-        val: OsString,
++        raw_val: OsString,
+         matcher: &mut ArgMatcher,
+-        ty: ValueSource,
+         append: bool,
+-    ) {
+-        debug!("Parser::add_single_val_to_arg: adding val...{:?}", val);
++    ) -> ClapResult<()> {
++        debug!("Parser::add_single_val_to_arg: adding val...{:?}", raw_val);
+ 
+         // update the current index because each value is a distinct index to clap
+         self.cur_idx.set(self.cur_idx.get() + 1);
+@@ -1183,14 +1148,18 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+             "Parser::add_single_val_to_arg: cur_idx:={}",
+             self.cur_idx.get()
+         );
++        let value_parser = arg.get_value_parser();
++        let val = value_parser.parse_ref(self.cmd, Some(arg), &raw_val)?;
+ 
+         // Increment or create the group "args"
+         for group in self.cmd.groups_for_arg(&arg.id) {
+-            matcher.add_val_to(&group, val.clone(), ty, append);
++            matcher.add_val_to(&group, val.clone(), raw_val.clone(), append);
+         }
+ 
+-        matcher.add_val_to(&arg.id, val, ty, append);
+-        matcher.add_index_to(&arg.id, self.cur_idx.get(), ty);
++        matcher.add_val_to(&arg.id, val, raw_val, append);
++        matcher.add_index_to(&arg.id, self.cur_idx.get());
++
++        Ok(())
+     }
+ 
+     fn has_val_groups(&self, matcher: &mut ArgMatcher, arg: &Arg<'help>) -> bool {
+@@ -1200,8 +1169,8 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+     fn parse_flag(&self, flag: &Arg<'help>, matcher: &mut ArgMatcher) -> ParseResult {
+         debug!("Parser::parse_flag");
+ 
+-        self.inc_occurrence_of_arg(matcher, flag);
+-        matcher.add_index_to(&flag.id, self.cur_idx.get(), ValueSource::CommandLine);
++        self.start_occurrence_of_arg(matcher, flag);
++        matcher.add_index_to(&flag.id, self.cur_idx.get());
+ 
+         ParseResult::ValuesDone
+     }
+@@ -1228,35 +1197,89 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         }
+     }
+ 
+-    pub(crate) fn add_defaults(&mut self, matcher: &mut ArgMatcher, trailing_values: bool) {
++    #[cfg(feature = "env")]
++    fn add_env(&mut self, matcher: &mut ArgMatcher, trailing_values: bool) -> ClapResult<()> {
++        debug!("Parser::add_env");
++        use crate::util::str_to_bool;
++
++        for arg in self.cmd.get_arguments() {
++            // Use env only if the arg was absent among command line args,
++            // early return if this is not the case.
++            if matcher
++                .get(&arg.id)
++                .map_or(false, |arg| arg.get_occurrences() != 0)
++            {
++                debug!("Parser::add_env: Skipping existing arg `{}`", arg);
++                continue;
++            }
++
++            debug!("Parser::add_env: Checking arg `{}`", arg);
++            if let Some((_, Some(ref val))) = arg.env {
++                let val = RawOsStr::new(val);
++
++                if arg.is_takes_value_set() {
++                    debug!(
++                        "Parser::add_env: Found an opt with value={:?}, trailing={:?}",
++                        val, trailing_values
++                    );
++                    self.start_custom_arg(matcher, arg, ValueSource::EnvVariable);
++                    self.add_val_to_arg(arg, &val, matcher, false, trailing_values)?;
++                } else {
++                    // Early return on `HelpFlag` or `VersionFlag`.
++                    match self.check_for_help_and_version_str(&val) {
++                        Some(ParseResult::HelpFlag) => {
++                            return Err(self.help_err(true, Stream::Stdout));
++                        }
++                        Some(ParseResult::VersionFlag) => {
++                            return Err(self.version_err(true));
++                        }
++                        _ => {
++                            debug!("Parser::add_env: Found a flag with value `{:?}`", val);
++                            let predicate = str_to_bool(val.to_str_lossy());
++                            debug!("Parser::add_env: Found boolean literal `{:?}`", predicate);
++                            if predicate.unwrap_or(true) {
++                                self.start_custom_arg(matcher, arg, ValueSource::EnvVariable);
++                                matcher.add_index_to(&arg.id, self.cur_idx.get());
++                            }
++                        }
++                    }
++                }
++            }
++        }
++
++        Ok(())
++    }
++
++    fn add_defaults(&mut self, matcher: &mut ArgMatcher, trailing_values: bool) -> ClapResult<()> {
+         debug!("Parser::add_defaults");
+ 
+         for o in self.cmd.get_opts() {
+             debug!("Parser::add_defaults:iter:{}:", o.name);
+-            self.add_value(o, matcher, ValueSource::DefaultValue, trailing_values);
++            self.add_default_value(o, matcher, trailing_values)?;
+         }
+ 
+         for p in self.cmd.get_positionals() {
+             debug!("Parser::add_defaults:iter:{}:", p.name);
+-            self.add_value(p, matcher, ValueSource::DefaultValue, trailing_values);
++            self.add_default_value(p, matcher, trailing_values)?;
+         }
++
++        Ok(())
+     }
+ 
+-    fn add_value(
++    fn add_default_value(
+         &self,
+         arg: &Arg<'help>,
+         matcher: &mut ArgMatcher,
+-        ty: ValueSource,
+         trailing_values: bool,
+-    ) {
++    ) -> ClapResult<()> {
+         if !arg.default_vals_ifs.is_empty() {
+-            debug!("Parser::add_value: has conditional defaults");
++            debug!("Parser::add_default_value: has conditional defaults");
+             if matcher.get(&arg.id).is_none() {
+                 for (id, val, default) in arg.default_vals_ifs.iter() {
+                     let add = if let Some(a) = matcher.get(id) {
+                         match val {
+                             crate::builder::ArgPredicate::Equals(v) => {
+-                                a.vals_flatten().any(|value| v == value)
++                                a.raw_vals_flatten().any(|value| v == value)
+                             }
+                             crate::builder::ArgPredicate::IsPresent => true,
+                         }
+@@ -1266,21 +1289,21 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+                     if add {
+                         if let Some(default) = default {
++                            self.start_custom_arg(matcher, arg, ValueSource::DefaultValue);
+                             self.add_val_to_arg(
+                                 arg,
+                                 &RawOsStr::new(default),
+                                 matcher,
+-                                ty,
+                                 false,
+                                 trailing_values,
+-                            );
++                            )?;
+                         }
+-                        return;
++                        return Ok(());
+                     }
+                 }
+             }
+         } else {
+-            debug!("Parser::add_value: doesn't have conditional defaults");
++            debug!("Parser::add_default_value: doesn't have conditional defaults");
+         }
+ 
+         fn process_default_vals(arg: &Arg<'_>, default_vals: &[&OsStr]) -> Vec<OsString> {
+@@ -1299,24 +1322,27 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         }
+ 
+         if !arg.default_vals.is_empty() {
+-            debug!("Parser::add_value:iter:{}: has default vals", arg.name);
++            debug!(
++                "Parser::add_default_value:iter:{}: has default vals",
++                arg.name
++            );
+             if matcher.get(&arg.id).is_some() {
+-                debug!("Parser::add_value:iter:{}: was used", arg.name);
++                debug!("Parser::add_default_value:iter:{}: was used", arg.name);
+             // do nothing
+             } else {
+-                debug!("Parser::add_value:iter:{}: wasn't used", arg.name);
++                debug!("Parser::add_default_value:iter:{}: wasn't used", arg.name);
+ 
++                self.start_custom_arg(matcher, arg, ValueSource::DefaultValue);
+                 self.add_multiple_vals_to_arg(
+                     arg,
+                     process_default_vals(arg, &arg.default_vals).into_iter(),
+                     matcher,
+-                    ty,
+                     false,
+-                );
++                )?;
+             }
+         } else {
+             debug!(
+-                "Parser::add_value:iter:{}: doesn't have default vals",
++                "Parser::add_default_value:iter:{}: doesn't have default vals",
+                 arg.name
+             );
+ 
+@@ -1325,114 +1351,63 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+         if !arg.default_missing_vals.is_empty() {
+             debug!(
+-                "Parser::add_value:iter:{}: has default missing vals",
++                "Parser::add_default_value:iter:{}: has default missing vals",
+                 arg.name
+             );
+             match matcher.get(&arg.id) {
+                 Some(ma) if ma.all_val_groups_empty() => {
+                     debug!(
+-                        "Parser::add_value:iter:{}: has no user defined vals",
++                        "Parser::add_default_value:iter:{}: has no user defined vals",
+                         arg.name
+                     );
++                    self.start_custom_arg(matcher, arg, ValueSource::DefaultValue);
+                     self.add_multiple_vals_to_arg(
+                         arg,
+                         process_default_vals(arg, &arg.default_missing_vals).into_iter(),
+                         matcher,
+-                        ty,
+                         false,
+-                    );
++                    )?;
+                 }
+                 None => {
+-                    debug!("Parser::add_value:iter:{}: wasn't used", arg.name);
++                    debug!("Parser::add_default_value:iter:{}: wasn't used", arg.name);
+                     // do nothing
+                 }
+                 _ => {
+-                    debug!("Parser::add_value:iter:{}: has user defined vals", arg.name);
++                    debug!(
++                        "Parser::add_default_value:iter:{}: has user defined vals",
++                        arg.name
++                    );
+                     // do nothing
+                 }
+             }
+         } else {
+             debug!(
+-                "Parser::add_value:iter:{}: doesn't have default missing vals",
++                "Parser::add_default_value:iter:{}: doesn't have default missing vals",
+                 arg.name
+             );
+ 
+             // do nothing
+         }
+-    }
+-
+-    #[cfg(feature = "env")]
+-    pub(crate) fn add_env(
+-        &mut self,
+-        matcher: &mut ArgMatcher,
+-        trailing_values: bool,
+-    ) -> ClapResult<()> {
+-        use crate::util::str_to_bool;
+-
+-        self.cmd.get_arguments().try_for_each(|a| {
+-            // Use env only if the arg was absent among command line args,
+-            // early return if this is not the case.
+-            if matcher
+-                .get(&a.id)
+-                .map_or(false, |a| a.get_occurrences() != 0)
+-            {
+-                debug!("Parser::add_env: Skipping existing arg `{}`", a);
+-                return Ok(());
+-            }
+ 
+-            debug!("Parser::add_env: Checking arg `{}`", a);
+-            if let Some((_, Some(ref val))) = a.env {
+-                let val = RawOsStr::new(val);
+-
+-                if a.is_takes_value_set() {
+-                    debug!(
+-                        "Parser::add_env: Found an opt with value={:?}, trailing={:?}",
+-                        val, trailing_values
+-                    );
+-                    self.add_val_to_arg(
+-                        a,
+-                        &val,
+-                        matcher,
+-                        ValueSource::EnvVariable,
+-                        false,
+-                        trailing_values,
+-                    );
+-                    return Ok(());
+-                }
+-
+-                debug!("Parser::add_env: Checking for help and version");
+-                // Early return on `HelpFlag` or `VersionFlag`.
+-                match self.check_for_help_and_version_str(&val) {
+-                    Some(ParseResult::HelpFlag) => {
+-                        return Err(self.help_err(true, Stream::Stdout));
+-                    }
+-                    Some(ParseResult::VersionFlag) => {
+-                        return Err(self.version_err(true));
+-                    }
+-                    _ => (),
+-                }
+-
+-                debug!("Parser::add_env: Found a flag with value `{:?}`", val);
+-                let predicate = str_to_bool(val.to_str_lossy());
+-                debug!("Parser::add_env: Found boolean literal `{}`", predicate);
+-                if predicate {
+-                    matcher.add_index_to(&a.id, self.cur_idx.get(), ValueSource::EnvVariable);
+-                }
+-            }
++        Ok(())
++    }
+ 
+-            Ok(())
+-        })
++    fn start_custom_arg(&self, matcher: &mut ArgMatcher, arg: &Arg<'help>, source: ValueSource) {
++        matcher.start_custom_arg(arg, source);
++        for group in self.cmd.groups_for_arg(&arg.id) {
++            matcher.start_custom_group(&group, source);
++        }
+     }
+ 
+     /// Increase occurrence of specific argument and the grouped arg it's in.
+-    fn inc_occurrence_of_arg(&self, matcher: &mut ArgMatcher, arg: &Arg<'help>) {
++    fn start_occurrence_of_arg(&self, matcher: &mut ArgMatcher, arg: &Arg<'help>) {
+         // With each new occurrence, remove overrides from prior occurrences
+         self.remove_overrides(arg, matcher);
+ 
+-        matcher.inc_occurrence_of_arg(arg);
++        matcher.start_occurrence_of_arg(arg);
+         // Increment or create the group "args"
+         for group in self.cmd.groups_for_arg(&arg.id) {
+-            matcher.inc_occurrence_of_group(&group);
++            matcher.start_occurrence_of_group(&group);
+         }
+     }
+ }
+@@ -1469,7 +1444,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         // Add the arg to the matches to build a proper usage string
+         if let Some((name, _)) = did_you_mean.as_ref() {
+             if let Some(opt) = self.cmd.get_keymap().get(&name.as_ref()) {
+-                self.inc_occurrence_of_arg(matcher, opt);
++                self.start_occurrence_of_arg(matcher, opt);
+             }
+         }
+ 
+diff --git a/src/parser/validator.rs b/src/parser/validator.rs
+index bc5db7606f5..ddcd6bb1111 100644
+--- a/src/parser/validator.rs
++++ b/src/parser/validator.rs
+@@ -45,7 +45,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                         .filter(|pv| !pv.is_hide_set())
+                         .map(PossibleValue::get_name)
+                         .collect::<Vec<_>>(),
+-                    o,
++                    o.to_string(),
+                     Usage::new(self.cmd)
+                         .required(&self.required)
+                         .create_usage_with_title(&[]),
+@@ -98,19 +98,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+         matcher: &ArgMatcher,
+     ) -> ClapResult<()> {
+         debug!("Validator::validate_arg_values: arg={:?}", arg.name);
+-        for val in ma.vals_flatten() {
+-            if !arg.is_allow_invalid_utf8_set() && val.to_str().is_none() {
+-                debug!(
+-                    "Validator::validate_arg_values: invalid UTF-8 found in val {:?}",
+-                    val
+-                );
+-                return Err(Error::invalid_utf8(
+-                    self.cmd,
+-                    Usage::new(self.cmd)
+-                        .required(&self.required)
+-                        .create_usage_with_title(&[]),
+-                ));
+-            }
++        for val in ma.raw_vals_flatten() {
+             if !arg.possible_vals.is_empty() {
+                 debug!(
+                     "Validator::validate_arg_values: possible_vals={:?}",
+@@ -136,7 +124,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                             .filter(|pv| !pv.is_hide_set())
+                             .map(PossibleValue::get_name)
+                             .collect::<Vec<_>>(),
+-                        arg,
++                        arg.to_string(),
+                         Usage::new(self.cmd)
+                             .required(&self.required)
+                             .create_usage_with_title(&used),
+@@ -152,7 +140,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                         .filter(|pv| !pv.is_hide_set())
+                         .map(PossibleValue::get_name)
+                         .collect::<Vec<_>>(),
+-                    arg,
++                    arg.to_string(),
+                     Usage::new(self.cmd)
+                         .required(&self.required)
+                         .create_usage_with_title(&[]),
+@@ -237,7 +225,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+             .try_for_each(|arg| {
+                 Err(Error::argument_conflict(
+                     self.cmd,
+-                    arg,
++                    arg.to_string(),
+                     Vec::new(),
+                     Usage::new(self.cmd)
+                         .required(&self.required)
+@@ -278,7 +266,10 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+         let former_arg = self.cmd.find(name).expect(INTERNAL_ERROR_MSG);
+         let usg = self.build_conflict_err_usage(matcher, conflict_ids);
+         Err(Error::argument_conflict(
+-            self.cmd, former_arg, conflicts, usg,
++            self.cmd,
++            former_arg.to_string(),
++            conflicts,
++            usg,
+         ))
+     }
+ 
+@@ -360,7 +351,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+             // Not the first time, and we don't allow multiples
+             return Err(Error::unexpected_multiple_usage(
+                 self.cmd,
+-                a,
++                a.to_string(),
+                 Usage::new(self.cmd)
+                     .required(&self.required)
+                     .create_usage_with_title(&[]),
+@@ -375,7 +366,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+             if occurs > max_occurs {
+                 return Err(Error::too_many_occurrences(
+                     self.cmd,
+-                    a,
++                    a.to_string(),
+                     max_occurs,
+                     occurs,
+                     Usage::new(self.cmd)
+@@ -402,7 +393,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                 debug!("Validator::validate_arg_num_vals: Sending error WrongNumberOfValues");
+                 return Err(Error::wrong_number_of_values(
+                     self.cmd,
+-                    a,
++                    a.to_string(),
+                     num,
+                     if a.is_multiple_occurrences_set() {
+                         total_num % num
+@@ -421,7 +412,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                 debug!("Validator::validate_arg_num_vals: Sending error TooManyValues");
+                 return Err(Error::too_many_values(
+                     self.cmd,
+-                    ma.vals_flatten()
++                    ma.raw_vals_flatten()
+                         .last()
+                         .expect(INTERNAL_ERROR_MSG)
+                         .to_str()
+@@ -440,7 +431,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                 debug!("Validator::validate_arg_num_vals: Sending error TooFewValues");
+                 return Err(Error::too_few_values(
+                     self.cmd,
+-                    a,
++                    a.to_string(),
+                     num,
+                     ma.num_vals(),
+                     Usage::new(self.cmd)
+@@ -462,7 +453,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+                     .filter(|pv| !pv.is_hide_set())
+                     .map(PossibleValue::get_name)
+                     .collect::<Vec<_>>(),
+-                a,
++                a.to_string(),
+                 Usage::new(self.cmd)
+                     .required(&self.required)
+                     .create_usage_with_title(&[]),
+diff --git a/src/util/mod.rs b/src/util/mod.rs
+index ed35765ff6a..8adc8db17c4 100644
+--- a/src/util/mod.rs
++++ b/src/util/mod.rs
+@@ -3,13 +3,13 @@
+ mod fnv;
+ mod graph;
+ mod id;
+-#[cfg(feature = "env")]
+ mod str_to_bool;
+ 
+ pub use self::fnv::Key;
+ 
+-#[cfg(feature = "env")]
+ pub(crate) use self::str_to_bool::str_to_bool;
++pub(crate) use self::str_to_bool::FALSE_LITERALS;
++pub(crate) use self::str_to_bool::TRUE_LITERALS;
+ pub(crate) use self::{graph::ChildGraph, id::Id};
+ 
+ pub(crate) mod color;
+diff --git a/src/util/str_to_bool.rs b/src/util/str_to_bool.rs
+index 58e2efa63d2..1fbdc7531ab 100644
+--- a/src/util/str_to_bool.rs
++++ b/src/util/str_to_bool.rs
+@@ -1,15 +1,21 @@
+ /// True values are `y`, `yes`, `t`, `true`, `on`, and `1`.
+-// pub(crate) const TRUE_LITERALS: [&str; 6] = ["y", "yes", "t", "true", "on", "1"];
++pub(crate) const TRUE_LITERALS: [&str; 6] = ["y", "yes", "t", "true", "on", "1"];
+ 
+ /// False values are `n`, `no`, `f`, `false`, `off`, and `0`.
+-const FALSE_LITERALS: [&str; 6] = ["n", "no", "f", "false", "off", "0"];
++pub(crate) const FALSE_LITERALS: [&str; 6] = ["n", "no", "f", "false", "off", "0"];
+ 
+ /// Converts a string literal representation of truth to true or false.
+ ///
+ /// `false` values are `n`, `no`, `f`, `false`, `off`, and `0` (case insensitive).
+ ///
+ /// Any other value will be considered as `true`.
+-pub(crate) fn str_to_bool(val: impl AsRef<str>) -> bool {
++pub(crate) fn str_to_bool(val: impl AsRef<str>) -> Option<bool> {
+     let pat: &str = &val.as_ref().to_lowercase();
+-    !FALSE_LITERALS.contains(&pat)
++    if TRUE_LITERALS.contains(&pat) {
++        Some(true)
++    } else if FALSE_LITERALS.contains(&pat) {
++        Some(false)
++    } else {
++        None
++    }
+ }

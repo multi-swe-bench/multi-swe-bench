@@ -1,0 +1,364 @@
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index 4146bfeaa4d..2411ffe5d4f 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -38,6 +38,7 @@ type Issue struct {
+ 	ProjectCards   ProjectCards
+ 	Milestone      *Milestone
+ 	ReactionGroups ReactionGroups
++	IsPinned       bool
+ }
+ 
+ func (i Issue) IsPullRequest() bool {
+diff --git a/api/query_builder.go b/api/query_builder.go
+index 70c9da6ee70..16665cfd834 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -3,6 +3,8 @@ package api
+ import (
+ 	"fmt"
+ 	"strings"
++
++	"github.com/cli/cli/v2/pkg/set"
+ )
+ 
+ func squeeze(r rune) rune {
+@@ -208,9 +210,8 @@ var PullRequestFields = append(IssueFields,
+ 	"statusCheckRollup",
+ )
+ 
+-// PullRequestGraphQL constructs a GraphQL query fragment for a set of pull request fields. Since GitHub
+-// pull requests are also technically issues, this function can be used to query issues as well.
+-func PullRequestGraphQL(fields []string) string {
++// IssueGraphQL constructs a GraphQL query fragment for a set of issue fields.
++func IssueGraphQL(fields []string) string {
+ 	var q []string
+ 	for _, field := range fields {
+ 		switch field {
+@@ -265,6 +266,16 @@ func PullRequestGraphQL(fields []string) string {
+ 	return strings.Join(q, ",")
+ }
+ 
++// PullRequestGraphQL constructs a GraphQL query fragment for a set of pull request fields.
++// It will try to sanitize the fields to just those available on pull request.
++func PullRequestGraphQL(fields []string) string {
++	invalidFields := []string{"isPinned"}
++	s := set.NewStringSet()
++	s.AddValues(fields)
++	s.RemoveValues(invalidFields)
++	return IssueGraphQL(s.ToSlice())
++}
++
+ var RepositoryFields = []string{
+ 	"id",
+ 	"name",
+diff --git a/go.mod b/go.mod
+index 581ff01462a..d7b82b34e4f 100644
+--- a/go.mod
++++ b/go.mod
+@@ -29,7 +29,7 @@ require (
+ 	github.com/muesli/termenv v0.12.0
+ 	github.com/muhammadmuzzammil1998/jsonc v0.0.0-20201229145248-615b0916ca38
+ 	github.com/opentracing/opentracing-go v1.1.0
+-	github.com/shurcooL/githubv4 v0.0.0-20200928013246-d292edc3691b
++	github.com/shurcooL/githubv4 v0.0.0-20220115235240-a14260e6f8a2
+ 	github.com/sourcegraph/jsonrpc2 v0.1.0
+ 	github.com/spf13/cobra v1.4.0
+ 	github.com/spf13/pflag v1.0.5
+diff --git a/go.sum b/go.sum
+index 08466abca8a..5e0ab359723 100644
+--- a/go.sum
++++ b/go.sum
+@@ -224,8 +224,8 @@ github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJ
+ github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
+ github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
+ github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
+-github.com/shurcooL/githubv4 v0.0.0-20200928013246-d292edc3691b h1:0/ecDXh/HTHRtSDSFnD2/Ta1yQ5J76ZspVY4u0/jGFk=
+-github.com/shurcooL/githubv4 v0.0.0-20200928013246-d292edc3691b/go.mod h1:hAF0iLZy4td2EX+/8Tw+4nodhlMrwN3HupfaXj3zkGo=
++github.com/shurcooL/githubv4 v0.0.0-20220115235240-a14260e6f8a2 h1:82EIpiGB79OIPgSGa63Oj4Ipf+YAX1c6A9qjmEYoRXc=
++github.com/shurcooL/githubv4 v0.0.0-20220115235240-a14260e6f8a2/go.mod h1:hAF0iLZy4td2EX+/8Tw+4nodhlMrwN3HupfaXj3zkGo=
+ github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a h1:KikTa6HtAK8cS1qjvUvvq4QO21QnwC+EfvB+OAuZ/ZU=
+ github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a/go.mod h1:AuYgA5Kyo4c7HfUmvRGs/6rGlMMV/6B1bVnB9JxJEEg=
+ github.com/sourcegraph/jsonrpc2 v0.1.0 h1:ohJHjZ+PcaLxDUjqk2NC3tIGsVa5bXThe1ZheSXOjuk=
+diff --git a/pkg/cmd/issue/issue.go b/pkg/cmd/issue/issue.go
+index 136f58d06c9..ae6d579237b 100644
+--- a/pkg/cmd/issue/issue.go
++++ b/pkg/cmd/issue/issue.go
+@@ -8,9 +8,11 @@ import (
+ 	cmdDelete "github.com/cli/cli/v2/pkg/cmd/issue/delete"
+ 	cmdEdit "github.com/cli/cli/v2/pkg/cmd/issue/edit"
+ 	cmdList "github.com/cli/cli/v2/pkg/cmd/issue/list"
++	cmdPin "github.com/cli/cli/v2/pkg/cmd/issue/pin"
+ 	cmdReopen "github.com/cli/cli/v2/pkg/cmd/issue/reopen"
+ 	cmdStatus "github.com/cli/cli/v2/pkg/cmd/issue/status"
+ 	cmdTransfer "github.com/cli/cli/v2/pkg/cmd/issue/transfer"
++	cmdUnpin "github.com/cli/cli/v2/pkg/cmd/issue/unpin"
+ 	cmdView "github.com/cli/cli/v2/pkg/cmd/issue/view"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+@@ -48,6 +50,8 @@ func NewCmdIssue(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(cmdDelete.NewCmdDelete(f, nil))
+ 	cmd.AddCommand(cmdEdit.NewCmdEdit(f, nil))
+ 	cmd.AddCommand(cmdTransfer.NewCmdTransfer(f, nil))
++	cmd.AddCommand(cmdPin.NewCmdPin(f, nil))
++	cmd.AddCommand(cmdUnpin.NewCmdUnpin(f, nil))
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/issue/pin/pin.go b/pkg/cmd/issue/pin/pin.go
+new file mode 100644
+index 00000000000..3963cb8ee39
+--- /dev/null
++++ b/pkg/cmd/issue/pin/pin.go
+@@ -0,0 +1,114 @@
++package pin
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmd/issue/shared"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/shurcooL/githubv4"
++	"github.com/spf13/cobra"
++)
++
++type PinOptions struct {
++	HttpClient  func() (*http.Client, error)
++	Config      func() (config.Config, error)
++	IO          *iostreams.IOStreams
++	BaseRepo    func() (ghrepo.Interface, error)
++	SelectorArg string
++}
++
++func NewCmdPin(f *cmdutil.Factory, runF func(*PinOptions) error) *cobra.Command {
++	opts := &PinOptions{
++		IO:         f.IOStreams,
++		HttpClient: f.HttpClient,
++		Config:     f.Config,
++		BaseRepo:   f.BaseRepo,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "pin {<number> | <url>}",
++		Short: "Pin a issue",
++		Long: heredoc.Doc(`
++			Pin an issue to a repository.
++
++			The issue can be specified by issue number or URL.
++		`),
++		Example: heredoc.Doc(`
++			# Pin an issue to the current repository
++			$ gh issue pin 23
++
++			# Pin an issue by URL
++			$ gh issue pin https://github.com/owner/repo/issues/23
++
++			# Pin an issue to specific repository
++			$ gh issue pin 23 --repo owner/repo
++		`),
++		Args: cobra.ExactArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++			opts.SelectorArg = args[0]
++
++			if runF != nil {
++				return runF(opts)
++			}
++
++			return pinRun(opts)
++		},
++	}
++
++	return cmd
++}
++
++func pinRun(opts *PinOptions) error {
++	cs := opts.IO.ColorScheme()
++
++	httpClient, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, []string{"id", "number", "title", "isPinned"})
++	if err != nil {
++		return err
++	}
++
++	if issue.IsPinned {
++		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is already pinned to %s\n", cs.Yellow("!"), issue.Number, issue.Title, ghrepo.FullName(baseRepo))
++		return nil
++	}
++
++	err = pinIssue(httpClient, baseRepo, issue)
++	if err != nil {
++		return err
++	}
++
++	fmt.Fprintf(opts.IO.ErrOut, "%s Pinned issue #%d (%s) to %s\n", cs.SuccessIcon(), issue.Number, issue.Title, ghrepo.FullName(baseRepo))
++
++	return nil
++}
++
++func pinIssue(httpClient *http.Client, repo ghrepo.Interface, issue *api.Issue) error {
++	var mutation struct {
++		PinIssue struct {
++			Issue struct {
++				ID githubv4.ID
++			}
++		} `graphql:"pinIssue(input: $input)"`
++	}
++
++	variables := map[string]interface{}{
++		"input": githubv4.PinIssueInput{
++			IssueID: issue.ID,
++		},
++	}
++
++	gql := api.NewClientFromHTTP(httpClient)
++
++	return gql.Mutate(repo.RepoHost(), "IssuePin", &mutation, variables)
++}
+diff --git a/pkg/cmd/issue/shared/lookup.go b/pkg/cmd/issue/shared/lookup.go
+index e802cada014..f04a3732848 100644
+--- a/pkg/cmd/issue/shared/lookup.go
++++ b/pkg/cmd/issue/shared/lookup.go
+@@ -79,10 +79,10 @@ func findIssueOrPR(httpClient *http.Client, repo ghrepo.Interface, number int, f
+ 			issue: issueOrPullRequest(number: $number) {
+ 				__typename
+ 				...on Issue{%[1]s}
+-				...on PullRequest{%[1]s}
++				...on PullRequest{%[2]s}
+ 			}
+ 		}
+-	}`, api.PullRequestGraphQL(fields))
++	}`, api.IssueGraphQL(fields), api.PullRequestGraphQL(fields))
+ 
+ 	variables := map[string]interface{}{
+ 		"owner":  repo.RepoOwner(),
+diff --git a/pkg/cmd/issue/unpin/unpin.go b/pkg/cmd/issue/unpin/unpin.go
+new file mode 100644
+index 00000000000..8ce34012437
+--- /dev/null
++++ b/pkg/cmd/issue/unpin/unpin.go
+@@ -0,0 +1,114 @@
++package unpin
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmd/issue/shared"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/shurcooL/githubv4"
++	"github.com/spf13/cobra"
++)
++
++type UnpinOptions struct {
++	HttpClient  func() (*http.Client, error)
++	Config      func() (config.Config, error)
++	IO          *iostreams.IOStreams
++	BaseRepo    func() (ghrepo.Interface, error)
++	SelectorArg string
++}
++
++func NewCmdUnpin(f *cmdutil.Factory, runF func(*UnpinOptions) error) *cobra.Command {
++	opts := &UnpinOptions{
++		IO:         f.IOStreams,
++		HttpClient: f.HttpClient,
++		Config:     f.Config,
++		BaseRepo:   f.BaseRepo,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "unpin {<number> | <url>}",
++		Short: "Unpin a issue",
++		Long: heredoc.Doc(`
++			Unpin an issue from a repository.
++
++			The issue can be specified by issue number or URL.
++		`),
++		Example: heredoc.Doc(`
++			# Unpin issue from the current repository
++			$ gh issue unpin 23
++
++			# Unpin issue by URL
++			$ gh issue unpin https://github.com/owner/repo/issues/23
++
++			# Unpin an issue from specific repository
++			$ gh issue unpin 23 --repo owner/repo
++		`),
++		Args: cobra.ExactArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++			opts.SelectorArg = args[0]
++
++			if runF != nil {
++				return runF(opts)
++			}
++
++			return unpinRun(opts)
++		},
++	}
++
++	return cmd
++}
++
++func unpinRun(opts *UnpinOptions) error {
++	cs := opts.IO.ColorScheme()
++
++	httpClient, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++
++	issue, baseRepo, err := shared.IssueFromArgWithFields(httpClient, opts.BaseRepo, opts.SelectorArg, []string{"id", "number", "title", "isPinned"})
++	if err != nil {
++		return err
++	}
++
++	if !issue.IsPinned {
++		fmt.Fprintf(opts.IO.ErrOut, "%s Issue #%d (%s) is not pinned to %s\n", cs.Yellow("!"), issue.Number, issue.Title, ghrepo.FullName(baseRepo))
++		return nil
++	}
++
++	err = unpinIssue(httpClient, baseRepo, issue)
++	if err != nil {
++		return err
++	}
++
++	fmt.Fprintf(opts.IO.ErrOut, "%s Unpinned issue #%d (%s) from %s\n", cs.SuccessIconWithColor(cs.Red), issue.Number, issue.Title, ghrepo.FullName(baseRepo))
++
++	return nil
++}
++
++func unpinIssue(httpClient *http.Client, repo ghrepo.Interface, issue *api.Issue) error {
++	var mutation struct {
++		UnpinIssue struct {
++			Issue struct {
++				ID githubv4.ID
++			}
++		} `graphql:"unpinIssue(input: $input)"`
++	}
++
++	variables := map[string]interface{}{
++		"input": githubv4.UnpinIssueInput{
++			IssueID: issue.ID,
++		},
++	}
++
++	gql := api.NewClientFromHTTP(httpClient)
++
++	return gql.Mutate(repo.RepoHost(), "IssueUnpin", &mutation, variables)
++}

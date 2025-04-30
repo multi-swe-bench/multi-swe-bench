@@ -1,0 +1,33 @@
+diff --git a/.changeset/giant-waves-act.md b/.changeset/giant-waves-act.md
+new file mode 100644
+index 000000000000..591f0f25ba1e
+--- /dev/null
++++ b/.changeset/giant-waves-act.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: consider variables with synthetic store sub as state
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index f5a31d09a779..36d8145145c7 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -351,6 +351,17 @@ export function analyze_component(root, source, options) {
+ 				}
+ 			}
+ 
++			// if we are creating a synthetic binding for a let declaration we should also declare
++			// the declaration as state in case it's reassigned
++			if (
++				declaration !== null &&
++				declaration.kind === 'normal' &&
++				declaration.declaration_kind === 'let' &&
++				declaration.reassigned
++			) {
++				declaration.kind = 'state';
++			}
++
+ 			const binding = instance.scope.declare(b.id(name), 'store_sub', 'synthetic');
+ 			binding.references = references;
+ 			instance.scope.references.set(name, references);

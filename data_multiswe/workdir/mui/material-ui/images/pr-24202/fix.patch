@@ -1,0 +1,45 @@
+diff --git a/docs/pages/api-docs/autocomplete.json b/docs/pages/api-docs/autocomplete.json
+index 3ba6cc7cd42fd9..20fe9873b8e8f9 100644
+--- a/docs/pages/api-docs/autocomplete.json
++++ b/docs/pages/api-docs/autocomplete.json
+@@ -72,7 +72,7 @@
+       "type": { "name": "enum", "description": "'medium'<br>&#124;&nbsp;'small'" },
+       "default": "'medium'"
+     },
+-    "value": { "type": { "name": "any" } }
++    "value": { "type": { "name": "custom", "description": "any" } }
+   },
+   "name": "Autocomplete",
+   "styles": {
+diff --git a/packages/material-ui/src/Autocomplete/Autocomplete.js b/packages/material-ui/src/Autocomplete/Autocomplete.js
+index 9b425a5043b3d3..6a90ae647d8d01 100644
+--- a/packages/material-ui/src/Autocomplete/Autocomplete.js
++++ b/packages/material-ui/src/Autocomplete/Autocomplete.js
+@@ -1,6 +1,7 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
++import { chainPropTypes } from '@material-ui/utils';
+ import { withStyles } from '../styles';
+ import { alpha } from '../styles/colorManipulator';
+ import Popper from '../Popper';
+@@ -879,7 +880,18 @@ Autocomplete.propTypes = {
+    * The value must have reference equality with the option in order to be selected.
+    * You can customize the equality behavior with the `getOptionSelected` prop.
+    */
+-  value: PropTypes.any,
++  value: chainPropTypes(PropTypes.any, (props) => {
++    if (props.multiple && props.value !== undefined && !Array.isArray(props.value)) {
++      throw new Error(
++        [
++          'Material-UI: The Autocomplete expects the `value` prop to be an array or undefined.',
++          `However, ${props.value} was provided.`,
++        ].join('\n'),
++      );
++    }
++
++    return null;
++  }),
+ };
+ 
+ export default withStyles(styles, { name: 'MuiAutocomplete' })(Autocomplete);

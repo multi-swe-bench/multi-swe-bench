@@ -1,0 +1,90 @@
+diff --git a/.changeset/honest-nails-share.md b/.changeset/honest-nails-share.md
+new file mode 100644
+index 000000000000..677eaed693de
+--- /dev/null
++++ b/.changeset/honest-nails-share.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++feat: allow for literal property definition with state on classes
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+index 5c5b177917c3..9f3192c638c7 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+@@ -4,6 +4,7 @@ import * as b from '../../../../utils/builders.js';
+ import * as assert from '../../../../utils/assert.js';
+ import { get_prop_source, is_state_source, should_proxy_or_freeze } from '../utils.js';
+ import { extract_paths } from '../../../../utils/ast.js';
++import { regex_invalid_identifier_chars } from '../../../patterns.js';
+ 
+ /** @type {import('../types.js').ComponentVisitors} */
+ export const javascript_visitors_runes = {
+@@ -20,9 +21,13 @@ export const javascript_visitors_runes = {
+ 		for (const definition of node.body) {
+ 			if (
+ 				definition.type === 'PropertyDefinition' &&
+-				(definition.key.type === 'Identifier' || definition.key.type === 'PrivateIdentifier')
++				(definition.key.type === 'Identifier' ||
++					definition.key.type === 'PrivateIdentifier' ||
++					definition.key.type === 'Literal')
+ 			) {
+-				const { type, name } = definition.key;
++				const type = definition.key.type;
++				const name = get_name(definition.key);
++				if (!name) continue;
+ 
+ 				const is_private = type === 'PrivateIdentifier';
+ 				if (is_private) private_ids.push(name);
+@@ -79,9 +84,12 @@ export const javascript_visitors_runes = {
+ 		for (const definition of node.body) {
+ 			if (
+ 				definition.type === 'PropertyDefinition' &&
+-				(definition.key.type === 'Identifier' || definition.key.type === 'PrivateIdentifier')
++				(definition.key.type === 'Identifier' ||
++					definition.key.type === 'PrivateIdentifier' ||
++					definition.key.type === 'Literal')
+ 			) {
+-				const name = definition.key.name;
++				const name = get_name(definition.key);
++				if (!name) continue;
+ 
+ 				const is_private = definition.key.type === 'PrivateIdentifier';
+ 				const field = (is_private ? private_state : public_state).get(name);
+@@ -160,7 +168,6 @@ export const javascript_visitors_runes = {
+ 							);
+ 						}
+ 					}
+-
+ 					continue;
+ 				}
+ 			}
+@@ -437,3 +444,14 @@ export const javascript_visitors_runes = {
+ 		context.next();
+ 	}
+ };
++
++/**
++ * @param {import('estree').Identifier | import('estree').PrivateIdentifier | import('estree').Literal} node
++ */
++function get_name(node) {
++	if (node.type === 'Literal') {
++		return node.value?.toString().replace(regex_invalid_identifier_chars, '_');
++	} else {
++		return node.name;
++	}
++}
+diff --git a/packages/svelte/src/compiler/phases/patterns.js b/packages/svelte/src/compiler/phases/patterns.js
+index 4f737adb3c5d..bda299de9e18 100644
+--- a/packages/svelte/src/compiler/phases/patterns.js
++++ b/packages/svelte/src/compiler/phases/patterns.js
+@@ -15,6 +15,8 @@ export const regex_only_whitespaces = /^[ \t\n\r\f]+$/;
+ export const regex_not_newline_characters = /[^\n]/g;
+ 
+ export const regex_is_valid_identifier = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
++// used in replace all to remove all invalid chars from a literal identifier
++export const regex_invalid_identifier_chars = /(^[^a-zA-Z_$]|[^a-zA-Z0-9_$])/g;
+ 
+ export const regex_starts_with_vowel = /^[aeiou]/;
+ export const regex_heading_tags = /^h[1-6]$/;

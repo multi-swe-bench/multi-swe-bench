@@ -1,0 +1,109 @@
+diff --git a/.changeset/stale-rats-check.md b/.changeset/stale-rats-check.md
+new file mode 100644
+index 000000000000..61f1ba746e5f
+--- /dev/null
++++ b/.changeset/stale-rats-check.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: follow spec for `customElement` option
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index a71716b06dae..d606e4fd84fb 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -344,7 +344,15 @@ HTML restricts where certain elements can appear. In case of a violation the bro
+ 
+ ## svelte_options_invalid_tagname
+ 
+-> Tag name must be two or more words joined by the "-" character
++> Tag name must be lowercase and hyphenated
++
++See https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name for more information on valid tag names
++
++## svelte_options_reserved_tagname
++
++> Tag name is reserved
++
++See https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name for more information on valid tag names
+ 
+ ## svelte_options_unknown_attribute
+ 
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 3facf74282b6..299154c988cc 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -1352,12 +1352,21 @@ export function svelte_options_invalid_customelement_shadow(node) {
+ }
+ 
+ /**
+- * Tag name must be two or more words joined by the "-" character
++ * Tag name must be lowercase and hyphenated
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function svelte_options_invalid_tagname(node) {
+-	e(node, "svelte_options_invalid_tagname", "Tag name must be two or more words joined by the \"-\" character");
++	e(node, "svelte_options_invalid_tagname", "Tag name must be lowercase and hyphenated");
++}
++
++/**
++ * Tag name is reserved
++ * @param {null | number | NodeLike} node
++ * @returns {never}
++ */
++export function svelte_options_reserved_tagname(node) {
++	e(node, "svelte_options_reserved_tagname", "Tag name is reserved");
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/options.js b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+index 6ea069e8754c..a36e10146809 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/options.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+@@ -3,8 +3,6 @@
+ import { NAMESPACE_MATHML, NAMESPACE_SVG } from '../../../../constants.js';
+ import * as e from '../../../errors.js';
+ 
+-const regex_valid_tag_name = /^[a-zA-Z][a-zA-Z0-9]*-[a-zA-Z0-9-]+$/;
+-
+ /**
+  * @param {AST.SvelteOptionsRaw} node
+  * @returns {AST.Root['options']}
+@@ -229,6 +227,21 @@ function get_boolean_value(attribute) {
+ 	return value;
+ }
+ 
++// https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name
++const tag_name_char =
++	'[a-z0-9_.\xB7\xC0-\xD6\xD8-\xF6\xF8-\u037D\u037F-\u1FFF\u200C-\u200D\u203F-\u2040\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u{10000}-\u{EFFFF}-]';
++const regex_valid_tag_name = new RegExp(`^[a-z]${tag_name_char}*-${tag_name_char}*$`, 'u');
++const reserved_tag_names = [
++	'annotation-xml',
++	'color-profile',
++	'font-face',
++	'font-face-src',
++	'font-face-uri',
++	'font-face-format',
++	'font-face-name',
++	'missing-glyph'
++];
++
+ /**
+  * @param {any} attribute
+  * @param {string | null} tag
+@@ -238,7 +251,11 @@ function validate_tag(attribute, tag) {
+ 	if (typeof tag !== 'string') {
+ 		e.svelte_options_invalid_tagname(attribute);
+ 	}
+-	if (tag && !regex_valid_tag_name.test(tag)) {
+-		e.svelte_options_invalid_tagname(attribute);
++	if (tag) {
++		if (!regex_valid_tag_name.test(tag)) {
++			e.svelte_options_invalid_tagname(attribute);
++		} else if (reserved_tag_names.includes(tag)) {
++			e.svelte_options_reserved_tagname(attribute);
++		}
+ 	}
+ }

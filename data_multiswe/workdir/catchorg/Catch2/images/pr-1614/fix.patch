@@ -1,0 +1,243 @@
+diff --git a/docs/tostring.md b/docs/tostring.md
+index 77322dc6b6..549f8aed9f 100644
+--- a/docs/tostring.md
++++ b/docs/tostring.md
+@@ -7,6 +7,8 @@
+ [Catch::is_range specialisation](#catchis_range-specialisation)<br>
+ [Exceptions](#exceptions)<br>
+ [Enums](#enums)<br>
++[Floating point precision](#floating-point-precision)<br>
++
+ 
+ Catch needs to be able to convert types you use in assertions and logging expressions into strings (for logging and reporting purposes).
+ Most built-in or std types are supported out of the box but there are two ways that you can tell Catch how to convert your own types (or other, third-party types) into strings.
+@@ -104,6 +106,22 @@ TEST_CASE() {
+ }
+ ```
+ 
++## Floating point precision
++
++Catch provides a built-in `StringMaker` specialization for both `float`
++`double`. By default, it uses what we think is a reasonable precision,
++but you can customize it by modifying the `precision` static variable
++inside the `StringMaker` specialization, like so:
++
++```cpp
++        Catch::StringMaker<float>::precision = 15;
++        const float testFloat1 = 1.12345678901234567899f;
++        const float testFloat2 = 1.12345678991234567899f;
++        REQUIRE(testFloat1 == testFloat2);
++```
++
++This assertion will fail and print out the `testFloat1` and `testFloat2`
++to 15 decimal places.
+ 
+ ---
+ 
+diff --git a/include/internal/catch_tostring.cpp b/include/internal/catch_tostring.cpp
+index b857d3fbcd..f59676e77b 100644
+--- a/include/internal/catch_tostring.cpp
++++ b/include/internal/catch_tostring.cpp
+@@ -234,11 +234,16 @@ std::string StringMaker<std::nullptr_t>::convert(std::nullptr_t) {
+     return "nullptr";
+ }
+ 
++int StringMaker<float>::precision = 5;
++   
+ std::string StringMaker<float>::convert(float value) {
+-    return fpToString(value, 5) + 'f';
++    return fpToString(value, precision) + 'f';
+ }
++
++int StringMaker<double>::precision = 10;
++    
+ std::string StringMaker<double>::convert(double value) {
+-    return fpToString(value, 10);
++    return fpToString(value, precision);
+ }
+ 
+ std::string ratio_string<std::atto>::symbol() { return "a"; }
+diff --git a/include/internal/catch_tostring.h b/include/internal/catch_tostring.h
+index 52634a8c9a..cb248ea9ab 100644
+--- a/include/internal/catch_tostring.h
++++ b/include/internal/catch_tostring.h
+@@ -261,10 +261,13 @@ namespace Catch {
+     template<>
+     struct StringMaker<float> {
+         static std::string convert(float value);
++        static int precision;
+     };
++
+     template<>
+     struct StringMaker<double> {
+         static std::string convert(double value);
++        static int precision;
+     };
+ 
+     template <typename T>
+diff --git a/projects/SelfTest/Baselines/compact.sw.approved.txt b/projects/SelfTest/Baselines/compact.sw.approved.txt
+index 259954e4b8..8447e839fd 100644
+--- a/projects/SelfTest/Baselines/compact.sw.approved.txt
++++ b/projects/SelfTest/Baselines/compact.sw.approved.txt
+@@ -859,6 +859,10 @@ Condition.tests.cpp:<line number>: passed: cpc != 0 for: 0x<hex digits> != 0
+ Condition.tests.cpp:<line number>: passed: returnsNull() == 0 for: {null string} == 0
+ Condition.tests.cpp:<line number>: passed: returnsConstNull() == 0 for: {null string} == 0
+ Condition.tests.cpp:<line number>: passed: 0 != p for: 0 != 0x<hex digits>
++ToStringGeneral.tests.cpp:<line number>: passed: str1.size() == 3 + 5 for: 8 == 8
++ToStringGeneral.tests.cpp:<line number>: passed: str2.size() == 3 + 10 for: 13 == 13
++ToStringGeneral.tests.cpp:<line number>: passed: str1.size() == 2 + 5 for: 7 == 7
++ToStringGeneral.tests.cpp:<line number>: passed: str2.size() == 2 + 15 for: 17 == 17
+ Matchers.tests.cpp:<line number>: passed: "foo", Predicate<const char*>([] (const char* const&) { return true; }) for: "foo" matches undescribed predicate
+ CmdLine.tests.cpp:<line number>: passed: result for: {?}
+ CmdLine.tests.cpp:<line number>: passed: config.processName == "" for: "" == ""
+diff --git a/projects/SelfTest/Baselines/console.std.approved.txt b/projects/SelfTest/Baselines/console.std.approved.txt
+index 0a4de92369..aa991bd403 100644
+--- a/projects/SelfTest/Baselines/console.std.approved.txt
++++ b/projects/SelfTest/Baselines/console.std.approved.txt
+@@ -1299,6 +1299,6 @@ due to unexpected exception with message:
+   Why would you throw a std::string?
+ 
+ ===============================================================================
+-test cases:  266 |  199 passed |  63 failed |  4 failed as expected
+-assertions: 1449 | 1304 passed | 124 failed | 21 failed as expected
++test cases:  267 |  200 passed |  63 failed |  4 failed as expected
++assertions: 1453 | 1308 passed | 124 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/console.sw.approved.txt b/projects/SelfTest/Baselines/console.sw.approved.txt
+index 2b998afc7e..e13a6c23d1 100644
+--- a/projects/SelfTest/Baselines/console.sw.approved.txt
++++ b/projects/SelfTest/Baselines/console.sw.approved.txt
+@@ -6192,6 +6192,40 @@ Condition.tests.cpp:<line number>: PASSED:
+ with expansion:
+   0 != 0x<hex digits>
+ 
++-------------------------------------------------------------------------------
++Precision of floating point stringification can be set
++  Floats
++-------------------------------------------------------------------------------
++ToStringGeneral.tests.cpp:<line number>
++...............................................................................
++
++ToStringGeneral.tests.cpp:<line number>: PASSED:
++  CHECK( str1.size() == 3 + 5 )
++with expansion:
++  8 == 8
++
++ToStringGeneral.tests.cpp:<line number>: PASSED:
++  REQUIRE( str2.size() == 3 + 10 )
++with expansion:
++  13 == 13
++
++-------------------------------------------------------------------------------
++Precision of floating point stringification can be set
++  Double
++-------------------------------------------------------------------------------
++ToStringGeneral.tests.cpp:<line number>
++...............................................................................
++
++ToStringGeneral.tests.cpp:<line number>: PASSED:
++  CHECK( str1.size() == 2 + 5 )
++with expansion:
++  7 == 7
++
++ToStringGeneral.tests.cpp:<line number>: PASSED:
++  REQUIRE( str2.size() == 2 + 15 )
++with expansion:
++  17 == 17
++
+ -------------------------------------------------------------------------------
+ Predicate matcher can accept const char*
+ -------------------------------------------------------------------------------
+@@ -11389,6 +11423,6 @@ Misc.tests.cpp:<line number>
+ Misc.tests.cpp:<line number>: PASSED:
+ 
+ ===============================================================================
+-test cases:  266 |  183 passed |  79 failed |  4 failed as expected
+-assertions: 1466 | 1304 passed | 141 failed | 21 failed as expected
++test cases:  267 |  184 passed |  79 failed |  4 failed as expected
++assertions: 1470 | 1308 passed | 141 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/junit.sw.approved.txt b/projects/SelfTest/Baselines/junit.sw.approved.txt
+index 7f4b43dbb1..a7b775336b 100644
+--- a/projects/SelfTest/Baselines/junit.sw.approved.txt
++++ b/projects/SelfTest/Baselines/junit.sw.approved.txt
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuitesloose text artifact
+ >
+-  <testsuite name="<exe-name>" errors="17" failures="125" tests="1467" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="125" tests="1471" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <properties>
+       <property name="filters" value="~[!nonportable]~[!benchmark]~[approvals]"/>
+       <property name="random-seed" value="1"/>
+@@ -574,6 +574,8 @@ Message.tests.cpp:<line number>
+     <testcase classname="<exe-name>.global" name="Parse test names and tags/empty quoted name" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Parse test names and tags/quoted string followed by tag exclusion" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Pointers can be compared to null" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Precision of floating point stringification can be set/Floats" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Precision of floating point stringification can be set/Double" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Predicate matcher can accept const char*" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/empty args don't cause a crash" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/default - no arguments" time="{duration}"/>
+diff --git a/projects/SelfTest/Baselines/xml.sw.approved.txt b/projects/SelfTest/Baselines/xml.sw.approved.txt
+index fa078ac800..fcd6ff13f4 100644
+--- a/projects/SelfTest/Baselines/xml.sw.approved.txt
++++ b/projects/SelfTest/Baselines/xml.sw.approved.txt
+@@ -7778,6 +7778,47 @@ Nor would this
+       </Expression>
+       <OverallResult success="true"/>
+     </TestCase>
++    <TestCase name="Precision of floating point stringification can be set" tags="[floatingPoint][toString]" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++      <Section name="Floats" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++        <Expression success="true" type="CHECK" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++          <Original>
++            str1.size() == 3 + 5
++          </Original>
++          <Expanded>
++            8 == 8
++          </Expanded>
++        </Expression>
++        <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++          <Original>
++            str2.size() == 3 + 10
++          </Original>
++          <Expanded>
++            13 == 13
++          </Expanded>
++        </Expression>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
++      <Section name="Double" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++        <Expression success="true" type="CHECK" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++          <Original>
++            str1.size() == 2 + 5
++          </Original>
++          <Expanded>
++            7 == 7
++          </Expanded>
++        </Expression>
++        <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
++          <Original>
++            str2.size() == 2 + 15
++          </Original>
++          <Expanded>
++            17 == 17
++          </Expanded>
++        </Expression>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
++      <OverallResult success="true"/>
++    </TestCase>
+     <TestCase name="Predicate matcher can accept const char*" tags="[compilation][matchers]" filename="projects/<exe-name>/UsageTests/Matchers.tests.cpp" >
+       <Expression success="true" type="REQUIRE_THAT" filename="projects/<exe-name>/UsageTests/Matchers.tests.cpp" >
+         <Original>
+@@ -13728,7 +13769,7 @@ loose text artifact
+       </Section>
+       <OverallResult success="true"/>
+     </TestCase>
+-    <OverallResults successes="1304" failures="142" expectedFailures="21"/>
++    <OverallResults successes="1308" failures="142" expectedFailures="21"/>
+   </Group>
+-  <OverallResults successes="1304" failures="141" expectedFailures="21"/>
++  <OverallResults successes="1308" failures="141" expectedFailures="21"/>
+ </Catch>

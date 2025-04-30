@@ -1,0 +1,540 @@
+diff --git a/pkg/cmd/issue/comment/comment_test.go b/pkg/cmd/issue/comment/comment_test.go
+index bfbdd6690a8..5274e7ad01d 100644
+--- a/pkg/cmd/issue/comment/comment_test.go
++++ b/pkg/cmd/issue/comment/comment_test.go
+@@ -2,7 +2,10 @@ package comment
+ 
+ import (
+ 	"bytes"
++	"fmt"
++	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/internal/ghrepo"
+@@ -12,12 +15,18 @@ import (
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdComment(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name     string
+ 		input    string
++		stdin    string
+ 		output   shared.CommentableOptions
+ 		wantsErr bool
+ 	}{
+@@ -57,6 +66,27 @@ func TestNewCmdComment(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:  "body from stdin",
++			input: "1 --body-file -",
++			stdin: "this is on standard input",
++			output: shared.CommentableOptions{
++				Interactive: false,
++				InputType:   shared.InputTypeInline,
++				Body:        "this is on standard input",
++			},
++			wantsErr: false,
++		},
++		{
++			name:  "body from file",
++			input: fmt.Sprintf("1 --body-file '%s'", tmpFile),
++			output: shared.CommentableOptions{
++				Interactive: false,
++				InputType:   shared.InputTypeInline,
++				Body:        "a body from file",
++			},
++			wantsErr: false,
++		},
+ 		{
+ 			name:  "editor flag",
+ 			input: "1 --editor",
+@@ -77,6 +107,12 @@ func TestNewCmdComment(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:     "body and body-file flags",
++			input:    "1 --body 'test' --body-file 'test-file.txt'",
++			output:   shared.CommentableOptions{},
++			wantsErr: true,
++		},
+ 		{
+ 			name:     "editor and web flags",
+ 			input:    "1 --editor --web",
+@@ -105,11 +141,15 @@ func TestNewCmdComment(t *testing.T) {
+ 
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(true)
+ 			io.SetStdinTTY(true)
+ 			io.SetStderrTTY(true)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
+diff --git a/pkg/cmd/issue/edit/edit_test.go b/pkg/cmd/issue/edit/edit_test.go
+index d2199751688..50b6389bdcc 100644
+--- a/pkg/cmd/issue/edit/edit_test.go
++++ b/pkg/cmd/issue/edit/edit_test.go
+@@ -2,7 +2,10 @@ package edit
+ 
+ import (
+ 	"bytes"
++	"fmt"
++	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/internal/ghrepo"
+@@ -12,12 +15,18 @@ import (
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdEdit(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name     string
+ 		input    string
++		stdin    string
+ 		output   EditOptions
+ 		wantsErr bool
+ 	}{
+@@ -64,6 +73,35 @@ func TestNewCmdEdit(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:  "body from stdin",
++			input: "23 --body-file -",
++			stdin: "this is on standard input",
++			output: EditOptions{
++				SelectorArg: "23",
++				Editable: prShared.Editable{
++					Body: prShared.EditableString{
++						Value:  "this is on standard input",
++						Edited: true,
++					},
++				},
++			},
++			wantsErr: false,
++		},
++		{
++			name:  "body from file",
++			input: fmt.Sprintf("23 --body-file '%s'", tmpFile),
++			output: EditOptions{
++				SelectorArg: "23",
++				Editable: prShared.Editable{
++					Body: prShared.EditableString{
++						Value:  "a body from file",
++						Edited: true,
++					},
++				},
++			},
++			wantsErr: false,
++		},
+ 		{
+ 			name:  "add-assignee flag",
+ 			input: "23 --add-assignee monalisa,hubot",
+@@ -165,11 +203,15 @@ func TestNewCmdEdit(t *testing.T) {
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(true)
+ 			io.SetStdinTTY(true)
+ 			io.SetStderrTTY(true)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
+diff --git a/pkg/cmd/pr/comment/comment_test.go b/pkg/cmd/pr/comment/comment_test.go
+index 94c58a72012..56277874eb4 100644
+--- a/pkg/cmd/pr/comment/comment_test.go
++++ b/pkg/cmd/pr/comment/comment_test.go
+@@ -2,7 +2,10 @@ package comment
+ 
+ import (
+ 	"bytes"
++	"fmt"
++	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/context"
+@@ -13,12 +16,18 @@ import (
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdComment(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name     string
+ 		input    string
++		stdin    string
+ 		output   shared.CommentableOptions
+ 		wantsErr bool
+ 	}{
+@@ -78,6 +87,27 @@ func TestNewCmdComment(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:  "body from stdin",
++			input: "1 --body-file -",
++			stdin: "this is on standard input",
++			output: shared.CommentableOptions{
++				Interactive: false,
++				InputType:   shared.InputTypeInline,
++				Body:        "this is on standard input",
++			},
++			wantsErr: false,
++		},
++		{
++			name:  "body from file",
++			input: fmt.Sprintf("1 --body-file '%s'", tmpFile),
++			output: shared.CommentableOptions{
++				Interactive: false,
++				InputType:   shared.InputTypeInline,
++				Body:        "a body from file",
++			},
++			wantsErr: false,
++		},
+ 		{
+ 			name:  "editor flag",
+ 			input: "1 --editor",
+@@ -98,6 +128,12 @@ func TestNewCmdComment(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:     "body and body-file flags",
++			input:    "1 --body 'test' --body-file 'test-file.txt'",
++			output:   shared.CommentableOptions{},
++			wantsErr: true,
++		},
+ 		{
+ 			name:     "editor and web flags",
+ 			input:    "1 --editor --web",
+@@ -126,11 +162,15 @@ func TestNewCmdComment(t *testing.T) {
+ 
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(true)
+ 			io.SetStdinTTY(true)
+ 			io.SetStderrTTY(true)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
+diff --git a/pkg/cmd/pr/edit/edit_test.go b/pkg/cmd/pr/edit/edit_test.go
+index ae1cc72c8ef..58603691084 100644
+--- a/pkg/cmd/pr/edit/edit_test.go
++++ b/pkg/cmd/pr/edit/edit_test.go
+@@ -2,7 +2,10 @@ package edit
+ 
+ import (
+ 	"bytes"
++	"fmt"
++	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/api"
+@@ -13,12 +16,18 @@ import (
+ 	"github.com/cli/cli/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdEdit(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name     string
+ 		input    string
++		stdin    string
+ 		output   EditOptions
+ 		wantsErr bool
+ 	}{
+@@ -74,6 +83,35 @@ func TestNewCmdEdit(t *testing.T) {
+ 			},
+ 			wantsErr: false,
+ 		},
++		{
++			name:  "body from stdin",
++			input: "23 --body-file -",
++			stdin: "this is on standard input",
++			output: EditOptions{
++				SelectorArg: "23",
++				Editable: shared.Editable{
++					Body: shared.EditableString{
++						Value:  "this is on standard input",
++						Edited: true,
++					},
++				},
++			},
++			wantsErr: false,
++		},
++		{
++			name:  "body from file",
++			input: fmt.Sprintf("23 --body-file '%s'", tmpFile),
++			output: EditOptions{
++				SelectorArg: "23",
++				Editable: shared.Editable{
++					Body: shared.EditableString{
++						Value:  "a body from file",
++						Edited: true,
++					},
++				},
++			},
++			wantsErr: false,
++		},
+ 		{
+ 			name:  "base flag",
+ 			input: "23 --base base-branch-name",
+@@ -217,11 +255,15 @@ func TestNewCmdEdit(t *testing.T) {
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(true)
+ 			io.SetStdinTTY(true)
+ 			io.SetStderrTTY(true)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
+diff --git a/pkg/cmd/pr/merge/merge_test.go b/pkg/cmd/pr/merge/merge_test.go
+index 78f195497a1..16ad0ed6d0e 100644
+--- a/pkg/cmd/pr/merge/merge_test.go
++++ b/pkg/cmd/pr/merge/merge_test.go
+@@ -3,8 +3,10 @@ package merge
+ import (
+ 	"bytes"
+ 	"errors"
++	"fmt"
+ 	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"regexp"
+ 	"strings"
+ 	"testing"
+@@ -27,9 +29,14 @@ import (
+ )
+ 
+ func Test_NewCmdMerge(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name    string
+ 		args    string
++		stdin   string
+ 		isTTY   bool
+ 		want    MergeOptions
+ 		wantErr string
+@@ -64,6 +71,37 @@ func Test_NewCmdMerge(t *testing.T) {
+ 				BodySet:                 false,
+ 			},
+ 		},
++		{
++			name:  "body from file",
++			args:  fmt.Sprintf("123 --body-file '%s'", tmpFile),
++			isTTY: true,
++			want: MergeOptions{
++				SelectorArg:             "123",
++				DeleteBranch:            false,
++				IsDeleteBranchIndicated: false,
++				CanDeleteLocalBranch:    true,
++				MergeMethod:             PullRequestMergeMethodMerge,
++				InteractiveMode:         true,
++				Body:                    "a body from file",
++				BodySet:                 true,
++			},
++		},
++		{
++			name:  "body from stdin",
++			args:  "123 --body-file -",
++			stdin: "this is on standard input",
++			isTTY: true,
++			want: MergeOptions{
++				SelectorArg:             "123",
++				DeleteBranch:            false,
++				IsDeleteBranchIndicated: false,
++				CanDeleteLocalBranch:    true,
++				MergeMethod:             PullRequestMergeMethodMerge,
++				InteractiveMode:         true,
++				Body:                    "this is on standard input",
++				BodySet:                 true,
++			},
++		},
+ 		{
+ 			name:  "body",
+ 			args:  "123 -bcool",
+@@ -79,6 +117,12 @@ func Test_NewCmdMerge(t *testing.T) {
+ 				BodySet:                 true,
+ 			},
+ 		},
++		{
++			name:    "body and body-file flags",
++			args:    "123 --body 'test' --body-file 'test-file.txt'",
++			isTTY:   true,
++			wantErr: "specify only one of `--body` or `--body-file`",
++		},
+ 		{
+ 			name:    "no argument with --repo override",
+ 			args:    "-R owner/repo",
+@@ -106,11 +150,15 @@ func Test_NewCmdMerge(t *testing.T) {
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(tt.isTTY)
+ 			io.SetStdinTTY(tt.isTTY)
+ 			io.SetStderrTTY(tt.isTTY)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
+diff --git a/pkg/cmd/pr/review/review_test.go b/pkg/cmd/pr/review/review_test.go
+index 1f2023b0241..84d52636830 100644
+--- a/pkg/cmd/pr/review/review_test.go
++++ b/pkg/cmd/pr/review/review_test.go
+@@ -2,8 +2,10 @@ package review
+ 
+ import (
+ 	"bytes"
++	"fmt"
+ 	"io/ioutil"
+ 	"net/http"
++	"path/filepath"
+ 	"regexp"
+ 	"testing"
+ 
+@@ -22,9 +24,14 @@ import (
+ )
+ 
+ func Test_NewCmdReview(t *testing.T) {
++	tmpFile := filepath.Join(t.TempDir(), "my-body.md")
++	err := ioutil.WriteFile(tmpFile, []byte("a body from file"), 0600)
++	require.NoError(t, err)
++
+ 	tests := []struct {
+ 		name    string
+ 		args    string
++		stdin   string
+ 		isTTY   bool
+ 		want    ReviewOptions
+ 		wantErr string
+@@ -49,6 +56,27 @@ func Test_NewCmdReview(t *testing.T) {
+ 				Body:        "",
+ 			},
+ 		},
++		{
++			name:  "body from stdin",
++			args:  "123 --request-changes --body-file -",
++			stdin: "this is on standard input",
++			isTTY: true,
++			want: ReviewOptions{
++				SelectorArg: "123",
++				ReviewType:  1,
++				Body:        "this is on standard input",
++			},
++		},
++		{
++			name:  "body from file",
++			args:  fmt.Sprintf("123 --request-changes --body-file '%s'", tmpFile),
++			isTTY: true,
++			want: ReviewOptions{
++				SelectorArg: "123",
++				ReviewType:  1,
++				Body:        "a body from file",
++			},
++		},
+ 		{
+ 			name:    "no argument with --repo override",
+ 			args:    "-R owner/repo",
+@@ -85,14 +113,24 @@ func Test_NewCmdReview(t *testing.T) {
+ 			isTTY:   true,
+ 			wantErr: "--body unsupported without --approve, --request-changes, or --comment",
+ 		},
++		{
++			name:    "body and body-file flags",
++			args:    "--body 'test' --body-file 'test-file.txt'",
++			isTTY:   true,
++			wantErr: "specify only one of `--body` or `--body-file`",
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			io, _, _, _ := iostreams.Test()
++			io, stdin, _, _ := iostreams.Test()
+ 			io.SetStdoutTTY(tt.isTTY)
+ 			io.SetStdinTTY(tt.isTTY)
+ 			io.SetStderrTTY(tt.isTTY)
+ 
++			if tt.stdin != "" {
++				_, _ = stdin.WriteString(tt.stdin)
++			}
++
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}

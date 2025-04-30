@@ -1,0 +1,80 @@
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index 70505bfe02f..b1604cb0346 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -605,13 +605,37 @@ impl Error {
+         Self::for_app(app, c, ErrorKind::ArgumentConflict, others)
+     }
+ 
+-    pub(crate) fn empty_value(app: &App, arg: &Arg, usage: String) -> Self {
++    pub(crate) fn empty_value(app: &App, good_vals: &[&str], arg: &Arg, usage: String) -> Self {
+         let mut c = Colorizer::new(true, app.get_color());
+         let arg = arg.to_string();
+ 
+         start_error(&mut c, "The argument '");
+         c.warning(&*arg);
+         c.none("' requires a value but none was supplied");
++        if !good_vals.is_empty() {
++            let good_vals: Vec<String> = good_vals
++                .iter()
++                .map(|&v| {
++                    if v.contains(char::is_whitespace) {
++                        format!("{:?}", v)
++                    } else {
++                        v.to_owned()
++                    }
++                })
++                .collect();
++            c.none("\n\t[possible values: ");
++
++            if let Some((last, elements)) = good_vals.split_last() {
++                for v in elements {
++                    c.good(v);
++                    c.none(", ");
++                }
++
++                c.good(last);
++            }
++
++            c.none("]");
++        }
+         put_usage(&mut c, usage);
+         try_help(app, &mut c);
+ 
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index 35e81466946..0e9ae2ccad0 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -49,6 +49,10 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+             if should_err {
+                 return Err(Error::empty_value(
+                     self.p.app,
++                    &o.possible_vals
++                        .iter()
++                        .filter_map(PossibleValue::get_visible_name)
++                        .collect::<Vec<_>>(),
+                     o,
+                     Usage::new(self.p.app, &self.p.required).create_usage_with_title(&[]),
+                 ));
+@@ -133,6 +137,10 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+                 debug!("Validator::validate_arg_values: illegal empty val found");
+                 return Err(Error::empty_value(
+                     self.p.app,
++                    &arg.possible_vals
++                        .iter()
++                        .filter_map(PossibleValue::get_visible_name)
++                        .collect::<Vec<_>>(),
+                     arg,
+                     Usage::new(self.p.app, &self.p.required).create_usage_with_title(&[]),
+                 ));
+@@ -407,6 +415,10 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+         if a.is_set(ArgSettings::TakesValue) && !min_vals_zero && ma.all_val_groups_empty() {
+             return Err(Error::empty_value(
+                 self.p.app,
++                &a.possible_vals
++                    .iter()
++                    .filter_map(PossibleValue::get_visible_name)
++                    .collect::<Vec<_>>(),
+                 a,
+                 Usage::new(self.p.app, &self.p.required).create_usage_with_title(&[]),
+             ));

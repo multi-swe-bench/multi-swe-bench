@@ -1,0 +1,440 @@
+diff --git a/.changeset/gorgeous-coats-jog.md b/.changeset/gorgeous-coats-jog.md
+new file mode 100644
+index 000000000000..0b69c9a96628
+--- /dev/null
++++ b/.changeset/gorgeous-coats-jog.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++breaking: remove foreign namespace
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/options.js b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+index a8ba7e216cb1..cd3673aa574b 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/options.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+@@ -157,18 +157,10 @@ export default function read_options(node) {
+ 					component_options.namespace = 'svg';
+ 				} else if (value === NAMESPACE_MATHML) {
+ 					component_options.namespace = 'mathml';
+-				} else if (
+-					value === 'html' ||
+-					value === 'mathml' ||
+-					value === 'svg' ||
+-					value === 'foreign'
+-				) {
++				} else if (value === 'html' || value === 'mathml' || value === 'svg') {
+ 					component_options.namespace = value;
+ 				} else {
+-					e.svelte_options_invalid_attribute_value(
+-						attribute,
+-						`"html", "mathml", "svg" or "foreign"`
+-					);
++					e.svelte_options_invalid_attribute_value(attribute, `"html", "mathml" or "svg"`);
+ 				}
+ 
+ 				break;
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+index 573616b81582..43d1a3d46844 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+@@ -126,10 +126,6 @@ export function BindDirective(node, context) {
+ 		parent?.type === 'SvelteDocument' ||
+ 		parent?.type === 'SvelteBody'
+ 	) {
+-		if (context.state.options.namespace === 'foreign' && node.name !== 'this') {
+-			e.bind_invalid_name(node, node.name, 'Foreign elements only support `bind:this`');
+-		}
+-
+ 		if (node.name in binding_properties) {
+ 			const property = binding_properties[node.name];
+ 			if (property.valid_elements && !property.valid_elements.includes(parent.name)) {
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+index 5c15f70ba2d5..16be82ed2ca6 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/RegularElement.js
+@@ -24,11 +24,7 @@ export function RegularElement(node, context) {
+ 	context.state.analysis.elements.push(node);
+ 
+ 	// Special case: Move the children of <textarea> into a value attribute if they are dynamic
+-	if (
+-		context.state.options.namespace !== 'foreign' &&
+-		node.name === 'textarea' &&
+-		node.fragment.nodes.length > 0
+-	) {
++	if (node.name === 'textarea' && node.fragment.nodes.length > 0) {
+ 		for (const attribute of node.attributes) {
+ 			if (attribute.type === 'Attribute' && attribute.name === 'value') {
+ 				e.textarea_invalid_content(node);
+@@ -65,7 +61,6 @@ export function RegularElement(node, context) {
+ 	// Special case: single expression tag child of option element -> add "fake" attribute
+ 	// to ensure that value types are the same (else for example numbers would be strings)
+ 	if (
+-		context.state.options.namespace !== 'foreign' &&
+ 		node.name === 'option' &&
+ 		node.fragment.nodes?.length === 1 &&
+ 		node.fragment.nodes[0].type === 'ExpressionTag' &&
+@@ -90,10 +85,8 @@ export function RegularElement(node, context) {
+ 		(attribute) => attribute.type === 'SpreadAttribute'
+ 	);
+ 
+-	if (context.state.options.namespace !== 'foreign') {
+-		node.metadata.svg = is_svg(node.name);
+-		node.metadata.mathml = is_mathml(node.name);
+-	}
++	node.metadata.svg = is_svg(node.name);
++	node.metadata.mathml = is_mathml(node.name);
+ 
+ 	if (context.state.parent_element) {
+ 		let past_parent = false;
+@@ -156,7 +149,6 @@ export function RegularElement(node, context) {
+ 
+ 	if (
+ 		context.state.analysis.source[node.end - 2] === '/' &&
+-		context.state.options.namespace !== 'foreign' &&
+ 		!is_void(node_name) &&
+ 		!is_svg(node_name)
+ 	) {
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/a11y.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/a11y.js
+index 2213ae102aab..a1a143e0c6b5 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/a11y.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/a11y.js
+@@ -687,9 +687,6 @@ function get_static_text_value(attribute) {
+  * @param {AnalysisState} state
+  */
+ export function check_element(node, state) {
+-	// foreign namespace means elements can have completely different meanings, therefore we don't check them
+-	if (state.options.namespace === 'foreign') return;
+-
+ 	/** @type {Map<string, Attribute>} */
+ 	const attribute_map = new Map();
+ 
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/element.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/element.js
+index 0771f74ccf68..59f02b98a18a 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/element.js
+@@ -79,7 +79,7 @@ export function validate_element(node, context) {
+ 				validate_slot_attribute(context, attribute);
+ 			}
+ 
+-			if (attribute.name === 'is' && context.state.options.namespace !== 'foreign') {
++			if (attribute.name === 'is') {
+ 				w.attribute_avoid_is(attribute);
+ 			}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+index f05514a6a229..0cf8640fef65 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+@@ -178,14 +178,6 @@ export function RegularElement(node, context) {
+ 		}
+ 	}
+ 
+-	if (child_metadata.namespace === 'foreign') {
+-		// input/select etc could mean something completely different in foreign namespace, so don't special-case them
+-		needs_content_reset = false;
+-		needs_input_reset = false;
+-		needs_special_value_handling = false;
+-		value_binding = null;
+-	}
+-
+ 	if (is_content_editable && has_content_editable_binding) {
+ 		child_metadata.bound_contenteditable = true;
+ 	}
+@@ -219,7 +211,7 @@ export function RegularElement(node, context) {
+ 			node,
+ 			node_id,
+ 			// If value binding exists, that one takes care of calling $.init_select
+-			value_binding === null && node.name === 'select' && child_metadata.namespace !== 'foreign'
++			value_binding === null && node.name === 'select'
+ 		);
+ 		is_attributes_reactive = true;
+ 	} else {
+@@ -249,8 +241,6 @@ export function RegularElement(node, context) {
+ 				const value = is_text_attribute(attribute) ? attribute.value[0].data : true;
+ 
+ 				if (name !== 'class' || value) {
+-					// TODO namespace=foreign probably doesn't want to do template stuff at all and instead use programmatic methods
+-					// to create the elements it needs.
+ 					context.state.template.push(
+ 						` ${attribute.name}${
+ 							is_boolean_attribute(name) && value === true
+@@ -262,10 +252,9 @@ export function RegularElement(node, context) {
+ 				}
+ 			}
+ 
+-			const is =
+-				is_custom_element && child_metadata.namespace !== 'foreign'
+-					? build_custom_element_attribute_update_assignment(node_id, attribute, context)
+-					: build_element_attribute_update_assignment(node, node_id, attribute, context);
++			const is = is_custom_element
++				? build_custom_element_attribute_update_assignment(node_id, attribute, context)
++				: build_element_attribute_update_assignment(node, node_id, attribute, context);
+ 			if (is) is_attributes_reactive = true;
+ 		}
+ 	}
+@@ -301,8 +290,7 @@ export function RegularElement(node, context) {
+ 		locations: child_locations,
+ 		scope: /** @type {Scope} */ (context.state.scopes.get(node.fragment)),
+ 		preserve_whitespace:
+-			context.state.preserve_whitespace ||
+-			((node.name === 'pre' || node.name === 'textarea') && child_metadata.namespace !== 'foreign')
++			context.state.preserve_whitespace || node.name === 'pre' || node.name === 'textarea'
+ 	};
+ 
+ 	const { hoisted, trimmed } = clean_nodes(
+@@ -587,28 +575,6 @@ function build_element_attribute_update_assignment(element, node_id, attribute,
+ 	const is_mathml = context.state.metadata.namespace === 'mathml';
+ 	let { has_call, value } = build_attribute_value(attribute.value, context);
+ 
+-	// The foreign namespace doesn't have any special handling, everything goes through the attr function
+-	if (context.state.metadata.namespace === 'foreign') {
+-		const statement = b.stmt(
+-			b.call(
+-				'$.set_attribute',
+-				node_id,
+-				b.literal(name),
+-				value,
+-				is_ignored(element, 'hydration_attribute_changed') && b.true
+-			)
+-		);
+-
+-		if (attribute.metadata.expression.has_state) {
+-			const id = state.scope.generate(`${node_id.name}_${name}`);
+-			build_update_assignment(state, id, undefined, value, statement);
+-			return true;
+-		} else {
+-			state.init.push(statement);
+-			return false;
+-		}
+-	}
+-
+ 	if (name === 'autofocus') {
+ 		state.init.push(b.stmt(b.call('$.autofocus', node_id, value)));
+ 		return false;
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+index 90e74259f1a4..01aff61b872a 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+@@ -94,7 +94,7 @@ export function SvelteElement(node, context) {
+ 
+ 	const get_tag = b.thunk(/** @type {Expression} */ (context.visit(node.tag)));
+ 
+-	if (dev && context.state.metadata.namespace !== 'foreign') {
++	if (dev) {
+ 		if (node.fragment.nodes.length > 0) {
+ 			context.state.init.push(b.stmt(b.call('$.validate_void_dynamic_element', get_tag)));
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+index 7d5c61c05602..c3db0edb0af7 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+@@ -116,11 +116,7 @@ export function build_attribute_value(value, context) {
+  * @param {{ state: { metadata: { namespace: Namespace }}}} context
+  */
+ export function get_attribute_name(element, attribute, context) {
+-	if (
+-		!element.metadata.svg &&
+-		!element.metadata.mathml &&
+-		context.state.metadata.namespace !== 'foreign'
+-	) {
++	if (!element.metadata.svg && !element.metadata.mathml) {
+ 		return normalize_attribute(attribute.name);
+ 	}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/server/visitors/RegularElement.js
+index 642b9ba430c9..0fcbe17bdf0d 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/visitors/RegularElement.js
+@@ -21,8 +21,7 @@ export function RegularElement(node, context) {
+ 		...context.state,
+ 		namespace,
+ 		preserve_whitespace:
+-			context.state.preserve_whitespace ||
+-			((node.name === 'pre' || node.name === 'textarea') && namespace !== 'foreign')
++			context.state.preserve_whitespace || node.name === 'pre' || node.name === 'textarea'
+ 	};
+ 
+ 	context.state.template.push(b.literal(`<${node.name}`));
+@@ -95,7 +94,7 @@ export function RegularElement(node, context) {
+ 		);
+ 	}
+ 
+-	if (!is_void(node.name) || namespace === 'foreign') {
++	if (!is_void(node.name)) {
+ 		state.template.push(b.literal(`</${node.name}>`));
+ 	}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
+index fc99b87822c6..2d2d67991d1a 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
+@@ -268,7 +268,7 @@ export function build_element_attributes(node, context) {
+  */
+ function get_attribute_name(element, attribute, context) {
+ 	let name = attribute.name;
+-	if (!element.metadata.svg && !element.metadata.mathml && context.state.namespace !== 'foreign') {
++	if (!element.metadata.svg && !element.metadata.mathml) {
+ 		name = name.toLowerCase();
+ 		// don't lookup boolean aliases here, the server runtime function does only
+ 		// check for the lowercase variants of boolean attributes
+diff --git a/packages/svelte/src/compiler/phases/3-transform/utils.js b/packages/svelte/src/compiler/phases/3-transform/utils.js
+index f71c4120f998..d8b1bb9c5e47 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/utils.js
+@@ -306,32 +306,30 @@ export function clean_nodes(
+  * @param {Compiler.SvelteNode[]} nodes
+  */
+ export function infer_namespace(namespace, parent, nodes) {
+-	if (namespace !== 'foreign') {
+-		if (parent.type === 'RegularElement' && parent.name === 'foreignObject') {
+-			return 'html';
+-		}
++	if (parent.type === 'RegularElement' && parent.name === 'foreignObject') {
++		return 'html';
++	}
+ 
+-		if (parent.type === 'RegularElement' || parent.type === 'SvelteElement') {
+-			if (parent.metadata.svg) {
+-				return 'svg';
+-			}
+-			return parent.metadata.mathml ? 'mathml' : 'html';
++	if (parent.type === 'RegularElement' || parent.type === 'SvelteElement') {
++		if (parent.metadata.svg) {
++			return 'svg';
+ 		}
++		return parent.metadata.mathml ? 'mathml' : 'html';
++	}
+ 
+-		// Re-evaluate the namespace inside slot nodes that reset the namespace
+-		if (
+-			parent.type === 'Fragment' ||
+-			parent.type === 'Root' ||
+-			parent.type === 'Component' ||
+-			parent.type === 'SvelteComponent' ||
+-			parent.type === 'SvelteFragment' ||
+-			parent.type === 'SnippetBlock' ||
+-			parent.type === 'SlotElement'
+-		) {
+-			const new_namespace = check_nodes_for_namespace(nodes, 'keep');
+-			if (new_namespace !== 'keep' && new_namespace !== 'maybe_html') {
+-				return new_namespace;
+-			}
++	// Re-evaluate the namespace inside slot nodes that reset the namespace
++	if (
++		parent.type === 'Fragment' ||
++		parent.type === 'Root' ||
++		parent.type === 'Component' ||
++		parent.type === 'SvelteComponent' ||
++		parent.type === 'SvelteFragment' ||
++		parent.type === 'SnippetBlock' ||
++		parent.type === 'SlotElement'
++	) {
++		const new_namespace = check_nodes_for_namespace(nodes, 'keep');
++		if (new_namespace !== 'keep' && new_namespace !== 'maybe_html') {
++			return new_namespace;
+ 		}
+ 	}
+ 
+@@ -401,10 +399,6 @@ function check_nodes_for_namespace(nodes, namespace) {
+  * @returns {Compiler.Namespace}
+  */
+ export function determine_namespace_for_children(node, namespace) {
+-	if (namespace === 'foreign') {
+-		return namespace;
+-	}
+-
+ 	if (node.name === 'foreignObject') {
+ 		return 'html';
+ 	}
+diff --git a/packages/svelte/src/compiler/types/index.d.ts b/packages/svelte/src/compiler/types/index.d.ts
+index d893f62b3339..587c9e373cc7 100644
+--- a/packages/svelte/src/compiler/types/index.d.ts
++++ b/packages/svelte/src/compiler/types/index.d.ts
+@@ -85,7 +85,7 @@ export interface CompileOptions extends ModuleCompileOptions {
+ 	 */
+ 	accessors?: boolean;
+ 	/**
+-	 * The namespace of the element; e.g., `"html"`, `"svg"`, `"foreign"`.
++	 * The namespace of the element; e.g., `"html"`, `"svg"`, `"mathml"`.
+ 	 *
+ 	 * @default 'html'
+ 	 */
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index 9971af9977df..c803dfbba96a 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -47,11 +47,8 @@ export interface Fragment {
+  * - `html`    — the default, for e.g. `<div>` or `<span>`
+  * - `svg`     — for e.g. `<svg>` or `<g>`
+  * - `mathml`  — for e.g. `<math>` or `<mrow>`
+- * - `foreign` — for other compilation targets than the web, e.g. Svelte Native.
+- *               Disallows bindings other than bind:this, disables a11y checks, disables any special attribute handling
+- *               (also see https://github.com/sveltejs/svelte/pull/5652)
+  */
+-export type Namespace = 'html' | 'svg' | 'mathml' | 'foreign';
++export type Namespace = 'html' | 'svg' | 'mathml';
+ 
+ export interface Root extends BaseNode {
+ 	type: 'Root';
+diff --git a/packages/svelte/src/compiler/validate-options.js b/packages/svelte/src/compiler/validate-options.js
+index 4ef33afc8368..807f205d4287 100644
+--- a/packages/svelte/src/compiler/validate-options.js
++++ b/packages/svelte/src/compiler/validate-options.js
+@@ -90,7 +90,7 @@ export const validate_component_options =
+ 
+ 			name: string(undefined),
+ 
+-			namespace: list(['html', 'svg', 'foreign']),
++			namespace: list(['html', 'mathml', 'svg']),
+ 
+ 			modernAst: boolean(false),
+ 
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 0895821a661b..b7412c46e573 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -765,7 +765,7 @@ declare module 'svelte/compiler' {
+ 		 */
+ 		accessors?: boolean;
+ 		/**
+-		 * The namespace of the element; e.g., `"html"`, `"svg"`, `"foreign"`.
++		 * The namespace of the element; e.g., `"html"`, `"svg"`, `"mathml"`.
+ 		 *
+ 		 * @default 'html'
+ 		 */
+@@ -1504,11 +1504,8 @@ declare module 'svelte/compiler' {
+ 	 * - `html`    — the default, for e.g. `<div>` or `<span>`
+ 	 * - `svg`     — for e.g. `<svg>` or `<g>`
+ 	 * - `mathml`  — for e.g. `<math>` or `<mrow>`
+-	 * - `foreign` — for other compilation targets than the web, e.g. Svelte Native.
+-	 *               Disallows bindings other than bind:this, disables a11y checks, disables any special attribute handling
+-	 *               (also see https://github.com/sveltejs/svelte/pull/5652)
+ 	 */
+-	type Namespace = 'html' | 'svg' | 'mathml' | 'foreign';
++	type Namespace = 'html' | 'svg' | 'mathml';
+ 
+ 	interface Root extends BaseNode {
+ 		type: 'Root';
+@@ -2641,7 +2638,7 @@ declare module 'svelte/types/compiler/interfaces' {
+ 		 */
+ 		accessors?: boolean;
+ 		/**
+-		 * The namespace of the element; e.g., `"html"`, `"svg"`, `"foreign"`.
++		 * The namespace of the element; e.g., `"html"`, `"svg"`, `"mathml"`.
+ 		 *
+ 		 * @default 'html'
+ 		 */
+@@ -2776,11 +2773,8 @@ declare module 'svelte/types/compiler/interfaces' {
+ 	 * - `html`    — the default, for e.g. `<div>` or `<span>`
+ 	 * - `svg`     — for e.g. `<svg>` or `<g>`
+ 	 * - `mathml`  — for e.g. `<math>` or `<mrow>`
+-	 * - `foreign` — for other compilation targets than the web, e.g. Svelte Native.
+-	 *               Disallows bindings other than bind:this, disables a11y checks, disables any special attribute handling
+-	 *               (also see https://github.com/sveltejs/svelte/pull/5652)
+ 	 */
+-	type Namespace = 'html' | 'svg' | 'mathml' | 'foreign';
++	type Namespace = 'html' | 'svg' | 'mathml';
+ 	type ICompileDiagnostic = {
+ 		code: string;
+ 		message: string;

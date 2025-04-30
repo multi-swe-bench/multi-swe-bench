@@ -1,0 +1,30 @@
+diff --git a/tests/playTests.sh b/tests/playTests.sh
+index f35f5fee6ef..99609a5ea01 100755
+--- a/tests/playTests.sh
++++ b/tests/playTests.sh
+@@ -836,6 +836,12 @@ $ECHO "===>   test: --adapt must fail on incoherent bounds "
+ ./datagen > tmp
+ $ZSTD -f -vv --adapt=min=10,max=9 tmp && die "--adapt must fail on incoherent bounds"
+ 
++$ECHO "\n===>   rsyncable mode "
++roundTripTest -g10M " --rsyncable"
++roundTripTest -g10M " --rsyncable -B100K"
++$ECHO "===>   test: --rsyncable must fail with --single-thread"
++$ZSTD -f -vv --rsyncable --single-thread tmp && die "--rsyncable must fail with --single-thread"
++
+ 
+ if [ "$1" != "--test-large-data" ]; then
+     $ECHO "Skipping large data tests"
+diff --git a/tests/zstreamtest.c b/tests/zstreamtest.c
+index f47451a3c3d..2e076d7b752 100644
+--- a/tests/zstreamtest.c
++++ b/tests/zstreamtest.c
+@@ -1915,6 +1915,8 @@ static int fuzzerTests_newAPI(U32 seed, U32 nbTests, unsigned startTest,
+                         CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_p_jobSize, (U32)FUZ_rLogLength(&lseed, jobLog), opaqueAPI) );
+                     }
+                 }
++                /* Enable rsyncable mode 1 in 4 times. */
++                setCCtxParameter(zc, cctxParams, ZSTD_p_rsyncable, (FUZ_rand(&lseed) % 4 == 0), opaqueAPI);
+ 
+                 if (FUZ_rand(&lseed) & 1) CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_p_forceMaxWindow, FUZ_rand(&lseed) & 1, opaqueAPI) );
+ 

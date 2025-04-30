@@ -1,0 +1,494 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/_config.js b/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/_config.js
+new file mode 100644
+index 000000000000..26e90e431b54
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/_config.js
+@@ -0,0 +1,263 @@
++import { test } from '../../test';
++import { flushSync } from 'svelte';
++
++export default test({
++	async test({ assert, target }) {
++		/**
++		 * @param {NodeListOf<any>} inputs
++		 * @param {string} field
++		 * @param {any | any[]} value
++		 */
++		function check_inputs(inputs, field, value) {
++			for (let i = 0; i < inputs.length; i++) {
++				assert.equal(inputs[i][field], Array.isArray(value) ? value[i] : value, `field ${i}`);
++			}
++		}
++
++		/**
++		 * @param {any} input
++		 * @param {string} field
++		 * @param {any} value
++		 */
++		function set_input(input, field, value) {
++			input[field] = value;
++			input.dispatchEvent(
++				new Event(typeof value === 'boolean' ? 'change' : 'input', { bubbles: true })
++			);
++		}
++
++		/**
++		 * @param {HTMLOptionElement} option
++		 */
++		function select_option(option) {
++			option.selected = true;
++			option.dispatchEvent(new Event('change', { bubbles: true }));
++		}
++
++		const after_reset = [];
++
++		const reset = /** @type {HTMLInputElement} */ (target.querySelector('input[type=reset]'));
++		const [test1, test2, test3, test4, test5, test6, test7, test14] =
++			target.querySelectorAll('div');
++		const [test8, test9, test10, test11] = target.querySelectorAll('select');
++		const [
++			test1_span,
++			test2_span,
++			test3_span,
++			test4_span,
++			test5_span,
++			test6_span,
++			test7_span,
++			test8_span,
++			test9_span,
++			test10_span,
++			test11_span
++		] = target.querySelectorAll('span');
++
++		{
++			/** @type {NodeListOf<HTMLInputElement | HTMLTextAreaElement>} */
++			const inputs = test1.querySelectorAll('input, textarea');
++			check_inputs(inputs, 'value', 'x');
++			assert.htmlEqual(test1_span.innerHTML, 'x x x x');
++
++			for (const input of inputs) {
++				set_input(input, 'value', 'foo');
++			}
++			flushSync();
++			check_inputs(inputs, 'value', 'foo');
++			assert.htmlEqual(test1_span.innerHTML, 'foo foo foo foo');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'value', 'x');
++				assert.htmlEqual(test1_span.innerHTML, 'x x x x');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement | HTMLTextAreaElement>} */
++			const inputs = test2.querySelectorAll('input, textarea');
++			check_inputs(inputs, 'value', 'x');
++			assert.htmlEqual(test2_span.innerHTML, 'x x x x');
++
++			for (const input of inputs) {
++				set_input(input, 'value', 'foo');
++			}
++			flushSync();
++			check_inputs(inputs, 'value', 'foo');
++			assert.htmlEqual(test2_span.innerHTML, 'foo foo foo foo');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'value', 'x');
++				assert.htmlEqual(test2_span.innerHTML, 'x x x x');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement | HTMLTextAreaElement>} */
++			const inputs = test3.querySelectorAll('input, textarea');
++			check_inputs(inputs, 'value', 'y');
++			assert.htmlEqual(test3_span.innerHTML, 'y y y y');
++
++			for (const input of inputs) {
++				set_input(input, 'value', 'foo');
++			}
++			flushSync();
++			check_inputs(inputs, 'value', 'foo');
++			assert.htmlEqual(test3_span.innerHTML, 'foo foo foo foo');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'value', 'x');
++				assert.htmlEqual(test3_span.innerHTML, 'x x x x');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement>} */
++			const inputs = test4.querySelectorAll('input');
++			check_inputs(inputs, 'checked', true);
++			assert.htmlEqual(test4_span.innerHTML, 'true true');
++
++			for (const input of inputs) {
++				set_input(input, 'checked', false);
++			}
++			flushSync();
++			check_inputs(inputs, 'checked', false);
++			assert.htmlEqual(test4_span.innerHTML, 'false false');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'checked', true);
++				assert.htmlEqual(test4_span.innerHTML, 'true true');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement>} */
++			const inputs = test5.querySelectorAll('input');
++			check_inputs(inputs, 'checked', true);
++			assert.htmlEqual(test5_span.innerHTML, 'true true');
++
++			for (const input of inputs) {
++				set_input(input, 'checked', false);
++			}
++			flushSync();
++			check_inputs(inputs, 'checked', false);
++			assert.htmlEqual(test5_span.innerHTML, 'false false');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'checked', true);
++				assert.htmlEqual(test5_span.innerHTML, 'true true');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement>} */
++			const inputs = test6.querySelectorAll('input');
++			check_inputs(inputs, 'checked', false);
++			assert.htmlEqual(test6_span.innerHTML, 'false false');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'checked', true);
++				assert.htmlEqual(test6_span.innerHTML, 'true true');
++			});
++		}
++		{
++			/** @type {NodeListOf<HTMLInputElement>} */
++			const inputs = test7.querySelectorAll('input');
++			check_inputs(inputs, 'checked', true);
++			assert.htmlEqual(test7_span.innerHTML, 'true');
++
++			after_reset.push(() => {
++				check_inputs(inputs, 'checked', false);
++				assert.htmlEqual(test7_span.innerHTML, 'false');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLOptionElement>} */
++			const options = test8.querySelectorAll('option');
++			check_inputs(options, 'selected', [false, true, false]);
++			assert.htmlEqual(test8_span.innerHTML, 'b');
++
++			select_option(options[2]);
++			flushSync();
++			check_inputs(options, 'selected', [false, false, true]);
++			assert.htmlEqual(test8_span.innerHTML, 'c');
++
++			after_reset.push(() => {
++				check_inputs(options, 'selected', [false, true, false]);
++				assert.htmlEqual(test8_span.innerHTML, 'b');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLOptionElement>} */
++			const options = test9.querySelectorAll('option');
++			check_inputs(options, 'selected', [false, true, false]);
++			assert.htmlEqual(test9_span.innerHTML, 'b');
++
++			select_option(options[2]);
++			flushSync();
++			check_inputs(options, 'selected', [false, false, true]);
++			assert.htmlEqual(test9_span.innerHTML, 'c');
++
++			after_reset.push(() => {
++				check_inputs(options, 'selected', [false, true, false]);
++				assert.htmlEqual(test9_span.innerHTML, 'b');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLOptionElement>} */
++			const options = test10.querySelectorAll('option');
++			check_inputs(options, 'selected', [false, false, true]);
++			assert.htmlEqual(test10_span.innerHTML, 'c');
++
++			select_option(options[0]);
++			flushSync();
++			check_inputs(options, 'selected', [true, false, false]);
++			assert.htmlEqual(test10_span.innerHTML, 'a');
++
++			after_reset.push(() => {
++				check_inputs(options, 'selected', [false, true, false]);
++				assert.htmlEqual(test10_span.innerHTML, 'b');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLOptionElement>} */
++			const options = test11.querySelectorAll('option');
++			check_inputs(options, 'selected', [false, false, true]);
++			assert.htmlEqual(test11_span.innerHTML, 'c');
++
++			select_option(options[0]);
++			flushSync();
++			check_inputs(options, 'selected', [true, false, false]);
++			assert.htmlEqual(test11_span.innerHTML, 'a');
++
++			after_reset.push(() => {
++				check_inputs(options, 'selected', [false, true, false]);
++				assert.htmlEqual(test11_span.innerHTML, 'b');
++			});
++		}
++
++		{
++			/** @type {NodeListOf<HTMLInputElement | HTMLTextAreaElement>} */
++			const inputs = test14.querySelectorAll('input, textarea');
++			assert.equal(inputs[0].value, 'x');
++			assert.equal(/** @type {HTMLInputElement} */ (inputs[1]).checked, true);
++			// this is still missing...i have no idea how to fix this lol
++			// assert.equal(inputs[2].value, 'x');
++
++			after_reset.push(() => {
++				assert.equal(inputs[0].value, 'y');
++				assert.equal(/** @type {HTMLInputElement} */ (inputs[1]).checked, false);
++				assert.equal(inputs[2].value, 'y');
++			});
++		}
++
++		reset.click();
++		await Promise.resolve();
++		flushSync();
++		after_reset.forEach((fn) => fn());
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/main.svelte b/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/main.svelte
+new file mode 100644
+index 000000000000..3fc7ef11a5e9
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/form-default-value-spread/main.svelte
+@@ -0,0 +1,199 @@
++<script>
++	let spread = {};
++
++	let value1 = $state();
++	let value2 = $state();
++	let value3 = $state();
++	let value4 = $state();
++	let value5 = $state();
++	let value6 = $state();
++	let value7 = $state();
++	let value8 = $state();
++	let value9 = $state(null);
++	let value10 = $state(null);
++	let value11 = $state(null);
++	let value12 = $state(null);
++	let value13 = $state(null);
++	let value14 = $state(null);
++	let value15 = $state(null);
++	let value16 = $state(null);
++	let value17 = $state('y');
++	let value18 = $state('y');
++	let value19 = $state('y');
++	let value20 = $state('y');
++	let value21 = $state('y');
++	let value22 = $state('y');
++	let value23 = $state('y');
++	let value24 = $state('y');
++
++	let checked1 = $state();
++	let checked2 = $state();
++	let checked3 = $state();
++	let checked4 = $state();
++	let checked5 = $state(null);
++	let checked6 = $state(null);
++	let checked7 = $state(null);
++	let checked8 = $state(null);
++	let checked9 = $state(false);
++	let checked10 = $state(false);
++	let checked11 = $state(false);
++	let checked12 = $state(false);
++	let checked13 = $state(true);
++	let checked14 = $state(true);
++ 
++
++	let selected1 = $state();
++	let selected2 = $state();
++	let selected3 = $state('c');
++	let selected4 = $state('c');
++	let selected5 = $state(['c']);
++	let selected6 = $state(['c']);
++
++	let defaultValue = $state('x');
++	let defaultChecked = $state(true);
++</script>
++
++<form>
++	<p>Input/Textarea value</p>
++	<!-- defaultValue=x, value=undefined -->
++	<div class="test-1">
++		<input {defaultValue} bind:value={value1} {...spread} />
++		<input {defaultValue} value={value2} {...spread} />
++		<input defaultValue="x" bind:value={value3} {...spread} />
++		<input defaultValue="x" value={value4} {...spread} />
++		<textarea {defaultValue} value={value5} {...spread}></textarea>
++		<textarea {defaultValue} bind:value={value6} {...spread}></textarea>
++		<textarea defaultValue="x" value={value7} {...spread}></textarea>
++		<textarea defaultValue="x" bind:value={value8} {...spread}></textarea>
++	</div>
++
++	<!-- defaultValue=x, value=null -->
++	<div class="test-2">
++		<input {defaultValue} bind:value={value9} {...spread} />
++		<input {defaultValue} value={value10} {...spread} />
++		<input defaultValue="x" value={value11} {...spread} />
++		<input defaultValue="x" bind:value={value12} {...spread} />
++		<textarea {defaultValue} value={value13} {...spread}></textarea>
++		<textarea {defaultValue} bind:value={value14} {...spread}></textarea>
++		<textarea defaultValue="x" value={value15} {...spread}></textarea>
++		<textarea defaultValue="x" bind:value={value16} {...spread}></textarea>
++	</div>
++
++	<!-- defaultValue=x, value=y -->
++	<div class="test-3">
++		<input {defaultValue} bind:value={value17} {...spread} />
++		<input {defaultValue} value={value18} {...spread} />
++		<input defaultValue="x" value={value19} {...spread} />
++		<input defaultValue="x" bind:value={value20} {...spread} />
++		<textarea {defaultValue} value={value21} {...spread}></textarea>
++		<textarea {defaultValue} bind:value={value22} {...spread}></textarea>
++		<textarea defaultValue="x" value={value23} {...spread}></textarea>
++		<textarea defaultValue="x" bind:value={value24} {...spread}></textarea>
++	</div>
++
++	<p>Input checked</p>
++	<!-- defaultChecked=true, checked=undefined -->
++	<div class="test-4">
++		<input type="checkbox" {defaultChecked} checked={checked1} {...spread} />
++		<input type="checkbox" {defaultChecked} bind:checked={checked2} {...spread} />
++		<input type="checkbox" defaultChecked checked={checked3} {...spread} />
++		<input type="checkbox" defaultChecked bind:checked={checked4} {...spread} />
++	</div>
++
++	<!-- defaultChecked=true, checked=null -->
++	<div class="test-5">
++		<input type="checkbox" {defaultChecked} checked={checked5} {...spread} />
++		<input type="checkbox" {defaultChecked} bind:checked={checked6} {...spread} />
++		<input type="checkbox" defaultChecked checked={checked7} {...spread} />
++		<input type="checkbox" defaultChecked bind:checked={checked8} {...spread} />
++	</div>
++
++	<!-- defaultChecked=true, checked=false -->
++	<div class="test-6">
++		<input type="checkbox" {defaultChecked} checked={checked9} {...spread} />
++		<input type="checkbox" {defaultChecked} bind:checked={checked10} {...spread} />
++		<input type="checkbox" defaultChecked checked={checked11} {...spread} />
++		<input type="checkbox" defaultChecked bind:checked={checked12} {...spread} />
++	</div>
++
++	<!-- defaultChecked=false, checked=true -->
++	<div class="test-7">
++		<input type="checkbox" defaultChecked={false} checked={checked13} {...spread} />
++		<input type="checkbox" defaultChecked={false} bind:checked={checked14} {...spread} />
++	</div>
++
++	<!-- no support for bind:group; too complex + we may deprecate it in favor of bind:checked={get,set} -->
++
++	<p>Select (single)</p>
++	<!-- select with static checked, value=undefined-->
++	<select bind:value={selected1}>
++		<option value="a">A</option>
++		<option value="b" selected {...spread}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<!-- select with dynamic checked, value=undefined-->
++	<select bind:value={selected2}>
++		<option value="a">A</option>
++		<option value="b" selected={defaultChecked}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<!-- select with static checked, value=something else than default-->
++	<select bind:value={selected3}>
++		<option value="a">A</option>
++		<option value="b" selected {...spread}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<!-- select with dynamic checked, value=something else than default-->
++	<select bind:value={selected4}>
++		<option value="a">A</option>
++		<option value="b" selected={defaultChecked}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<p>Select (multiple)</p>
++    <!-- There's no possibility to have the selected attribute influence a multi select initially,
++	     because we require the value to be an array -->
++
++	<!-- select with static checked, value=something else than default-->
++	<select multiple bind:value={selected5}>
++		<option value="a">A</option>
++		<option value="b" selected {...spread}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<!-- select with dynamic checked, value=something else than default-->
++	<select multiple bind:value={selected6}>
++		<option value="a">A</option>
++		<option value="b" selected={defaultChecked}>B</option>
++		<option value="c">C</option>
++	</select>
++
++	<p>Static values</p>
++	<div class="test-14">
++		<input value="x" defaultValue="y" {...spread} />
++		<input type="checkbox" checked defaultChecked={false} {...spread} />
++		<textarea defaultValue="y" {...spread}>x</textarea>
++	</div>
++
++	<input type="reset" value="Reset" />
++</form>
++
++<p>
++	Bound values:
++	<span class="test-1">{value1} {value3} {value6} {value8}</span>
++	<span class="test-2">{value9} {value12} {value14} {value16}</span>
++	<span class="test-3">{value17} {value20} {value22} {value24}</span>
++	<span class="test-4">{checked2} {checked4}</span>
++	<span class="test-5">{checked6} {checked8}</span>
++	<span class="test-6">{checked10} {checked12}</span>
++	<span class="test-7">{checked14}</span>
++	<span class="test-8">{selected1}</span>
++	<span class="test-9">{selected2}</span>
++	<span class="test-10">{selected3}</span>
++	<span class="test-11">{selected4}</span>
++	<span class="test-12">{selected5}</span>
++	<span class="test-13">{selected6}</span>
++</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/form-default-value/_config.js b/packages/svelte/tests/runtime-runes/samples/form-default-value/_config.js
+index 5ef72aaa8ec2..35ab6e8ece44 100644
+--- a/packages/svelte/tests/runtime-runes/samples/form-default-value/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/form-default-value/_config.js
+@@ -68,7 +68,6 @@ export default test({
+ 			assert.htmlEqual(test1_span.innerHTML, 'foo foo foo foo');
+ 
+ 			after_reset.push(() => {
+-				console.log('-------------');
+ 				check_inputs(inputs, 'value', 'x');
+ 				assert.htmlEqual(test1_span.innerHTML, 'x x x x');
+ 			});
+@@ -88,7 +87,6 @@ export default test({
+ 			assert.htmlEqual(test2_span.innerHTML, 'foo foo foo foo');
+ 
+ 			after_reset.push(() => {
+-				console.log('-------------');
+ 				check_inputs(inputs, 'value', 'x');
+ 				assert.htmlEqual(test2_span.innerHTML, 'x x x x');
+ 			});

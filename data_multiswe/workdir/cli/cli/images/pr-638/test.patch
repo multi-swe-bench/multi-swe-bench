@@ -1,0 +1,245 @@
+diff --git a/command/pr_test.go b/command/pr_test.go
+index e72a7d64e34..f024792e3b1 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -182,6 +182,38 @@ func TestPRStatus_closedMerged(t *testing.T) {
+ 	}
+ }
+ 
++func TestPRStatus_currentBranch_showTheMostRecentPR(t *testing.T) {
++	initBlankContext("OWNER/REPO", "blueberries")
++	http := initFakeHTTP()
++	http.StubRepoResponse("OWNER", "REPO")
++
++	jsonFile, _ := os.Open("../test/fixtures/prStatusCurrentBranch.json")
++	defer jsonFile.Close()
++	http.StubResponse(200, jsonFile)
++
++	output, err := RunCommand(prStatusCmd, "pr status")
++	if err != nil {
++		t.Errorf("error running command `pr status`: %v", err)
++	}
++
++	expectedLine := regexp.MustCompile(`#10  Blueberries are certainly a good fruit \[blueberries\]`)
++	if !expectedLine.MatchString(output.String()) {
++		t.Errorf("output did not match regexp /%s/\n> output\n%s\n", expectedLine, output)
++		return
++	}
++
++	unexpectedLines := []*regexp.Regexp{
++		regexp.MustCompile(`#9  Blueberries are a good fruit \[blueberries\] - Merged`),
++		regexp.MustCompile(`#8  Blueberries are probably a good fruit \[blueberries\] - Closed`),
++	}
++	for _, r := range unexpectedLines {
++		if r.MatchString(output.String()) {
++			t.Errorf("output unexpectedly match regexp /%s/\n> output\n%s\n", r, output)
++			return
++		}
++	}
++}
++
+ func TestPRStatus_blankSlate(t *testing.T) {
+ 	initBlankContext("OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+diff --git a/test/fixtures/prStatusClosedMerged.json b/test/fixtures/prStatusClosedMerged.json
+index 25b4391dce9..03e31637e93 100644
+--- a/test/fixtures/prStatusClosedMerged.json
++++ b/test/fixtures/prStatusClosedMerged.json
+@@ -1,66 +1,65 @@
+ {
+-	"data": {
+-	  "repository": {
+-		"pullRequests": {
+-		  "totalCount": 1,
+-		  "edges": [
+-			{
+-				"node": {
+-				  "number": 8,
+-				  "title": "Blueberries are a good fruit",
+-				  "state": "OPEN",
+-				  "url": "https://github.com/cli/cli/pull/8",
+-				  "headRefName": "blueberries",
+-				  "reviewDecision": "CHANGES_REQUESTED",
+-				  "commits": {
+-					"nodes": [
+-					  {
+-						"commit": {
+-						  "statusCheckRollup": {
+-							"contexts": {
+-							  "nodes": [
+-								{
+-								  "state": "SUCCESS"
+-								}
+-							  ]
+-							}
+-						  }
+-						}
+-					  }
+-					]
+-				  }
+-				}
+-			  }
+-		  ]
+-		}
+-	  },
+-	  "viewerCreated": {
+-		"totalCount": 1,
+-		"edges": [
+-		  {
+-			"node": {
+-			  "number": 8,
+-			  "state": "CLOSED",
+-			  "title": "Strawberries are not actually berries",
+-			  "url": "https://github.com/cli/cli/pull/8",
+-			  "headRefName": "strawberries"
+-			}
+-		  },
+-		  {
+-			"node": {
+-			  "number": 8,
+-			  "state": "MERGED",
+-			  "title": "Bananas are berries",
+-			  "url": "https://github.com/cli/cli/pull/8",
+-			  "headRefName": "banananana"
+-			}
+-		  }
+-		]
+-	  },
+-	  "reviewRequested": {
+-		"totalCount": 0,
+-		"edges": []
+-	  }
+-	}
++  "data": {
++    "repository": {
++      "pullRequests": {
++        "totalCount": 1,
++        "edges": [
++          {
++            "node": {
++              "number": 8,
++              "title": "Blueberries are a good fruit",
++              "state": "OPEN",
++              "url": "https://github.com/cli/cli/pull/8",
++              "headRefName": "blueberries",
++              "reviewDecision": "CHANGES_REQUESTED",
++              "commits": {
++                "nodes": [
++                  {
++                    "commit": {
++                      "statusCheckRollup": {
++                        "contexts": {
++                          "nodes": [
++                            {
++                              "state": "SUCCESS"
++                            }
++                          ]
++                        }
++                      }
++                    }
++                  }
++                ]
++              }
++            }
++          }
++        ]
++      }
++    },
++    "viewerCreated": {
++      "totalCount": 1,
++      "edges": [
++        {
++          "node": {
++            "number": 10,
++            "state": "CLOSED",
++            "title": "Strawberries are not actually berries",
++            "url": "https://github.com/cli/cli/pull/10",
++            "headRefName": "strawberries"
++          }
++        },
++        {
++          "node": {
++            "number": 9,
++            "state": "MERGED",
++            "title": "Bananas are berries",
++            "url": "https://github.com/cli/cli/pull/9",
++            "headRefName": "banananana"
++          }
++        }
++      ]
++    },
++    "reviewRequested": {
++      "totalCount": 0,
++      "edges": []
++    }
+   }
+-  
+\ No newline at end of file
++}
+diff --git a/test/fixtures/prStatusCurrentBranch.json b/test/fixtures/prStatusCurrentBranch.json
+new file mode 100644
+index 00000000000..d024d48c36e
+--- /dev/null
++++ b/test/fixtures/prStatusCurrentBranch.json
+@@ -0,0 +1,61 @@
++{
++  "data": {
++    "repository": {
++      "pullRequests": {
++        "totalCount": 3,
++        "edges": [
++          {
++            "node": {
++              "number": 10,
++              "title": "Blueberries are certainly a good fruit",
++              "state": "OPEN",
++              "url": "https://github.com/PARENT/REPO/pull/10",
++              "headRefName": "blueberries",
++              "isDraft": false,
++              "headRepositoryOwner": {
++                "login": "OWNER/REPO"
++              },
++              "isCrossRepository": false
++            }
++          },
++          {
++            "node": {
++              "number": 9,
++              "title": "Blueberries are a good fruit",
++              "state": "MERGED",
++              "url": "https://github.com/PARENT/REPO/pull/9",
++              "headRefName": "blueberries",
++              "isDraft": false,
++              "headRepositoryOwner": {
++                "login": "OWNER/REPO"
++              },
++              "isCrossRepository": false
++            }
++          },
++          {
++            "node": {
++              "number": 8,
++              "title": "Blueberries are probably a good fruit",
++              "state": "CLOSED",
++              "url": "https://github.com/PARENT/REPO/pull/8",
++              "headRefName": "blueberries",
++              "isDraft": false,
++              "headRepositoryOwner": {
++                "login": "OWNER/REPO"
++              },
++              "isCrossRepository": false
++            }
++          }
++        ]
++      }
++    },
++    "viewerCreated": {
++      "totalCount": 0,
++      "edges": []
++    },
++    "reviewRequested": {
++      "totalCount": 0,
++      "edges": []
++    }
++  }
++}

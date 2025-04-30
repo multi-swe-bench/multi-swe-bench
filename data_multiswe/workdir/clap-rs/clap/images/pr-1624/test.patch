@@ -1,0 +1,50 @@
+diff --git a/tests/app.yml b/tests/app.yml
+index e98b20ab63f..7d3759f7029 100644
+--- a/tests/app.yml
++++ b/tests/app.yml
+@@ -93,6 +93,12 @@ args:
+         multiple: true
+         help: Tests 3 max vals
+         max_values: 3
++    - exclusive:
++        long: exclusive
++        help: Tests 3 exclusive
++        exclusive: true
++    
++    
+ arg_groups:
+     - test:
+         args:
+diff --git a/tests/conflicts.rs b/tests/conflicts.rs
+index 526681b0b72..d7fe35a2a14 100644
+--- a/tests/conflicts.rs
++++ b/tests/conflicts.rs
+@@ -41,6 +41,28 @@ fn flag_conflict_2() {
+     assert_eq!(err.kind, ErrorKind::ArgumentConflict);
+ }
+ 
++#[test]
++fn flag_conflict_with_all() {
++    let result = App::new("flag_conflict")
++        .arg(Arg::from("-f, --flag 'some flag'").conflicts_with_all(&["other"]))
++        .arg(Arg::from("-o, --other 'some flag'"))
++        .try_get_matches_from(vec!["myprog", "-o", "-f"]);
++    assert!(result.is_err());
++    let err = result.err().unwrap();
++    assert_eq!(err.kind, ErrorKind::ArgumentConflict);
++}
++
++#[test]
++fn flag_conflict_with_everything() {
++    let result = App::new("flag_conflict")
++        .arg(Arg::from("-f, --flag 'some flag'").conflicts_with_everything())
++        .arg(Arg::from("-o, --other 'some flag'"))
++        .try_get_matches_from(vec!["myprog", "-o", "-f"]);
++    assert!(result.is_err());
++    let err = result.err().unwrap();
++    assert_eq!(err.kind, ErrorKind::ArgumentConflict);
++}
++
+ #[test]
+ fn group_conflict() {
+     let result = App::new("group_conflict")

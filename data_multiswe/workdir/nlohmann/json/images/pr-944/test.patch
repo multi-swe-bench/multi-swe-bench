@@ -1,0 +1,605 @@
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index 89f5c22129..ddce7e0f2b 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -101,6 +101,7 @@ foreach(file ${files})
+ 
+     target_compile_definitions(${testcase} PRIVATE CATCH_CONFIG_FAST_COMPILE)
+     target_include_directories(${testcase} PRIVATE "thirdparty/catch")
++    target_include_directories(${testcase} PRIVATE ${NLOHMANN_JSON_INCLUDE_BUILD_DIR})
+     target_link_libraries(${testcase} ${NLOHMANN_JSON_TARGET_NAME})
+ 
+     if(NOT MSVC)
+diff --git a/test/Makefile b/test/Makefile
+index 91dd7654c1..4dc3991620 100644
+--- a/test/Makefile
++++ b/test/Makefile
+@@ -4,7 +4,7 @@
+ 
+ # additional flags
+ CXXFLAGS += -std=c++11 -Wall -Wextra -pedantic -Wcast-align -Wcast-qual -Wno-ctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wmissing-declarations -Wmissing-include-dirs -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch -Wundef -Wno-unused -Wnon-virtual-dtor -Wreorder -Wdeprecated -Wno-float-equal
+-CPPFLAGS += -I ../src -I . -I thirdparty/catch -DCATCH_CONFIG_FAST_COMPILE
++CPPFLAGS += -I ../single_include -I . -I thirdparty/catch -DCATCH_CONFIG_FAST_COMPILE
+ 
+ SOURCES = src/unit.cpp \
+           src/unit-algorithms.cpp \
+@@ -60,11 +60,11 @@ clean:
+ # single test file
+ ##############################################################################
+ 
+-json_unit: $(OBJECTS) ../src/json.hpp thirdparty/catch/catch.hpp
++json_unit: $(OBJECTS) ../single_include/nlohmann/json.hpp thirdparty/catch/catch.hpp
+ 	@echo "[CXXLD] $@"
+ 	@$(CXX) $(CXXFLAGS) $(LDFLAGS) $(OBJECTS) -o $@
+ 
+-%.o: %.cpp ../src/json.hpp thirdparty/catch/catch.hpp
++%.o: %.cpp ../single_include/nlohmann/json.hpp thirdparty/catch/catch.hpp
+ 	@echo "[CXX]   $@"
+ 	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
+ 
+@@ -73,7 +73,7 @@ json_unit: $(OBJECTS) ../src/json.hpp thirdparty/catch/catch.hpp
+ # individual test cases
+ ##############################################################################
+ 
+-test-%: src/unit-%.o src/unit.o ../src/json.hpp thirdparty/catch/catch.hpp
++test-%: src/unit-%.o src/unit.o ../single_include/nlohmann/json.hpp thirdparty/catch/catch.hpp
+ 	@echo "[CXXLD] $@"
+ 	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) $< src/unit.o -o $@
+ 
+diff --git a/test/src/fuzzer-parse_cbor.cpp b/test/src/fuzzer-parse_cbor.cpp
+index 576407bb4d..72978e54fd 100644
+--- a/test/src/fuzzer-parse_cbor.cpp
++++ b/test/src/fuzzer-parse_cbor.cpp
+@@ -20,7 +20,7 @@ Licensed under the MIT License <http://opensource.org/licenses/MIT>.
+ 
+ #include <iostream>
+ #include <sstream>
+-#include <json.hpp>
++#include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
+ 
+diff --git a/test/src/fuzzer-parse_json.cpp b/test/src/fuzzer-parse_json.cpp
+index 6b2b11541d..86a8f7fbe5 100644
+--- a/test/src/fuzzer-parse_json.cpp
++++ b/test/src/fuzzer-parse_json.cpp
+@@ -21,7 +21,7 @@ Licensed under the MIT License <http://opensource.org/licenses/MIT>.
+ 
+ #include <iostream>
+ #include <sstream>
+-#include <json.hpp>
++#include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
+ 
+diff --git a/test/src/fuzzer-parse_msgpack.cpp b/test/src/fuzzer-parse_msgpack.cpp
+index c3f9eb5dbe..03da575924 100644
+--- a/test/src/fuzzer-parse_msgpack.cpp
++++ b/test/src/fuzzer-parse_msgpack.cpp
+@@ -20,7 +20,7 @@ Licensed under the MIT License <http://opensource.org/licenses/MIT>.
+ 
+ #include <iostream>
+ #include <sstream>
+-#include <json.hpp>
++#include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
+ 
+diff --git a/test/src/fuzzer-parse_ubjson.cpp b/test/src/fuzzer-parse_ubjson.cpp
+index 947d96e05b..1980f684a1 100644
+--- a/test/src/fuzzer-parse_ubjson.cpp
++++ b/test/src/fuzzer-parse_ubjson.cpp
+@@ -20,7 +20,7 @@ Licensed under the MIT License <http://opensource.org/licenses/MIT>.
+ 
+ #include <iostream>
+ #include <sstream>
+-#include <json.hpp>
++#include <nlohmann/json.hpp>
+ 
+ using json = nlohmann::json;
+ 
+diff --git a/test/src/unit-algorithms.cpp b/test/src/unit-algorithms.cpp
+index f74ca72e7b..001f566e46 100644
+--- a/test/src/unit-algorithms.cpp
++++ b/test/src/unit-algorithms.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("algorithms")
+diff --git a/test/src/unit-allocator.cpp b/test/src/unit-allocator.cpp
+index a182d9898a..9fdb41cb63 100644
+--- a/test/src/unit-allocator.cpp
++++ b/test/src/unit-allocator.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ // special test case to check if memory is leaked if constructor throws
+diff --git a/test/src/unit-capacity.cpp b/test/src/unit-capacity.cpp
+index 4df512a879..1c0d573a12 100644
+--- a/test/src/unit-capacity.cpp
++++ b/test/src/unit-capacity.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("capacity")
+diff --git a/test/src/unit-cbor.cpp b/test/src/unit-cbor.cpp
+index 43fca02893..41b2e15cc5 100644
+--- a/test/src/unit-cbor.cpp
++++ b/test/src/unit-cbor.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-class_const_iterator.cpp b/test/src/unit-class_const_iterator.cpp
+index 5ecc9d6aed..cf6777e95c 100644
+--- a/test/src/unit-class_const_iterator.cpp
++++ b/test/src/unit-class_const_iterator.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("const_iterator class")
+diff --git a/test/src/unit-class_iterator.cpp b/test/src/unit-class_iterator.cpp
+index 45f28ef6cc..168988d607 100644
+--- a/test/src/unit-class_iterator.cpp
++++ b/test/src/unit-class_iterator.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("iterator class")
+diff --git a/test/src/unit-class_lexer.cpp b/test/src/unit-class_lexer.cpp
+index 45355cd749..4ae7e77cdd 100644
+--- a/test/src/unit-class_lexer.cpp
++++ b/test/src/unit-class_lexer.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ // shortcut to scan a string literal
+diff --git a/test/src/unit-class_parser.cpp b/test/src/unit-class_parser.cpp
+index 91fd18190a..ad1a97230a 100644
+--- a/test/src/unit-class_parser.cpp
++++ b/test/src/unit-class_parser.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <valarray>
+diff --git a/test/src/unit-comparison.cpp b/test/src/unit-comparison.cpp
+index dbd7788b41..3ca7d552e9 100644
+--- a/test/src/unit-comparison.cpp
++++ b/test/src/unit-comparison.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ // helper function to check std::less<json::value_t>
+diff --git a/test/src/unit-concepts.cpp b/test/src/unit-concepts.cpp
+index dea1238dc6..29be62ddcb 100644
+--- a/test/src/unit-concepts.cpp
++++ b/test/src/unit-concepts.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("concepts")
+diff --git a/test/src/unit-constructor1.cpp b/test/src/unit-constructor1.cpp
+index 33a4f677f8..b1aafc342d 100644
+--- a/test/src/unit-constructor1.cpp
++++ b/test/src/unit-constructor1.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <deque>
+diff --git a/test/src/unit-constructor2.cpp b/test/src/unit-constructor2.cpp
+index 58545ad0de..5cb33fa459 100644
+--- a/test/src/unit-constructor2.cpp
++++ b/test/src/unit-constructor2.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("other constructors and destructor")
+diff --git a/test/src/unit-convenience.cpp b/test/src/unit-convenience.cpp
+index f74c00aecf..fc04d4a614 100644
+--- a/test/src/unit-convenience.cpp
++++ b/test/src/unit-convenience.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ void check_escaped(const char* original, const char* escaped = "", const bool ensure_ascii = false);
+diff --git a/test/src/unit-conversions.cpp b/test/src/unit-conversions.cpp
+index f9d49a838c..38c3d8dd19 100644
+--- a/test/src/unit-conversions.cpp
++++ b/test/src/unit-conversions.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <deque>
+diff --git a/test/src/unit-deserialization.cpp b/test/src/unit-deserialization.cpp
+index 1da791a92a..e790f21ae8 100644
+--- a/test/src/unit-deserialization.cpp
++++ b/test/src/unit-deserialization.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <iostream>
+diff --git a/test/src/unit-element_access1.cpp b/test/src/unit-element_access1.cpp
+index e288cb5c9f..cc9b3ff46d 100644
+--- a/test/src/unit-element_access1.cpp
++++ b/test/src/unit-element_access1.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("element access 1")
+diff --git a/test/src/unit-element_access2.cpp b/test/src/unit-element_access2.cpp
+index 8f628f6989..4a566b152d 100644
+--- a/test/src/unit-element_access2.cpp
++++ b/test/src/unit-element_access2.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("element access 2")
+diff --git a/test/src/unit-inspection.cpp b/test/src/unit-inspection.cpp
+index 21f637aa4d..b4fdb9a6ae 100644
+--- a/test/src/unit-inspection.cpp
++++ b/test/src/unit-inspection.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #include <fstream>
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("object inspection")
+@@ -316,8 +316,8 @@ TEST_CASE("object inspection")
+     SECTION("round trips")
+     {
+         for (const auto& s :
+-                {"3.141592653589793", "1000000000000000010E5"
+-                })
++    {"3.141592653589793", "1000000000000000010E5"
++    })
+         {
+             json j1 = json::parse(s);
+             std::string s1 = j1.dump();
+diff --git a/test/src/unit-items.cpp b/test/src/unit-items.cpp
+index 4f5bd15d25..9d4552049c 100644
+--- a/test/src/unit-items.cpp
++++ b/test/src/unit-items.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("iterator_wrapper")
+diff --git a/test/src/unit-iterators1.cpp b/test/src/unit-iterators1.cpp
+index 8c5eddba71..ea789fa352 100644
+--- a/test/src/unit-iterators1.cpp
++++ b/test/src/unit-iterators1.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("iterators 1")
+diff --git a/test/src/unit-iterators2.cpp b/test/src/unit-iterators2.cpp
+index d872890f69..b778f040b8 100644
+--- a/test/src/unit-iterators2.cpp
++++ b/test/src/unit-iterators2.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("iterators 2")
+diff --git a/test/src/unit-json_patch.cpp b/test/src/unit-json_patch.cpp
+index 3490f7046c..c69b3f0788 100644
+--- a/test/src/unit-json_patch.cpp
++++ b/test/src/unit-json_patch.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-json_pointer.cpp b/test/src/unit-json_pointer.cpp
+index 7a49334759..d6b6149491 100644
+--- a/test/src/unit-json_pointer.cpp
++++ b/test/src/unit-json_pointer.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("JSON pointers")
+diff --git a/test/src/unit-merge_patch.cpp b/test/src/unit-merge_patch.cpp
+index 79bbaa2a3e..887207663c 100644
+--- a/test/src/unit-merge_patch.cpp
++++ b/test/src/unit-merge_patch.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("JSON Merge Patch")
+diff --git a/test/src/unit-meta.cpp b/test/src/unit-meta.cpp
+index f6e9d6f444..63d9abada1 100644
+--- a/test/src/unit-meta.cpp
++++ b/test/src/unit-meta.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("version information")
+diff --git a/test/src/unit-modifiers.cpp b/test/src/unit-modifiers.cpp
+index 44b9cf2bc9..3b31bda9e7 100644
+--- a/test/src/unit-modifiers.cpp
++++ b/test/src/unit-modifiers.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("modifiers")
+diff --git a/test/src/unit-msgpack.cpp b/test/src/unit-msgpack.cpp
+index 531012b7d9..81aa36370a 100644
+--- a/test/src/unit-msgpack.cpp
++++ b/test/src/unit-msgpack.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-noexcept.cpp b/test/src/unit-noexcept.cpp
+index 56ca4a41c1..6d0fd359b8 100644
+--- a/test/src/unit-noexcept.cpp
++++ b/test/src/unit-noexcept.cpp
+@@ -27,7 +27,7 @@ SOFTWARE.
+ */
+ 
+ #include "catch.hpp"
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ 
+ using nlohmann::json;
+ 
+diff --git a/test/src/unit-pointer_access.cpp b/test/src/unit-pointer_access.cpp
+index 19254907b9..eec88ed36f 100644
+--- a/test/src/unit-pointer_access.cpp
++++ b/test/src/unit-pointer_access.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("pointer access")
+diff --git a/test/src/unit-readme.cpp b/test/src/unit-readme.cpp
+index ebf10583ce..ade0e0a565 100644
+--- a/test/src/unit-readme.cpp
++++ b/test/src/unit-readme.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <deque>
+diff --git a/test/src/unit-reference_access.cpp b/test/src/unit-reference_access.cpp
+index ea84c9e7ae..a87a0c543c 100644
+--- a/test/src/unit-reference_access.cpp
++++ b/test/src/unit-reference_access.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("reference access")
+diff --git a/test/src/unit-regression.cpp b/test/src/unit-regression.cpp
+index c4a04775de..bcdb4ace1c 100644
+--- a/test/src/unit-regression.cpp
++++ b/test/src/unit-regression.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-serialization.cpp b/test/src/unit-serialization.cpp
+index 5668b7baa8..2f667f4124 100644
+--- a/test/src/unit-serialization.cpp
++++ b/test/src/unit-serialization.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ TEST_CASE("serialization")
+diff --git a/test/src/unit-testsuites.cpp b/test/src/unit-testsuites.cpp
+index f88bc9d081..bd813aa5bc 100644
+--- a/test/src/unit-testsuites.cpp
++++ b/test/src/unit-testsuites.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-to_chars.cpp b/test/src/unit-to_chars.cpp
+index 973e4e1940..dffeaed09a 100644
+--- a/test/src/unit-to_chars.cpp
++++ b/test/src/unit-to_chars.cpp
+@@ -32,7 +32,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::detail::dtoa_impl::reinterpret_bits;
+ 
+ static float make_float(uint32_t sign_bit, uint32_t biased_exponent, uint32_t significand)
+diff --git a/test/src/unit-ubjson.cpp b/test/src/unit-ubjson.cpp
+index 144fcfe1ae..f049270208 100644
+--- a/test/src/unit-ubjson.cpp
++++ b/test/src/unit-ubjson.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>
+diff --git a/test/src/unit-udt.cpp b/test/src/unit-udt.cpp
+index a4adc3be24..442041514e 100644
+--- a/test/src/unit-udt.cpp
++++ b/test/src/unit-udt.cpp
+@@ -28,7 +28,7 @@ SOFTWARE.
+ 
+ #include "catch.hpp"
+ 
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ 
+ using nlohmann::json;
+ 
+diff --git a/test/src/unit-unicode.cpp b/test/src/unit-unicode.cpp
+index 97fc2751aa..82a292042e 100644
+--- a/test/src/unit-unicode.cpp
++++ b/test/src/unit-unicode.cpp
+@@ -29,7 +29,7 @@ SOFTWARE.
+ #include "catch.hpp"
+ 
+ #define private public
+-#include "json.hpp"
++#include <nlohmann/json.hpp>
+ using nlohmann::json;
+ 
+ #include <fstream>

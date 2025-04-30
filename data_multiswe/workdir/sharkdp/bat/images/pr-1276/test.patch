@@ -1,0 +1,593 @@
+diff --git a/tests/integration_tests.rs b/tests/integration_tests.rs
+index da0690efcc..f8ff60a59f 100644
+--- a/tests/integration_tests.rs
++++ b/tests/integration_tests.rs
+@@ -570,6 +570,18 @@ fn empty_file_leads_to_empty_output_with_grid_enabled() {
+         .stdout("");
+ }
+ 
++#[test]
++fn empty_file_leads_to_empty_output_with_rule_enabled() {
++    bat()
++        .arg("empty.txt")
++        .arg("--style=rule")
++        .arg("--decorations=always")
++        .arg("--terminal-width=80")
++        .assert()
++        .success()
++        .stdout("");
++}
++
+ #[test]
+ fn filename_basic() {
+     bat()
+@@ -668,6 +680,48 @@ fn header_padding() {
+         .stderr("");
+ }
+ 
++#[test]
++fn header_padding_rule() {
++    bat()
++        .arg("--decorations=always")
++        .arg("--style=header,rule")
++        .arg("--terminal-width=80")
++        .arg("test.txt")
++        .arg("single-line.txt")
++        .assert()
++        .stdout(
++            "File: test.txt
++hello world
++────────────────────────────────────────────────────────────────────────────────
++File: single-line.txt
++Single Line
++",
++        )
++        .stderr("");
++}
++
++#[test]
++fn grid_overrides_rule() {
++    bat()
++        .arg("--decorations=always")
++        .arg("--style=grid,rule")
++        .arg("--terminal-width=80")
++        .arg("test.txt")
++        .arg("single-line.txt")
++        .assert()
++        .stdout(
++            "\
++────────────────────────────────────────────────────────────────────────────────
++hello world
++────────────────────────────────────────────────────────────────────────────────
++────────────────────────────────────────────────────────────────────────────────
++Single Line
++────────────────────────────────────────────────────────────────────────────────
++",
++        )
++        .stderr("\x1b[33m[bat warning]\x1b[0m: Style 'rule' is a subset of style 'grid', 'rule' will not be visible.\n");
++}
++
+ #[cfg(target_os = "linux")]
+ #[test]
+ fn file_with_invalid_utf8_filename() {
+diff --git a/tests/snapshot_tests.rs b/tests/snapshot_tests.rs
+index ad41edb25b..8abb841412 100644
+--- a/tests/snapshot_tests.rs
++++ b/tests/snapshot_tests.rs
+@@ -19,17 +19,27 @@ snapshot_tests! {
+     grid:                        "grid",
+     header:                      "header",
+     numbers:                     "numbers",
++    rule:                        "rule",
+     changes_grid:                "changes,grid",
+     changes_header:              "changes,header",
+     changes_numbers:             "changes,numbers",
++    changes_rule:                "changes,rule",
+     grid_header:                 "grid,header",
+     grid_numbers:                "grid,numbers",
++    grid_rule:                   "grid,rule",
+     header_numbers:              "header,numbers",
++    header_rule:                 "header,rule",
+     changes_grid_header:         "changes,grid,header",
+     changes_grid_numbers:        "changes,grid,numbers",
++    changes_grid_rule:           "changes,grid,rule",
+     changes_header_numbers:      "changes,header,numbers",
++    changes_header_rule:         "changes,header,rule",
+     grid_header_numbers:         "grid,header,numbers",
++    grid_header_rule:            "grid,header,rule",
++    header_numbers_rule:         "header,numbers,rule",
+     changes_grid_header_numbers: "changes,grid,header,numbers",
++    changes_grid_header_rule:    "changes,grid,header,rule",
++    changes_grid_header_numbers_rule: "changes,grid,header,numbers,rule",
+     full:                        "full",
+     plain:                       "plain",
+ }
+diff --git a/tests/snapshots/generate_snapshots.py b/tests/snapshots/generate_snapshots.py
+index fd17b28513..bb7d69ba16 100755
+--- a/tests/snapshots/generate_snapshots.py
++++ b/tests/snapshots/generate_snapshots.py
+@@ -7,7 +7,7 @@
+ 
+ 
+ def generate_snapshots():
+-    single_styles = ["changes", "grid", "header", "numbers"]
++    single_styles = ["changes", "grid", "header", "numbers", "rule"]
+     collective_styles = ["full", "plain"]
+ 
+     for num in range(len(single_styles)):
+diff --git a/tests/snapshots/output/changes_grid_header_numbers_rule.snapshot.txt b/tests/snapshots/output/changes_grid_header_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..cee4737f4d
+--- /dev/null
++++ b/tests/snapshots/output/changes_grid_header_numbers_rule.snapshot.txt
+@@ -0,0 +1,26 @@
++───────┬────────────────────────────────────────────────────────────────────────
++       │ File: sample.rs
++───────┼────────────────────────────────────────────────────────────────────────
++   1   │ struct Rectangle {
++   2   │     width: u32,
++   3   │     height: u32,
++   4   │ }
++   5   │ 
++   6 _ │ fn main() {
++   7   │     let rect1 = Rectangle { width: 30, height: 50 };
++   8   │ 
++   9   │     println!(
++  10 ~ │         "The perimeter of the rectangle is {} pixels.",
++  11 ~ │         perimeter(&rect1)
++  12   │     );
++  13 + │     println!(r#"This line contains invalid utf8:  "�����"#;
++  14   │ }
++  15   │ 
++  16   │ fn area(rectangle: &Rectangle) -> u32 {
++  17   │     rectangle.width * rectangle.height
++  18   │ }
++  19 + │ 
++  20 + │ fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 + │     (rectangle.width + rectangle.height) * 2
++  22 + │ }
++───────┴────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/changes_grid_header_rule.snapshot.txt b/tests/snapshots/output/changes_grid_header_rule.snapshot.txt
+new file mode 100644
+index 0000000000..655b6e248f
+--- /dev/null
++++ b/tests/snapshots/output/changes_grid_header_rule.snapshot.txt
+@@ -0,0 +1,26 @@
++──┬─────────────────────────────────────────────────────────────────────────────
++  │ File: sample.rs
++──┼─────────────────────────────────────────────────────────────────────────────
++  │ struct Rectangle {
++  │     width: u32,
++  │     height: u32,
++  │ }
++  │ 
++_ │ fn main() {
++  │     let rect1 = Rectangle { width: 30, height: 50 };
++  │ 
++  │     println!(
++~ │         "The perimeter of the rectangle is {} pixels.",
++~ │         perimeter(&rect1)
++  │     );
+++ │     println!(r#"This line contains invalid utf8:  "�����"#;
++  │ }
++  │ 
++  │ fn area(rectangle: &Rectangle) -> u32 {
++  │     rectangle.width * rectangle.height
++  │ }
+++ │ 
+++ │ fn perimeter(rectangle: &Rectangle) -> u32 {
+++ │     (rectangle.width + rectangle.height) * 2
+++ │ }
++──┴─────────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/changes_grid_numbers_rule.snapshot.txt b/tests/snapshots/output/changes_grid_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..7fe7cccfdc
+--- /dev/null
++++ b/tests/snapshots/output/changes_grid_numbers_rule.snapshot.txt
+@@ -0,0 +1,24 @@
++───────┬────────────────────────────────────────────────────────────────────────
++   1   │ struct Rectangle {
++   2   │     width: u32,
++   3   │     height: u32,
++   4   │ }
++   5   │ 
++   6 _ │ fn main() {
++   7   │     let rect1 = Rectangle { width: 30, height: 50 };
++   8   │ 
++   9   │     println!(
++  10 ~ │         "The perimeter of the rectangle is {} pixels.",
++  11 ~ │         perimeter(&rect1)
++  12   │     );
++  13 + │     println!(r#"This line contains invalid utf8:  "�����"#;
++  14   │ }
++  15   │ 
++  16   │ fn area(rectangle: &Rectangle) -> u32 {
++  17   │     rectangle.width * rectangle.height
++  18   │ }
++  19 + │ 
++  20 + │ fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 + │     (rectangle.width + rectangle.height) * 2
++  22 + │ }
++───────┴────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/changes_grid_rule.snapshot.txt b/tests/snapshots/output/changes_grid_rule.snapshot.txt
+new file mode 100644
+index 0000000000..04767b8b3a
+--- /dev/null
++++ b/tests/snapshots/output/changes_grid_rule.snapshot.txt
+@@ -0,0 +1,24 @@
++──┬─────────────────────────────────────────────────────────────────────────────
++  │ struct Rectangle {
++  │     width: u32,
++  │     height: u32,
++  │ }
++  │ 
++_ │ fn main() {
++  │     let rect1 = Rectangle { width: 30, height: 50 };
++  │ 
++  │     println!(
++~ │         "The perimeter of the rectangle is {} pixels.",
++~ │         perimeter(&rect1)
++  │     );
+++ │     println!(r#"This line contains invalid utf8:  "�����"#;
++  │ }
++  │ 
++  │ fn area(rectangle: &Rectangle) -> u32 {
++  │     rectangle.width * rectangle.height
++  │ }
+++ │ 
+++ │ fn perimeter(rectangle: &Rectangle) -> u32 {
+++ │     (rectangle.width + rectangle.height) * 2
+++ │ }
++──┴─────────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/changes_header_numbers_rule.snapshot.txt b/tests/snapshots/output/changes_header_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..77145eb9b2
+--- /dev/null
++++ b/tests/snapshots/output/changes_header_numbers_rule.snapshot.txt
+@@ -0,0 +1,23 @@
++       File: sample.rs
++   1   struct Rectangle {
++   2       width: u32,
++   3       height: u32,
++   4   }
++   5   
++   6 _ fn main() {
++   7       let rect1 = Rectangle { width: 30, height: 50 };
++   8   
++   9       println!(
++  10 ~         "The perimeter of the rectangle is {} pixels.",
++  11 ~         perimeter(&rect1)
++  12       );
++  13 +     println!(r#"This line contains invalid utf8:  "�����"#;
++  14   }
++  15   
++  16   fn area(rectangle: &Rectangle) -> u32 {
++  17       rectangle.width * rectangle.height
++  18   }
++  19 + 
++  20 + fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 +     (rectangle.width + rectangle.height) * 2
++  22 + }
+diff --git a/tests/snapshots/output/changes_header_rule.snapshot.txt b/tests/snapshots/output/changes_header_rule.snapshot.txt
+new file mode 100644
+index 0000000000..82fe8c47cb
+--- /dev/null
++++ b/tests/snapshots/output/changes_header_rule.snapshot.txt
+@@ -0,0 +1,23 @@
++  File: sample.rs
++  struct Rectangle {
++      width: u32,
++      height: u32,
++  }
++  
++_ fn main() {
++      let rect1 = Rectangle { width: 30, height: 50 };
++  
++      println!(
++~         "The perimeter of the rectangle is {} pixels.",
++~         perimeter(&rect1)
++      );
+++     println!(r#"This line contains invalid utf8:  "�����"#;
++  }
++  
++  fn area(rectangle: &Rectangle) -> u32 {
++      rectangle.width * rectangle.height
++  }
+++ 
+++ fn perimeter(rectangle: &Rectangle) -> u32 {
+++     (rectangle.width + rectangle.height) * 2
+++ }
+diff --git a/tests/snapshots/output/changes_numbers_rule.snapshot.txt b/tests/snapshots/output/changes_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..bdfe745bff
+--- /dev/null
++++ b/tests/snapshots/output/changes_numbers_rule.snapshot.txt
+@@ -0,0 +1,22 @@
++   1   struct Rectangle {
++   2       width: u32,
++   3       height: u32,
++   4   }
++   5   
++   6 _ fn main() {
++   7       let rect1 = Rectangle { width: 30, height: 50 };
++   8   
++   9       println!(
++  10 ~         "The perimeter of the rectangle is {} pixels.",
++  11 ~         perimeter(&rect1)
++  12       );
++  13 +     println!(r#"This line contains invalid utf8:  "�����"#;
++  14   }
++  15   
++  16   fn area(rectangle: &Rectangle) -> u32 {
++  17       rectangle.width * rectangle.height
++  18   }
++  19 + 
++  20 + fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 +     (rectangle.width + rectangle.height) * 2
++  22 + }
+diff --git a/tests/snapshots/output/changes_rule.snapshot.txt b/tests/snapshots/output/changes_rule.snapshot.txt
+new file mode 100644
+index 0000000000..28d87201f0
+--- /dev/null
++++ b/tests/snapshots/output/changes_rule.snapshot.txt
+@@ -0,0 +1,22 @@
++  struct Rectangle {
++      width: u32,
++      height: u32,
++  }
++  
++_ fn main() {
++      let rect1 = Rectangle { width: 30, height: 50 };
++  
++      println!(
++~         "The perimeter of the rectangle is {} pixels.",
++~         perimeter(&rect1)
++      );
+++     println!(r#"This line contains invalid utf8:  "�����"#;
++  }
++  
++  fn area(rectangle: &Rectangle) -> u32 {
++      rectangle.width * rectangle.height
++  }
+++ 
+++ fn perimeter(rectangle: &Rectangle) -> u32 {
+++     (rectangle.width + rectangle.height) * 2
+++ }
+diff --git a/tests/snapshots/output/grid_header_numbers_rule.snapshot.txt b/tests/snapshots/output/grid_header_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..e9f1a9cfe6
+--- /dev/null
++++ b/tests/snapshots/output/grid_header_numbers_rule.snapshot.txt
+@@ -0,0 +1,26 @@
++─────┬──────────────────────────────────────────────────────────────────────────
++     │ File: sample.rs
++─────┼──────────────────────────────────────────────────────────────────────────
++   1 │ struct Rectangle {
++   2 │     width: u32,
++   3 │     height: u32,
++   4 │ }
++   5 │ 
++   6 │ fn main() {
++   7 │     let rect1 = Rectangle { width: 30, height: 50 };
++   8 │ 
++   9 │     println!(
++  10 │         "The perimeter of the rectangle is {} pixels.",
++  11 │         perimeter(&rect1)
++  12 │     );
++  13 │     println!(r#"This line contains invalid utf8:  "�����"#;
++  14 │ }
++  15 │ 
++  16 │ fn area(rectangle: &Rectangle) -> u32 {
++  17 │     rectangle.width * rectangle.height
++  18 │ }
++  19 │ 
++  20 │ fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 │     (rectangle.width + rectangle.height) * 2
++  22 │ }
++─────┴──────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/grid_header_rule.snapshot.txt b/tests/snapshots/output/grid_header_rule.snapshot.txt
+new file mode 100644
+index 0000000000..50c16941e9
+--- /dev/null
++++ b/tests/snapshots/output/grid_header_rule.snapshot.txt
+@@ -0,0 +1,26 @@
++────────────────────────────────────────────────────────────────────────────────
++File: sample.rs
++────────────────────────────────────────────────────────────────────────────────
++struct Rectangle {
++    width: u32,
++    height: u32,
++}
++
++fn main() {
++    let rect1 = Rectangle { width: 30, height: 50 };
++
++    println!(
++        "The perimeter of the rectangle is {} pixels.",
++        perimeter(&rect1)
++    );
++    println!(r#"This line contains invalid utf8:  "�����"#;
++}
++
++fn area(rectangle: &Rectangle) -> u32 {
++    rectangle.width * rectangle.height
++}
++
++fn perimeter(rectangle: &Rectangle) -> u32 {
++    (rectangle.width + rectangle.height) * 2
++}
++────────────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/grid_numbers_rule.snapshot.txt b/tests/snapshots/output/grid_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..0961466704
+--- /dev/null
++++ b/tests/snapshots/output/grid_numbers_rule.snapshot.txt
+@@ -0,0 +1,24 @@
++─────┬──────────────────────────────────────────────────────────────────────────
++   1 │ struct Rectangle {
++   2 │     width: u32,
++   3 │     height: u32,
++   4 │ }
++   5 │ 
++   6 │ fn main() {
++   7 │     let rect1 = Rectangle { width: 30, height: 50 };
++   8 │ 
++   9 │     println!(
++  10 │         "The perimeter of the rectangle is {} pixels.",
++  11 │         perimeter(&rect1)
++  12 │     );
++  13 │     println!(r#"This line contains invalid utf8:  "�����"#;
++  14 │ }
++  15 │ 
++  16 │ fn area(rectangle: &Rectangle) -> u32 {
++  17 │     rectangle.width * rectangle.height
++  18 │ }
++  19 │ 
++  20 │ fn perimeter(rectangle: &Rectangle) -> u32 {
++  21 │     (rectangle.width + rectangle.height) * 2
++  22 │ }
++─────┴──────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/grid_rule.snapshot.txt b/tests/snapshots/output/grid_rule.snapshot.txt
+new file mode 100644
+index 0000000000..5b970581f5
+--- /dev/null
++++ b/tests/snapshots/output/grid_rule.snapshot.txt
+@@ -0,0 +1,24 @@
++────────────────────────────────────────────────────────────────────────────────
++struct Rectangle {
++    width: u32,
++    height: u32,
++}
++
++fn main() {
++    let rect1 = Rectangle { width: 30, height: 50 };
++
++    println!(
++        "The perimeter of the rectangle is {} pixels.",
++        perimeter(&rect1)
++    );
++    println!(r#"This line contains invalid utf8:  "�����"#;
++}
++
++fn area(rectangle: &Rectangle) -> u32 {
++    rectangle.width * rectangle.height
++}
++
++fn perimeter(rectangle: &Rectangle) -> u32 {
++    (rectangle.width + rectangle.height) * 2
++}
++────────────────────────────────────────────────────────────────────────────────
+diff --git a/tests/snapshots/output/header_numbers_rule.snapshot.txt b/tests/snapshots/output/header_numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..a681e6b407
+--- /dev/null
++++ b/tests/snapshots/output/header_numbers_rule.snapshot.txt
+@@ -0,0 +1,23 @@
++     File: sample.rs
++   1 struct Rectangle {
++   2     width: u32,
++   3     height: u32,
++   4 }
++   5 
++   6 fn main() {
++   7     let rect1 = Rectangle { width: 30, height: 50 };
++   8 
++   9     println!(
++  10         "The perimeter of the rectangle is {} pixels.",
++  11         perimeter(&rect1)
++  12     );
++  13     println!(r#"This line contains invalid utf8:  "�����"#;
++  14 }
++  15 
++  16 fn area(rectangle: &Rectangle) -> u32 {
++  17     rectangle.width * rectangle.height
++  18 }
++  19 
++  20 fn perimeter(rectangle: &Rectangle) -> u32 {
++  21     (rectangle.width + rectangle.height) * 2
++  22 }
+diff --git a/tests/snapshots/output/header_rule.snapshot.txt b/tests/snapshots/output/header_rule.snapshot.txt
+new file mode 100644
+index 0000000000..0889edfd32
+--- /dev/null
++++ b/tests/snapshots/output/header_rule.snapshot.txt
+@@ -0,0 +1,23 @@
++File: sample.rs
++struct Rectangle {
++    width: u32,
++    height: u32,
++}
++
++fn main() {
++    let rect1 = Rectangle { width: 30, height: 50 };
++
++    println!(
++        "The perimeter of the rectangle is {} pixels.",
++        perimeter(&rect1)
++    );
++    println!(r#"This line contains invalid utf8:  "�����"#;
++}
++
++fn area(rectangle: &Rectangle) -> u32 {
++    rectangle.width * rectangle.height
++}
++
++fn perimeter(rectangle: &Rectangle) -> u32 {
++    (rectangle.width + rectangle.height) * 2
++}
+diff --git a/tests/snapshots/output/numbers_rule.snapshot.txt b/tests/snapshots/output/numbers_rule.snapshot.txt
+new file mode 100644
+index 0000000000..c1341d29df
+--- /dev/null
++++ b/tests/snapshots/output/numbers_rule.snapshot.txt
+@@ -0,0 +1,22 @@
++   1 struct Rectangle {
++   2     width: u32,
++   3     height: u32,
++   4 }
++   5 
++   6 fn main() {
++   7     let rect1 = Rectangle { width: 30, height: 50 };
++   8 
++   9     println!(
++  10         "The perimeter of the rectangle is {} pixels.",
++  11         perimeter(&rect1)
++  12     );
++  13     println!(r#"This line contains invalid utf8:  "�����"#;
++  14 }
++  15 
++  16 fn area(rectangle: &Rectangle) -> u32 {
++  17     rectangle.width * rectangle.height
++  18 }
++  19 
++  20 fn perimeter(rectangle: &Rectangle) -> u32 {
++  21     (rectangle.width + rectangle.height) * 2
++  22 }
+diff --git a/tests/snapshots/output/rule.snapshot.txt b/tests/snapshots/output/rule.snapshot.txt
+new file mode 100644
+index 0000000000..dbc49f9fdd
+--- /dev/null
++++ b/tests/snapshots/output/rule.snapshot.txt
+@@ -0,0 +1,22 @@
++struct Rectangle {
++    width: u32,
++    height: u32,
++}
++
++fn main() {
++    let rect1 = Rectangle { width: 30, height: 50 };
++
++    println!(
++        "The perimeter of the rectangle is {} pixels.",
++        perimeter(&rect1)
++    );
++    println!(r#"This line contains invalid utf8:  "�����"#;
++}
++
++fn area(rectangle: &Rectangle) -> u32 {
++    rectangle.width * rectangle.height
++}
++
++fn perimeter(rectangle: &Rectangle) -> u32 {
++    (rectangle.width + rectangle.height) * 2
++}

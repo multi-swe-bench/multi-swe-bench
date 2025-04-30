@@ -1,0 +1,70 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index 8de16bbb881..e4324997f84 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -158,14 +158,15 @@ func (a *API) GetRepository(ctx context.Context, nwo string) (*Repository, error
+ 
+ // Codespace represents a codespace.
+ type Codespace struct {
+-	Name       string              `json:"name"`
+-	CreatedAt  string              `json:"created_at"`
+-	LastUsedAt string              `json:"last_used_at"`
+-	Owner      User                `json:"owner"`
+-	Repository Repository          `json:"repository"`
+-	State      string              `json:"state"`
+-	GitStatus  CodespaceGitStatus  `json:"git_status"`
+-	Connection CodespaceConnection `json:"connection"`
++	Name        string              `json:"name"`
++	CreatedAt   string              `json:"created_at"`
++	DisplayName string              `json:"display_name"`
++	LastUsedAt  string              `json:"last_used_at"`
++	Owner       User                `json:"owner"`
++	Repository  Repository          `json:"repository"`
++	State       string              `json:"state"`
++	GitStatus   CodespaceGitStatus  `json:"git_status"`
++	Connection  CodespaceConnection `json:"connection"`
+ }
+ 
+ type CodespaceGitStatus struct {
+@@ -195,6 +196,7 @@ type CodespaceConnection struct {
+ 
+ // CodespaceFields is the list of exportable fields for a codespace.
+ var CodespaceFields = []string{
++	"displayName",
+ 	"name",
+ 	"owner",
+ 	"repository",
+diff --git a/pkg/cmd/codespace/common.go b/pkg/cmd/codespace/common.go
+index 1107ae6a53d..26455fbc096 100644
+--- a/pkg/cmd/codespace/common.go
++++ b/pkg/cmd/codespace/common.go
+@@ -249,7 +249,7 @@ type codespace struct {
+ }
+ 
+ // displayName returns the repository nwo and branch.
+-// If includeName is true, the name of the codespace is included.
++// If includeName is true, the name of the codespace (including displayName) is included.
+ // If includeGitStatus is true, the branch will include a star if
+ // the codespace has unsaved changes.
+ func (c codespace) displayName(includeName, includeGitStatus bool) string {
+@@ -259,11 +259,18 @@ func (c codespace) displayName(includeName, includeGitStatus bool) string {
+ 	}
+ 
+ 	if includeName {
++		var displayName = c.Name
++		if c.DisplayName != "" {
++			displayName = c.DisplayName
++		}
+ 		return fmt.Sprintf(
+-			"%s: %s [%s]", c.Repository.FullName, branch, c.Name,
++			"%s: %s (%s)", c.Repository.FullName, displayName, branch,
+ 		)
+ 	}
+-	return c.Repository.FullName + ": " + branch
++	return fmt.Sprintf(
++		"%s: %s", c.Repository.FullName, branch,
++	)
++
+ }
+ 
+ // gitStatusDirty represents an unsaved changes status.

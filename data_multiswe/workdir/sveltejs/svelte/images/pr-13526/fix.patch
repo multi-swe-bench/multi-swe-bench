@@ -1,0 +1,226 @@
+diff --git a/.changeset/giant-ladybugs-thank.md b/.changeset/giant-ladybugs-thank.md
+new file mode 100644
+index 000000000000..832c2373cf7b
+--- /dev/null
++++ b/.changeset/giant-ladybugs-thank.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: make immutable option work more correctly
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index e363ea995154..480cbd013131 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -521,7 +521,7 @@ export function analyze_component(root, source, options) {
+ 
+ 	if (root.options) {
+ 		for (const attribute of root.options.attributes) {
+-			if (attribute.name === 'accessors') {
++			if (attribute.name === 'accessors' && analysis.runes) {
+ 				w.options_deprecated_accessors(attribute);
+ 			}
+ 
+@@ -529,7 +529,7 @@ export function analyze_component(root, source, options) {
+ 				w.options_missing_custom_element(attribute);
+ 			}
+ 
+-			if (attribute.name === 'immutable') {
++			if (attribute.name === 'immutable' && analysis.runes) {
+ 				w.options_deprecated_immutable(attribute);
+ 			}
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index c98135f8e13f..8369842e13f7 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -212,7 +212,9 @@ export function client_component(analysis, options) {
+ 
+ 	for (const [name, binding] of analysis.instance.scope.declarations) {
+ 		if (binding.kind === 'legacy_reactive') {
+-			legacy_reactive_declarations.push(b.const(name, b.call('$.mutable_state')));
++			legacy_reactive_declarations.push(
++				b.const(name, b.call('$.mutable_state', undefined, analysis.immutable ? b.true : undefined))
++			);
+ 		}
+ 		if (binding.kind === 'store_sub') {
+ 			if (store_setup.length === 0) {
+@@ -368,7 +370,9 @@ export function client_component(analysis, options) {
+ 		...group_binding_declarations,
+ 		...analysis.top_level_snippets,
+ 		.../** @type {ESTree.Statement[]} */ (instance.body),
+-		analysis.runes || !analysis.needs_context ? b.empty : b.stmt(b.call('$.init')),
++		analysis.runes || !analysis.needs_context
++			? b.empty
++			: b.stmt(b.call('$.init', analysis.immutable ? b.true : undefined)),
+ 		.../** @type {ESTree.Statement[]} */ (template.body)
+ 	]);
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
+index af09af8b442c..04685b66bd0c 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/VariableDeclaration.js
+@@ -1,7 +1,6 @@
+ /** @import { CallExpression, Expression, Identifier, Literal, VariableDeclaration, VariableDeclarator } from 'estree' */
+ /** @import { Binding } from '#compiler' */
+-/** @import { ComponentContext } from '../types' */
+-/** @import { Scope } from '../../../scope' */
++/** @import { ComponentClientTransformState, ComponentContext } from '../types' */
+ import { dev } from '../../../../state.js';
+ import { extract_paths } from '../../../../utils/ast.js';
+ import * as b from '../../../../utils/builders.js';
+@@ -267,7 +266,7 @@ export function VariableDeclaration(node, context) {
+ 			declarations.push(
+ 				...create_state_declarators(
+ 					declarator,
+-					context.state.scope,
++					context.state,
+ 					/** @type {Expression} */ (declarator.init && context.visit(declarator.init))
+ 				)
+ 			);
+@@ -287,12 +286,17 @@ export function VariableDeclaration(node, context) {
+ /**
+  * Creates the output for a state declaration in legacy mode.
+  * @param {VariableDeclarator} declarator
+- * @param {Scope} scope
++ * @param {ComponentClientTransformState} scope
+  * @param {Expression} value
+  */
+-function create_state_declarators(declarator, scope, value) {
++function create_state_declarators(declarator, { scope, analysis }, value) {
+ 	if (declarator.id.type === 'Identifier') {
+-		return [b.declarator(declarator.id, b.call('$.mutable_state', value))];
++		return [
++			b.declarator(
++				declarator.id,
++				b.call('$.mutable_state', value, analysis.immutable ? b.true : undefined)
++			)
++		];
+ 	}
+ 
+ 	const tmp = scope.generate('tmp');
+@@ -304,7 +308,9 @@ function create_state_declarators(declarator, scope, value) {
+ 			const binding = scope.get(/** @type {Identifier} */ (path.node).name);
+ 			return b.declarator(
+ 				path.node,
+-				binding?.kind === 'state' ? b.call('$.mutable_state', value) : value
++				binding?.kind === 'state'
++					? b.call('$.mutable_state', value, analysis.immutable ? b.true : undefined)
++					: value
+ 			);
+ 		})
+ 	];
+diff --git a/packages/svelte/src/internal/client/dom/legacy/lifecycle.js b/packages/svelte/src/internal/client/dom/legacy/lifecycle.js
+index 22d7e0feb4f3..5ffbacc670a3 100644
+--- a/packages/svelte/src/internal/client/dom/legacy/lifecycle.js
++++ b/packages/svelte/src/internal/client/dom/legacy/lifecycle.js
+@@ -1,21 +1,46 @@
+ /** @import { ComponentContextLegacy } from '#client' */
+ import { run, run_all } from '../../../shared/utils.js';
++import { derived } from '../../reactivity/deriveds.js';
+ import { user_pre_effect, user_effect } from '../../reactivity/effects.js';
+ import { component_context, deep_read_state, get, untrack } from '../../runtime.js';
+ 
+ /**
+  * Legacy-mode only: Call `onMount` callbacks and set up `beforeUpdate`/`afterUpdate` effects
++ * @param {boolean} [immutable]
+  */
+-export function init() {
++export function init(immutable = false) {
+ 	const context = /** @type {ComponentContextLegacy} */ (component_context);
+ 
+ 	const callbacks = context.l.u;
+ 	if (!callbacks) return;
+ 
++	let props = () => deep_read_state(context.s);
++
++	if (immutable) {
++		let version = 0;
++		let prev = /** @type {Record<string, any>} */ ({});
++
++		// In legacy immutable mode, before/afterUpdate only fire if the object identity of a prop changes
++		const d = derived(() => {
++			let changed = false;
++			const props = context.s;
++			for (const key in props) {
++				if (props[key] !== prev[key]) {
++					prev[key] = props[key];
++					changed = true;
++				}
++			}
++			if (changed) version++;
++			return version;
++		});
++
++		props = () => get(d);
++	}
++
+ 	// beforeUpdate
+ 	if (callbacks.b.length) {
+ 		user_pre_effect(() => {
+-			observe_all(context);
++			observe_all(context, props);
+ 			run_all(callbacks.b);
+ 		});
+ 	}
+@@ -35,7 +60,7 @@ export function init() {
+ 	// afterUpdate
+ 	if (callbacks.a.length) {
+ 		user_effect(() => {
+-			observe_all(context);
++			observe_all(context, props);
+ 			run_all(callbacks.a);
+ 		});
+ 	}
+@@ -45,11 +70,12 @@ export function init() {
+  * Invoke the getter of all signals associated with a component
+  * so they can be registered to the effect this function is called in.
+  * @param {ComponentContextLegacy} context
++ * @param {(() => void)} props
+  */
+-function observe_all(context) {
++function observe_all(context, props) {
+ 	if (context.l.s) {
+ 		for (const signal of context.l.s) get(signal);
+ 	}
+ 
+-	deep_read_state(context.s);
++	props();
+ }
+diff --git a/packages/svelte/src/internal/client/reactivity/sources.js b/packages/svelte/src/internal/client/reactivity/sources.js
+index 978980ca76e2..b7b94afd5d10 100644
+--- a/packages/svelte/src/internal/client/reactivity/sources.js
++++ b/packages/svelte/src/internal/client/reactivity/sources.js
+@@ -67,12 +67,15 @@ export function state(v) {
+ /**
+  * @template V
+  * @param {V} initial_value
++ * @param {boolean} [immutable]
+  * @returns {Source<V>}
+  */
+ /*#__NO_SIDE_EFFECTS__*/
+-export function mutable_source(initial_value) {
++export function mutable_source(initial_value, immutable = false) {
+ 	const s = source(initial_value);
+-	s.equals = safe_equals;
++	if (!immutable) {
++		s.equals = safe_equals;
++	}
+ 
+ 	// bind the signal to the component context, in case we need to
+ 	// track updates to trigger beforeUpdate/afterUpdate callbacks
+@@ -86,10 +89,11 @@ export function mutable_source(initial_value) {
+ /**
+  * @template V
+  * @param {V} v
++ * @param {boolean} [immutable]
+  * @returns {Source<V>}
+  */
+-export function mutable_state(v) {
+-	return push_derived_source(mutable_source(v));
++export function mutable_state(v, immutable = false) {
++	return push_derived_source(mutable_source(v, immutable));
+ }
+ 
+ /**

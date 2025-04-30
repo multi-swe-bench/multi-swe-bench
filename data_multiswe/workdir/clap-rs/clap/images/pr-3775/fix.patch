@@ -1,0 +1,277 @@
+diff --git a/src/builder/action.rs b/src/builder/action.rs
+index 0f58738dbfd..40b67d427bb 100644
+--- a/src/builder/action.rs
++++ b/src/builder/action.rs
+@@ -70,6 +70,81 @@ pub enum ArgAction {
+     /// assert_eq!(matches.get_many::<String>("flag").unwrap_or_default().count(), 0);
+     /// ```
+     IncOccurrence,
++    /// When encountered, act as if `"true"` was encountered on the command-line
++    ///
++    /// No value is allowed
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// # use clap::Arg;
++    /// let cmd = Command::new("mycmd")
++    ///     .arg(
++    ///         Arg::new("flag")
++    ///             .long("flag")
++    ///             .action(clap::builder::ArgAction::SetTrue)
++    ///     );
++    ///
++    /// let matches = cmd.try_get_matches_from(["mycmd", "--flag", "--flag"]).unwrap();
++    /// assert!(matches.is_present("flag"));
++    /// assert_eq!(matches.occurrences_of("flag"), 0);
++    /// assert_eq!(
++    ///     matches.get_one::<bool>("flag").copied(),
++    ///     Some(true)
++    /// );
++    /// ```
++    SetTrue,
++    /// When encountered, act as if `"false"` was encountered on the command-line
++    ///
++    /// No value is allowed
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// # use clap::Arg;
++    /// let cmd = Command::new("mycmd")
++    ///     .arg(
++    ///         Arg::new("flag")
++    ///             .long("flag")
++    ///             .action(clap::builder::ArgAction::SetFalse)
++    ///     );
++    ///
++    /// let matches = cmd.try_get_matches_from(["mycmd", "--flag", "--flag"]).unwrap();
++    /// assert!(matches.is_present("flag"));
++    /// assert_eq!(matches.occurrences_of("flag"), 0);
++    /// assert_eq!(
++    ///     matches.get_one::<bool>("flag").copied(),
++    ///     Some(false)
++    /// );
++    /// ```
++    SetFalse,
++    /// When encountered, increment a counter
++    ///
++    /// No value is allowed
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// # use clap::Arg;
++    /// let cmd = Command::new("mycmd")
++    ///     .arg(
++    ///         Arg::new("flag")
++    ///             .long("flag")
++    ///             .action(clap::builder::ArgAction::Count)
++    ///     );
++    ///
++    /// let matches = cmd.try_get_matches_from(["mycmd", "--flag", "--flag"]).unwrap();
++    /// assert!(matches.is_present("flag"));
++    /// assert_eq!(matches.occurrences_of("flag"), 0);
++    /// assert_eq!(
++    ///     matches.get_one::<u64>("flag").copied(),
++    ///     Some(2)
++    /// );
++    /// ```
++    Count,
+     /// When encountered, display [`Command::print_help`][super::App::print_help]
+     ///
+     /// Depending on the flag, [`Command::print_long_help`][super::App::print_long_help] may be shown
+@@ -128,8 +203,40 @@ impl ArgAction {
+         match self {
+             Self::StoreValue => true,
+             Self::IncOccurrence => false,
++            Self::SetTrue => false,
++            Self::SetFalse => false,
++            Self::Count => false,
+             Self::Help => false,
+             Self::Version => false,
+         }
+     }
++
++    pub(crate) fn default_value_parser(&self) -> Option<super::ValueParser> {
++        match self {
++            Self::StoreValue => None,
++            Self::IncOccurrence => None,
++            Self::SetTrue => Some(super::ValueParser::bool()),
++            Self::SetFalse => Some(super::ValueParser::bool()),
++            Self::Count => Some(crate::value_parser!(u64)),
++            Self::Help => None,
++            Self::Version => None,
++        }
++    }
++
++    #[cfg(debug_assertions)]
++    pub(crate) fn value_type_id(&self) -> Option<crate::parser::AnyValueId> {
++        use crate::parser::AnyValueId;
++
++        match self {
++            Self::StoreValue => None,
++            Self::IncOccurrence => None,
++            Self::SetTrue => Some(AnyValueId::of::<bool>()),
++            Self::SetFalse => Some(AnyValueId::of::<bool>()),
++            Self::Count => Some(AnyValueId::of::<CountType>()),
++            Self::Help => None,
++            Self::Version => None,
++        }
++    }
+ }
++
++pub(crate) type CountType = u64;
+diff --git a/src/builder/arg.rs b/src/builder/arg.rs
+index d8892cef9d6..9f62e06241c 100644
+--- a/src/builder/arg.rs
++++ b/src/builder/arg.rs
+@@ -4900,7 +4900,9 @@ impl<'help> Arg<'help> {
+         }
+ 
+         if self.value_parser.is_none() {
+-            if self.is_allow_invalid_utf8_set() {
++            if let Some(default) = self.action.as_ref().and_then(|a| a.default_value_parser()) {
++                self.value_parser = Some(default);
++            } else if self.is_allow_invalid_utf8_set() {
+                 self.value_parser = Some(super::ValueParser::os_string());
+             } else {
+                 self.value_parser = Some(super::ValueParser::string());
+diff --git a/src/builder/debug_asserts.rs b/src/builder/debug_asserts.rs
+index 327887c4ed4..fd691c46760 100644
+--- a/src/builder/debug_asserts.rs
++++ b/src/builder/debug_asserts.rs
+@@ -649,6 +649,16 @@ fn assert_arg(arg: &Arg) {
+         arg.name,
+         arg.get_action()
+     );
++    if let Some(action_type_id) = arg.get_action().value_type_id() {
++        assert_eq!(
++            action_type_id,
++            arg.get_value_parser().type_id(),
++            "Argument `{}`'s selected action {:?} contradicts `value_parser` ({:?})",
++            arg.name,
++            arg.get_action(),
++            arg.get_value_parser()
++        );
++    }
+ 
+     if arg.get_value_hint() != ValueHint::Unknown {
+         assert!(
+diff --git a/src/builder/mod.rs b/src/builder/mod.rs
+index 3c59b37350a..1f18ad51b0e 100644
+--- a/src/builder/mod.rs
++++ b/src/builder/mod.rs
+@@ -55,6 +55,7 @@ pub use command::App;
+ #[cfg(feature = "regex")]
+ pub use self::regex::RegexRef;
+ 
++pub(crate) use action::CountType;
+ pub(crate) use arg::display_arg_val;
+ pub(crate) use arg_predicate::ArgPredicate;
+ pub(crate) use value_parser::ValueParserInner;
+diff --git a/src/parser/parser.rs b/src/parser/parser.rs
+index 61b17eacf13..c3a407f7e87 100644
+--- a/src/parser/parser.rs
++++ b/src/parser/parser.rs
+@@ -1182,6 +1182,67 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 matcher.add_index_to(&arg.id, self.cur_idx.get());
+                 Ok(ParseResult::ValuesDone)
+             }
++            ArgAction::SetTrue => {
++                let raw_vals = match raw_vals.len() {
++                    0 => {
++                        vec![OsString::from("true")]
++                    }
++                    1 => raw_vals,
++                    _ => {
++                        panic!(
++                            "Argument {:?} received too many values: {:?}",
++                            arg.id, raw_vals
++                        )
++                    }
++                };
++
++                matcher.remove(&arg.id);
++                self.start_custom_arg(matcher, arg, source);
++                self.push_arg_values(arg, raw_vals, matcher)?;
++                Ok(ParseResult::ValuesDone)
++            }
++            ArgAction::SetFalse => {
++                let raw_vals = match raw_vals.len() {
++                    0 => {
++                        vec![OsString::from("false")]
++                    }
++                    1 => raw_vals,
++                    _ => {
++                        panic!(
++                            "Argument {:?} received too many values: {:?}",
++                            arg.id, raw_vals
++                        )
++                    }
++                };
++
++                matcher.remove(&arg.id);
++                self.start_custom_arg(matcher, arg, source);
++                self.push_arg_values(arg, raw_vals, matcher)?;
++                Ok(ParseResult::ValuesDone)
++            }
++            ArgAction::Count => {
++                let raw_vals = match raw_vals.len() {
++                    0 => {
++                        let existing_value = *matcher
++                            .get_one::<crate::builder::CountType>(arg.get_id())
++                            .unwrap_or(&0);
++                        let next_value = existing_value + 1;
++                        vec![OsString::from(next_value.to_string())]
++                    }
++                    1 => raw_vals,
++                    _ => {
++                        panic!(
++                            "Argument {:?} received too many values: {:?}",
++                            arg.id, raw_vals
++                        )
++                    }
++                };
++
++                matcher.remove(&arg.id);
++                self.start_custom_arg(matcher, arg, source);
++                self.push_arg_values(arg, raw_vals, matcher)?;
++                Ok(ParseResult::ValuesDone)
++            }
+             ArgAction::Help => {
+                 debug_assert_eq!(raw_vals, Vec::<OsString>::new());
+                 let use_long = match ident {
+@@ -1278,6 +1339,15 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                                 )?;
+                             }
+                         }
++                        ArgAction::SetTrue | ArgAction::SetFalse | ArgAction::Count => {
++                            let _ = self.react(
++                                None,
++                                ValueSource::EnvVariable,
++                                arg,
++                                vec![val.to_os_str().into_owned()],
++                                matcher,
++                            )?;
++                        }
+                         // Early return on `Help` or `Version`.
+                         ArgAction::Help | ArgAction::Version => {
+                             let _ =
+@@ -1294,12 +1364,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+     fn add_defaults(&self, matcher: &mut ArgMatcher) -> ClapResult<()> {
+         debug!("Parser::add_defaults");
+ 
+-        for arg in self.cmd.get_opts() {
+-            debug!("Parser::add_defaults:iter:{}:", arg.name);
+-            self.add_default_value(arg, matcher)?;
+-        }
+-
+-        for arg in self.cmd.get_positionals() {
++        for arg in self.cmd.get_arguments() {
+             debug!("Parser::add_defaults:iter:{}:", arg.name);
+             self.add_default_value(arg, matcher)?;
+         }

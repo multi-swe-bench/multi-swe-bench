@@ -1,0 +1,156 @@
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index 3101b3344ac..f743d96fa54 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -93,7 +93,7 @@ pub struct Arg<'help> {
+     pub(crate) validator_os: Option<Arc<Mutex<ValidatorOs<'help>>>>,
+     pub(crate) val_delim: Option<char>,
+     pub(crate) default_vals: Vec<&'help OsStr>,
+-    pub(crate) default_vals_ifs: VecMap<(Id, Option<&'help OsStr>, &'help OsStr)>,
++    pub(crate) default_vals_ifs: VecMap<(Id, Option<&'help OsStr>, Option<&'help OsStr>)>,
+     pub(crate) default_missing_vals: Vec<&'help OsStr>,
+     pub(crate) env: Option<(&'help OsStr, Option<OsString>)>,
+     pub(crate) terminator: Option<&'help str>,
+@@ -2527,7 +2527,7 @@ impl<'help> Arg<'help> {
+     ///         .long("flag"))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_if("flag", None, "default"))
++    ///         .default_value_if("flag", None, Some("default")))
+     ///     .get_matches_from(vec![
+     ///         "prog", "--flag"
+     ///     ]);
+@@ -2544,7 +2544,7 @@ impl<'help> Arg<'help> {
+     ///         .long("flag"))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_if("flag", None, "default"))
++    ///         .default_value_if("flag", None, Some("default")))
+     ///     .get_matches_from(vec![
+     ///         "prog"
+     ///     ]);
+@@ -2562,7 +2562,7 @@ impl<'help> Arg<'help> {
+     ///         .long("opt"))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_if("opt", Some("special"), "default"))
++    ///         .default_value_if("opt", Some("special"), Some("default")))
+     ///     .get_matches_from(vec![
+     ///         "prog", "--opt", "special"
+     ///     ]);
+@@ -2581,22 +2581,44 @@ impl<'help> Arg<'help> {
+     ///         .long("opt"))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_if("opt", Some("special"), "default"))
++    ///         .default_value_if("opt", Some("special"), Some("default")))
+     ///     .get_matches_from(vec![
+     ///         "prog", "--opt", "hahaha"
+     ///     ]);
+     ///
+     /// assert_eq!(m.value_of("other"), None);
+     /// ```
++    ///
++    /// We can also remove a default if the flag was set by setting `default` to `None`.
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg};
++    /// let m = App::new("prog")
++    ///     .arg(Arg::new("flag")
++    ///         .long("flag"))
++    ///     .arg(Arg::new("other")
++    ///         .long("other")
++    ///         .default_value("default")
++    ///         .default_value_if("flag", None, None))
++    ///     .get_matches_from(vec![
++    ///         "prog", "--flag"
++    ///     ]);
++    ///
++    /// assert_eq!(m.value_of("other"), None);
++    /// ```
+     /// [`Arg::takes_value(true)`]: ./struct.Arg.html#method.takes_value
+     /// [`Arg::default_value`]: ./struct.Arg.html#method.default_value
+-    pub fn default_value_if<T: Key>(
++    pub fn default_value_if<T: Key, S: Into<Option<&'help str>>>(
+         self,
+         arg_id: T,
+         val: Option<&'help str>,
+-        default: &'help str,
++        default: S,
+     ) -> Self {
+-        self.default_value_if_os(arg_id, val.map(OsStr::new), OsStr::new(default))
++        self.default_value_if_os(
++            arg_id,
++            val.map(OsStr::new),
++            default.into().map(|s| OsStr::new(s)),
++        )
+     }
+ 
+     /// Provides a conditional default value in the exact same manner as [`Arg::default_value_if`]
+@@ -2604,15 +2626,15 @@ impl<'help> Arg<'help> {
+     ///
+     /// [`Arg::default_value_if`]: ./struct.Arg.html#method.default_value_if
+     /// [`OsStr`]: https://doc.rust-lang.org/std/ffi/struct.OsStr.html
+-    pub fn default_value_if_os<T: Key>(
++    pub fn default_value_if_os<T: Key, S: Into<Option<&'help OsStr>>>(
+         mut self,
+         arg_id: T,
+         val: Option<&'help OsStr>,
+-        default: &'help OsStr,
++        default: S,
+     ) -> Self {
+         let l = self.default_vals_ifs.len();
+         self.default_vals_ifs
+-            .insert(l, (arg_id.into(), val, default));
++            .insert(l, (arg_id.into(), val, default.into()));
+         self.takes_value(true)
+     }
+ 
+@@ -2700,12 +2722,14 @@ impl<'help> Arg<'help> {
+     /// ```
+     /// [`Arg::takes_value(true)`]: ./struct.Arg.html#method.takes_value
+     /// [`Arg::default_value_if`]: ./struct.Arg.html#method.default_value_if
+-    pub fn default_value_ifs<T: Key>(
++    pub fn default_value_ifs<T: Key, S: Into<Option<&'help str>> + Copy>(
+         mut self,
+-        ifs: &[(T, Option<&'help str>, &'help str)],
++        ifs: &[(T, Option<&'help str>, S)],
+     ) -> Self {
+         for (arg, val, default) in ifs {
+-            self = self.default_value_if_os(arg, val.map(OsStr::new), OsStr::new(*default));
++            let default: Option<&'help str> = (*default).into();
++            self =
++                self.default_value_if_os(arg, val.map(OsStr::new), default.map(|s| OsStr::new(s)));
+         }
+         self
+     }
+@@ -2715,11 +2739,12 @@ impl<'help> Arg<'help> {
+     ///
+     /// [`Arg::default_value_ifs`]: ./struct.Arg.html#method.default_value_ifs
+     /// [`OsStr`]: https://doc.rust-lang.org/std/ffi/struct.OsStr.html
+-    pub fn default_value_ifs_os<T: Key>(
++    pub fn default_value_ifs_os<T: Key, S: Into<Option<&'help OsStr>> + Copy>(
+         mut self,
+-        ifs: &[(T, Option<&'help OsStr>, &'help OsStr)],
++        ifs: &[(T, Option<&'help OsStr>, S)],
+     ) -> Self {
+         for (arg, val, default) in ifs {
++            let default: Option<&'help OsStr> = (*default).into();
+             self = self.default_value_if_os(arg.key(), *val, default);
+         }
+         self
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index d72add12bce..d613e167644 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -1486,7 +1486,9 @@ impl<'help, 'app> Parser<'help, 'app> {
+                     };
+ 
+                     if add {
+-                        self.add_val_to_arg(arg, &ArgStr::new(default), matcher, ty)?;
++                        if let Some(default) = default {
++                            self.add_val_to_arg(arg, &ArgStr::new(default), matcher, ty)?;
++                        }
+                         done = true;
+                         break;
+                     }

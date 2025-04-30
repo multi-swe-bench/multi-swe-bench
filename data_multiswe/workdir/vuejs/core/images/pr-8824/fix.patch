@@ -1,0 +1,48 @@
+diff --git a/packages/compiler-sfc/src/script/utils.ts b/packages/compiler-sfc/src/script/utils.ts
+index 3cbc270269a..bc621d25840 100644
+--- a/packages/compiler-sfc/src/script/utils.ts
++++ b/packages/compiler-sfc/src/script/utils.ts
+@@ -121,6 +121,8 @@ export function getEscapedPropName(key: string) {
+ 
+ export const cssVarNameEscapeSymbolsRE = /[ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g
+ 
+-export function getEscapedCssVarName(key: string) {
+-  return key.replace(cssVarNameEscapeSymbolsRE, s => `\\${s}`)
++export function getEscapedCssVarName(key: string, doubleEscape: boolean) {
++  return key.replace(cssVarNameEscapeSymbolsRE, s =>
++    doubleEscape ? `\\\\${s}` : `\\${s}`
++  )
+ }
+diff --git a/packages/compiler-sfc/src/style/cssVars.ts b/packages/compiler-sfc/src/style/cssVars.ts
+index 9fe727bc5dc..cb5274bc287 100644
+--- a/packages/compiler-sfc/src/style/cssVars.ts
++++ b/packages/compiler-sfc/src/style/cssVars.ts
+@@ -22,17 +22,25 @@ export function genCssVarsFromList(
+ ): string {
+   return `{\n  ${vars
+     .map(
+-      key => `"${isSSR ? `--` : ``}${genVarName(id, key, isProd)}": (${key})`
++      key =>
++        `"${isSSR ? `--` : ``}${genVarName(id, key, isProd, isSSR)}": (${key})`
+     )
+     .join(',\n  ')}\n}`
+ }
+ 
+-function genVarName(id: string, raw: string, isProd: boolean): string {
++function genVarName(
++  id: string,
++  raw: string,
++  isProd: boolean,
++  isSSR = false
++): string {
+   if (isProd) {
+     return hash(id + raw)
+   } else {
+     // escape ASCII Punctuation & Symbols
+-    return `${id}-${getEscapedCssVarName(raw)}`
++    // #7823 need to double-escape in SSR because the attributes are rendered
++    // into an HTML string
++    return `${id}-${getEscapedCssVarName(raw, isSSR)}`
+   }
+ }
+ 

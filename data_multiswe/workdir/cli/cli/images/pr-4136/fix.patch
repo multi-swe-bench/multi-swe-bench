@@ -1,0 +1,101 @@
+diff --git a/pkg/cmd/repo/list/http.go b/pkg/cmd/repo/list/http.go
+index ef574b43c1b..4c2ca50b34d 100644
+--- a/pkg/cmd/repo/list/http.go
++++ b/pkg/cmd/repo/list/http.go
+@@ -22,13 +22,14 @@ type FilterOptions struct {
+ 	Fork        bool
+ 	Source      bool
+ 	Language    string
++	Topic       string
+ 	Archived    bool
+ 	NonArchived bool
+ 	Fields      []string
+ }
+ 
+ func listRepos(client *http.Client, hostname string, limit int, owner string, filter FilterOptions) (*RepositoryList, error) {
+-	if filter.Language != "" || filter.Archived || filter.NonArchived {
++	if filter.Language != "" || filter.Archived || filter.NonArchived || filter.Topic != "" {
+ 		return searchRepos(client, hostname, limit, owner, filter)
+ 	}
+ 
+@@ -197,6 +198,10 @@ func searchQuery(owner string, filter FilterOptions) string {
+ 		q.SetLanguage(filter.Language)
+ 	}
+ 
++	if filter.Topic != "" {
++		q.SetTopic(filter.Topic)
++	}
++
+ 	switch filter.Visibility {
+ 	case "public":
+ 		q.SetVisibility(githubsearch.Public)
+diff --git a/pkg/cmd/repo/list/list.go b/pkg/cmd/repo/list/list.go
+index 3f1bf64f3e2..bb4ad3d531b 100644
+--- a/pkg/cmd/repo/list/list.go
++++ b/pkg/cmd/repo/list/list.go
+@@ -28,6 +28,7 @@ type ListOptions struct {
+ 	Fork        bool
+ 	Source      bool
+ 	Language    string
++	Topic       string
+ 	Archived    bool
+ 	NonArchived bool
+ 
+@@ -89,6 +90,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 	cmd.Flags().BoolVar(&opts.Source, "source", false, "Show only non-forks")
+ 	cmd.Flags().BoolVar(&opts.Fork, "fork", false, "Show only forks")
+ 	cmd.Flags().StringVarP(&opts.Language, "language", "l", "", "Filter by primary coding language")
++	cmd.Flags().StringVar(&opts.Topic, "topic", "", "Filter by topic")
+ 	cmd.Flags().BoolVar(&opts.Archived, "archived", false, "Show only archived repositories")
+ 	cmd.Flags().BoolVar(&opts.NonArchived, "no-archived", false, "Omit archived repositories")
+ 	cmdutil.AddJSONFlags(cmd, &opts.Exporter, api.RepositoryFields)
+@@ -109,6 +111,7 @@ func listRun(opts *ListOptions) error {
+ 		Fork:        opts.Fork,
+ 		Source:      opts.Source,
+ 		Language:    opts.Language,
++		Topic:       opts.Topic,
+ 		Archived:    opts.Archived,
+ 		NonArchived: opts.NonArchived,
+ 		Fields:      defaultFields,
+@@ -169,7 +172,7 @@ func listRun(opts *ListOptions) error {
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+-		hasFilters := filter.Visibility != "" || filter.Fork || filter.Source || filter.Language != ""
++		hasFilters := filter.Visibility != "" || filter.Fork || filter.Source || filter.Language != "" || filter.Topic != ""
+ 		title := listHeader(listResult.Owner, len(listResult.Repositories), listResult.TotalCount, hasFilters)
+ 		fmt.Fprintf(opts.IO.Out, "\n%s\n\n", title)
+ 	}
+diff --git a/pkg/githubsearch/query.go b/pkg/githubsearch/query.go
+index 3ba64fd68f9..f2570771042 100644
+--- a/pkg/githubsearch/query.go
++++ b/pkg/githubsearch/query.go
+@@ -50,6 +50,7 @@ type Query struct {
+ 	milestone  string
+ 
+ 	language   string
++	topic      string
+ 	forkState  string
+ 	visibility string
+ 	isArchived *bool
+@@ -118,6 +119,10 @@ func (q *Query) SetLanguage(name string) {
+ 	q.language = name
+ }
+ 
++func (q *Query) SetTopic(name string) {
++	q.topic = name
++}
++
+ func (q *Query) SetVisibility(visibility RepoVisibility) {
+ 	q.visibility = string(visibility)
+ }
+@@ -159,6 +164,9 @@ func (q *Query) String() string {
+ 	if q.language != "" {
+ 		qs += fmt.Sprintf("language:%s ", quote(q.language))
+ 	}
++	if q.topic != "" {
++		qs += fmt.Sprintf("topic:%s ", quote(q.topic))
++	}
+ 	if q.forkState != "" {
+ 		qs += fmt.Sprintf("fork:%s ", q.forkState)
+ 	}

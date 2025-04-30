@@ -1,0 +1,135 @@
+diff --git a/core/jsonx/json.go b/core/jsonx/json.go
+index 34cf92ea3aa3..abe21340d8fd 100644
+--- a/core/jsonx/json.go
++++ b/core/jsonx/json.go
+@@ -13,6 +13,16 @@ func Marshal(v interface{}) ([]byte, error) {
+ 	return json.Marshal(v)
+ }
+ 
++// MarshalToString marshals v into a string.
++func MarshalToString(v interface{}) (string, error) {
++	data, err := Marshal(v)
++	if err != nil {
++		return "", err
++	}
++
++	return string(data), nil
++}
++
+ // Unmarshal unmarshals data bytes into v.
+ func Unmarshal(data []byte, v interface{}) error {
+ 	decoder := json.NewDecoder(bytes.NewReader(data))
+@@ -53,12 +63,3 @@ func unmarshalUseNumber(decoder *json.Decoder, v interface{}) error {
+ func formatError(v string, err error) error {
+ 	return fmt.Errorf("string: `%s`, error: `%w`", v, err)
+ }
+-
+-// MarshalToString marshals v into string.
+-func MarshalToString(v interface{}) (string, error) {
+-	data, err := Marshal(v)
+-	if err != nil {
+-		return "", formatError(string(data), err)
+-	}
+-	return string(data), nil
+-}
+diff --git a/go.mod b/go.mod
+index 1872ef8eb001..34e65e4dd141 100644
+--- a/go.mod
++++ b/go.mod
+@@ -40,7 +40,7 @@ require (
+ 	k8s.io/api v0.22.9
+ 	k8s.io/apimachinery v0.22.9
+ 	k8s.io/client-go v0.22.9
+-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
++	k8s.io/utils v0.0.0-20220706174534-f6158b442e7c
+ )
+ 
+ require (
+diff --git a/go.sum b/go.sum
+index 41959d602687..60401c1dd5fe 100644
+--- a/go.sum
++++ b/go.sum
+@@ -868,6 +868,8 @@ k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c/go.mod h1:vHXdDvt9+2spS2R
+ k8s.io/utils v0.0.0-20211116205334-6203023598ed/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
+ k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 h1:HNSDgDCrr/6Ly3WEGKZftiE7IY19Vz2GdbOCyI4qqhc=
+ k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
++k8s.io/utils v0.0.0-20220706174534-f6158b442e7c h1:hFZO68mv/0xe8+V0gRT9BAq3/31cKjjeVv4nScriuBk=
++k8s.io/utils v0.0.0-20220706174534-f6158b442e7c/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
+ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
+ rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
+ rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
+diff --git a/zrpc/internal/serverinterceptors/statinterceptor.go b/zrpc/internal/serverinterceptors/statinterceptor.go
+index 16302c14b08d..a0997878d248 100644
+--- a/zrpc/internal/serverinterceptors/statinterceptor.go
++++ b/zrpc/internal/serverinterceptors/statinterceptor.go
+@@ -3,8 +3,10 @@ package serverinterceptors
+ import (
+ 	"context"
+ 	"encoding/json"
++	"sync"
+ 	"time"
+ 
++	"github.com/zeromicro/go-zero/core/lang"
+ 	"github.com/zeromicro/go-zero/core/logx"
+ 	"github.com/zeromicro/go-zero/core/stat"
+ 	"github.com/zeromicro/go-zero/core/syncx"
+@@ -15,7 +17,15 @@ import (
+ 
+ const defaultSlowThreshold = time.Millisecond * 500
+ 
+-var slowThreshold = syncx.ForAtomicDuration(defaultSlowThreshold)
++var (
++	notLoggingContentMethods sync.Map
++	slowThreshold            = syncx.ForAtomicDuration(defaultSlowThreshold)
++)
++
++// DontLogContentForMethod disable logging content for given method.
++func DontLogContentForMethod(method string) {
++	notLoggingContentMethods.Store(method, lang.Placeholder)
++}
+ 
+ // SetSlowThreshold sets the slow threshold.
+ func SetSlowThreshold(threshold time.Duration) {
+@@ -45,13 +55,24 @@ func logDuration(ctx context.Context, method string, req interface{}, duration t
+ 	if ok {
+ 		addr = client.Addr.String()
+ 	}
++
++	logger := logx.WithContext(ctx).WithDuration(duration)
++	_, ok = notLoggingContentMethods.Load(method)
++	if ok {
++		if duration > slowThreshold.Load() {
++			logger.Slowf("[RPC] slowcall - %s - %s - %s", addr, method)
++		} else {
++			logger.Infof("%s - %s - %s", addr, method)
++		}
++	}
++
+ 	content, err := json.Marshal(req)
+ 	if err != nil {
+ 		logx.WithContext(ctx).Errorf("%s - %s", addr, err.Error())
+ 	} else if duration > slowThreshold.Load() {
+-		logx.WithContext(ctx).WithDuration(duration).Slowf("[RPC] slowcall - %s - %s - %s",
++		logger.Slowf("[RPC] slowcall - %s - %s - %s",
+ 			addr, method, string(content))
+ 	} else {
+-		logx.WithContext(ctx).WithDuration(duration).Infof("%s - %s - %s", addr, method, string(content))
++		logger.Infof("%s - %s - %s", addr, method, string(content))
+ 	}
+ }
+diff --git a/zrpc/server.go b/zrpc/server.go
+index 1409e6deeff1..c73861844b8d 100644
+--- a/zrpc/server.go
++++ b/zrpc/server.go
+@@ -97,6 +97,11 @@ func (rs *RpcServer) Stop() {
+ 	logx.Close()
+ }
+ 
++// DontLogContentForMethod disable logging content for given method.
++func DontLogContentForMethod(method string) {
++	serverinterceptors.DontLogContentForMethod(method)
++}
++
+ // SetServerSlowThreshold sets the slow threshold on server side.
+ func SetServerSlowThreshold(threshold time.Duration) {
+ 	serverinterceptors.SetSlowThreshold(threshold)

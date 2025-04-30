@@ -1,0 +1,84 @@
+diff --git a/src/output/help.rs b/src/output/help.rs
+index 3ebac629cd1..684ca078cef 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -501,6 +501,13 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+                 .default_vals
+                 .iter()
+                 .map(|&pvs| pvs.to_string_lossy())
++                .map(|pvs| {
++                    if pvs.contains(char::is_whitespace) {
++                        Cow::from(format!("{:?}", pvs))
++                    } else {
++                        pvs
++                    }
++                })
+                 .collect::<Vec<_>>()
+                 .join(" ");
+ 
+@@ -550,7 +557,20 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+                 a.possible_vals
+             );
+ 
+-            spec_vals.push(format!("[possible values: {}]", a.possible_vals.join(", ")));
++            let pvs = a
++                .possible_vals
++                .iter()
++                .map(|&pv| {
++                    if pv.contains(char::is_whitespace) {
++                        format!("{:?}", pv)
++                    } else {
++                        pv.to_string()
++                    }
++                })
++                .collect::<Vec<_>>()
++                .join(", ");
++
++            spec_vals.push(format!("[possible values: {}]", pvs));
+         }
+         let prefix = if !spec_vals.is_empty() && !a.get_about().unwrap_or("").is_empty() {
+             " "
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index fb483437ca9..c9fe12479c4 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -506,12 +506,22 @@ impl Error {
+         let mut c = Colorizer::new(true, color);
+         let suffix = suggestions::did_you_mean(&bad_val, good_vals.iter()).pop();
+ 
+-        let mut sorted: Vec<String> = good_vals.iter().map(|v| v.to_string()).collect();
++        let mut sorted: Vec<String> = good_vals
++            .iter()
++            .map(|v| v.to_string())
++            .map(|v| {
++                if v.contains(char::is_whitespace) {
++                    format!("{:?}", v)
++                } else {
++                    v
++                }
++            })
++            .collect();
+         sorted.sort();
+ 
+-        start_error(&mut c, "'");
+-        c.warning(bad_val.clone());
+-        c.none("' isn't a valid value for '");
++        start_error(&mut c, "");
++        c.warning(format!("{:?}", bad_val));
++        c.none(" isn't a valid value for '");
+         c.warning(arg.to_string());
+         c.none("'\n\t[possible values: ");
+ 
+@@ -527,9 +537,9 @@ impl Error {
+         c.none("]");
+ 
+         if let Some(val) = suffix {
+-            c.none("\n\n\tDid you mean '");
+-            c.good(val);
+-            c.none("'?");
++            c.none("\n\n\tDid you mean ");
++            c.good(format!("{:?}", val));
++            c.none("?");
+         }
+ 
+         put_usage(&mut c, usage);

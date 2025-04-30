@@ -1,0 +1,3261 @@
+diff --git a/docs/benchmarks.md b/docs/benchmarks.md
+new file mode 100644
+index 0000000000..3426b365a9
+--- /dev/null
++++ b/docs/benchmarks.md
+@@ -0,0 +1,249 @@
++# Authoring benchmarks
++
++Writing benchmarks is not easy. Catch simplifies certain aspects but you'll
++always need to take care about various aspects. Understanding a few things about
++the way Catch runs your code will be very helpful when writing your benchmarks.
++
++First off, let's go over some terminology that will be used throughout this
++guide.
++
++- *User code*: user code is the code that the user provides to be measured.
++- *Run*: one run is one execution of the user code.
++- *Sample*: one sample is one data point obtained by measuring the time it takes
++  to perform a certain number of runs. One sample can consist of more than one
++  run if the clock available does not have enough resolution to accurately
++  measure a single run. All samples for a given benchmark execution are obtained
++  with the same number of runs.
++
++## Execution procedure
++
++Now I can explain how a benchmark is executed in Catch. There are three main
++steps, though the first does not need to be repeated for every benchmark.
++
++1. *Environmental probe*: before any benchmarks can be executed, the clock's
++resolution is estimated. A few other environmental artifacts are also estimated
++at this point, like the cost of calling the clock function, but they almost
++never have any impact in the results.
++
++2. *Estimation*: the user code is executed a few times to obtain an estimate of
++the amount of runs that should be in each sample. This also has the potential
++effect of bringing relevant code and data into the caches before the actual
++measurement starts.
++
++3. *Measurement*: all the samples are collected sequentially by performing the
++number of runs estimated in the previous step for each sample.
++
++This already gives us one important rule for writing benchmarks for Catch: the
++benchmarks must be repeatable. The user code will be executed several times, and
++the number of times it will be executed during the estimation step cannot be
++known beforehand since it depends on the time it takes to execute the code.
++User code that cannot be executed repeatedly will lead to bogus results or
++crashes.
++
++## Benchmark specification
++
++Benchmarks can be specified anywhere inside a Catch test case.
++There is a simple and a slightly more advanced version of the `BENCHMARK` macro.
++
++Let's have a look how a naive Fibonacci implementation could be benchmarked:
++```c++
++std::uint64_t Fibonacci(std::uint64_t number) {
++    return number < 2 ? 1 : Fibonacci(number - 1) + Fibonacci(number - 2);
++}
++```
++Now the most straight forward way to benchmark this function, is just adding a `BENCHMARK` macro to our test case:
++```c++
++TEST_CASE("Fibonacci") {
++    CHECK(Fibonacci(0) == 1);
++    // some more asserts..
++    CHECK(Fibonacci(5) == 8);
++    // some more asserts..
++
++    // now let's benchmark:
++    BENCHMARK("Fibonacci 20") {
++        return Fibonacci(20);
++    };
++
++    BENCHMARK("Fibonacci 25") {
++        return Fibonacci(25);
++    };
++
++    BENCHMARK("Fibonacci 30") {
++        return Fibonacci(30);
++    };
++
++    BENCHMARK("Fibonacci 35") {
++        return Fibonacci(35);
++    };
++}
++```
++There's a few things to note:
++- As `BENCHMARK` expands to a lambda expression it is necessary to add a semicolon after
++ the closing brace (as opposed to the first experimental version).
++- The `return` is a handy way to avoid the compiler optimizing away the benchmark code.
++
++Running this already runs the benchmarks and outputs something similar to:
++```
++-------------------------------------------------------------------------------
++Fibonacci
++-------------------------------------------------------------------------------
++C:\path\to\Catch2\Benchmark.tests.cpp(10)
++...............................................................................
++benchmark name                                  samples       iterations    estimated
++                                                mean          low mean      high mean
++                                                std dev       low std dev   high std dev
++-------------------------------------------------------------------------------
++Fibonacci 20                                            100       416439   83.2878 ms
++                                                       2 ns         2 ns         2 ns
++                                                       0 ns         0 ns         0 ns
++
++Fibonacci 25                                            100       400776   80.1552 ms
++                                                       3 ns         3 ns         3 ns
++                                                       0 ns         0 ns         0 ns
++
++Fibonacci 30                                            100       396873   79.3746 ms
++                                                      17 ns        17 ns        17 ns
++                                                       0 ns         0 ns         0 ns
++
++Fibonacci 35                                            100       145169   87.1014 ms
++                                                     468 ns       464 ns       473 ns
++                                                      21 ns        15 ns        34 ns
++```
++
++### Advanced benchmarking
++The simplest use case shown above, takes no arguments and just runs the user code that needs to be measured.
++However, if using the `BENCHMARK_ADVANCED` macro and adding a `Catch::Benchmark::Chronometer` argument after
++the macro, some advanced features are available. The contents of the simple benchmarks are invoked once per run,
++while the blocks of the advanced benchmarks are invoked exactly twice:
++once during the estimation phase, and another time during the execution phase.
++
++```c++
++BENCHMARK("simple"){ return long_computation(); };
++
++BENCHMARK_ADVANCED("advanced")(Catch::Benchmark::Chronometer meter) {
++    set_up();
++    meter.measure([] { return long_computation(); });
++};
++```
++
++These advanced benchmarks no longer consist entirely of user code to be measured.
++In these cases, the code to be measured is provided via the
++`Catch::Benchmark::Chronometer::measure` member function. This allows you to set up any
++kind of state that might be required for the benchmark but is not to be included
++in the measurements, like making a vector of random integers to feed to a
++sorting algorithm.
++
++A single call to `Catch::Benchmark::Chronometer::measure` performs the actual measurements
++by invoking the callable object passed in as many times as necessary. Anything
++that needs to be done outside the measurement can be done outside the call to
++`measure`.
++
++The callable object passed in to `measure` can optionally accept an `int`
++parameter.
++
++```c++
++meter.measure([](int i) { return long_computation(i); });
++```
++
++If it accepts an `int` parameter, the sequence number of each run will be passed
++in, starting with 0. This is useful if you want to measure some mutating code,
++for example. The number of runs can be known beforehand by calling
++`Catch::Benchmark::Chronometer::runs`; with this one can set up a different instance to be
++mutated by each run.
++
++```c++
++std::vector<std::string> v(meter.runs());
++std::fill(v.begin(), v.end(), test_string());
++meter.measure([&v](int i) { in_place_escape(v[i]); });
++```
++
++Note that it is not possible to simply use the same instance for different runs
++and resetting it between each run since that would pollute the measurements with
++the resetting code.
++
++It is also possible to just provide an argument name to the simple `BENCHMARK` macro to get 
++the same semantics as providing a callable to `meter.measure` with `int` argument:
++
++```c++
++BENCHMARK("indexed", i){ return long_computation(i); };
++```
++
++### Constructors and destructors
++
++All of these tools give you a lot mileage, but there are two things that still
++need special handling: constructors and destructors. The problem is that if you
++use automatic objects they get destroyed by the end of the scope, so you end up
++measuring the time for construction and destruction together. And if you use
++dynamic allocation instead, you end up including the time to allocate memory in
++the measurements.
++
++To solve this conundrum, Catch provides class templates that let you manually
++construct and destroy objects without dynamic allocation and in a way that lets
++you measure construction and destruction separately.
++
++```c++
++BENCHMARK_ADVANCED("construct")(Catch::Benchmark::Chronometer meter)
++{
++    std::vector<Catch::Benchmark::storage_for<std::string>> storage(meter.runs());
++    meter.measure([&](int i) { storage[i].construct("thing"); });
++})
++
++BENCHMARK_ADVANCED("destroy", [](Catch::Benchmark::Chronometer meter)
++{
++    std::vector<Catch::Benchmark::destructable_object<std::string>> storage(meter.runs());
++    for(auto&& o : storage)
++        o.construct("thing");
++    meter.measure([&](int i) { storage[i].destruct(); });
++})
++```
++
++`Catch::Benchmark::storage_for<T>` objects are just pieces of raw storage suitable for `T`
++objects. You can use the `Catch::Benchmark::storage_for::construct` member function to call a constructor and
++create an object in that storage. So if you want to measure the time it takes
++for a certain constructor to run, you can just measure the time it takes to run
++this function.
++
++When the lifetime of a `Catch::Benchmark::storage_for<T>` object ends, if an actual object was
++constructed there it will be automatically destroyed, so nothing leaks.
++
++If you want to measure a destructor, though, we need to use
++`Catch::Benchmark::destructable_object<T>`. These objects are similar to
++`Catch::Benchmark::storage_for<T>` in that construction of the `T` object is manual, but
++it does not destroy anything automatically. Instead, you are required to call
++the `Catch::Benchmark::destructable_object::destruct` member function, which is what you
++can use to measure the destruction time.
++
++### The optimizer
++
++Sometimes the optimizer will optimize away the very code that you want to
++measure. There are several ways to use results that will prevent the optimiser
++from removing them. You can use the `volatile` keyword, or you can output the
++value to standard output or to a file, both of which force the program to
++actually generate the value somehow.
++
++Catch adds a third option. The values returned by any function provided as user
++code are guaranteed to be evaluated and not optimised out. This means that if
++your user code consists of computing a certain value, you don't need to bother
++with using `volatile` or forcing output. Just `return` it from the function.
++That helps with keeping the code in a natural fashion.
++
++Here's an example:
++
++```c++
++// may measure nothing at all by skipping the long calculation since its
++// result is not used
++BENCHMARK("no return"){ long_calculation(); };
++
++// the result of long_calculation() is guaranteed to be computed somehow
++BENCHMARK("with return"){ return long_calculation(); };
++```
++
++However, there's no other form of control over the optimizer whatsoever. It is
++up to you to write a benchmark that actually measures what you want and doesn't
++just measure the time to do a whole bunch of nothing.
++
++To sum up, there are two simple rules: whatever you would do in handwritten code
++to control optimization still works in Catch; and Catch makes return values
++from user code into observable effects that can't be optimized away.
++
++<i>Adapted from nonius' documentation.</i>
+diff --git a/docs/command-line.md b/docs/command-line.md
+index f68c84ca83..d52d437ec2 100644
+--- a/docs/command-line.md
++++ b/docs/command-line.md
+@@ -20,7 +20,10 @@
+ [Specify a seed for the Random Number Generator](#specify-a-seed-for-the-random-number-generator)<br>
+ [Identify framework and version according to the libIdentify standard](#identify-framework-and-version-according-to-the-libidentify-standard)<br>
+ [Wait for key before continuing](#wait-for-key-before-continuing)<br>
+-[Specify multiples of clock resolution to run benchmarks for](#specify-multiples-of-clock-resolution-to-run-benchmarks-for)<br>
++[Specify the number of benchmark samples to collect](#specify-the-number-of-benchmark-samples-to-collect)<br>
++[Specify the number of benchmark resamples for bootstrapping](#specify-the-number-of-resamples-for-bootstrapping)<br>
++[Specify the confidence interval for bootstrapping](#specify-the-confidence-interval-for-bootstrapping)<br>
++[Disable statistical analysis of collected benchmark samples](#disable-statistical-analysis-of-collected-benchmark-samples)<br>
+ [Usage](#usage)<br>
+ [Specify the section to run](#specify-the-section-to-run)<br>
+ [Filenames as tags](#filenames-as-tags)<br>
+@@ -57,7 +60,10 @@ Click one of the following links to take you straight to that option - or scroll
+ <a href="#rng-seed">                                    `    --rng-seed`</a><br />
+ <a href="#libidentify">                                 `    --libidentify`</a><br />
+ <a href="#wait-for-keypress">                           `    --wait-for-keypress`</a><br />
+-<a href="#benchmark-resolution-multiple">               `    --benchmark-resolution-multiple`</a><br />
++<a href="#benchmark-samples">                           `    --benchmark-samples`</a><br />
++<a href="#benchmark-resamples">                         `    --benchmark-resamples`</a><br />
++<a href="#benchmark-confidence-interval">               `    --benchmark-confidence-interval`</a><br />
++<a href="#benchmark-no-analysis">                       `    --benchmark-no-analysis`</a><br />
+ <a href="#use-colour">                                  `    --use-colour`</a><br />
+ 
+ </br>
+@@ -267,13 +273,40 @@ See [The LibIdentify repo for more information and examples](https://github.com/
+ Will cause the executable to print a message and wait until the return/ enter key is pressed before continuing -
+ either before running any tests, after running all tests - or both, depending on the argument.
+ 
+-<a id="benchmark-resolution-multiple"></a>
+-## Specify multiples of clock resolution to run benchmarks for
+-<pre>--benchmark-resolution-multiple &lt;multiplier&gt;</pre>
++<a id="benchmark-samples"></a>
++## Specify the number of benchmark samples to collect
++<pre>--benchmark-samples &lt;# of samples&gt;</pre>
+ 
+-When running benchmarks the clock resolution is estimated. Benchmarks are then run for exponentially increasing
+-numbers of iterations until some multiple of the estimated resolution is exceed. By default that multiple is 100, but 
+-it can be overridden here.
++When running benchmarks a number of "samples" is collected. This is the base data for later statistical analysis.
++Per sample a clock resolution dependent number of iterations of the user code is run, which is independent of the number of samples. Defaults to 100.
++
++<a id="benchmark-resamples"></a>
++## Specify the number of resamples for bootstrapping
++<pre>--benchmark-resamples &lt;# of resamples&gt;</pre>
++
++After the measurements are performed, statistical [bootstrapping] is performed
++on the samples. The number of resamples for that bootstrapping is configurable
++but defaults to 100000. Due to the bootstrapping it is possible to give
++estimates for the mean and standard deviation. The estimates come with a lower
++bound and an upper bound, and the confidence interval (which is configurable but
++defaults to 95%).
++
++ [bootstrapping]: http://en.wikipedia.org/wiki/Bootstrapping_%28statistics%29
++
++<a id="benchmark-confidence-interval"></a>
++## Specify the confidence-interval for bootstrapping
++<pre>--benchmark-confidence-interval &lt;confidence-interval&gt;</pre>
++
++The confidence-interval is used for statistical bootstrapping on the samples to
++calculate the upper and lower bounds of mean and standard deviation.
++Must be between 0 and 1 and defaults to 0.95.
++
++<a id="benchmark-no-analysis"></a>
++## Disable statistical analysis of collected benchmark samples
++<pre>--benchmark-no-analysis</pre>
++
++When this flag is specified no bootstrapping or any other statistical analysis is performed.
++Instead the user code is only measured and the plain mean from the samples is reported.
+ 
+ <a id="usage"></a>
+ ## Usage
+diff --git a/docs/configuration.md b/docs/configuration.md
+index c01d7f5e63..cfe4b9a0ff 100644
+--- a/docs/configuration.md
++++ b/docs/configuration.md
+@@ -149,6 +149,7 @@ by using `_NO_` in the macro, e.g. `CATCH_CONFIG_NO_CPP17_UNCAUGHT_EXCEPTIONS`.
+     CATCH_CONFIG_DISABLE                    // Disables assertions and test case registration
+     CATCH_CONFIG_WCHAR                      // Enables use of wchart_t
+     CATCH_CONFIG_EXPERIMENTAL_REDIRECT      // Enables the new (experimental) way of capturing stdout/stderr
++    CATCH_CONFIG_ENABLE_BENCHMARKING        // Enables the integrated benchmarking features (has a significant effect on compilation speed)
+ 
+ Currently Catch enables `CATCH_CONFIG_WINDOWS_SEH` only when compiled with MSVC, because some versions of MinGW do not have the necessary Win32 API support.
+ 
+diff --git a/include/catch.hpp b/include/catch.hpp
+index 947957f57b..eebc470cae 100644
+--- a/include/catch.hpp
++++ b/include/catch.hpp
+@@ -53,7 +53,6 @@
+ #include "internal/catch_test_registry.h"
+ #include "internal/catch_capture.hpp"
+ #include "internal/catch_section.h"
+-#include "internal/catch_benchmark.h"
+ #include "internal/catch_interfaces_exception.h"
+ #include "internal/catch_approx.h"
+ #include "internal/catch_compiler_capabilities.h"
+@@ -79,6 +78,10 @@
+ #include "internal/catch_external_interfaces.h"
+ #endif
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++#include "internal/benchmark/catch_benchmark.hpp"
++#endif
++
+ #endif // ! CATCH_CONFIG_IMPL_ONLY
+ 
+ #ifdef CATCH_IMPL
+@@ -89,6 +92,7 @@
+ #include "internal/catch_default_main.hpp"
+ #endif
+ 
++
+ #if !defined(CATCH_CONFIG_IMPL_ONLY)
+ 
+ #ifdef CLARA_CONFIG_MAIN_NOT_DEFINED
+@@ -188,6 +192,13 @@
+ #define CATCH_THEN( desc )      INTERNAL_CATCH_DYNAMIC_SECTION( "     Then: " << desc )
+ #define CATCH_AND_THEN( desc )  INTERNAL_CATCH_DYNAMIC_SECTION( "      And: " << desc )
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++#define CATCH_BENCHMARK(...) \
++    INTERNAL_CATCH_BENCHMARK(INTERNAL_CATCH_UNIQUE_NAME(____C_A_T_C_H____B_E_N_C_H____), INTERNAL_CATCH_GET_1_ARG(__VA_ARGS__,,), INTERNAL_CATCH_GET_2_ARG(__VA_ARGS__,,))
++#define CATCH_BENCHMARK_ADVANCED(name) \
++    INTERNAL_CATCH_BENCHMARK_ADVANCED(INTERNAL_CATCH_UNIQUE_NAME(____C_A_T_C_H____B_E_N_C_H____), name)
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+ // If CATCH_CONFIG_PREFIX_ALL is not defined then the CATCH_ prefix is not required
+ #else
+ 
+@@ -283,6 +294,13 @@
+ #define THEN( desc )      INTERNAL_CATCH_DYNAMIC_SECTION( "     Then: " << desc )
+ #define AND_THEN( desc )  INTERNAL_CATCH_DYNAMIC_SECTION( "      And: " << desc )
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++#define BENCHMARK(...) \
++    INTERNAL_CATCH_BENCHMARK(INTERNAL_CATCH_UNIQUE_NAME(____C_A_T_C_H____B_E_N_C_H____), INTERNAL_CATCH_GET_1_ARG(__VA_ARGS__,,), INTERNAL_CATCH_GET_2_ARG(__VA_ARGS__,,))
++#define BENCHMARK_ADVANCED(name) \
++    INTERNAL_CATCH_BENCHMARK_ADVANCED(INTERNAL_CATCH_UNIQUE_NAME(____C_A_T_C_H____B_E_N_C_H____), name)
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+ using Catch::Detail::Approx;
+ 
+ #else // CATCH_CONFIG_DISABLE
+diff --git a/include/internal/benchmark/catch_benchmark.hpp b/include/internal/benchmark/catch_benchmark.hpp
+new file mode 100644
+index 0000000000..3c06121079
+--- /dev/null
++++ b/include/internal/benchmark/catch_benchmark.hpp
+@@ -0,0 +1,122 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Benchmark
++#ifndef TWOBLUECUBES_CATCH_BENCHMARK_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_BENCHMARK_HPP_INCLUDED
++
++#include "../catch_config.hpp"
++#include "../catch_context.h"
++#include "../catch_interfaces_reporter.h"
++#include "../catch_test_registry.h"
++
++#include "catch_chronometer.hpp"
++#include "catch_clock.hpp"
++#include "catch_environment.hpp"
++#include "catch_execution_plan.hpp"
++#include "detail/catch_estimate_clock.hpp"
++#include "detail/catch_complete_invoke.hpp"
++#include "detail/catch_analyse.hpp"
++#include "detail/catch_benchmark_function.hpp"
++#include "detail/catch_run_for_at_least.hpp"
++
++#include <algorithm>
++#include <functional>
++#include <string>
++#include <vector>
++#include <cmath>
++
++namespace Catch {
++    namespace Benchmark {
++        struct Benchmark {
++            Benchmark(std::string &&name)
++                : name(std::move(name)) {}
++
++            template <class FUN>
++            Benchmark(std::string &&name, FUN &&func)
++                : fun(std::move(func)), name(std::move(name)) {}
++
++            template <typename Clock>
++            ExecutionPlan<FloatDuration<Clock>> prepare(const IConfig &cfg, Environment<FloatDuration<Clock>> env) const {
++                auto min_time = env.clock_resolution.mean * Detail::minimum_ticks;
++                auto run_time = std::max(min_time, std::chrono::duration_cast<decltype(min_time)>(Detail::warmup_time));
++                auto&& test = Detail::run_for_at_least<Clock>(std::chrono::duration_cast<ClockDuration<Clock>>(run_time), 1, fun);
++                int new_iters = static_cast<int>(std::ceil(min_time * test.iterations / test.elapsed));
++                return { new_iters, test.elapsed / test.iterations * new_iters * cfg.benchmarkSamples(), fun, std::chrono::duration_cast<FloatDuration<Clock>>(Detail::warmup_time), Detail::warmup_iterations };
++            }
++
++            template <typename Clock = default_clock>
++            void run() {
++                IConfigPtr cfg = getCurrentContext().getConfig();
++
++                auto env = Detail::measure_environment<Clock>();
++
++                getResultCapture().benchmarkPreparing(name);
++                CATCH_TRY{
++                    auto plan = user_code([&] {
++                        return prepare<Clock>(*cfg, env);
++                    });
++
++                    BenchmarkInfo info {
++                        name,
++                        plan.estimated_duration.count(),
++                        plan.iterations_per_sample,
++                        cfg->benchmarkSamples(),
++                        cfg->benchmarkResamples(),
++                        env.clock_resolution.mean.count(),
++                        env.clock_cost.mean.count()
++                    };
++
++                    getResultCapture().benchmarkStarting(info);
++
++                    auto samples = user_code([&] {
++                        return plan.template run<Clock>(*cfg, env);
++                    });
++
++                    auto analysis = Detail::analyse(*cfg, env, samples.begin(), samples.end());
++                    BenchmarkStats<std::chrono::duration<double, std::nano>> stats{ info, analysis.samples, analysis.mean, analysis.standard_deviation, analysis.outliers, analysis.outlier_variance };
++                    getResultCapture().benchmarkEnded(stats);
++
++                } CATCH_CATCH_ALL{
++                    if (translateActiveException() != Detail::benchmarkErrorMsg) // benchmark errors have been reported, otherwise rethrow.
++                        std::rethrow_exception(std::current_exception());
++                }
++            }
++
++            // sets lambda to be used in fun *and* executes benchmark!
++            template <typename Fun,
++                typename std::enable_if<!Detail::is_related<Fun, Benchmark>::value, int>::type = 0>
++                Benchmark & operator=(Fun func) {
++                fun = Detail::BenchmarkFunction(func);
++                run();
++                return *this;
++            }
++
++            explicit operator bool() {
++                return true;
++            }
++
++        private:
++            Detail::BenchmarkFunction fun;
++            std::string name;
++        };
++    }
++} // namespace Catch
++
++#define INTERNAL_CATCH_GET_1_ARG(arg1, arg2, ...) arg1
++#define INTERNAL_CATCH_GET_2_ARG(arg1, arg2, ...) arg2
++
++#define INTERNAL_CATCH_BENCHMARK(BenchmarkName, name, benchmarkIndex)\
++    if( Catch::Benchmark::Benchmark BenchmarkName{name} ) \
++        BenchmarkName = [&](int benchmarkIndex)
++
++#define INTERNAL_CATCH_BENCHMARK_ADVANCED(BenchmarkName, name)\
++    if( Catch::Benchmark::Benchmark BenchmarkName{name} ) \
++        BenchmarkName = [&]
++
++#endif // TWOBLUECUBES_CATCH_BENCHMARK_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_chronometer.hpp b/include/internal/benchmark/catch_chronometer.hpp
+new file mode 100644
+index 0000000000..1022017d08
+--- /dev/null
++++ b/include/internal/benchmark/catch_chronometer.hpp
+@@ -0,0 +1,71 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// User-facing chronometer
++
++#ifndef TWOBLUECUBES_CATCH_CHRONOMETER_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_CHRONOMETER_HPP_INCLUDED
++
++#include "catch_clock.hpp"
++#include "catch_optimizer.hpp"
++#include "detail/catch_complete_invoke.hpp"
++#include "../catch_meta.hpp"
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            struct ChronometerConcept {
++                virtual void start() = 0;
++                virtual void finish() = 0;
++                virtual ~ChronometerConcept() = default;
++            };
++            template <typename Clock>
++            struct ChronometerModel final : public ChronometerConcept {
++                void start() override { started = Clock::now(); }
++                void finish() override { finished = Clock::now(); }
++
++                ClockDuration<Clock> elapsed() const { return finished - started; }
++
++                TimePoint<Clock> started;
++                TimePoint<Clock> finished;
++            };
++        } // namespace Detail
++
++        struct Chronometer {
++        public:
++            template <typename Fun>
++            void measure(Fun&& fun) { measure(std::forward<Fun>(fun), is_callable<Fun(int)>()); }
++
++            int runs() const { return k; }
++
++            Chronometer(Detail::ChronometerConcept& meter, int k)
++                : impl(&meter)
++                , k(k) {}
++
++        private:
++            template <typename Fun>
++            void measure(Fun&& fun, std::false_type) {
++                measure([&fun](int) { return fun(); }, std::true_type());
++            }
++
++            template <typename Fun>
++            void measure(Fun&& fun, std::true_type) {
++                Detail::optimizer_barrier();
++                impl->start();
++                for (int i = 0; i < k; ++i) invoke_deoptimized(fun, i);
++                impl->finish();
++                Detail::optimizer_barrier();
++            }
++
++            Detail::ChronometerConcept* impl;
++            int k;
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_CHRONOMETER_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_clock.hpp b/include/internal/benchmark/catch_clock.hpp
+new file mode 100644
+index 0000000000..32a3e868b9
+--- /dev/null
++++ b/include/internal/benchmark/catch_clock.hpp
+@@ -0,0 +1,40 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Clocks
++
++#ifndef TWOBLUECUBES_CATCH_CLOCK_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_CLOCK_HPP_INCLUDED
++
++#include <chrono>
++#include <ratio>
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Clock>
++        using ClockDuration = typename Clock::duration;
++        template <typename Clock>
++        using FloatDuration = std::chrono::duration<double, typename Clock::period>;
++
++        template <typename Clock>
++        using TimePoint = typename Clock::time_point;
++
++        using default_clock = std::chrono::steady_clock;
++
++        template <typename Clock>
++        struct now {
++            TimePoint<Clock> operator()() const {
++                return Clock::now();
++            }
++        };
++
++        using fp_seconds = std::chrono::duration<double, std::ratio<1>>;
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_CLOCK_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_constructor.hpp b/include/internal/benchmark/catch_constructor.hpp
+new file mode 100644
+index 0000000000..bf6dfec990
+--- /dev/null
++++ b/include/internal/benchmark/catch_constructor.hpp
+@@ -0,0 +1,73 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Constructor and destructor helpers
++
++#ifndef TWOBLUECUBES_CATCH_CONSTRUCTOR_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_CONSTRUCTOR_HPP_INCLUDED
++
++#include <type_traits>
++
++namespace Catch {
++    namespace Detail {
++        template <typename T, bool Destruct>
++        struct ObjectStorage
++        {
++            using TStorage = typename std::aligned_storage<sizeof(T), std::alignment_of<T>::value>::type;
++
++            ObjectStorage() : data() {}
++
++            ObjectStorage(const ObjectStorage& other)
++            {
++                new(&data) T(other.stored_object());
++            }
++
++            ObjectStorage(ObjectStorage&& other)
++            {
++                new(&data) T(std::move(other.stored_object()));
++            }
++
++            ~ObjectStorage() { destruct_on_exit<T>(); }
++
++            template <typename... Args>
++            void construct(Args&&... args)
++            {
++                new (&data) T(std::forward<Args>(args)...);
++            }
++
++            template <bool AllowManualDestruction = !Destruct>
++            typename std::enable_if<AllowManualDestruction>::type destruct()
++            {
++                stored_object().~T();
++            }
++
++        private:
++            // If this is a constructor benchmark, destruct the underlying object
++            template <typename U>
++            void destruct_on_exit(typename std::enable_if<Destruct, U>::type* = 0) { destruct<true>(); }
++            // Otherwise, don't
++            template <typename U>
++            void destruct_on_exit(typename std::enable_if<!Destruct, U>::type* = 0) { }
++
++            T& stored_object()
++            {
++                return *static_cast<T*>(static_cast<void*>(&data));
++            }
++
++            TStorage data;
++        };
++    }
++
++    template <typename T>
++    using storage_for = Detail::ObjectStorage<T, true>;
++
++    template <typename T>
++    using destructable_object = Detail::ObjectStorage<T, false>;
++}
++
++#endif // TWOBLUECUBES_CATCH_CONSTRUCTOR_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_environment.hpp b/include/internal/benchmark/catch_environment.hpp
+new file mode 100644
+index 0000000000..5595124987
+--- /dev/null
++++ b/include/internal/benchmark/catch_environment.hpp
+@@ -0,0 +1,38 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Environment information
++
++#ifndef TWOBLUECUBES_CATCH_ENVIRONMENT_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_ENVIRONMENT_HPP_INCLUDED
++
++#include "catch_clock.hpp"
++#include "catch_outlier_classification.hpp"
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Duration>
++        struct EnvironmentEstimate {
++            Duration mean;
++            OutlierClassification outliers;
++
++            template <typename Duration2>
++            operator EnvironmentEstimate<Duration2>() const {
++                return { mean, outliers };
++            }
++        };
++        template <typename Clock>
++        struct Environment {
++            using clock_type = Clock;
++            EnvironmentEstimate<FloatDuration<Clock>> clock_resolution;
++            EnvironmentEstimate<FloatDuration<Clock>> clock_cost;
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_ENVIRONMENT_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_estimate.hpp b/include/internal/benchmark/catch_estimate.hpp
+new file mode 100644
+index 0000000000..a3c913ce69
+--- /dev/null
++++ b/include/internal/benchmark/catch_estimate.hpp
+@@ -0,0 +1,31 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Statistics estimates
++
++#ifndef TWOBLUECUBES_CATCH_ESTIMATE_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_ESTIMATE_HPP_INCLUDED
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Duration>
++        struct Estimate {
++            Duration point;
++            Duration lower_bound;
++            Duration upper_bound;
++            double confidence_interval;
++
++            template <typename Duration2>
++            operator Estimate<Duration2>() const {
++                return { point, lower_bound, upper_bound, confidence_interval };
++            }
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_ESTIMATE_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_execution_plan.hpp b/include/internal/benchmark/catch_execution_plan.hpp
+new file mode 100644
+index 0000000000..e56c83aa7c
+--- /dev/null
++++ b/include/internal/benchmark/catch_execution_plan.hpp
+@@ -0,0 +1,58 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Execution plan
++
++#ifndef TWOBLUECUBES_CATCH_EXECUTION_PLAN_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_EXECUTION_PLAN_HPP_INCLUDED
++
++#include "../catch_config.hpp"
++#include "catch_clock.hpp"
++#include "catch_environment.hpp"
++#include "detail/catch_benchmark_function.hpp"
++#include "detail/catch_repeat.hpp"
++#include "detail/catch_run_for_at_least.hpp"
++
++#include <algorithm>
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Duration>
++        struct ExecutionPlan {
++            int iterations_per_sample;
++            Duration estimated_duration;
++            Detail::BenchmarkFunction benchmark;
++            Duration warmup_time;
++            int warmup_iterations;
++
++            template <typename Duration2>
++            operator ExecutionPlan<Duration2>() const {
++                return { iterations_per_sample, estimated_duration, benchmark, warmup_time, warmup_iterations };
++            }
++
++            template <typename Clock>
++            std::vector<FloatDuration<Clock>> run(const IConfig &cfg, Environment<FloatDuration<Clock>> env) const {
++                // warmup a bit
++                Detail::run_for_at_least<Clock>(std::chrono::duration_cast<ClockDuration<Clock>>(warmup_time), warmup_iterations, Detail::repeat(now<Clock>{}));
++
++                std::vector<FloatDuration<Clock>> times;
++                times.reserve(cfg.benchmarkSamples());
++                std::generate_n(std::back_inserter(times), cfg.benchmarkSamples(), [this, env] {
++                    Detail::ChronometerModel<Clock> model;
++                    this->benchmark(Chronometer(model, iterations_per_sample));
++                    auto sample_time = model.elapsed() - env.clock_cost.mean;
++                    if (sample_time < FloatDuration<Clock>::zero()) sample_time = FloatDuration<Clock>::zero();
++                    return sample_time / iterations_per_sample;
++                });
++                return times;
++            }
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_EXECUTION_PLAN_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_optimizer.hpp b/include/internal/benchmark/catch_optimizer.hpp
+new file mode 100644
+index 0000000000..bda7c6d7e9
+--- /dev/null
++++ b/include/internal/benchmark/catch_optimizer.hpp
+@@ -0,0 +1,68 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Hinting the optimizer
++
++#ifndef TWOBLUECUBES_CATCH_OPTIMIZER_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_OPTIMIZER_HPP_INCLUDED
++
++#if defined(_MSC_VER)
++#   include <atomic> // atomic_thread_fence
++#endif
++
++namespace Catch {
++    namespace Benchmark {
++#if defined(__GNUC__) || defined(__clang__)
++        template <typename T>
++        inline void keep_memory(T* p) {
++            asm volatile("" : : "g"(p) : "memory");
++        }
++        inline void keep_memory() {
++            asm volatile("" : : : "memory");
++        }
++
++        namespace Detail {
++            inline void optimizer_barrier() { keep_memory(); }
++        } // namespace Detail
++#elif defined(_MSC_VER)
++
++#pragma optimize("", off)
++        template <typename T>
++        inline void keep_memory(T* p) {
++            // thanks @milleniumbug
++            *reinterpret_cast<char volatile*>(p) = *reinterpret_cast<char const volatile*>(p);
++        }
++        // TODO equivalent keep_memory()
++#pragma optimize("", on)
++
++        namespace Detail {
++            inline void optimizer_barrier() {
++                std::atomic_thread_fence(std::memory_order_seq_cst);
++            }
++        } // namespace Detail
++
++#endif
++
++        template <typename T>
++        inline void deoptimize_value(T&& x) {
++            keep_memory(&x);
++        }
++
++        template <typename Fn, typename... Args>
++        inline auto invoke_deoptimized(Fn&& fn, Args&&... args) -> typename std::enable_if<!std::is_same<void, decltype(fn(args...))>::value>::type {
++            deoptimize_value(std::forward<Fn>(fn) (std::forward<Args...>(args...)));
++        }
++
++        template <typename Fn, typename... Args>
++        inline auto invoke_deoptimized(Fn&& fn, Args&&... args) -> typename std::enable_if<std::is_same<void, decltype(fn(args...))>::value>::type {
++            std::forward<Fn>(fn) (std::forward<Args...>(args...));
++        }
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_OPTIMIZER_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_outlier_classification.hpp b/include/internal/benchmark/catch_outlier_classification.hpp
+new file mode 100644
+index 0000000000..66a0adf579
+--- /dev/null
++++ b/include/internal/benchmark/catch_outlier_classification.hpp
+@@ -0,0 +1,29 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Outlier information
++#ifndef TWOBLUECUBES_CATCH_OUTLIERS_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_OUTLIERS_HPP_INCLUDED
++
++namespace Catch {
++    namespace Benchmark {
++        struct OutlierClassification {
++            int samples_seen = 0;
++            int low_severe = 0;     // more than 3 times IQR below Q1
++            int low_mild = 0;       // 1.5 to 3 times IQR below Q1
++            int high_mild = 0;      // 1.5 to 3 times IQR above Q3
++            int high_severe = 0;    // more than 3 times IQR above Q3
++
++            int total() const {
++                return low_severe + low_mild + high_mild + high_severe;
++            }
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_OUTLIERS_HPP_INCLUDED
+diff --git a/include/internal/benchmark/catch_sample_analysis.hpp b/include/internal/benchmark/catch_sample_analysis.hpp
+new file mode 100644
+index 0000000000..4550d0bc4e
+--- /dev/null
++++ b/include/internal/benchmark/catch_sample_analysis.hpp
+@@ -0,0 +1,50 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Benchmark results
++
++#ifndef TWOBLUECUBES_CATCH_BENCHMARK_RESULTS_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_BENCHMARK_RESULTS_HPP_INCLUDED
++
++#include "catch_clock.hpp"
++#include "catch_estimate.hpp"
++#include "catch_outlier_classification.hpp"
++
++#include <algorithm>
++#include <vector>
++#include <string>
++#include <iterator>
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Duration>
++        struct SampleAnalysis {
++            std::vector<Duration> samples;
++            Estimate<Duration> mean;
++            Estimate<Duration> standard_deviation;
++            OutlierClassification outliers;
++            double outlier_variance;
++
++            template <typename Duration2>
++            operator SampleAnalysis<Duration2>() const {
++                std::vector<Duration2> samples2;
++                samples2.reserve(samples.size());
++                std::transform(samples.begin(), samples.end(), std::back_inserter(samples2), [](Duration d) { return Duration2(d); });
++                return {
++                    std::move(samples2),
++                    mean,
++                    standard_deviation,
++                    outliers,
++                    outlier_variance,
++                };
++            }
++        };
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_BENCHMARK_RESULTS_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_analyse.hpp b/include/internal/benchmark/detail/catch_analyse.hpp
+new file mode 100644
+index 0000000000..a3becbe4d8
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_analyse.hpp
+@@ -0,0 +1,78 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Run and analyse one benchmark
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_ANALYSE_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_ANALYSE_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "../catch_sample_analysis.hpp"
++#include "catch_stats.hpp"
++
++#include <algorithm>
++#include <iterator>
++#include <vector>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename Duration, typename Iterator>
++            SampleAnalysis<Duration> analyse(const IConfig &cfg, Environment<Duration>, Iterator first, Iterator last) {
++                if (!cfg.benchmarkNoAnalysis()) {
++                    std::vector<double> samples;
++                    samples.reserve(last - first);
++                    std::transform(first, last, std::back_inserter(samples), [](Duration d) { return d.count(); });
++
++                    auto analysis = Catch::Benchmark::Detail::analyse_samples(cfg.benchmarkConfidenceInterval(), cfg.benchmarkResamples(), samples.begin(), samples.end());
++                    auto outliers = Catch::Benchmark::Detail::classify_outliers(samples.begin(), samples.end());
++
++                    auto wrap_estimate = [](Estimate<double> e) {
++                        return Estimate<Duration> {
++                            Duration(e.point),
++                                Duration(e.lower_bound),
++                                Duration(e.upper_bound),
++                                e.confidence_interval,
++                        };
++                    };
++                    std::vector<Duration> samples2;
++                    samples2.reserve(samples.size());
++                    std::transform(samples.begin(), samples.end(), std::back_inserter(samples2), [](double d) { return Duration(d); });
++                    return {
++                        std::move(samples2),
++                        wrap_estimate(analysis.mean),
++                        wrap_estimate(analysis.standard_deviation),
++                        outliers,
++                        analysis.outlier_variance,
++                    };
++                } else {
++                    std::vector<Duration> samples; 
++                    samples.reserve(last - first);
++
++                    Duration mean = Duration(0);
++                    int i = 0;
++                    for (auto it = first; it < last; ++it, ++i) {
++                        samples.push_back(Duration(*it));
++                        mean += Duration(*it);
++                    }
++                    mean /= i;
++
++                    return {
++                        std::move(samples),
++                        Estimate<Duration>{mean, mean, mean, 0.0},
++                        Estimate<Duration>{Duration(0), Duration(0), Duration(0), 0.0},
++                        OutlierClassification{},
++                        0.0
++                    };
++                }
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_ANALYSE_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_benchmark_function.hpp b/include/internal/benchmark/detail/catch_benchmark_function.hpp
+new file mode 100644
+index 0000000000..60c7f1d692
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_benchmark_function.hpp
+@@ -0,0 +1,105 @@
++    /*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Dumb std::function implementation for consistent call overhead
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_BENCHMARK_FUNCTION_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_BENCHMARK_FUNCTION_HPP_INCLUDED
++
++#include "../catch_chronometer.hpp"
++#include "catch_complete_invoke.hpp"
++#include "../../catch_meta.hpp"
++
++#include <cassert>
++#include <type_traits>
++#include <utility>
++#include <memory>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename T>
++            using Decay = typename std::decay<T>::type;
++            template <typename T, typename U>
++            struct is_related
++                : std::is_same<Decay<T>, Decay<U>> {};
++
++            /// We need to reinvent std::function because every piece of code that might add overhead
++            /// in a measurement context needs to have consistent performance characteristics so that we
++            /// can account for it in the measurement.
++            /// Implementations of std::function with optimizations that aren't always applicable, like
++            /// small buffer optimizations, are not uncommon.
++            /// This is effectively an implementation of std::function without any such optimizations;
++            /// it may be slow, but it is consistently slow.
++            struct BenchmarkFunction {
++            private:
++                struct callable {
++                    virtual void call(Chronometer meter) const = 0;
++                    virtual callable* clone() const = 0;
++                    virtual ~callable() = default;
++                };
++                template <typename Fun>
++                struct model : public callable {
++                    model(Fun&& fun) : fun(std::move(fun)) {}
++                    model(Fun const& fun) : fun(fun) {}
++
++                    model<Fun>* clone() const override { return new model<Fun>(*this); }
++
++                    void call(Chronometer meter) const override {
++                        call(meter, is_callable<Fun(Chronometer)>());
++                    }
++                    void call(Chronometer meter, std::true_type) const {
++                        fun(meter);
++                    }
++                    void call(Chronometer meter, std::false_type) const {
++                        meter.measure(fun);
++                    }
++
++                    Fun fun;
++                };
++
++                struct do_nothing { void operator()() const {} };
++
++                template <typename T>
++                BenchmarkFunction(model<T>* c) : f(c) {}
++
++            public:
++                BenchmarkFunction()
++                    : f(new model<do_nothing>{ {} }) {}
++
++                template <typename Fun,
++                    typename std::enable_if<!is_related<Fun, BenchmarkFunction>::value, int>::type = 0>
++                    BenchmarkFunction(Fun&& fun)
++                    : f(new model<typename std::decay<Fun>::type>(std::forward<Fun>(fun))) {}
++
++                BenchmarkFunction(BenchmarkFunction&& that)
++                    : f(std::move(that.f)) {}
++
++                BenchmarkFunction(BenchmarkFunction const& that)
++                    : f(that.f->clone()) {}
++
++                BenchmarkFunction& operator=(BenchmarkFunction&& that) {
++                    f = std::move(that.f);
++                    return *this;
++                }
++
++                BenchmarkFunction& operator=(BenchmarkFunction const& that) {
++                    f.reset(that.f->clone());
++                    return *this;
++                }
++
++                void operator()(Chronometer meter) const { f->call(meter); }
++
++            private:
++                std::unique_ptr<callable> f;
++            };
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_BENCHMARK_FUNCTION_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_complete_invoke.hpp b/include/internal/benchmark/detail/catch_complete_invoke.hpp
+new file mode 100644
+index 0000000000..abeb2ac71d
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_complete_invoke.hpp
+@@ -0,0 +1,69 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Invoke with a special case for void
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_COMPLETE_INVOKE_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_COMPLETE_INVOKE_HPP_INCLUDED
++
++#include "../../catch_enforce.h"
++
++#include <type_traits>
++#include <utility>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename T>
++            struct CompleteType { using type = T; };
++            template <>
++            struct CompleteType<void> { struct type {}; };
++
++            template <typename T>
++            using CompleteType_t = typename CompleteType<T>::type;
++
++            template <typename Result>
++            struct CompleteInvoker {
++                template <typename Fun, typename... Args>
++                static Result invoke(Fun&& fun, Args&&... args) {
++                    return std::forward<Fun>(fun)(std::forward<Args>(args)...);
++                }
++            };
++            template <>
++            struct CompleteInvoker<void> {
++                template <typename Fun, typename... Args>
++                static CompleteType_t<void> invoke(Fun&& fun, Args&&... args) {
++                    std::forward<Fun>(fun)(std::forward<Args>(args)...);
++                    return {};
++                }
++            };
++            template <typename Sig>
++            using ResultOf_t = typename std::result_of<Sig>::type;
++
++            // invoke and not return void :(
++            template <typename Fun, typename... Args>
++            CompleteType_t<ResultOf_t<Fun(Args...)>> complete_invoke(Fun&& fun, Args&&... args) {
++                return CompleteInvoker<ResultOf_t<Fun(Args...)>>::invoke(std::forward<Fun>(fun), std::forward<Args>(args)...);
++            }
++
++            const std::string benchmarkErrorMsg = "a benchmark failed to run successfully";
++        } // namespace Detail
++
++        template <typename Fun>
++        Detail::CompleteType_t<Detail::ResultOf_t<Fun()>> user_code(Fun&& fun) {
++            CATCH_TRY{
++                return Detail::complete_invoke(std::forward<Fun>(fun));
++            } CATCH_CATCH_ALL{
++                getResultCapture().benchmarkFailed(translateActiveException());
++                CATCH_RUNTIME_ERROR(Detail::benchmarkErrorMsg);
++            }
++        }
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_COMPLETE_INVOKE_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_estimate_clock.hpp b/include/internal/benchmark/detail/catch_estimate_clock.hpp
+new file mode 100644
+index 0000000000..055c582500
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_estimate_clock.hpp
+@@ -0,0 +1,113 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++ // Environment measurement
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_ESTIMATE_CLOCK_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_ESTIMATE_CLOCK_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "../catch_environment.hpp"
++#include "catch_stats.hpp"
++#include "catch_measure.hpp"
++#include "catch_run_for_at_least.hpp"
++#include "../catch_clock.hpp"
++
++#include <algorithm>
++#include <iterator>
++#include <tuple>
++#include <vector>
++#include <cmath>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename Clock>
++            std::vector<double> resolution(int k) {
++                std::vector<TimePoint<Clock>> times;
++                times.reserve(k + 1);
++                std::generate_n(std::back_inserter(times), k + 1, now<Clock>{});
++
++                std::vector<double> deltas;
++                deltas.reserve(k);
++                std::transform(std::next(times.begin()), times.end(), times.begin(),
++                    std::back_inserter(deltas),
++                    [](TimePoint<Clock> a, TimePoint<Clock> b) { return static_cast<double>((a - b).count()); });
++
++                return deltas;
++            }
++
++            const auto warmup_iterations = 10000;
++            const auto warmup_time = std::chrono::milliseconds(100);
++            const auto minimum_ticks = 1000;
++            const auto warmup_seed = 10000;
++            const auto clock_resolution_estimation_time = std::chrono::milliseconds(500);
++            const auto clock_cost_estimation_time_limit = std::chrono::seconds(1);
++            const auto clock_cost_estimation_tick_limit = 100000;
++            const auto clock_cost_estimation_time = std::chrono::milliseconds(10);
++            const auto clock_cost_estimation_iterations = 10000;
++
++            template <typename Clock>
++            int warmup() {
++                return run_for_at_least<Clock>(std::chrono::duration_cast<ClockDuration<Clock>>(warmup_time), warmup_seed, &resolution<Clock>)
++                    .iterations;
++            }
++            template <typename Clock>
++            EnvironmentEstimate<FloatDuration<Clock>> estimate_clock_resolution(int iterations) {
++                auto r = run_for_at_least<Clock>(std::chrono::duration_cast<ClockDuration<Clock>>(clock_resolution_estimation_time), iterations, &resolution<Clock>)
++                    .result;
++                return {
++                    FloatDuration<Clock>(mean(r.begin(), r.end())),
++                    classify_outliers(r.begin(), r.end()),
++                };
++            }
++            template <typename Clock>
++            EnvironmentEstimate<FloatDuration<Clock>> estimate_clock_cost(FloatDuration<Clock> resolution) {
++                auto time_limit = std::min(resolution * clock_cost_estimation_tick_limit, FloatDuration<Clock>(clock_cost_estimation_time_limit));
++                auto time_clock = [](int k) {
++                    return Detail::measure<Clock>([k] {
++                        for (int i = 0; i < k; ++i) {
++                            volatile auto ignored = Clock::now();
++                            (void)ignored;
++                        }
++                    }).elapsed;
++                };
++                time_clock(1);
++                int iters = clock_cost_estimation_iterations;
++                auto&& r = run_for_at_least<Clock>(std::chrono::duration_cast<ClockDuration<Clock>>(clock_cost_estimation_time), iters, time_clock);
++                std::vector<double> times;
++                int nsamples = static_cast<int>(std::ceil(time_limit / r.elapsed));
++                times.reserve(nsamples);
++                std::generate_n(std::back_inserter(times), nsamples, [time_clock, &r] {
++                    return static_cast<double>((time_clock(r.iterations) / r.iterations).count());
++                });
++                return {
++                    FloatDuration<Clock>(mean(times.begin(), times.end())),
++                    classify_outliers(times.begin(), times.end()),
++                };
++            }
++
++            template <typename Clock>
++            Environment<FloatDuration<Clock>> measure_environment() {
++                static Environment<FloatDuration<Clock>>* env = nullptr;
++                if (env) {
++                    return *env;
++                }
++
++                auto iters = Detail::warmup<Clock>();
++                auto resolution = Detail::estimate_clock_resolution<Clock>(iters);
++                auto cost = Detail::estimate_clock_cost<Clock>(resolution.mean);
++
++                env = new Environment<FloatDuration<Clock>>{ resolution, cost };
++                return *env;
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_ESTIMATE_CLOCK_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_measure.hpp b/include/internal/benchmark/detail/catch_measure.hpp
+new file mode 100644
+index 0000000000..62ed280963
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_measure.hpp
+@@ -0,0 +1,35 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Measure
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_MEASURE_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_MEASURE_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "catch_complete_invoke.hpp"
++#include "catch_timing.hpp"
++
++#include <utility>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename Clock, typename Fun, typename... Args>
++            TimingOf<Clock, Fun(Args...)> measure(Fun&& fun, Args&&... args) {
++                auto start = Clock::now();
++                auto&& r = Detail::complete_invoke(fun, std::forward<Args>(args)...);
++                auto end = Clock::now();
++                auto delta = end - start;
++                return { delta, std::forward<decltype(r)>(r), 1 };
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_MEASURE_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_repeat.hpp b/include/internal/benchmark/detail/catch_repeat.hpp
+new file mode 100644
+index 0000000000..ab240792b7
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_repeat.hpp
+@@ -0,0 +1,37 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// repeat algorithm
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_REPEAT_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_REPEAT_HPP_INCLUDED
++
++#include <type_traits>
++#include <utility>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename Fun>
++            struct repeater {
++                void operator()(int k) const {
++                    for (int i = 0; i < k; ++i) {
++                        fun();
++                    }
++                }
++                Fun fun;
++            };
++            template <typename Fun>
++            repeater<typename std::decay<Fun>::type> repeat(Fun&& fun) {
++                return { std::forward<Fun>(fun) };
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_REPEAT_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_run_for_at_least.hpp b/include/internal/benchmark/detail/catch_run_for_at_least.hpp
+new file mode 100644
+index 0000000000..a41c6b4611
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_run_for_at_least.hpp
+@@ -0,0 +1,65 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Run a function for a minimum amount of time
++
++#ifndef TWOBLUECUBES_CATCH_RUN_FOR_AT_LEAST_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_RUN_FOR_AT_LEAST_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "../catch_chronometer.hpp"
++#include "catch_measure.hpp"
++#include "catch_complete_invoke.hpp"
++#include "catch_timing.hpp"
++#include "../../catch_meta.hpp"
++
++#include <utility>
++#include <type_traits>
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            template <typename Clock, typename Fun>
++            TimingOf<Clock, Fun(int)> measure_one(Fun&& fun, int iters, std::false_type) {
++                return Detail::measure<Clock>(fun, iters);
++            }
++            template <typename Clock, typename Fun>
++            TimingOf<Clock, Fun(Chronometer)> measure_one(Fun&& fun, int iters, std::true_type) {
++                Detail::ChronometerModel<Clock> meter;
++                auto&& result = Detail::complete_invoke(fun, Chronometer(meter, iters));
++
++                return { meter.elapsed(), std::move(result), iters };
++            }
++
++            template <typename Clock, typename Fun>
++            using run_for_at_least_argument_t = typename std::conditional<is_callable<Fun(Chronometer)>::value, Chronometer, int>::type;
++
++            struct optimized_away_error : std::exception {
++                const char* what() const noexcept override {
++                    return "could not measure benchmark, maybe it was optimized away";
++                }
++            };
++
++            template <typename Clock, typename Fun>
++            TimingOf<Clock, Fun(run_for_at_least_argument_t<Clock, Fun>)> run_for_at_least(ClockDuration<Clock> how_long, int seed, Fun&& fun) {
++                auto iters = seed;
++                while (iters < (1 << 30)) {
++                    auto&& Timing = measure_one<Clock>(fun, iters, is_callable<Fun(Chronometer)>());
++
++                    if (Timing.elapsed >= how_long) {
++                        return { Timing.elapsed, std::move(Timing.result), iters };
++                    }
++                    iters *= 2;
++                }
++                throw optimized_away_error{};
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_RUN_FOR_AT_LEAST_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_stats.hpp b/include/internal/benchmark/detail/catch_stats.hpp
+new file mode 100644
+index 0000000000..25fb964012
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_stats.hpp
+@@ -0,0 +1,342 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Statistical analysis tools
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_ANALYSIS_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_ANALYSIS_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "../catch_estimate.hpp"
++#include "../catch_outlier_classification.hpp"
++
++#include <algorithm>
++#include <cassert>
++#include <functional>
++#include <iterator>
++#include <vector>
++#include <array>
++#include <random>
++#include <numeric>
++#include <tuple>
++#include <cmath>
++#include <utility>
++#include <cstddef>
++
++#ifdef CATCH_USE_ASYNC
++#include <future>
++#endif
++
++namespace Catch {
++    namespace Benchmark {
++        namespace Detail {
++            using sample = std::vector<double>;
++
++            template <typename Iterator>
++            double weighted_average_quantile(int k, int q, Iterator first, Iterator last) {
++                auto count = last - first;
++                double idx = (count - 1) * k / static_cast<double>(q);
++                int j = static_cast<int>(idx);
++                double g = idx - j;
++                std::nth_element(first, first + j, last);
++                auto xj = first[j];
++                if (g == 0) return xj;
++
++                auto xj1 = *std::min_element(first + (j + 1), last);
++                return xj + g * (xj1 - xj);
++            }
++
++            template <typename Iterator>
++            OutlierClassification classify_outliers(Iterator first, Iterator last) {
++                std::vector<double> copy(first, last);
++
++                auto q1 = weighted_average_quantile(1, 4, copy.begin(), copy.end());
++                auto q3 = weighted_average_quantile(3, 4, copy.begin(), copy.end());
++                auto iqr = q3 - q1;
++                auto los = q1 - (iqr * 3.);
++                auto lom = q1 - (iqr * 1.5);
++                auto him = q3 + (iqr * 1.5);
++                auto his = q3 + (iqr * 3.);
++
++                OutlierClassification o;
++                for (; first != last; ++first) {
++                    auto&& t = *first;
++                    if (t < los) ++o.low_severe;
++                    else if (t < lom) ++o.low_mild;
++                    else if (t > his) ++o.high_severe;
++                    else if (t > him) ++o.high_mild;
++                    ++o.samples_seen;
++                }
++                return o;
++            }
++
++            template <typename Iterator>
++            double mean(Iterator first, Iterator last) {
++                auto count = last - first;
++                double sum = std::accumulate(first, last, 0.);
++                return sum / count;
++            }
++
++            template <typename Iterator>
++            double standard_deviation(Iterator first, Iterator last) {
++                auto m = mean(first, last);
++                double variance = std::accumulate(first, last, 0., [m](double a, double b) {
++                    double diff = b - m;
++                    return a + diff * diff;
++                }) / (last - first);
++                return std::sqrt(variance);
++            }
++
++            template <typename URng, typename Iterator, typename Estimator>
++            sample resample(URng& rng, int resamples, Iterator first, Iterator last, Estimator& estimator) {
++                auto n = last - first;
++                std::uniform_int_distribution<decltype(n)> dist(0, n - 1);
++
++                sample out;
++                out.reserve(resamples);
++                std::generate_n(std::back_inserter(out), resamples, [n, first, &estimator, &dist, &rng] {
++                    std::vector<double> resampled;
++                    resampled.reserve(n);
++                    std::generate_n(std::back_inserter(resampled), n, [first, &dist, &rng] { return first[dist(rng)]; });
++                    return estimator(resampled.begin(), resampled.end());
++                });
++                std::sort(out.begin(), out.end());
++                return out;
++            }
++
++            template <typename Estimator, typename Iterator>
++            sample jackknife(Estimator&& estimator, Iterator first, Iterator last) {
++                auto n = last - first;
++                auto second = std::next(first);
++                sample results;
++                results.reserve(n);
++
++                for (auto it = first; it != last; ++it) {
++                    std::iter_swap(it, first);
++                    results.push_back(estimator(second, last));
++                }
++
++                return results;
++            }
++
++            inline double normal_cdf(double x) {
++                return std::erfc(-x / std::sqrt(2.0)) / 2.0;
++            }
++
++            inline double erf_inv(double x) {
++                // Code accompanying the article "Approximating the erfinv function" in GPU Computing Gems, Volume 2
++                double w, p;
++
++                w = -log((1.0 - x)*(1.0 + x));
++
++                if (w < 6.250000) {
++                    w = w - 3.125000;
++                    p = -3.6444120640178196996e-21;
++                    p = -1.685059138182016589e-19 + p * w;
++                    p = 1.2858480715256400167e-18 + p * w;
++                    p = 1.115787767802518096e-17 + p * w;
++                    p = -1.333171662854620906e-16 + p * w;
++                    p = 2.0972767875968561637e-17 + p * w;
++                    p = 6.6376381343583238325e-15 + p * w;
++                    p = -4.0545662729752068639e-14 + p * w;
++                    p = -8.1519341976054721522e-14 + p * w;
++                    p = 2.6335093153082322977e-12 + p * w;
++                    p = -1.2975133253453532498e-11 + p * w;
++                    p = -5.4154120542946279317e-11 + p * w;
++                    p = 1.051212273321532285e-09 + p * w;
++                    p = -4.1126339803469836976e-09 + p * w;
++                    p = -2.9070369957882005086e-08 + p * w;
++                    p = 4.2347877827932403518e-07 + p * w;
++                    p = -1.3654692000834678645e-06 + p * w;
++                    p = -1.3882523362786468719e-05 + p * w;
++                    p = 0.0001867342080340571352 + p * w;
++                    p = -0.00074070253416626697512 + p * w;
++                    p = -0.0060336708714301490533 + p * w;
++                    p = 0.24015818242558961693 + p * w;
++                    p = 1.6536545626831027356 + p * w;
++                } else if (w < 16.000000) {
++                    w = sqrt(w) - 3.250000;
++                    p = 2.2137376921775787049e-09;
++                    p = 9.0756561938885390979e-08 + p * w;
++                    p = -2.7517406297064545428e-07 + p * w;
++                    p = 1.8239629214389227755e-08 + p * w;
++                    p = 1.5027403968909827627e-06 + p * w;
++                    p = -4.013867526981545969e-06 + p * w;
++                    p = 2.9234449089955446044e-06 + p * w;
++                    p = 1.2475304481671778723e-05 + p * w;
++                    p = -4.7318229009055733981e-05 + p * w;
++                    p = 6.8284851459573175448e-05 + p * w;
++                    p = 2.4031110387097893999e-05 + p * w;
++                    p = -0.0003550375203628474796 + p * w;
++                    p = 0.00095328937973738049703 + p * w;
++                    p = -0.0016882755560235047313 + p * w;
++                    p = 0.0024914420961078508066 + p * w;
++                    p = -0.0037512085075692412107 + p * w;
++                    p = 0.005370914553590063617 + p * w;
++                    p = 1.0052589676941592334 + p * w;
++                    p = 3.0838856104922207635 + p * w;
++                } else {
++                    w = sqrt(w) - 5.000000;
++                    p = -2.7109920616438573243e-11;
++                    p = -2.5556418169965252055e-10 + p * w;
++                    p = 1.5076572693500548083e-09 + p * w;
++                    p = -3.7894654401267369937e-09 + p * w;
++                    p = 7.6157012080783393804e-09 + p * w;
++                    p = -1.4960026627149240478e-08 + p * w;
++                    p = 2.9147953450901080826e-08 + p * w;
++                    p = -6.7711997758452339498e-08 + p * w;
++                    p = 2.2900482228026654717e-07 + p * w;
++                    p = -9.9298272942317002539e-07 + p * w;
++                    p = 4.5260625972231537039e-06 + p * w;
++                    p = -1.9681778105531670567e-05 + p * w;
++                    p = 7.5995277030017761139e-05 + p * w;
++                    p = -0.00021503011930044477347 + p * w;
++                    p = -0.00013871931833623122026 + p * w;
++                    p = 1.0103004648645343977 + p * w;
++                    p = 4.8499064014085844221 + p * w;
++                }
++                return p * x;
++            }
++
++            inline double erfc_inv(double x) {
++                return erf_inv(1.0 - x);
++            }
++
++            inline double normal_quantile(double p) {
++                static const double ROOT_TWO = std::sqrt(2.0);
++
++                double result = 0.0;
++                assert(p >= 0 && p <= 1);
++                if (p < 0 || p > 1) {
++                    return result;
++                }
++
++                result = -erfc_inv(2.0 * p);
++                // result *= normal distribution standard deviation (1.0) * sqrt(2)
++                result *= /*sd * */ ROOT_TWO;
++                // result += normal disttribution mean (0)
++                return result;
++            }
++
++            template <typename Iterator, typename Estimator>
++            Estimate<double> bootstrap(double confidence_level, Iterator first, Iterator last, sample const& resample, Estimator&& estimator) {
++                auto n_samples = last - first;
++
++                double point = estimator(first, last);
++                // Degenerate case with a single sample
++                if (n_samples == 1) return { point, point, point, confidence_level };
++
++                sample jack = jackknife(estimator, first, last);
++                double jack_mean = mean(jack.begin(), jack.end());
++                double sum_squares, sum_cubes;
++                std::tie(sum_squares, sum_cubes) = std::accumulate(jack.begin(), jack.end(), std::make_pair(0., 0.), [jack_mean](std::pair<double, double> sqcb, double x) -> std::pair<double, double> {
++                    auto d = jack_mean - x;
++                    auto d2 = d * d;
++                    auto d3 = d2 * d;
++                    return { sqcb.first + d2, sqcb.second + d3 };
++                });
++
++                double accel = sum_cubes / (6 * std::pow(sum_squares, 1.5));
++                int n = static_cast<int>(resample.size());
++                double prob_n = std::count_if(resample.begin(), resample.end(), [point](double x) { return x < point; }) / (double)n;
++                // degenerate case with uniform samples
++                if (prob_n == 0) return { point, point, point, confidence_level };
++
++                double bias = normal_quantile(prob_n);
++                double z1 = normal_quantile((1. - confidence_level) / 2.);
++
++                auto cumn = [n](double x) -> int {
++                    return std::lround(normal_cdf(x) * n); };
++                auto a = [bias, accel](double b) { return bias + b / (1. - accel * b); };
++                double b1 = bias + z1;
++                double b2 = bias - z1;
++                double a1 = a(b1);
++                double a2 = a(b2);
++                auto lo = std::max(cumn(a1), 0);
++                auto hi = std::min(cumn(a2), n - 1);
++
++                return { point, resample[lo], resample[hi], confidence_level };
++            }
++
++            inline double outlier_variance(Estimate<double> mean, Estimate<double> stddev, int n) {
++                double sb = stddev.point;
++                double mn = mean.point / n;
++                double mg_min = mn / 2.;
++                double sg = std::min(mg_min / 4., sb / std::sqrt(n));
++                double sg2 = sg * sg;
++                double sb2 = sb * sb;
++
++                auto c_max = [n, mn, sb2, sg2](double x) -> double {
++                    double k = mn - x;
++                    double d = k * k;
++                    double nd = n * d;
++                    double k0 = -n * nd;
++                    double k1 = sb2 - n * sg2 + nd;
++                    double det = k1 * k1 - 4 * sg2 * k0;
++                    return (int)(-2. * k0 / (k1 + std::sqrt(det)));
++                };
++
++                auto var_out = [n, sb2, sg2](double c) {
++                    double nc = n - c;
++                    return (nc / n) * (sb2 - nc * sg2);
++                };
++
++                return std::min(var_out(1), var_out(std::min(c_max(0.), c_max(mg_min)))) / sb2;
++            }
++
++            struct bootstrap_analysis {
++                Estimate<double> mean;
++                Estimate<double> standard_deviation;
++                double outlier_variance;
++            };
++
++            template <typename Iterator>
++            bootstrap_analysis analyse_samples(double confidence_level, int n_resamples, Iterator first, Iterator last) {
++                static std::random_device entropy;
++
++                auto n = static_cast<int>(last - first); // seriously, one can't use integral types without hell in C++
++
++                auto mean = &Detail::mean<Iterator>;
++                auto stddev = &Detail::standard_deviation<Iterator>;
++
++#ifdef CATCH_USE_ASYNC
++                auto Estimate = [=](double(*f)(Iterator, Iterator)) {
++                    auto seed = entropy();
++                    return std::async(std::launch::async, [=] {
++                        std::mt19937 rng(seed);
++                        auto resampled = resample(rng, n_resamples, first, last, f);
++                        return bootstrap(confidence_level, first, last, resampled, f);
++                    });
++                };
++
++                auto mean_future = Estimate(mean);
++                auto stddev_future = Estimate(stddev);
++
++                auto mean_estimate = mean_future.get();
++                auto stddev_estimate = stddev_future.get();
++#else
++                auto Estimate = [=](double(*f)(Iterator, Iterator)) {
++                    auto seed = entropy();
++                    std::mt19937 rng(seed);
++                    auto resampled = resample(rng, n_resamples, first, last, f);
++                    return bootstrap(confidence_level, first, last, resampled, f);
++                };
++
++                auto mean_estimate = Estimate(mean);
++                auto stddev_estimate = Estimate(stddev);
++#endif // CATCH_USE_ASYNC
++
++                double outlier_variance = Detail::outlier_variance(mean_estimate, stddev_estimate, n);
++
++                return { mean_estimate, stddev_estimate, outlier_variance };
++            }
++        } // namespace Detail
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_ANALYSIS_HPP_INCLUDED
+diff --git a/include/internal/benchmark/detail/catch_timing.hpp b/include/internal/benchmark/detail/catch_timing.hpp
+new file mode 100644
+index 0000000000..073cb74274
+--- /dev/null
++++ b/include/internal/benchmark/detail/catch_timing.hpp
+@@ -0,0 +1,33 @@
++/*
++ *  Created by Joachim on 16/04/2019.
++ *  Adapted from donated nonius code.
++ *
++ *  Distributed under the Boost Software License, Version 1.0. (See accompanying
++ *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++ */
++
++// Timing
++
++#ifndef TWOBLUECUBES_CATCH_DETAIL_TIMING_HPP_INCLUDED
++#define TWOBLUECUBES_CATCH_DETAIL_TIMING_HPP_INCLUDED
++
++#include "../catch_clock.hpp"
++#include "catch_complete_invoke.hpp"
++
++#include <tuple>
++#include <type_traits>
++
++namespace Catch {
++    namespace Benchmark {
++        template <typename Duration, typename Result>
++        struct Timing {
++            Duration elapsed;
++            Result result;
++            int iterations;
++        };
++        template <typename Clock, typename Sig>
++        using TimingOf = Timing<ClockDuration<Clock>, Detail::CompleteType_t<Detail::ResultOf_t<Sig>>>;
++    } // namespace Benchmark
++} // namespace Catch
++
++#endif // TWOBLUECUBES_CATCH_DETAIL_TIMING_HPP_INCLUDED
+diff --git a/include/internal/catch_benchmark.cpp b/include/internal/catch_benchmark.cpp
+deleted file mode 100644
+index 742418f7fb..0000000000
+--- a/include/internal/catch_benchmark.cpp
++++ /dev/null
+@@ -1,36 +0,0 @@
+-/*
+- *  Created by Phil on 04/07/2017.
+- *  Copyright 2017 Two Blue Cubes Ltd. All rights reserved.
+- *
+- *  Distributed under the Boost Software License, Version 1.0. (See accompanying
+- *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+- */
+-
+-#include "catch_benchmark.h"
+-#include "catch_capture.hpp"
+-#include "catch_interfaces_reporter.h"
+-#include "catch_context.h"
+-
+-namespace Catch {
+-
+-    auto BenchmarkLooper::getResolution() -> uint64_t {
+-        return getEstimatedClockResolution() * getCurrentContext().getConfig()->benchmarkResolutionMultiple();
+-    }
+-
+-    void BenchmarkLooper::reportStart() {
+-        getResultCapture().benchmarkStarting( { m_name } );
+-    }
+-    auto BenchmarkLooper::needsMoreIterations() -> bool {
+-        auto elapsed = m_timer.getElapsedNanoseconds();
+-
+-        // Exponentially increasing iterations until we're confident in our timer resolution
+-        if( elapsed < m_resolution ) {
+-            m_iterationsToRun *= 10;
+-            return true;
+-        }
+-
+-        getResultCapture().benchmarkEnded( { { m_name }, m_count, elapsed } );
+-        return false;
+-    }
+-
+-} // end namespace Catch
+diff --git a/include/internal/catch_benchmark.h b/include/internal/catch_benchmark.h
+deleted file mode 100644
+index e546713cf9..0000000000
+--- a/include/internal/catch_benchmark.h
++++ /dev/null
+@@ -1,57 +0,0 @@
+-/*
+- *  Created by Phil on 04/07/2017.
+- *  Copyright 2017 Two Blue Cubes Ltd. All rights reserved.
+- *
+- *  Distributed under the Boost Software License, Version 1.0. (See accompanying
+- *  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+- */
+-#ifndef TWOBLUECUBES_CATCH_BENCHMARK_H_INCLUDED
+-#define TWOBLUECUBES_CATCH_BENCHMARK_H_INCLUDED
+-
+-#include "catch_stringref.h"
+-#include "catch_timer.h"
+-
+-#include <cstdint>
+-#include <string>
+-
+-namespace Catch {
+-
+-    class BenchmarkLooper {
+-
+-        std::string m_name;
+-        std::size_t m_count = 0;
+-        std::size_t m_iterationsToRun = 1;
+-        uint64_t m_resolution;
+-        Timer m_timer;
+-
+-        static auto getResolution() -> uint64_t;
+-    public:
+-        // Keep most of this inline as it's on the code path that is being timed
+-        BenchmarkLooper( StringRef name )
+-        :   m_name( name ),
+-            m_resolution( getResolution() )
+-        {
+-            reportStart();
+-            m_timer.start();
+-        }
+-
+-        explicit operator bool() {
+-            if( m_count < m_iterationsToRun )
+-                return true;
+-            return needsMoreIterations();
+-        }
+-
+-        void increment() {
+-            ++m_count;
+-        }
+-
+-        void reportStart();
+-        auto needsMoreIterations() -> bool;
+-    };
+-
+-} // end namespace Catch
+-
+-#define BENCHMARK( name ) \
+-    for( Catch::BenchmarkLooper looper( name ); looper; looper.increment() )
+-
+-#endif // TWOBLUECUBES_CATCH_BENCHMARK_H_INCLUDED
+diff --git a/include/internal/catch_commandline.cpp b/include/internal/catch_commandline.cpp
+index 66759ebbf1..0359272cb3 100644
+--- a/include/internal/catch_commandline.cpp
++++ b/include/internal/catch_commandline.cpp
+@@ -196,11 +196,19 @@ namespace Catch {
+             | Opt( setWaitForKeypress, "start|exit|both" )
+                 ["--wait-for-keypress"]
+                 ( "waits for a keypress before exiting" )
+-            | Opt( config.benchmarkResolutionMultiple, "multiplier" )
+-                ["--benchmark-resolution-multiple"]
+-                ( "multiple of clock resolution to run benchmarks" )
+-
+-            | Arg( config.testsOrTags, "test name|pattern|tags" )
++            | Opt( config.benchmarkSamples, "samples" )
++                ["--benchmark-samples"]
++                ( "number of samples to collect (default: 100)" )
++            | Opt( config.benchmarkResamples, "resamples" )
++                ["--benchmark-resamples"]
++                ( "number of resamples for the bootstrap (default: 100000)" )
++            | Opt( config.benchmarkConfidenceInterval, "confidence interval" )
++                ["--benchmark-confidence-interval"]
++                ( "confidence interval for the bootstrap (between 0 and 1, default: 0.95)" )
++            | Opt( config.benchmarkNoAnalysis )
++                ["--benchmark-no-analysis"]
++                ( "perform only measurements; do not perform any analysis" )
++			| Arg( config.testsOrTags, "test name|pattern|tags" )
+                 ( "which test or tests to use" );
+ 
+         return cli;
+diff --git a/include/internal/catch_compiler_capabilities.h b/include/internal/catch_compiler_capabilities.h
+index 8d5af618c0..018aefba81 100644
+--- a/include/internal/catch_compiler_capabilities.h
++++ b/include/internal/catch_compiler_capabilities.h
+@@ -118,9 +118,9 @@
+ // some versions of cygwin (most) do not support std::to_string. Use the libstd check. 
+ // https://gcc.gnu.org/onlinedocs/gcc-4.8.2/libstdc++/api/a01053_source.html line 2812-2813
+ # if !((__cplusplus >= 201103L) && defined(_GLIBCXX_USE_C99) \
+-	       && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))
++           && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))
+ 
+-#	define CATCH_INTERNAL_CONFIG_NO_CPP11_TO_STRING
++#    define CATCH_INTERNAL_CONFIG_NO_CPP11_TO_STRING
+ 
+ # endif
+ #endif // __CYGWIN__
+@@ -148,7 +148,11 @@
+ #  if !defined(_MSVC_TRADITIONAL) || (defined(_MSVC_TRADITIONAL) && _MSVC_TRADITIONAL)
+ #    define CATCH_INTERNAL_CONFIG_TRADITIONAL_MSVC_PREPROCESSOR
+ #  endif
++#endif // _MSC_VER
+ 
++#if defined(_REENTRANT) || defined(_MSC_VER)
++// Enable async processing, as -pthread is specified or no additional linking is required
++# define CATCH_USE_ASYNC
+ #endif // _MSC_VER
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+diff --git a/include/internal/catch_config.cpp b/include/internal/catch_config.cpp
+index d9ee9182b2..076ae71878 100644
+--- a/include/internal/catch_config.cpp
++++ b/include/internal/catch_config.cpp
+@@ -32,7 +32,7 @@ namespace Catch {
+     bool Config::listTestNamesOnly() const  { return m_data.listTestNamesOnly; }
+     bool Config::listTags() const           { return m_data.listTags; }
+     bool Config::listReporters() const      { return m_data.listReporters; }
+-
++	
+     std::string Config::getProcessName() const { return m_data.processName; }
+     std::string const& Config::getReporterName() const { return m_data.reporterName; }
+ 
+@@ -54,13 +54,17 @@ namespace Catch {
+     ShowDurations::OrNot Config::showDurations() const { return m_data.showDurations; }
+     RunTests::InWhatOrder Config::runOrder() const     { return m_data.runOrder; }
+     unsigned int Config::rngSeed() const               { return m_data.rngSeed; }
+-    int Config::benchmarkResolutionMultiple() const    { return m_data.benchmarkResolutionMultiple; }
+     UseColour::YesOrNo Config::useColour() const       { return m_data.useColour; }
+     bool Config::shouldDebugBreak() const              { return m_data.shouldDebugBreak; }
+     int Config::abortAfter() const                     { return m_data.abortAfter; }
+     bool Config::showInvisibles() const                { return m_data.showInvisibles; }
+     Verbosity Config::verbosity() const                { return m_data.verbosity; }
+ 
++    bool Config::benchmarkNoAnalysis() const           { return m_data.benchmarkNoAnalysis; }
++    int Config::benchmarkSamples() const               { return m_data.benchmarkSamples; }
++    double Config::benchmarkConfidenceInterval() const { return m_data.benchmarkConfidenceInterval; }
++    unsigned int Config::benchmarkResamples() const    { return m_data.benchmarkResamples; }
++
+     IStream const* Config::openStream() {
+         return Catch::makeStream(m_data.outputFilename);
+     }
+diff --git a/include/internal/catch_config.hpp b/include/internal/catch_config.hpp
+index a9850233b0..95b67d25fc 100644
+--- a/include/internal/catch_config.hpp
++++ b/include/internal/catch_config.hpp
+@@ -42,7 +42,11 @@ namespace Catch {
+ 
+         int abortAfter = -1;
+         unsigned int rngSeed = 0;
+-        int benchmarkResolutionMultiple = 100;
++
++        bool benchmarkNoAnalysis = false;
++        unsigned int benchmarkSamples = 100;
++        double benchmarkConfidenceInterval = 0.95;
++        unsigned int benchmarkResamples = 100000;
+ 
+         Verbosity verbosity = Verbosity::Normal;
+         WarnAbout::What warnings = WarnAbout::Nothing;
+@@ -100,12 +104,15 @@ namespace Catch {
+         ShowDurations::OrNot showDurations() const override;
+         RunTests::InWhatOrder runOrder() const override;
+         unsigned int rngSeed() const override;
+-        int benchmarkResolutionMultiple() const override;
+         UseColour::YesOrNo useColour() const override;
+         bool shouldDebugBreak() const override;
+         int abortAfter() const override;
+         bool showInvisibles() const override;
+         Verbosity verbosity() const override;
++        bool benchmarkNoAnalysis() const override;
++        int benchmarkSamples() const override;
++        double benchmarkConfidenceInterval() const override;
++        unsigned int benchmarkResamples() const override;
+ 
+     private:
+ 
+diff --git a/include/internal/catch_interfaces_capture.h b/include/internal/catch_interfaces_capture.h
+index 36f27a331b..8c25c8cf76 100644
+--- a/include/internal/catch_interfaces_capture.h
++++ b/include/internal/catch_interfaces_capture.h
+@@ -9,6 +9,7 @@
+ #define TWOBLUECUBES_CATCH_INTERFACES_CAPTURE_H_INCLUDED
+ 
+ #include <string>
++#include <chrono>
+ 
+ #include "catch_stringref.h"
+ #include "catch_result_type.h"
+@@ -22,14 +23,18 @@ namespace Catch {
+     struct MessageInfo;
+     struct MessageBuilder;
+     struct Counts;
+-    struct BenchmarkInfo;
+-    struct BenchmarkStats;
+     struct AssertionReaction;
+     struct SourceLineInfo;
+ 
+     struct ITransientExpression;
+     struct IGeneratorTracker;
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++    struct BenchmarkInfo;
++    template <typename Duration = std::chrono::duration<double, std::nano>>
++    struct BenchmarkStats;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+     struct IResultCapture {
+ 
+         virtual ~IResultCapture();
+@@ -41,8 +46,12 @@ namespace Catch {
+ 
+         virtual auto acquireGeneratorTracker( SourceLineInfo const& lineInfo ) -> IGeneratorTracker& = 0;
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        virtual void benchmarkPreparing( std::string const& name ) = 0;
+         virtual void benchmarkStarting( BenchmarkInfo const& info ) = 0;
+-        virtual void benchmarkEnded( BenchmarkStats const& stats ) = 0;
++        virtual void benchmarkEnded( BenchmarkStats<> const& stats ) = 0;
++        virtual void benchmarkFailed( std::string const& error ) = 0;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+         virtual void pushScopedMessage( MessageInfo const& message ) = 0;
+         virtual void popScopedMessage( MessageInfo const& message ) = 0;
+diff --git a/include/internal/catch_interfaces_config.h b/include/internal/catch_interfaces_config.h
+index 341bb74205..f8cbf71c86 100644
+--- a/include/internal/catch_interfaces_config.h
++++ b/include/internal/catch_interfaces_config.h
+@@ -9,6 +9,7 @@
+ #define TWOBLUECUBES_CATCH_INTERFACES_CONFIG_H_INCLUDED
+ 
+ #include "catch_common.h"
++#include "catch_option.hpp"
+ 
+ #include <iosfwd>
+ #include <string>
+@@ -50,7 +51,7 @@ namespace Catch {
+         BeforeExit = 2,
+         BeforeStartAndExit = BeforeStart | BeforeExit
+     }; };
+-
++    
+     class TestSpec;
+ 
+     struct IConfig : NonCopyable {
+@@ -72,10 +73,14 @@ namespace Catch {
+         virtual std::vector<std::string> const& getTestsOrTags() const = 0;
+         virtual RunTests::InWhatOrder runOrder() const = 0;
+         virtual unsigned int rngSeed() const = 0;
+-        virtual int benchmarkResolutionMultiple() const = 0;
+         virtual UseColour::YesOrNo useColour() const = 0;
+         virtual std::vector<std::string> const& getSectionsToRun() const = 0;
+         virtual Verbosity verbosity() const = 0;
++
++        virtual bool benchmarkNoAnalysis() const = 0;
++        virtual int benchmarkSamples() const = 0;
++        virtual double benchmarkConfidenceInterval() const = 0;
++        virtual unsigned int benchmarkResamples() const = 0;
+     };
+ 
+     using IConfigPtr = std::shared_ptr<IConfig const>;
+diff --git a/include/internal/catch_interfaces_reporter.h b/include/internal/catch_interfaces_reporter.h
+index e5fbf8bb07..e54a24a894 100644
+--- a/include/internal/catch_interfaces_reporter.h
++++ b/include/internal/catch_interfaces_reporter.h
+@@ -18,12 +18,18 @@
+ #include "catch_option.hpp"
+ #include "catch_stringref.h"
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++#include "benchmark/catch_estimate.hpp"
++#include "benchmark/catch_outlier_classification.hpp"
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+ 
+ #include <string>
+ #include <iosfwd>
+ #include <map>
+ #include <set>
+ #include <memory>
++#include <algorithm>
+ 
+ namespace Catch {
+ 
+@@ -159,14 +165,43 @@ namespace Catch {
+         bool aborting;
+     };
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
+     struct BenchmarkInfo {
+         std::string name;
++        double estimatedDuration;
++        int iterations;
++        int samples;
++        unsigned int resamples;
++        double clockResolution;
++        double clockCost;
+     };
++
++    template <class Duration>
+     struct BenchmarkStats {
+         BenchmarkInfo info;
+-        std::size_t iterations;
+-        uint64_t elapsedTimeInNanoseconds;
++
++        std::vector<Duration> samples;
++        Benchmark::Estimate<Duration> mean;
++        Benchmark::Estimate<Duration> standardDeviation;
++        Benchmark::OutlierClassification outliers;
++        double outlierVariance;
++
++        template <typename Duration2>
++        operator BenchmarkStats<Duration2>() const {
++            std::vector<Duration2> samples2;
++            samples2.reserve(samples.size());
++            std::transform(samples.begin(), samples.end(), std::back_inserter(samples2), [](Duration d) { return Duration2(d); });
++            return {
++                info,
++                std::move(samples2),
++                mean,
++                standardDeviation,
++                outliers,
++                outlierVariance,
++            };
++        }
+     };
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+     struct IStreamingReporter {
+         virtual ~IStreamingReporter() = default;
+@@ -185,17 +220,18 @@ namespace Catch {
+         virtual void testCaseStarting( TestCaseInfo const& testInfo ) = 0;
+         virtual void sectionStarting( SectionInfo const& sectionInfo ) = 0;
+ 
+-        // *** experimental ***
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        virtual void benchmarkPreparing( std::string const& ) {}
+         virtual void benchmarkStarting( BenchmarkInfo const& ) {}
++        virtual void benchmarkEnded( BenchmarkStats<> const& ) {}
++        virtual void benchmarkFailed( std::string const& ) {}
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+         virtual void assertionStarting( AssertionInfo const& assertionInfo ) = 0;
+ 
+         // The return value indicates if the messages buffer should be cleared:
+         virtual bool assertionEnded( AssertionStats const& assertionStats ) = 0;
+ 
+-        // *** experimental ***
+-        virtual void benchmarkEnded( BenchmarkStats const& ) {}
+-
+         virtual void sectionEnded( SectionStats const& sectionStats ) = 0;
+         virtual void testCaseEnded( TestCaseStats const& testCaseStats ) = 0;
+         virtual void testGroupEnded( TestGroupStats const& testGroupStats ) = 0;
+diff --git a/include/internal/catch_meta.hpp b/include/internal/catch_meta.hpp
+index 686dbb8c07..fe8698dcbc 100644
+--- a/include/internal/catch_meta.hpp
++++ b/include/internal/catch_meta.hpp
+@@ -12,8 +12,23 @@
+ #include <type_traits>
+ 
+ namespace Catch {
+-    template<typename T>
+-    struct always_false : std::false_type {};
++template<typename T>
++struct always_false : std::false_type {};
++
++template <typename> struct true_given : std::true_type {};
++struct is_callable_tester {
++    template <typename Fun, typename... Args>
++    true_given<decltype(std::declval<Fun>()(std::declval<Args>()...))> static test(int);
++    template <typename...>
++    std::false_type static test(...);
++};
++
++template <typename T>
++struct is_callable;
++
++template <typename Fun, typename... Args>
++struct is_callable<Fun(Args...)> : decltype(is_callable_tester::test<Fun, Args...>(0)) {};
++
+ } // namespace Catch
+ 
+ #endif // TWOBLUECUBES_CATCH_META_HPP_INCLUDED
+diff --git a/include/internal/catch_run_context.cpp b/include/internal/catch_run_context.cpp
+index bc3a51512b..d2acc65218 100644
+--- a/include/internal/catch_run_context.cpp
++++ b/include/internal/catch_run_context.cpp
+@@ -230,12 +230,21 @@ namespace Catch {
+ 
+         m_unfinishedSections.push_back(endInfo);
+     }
++	
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++    void RunContext::benchmarkPreparing(std::string const& name) {
++		m_reporter->benchmarkPreparing(name);
++	}
+     void RunContext::benchmarkStarting( BenchmarkInfo const& info ) {
+         m_reporter->benchmarkStarting( info );
+     }
+-    void RunContext::benchmarkEnded( BenchmarkStats const& stats ) {
++    void RunContext::benchmarkEnded( BenchmarkStats<> const& stats ) {
+         m_reporter->benchmarkEnded( stats );
+     }
++	void RunContext::benchmarkFailed(std::string const & error) {
++		m_reporter->benchmarkFailed(error);
++	}
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+     void RunContext::pushScopedMessage(MessageInfo const & message) {
+         m_messages.push_back(message);
+diff --git a/include/internal/catch_run_context.h b/include/internal/catch_run_context.h
+index c530a7b2d9..66a58c5e27 100644
+--- a/include/internal/catch_run_context.h
++++ b/include/internal/catch_run_context.h
+@@ -82,8 +82,12 @@ namespace Catch {
+ 
+         auto acquireGeneratorTracker( SourceLineInfo const& lineInfo ) -> IGeneratorTracker& override;
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        void benchmarkPreparing( std::string const& name ) override;
+         void benchmarkStarting( BenchmarkInfo const& info ) override;
+-        void benchmarkEnded( BenchmarkStats const& stats ) override;
++        void benchmarkEnded( BenchmarkStats<> const& stats ) override;
++        void benchmarkFailed( std::string const& error ) override;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+         void pushScopedMessage( MessageInfo const& message ) override;
+         void popScopedMessage( MessageInfo const& message ) override;
+diff --git a/include/internal/catch_stream.cpp b/include/internal/catch_stream.cpp
+index ba2d2be253..3e907c63b2 100644
+--- a/include/internal/catch_stream.cpp
++++ b/include/internal/catch_stream.cpp
+@@ -25,7 +25,7 @@ namespace Catch {
+ 
+     Catch::IStream::~IStream() = default;
+ 
+-    namespace detail { namespace {
++    namespace Detail { namespace {
+         template<typename WriterF, std::size_t bufferSize=256>
+         class StreamBufImpl : public std::streambuf {
+             char data[bufferSize];
+@@ -124,15 +124,15 @@ namespace Catch {
+ 
+     auto makeStream( StringRef const &filename ) -> IStream const* {
+         if( filename.empty() )
+-            return new detail::CoutStream();
++            return new Detail::CoutStream();
+         else if( filename[0] == '%' ) {
+             if( filename == "%debug" )
+-                return new detail::DebugOutStream();
++                return new Detail::DebugOutStream();
+             else
+                 CATCH_ERROR( "Unrecognised stream: '" << filename << "'" );
+         }
+         else
+-            return new detail::FileStream( filename );
++            return new Detail::FileStream( filename );
+     }
+ 
+ 
+diff --git a/include/reporters/catch_reporter_console.cpp b/include/reporters/catch_reporter_console.cpp
+index 53b977eb1f..b88f3b141d 100644
+--- a/include/reporters/catch_reporter_console.cpp
++++ b/include/reporters/catch_reporter_console.cpp
+@@ -20,10 +20,16 @@
+ #if defined(_MSC_VER)
+ #pragma warning(push)
+ #pragma warning(disable:4061) // Not all labels are EXPLICITLY handled in switch
+- // Note that 4062 (not all labels are handled
+- // and default is missing) is enabled
++ // Note that 4062 (not all labels are handled and default is missing) is enabled
+ #endif
+ 
++#if defined(__clang__)
++#  pragma clang diagnostic push
++// For simplicity, benchmarking-only helpers are always enabled
++#  pragma clang diagnostic ignored "-Wunused-function"
++#endif
++
++
+ 
+ namespace Catch {
+ 
+@@ -208,6 +214,10 @@ class Duration {
+     Unit m_units;
+ 
+ public:
++	explicit Duration(double inNanoseconds, Unit units = Unit::Auto)
++        : Duration(static_cast<uint64_t>(inNanoseconds), units) {
++    }
++
+     explicit Duration(uint64_t inNanoseconds, Unit units = Unit::Auto)
+         : m_inNanoseconds(inNanoseconds),
+         m_units(units) {
+@@ -283,9 +293,15 @@ class TablePrinter {
+         if (!m_isOpen) {
+             m_isOpen = true;
+             *this << RowBreak();
+-            for (auto const& info : m_columnInfos)
+-                *this << info.name << ColumnBreak();
+-            *this << RowBreak();
++
++			Columns headerCols;
++			Spacer spacer(2);
++			for (auto const& info : m_columnInfos) {
++				headerCols += Column(info.name).width(static_cast<std::size_t>(info.width - 2));
++				headerCols += spacer;
++			}
++			m_os << headerCols << "\n";
++
+             m_os << Catch::getLineOfChars<'-'>() << "\n";
+         }
+     }
+@@ -340,9 +356,9 @@ ConsoleReporter::ConsoleReporter(ReporterConfig const& config)
+     m_tablePrinter(new TablePrinter(config.stream(),
+     {
+         { "benchmark name", CATCH_CONFIG_CONSOLE_WIDTH - 32, ColumnInfo::Left },
+-        { "iters", 8, ColumnInfo::Right },
+-        { "elapsed ns", 14, ColumnInfo::Right },
+-        { "average", 14, ColumnInfo::Right }
++        { "samples      mean       std dev", 14, ColumnInfo::Right },
++        { "iterations   low mean   low std dev", 14, ColumnInfo::Right },
++        { "estimated    high mean  high std dev", 14, ColumnInfo::Right }
+     })) {}
+ ConsoleReporter::~ConsoleReporter() = default;
+ 
+@@ -374,6 +390,7 @@ bool ConsoleReporter::assertionEnded(AssertionStats const& _assertionStats) {
+ }
+ 
+ void ConsoleReporter::sectionStarting(SectionInfo const& _sectionInfo) {
++    m_tablePrinter->close();
+     m_headerPrinted = false;
+     StreamingReporterBase::sectionStarting(_sectionInfo);
+ }
+@@ -397,29 +414,45 @@ void ConsoleReporter::sectionEnded(SectionStats const& _sectionStats) {
+     StreamingReporterBase::sectionEnded(_sectionStats);
+ }
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++void ConsoleReporter::benchmarkPreparing(std::string const& name) {
++	lazyPrintWithoutClosingBenchmarkTable();
+ 
+-void ConsoleReporter::benchmarkStarting(BenchmarkInfo const& info) {
+-    lazyPrintWithoutClosingBenchmarkTable();
++	auto nameCol = Column(name).width(static_cast<std::size_t>(m_tablePrinter->columnInfos()[0].width - 2));
+ 
+-    auto nameCol = Column( info.name ).width( static_cast<std::size_t>( m_tablePrinter->columnInfos()[0].width - 2 ) );
++	bool firstLine = true;
++	for (auto line : nameCol) {
++		if (!firstLine)
++			(*m_tablePrinter) << ColumnBreak() << ColumnBreak() << ColumnBreak();
++		else
++			firstLine = false;
+ 
+-    bool firstLine = true;
+-    for (auto line : nameCol) {
+-        if (!firstLine)
+-            (*m_tablePrinter) << ColumnBreak() << ColumnBreak() << ColumnBreak();
+-        else
+-            firstLine = false;
++		(*m_tablePrinter) << line << ColumnBreak();
++	}
++}
+ 
+-        (*m_tablePrinter) << line << ColumnBreak();
+-    }
++void ConsoleReporter::benchmarkStarting(BenchmarkInfo const& info) {
++	(*m_tablePrinter) << info.samples << ColumnBreak()
++		<< info.iterations << ColumnBreak()
++		<< Duration(info.estimatedDuration) << ColumnBreak();
+ }
+-void ConsoleReporter::benchmarkEnded(BenchmarkStats const& stats) {
+-    Duration average(stats.elapsedTimeInNanoseconds / stats.iterations);
++void ConsoleReporter::benchmarkEnded(BenchmarkStats<> const& stats) {
++	(*m_tablePrinter) << ColumnBreak()
++		<< Duration(stats.mean.point.count()) << ColumnBreak()
++		<< Duration(stats.mean.lower_bound.count()) << ColumnBreak()
++		<< Duration(stats.mean.upper_bound.count()) << ColumnBreak() << ColumnBreak()
++		<< Duration(stats.standardDeviation.point.count()) << ColumnBreak()
++		<< Duration(stats.standardDeviation.lower_bound.count()) << ColumnBreak()
++		<< Duration(stats.standardDeviation.upper_bound.count()) << ColumnBreak() << ColumnBreak() << ColumnBreak() << ColumnBreak() << ColumnBreak();
++}
++
++void ConsoleReporter::benchmarkFailed(std::string const& error) {
++	Colour colour(Colour::Red);
+     (*m_tablePrinter)
+-        << stats.iterations << ColumnBreak()
+-        << stats.elapsedTimeInNanoseconds << ColumnBreak()
+-        << average << ColumnBreak();
++        << "Benchmark failed (" << error << ")"
++        << ColumnBreak() << RowBreak();
+ }
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+ void ConsoleReporter::testCaseEnded(TestCaseStats const& _testCaseStats) {
+     m_tablePrinter->close();
+@@ -638,3 +671,7 @@ CATCH_REGISTER_REPORTER("console", ConsoleReporter)
+ #if defined(_MSC_VER)
+ #pragma warning(pop)
+ #endif
++
++#if defined(__clang__)
++#  pragma clang diagnostic pop
++#endif
+diff --git a/include/reporters/catch_reporter_console.h b/include/reporters/catch_reporter_console.h
+index effa58d343..5d21ffb692 100644
+--- a/include/reporters/catch_reporter_console.h
++++ b/include/reporters/catch_reporter_console.h
+@@ -39,9 +39,12 @@ namespace Catch {
+         void sectionStarting(SectionInfo const& _sectionInfo) override;
+         void sectionEnded(SectionStats const& _sectionStats) override;
+ 
+-
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        void benchmarkPreparing(std::string const& name) override;
+         void benchmarkStarting(BenchmarkInfo const& info) override;
+-        void benchmarkEnded(BenchmarkStats const& stats) override;
++        void benchmarkEnded(BenchmarkStats<> const& stats) override;
++        void benchmarkFailed(std::string const& error) override;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+         void testCaseEnded(TestCaseStats const& _testCaseStats) override;
+         void testGroupEnded(TestGroupStats const& _testGroupStats) override;
+diff --git a/include/reporters/catch_reporter_listening.cpp b/include/reporters/catch_reporter_listening.cpp
+index 9ddae2f2ed..6864e90bc9 100644
+--- a/include/reporters/catch_reporter_listening.cpp
++++ b/include/reporters/catch_reporter_listening.cpp
+@@ -42,19 +42,34 @@ namespace Catch {
+         m_reporter->noMatchingTestCases( spec );
+     }
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++    void ListeningReporter::benchmarkPreparing( std::string const& name ) {
++		for (auto const& listener : m_listeners) {
++			listener->benchmarkPreparing(name);
++		}
++		m_reporter->benchmarkPreparing(name);
++	}
+     void ListeningReporter::benchmarkStarting( BenchmarkInfo const& benchmarkInfo ) {
+         for ( auto const& listener : m_listeners ) {
+             listener->benchmarkStarting( benchmarkInfo );
+         }
+         m_reporter->benchmarkStarting( benchmarkInfo );
+     }
+-    void ListeningReporter::benchmarkEnded( BenchmarkStats const& benchmarkStats ) {
++    void ListeningReporter::benchmarkEnded( BenchmarkStats<> const& benchmarkStats ) {
+         for ( auto const& listener : m_listeners ) {
+             listener->benchmarkEnded( benchmarkStats );
+         }
+         m_reporter->benchmarkEnded( benchmarkStats );
+     }
+ 
++	void ListeningReporter::benchmarkFailed( std::string const& error ) {
++		for (auto const& listener : m_listeners) {
++			listener->benchmarkFailed(error);
++		}
++		m_reporter->benchmarkFailed(error);
++	}
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+     void ListeningReporter::testRunStarting( TestRunInfo const& testRunInfo ) {
+         for ( auto const& listener : m_listeners ) {
+             listener->testRunStarting( testRunInfo );
+diff --git a/include/reporters/catch_reporter_listening.h b/include/reporters/catch_reporter_listening.h
+index dddd7a5186..802db446d7 100644
+--- a/include/reporters/catch_reporter_listening.h
++++ b/include/reporters/catch_reporter_listening.h
+@@ -31,8 +31,12 @@ namespace Catch {
+ 
+         static std::set<Verbosity> getSupportedVerbosities();
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        void benchmarkPreparing(std::string const& name) override;
+         void benchmarkStarting( BenchmarkInfo const& benchmarkInfo ) override;
+-        void benchmarkEnded( BenchmarkStats const& benchmarkStats ) override;
++        void benchmarkEnded( BenchmarkStats<> const& benchmarkStats ) override;
++        void benchmarkFailed(std::string const&) override;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
+ 
+         void testRunStarting( TestRunInfo const& testRunInfo ) override;
+         void testGroupStarting( GroupInfo const& groupInfo ) override;
+diff --git a/include/reporters/catch_reporter_xml.cpp b/include/reporters/catch_reporter_xml.cpp
+index c7572d1ebe..f626fb68b0 100644
+--- a/include/reporters/catch_reporter_xml.cpp
++++ b/include/reporters/catch_reporter_xml.cpp
+@@ -219,6 +219,48 @@ namespace Catch {
+         m_xml.endElement();
+     }
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++    void XmlReporter::benchmarkStarting(BenchmarkInfo const &info) {
++        m_xml.startElement("BenchmarkResults")
++            .writeAttribute("name", info.name)
++            .writeAttribute("samples", info.samples)
++            .writeAttribute("resamples", info.resamples)
++            .writeAttribute("iterations", info.iterations)
++            .writeAttribute("clockResolution", static_cast<uint64_t>(info.clockResolution))
++            .writeAttribute("estimatedDuration", static_cast<uint64_t>(info.estimatedDuration))
++            .writeComment("All values in nano seconds");
++    }
++
++    void XmlReporter::benchmarkEnded(BenchmarkStats<> const& benchmarkStats) {
++        m_xml.startElement("mean")
++            .writeAttribute("value", static_cast<uint64_t>(benchmarkStats.mean.point.count()))
++            .writeAttribute("lowerBound", static_cast<uint64_t>(benchmarkStats.mean.lower_bound.count()))
++            .writeAttribute("upperBound", static_cast<uint64_t>(benchmarkStats.mean.upper_bound.count()))
++            .writeAttribute("ci", benchmarkStats.mean.confidence_interval);
++        m_xml.endElement();
++        m_xml.startElement("standardDeviation")
++            .writeAttribute("value", benchmarkStats.standardDeviation.point.count())
++            .writeAttribute("lowerBound", benchmarkStats.standardDeviation.lower_bound.count())
++            .writeAttribute("upperBound", benchmarkStats.standardDeviation.upper_bound.count())
++            .writeAttribute("ci", benchmarkStats.standardDeviation.confidence_interval);
++        m_xml.endElement();
++        m_xml.startElement("outliers")
++            .writeAttribute("variance", benchmarkStats.outlierVariance)
++            .writeAttribute("lowMild", benchmarkStats.outliers.low_mild)
++            .writeAttribute("lowSevere", benchmarkStats.outliers.low_severe)
++            .writeAttribute("highMild", benchmarkStats.outliers.high_mild)
++            .writeAttribute("highSevere", benchmarkStats.outliers.high_severe);
++        m_xml.endElement();
++        m_xml.endElement();
++    }
++
++    void XmlReporter::benchmarkFailed(std::string const &error) {
++        m_xml.scopedElement("failed").
++            writeAttribute("message", error);
++        m_xml.endElement();
++    }
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+     CATCH_REGISTER_REPORTER( "xml", XmlReporter )
+ 
+ } // end namespace Catch
+diff --git a/include/reporters/catch_reporter_xml.h b/include/reporters/catch_reporter_xml.h
+index 7926f93a85..761f98f1ec 100644
+--- a/include/reporters/catch_reporter_xml.h
++++ b/include/reporters/catch_reporter_xml.h
+@@ -50,6 +50,12 @@ namespace Catch {
+ 
+         void testRunEnded(TestRunStats const& testRunStats) override;
+ 
++#if defined(CATCH_CONFIG_ENABLE_BENCHMARKING)
++        void benchmarkStarting(BenchmarkInfo const&) override;
++        void benchmarkEnded(BenchmarkStats<> const&) override;
++        void benchmarkFailed(std::string const&) override;
++#endif // CATCH_CONFIG_ENABLE_BENCHMARKING
++
+     private:
+         Timer m_testCaseTimer;
+         XmlWriter m_xml;
+diff --git a/projects/CMakeLists.txt b/projects/CMakeLists.txt
+index 3029e82355..f204ddd449 100644
+--- a/projects/CMakeLists.txt
++++ b/projects/CMakeLists.txt
+@@ -18,6 +18,7 @@ set(TEST_SOURCES
+         ${SELF_TEST_DIR}/TestMain.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/CmdLine.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/GeneratorsImpl.tests.cpp
++        ${SELF_TEST_DIR}/IntrospectiveTests/InternalBenchmark.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/PartTracker.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/Tag.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/String.tests.cpp
+@@ -79,6 +80,28 @@ CheckFileList(EXTERNAL_HEADERS ${HEADER_DIR}/external)
+ 
+ 
+ # Please keep these ordered alphabetically
++set(BENCHMARK_HEADERS
++		${HEADER_DIR}/internal/benchmark/catch_benchmark.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_chronometer.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_clock.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_constructor.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_environment.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_estimate.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_execution_plan.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_optimizer.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_outlier_classification.hpp
++        ${HEADER_DIR}/internal/benchmark/catch_sample_analysis.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_analyse.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_benchmark_function.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_complete_invoke.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_estimate_clock.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_measure.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_repeat.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_run_for_at_least.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_stats.hpp
++        ${HEADER_DIR}/internal/benchmark/detail/catch_timing.hpp
++)
++SOURCE_GROUP("benchmark" FILES ${BENCHMARK_HEADERS})
+ set(INTERNAL_HEADERS
+         ${HEADER_DIR}/internal/catch_approx.h
+         ${HEADER_DIR}/internal/catch_assertionhandler.h
+@@ -138,7 +161,6 @@ set(INTERNAL_HEADERS
+         ${HEADER_DIR}/internal/catch_reporter_registry.h
+         ${HEADER_DIR}/internal/catch_result_type.h
+         ${HEADER_DIR}/internal/catch_run_context.h
+-        ${HEADER_DIR}/internal/catch_benchmark.h
+         ${HEADER_DIR}/internal/catch_section.h
+         ${HEADER_DIR}/internal/catch_section_info.h
+         ${HEADER_DIR}/internal/catch_session.h
+@@ -174,7 +196,6 @@ set(IMPL_SOURCES
+         ${HEADER_DIR}/internal/catch_approx.cpp
+         ${HEADER_DIR}/internal/catch_assertionhandler.cpp
+         ${HEADER_DIR}/internal/catch_assertionresult.cpp
+-        ${HEADER_DIR}/internal/catch_benchmark.cpp
+         ${HEADER_DIR}/internal/catch_capture_matchers.cpp
+         ${HEADER_DIR}/internal/catch_commandline.cpp
+         ${HEADER_DIR}/internal/catch_common.cpp
+@@ -269,6 +290,7 @@ set(HEADERS
+         ${EXTERNAL_HEADERS}
+         ${INTERNAL_HEADERS}
+         ${REPORTER_HEADERS}
++		${BENCHMARK_HEADERS}
+         )
+ 
+ # Provide some groupings for IDEs
+diff --git a/projects/ExtraTests/CMakeLists.txt b/projects/ExtraTests/CMakeLists.txt
+index c0dd82d8f0..5a8dd79bcd 100644
+--- a/projects/ExtraTests/CMakeLists.txt
++++ b/projects/ExtraTests/CMakeLists.txt
+@@ -116,6 +116,17 @@ set_tests_properties(
+ )
+ 
+ 
++add_executable(BenchmarkingMacros ${TESTS_DIR}/X20-BenchmarkingMacros.cpp)
++target_compile_definitions( BenchmarkingMacros PRIVATE CATCH_CONFIG_ENABLE_BENCHMARKING )
++
++add_test(NAME BenchmarkingMacros COMMAND BenchmarkingMacros -r console -s)
++set_tests_properties(
++    BenchmarkingMacros
++  PROPERTIES
++    PASS_REGULAR_EXPRESSION "benchmark name                                  samples       iterations    estimated"
++)
++
++
+ set( EXTRA_TEST_BINARIES
+     PrefixedMacros
+     DisabledMacros
+@@ -123,6 +134,7 @@ set( EXTRA_TEST_BINARIES
+     DisabledExceptions-CustomHandler
+     FallbackStringifier
+     DisableStringification
++    BenchmarkingMacros
+ )
+ 
+ # Shared config
+diff --git a/projects/ExtraTests/X20-BenchmarkingMacros.cpp b/projects/ExtraTests/X20-BenchmarkingMacros.cpp
+new file mode 100644
+index 0000000000..e76af0c71f
+--- /dev/null
++++ b/projects/ExtraTests/X20-BenchmarkingMacros.cpp
+@@ -0,0 +1,133 @@
++// X20-BenchmarkingMacros.cpp
++// Test that the benchmarking support macros compile properly with the single header
++
++#define CATCH_CONFIG_MAIN
++#include <catch2/catch.hpp>
++
++namespace {
++std::uint64_t factorial(std::uint64_t number) {
++    if (number < 2) {
++        return 1;
++    }
++    return number * factorial(number - 1);
++}
++}
++
++TEST_CASE("Benchmark factorial", "[benchmark]") {
++    CHECK(factorial(0) == 1);
++    // some more asserts..
++    CHECK(factorial(10) == 3628800);
++
++    BENCHMARK("factorial 10") {
++        return factorial(10);
++    };
++
++    CHECK(factorial(14) == 87178291200ull);
++    BENCHMARK("factorial 14") {
++        return factorial(14);
++    };
++//
++//    BENCHMARK("factorial 20") {
++//        return factorial(20);
++//    };
++//
++//    BENCHMARK("factorial 35") {
++//        return factorial(35);
++//    };
++}
++
++TEST_CASE("Benchmark containers", "[.][benchmark]") {
++    static const int size = 100;
++
++    std::vector<int> v;
++    std::map<int, int> m;
++
++    SECTION("without generator") {
++        BENCHMARK("Load up a vector") {
++            v = std::vector<int>();
++            for (int i = 0; i < size; ++i)
++                v.push_back(i);
++        };
++        REQUIRE(v.size() == size);
++
++        // test optimizer control
++        BENCHMARK("Add up a vector's content") {
++            uint64_t add = 0;
++            for (int i = 0; i < size; ++i)
++                add += v[i];
++            return add;
++        };
++
++        BENCHMARK("Load up a map") {
++            m = std::map<int, int>();
++            for (int i = 0; i < size; ++i)
++                m.insert({ i, i + 1 });
++        };
++        REQUIRE(m.size() == size);
++
++        BENCHMARK("Reserved vector") {
++            v = std::vector<int>();
++            v.reserve(size);
++            for (int i = 0; i < size; ++i)
++                v.push_back(i);
++        };
++        REQUIRE(v.size() == size);
++
++        BENCHMARK("Resized vector") {
++            v = std::vector<int>();
++            v.resize(size);
++            for (int i = 0; i < size; ++i)
++                v[i] = i;
++        };
++        REQUIRE(v.size() == size);
++
++        int array[size];
++        BENCHMARK("A fixed size array that should require no allocations") {
++            for (int i = 0; i < size; ++i)
++                array[i] = i;
++        };
++        int sum = 0;
++        for (int i = 0; i < size; ++i)
++            sum += array[i];
++        REQUIRE(sum > size);
++
++        SECTION("XYZ") {
++
++            BENCHMARK_ADVANCED("Load up vector with chronometer")(Catch::Benchmark::Chronometer meter) {
++                std::vector<int> k;
++                meter.measure([&](int idx) {
++                    k = std::vector<int>();
++                    for (int i = 0; i < size; ++i)
++                        k.push_back(idx);
++                });
++                REQUIRE(k.size() == size);
++            };
++
++            int runs = 0;
++            BENCHMARK("Fill vector indexed", benchmarkIndex) {
++                v = std::vector<int>();
++                v.resize(size);
++                for (int i = 0; i < size; ++i)
++                    v[i] = benchmarkIndex;
++                runs = benchmarkIndex;
++            };
++
++            for (size_t i = 0; i < v.size(); ++i) {
++                REQUIRE(v[i] == runs);
++            }
++        }
++    }
++
++    SECTION("with generator") {
++        auto generated = GENERATE(range(0, 10));
++        BENCHMARK("Fill vector generated") {
++            v = std::vector<int>();
++            v.resize(size);
++            for (int i = 0; i < size; ++i)
++                v[i] = generated;
++        };
++        for (size_t i = 0; i < v.size(); ++i) {
++            REQUIRE(v[i] == generated);
++        }
++    }
++}
+diff --git a/projects/SelfTest/Baselines/compact.sw.approved.txt b/projects/SelfTest/Baselines/compact.sw.approved.txt
+index 89ebdfb1b5..eb30151f32 100644
+--- a/projects/SelfTest/Baselines/compact.sw.approved.txt
++++ b/projects/SelfTest/Baselines/compact.sw.approved.txt
+@@ -944,6 +944,14 @@ CmdLine.tests.cpp:<line number>: passed: cli.parse({"test", "--use-colour", "no"
+ CmdLine.tests.cpp:<line number>: passed: config.useColour == UseColour::No for: 2 == 2
+ CmdLine.tests.cpp:<line number>: passed: !result for: true
+ CmdLine.tests.cpp:<line number>: passed: result.errorMessage(), Contains( "colour mode must be one of" ) for: "colour mode must be one of: auto, yes or no. 'wrong' not recognised" contains: "colour mode must be one of"
++CmdLine.tests.cpp:<line number>: passed: cli.parse({ "test", "--benchmark-samples=200" }) for: {?}
++CmdLine.tests.cpp:<line number>: passed: config.benchmarkSamples == 200 for: 200 == 200
++CmdLine.tests.cpp:<line number>: passed: cli.parse({ "test", "--benchmark-resamples=20000" }) for: {?}
++CmdLine.tests.cpp:<line number>: passed: config.benchmarkResamples == 20000 for: 20000 (0x<hex digits>) == 20000 (0x<hex digits>)
++CmdLine.tests.cpp:<line number>: passed: cli.parse({ "test", "--benchmark-confidence-interval=0.99" }) for: {?}
++CmdLine.tests.cpp:<line number>: passed: config.benchmarkConfidenceInterval == Catch::Detail::Approx(0.99) for: 0.99 == Approx( 0.99 )
++CmdLine.tests.cpp:<line number>: passed: cli.parse({ "test", "--benchmark-no-analysis" }) for: {?}
++CmdLine.tests.cpp:<line number>: passed: config.benchmarkNoAnalysis for: true
+ Misc.tests.cpp:<line number>: passed: std::tuple_size<TestType>::value >= 1 for: 3 >= 1
+ Misc.tests.cpp:<line number>: passed: std::tuple_size<TestType>::value >= 1 for: 2 >= 1
+ Misc.tests.cpp:<line number>: passed: std::tuple_size<TestType>::value >= 1 for: 1 >= 1
+diff --git a/projects/SelfTest/Baselines/console.std.approved.txt b/projects/SelfTest/Baselines/console.std.approved.txt
+index 5f8e036272..ebbef31344 100644
+--- a/projects/SelfTest/Baselines/console.std.approved.txt
++++ b/projects/SelfTest/Baselines/console.std.approved.txt
+@@ -1381,5 +1381,5 @@ due to unexpected exception with message:
+ 
+ ===============================================================================
+ test cases:  289 |  215 passed |  70 failed |  4 failed as expected
+-assertions: 1539 | 1387 passed | 131 failed | 21 failed as expected
++assertions: 1547 | 1395 passed | 131 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/console.sw.approved.txt b/projects/SelfTest/Baselines/console.sw.approved.txt
+index cd65bc1709..3ff1e189af 100644
+--- a/projects/SelfTest/Baselines/console.sw.approved.txt
++++ b/projects/SelfTest/Baselines/console.sw.approved.txt
+@@ -6954,6 +6954,78 @@ with expansion:
+   "colour mode must be one of: auto, yes or no. 'wrong' not recognised"
+   contains: "colour mode must be one of"
+ 
++-------------------------------------------------------------------------------
++Process can be configured on command line
++  Benchmark options
++  samples
++-------------------------------------------------------------------------------
++CmdLine.tests.cpp:<line number>
++...............................................................................
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  CHECK( cli.parse({ "test", "--benchmark-samples=200" }) )
++with expansion:
++  {?}
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  REQUIRE( config.benchmarkSamples == 200 )
++with expansion:
++  200 == 200
++
++-------------------------------------------------------------------------------
++Process can be configured on command line
++  Benchmark options
++  resamples
++-------------------------------------------------------------------------------
++CmdLine.tests.cpp:<line number>
++...............................................................................
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  CHECK( cli.parse({ "test", "--benchmark-resamples=20000" }) )
++with expansion:
++  {?}
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  REQUIRE( config.benchmarkResamples == 20000 )
++with expansion:
++  20000 (0x<hex digits>) == 20000 (0x<hex digits>)
++
++-------------------------------------------------------------------------------
++Process can be configured on command line
++  Benchmark options
++  resamples
++-------------------------------------------------------------------------------
++CmdLine.tests.cpp:<line number>
++...............................................................................
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  CHECK( cli.parse({ "test", "--benchmark-confidence-interval=0.99" }) )
++with expansion:
++  {?}
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  REQUIRE( config.benchmarkConfidenceInterval == Catch::Detail::Approx(0.99) )
++with expansion:
++  0.99 == Approx( 0.99 )
++
++-------------------------------------------------------------------------------
++Process can be configured on command line
++  Benchmark options
++  resamples
++-------------------------------------------------------------------------------
++CmdLine.tests.cpp:<line number>
++...............................................................................
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  CHECK( cli.parse({ "test", "--benchmark-no-analysis" }) )
++with expansion:
++  {?}
++
++CmdLine.tests.cpp:<line number>: PASSED:
++  REQUIRE( config.benchmarkNoAnalysis )
++with expansion:
++  true
++
+ -------------------------------------------------------------------------------
+ Product with differing arities - std::tuple<int, double, float>
+ -------------------------------------------------------------------------------
+@@ -12219,5 +12291,5 @@ Misc.tests.cpp:<line number>: PASSED:
+ 
+ ===============================================================================
+ test cases:  289 |  199 passed |  86 failed |  4 failed as expected
+-assertions: 1556 | 1387 passed | 148 failed | 21 failed as expected
++assertions: 1564 | 1395 passed | 148 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/junit.sw.approved.txt b/projects/SelfTest/Baselines/junit.sw.approved.txt
+index 94f0138552..4592a90c9a 100644
+--- a/projects/SelfTest/Baselines/junit.sw.approved.txt
++++ b/projects/SelfTest/Baselines/junit.sw.approved.txt
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuitesloose text artifact
+ >
+-  <testsuite name="<exe-name>" errors="17" failures="132" tests="1557" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="132" tests="1565" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <properties>
+       <property name="filters" value="~[!nonportable]~[!benchmark]~[approvals]"/>
+       <property name="random-seed" value="1"/>
+@@ -648,6 +648,10 @@ Message.tests.cpp:<line number>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/use-colour/yes" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/use-colour/no" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Process can be configured on command line/use-colour/error" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Process can be configured on command line/Benchmark options/samples" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Process can be configured on command line/Benchmark options/resamples" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Process can be configured on command line/Benchmark options/resamples" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="Process can be configured on command line/Benchmark options/resamples" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Product with differing arities - std::tuple&lt;int, double, float>" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Product with differing arities - std::tuple&lt;int, double>" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Product with differing arities - std::tuple&lt;int>" time="{duration}"/>
+diff --git a/projects/SelfTest/Baselines/xml.sw.approved.txt b/projects/SelfTest/Baselines/xml.sw.approved.txt
+index dd2c3f4a96..0d306b2e52 100644
+--- a/projects/SelfTest/Baselines/xml.sw.approved.txt
++++ b/projects/SelfTest/Baselines/xml.sw.approved.txt
+@@ -8669,6 +8669,94 @@ Nor would this
+         </Section>
+         <OverallResults successes="2" failures="0" expectedFailures="0"/>
+       </Section>
++      <Section name="Benchmark options" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++        <Section name="samples" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++          <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              cli.parse({ "test", "--benchmark-samples=200" })
++            </Original>
++            <Expanded>
++              {?}
++            </Expanded>
++          </Expression>
++          <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              config.benchmarkSamples == 200
++            </Original>
++            <Expanded>
++              200 == 200
++            </Expanded>
++          </Expression>
++          <OverallResults successes="2" failures="0" expectedFailures="0"/>
++        </Section>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
++      <Section name="Benchmark options" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++        <Section name="resamples" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++          <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              cli.parse({ "test", "--benchmark-resamples=20000" })
++            </Original>
++            <Expanded>
++              {?}
++            </Expanded>
++          </Expression>
++          <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              config.benchmarkResamples == 20000
++            </Original>
++            <Expanded>
++              20000 (0x<hex digits>) == 20000 (0x<hex digits>)
++            </Expanded>
++          </Expression>
++          <OverallResults successes="2" failures="0" expectedFailures="0"/>
++        </Section>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
++      <Section name="Benchmark options" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++        <Section name="resamples" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++          <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              cli.parse({ "test", "--benchmark-confidence-interval=0.99" })
++            </Original>
++            <Expanded>
++              {?}
++            </Expanded>
++          </Expression>
++          <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              config.benchmarkConfidenceInterval == Catch::Detail::Approx(0.99)
++            </Original>
++            <Expanded>
++              0.99 == Approx( 0.99 )
++            </Expanded>
++          </Expression>
++          <OverallResults successes="2" failures="0" expectedFailures="0"/>
++        </Section>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
++      <Section name="Benchmark options" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++        <Section name="resamples" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++          <Expression success="true" type="CHECK" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              cli.parse({ "test", "--benchmark-no-analysis" })
++            </Original>
++            <Expanded>
++              {?}
++            </Expanded>
++          </Expression>
++          <Expression success="true" type="REQUIRE" filename="projects/<exe-name>/IntrospectiveTests/CmdLine.tests.cpp" >
++            <Original>
++              config.benchmarkNoAnalysis
++            </Original>
++            <Expanded>
++              true
++            </Expanded>
++          </Expression>
++          <OverallResults successes="2" failures="0" expectedFailures="0"/>
++        </Section>
++        <OverallResults successes="2" failures="0" expectedFailures="0"/>
++      </Section>
+       <OverallResult success="true"/>
+     </TestCase>
+     <TestCase name="Product with differing arities - std::tuple&lt;int, double, float>" tags="[product][template]" filename="projects/<exe-name>/UsageTests/Misc.tests.cpp" >
+@@ -14586,7 +14674,7 @@ loose text artifact
+       </Section>
+       <OverallResult success="true"/>
+     </TestCase>
+-    <OverallResults successes="1387" failures="149" expectedFailures="21"/>
++    <OverallResults successes="1395" failures="149" expectedFailures="21"/>
+   </Group>
+-  <OverallResults successes="1387" failures="148" expectedFailures="21"/>
++  <OverallResults successes="1395" failures="148" expectedFailures="21"/>
+ </Catch>

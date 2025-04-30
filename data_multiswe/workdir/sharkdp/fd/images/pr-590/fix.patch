@@ -1,0 +1,88 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index f6d7f6155..c4f9441a5 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,7 @@
+ 
+ - Add new `--owner [user][:group]` filter. See #307 (pull #581) (@alexmaco)
+ - Add support for a global ignore file (`~/.config/fd/ignore` on Unix), see #575 (@soedirgo)
++- Do not exit immediately if one of the search paths is missing, see #587 (@DJRHails)
+ 
+ ## Bugfixes
+ 
+diff --git a/src/main.rs b/src/main.rs
+index fa0e4623f..09c205cc9 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -22,6 +22,7 @@ use globset::GlobBuilder;
+ use lscolors::LsColors;
+ use regex::bytes::{RegexBuilder, RegexSetBuilder};
+ 
++use crate::error::print_error;
+ use crate::exec::CommandTemplate;
+ use crate::exit_codes::ExitCode;
+ use crate::filetypes::FileTypes;
+@@ -74,28 +75,36 @@ fn run() -> Result<ExitCode> {
+         .unwrap_or("");
+ 
+     // Get one or more root directories to search.
+-    let mut dir_vec: Vec<_> = match matches
++    let passed_arguments = matches
+         .values_of_os("path")
+-        .or_else(|| matches.values_of_os("search-path"))
+-    {
+-        Some(paths) => paths
+-            .map(|path| {
+-                let path_buffer = PathBuf::from(path);
+-                if filesystem::is_dir(&path_buffer) {
+-                    Ok(path_buffer)
+-                } else {
+-                    Err(anyhow!(
+-                        "Search path '{}' is not a directory.",
+-                        path_buffer.to_string_lossy()
+-                    ))
+-                }
+-            })
+-            .collect::<Result<Vec<_>>>()?,
+-        None => vec![current_directory.to_path_buf()],
++        .or_else(|| matches.values_of_os("search-path"));
++
++    let mut search_paths = if let Some(paths) = passed_arguments {
++        let mut directories = vec![];
++        for path in paths {
++            let path_buffer = PathBuf::from(path);
++            if filesystem::is_dir(&path_buffer) {
++                directories.push(path_buffer);
++            } else {
++                print_error(format!(
++                    "Search path '{}' is not a directory.",
++                    path_buffer.to_string_lossy()
++                ));
++            }
++        }
++
++        directories
++    } else {
++        vec![current_directory.to_path_buf()]
+     };
+ 
++    // Check if we have no valid search paths.
++    if search_paths.is_empty() {
++        return Err(anyhow!("No valid search paths given."));
++    }
++
+     if matches.is_present("absolute-path") {
+-        dir_vec = dir_vec
++        search_paths = search_paths
+             .iter()
+             .map(|path_buffer| {
+                 path_buffer
+@@ -400,7 +409,7 @@ fn run() -> Result<ExitCode> {
+             )
+         })?;
+ 
+-    walk::scan(&dir_vec, Arc::new(re), Arc::new(config))
++    walk::scan(&search_paths, Arc::new(re), Arc::new(config))
+ }
+ 
+ fn main() {

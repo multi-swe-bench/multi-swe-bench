@@ -1,0 +1,127 @@
+diff --git a/pkg/cmd/pr/list/fixtures/prList.json b/pkg/cmd/pr/list/fixtures/prList.json
+index 13d124f52b3..eb2b5d31fb2 100644
+--- a/pkg/cmd/pr/list/fixtures/prList.json
++++ b/pkg/cmd/pr/list/fixtures/prList.json
+@@ -8,6 +8,7 @@
+             "number": 32,
+             "title": "New feature",
+             "url": "https://github.com/monalisa/hello/pull/32",
++            "createtedAt": "2011-01-26T19:01:12Z",
+             "headRefName": "feature",
+             "state": "OPEN",
+             "isDraft": true
+@@ -16,6 +17,7 @@
+             "number": 29,
+             "title": "Fixed bad bug",
+             "url": "https://github.com/monalisa/hello/pull/29",
++            "createtedAt": "2011-01-26T19:01:12Z",
+             "headRefName": "bug-fix",
+             "state": "OPEN",
+             "isDraft": false,
+@@ -29,6 +31,7 @@
+             "state": "MERGED",
+             "isDraft": false,
+             "title": "Improve documentation",
++            "createtedAt": "2011-01-26T19:01:12Z",
+             "url": "https://github.com/monalisa/hello/pull/28",
+             "headRefName": "docs"
+           }
+diff --git a/pkg/cmd/pr/list/list.go b/pkg/cmd/pr/list/list.go
+index b33fe9ff541..07569d998f7 100644
+--- a/pkg/cmd/pr/list/list.go
++++ b/pkg/cmd/pr/list/list.go
+@@ -5,6 +5,7 @@ import (
+ 	"net/http"
+ 	"strconv"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/api"
+@@ -123,6 +124,7 @@ var defaultFields = []string{
+ 	"headRepositoryOwner",
+ 	"isCrossRepository",
+ 	"isDraft",
++	"createdAt",
+ }
+ 
+ func listRun(opts *ListOptions) error {
+@@ -202,12 +204,20 @@ func listRun(opts *ListOptions) error {
+ 		if table.IsTTY() {
+ 			prNum = "#" + prNum
+ 		}
++		now := time.Now()
++		ago := now.Sub(pr.CreatedAt)
++
+ 		table.AddField(prNum, nil, cs.ColorFromString(shared.ColorForPRState(pr)))
+ 		table.AddField(text.ReplaceExcessiveWhitespace(pr.Title), nil, nil)
+ 		table.AddField(pr.HeadLabel(), nil, cs.Cyan)
+ 		if !table.IsTTY() {
+ 			table.AddField(prStateWithDraft(&pr), nil, nil)
+ 		}
++		if table.IsTTY() {
++			table.AddField(utils.FuzzyAgo(ago), nil, cs.Gray)
++		} else {
++			table.AddField(pr.CreatedAt.String(), nil, nil)
++		}
+ 		table.EndRow()
+ 	}
+ 	err = table.Render()
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index c385e165451..669da72b1aa 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -5,6 +5,7 @@ import (
+ 	"sort"
+ 	"strconv"
+ 	"strings"
++	"time"
+ 
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/api"
+@@ -31,12 +32,15 @@ type ViewOptions struct {
+ 	SelectorArg string
+ 	BrowserMode bool
+ 	Comments    bool
++
++	Now func() time.Time
+ }
+ 
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+ 	opts := &ViewOptions{
+ 		IO:      f.IOStreams,
+ 		Browser: f.Browser,
++		Now:     time.Now,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -81,7 +85,7 @@ var defaultFields = []string{
+ 	"isDraft", "maintainerCanModify", "mergeable", "additions", "deletions", "commitsCount",
+ 	"baseRefName", "headRefName", "headRepositoryOwner", "headRepository", "isCrossRepository",
+ 	"reviewRequests", "reviews", "assignees", "labels", "projectCards", "milestone",
+-	"comments", "reactionGroups",
++	"comments", "reactionGroups", "createdAt",
+ }
+ 
+ func viewRun(opts *ViewOptions) error {
+@@ -167,16 +171,19 @@ func printRawPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
+ func printHumanPrPreview(opts *ViewOptions, pr *api.PullRequest) error {
+ 	out := opts.IO.Out
+ 	cs := opts.IO.ColorScheme()
++	now := opts.Now()
++	ago := now.Sub(pr.CreatedAt)
+ 
+ 	// Header (Title and State)
+ 	fmt.Fprintf(out, "%s #%d\n", cs.Bold(pr.Title), pr.Number)
+ 	fmt.Fprintf(out,
+-		"%s • %s wants to merge %s into %s from %s • %s %s \n",
++		"%s • %s wants to merge %s into %s from %s • %s • %s %s \n",
+ 		shared.StateTitleWithColor(cs, *pr),
+ 		pr.Author.Login,
+ 		utils.Pluralize(pr.Commits.TotalCount, "commit"),
+ 		pr.BaseRefName,
+ 		pr.HeadRefName,
++		utils.FuzzyAgo(ago),
+ 		cs.Green("+"+strconv.Itoa(pr.Additions)),
+ 		cs.Red("-"+strconv.Itoa(pr.Deletions)),
+ 	)

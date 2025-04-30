@@ -1,0 +1,208 @@
+diff --git a/pkg/cmd/gist/list/http.go b/pkg/cmd/gist/list/http.go
+index aa75eef25a6..435f19d4d53 100644
+--- a/pkg/cmd/gist/list/http.go
++++ b/pkg/cmd/gist/list/http.go
+@@ -1,46 +1,88 @@
+ package list
+ 
+ import (
+-	"fmt"
++	"context"
+ 	"net/http"
+-	"net/url"
+-	"sort"
++	"strings"
++	"time"
+ 
+-	"github.com/cli/cli/api"
++	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/pkg/cmd/gist/shared"
++	"github.com/shurcooL/githubv4"
++	"github.com/shurcooL/graphql"
+ )
+ 
+ func listGists(client *http.Client, hostname string, limit int, visibility string) ([]shared.Gist, error) {
+-	result := []shared.Gist{}
++	type response struct {
++		Viewer struct {
++			Gists struct {
++				Nodes []struct {
++					Description string
++					Files       []struct {
++						Name string
++					}
++					IsPublic  bool
++					Name      string
++					UpdatedAt time.Time
++				}
++				PageInfo struct {
++					HasNextPage bool
++					EndCursor   string
++				}
++			} `graphql:"gists(first: $per_page, after: $endCursor, privacy: $visibility, orderBy: {field: CREATED_AT, direction: DESC})"`
++		}
++	}
+ 
+-	query := url.Values{}
+-	if visibility == "all" {
+-		query.Add("per_page", fmt.Sprintf("%d", limit))
+-	} else {
+-		query.Add("per_page", "100")
++	perPage := limit
++	if perPage > 100 {
++		perPage = 100
+ 	}
+ 
+-	// TODO switch to graphql
+-	apiClient := api.NewClientFromHTTP(client)
+-	err := apiClient.REST(hostname, "GET", "gists?"+query.Encode(), nil, &result)
+-	if err != nil {
+-		return nil, err
++	variables := map[string]interface{}{
++		"per_page":   githubv4.Int(perPage),
++		"endCursor":  (*githubv4.String)(nil),
++		"visibility": githubv4.GistPrivacy(strings.ToUpper(visibility)),
+ 	}
+ 
++	gql := graphql.NewClient(ghinstance.GraphQLEndpoint(hostname), client)
++
+ 	gists := []shared.Gist{}
++pagination:
++	for {
++		var result response
++		err := gql.QueryNamed(context.Background(), "GistList", &result, variables)
++		if err != nil {
++			return nil, err
++		}
+ 
+-	for _, gist := range result {
+-		if len(gists) == limit {
+-			break
++		for _, gist := range result.Viewer.Gists.Nodes {
++			files := map[string]*shared.GistFile{}
++			for _, file := range gist.Files {
++				files[file.Name] = &shared.GistFile{
++					Filename: file.Name,
++				}
++			}
++
++			gists = append(
++				gists,
++				shared.Gist{
++					ID:          gist.Name,
++					Description: gist.Description,
++					Files:       files,
++					UpdatedAt:   gist.UpdatedAt,
++					Public:      gist.IsPublic,
++				},
++			)
++			if len(gists) == limit {
++				break pagination
++			}
+ 		}
+-		if visibility == "all" || (visibility == "secret" && !gist.Public) || (visibility == "public" && gist.Public) {
+-			gists = append(gists, gist)
++
++		if !result.Viewer.Gists.PageInfo.HasNextPage {
++			break
+ 		}
++		variables["endCursor"] = githubv4.String(result.Viewer.Gists.PageInfo.EndCursor)
+ 	}
+ 
+-	sort.SliceStable(gists, func(i, j int) bool {
+-		return gists[i].UpdatedAt.After(gists[j].UpdatedAt)
+-	})
+-
+ 	return gists, nil
+ }
+diff --git a/pkg/cmd/gist/list/list.go b/pkg/cmd/gist/list/list.go
+index e1142bdb758..375c08372e6 100644
+--- a/pkg/cmd/gist/list/list.go
++++ b/pkg/cmd/gist/list/list.go
+@@ -9,6 +9,7 @@ import (
+ 	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
++	"github.com/cli/cli/pkg/text"
+ 	"github.com/cli/cli/utils"
+ 	"github.com/spf13/cobra"
+ )
+@@ -27,6 +28,9 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 		HttpClient: f.HttpClient,
+ 	}
+ 
++	var flagPublic bool
++	var flagSecret bool
++
+ 	cmd := &cobra.Command{
+ 		Use:   "list",
+ 		Short: "List your gists",
+@@ -36,27 +40,23 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 				return &cmdutil.FlagError{Err: fmt.Errorf("invalid limit: %v", opts.Limit)}
+ 			}
+ 
+-			pub := cmd.Flags().Changed("public")
+-			secret := cmd.Flags().Changed("secret")
+-
+ 			opts.Visibility = "all"
+-			if pub && !secret {
+-				opts.Visibility = "public"
+-			} else if secret && !pub {
++			if flagSecret {
+ 				opts.Visibility = "secret"
++			} else if flagPublic {
++				opts.Visibility = "public"
+ 			}
+ 
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
+-
+ 			return listRun(opts)
+ 		},
+ 	}
+ 
+ 	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 10, "Maximum number of gists to fetch")
+-	cmd.Flags().Bool("public", false, "Show only public gists")
+-	cmd.Flags().Bool("secret", false, "Show only secret gists")
++	cmd.Flags().BoolVar(&flagPublic, "public", false, "Show only public gists")
++	cmd.Flags().BoolVar(&flagSecret, "secret", false, "Show only secret gists")
+ 
+ 	return cmd
+ }
+@@ -77,10 +77,7 @@ func listRun(opts *ListOptions) error {
+ 	tp := utils.NewTablePrinter(opts.IO)
+ 
+ 	for _, gist := range gists {
+-		fileCount := 0
+-		for range gist.Files {
+-			fileCount++
+-		}
++		fileCount := len(gist.Files)
+ 
+ 		visibility := "public"
+ 		visColor := cs.Green
+@@ -99,16 +96,16 @@ func listRun(opts *ListOptions) error {
+ 			}
+ 		}
+ 
++		gistTime := gist.UpdatedAt.Format(time.RFC3339)
++		if tp.IsTTY() {
++			gistTime = utils.FuzzyAgo(time.Since(gist.UpdatedAt))
++		}
++
+ 		tp.AddField(gist.ID, nil, nil)
+-		tp.AddField(description, nil, cs.Bold)
++		tp.AddField(text.ReplaceExcessiveWhitespace(description), nil, cs.Bold)
+ 		tp.AddField(utils.Pluralize(fileCount, "file"), nil, nil)
+ 		tp.AddField(visibility, nil, visColor)
+-		if tp.IsTTY() {
+-			updatedAt := utils.FuzzyAgo(time.Since(gist.UpdatedAt))
+-			tp.AddField(updatedAt, nil, cs.Gray)
+-		} else {
+-			tp.AddField(gist.UpdatedAt.String(), nil, nil)
+-		}
++		tp.AddField(gistTime, nil, cs.Gray)
+ 		tp.EndRow()
+ 	}
+ 

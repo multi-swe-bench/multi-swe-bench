@@ -1,0 +1,65 @@
+diff --git a/.changeset/polite-pumpkins-guess.md b/.changeset/polite-pumpkins-guess.md
+new file mode 100644
+index 000000000000..e364f9635dcb
+--- /dev/null
++++ b/.changeset/polite-pumpkins-guess.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: take event attributes into account when checking a11y
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/a11y.js b/packages/svelte/src/compiler/phases/2-analyze/a11y.js
+index 33692ebafa44..eb87b5ddbf93 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/a11y.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/a11y.js
+@@ -9,7 +9,7 @@ import {
+ } from '../patterns.js';
+ import { warn } from '../../warnings.js';
+ import fuzzymatch from '../1-parse/utils/fuzzymatch.js';
+-import { is_text_attribute } from '../../utils/ast.js';
++import { is_event_attribute, is_text_attribute } from '../../utils/ast.js';
+ import { ContentEditableBindings } from '../constants.js';
+ import { walk } from 'zimmerframe';
+ 
+@@ -704,10 +704,14 @@ function check_element(node, state, path) {
+ 		} else if (attribute.type === 'OnDirective') {
+ 			handlers.add(attribute.name);
+ 		} else if (attribute.type === 'Attribute') {
+-			attributes.push(attribute);
+-			attribute_map.set(attribute.name, attribute);
+-			if (attribute.name === 'contenteditable') {
+-				has_contenteditable_attr = true;
++			if (is_event_attribute(attribute)) {
++				handlers.add(attribute.name.slice(2));
++			} else {
++				attributes.push(attribute);
++				attribute_map.set(attribute.name, attribute);
++				if (attribute.name === 'contenteditable') {
++					has_contenteditable_attr = true;
++				}
+ 			}
+ 		} else if (
+ 			attribute.type === 'BindDirective' &&
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 7103f4162c17..23e9378c25cd 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -115,7 +115,7 @@ const a11y = {
+ 	'a11y-misplaced-scope': () => 'A11y: The scope attribute should only be used with <th> elements',
+ 	'a11y-positive-tabindex': () => 'A11y: avoid tabindex values above zero',
+ 	'a11y-click-events-have-key-events': () =>
+-		'A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.',
++		'A11y: visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.',
+ 	'a11y-no-noninteractive-tabindex': () =>
+ 		'A11y: noninteractive element cannot have nonnegative tabIndex value',
+ 	/**
+@@ -180,7 +180,7 @@ const a11y = {
+ 	 * @param {string} accompanied_by
+ 	 */
+ 	'a11y-mouse-events-have-key-events': (event, accompanied_by) =>
+-		`A11y: on:${event} must be accompanied by on:${accompanied_by}`,
++		`A11y: '${event}' event must be accompanied by '${accompanied_by}' event`,
+ 	/** @param {string} name */
+ 	'a11y-missing-content': (name) => `A11y: <${name}> element should have child content`
+ };

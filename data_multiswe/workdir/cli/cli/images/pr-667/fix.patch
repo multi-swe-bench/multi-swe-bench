@@ -1,0 +1,169 @@
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index ae27878a6dc..2c201030735 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -24,6 +24,7 @@ type Issue struct {
+ 	URL       string
+ 	State     string
+ 	Body      string
++	CreatedAt time.Time
+ 	UpdatedAt time.Time
+ 	Comments  struct {
+ 		TotalCount int
+@@ -278,6 +279,7 @@ func IssueByNumber(client *Client, repo ghrepo.Interface, number int) (*Issue, e
+ 			hasIssuesEnabled
+ 			issue(number: $issue_number) {
+ 				title
++				state
+ 				body
+ 				author {
+ 					login
+@@ -292,6 +294,7 @@ func IssueByNumber(client *Client, repo ghrepo.Interface, number int) (*Issue, e
+ 				}
+ 				number
+ 				url
++				createdAt
+ 			}
+ 		}
+ 	}`
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 0f11f439278..905bd20661d 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -301,6 +301,7 @@ func PullRequestByNumber(client *Client, repo ghrepo.Interface, number int) (*Pu
+ 				url
+ 				number
+ 				title
++				state
+ 				body
+ 				author {
+ 				  login
+@@ -320,6 +321,7 @@ func PullRequestByNumber(client *Client, repo ghrepo.Interface, number int) (*Pu
+ 					}
+ 				}
+ 				isCrossRepository
++				isDraft
+ 				maintainerCanModify
+ 			}
+ 		}
+@@ -356,6 +358,7 @@ func PullRequestForBranch(client *Client, repo ghrepo.Interface, baseBranch, hea
+ 				nodes {
+ 					number
+ 					title
++					state
+ 					body
+ 					author {
+ 						login
+diff --git a/command/issue.go b/command/issue.go
+index a024c75e037..b970a2a5928 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -228,6 +228,11 @@ func issueView(cmd *cobra.Command, args []string) error {
+ 
+ }
+ 
++func issueStateTitleWithColor(state string) string {
++	colorFunc := colorFuncForState(state)
++	return colorFunc(strings.Title(strings.ToLower(state)))
++}
++
+ func listHeader(repoName string, itemName string, matchCount int, totalMatchCount int, hasFilters bool) string {
+ 	if totalMatchCount == 0 {
+ 		if hasFilters {
+@@ -248,17 +253,16 @@ func listHeader(repoName string, itemName string, matchCount int, totalMatchCoun
+ }
+ 
+ func printIssuePreview(out io.Writer, issue *api.Issue) error {
+-	coloredLabels := labelList(*issue)
+-	if coloredLabels != "" {
+-		coloredLabels = utils.Gray(fmt.Sprintf("(%s)", coloredLabels))
+-	}
++	now := time.Now()
++	ago := now.Sub(issue.CreatedAt)
+ 
+ 	fmt.Fprintln(out, utils.Bold(issue.Title))
++	fmt.Fprintf(out, "%s", issueStateTitleWithColor(issue.State))
+ 	fmt.Fprintln(out, utils.Gray(fmt.Sprintf(
+-		"opened by %s. %s. %s",
++		" • %s opened %s • %s",
+ 		issue.Author.Login,
++		utils.FuzzyAgo(ago),
+ 		utils.Pluralize(issue.Comments.TotalCount, "comment"),
+-		coloredLabels,
+ 	)))
+ 
+ 	if issue.Body != "" {
+diff --git a/command/pr.go b/command/pr.go
+index 7c879924832..e494d88b5a9 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -226,14 +226,22 @@ func prList(cmd *cobra.Command, args []string) error {
+ 	return nil
+ }
+ 
++func prStateTitleWithColor(pr api.PullRequest) string {
++	prStateColorFunc := colorFuncForPR(pr)
++	if pr.State == "OPEN" && pr.IsDraft {
++		return prStateColorFunc(strings.Title(strings.ToLower("Draft")))
++	}
++	return prStateColorFunc(strings.Title(strings.ToLower(pr.State)))
++}
++
+ func colorFuncForPR(pr api.PullRequest) func(string) string {
+ 	if pr.State == "OPEN" && pr.IsDraft {
+ 		return utils.Gray
+-	} else {
+-		return colorFuncForState(pr.State)
+ 	}
++	return colorFuncForState(pr.State)
+ }
+ 
++// colorFuncForState returns a color function for a PR/Issue state
+ func colorFuncForState(state string) func(string) string {
+ 	switch state {
+ 	case "OPEN":
+@@ -320,8 +328,9 @@ func prView(cmd *cobra.Command, args []string) error {
+ 
+ func printPrPreview(out io.Writer, pr *api.PullRequest) error {
+ 	fmt.Fprintln(out, utils.Bold(pr.Title))
++	fmt.Fprintf(out, "%s", prStateTitleWithColor(*pr))
+ 	fmt.Fprintln(out, utils.Gray(fmt.Sprintf(
+-		"%s wants to merge %s into %s from %s",
++		" • %s wants to merge %s into %s from %s",
+ 		pr.Author.Login,
+ 		utils.Pluralize(pr.Commits.TotalCount, "commit"),
+ 		pr.BaseRefName,
+@@ -453,8 +462,7 @@ func printPrs(w io.Writer, totalCount int, prs ...api.PullRequest) {
+ 				fmt.Fprint(w, utils.Green("✓ Approved"))
+ 			}
+ 		} else {
+-			s := strings.Title(strings.ToLower(pr.State))
+-			fmt.Fprintf(w, " - %s", prStateColorFunc(s))
++			fmt.Fprintf(w, " - %s", prStateTitleWithColor(pr))
+ 		}
+ 
+ 		fmt.Fprint(w, "\n")
+diff --git a/go.mod b/go.mod
+index aab4c58d490..896bfd30076 100644
+--- a/go.mod
++++ b/go.mod
+@@ -7,6 +7,7 @@ require (
+ 	github.com/briandowns/spinner v1.9.0
+ 	github.com/charmbracelet/glamour v0.1.1-0.20200320173916-301d3bcf3058
+ 	github.com/dlclark/regexp2 v1.2.0 // indirect
++	github.com/google/go-cmp v0.2.0
+ 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+ 	github.com/hashicorp/go-version v1.2.0
+ 	github.com/henvic/httpretty v0.0.4
+diff --git a/go.sum b/go.sum
+index a5f4af4b9e6..40379e8141c 100644
+--- a/go.sum
++++ b/go.sum
+@@ -61,6 +61,7 @@ github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5y
+ github.com/golang/protobuf v1.3.1 h1:YF8+flBXS5eO826T4nzqPrxfhQThhXl0YzfuUPu4SBg=
+ github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
+ github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
++github.com/google/go-cmp v0.2.0 h1:+dTQ8DZQJz0Mb/HjFlkptS1FeQ4cWSnN941F8aEG4SQ=
+ github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
+ github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f h1:5CjVwnuUcp5adK4gmY6i72gpVFVnZDP2h5TmPScB6u4=
+ github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f/go.mod h1:nOFQdrUlIlx6M6ODdSpBj1NVA+VgLC6kmw60mkw34H4=

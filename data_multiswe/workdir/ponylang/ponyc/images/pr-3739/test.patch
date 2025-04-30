@@ -1,0 +1,1934 @@
+diff --git a/packages/builtin_test/_test.pony b/packages/builtin_test/_test.pony
+index d60680d3cf..8d36a59983 100644
+--- a/packages/builtin_test/_test.pony
++++ b/packages/builtin_test/_test.pony
+@@ -5,6 +5,14 @@ This package contains the unit tests for the `builtin` package. These are here
+ so `builtin` doesn't have to depend on the `PonyTest` package.
+ """
+ 
++use @pony_ctx[Pointer[None]]()
++use @pony_alloc[Pointer[U8]](ctx: Pointer[None], size: USize)
++use @pony_alloc_final[Pointer[U8]](ctx: Pointer[None], size: USize)
++use @pony_exitcode[None](code: I32)
++use @pony_get_exitcode[I32]()
++use @pony_triggergc[None](ctx: Pointer[None])
++use @ponyint_pagemap_get[Pointer[None]](p: Pointer[None] tag)
++
+ use "ponytest"
+ use "collections"
+ 
+@@ -585,12 +593,12 @@ class iso _TestStringTrimInPlace is UnitTest
+     space: USize = 0)
+   =>
+     let copy: String ref = orig.clone()
+-    let pre_trim_pagemap = @ponyint_pagemap_get[Pointer[None]](copy.cpointer())
++    let pre_trim_pagemap = @ponyint_pagemap_get(copy.cpointer())
+     copy.trim_in_place(from, to)
+     h.assert_eq[String box](expected, copy)
+     h.assert_eq[USize](space, copy.space())
+     h.assert_eq[String box](expected, copy.clone()) // safe to clone
+-    let post_trim_pagemap = @ponyint_pagemap_get[Pointer[None]](copy.cpointer())
++    let post_trim_pagemap = @ponyint_pagemap_get(copy.cpointer())
+     if copy.space() == 0 then
+       h.assert_eq[USize](0, post_trim_pagemap.usize())
+     else
+@@ -1435,11 +1443,11 @@ class iso _TestArrayTrimInPlace is UnitTest
+     space: USize = 0)
+   =>
+     let copy: Array[U8] ref = orig.clone()
+-    let pre_trim_pagemap = @ponyint_pagemap_get[Pointer[None]](copy.cpointer())
++    let pre_trim_pagemap = @ponyint_pagemap_get(copy.cpointer())
+     copy.trim_in_place(from, to)
+     h.assert_eq[USize](space, copy.space())
+     h.assert_array_eq[U8](expected, copy)
+-    let post_trim_pagemap = @ponyint_pagemap_get[Pointer[None]](copy.cpointer())
++    let post_trim_pagemap = @ponyint_pagemap_get(copy.cpointer())
+     if copy.space() == 0 then
+       h.assert_eq[USize](0, post_trim_pagemap.usize())
+     else
+diff --git a/packages/builtin_test/_test_valtrace.pony b/packages/builtin_test/_test_valtrace.pony
+index 53f037f2bd..f24aa3e07f 100644
+--- a/packages/builtin_test/_test_valtrace.pony
++++ b/packages/builtin_test/_test_valtrace.pony
+@@ -17,7 +17,7 @@ actor _Valtrace
+     """
+     Create a String iso, send it to a new actor.
+     """
+-    @pony_triggergc[None](@pony_ctx[Pointer[None]]())
++    @pony_triggergc(@pony_ctx())
+     let s = recover String .> append("test") end
+     _Valtrace.two(this, h, consume s)
+ 
+@@ -27,7 +27,7 @@ actor _Valtrace
+     Append to it.
+     Send it as a val to a third actor.
+     """
+-    @pony_triggergc[None](@pony_ctx[Pointer[None]]())
++    @pony_triggergc(@pony_ctx())
+     s.append("ing")
+     _Valtrace.three(a1, this, h, consume s)
+ 
+@@ -35,7 +35,7 @@ actor _Valtrace
+     """
+     Receive a String that was an iso that passed through another actor.
+     """
+-    @pony_triggergc[None](@pony_ctx[Pointer[None]]())
++    @pony_triggergc(@pony_ctx())
+     h.assert_eq[String]("testing", s)
+     _Valtrace.four(a1, a2, this, h, s)
+ 
+@@ -45,14 +45,14 @@ actor _Valtrace
+     """
+     Ask all actors to test the string.
+     """
+-    @pony_triggergc[None](@pony_ctx[Pointer[None]]())
++    @pony_triggergc(@pony_ctx())
+     a1.gc(a1, h, s)
+     a2.gc(a1, h, s)
+     a3.gc(a1, h, s)
+     gc(a1, h, s)
+ 
+   be gc(a: _Valtrace, h: TestHelper, s: String) =>
+-    @pony_triggergc[None](@pony_ctx[Pointer[None]]())
++    @pony_triggergc(@pony_ctx())
+     h.assert_eq[String]("testing", s)
+     a.done(h)
+ 
+diff --git a/packages/collections/_test.pony b/packages/collections/_test.pony
+index 31c23a13b6..42a914716e 100644
+--- a/packages/collections/_test.pony
++++ b/packages/collections/_test.pony
+@@ -225,8 +225,8 @@ class iso _TestMapHashFunc is UnitTest
+   fun apply(h: TestHelper) =>
+     let a1: Array[U8] = [65; 77; 83; 0; 0; 39; 15; 0; 6; 200; 28; 0; 0; 0; 107]
+     let a2: Array[U8] = [65; 77; 83; 0; 0; 39; 15; 0; 6; 200; 28; 0; 0; 0; 173]
+-    let h1: USize = @ponyint_hash_block[USize](a1.cpointer(), a1.size())
+-    let h2: USize = @ponyint_hash_block[USize](a2.cpointer(), a2.size())
++    let h1: USize = @ponyint_hash_block(a1.cpointer(), a1.size())
++    let h2: USize = @ponyint_hash_block(a2.cpointer(), a2.size())
+ 
+     ifdef ilp32 then
+       // I cannot find agreement on easy-to-find reference implementations
+diff --git a/packages/files/_test.pony b/packages/files/_test.pony
+index 2439cda519..decf12b1d6 100644
+--- a/packages/files/_test.pony
++++ b/packages/files/_test.pony
+@@ -5,6 +5,8 @@ use "term"
+ use "random"
+ use "time"
+ 
++use @getuid[U32]() if not windows
++
+ actor Main is TestList
+   new create(env: Env) => PonyTest(env, this)
+ 
+@@ -98,7 +100,7 @@ trait iso _NonRootTest is UnitTest
+       true
+     else
+       ifdef not windows then
+-        @getuid[U32]() == 0
++        @getuid() == 0
+       else
+         false
+       end
+@@ -831,7 +833,7 @@ class iso _TestFileWritevLarge is UnitTest
+   fun apply(h: TestHelper) =>
+     try
+       let wb: Writer ref = Writer
+-      let writev_batch_size: USize = 10 + @pony_os_writev_max[I32]().usize()
++      let writev_batch_size: USize = 10 + @pony_os_writev_max().usize()
+       var count: USize = 0
+       while count < writev_batch_size do
+         wb.write(count.string() + "\n")
+diff --git a/packages/ponytest/pony_test.pony b/packages/ponytest/pony_test.pony
+index d11ebf23f7..c3bc2f9478 100644
+--- a/packages/ponytest/pony_test.pony
++++ b/packages/ponytest/pony_test.pony
+@@ -241,6 +241,7 @@ class iso TempDirTest
+ """
+ 
+ use "time"
++use @ponyint_assert_disable_popups[None]()
+ 
+ actor PonyTest
+   """
+@@ -275,7 +276,7 @@ actor PonyTest
+     _env = env
+     _process_opts()
+     _groups.push(("", _SimultaneousGroup))
+-    @ponyint_assert_disable_popups[None]()
++    @ponyint_assert_disable_popups()
+     list.tests(this)
+     _all_tests_applied()
+ 
+diff --git a/test/libponyc/badpony.cc b/test/libponyc/badpony.cc
+index 59b00c2e04..2d1e2b7da3 100644
+--- a/test/libponyc/badpony.cc
++++ b/test/libponyc/badpony.cc
+@@ -483,9 +483,11 @@ TEST_F(BadPonyTest, ObjectInheritsLaterTraitMethodWithParameter)
+ TEST_F(BadPonyTest, AddressofMissingTypearg)
+ {
+   const char* src =
++    "use @foo[None](fn: Pointer[None] tag)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @foo[None](addressof fn)\n"
++    "    @foo(addressof fn)\n"
+ 
+     "  fun fn[A]() => None";
+ 
+@@ -689,13 +691,15 @@ TEST_F(BadPonyTest, CodegenMangledFunptr)
+ {
+   // Test that we don't crash in codegen when generating the function pointer.
+   const char* src =
++    "use @foo[None](fn: Pointer[None] tag)\n"
++
+     "interface I\n"
+     "  fun foo(x: U32)\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let i: I = this\n"
+-    "    @foo[None](addressof i.foo)\n"
++    "    @foo(addressof i.foo)\n"
+ 
+     "  fun foo(x: Any) => None";
+ 
+@@ -731,16 +735,6 @@ TEST_F(BadPonyTest, FFIDeclaredTupleArgument)
+   TEST_ERRORS_1(src, "cannot pass tuples as FFI arguments");
+ }
+ 
+-TEST_F(BadPonyTest, FFIUndeclaredTupleArgument)
+-{
+-  const char* src =
+-    "actor Main\n"
+-    "  new create(env: Env) =>\n"
+-    "    @foo[None]((U8(0), U8(0)))";
+-
+-  TEST_ERRORS_1(src, "cannot pass tuples as FFI arguments");
+-}
+-
+ TEST_F(BadPonyTest, FFIDeclaredTupleReturn)
+ {
+   const char* src =
+@@ -753,16 +747,6 @@ TEST_F(BadPonyTest, FFIDeclaredTupleReturn)
+   TEST_ERRORS_1(src, "an FFI function cannot return a tuple");
+ }
+ 
+-TEST_F(BadPonyTest, FFIUndeclaredTupleReturn)
+-{
+-  const char* src =
+-    "actor Main\n"
+-    "  new create(env: Env) =>\n"
+-    "    @foo[(U8, U8)]()";
+-
+-  TEST_ERRORS_1(src, "an FFI function cannot return a tuple");
+-}
+-
+ TEST_F(BadPonyTest, MatchExhaustiveLastCaseUnionSubset)
+ {
+   // From issue #2048
+diff --git a/test/libponyc/bare.cc b/test/libponyc/bare.cc
+index 97fd97bee2..2a288ab833 100644
+--- a/test/libponyc/bare.cc
++++ b/test/libponyc/bare.cc
+@@ -328,13 +328,15 @@ TEST_F(BareTest, BareType_TypeArgument)
+ TEST_F(BareTest, Codegen_BareFunctionCall)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    foo(42)\n"
+ 
+     "  fun @foo(x: USize) =>\n"
+     "    if x == 42 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -348,11 +350,13 @@ TEST_F(BareTest, Codegen_BareFunctionCall)
+ TEST_F(BareTest, Codegen_BareLambdaCall)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let lbd = @{(x: USize) =>\n"
+     "      if x == 42 then\n"
+-    "        @pony_exitcode[None](I32(1))\n"
++    "        @pony_exitcode(1)\n"
+     "      end\n"
+     "    }\n"
+     "    lbd(42)";
+@@ -381,13 +385,16 @@ EXPORT_SYMBOL void baretest_callback(baretest_callback_fn cb, size_t value)
+ TEST_F(BareTest, Codegen_BareFunctionCallbackAddressof)
+ {
+   const char* src =
++    "use @baretest_callback[None](cb: Pointer[None], size: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @baretest_callback[None](addressof foo, USize(42))\n"
++    "    @baretest_callback(addressof foo, 42)\n"
+ 
+     "  fun @foo(x: USize) =>\n"
+     "    if x == 42 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -401,13 +408,16 @@ TEST_F(BareTest, Codegen_BareFunctionCallbackAddressof)
+ TEST_F(BareTest, Codegen_BareFunctionCallbackPartialApplication)
+ {
+   const char* src =
++    "use @baretest_callback[None](cb: Pointer[None], size: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @baretest_callback[None](this~foo(), USize(42))\n"
++    "    @baretest_callback(this~foo(), 42)\n"
+ 
+     "  fun @foo(x: USize) =>\n"
+     "    if x == 42 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -421,14 +431,17 @@ TEST_F(BareTest, Codegen_BareFunctionCallbackPartialApplication)
+ TEST_F(BareTest, Codegen_BareLambdaCallback)
+ {
+   const char* src =
++    "use @baretest_callback[None](cb: Pointer[None], size: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let lbd = @{(x: USize) =>\n"
+     "      if x == 42 then\n"
+-    "        @pony_exitcode[None](I32(1))\n"
++    "        @pony_exitcode(1)\n"
+     "      end\n"
+     "    }\n"
+-    "    @baretest_callback[None](lbd, USize(42))";
++    "    @baretest_callback(lbd, 42)";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -441,8 +454,10 @@ TEST_F(BareTest, Codegen_BareLambdaCallback)
+ TEST_F(BareTest, BareFunction_TyperefCallNoConstructorCall)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class C\n"
+-    "  new create() => @pony_exitcode[None](I32(1))\n"
++    "  new create() => @pony_exitcode(1)\n"
+     "  fun @foo() => None\n"
+ 
+     "actor Main\n"
+@@ -460,12 +475,14 @@ TEST_F(BareTest, BareFunction_TyperefCallNoConstructorCall)
+ TEST_F(BareTest, BareFunction_ReceiverSideEffect)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    foo().bar()\n"
+ 
+     "  fun foo(): Main => \n"
+-    "    @pony_exitcode[None](I32(1))\n"
++    "    @pony_exitcode(1)\n"
+     "    this\n"
+ 
+     "  fun @bar() => None";
+diff --git a/test/libponyc/codegen.cc b/test/libponyc/codegen.cc
+index 77f1467d49..e548f73ab8 100644
+--- a/test/libponyc/codegen.cc
++++ b/test/libponyc/codegen.cc
+@@ -68,9 +68,11 @@ TEST_F(CodegenTest, NonPackedStructIsntPacked)
+ TEST_F(CodegenTest, JitRun)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @pony_exitcode[None](I32(1))";
++    "    @pony_exitcode(1)";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -116,9 +118,11 @@ EXPORT_SYMBOL void codegentest_small_finalisers_increment_num_objects() {
+ TEST_F(CodegenTest, SmallFinalisers)
+ {
+   const char* src =
++    "use @codegentest_small_finalisers_increment_num_objects[None]()\n"
++
+     "class _Final\n"
+     "  fun _final() =>\n"
+-    "    @codegentest_small_finalisers_increment_num_objects[None]()\n"
++    "    @codegentest_small_finalisers_increment_num_objects()\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+@@ -153,6 +157,9 @@ EXPORT_SYMBOL int codegentest_ccallback(void* self, codegentest_ccallback_fn cb,
+ TEST_F(CodegenTest, CCallback)
+ {
+   const char* src =
++    "use @codegentest_ccallback[I32](self: Callback, cb: Pointer[None], value: I32)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class Callback\n"
+     "  fun apply(value: I32): I32 =>\n"
+     "    value * 2\n"
+@@ -160,8 +167,8 @@ TEST_F(CodegenTest, CCallback)
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let cb: Callback = Callback\n"
+-    "    let r = @codegentest_ccallback[I32](cb, addressof cb.apply, I32(3))\n"
+-    "    @pony_exitcode[None](r)";
++    "    let r = @codegentest_ccallback(cb, addressof cb.apply, 3)\n"
++    "    @pony_exitcode(r)";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -173,6 +180,8 @@ TEST_F(CodegenTest, CCallback)
+ TEST_F(CodegenTest, MatchExhaustiveAllCasesOfUnion)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class C1 fun one(): I32 => 1\n"
+     "class C2 fun two(): I32 => 2\n"
+     "class C3 fun three(): I32 => 3\n"
+@@ -187,7 +196,7 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesOfUnion)
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @pony_exitcode[None](Foo(C3))";
++    "    @pony_exitcode(Foo(C3))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -200,6 +209,8 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesOfUnion)
+ TEST_F(CodegenTest, MatchExhaustiveAllCasesIncludingDontCareAndTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class C1 fun one(): I32 => 1\n"
+     "class C2 fun two(): I32 => 2\n"
+     "class C3 fun three(): I32 => 3\n"
+@@ -214,7 +225,7 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesIncludingDontCareAndTuple)
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @pony_exitcode[None](Foo((C3, true)))";
++    "    @pony_exitcode(Foo((C3, true)))";
+   TEST_COMPILE(src);
+ 
+   int exit_code = 0;
+@@ -226,6 +237,8 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesIncludingDontCareAndTuple)
+ TEST_F(CodegenTest, MatchExhaustiveAllCasesPrimitiveValues)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "primitive P1 fun one(): I32 => 1\n"
+     "primitive P2 fun two(): I32 => 2\n"
+     "primitive P3 fun three(): I32 => 3\n"
+@@ -240,7 +253,7 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesPrimitiveValues)
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @pony_exitcode[None](Foo(P3))";
++    "    @pony_exitcode(Foo(P3))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -253,6 +266,8 @@ TEST_F(CodegenTest, MatchExhaustiveAllCasesPrimitiveValues)
+ TEST_F(CodegenTest, ArrayInfersMostSpecificFromUnionOfArrayTypes)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "trait iso T1\n"
+     "trait iso T2\n"
+     "trait iso T3 is T1\n"
+@@ -267,10 +282,10 @@ TEST_F(CodegenTest, ArrayInfersMostSpecificFromUnionOfArrayTypes)
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    match Foo() \n"
+-    "    | let a: Array[T1] => @pony_exitcode[None](I32(1))\n"
+-    "    | let a: Array[T2] => @pony_exitcode[None](I32(2))\n"
+-    "    | let a: Array[T3] => @pony_exitcode[None](I32(3))\n"
+-    "    | let a: Array[T4] => @pony_exitcode[None](I32(4))\n"
++    "    | let a: Array[T1] => @pony_exitcode(1)\n"
++    "    | let a: Array[T2] => @pony_exitcode(2)\n"
++    "    | let a: Array[T3] => @pony_exitcode(3)\n"
++    "    | let a: Array[T4] => @pony_exitcode(4)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -315,6 +330,7 @@ TEST_F(CodegenTest, StringSerialization)
+   // From issue #2245
+   const char* src =
+     "use \"serialise\"\n"
++    "use @pony_exitcode[None](code: I32)\n"
+ 
+     "class V\n"
+     "  let _v: String = \"\"\n"
+@@ -325,7 +341,7 @@ TEST_F(CodegenTest, StringSerialization)
+     "      let auth = env.root as AmbientAuth\n"
+     "      let v: V = V\n"
+     "      Serialised(SerialiseAuth(auth), v)?\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   set_builtin(NULL);
+@@ -342,6 +358,12 @@ TEST_F(CodegenTest, CustomSerialization)
+ {
+   const char* src =
+     "use \"serialise\"\n"
++    "use @pony_exitcode[None](code: I32)\n"
++    "use @test_custom_serialisation_get_object[Pointer[U8] ref]()\n"
++    "use @test_custom_serialisation_free_object[None](p: Pointer[U8] tag)\n"
++    "use @test_custom_serialisation_serialise[None](p: Pointer[U8] tag, bytes: Pointer[U8] ref)\n"
++    "use @test_custom_serialisation_deserialise[Pointer[U8] ref](byres: Pointer[U8] ref)\n"
++    "use @test_custom_serialisation_compare[U8](p1: Pointer[U8] tag, p2: Pointer[U8] tag)\n"
+ 
+     "class _Custom\n"
+     "  let s1: String = \"abc\"\n"
+@@ -349,22 +371,22 @@ TEST_F(CodegenTest, CustomSerialization)
+     "  let s2: String = \"efg\"\n"
+ 
+     "  new create() =>\n"
+-    "    p = @test_custom_serialisation_get_object[Pointer[U8] ref]()\n"
++    "    p = @test_custom_serialisation_get_object()\n"
+ 
+     "  fun _final() =>\n"
+-    "    @test_custom_serialisation_free_object[None](p)\n"
++    "    @test_custom_serialisation_free_object(p)\n"
+ 
+     "  fun _serialise_space(): USize =>\n"
+     "    8\n"
+ 
+     "  fun _serialise(bytes: Pointer[U8]) =>\n"
+-    "    @test_custom_serialisation_serialise[None](p, bytes)\n"
++    "    @test_custom_serialisation_serialise(p, bytes)\n"
+ 
+     "  fun ref _deserialise(bytes: Pointer[U8]) =>\n"
+-    "    p = @test_custom_serialisation_deserialise[Pointer[U8] ref](bytes)\n"
++    "    p = @test_custom_serialisation_deserialise(bytes)\n"
+ 
+     "  fun eq(c: _Custom): Bool =>\n"
+-    "    (@test_custom_serialisation_compare[U8](this.p, c.p) == 1) and\n"
++    "    (@test_custom_serialisation_compare(this.p, c.p) == 1) and\n"
+     "    (this.s1 == c.s1)\n"
+     "      and (this.s2 == c.s2)\n"
+ 
+@@ -384,7 +406,7 @@ TEST_F(CodegenTest, CustomSerialization)
+     "      else\n"
+     "        0\n"
+     "      end\n"
+-    "      @pony_exitcode[None](r)\n"
++    "      @pony_exitcode(r)\n"
+     "    end";
+ 
+   set_builtin(NULL);
+@@ -455,14 +477,18 @@ TEST_F(CodegenTest, DoNotOptimiseApplyPrimitive)
+ TEST_F(CodegenTest, TryBlockCantCatchCppExcept)
+ {
+   const char* src =
++    "use @codegen_test_tryblock_catch[I32](callback: Pointer[None])\n"
++    "use @codegen_test_tryblock_throw[None]()?\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    let r = @codegen_test_tryblock_catch[I32](this~tryblock())\n"
+-    "    @pony_exitcode[I32](r)\n"
++    "    let r = @codegen_test_tryblock_catch(this~tryblock())\n"
++    "    @pony_exitcode(r)\n"
+ 
+     "  fun @tryblock() =>\n"
+     "    try\n"
+-    "      @codegen_test_tryblock_throw[None]()?\n"
++    "      @codegen_test_tryblock_throw()?\n"
+     "    else\n"
+     "      None\n"
+     "    end";
+@@ -718,6 +744,10 @@ TEST_F(CodegenTest, CycleDetector)
+ {
+   const char* src =
+     "use @printf[I32](fmt: Pointer[U8] tag, ...)\n"
++    "use @pony_get_exitcode[I32]()\n"
++    "use @pony_exitcode[None](code: I32)\n"
++    "use @Sleep[None](millis: U32) if windows\n"
++    "use @ponyint_cpu_core_pause[None](tsc: U64, tsc2: U64, yield: Bool) if not windows\n"
+ 
+     "actor Ring\n"
+     "  let _id: U32\n"
+@@ -739,30 +769,30 @@ TEST_F(CodegenTest, CycleDetector)
+     "    end\n"
+ 
+     "  fun _final() =>\n"
+-    "    let i = @pony_get_exitcode[I32]()\n"
+-    "    @pony_exitcode[None](i + 1)\n"
++    "    let i = @pony_get_exitcode()\n"
++    "    @pony_exitcode(i + 1)\n"
+ 
+     "actor Watcher\n"
+     "  var _c: I32 = 0\n"
+     "  new create(num: I32) => check_done(num)\n"
+ 
+     "  be check_done(num: I32) =>\n"
+-    "    if @pony_get_exitcode[I32]() != num then\n"
++    "    if @pony_get_exitcode() != num then\n"
+     "      /* wait for cycle detector to reap ring actors */\n"
+     "      ifdef windows then\n"
+-    "        @Sleep[None](U32(30))\n"
++    "        @Sleep(30)\n"
+     "      else\n"
+-    "        @ponyint_cpu_core_pause[None](U64(0), U64(20000000000), true)\n"
++    "        @ponyint_cpu_core_pause(0, 20000000000, true)\n"
+     "      end\n"
+     "      _c = _c + 1\n"
+     "      if _c > 50 then\n"
+-    "        @printf(\"Ran out of time... exit count is: %d instead of %d\n\".cstring(), @pony_get_exitcode[I32](), num)\n"
+-    "        @pony_exitcode[None](I32(1))\n"
++    "        @printf(\"Ran out of time... exit count is: %d instead of %d\n\".cstring(), @pony_get_exitcode(), num)\n"
++    "        @pony_exitcode(1)\n"
+     "      else\n"
+     "        check_done(num)\n"
+     "      end\n"
+     "    else\n"
+-    "      @pony_exitcode[None](I32(0))\n"
++    "      @pony_exitcode(0)\n"
+     "    end\n"
+ 
+ 
+@@ -816,15 +846,17 @@ TEST_F(CodegenTest, CycleDetector)
+ TEST_F(CodegenTest, TryThenClauseReturn)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    try\n"
+     "      if false then error end\n"
+     "      return\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(42))"
++    "      @pony_exitcode(42)"
+     "    end\n"
+-    "    @pony_exitcode[None](I32(0))";
++    "    @pony_exitcode(0)";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -836,6 +868,8 @@ TEST_F(CodegenTest, TryThenClauseReturn)
+ TEST_F(CodegenTest, TryThenClauseReturnNested)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    try\n"
+@@ -844,9 +878,9 @@ TEST_F(CodegenTest, TryThenClauseReturnNested)
+     "        return\n"
+     "      end\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(42))"
++    "      @pony_exitcode(42)"
+     "    end\n"
+-    "    @pony_exitcode[None](I32(0))";
++    "    @pony_exitcode(0)";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -858,6 +892,8 @@ TEST_F(CodegenTest, TryThenClauseReturnNested)
+ TEST_F(CodegenTest, TryThenClauseBreak)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    var r: I32 = 0\n"
+@@ -869,7 +905,7 @@ TEST_F(CodegenTest, TryThenClauseBreak)
+     "        r = 42\n"
+     "      end\n"
+     "    end\n"
+-    "    @pony_exitcode[None](r)";
++    "    @pony_exitcode(r)";
+   TEST_COMPILE(src);
+ 
+   int exit_code = 0;
+@@ -880,6 +916,7 @@ TEST_F(CodegenTest, TryThenClauseBreak)
+ TEST_F(CodegenTest, TryThenClauseBreakNested)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    var r: I32 = 0\n"
+@@ -893,7 +930,7 @@ TEST_F(CodegenTest, TryThenClauseBreakNested)
+     "        r = 42\n"
+     "      end\n"
+     "    end\n"
+-    "    @pony_exitcode[None](r)";
++    "    @pony_exitcode(r)";
+   TEST_COMPILE(src);
+ 
+   int exit_code = 0;
+@@ -904,6 +941,7 @@ TEST_F(CodegenTest, TryThenClauseBreakNested)
+ TEST_F(CodegenTest, TryThenClauseContinue)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    var r: I32 = 0\n"
+@@ -915,7 +953,7 @@ TEST_F(CodegenTest, TryThenClauseContinue)
+     "        r = 42\n"
+     "      end\n"
+     "    end\n"
+-    "    @pony_exitcode[None](r)";
++    "    @pony_exitcode(r)";
+   TEST_COMPILE(src);
+ 
+   int exit_code = 0;
+@@ -926,6 +964,7 @@ TEST_F(CodegenTest, TryThenClauseContinue)
+ TEST_F(CodegenTest, TryThenClauseContinueNested)
+ {
+   const char * src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    var r: I32 = 0\n"
+@@ -941,7 +980,7 @@ TEST_F(CodegenTest, TryThenClauseContinueNested)
+     "        r = 42\n"
+     "      end\n"
+     "    end\n"
+-    "    @pony_exitcode[None](r)";
++    "    @pony_exitcode(r)";
+   TEST_COMPILE(src);
+ 
+   int exit_code = 0;
+diff --git a/test/libponyc/codegen_ffi.cc b/test/libponyc/codegen_ffi.cc
+index 60df69b26a..7b82f91017 100644
+--- a/test/libponyc/codegen_ffi.cc
++++ b/test/libponyc/codegen_ffi.cc
+@@ -132,25 +132,15 @@ TEST_F(CodegenFFITest, PointerUSizeCompatibility)
+ TEST_F(CodegenFFITest, RuntimeCall)
+ {
+   const char* src =
++    "use @pony_ctx[Pointer[None]]()\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @pony_ctx[Pointer[None]]()";
++    "    @pony_ctx()";
+ 
+   TEST_COMPILE(src);
+ }
+ 
+ 
+-TEST_F(CodegenFFITest, RuntimeCallConflict)
+-{
+-  const char* src =
+-    "actor Main\n"
+-    "  new create(env: Env) =>\n"
+-    "    @pony_ctx[None]()";
+-
+-  TEST_ERRORS_1(src, "conflicting declarations for FFI function: return values "
+-    "have incompatible types");
+-}
+-
+ 
+ TEST_F(CodegenFFITest, DeclParameterCountConflict)
+ {
+@@ -251,9 +241,10 @@ TEST_F(CodegenFFITest, DeclReturnTypeVoidConflict)
+ TEST_F(CodegenFFITest, InternalABIFunctionConflict)
+ {
+   const char* src =
++    "use @Main_Dispatch[None]()\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @Main_Dispatch[None]()";
++    "    @Main_Dispatch()";
+ 
+   TEST_ERRORS_1(src, "cannot use 'Main_Dispatch' as an FFI name: name is "
+     "already in use by the internal ABI");
+@@ -263,9 +254,10 @@ TEST_F(CodegenFFITest, InternalABIFunctionConflict)
+ TEST_F(CodegenFFITest, InternalABIObjectConflict)
+ {
+   const char* src =
++    "use @Main_Desc[None]()\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    @Main_Desc[None]()";
++    "    @Main_Desc()";
+ 
+   TEST_ERRORS_1(src, "cannot use 'Main_Desc' as an FFI name: name is already "
+     "in use by the internal ABI");
+diff --git a/test/libponyc/codegen_final.cc b/test/libponyc/codegen_final.cc
+index 336053dcfe..809352bf04 100644
+--- a/test/libponyc/codegen_final.cc
++++ b/test/libponyc/codegen_final.cc
+@@ -13,9 +13,10 @@ class CodegenFinalTest : public PassTest
+ TEST_F(CodegenFinalTest, PrimitiveInit)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "primitive PrimitiveInit\n"
+     "  fun _init() =>\n"
+-    "    @pony_exitcode[None](I32(1))\n"
++    "    @pony_exitcode(I32(1))\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+@@ -32,9 +33,10 @@ TEST_F(CodegenFinalTest, PrimitiveInit)
+ TEST_F(CodegenFinalTest, PrimitiveFinal)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "primitive PrimitiveFinal\n"
+     "  fun _final() =>\n"
+-    "    @pony_exitcode[None](I32(1))\n"
++    "    @pony_exitcode(I32(1))\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+@@ -51,9 +53,10 @@ TEST_F(CodegenFinalTest, PrimitiveFinal)
+ TEST_F(CodegenFinalTest, ClassFinal)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "class ClassFinal\n"
+     "  fun _final() =>\n"
+-    "    @pony_exitcode[None](I32(1))\n"
++    "    @pony_exitcode(I32(1))\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+@@ -70,9 +73,10 @@ TEST_F(CodegenFinalTest, ClassFinal)
+ TEST_F(CodegenFinalTest, EmbedFinal)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "class EmbedFinal\n"
+     "  fun _final() =>\n"
+-    "    @pony_exitcode[None](I32(1))\n"
++    "    @pony_exitcode(I32(1))\n"
+ 
+     "actor Main\n"
+     "  embed c: EmbedFinal = EmbedFinal\n"
+@@ -91,12 +95,13 @@ TEST_F(CodegenFinalTest, EmbedFinal)
+ TEST_F(CodegenFinalTest, ActorFinal)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    None\n"
+ 
+     "  fun _final() =>\n"
+-    "    @pony_exitcode[None](I32(1))";
++    "    @pony_exitcode(I32(1))";
+ 
+   TEST_COMPILE(src);
+ 
+diff --git a/test/libponyc/codegen_identity.cc b/test/libponyc/codegen_identity.cc
+index 271ad43e47..52cb71b4d2 100644
+--- a/test/libponyc/codegen_identity.cc
++++ b/test/libponyc/codegen_identity.cc
+@@ -24,6 +24,7 @@ EXPORT_SYMBOL uintptr_t ptr_to_int(void* p)
+ TEST_F(CodegenIdentityTest, ObjectIsObject)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "class C1\n"
+     "class C2\n"
+ 
+@@ -32,7 +33,7 @@ TEST_F(CodegenIdentityTest, ObjectIsObject)
+     "    let c1: Any = C1\n"
+     "    let c2: Any = C2\n"
+     "    if (c1 is c1) and (c1 isnt c2) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -46,12 +47,13 @@ TEST_F(CodegenIdentityTest, ObjectIsObject)
+ TEST_F(CodegenIdentityTest, NumericIsNumeric)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    if (U32(0) is U32(0)) and (U32(0) isnt U32(1)) and\n"
+     "      (U32(0) isnt U64(0))\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -65,12 +67,13 @@ TEST_F(CodegenIdentityTest, NumericIsNumeric)
+ TEST_F(CodegenIdentityTest, TupleIsTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let a: (Any, Any) = (U32(0), env)\n"
+     "    let b: (Any, Any) = (U32(1), this)\n"
+     "    if (a is a) and (a isnt b) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -84,13 +87,14 @@ TEST_F(CodegenIdentityTest, TupleIsTuple)
+ TEST_F(CodegenIdentityTest, NumericIsBoxedNumeric)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let boxed: (Any | (U32, U32)) = U32(0)\n"
+     "    if (U32(0) is boxed) and (U32(1) isnt boxed) and\n"
+     "      (U64(0) isnt boxed)\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -104,6 +108,7 @@ TEST_F(CodegenIdentityTest, NumericIsBoxedNumeric)
+ TEST_F(CodegenIdentityTest, BoxedNumericIsBoxedNumeric)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let u32_0_a: (Any | (U32, U32)) = U32(0)\n"
+@@ -113,7 +118,7 @@ TEST_F(CodegenIdentityTest, BoxedNumericIsBoxedNumeric)
+     "    if (u32_0_a is u32_0_a) and (u32_0_a is u32_0_b) and\n"
+     "      (u32_0_a isnt u32_1) and (u32_0_a isnt u64_0)\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -127,13 +132,14 @@ TEST_F(CodegenIdentityTest, BoxedNumericIsBoxedNumeric)
+ TEST_F(CodegenIdentityTest, TupleIsBoxedTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let boxed: (Any | (U32, U32) | (U64, U64)) = (U32(0), U32(0))\n"
+     "    if ((U32(0), U32(0)) is boxed) and ((U32(1), U32(0)) isnt boxed) and\n"
+     "      ((U64(0), U64(0)) isnt boxed)\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -147,6 +153,7 @@ TEST_F(CodegenIdentityTest, TupleIsBoxedTuple)
+ TEST_F(CodegenIdentityTest, BoxedTupleIsBoxedTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let t1_a: (Any | (U32, U32) | (U64, U64)) = (U32(0), U32(0))\n"
+@@ -156,7 +163,7 @@ TEST_F(CodegenIdentityTest, BoxedTupleIsBoxedTuple)
+     "    if (t1_a is t1_a) and (t1_a is t1_b) and (t1_a isnt t2) and\n"
+     "      (t1_a isnt t3)\n"
+     "    then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -170,10 +177,11 @@ TEST_F(CodegenIdentityTest, BoxedTupleIsBoxedTuple)
+ TEST_F(CodegenIdentityTest, TupleCardinality)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    if (env, this, this) isnt (env, this) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -187,12 +195,13 @@ TEST_F(CodegenIdentityTest, TupleCardinality)
+ TEST_F(CodegenIdentityTest, AbstractTypeNoSubtyping)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let a: (Env | None) = None\n"
+     "    let b: (Main | None) = None\n"
+     "    if a is b then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -206,12 +215,13 @@ TEST_F(CodegenIdentityTest, AbstractTypeNoSubtyping)
+ TEST_F(CodegenIdentityTest, NestedTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let a: (((U8, U16) | None, U8) | None) = None\n"
+     "    let b: (((U8, U16) | None, U8) | None) = None\n"
+     "    if a is b then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -225,12 +235,13 @@ TEST_F(CodegenIdentityTest, NestedTuple)
+ TEST_F(CodegenIdentityTest, TupleDifferentTypes)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let a: ((Any, U8) | None) = (U8(0), 0)\n"
+     "    let b: ((U8, U8) | None) = (0, 0)\n"
+     "    if a is b then \n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -244,11 +255,13 @@ TEST_F(CodegenIdentityTest, TupleDifferentTypes)
+ TEST_F(CodegenIdentityTest, DigestofObject)
+ {
+   const char* src =
++    "use @ptr_to_int[USize](env: Env)\n"
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let dg = digestof env\n"
+-    "    if dg == @ptr_to_int[USize](env) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "    if dg == @ptr_to_int(env) then\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -262,12 +275,13 @@ TEST_F(CodegenIdentityTest, DigestofObject)
+ TEST_F(CodegenIdentityTest, DigestofNumeric)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let value = U32(5)\n"
+     "    let dg = digestof value\n"
+     "    if dg == 5 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -281,12 +295,13 @@ TEST_F(CodegenIdentityTest, DigestofNumeric)
+ TEST_F(CodegenIdentityTest, DigestofTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let value = (this, env)\n"
+     "    let dg = digestof value\n"
+     "    if dg == ((digestof this) xor (digestof env)) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -300,12 +315,13 @@ TEST_F(CodegenIdentityTest, DigestofTuple)
+ TEST_F(CodegenIdentityTest, DigestofBoxedNumeric)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let boxed: (Any | (U32, U32)) = U32(5)\n"
+     "    let dg = digestof boxed\n"
+     "    if dg == 5 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -319,12 +335,13 @@ TEST_F(CodegenIdentityTest, DigestofBoxedNumeric)
+ TEST_F(CodegenIdentityTest, DigestofBoxedTuple)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+     "    let boxed: (Any | (Main, Env)) = (this, env)\n"
+     "    let dg = digestof boxed\n"
+     "    if dg == ((digestof this) xor (digestof env)) then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+diff --git a/test/libponyc/codegen_optimisation.cc b/test/libponyc/codegen_optimisation.cc
+index f1d6a5e149..eb68b340b2 100644
+--- a/test/libponyc/codegen_optimisation.cc
++++ b/test/libponyc/codegen_optimisation.cc
+@@ -13,6 +13,7 @@ class CodegenOptimisationTest : public PassTest
+ TEST_F(CodegenOptimisationTest, MergeSendMessageReordering)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "actor Main\n"
+     "  var state: U8 = 0\n"
+     "  new create(env: Env) =>\n"
+@@ -28,7 +29,7 @@ TEST_F(CodegenOptimisationTest, MergeSendMessageReordering)
+ 
+     "  be msg3(env: Env) =>\n"
+     "    if state == 2 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   opt.release = true;
+diff --git a/test/libponyc/codegen_trace.cc b/test/libponyc/codegen_trace.cc
+index 83db92f30e..2eb7b3e676 100644
+--- a/test/libponyc/codegen_trace.cc
++++ b/test/libponyc/codegen_trace.cc
+@@ -92,26 +92,34 @@ EXPORT_SYMBOL bool objectmap_has_object_rc(objectmap_t* map, void* address,
+ TEST_F(CodegenTraceTest, NoTrace)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_size[USize](obj_map: Pointer[None])\n"
++    "use @pony_ctx[Pointer[None]]()\n"
++    "use @pony_triggergc[None](ctx: Pointer[None])\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  var map_before: Pointer[None] = Pointer[None]\n"
+ 
+     "  new create(env: Env) =>\n"
+          // Trigger GC to remove env from the object map.
+-    "    @pony_triggergc[None](@pony_ctx[Pointer[None]]())\n"
++    "    @pony_triggergc(@pony_ctx())\n"
+     "    test()\n"
+ 
+     "  be test() =>\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+     "    trace(42, None)\n"
+ 
+     "  be trace(x: U32, y: None) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let size_before = @objectmap_size[USize](map_before)\n"
+-    "    let size_after = @objectmap_size[USize](map_after)\n"
++    "    let map_after = @gc_local(this)\n"
++    "    let size_before = @objectmap_size(map_before)\n"
++    "    let size_after = @objectmap_size(map_after)\n"
+          // Both maps should be empty.
+     "    let ok = (size_before == 0) and (size_after == 0)\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -124,6 +132,12 @@ TEST_F(CodegenTraceTest, NoTrace)
+ TEST_F(CodegenTraceTest, TraceObjectSameCap)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "class B\n"
+@@ -134,16 +148,16 @@ TEST_F(CodegenTraceTest, TraceObjectSameCap)
+ 
+     "  new create(env: Env) =>\n"
+     "    trace(recover B end)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(b: B iso) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, b, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, b.a, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, b, USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, b.a, USize(0))\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, b, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, b.a, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, b, USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, b.a, USize(0))\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -156,6 +170,14 @@ TEST_F(CodegenTraceTest, TraceObjectSameCap)
+ TEST_F(CodegenTraceTest, TraceObjectDifferentCap)
+ {
+   const char* src =
++    "use @raw_cast[B ref](obj: B tag)\n"
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object[Bool](obj_map: Pointer[None], obj: Any tag)\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "class B\n"
+@@ -166,17 +188,17 @@ TEST_F(CodegenTraceTest, TraceObjectDifferentCap)
+ 
+     "  new create(env: Env) =>\n"
+     "    trace(recover B end)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(b: B tag) =>\n"
+-    "    let b' = @raw_cast[B ref](b)\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, b', USize(1)) and\n"
+-    "      not @objectmap_has_object[Bool](map_before, b'.a) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, b', USize(0)) and\n"
+-    "      not @objectmap_has_object[Bool](map_after, b'.a)\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let b' = @raw_cast(b)\n"
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, b', USize(1)) and\n"
++    "      not @objectmap_has_object(map_before, b'.a) and\n"
++    "      @objectmap_has_object_rc(map_after, b', USize(0)) and\n"
++    "      not @objectmap_has_object(map_after, b'.a)\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -189,6 +211,14 @@ TEST_F(CodegenTraceTest, TraceObjectDifferentCap)
+ TEST_F(CodegenTraceTest, TraceObjectStatic)
+ {
+   const char* src =
++    "use @raw_cast[B ref](obj: (B tag | A iso!))\n"
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object[Bool](obj_map: Pointer[None], obj: Any tag)\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "class B\n"
+@@ -199,17 +229,17 @@ TEST_F(CodegenTraceTest, TraceObjectStatic)
+ 
+     "  new create(env: Env) =>\n"
+     "    trace(recover B end)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(b: (B tag | A iso)) =>\n"
+-    "    let b' = @raw_cast[B ref](b)\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, b', USize(1)) and\n"
+-    "      not @objectmap_has_object[Bool](map_before, b'.a) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, b', USize(0)) and\n"
+-    "      not @objectmap_has_object[Bool](map_after, b'.a)\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let b' = @raw_cast(b)\n"
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, b', USize(1)) and\n"
++    "      not @objectmap_has_object(map_before, b'.a) and\n"
++    "      @objectmap_has_object_rc(map_after, b', USize(0)) and\n"
++    "      not @objectmap_has_object(map_after, b'.a)\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -222,6 +252,14 @@ TEST_F(CodegenTraceTest, TraceObjectStatic)
+ TEST_F(CodegenTraceTest, TraceObjectDynamic)
+ {
+   const char* src =
++    "use @raw_cast[B ref](obj: (B tag | A iso!))\n"
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object[Bool](obj_map: Pointer[None], obj: Any tag)\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "class B\n"
+@@ -233,17 +271,17 @@ TEST_F(CodegenTraceTest, TraceObjectDynamic)
+     "  new create(env: Env) =>\n"
+     "    let b: (B iso | A iso) = recover B end\n"
+     "    trace(consume b)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(b: (B tag | A iso)) =>\n"
+-    "    let b' = @raw_cast[B ref](b)\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, b', USize(1)) and\n"
+-    "      not @objectmap_has_object[Bool](map_before, b'.a) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, b', USize(0)) and\n"
+-    "      not @objectmap_has_object[Bool](map_after, b'.a)\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let b' = @raw_cast(b)\n"
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, b', USize(1)) and\n"
++    "      not @objectmap_has_object(map_before, b'.a) and\n"
++    "      @objectmap_has_object_rc(map_after, b', USize(0)) and\n"
++    "      not @objectmap_has_object(map_after, b'.a)\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -256,19 +294,25 @@ TEST_F(CodegenTraceTest, TraceObjectDynamic)
+ TEST_F(CodegenTraceTest, TraceNumberBoxed)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "actor Main\n"
+     "  var map_before: Pointer[None] = Pointer[None]\n"
+ 
+     "  new create(env: Env) =>\n"
+     "    trace(U32(42))\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(x: Any val) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, x, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, x, USize(0))\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, x, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, x, USize(0))\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -281,6 +325,12 @@ TEST_F(CodegenTraceTest, TraceNumberBoxed)
+ TEST_F(CodegenTraceTest, TraceNumberBoxedSentThroughInterface)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "interface tag I\n"
+     "  be trace(x: U32)\n"
+ 
+@@ -290,14 +340,14 @@ TEST_F(CodegenTraceTest, TraceNumberBoxedSentThroughInterface)
+     "  new create(env: Env) =>\n"
+     "    let i: I = this\n"
+     "    i.trace(42)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(x: Any val) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, x, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, x, USize(0))\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, x, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, x, USize(0))\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -310,6 +360,12 @@ TEST_F(CodegenTraceTest, TraceNumberBoxedSentThroughInterface)
+ TEST_F(CodegenTraceTest, TraceTuple)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "actor Main\n"
+@@ -317,16 +373,16 @@ TEST_F(CodegenTraceTest, TraceTuple)
+ 
+     "  new create(env: Env) =>\n"
+     "    trace((recover A end, recover A end))\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(t: (A iso, A iso)) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, t._1, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, t._2, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t._1, USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t._2, USize(0))\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, t._1, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, t._2, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, t._1, USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, t._2, USize(0))\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -339,6 +395,12 @@ TEST_F(CodegenTraceTest, TraceTuple)
+ TEST_F(CodegenTraceTest, TraceTupleBoxed)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "actor Main\n"
+@@ -346,21 +408,21 @@ TEST_F(CodegenTraceTest, TraceTupleBoxed)
+ 
+     "  new create(env: Env) =>\n"
+     "    trace((recover A end, recover A end))\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(t: ((A iso, A iso) | A val)) =>\n"
+     "    let t' = t\n"
+     "    match consume t\n"
+     "    | (let t1: A, let t2: A) =>\n"
+-    "      let map_after = @gc_local[Pointer[None]](this)\n"
+-    "      let ok = @objectmap_has_object_rc[Bool](map_before, t', USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, t1, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, t2, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t', USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t1, USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t2, USize(0))\n"
+-    "      @gc_local_snapshot_destroy[None](map_before)\n"
+-    "      @pony_exitcode[None](I32(if ok then 1 else 0 end))\n"
++    "      let map_after = @gc_local(this)\n"
++    "      let ok = @objectmap_has_object_rc(map_before, t', USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, t1, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, t2, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, t', USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, t1, USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, t2, USize(0))\n"
++    "      @gc_local_snapshot_destroy(map_before)\n"
++    "      @pony_exitcode(I32(if ok then 1 else 0 end))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -374,6 +436,12 @@ TEST_F(CodegenTraceTest, TraceTupleBoxed)
+ TEST_F(CodegenTraceTest, TraceTupleDynamic)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class A\n"
+ 
+     "actor Main\n"
+@@ -382,21 +450,21 @@ TEST_F(CodegenTraceTest, TraceTupleDynamic)
+     "  new create(env: Env) =>\n"
+     "    let t: ((A iso, A iso) | A val) = (recover A end, recover A end)\n"
+     "    trace(consume t)\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(t: ((A iso, A iso) | A val)) =>\n"
+     "    let t' = t\n"
+     "    match consume t\n"
+     "    | (let t1: A, let t2: A) =>\n"
+-    "      let map_after = @gc_local[Pointer[None]](this)\n"
+-    "      let ok = @objectmap_has_object_rc[Bool](map_before, t', USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, t1, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_before, t2, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t', USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t1, USize(0)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, t2, USize(0))\n"
+-    "      @gc_local_snapshot_destroy[None](map_before)\n"
+-    "      @pony_exitcode[None](I32(if ok then 1 else 0 end))\n"
++    "      let map_after = @gc_local(this)\n"
++    "      let ok = @objectmap_has_object_rc(map_before, t', USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, t1, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_before, t2, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, t', USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, t1, USize(0)) and\n"
++    "      @objectmap_has_object_rc(map_after, t2, USize(0))\n"
++    "      @gc_local_snapshot_destroy(map_before)\n"
++    "      @pony_exitcode(I32(if ok then 1 else 0 end))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -410,6 +478,12 @@ TEST_F(CodegenTraceTest, TraceTupleDynamic)
+ TEST_F(CodegenTraceTest, TraceTupleWithNumberBoxedSentThroughInterface)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "interface tag I\n"
+     "  be trace(x: (U32, U32))\n"
+ 
+@@ -419,14 +493,14 @@ TEST_F(CodegenTraceTest, TraceTupleWithNumberBoxedSentThroughInterface)
+     "  new create(env: Env) =>\n"
+     "    let i: I = this\n"
+     "    i.trace((42, 42))\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(x: (Any val, U32)) =>\n"
+-    "    let map_after = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object_rc[Bool](map_before, x._1, USize(1)) and\n"
+-    "      @objectmap_has_object_rc[Bool](map_after, x._1, USize(0))\n"
+-    "    @gc_local_snapshot_destroy[None](map_before)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map_after = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object_rc(map_before, x._1, USize(1)) and\n"
++    "      @objectmap_has_object_rc(map_after, x._1, USize(0))\n"
++    "    @gc_local_snapshot_destroy(map_before)\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -438,6 +512,11 @@ TEST_F(CodegenTraceTest, TraceTupleWithNumberBoxedSentThroughInterface)
+ TEST_F(CodegenTraceTest, TraceStructField)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @objectmap_has_object[Bool](obj_map: Pointer[None], obj: Bar tag)\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class Foo\n"
+ 
+     "struct Bar\n"
+@@ -448,10 +527,10 @@ TEST_F(CodegenTraceTest, TraceStructField)
+     "    trace(recover Bar end)\n"
+ 
+     "  be trace(x: Bar iso) =>\n"
+-    "    let map = @gc_local[Pointer[None]](this)\n"
+-    "    let ok = @objectmap_has_object[Bool](map, x) and\n"
+-    "      @objectmap_has_object[Bool](map, x.f)\n"
+-    "    @pony_exitcode[None](I32(if ok then 1 else 0 end))";
++    "    let map = @gc_local(this)\n"
++    "    let ok = @objectmap_has_object(map, x) and\n"
++    "      @objectmap_has_object_rc(map, x.f, USize(0))\n"
++    "    @pony_exitcode(I32(if ok then 1 else 0 end))";
+ 
+   TEST_COMPILE(src);
+ 
+@@ -464,6 +543,13 @@ TEST_F(CodegenTraceTest, TraceStructField)
+ TEST_F(CodegenTraceTest, TraceTupleBoxedSentThroughInterface)
+ {
+   const char* src =
++    "use @gc_local[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot[Pointer[None]](target: Main)\n"
++    "use @gc_local_snapshot_destroy[None](obj_map: Pointer[None])\n"
++    "use @objectmap_has_object[Bool](obj_map: Pointer[None], obj: Any tag)\n"
++    "use @objectmap_has_object_rc[Bool](obj_map: Pointer[None], obj: Any tag, rc: USize)\n"
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "class C\n"
+ 
+     "interface tag I\n"
+@@ -475,21 +561,21 @@ TEST_F(CodegenTraceTest, TraceTupleBoxedSentThroughInterface)
+     "  new create(env: Env) =>\n"
+     "    let i: I = this\n"
+     "    i.trace((C, C))\n"
+-    "    map_before = @gc_local_snapshot[Pointer[None]](this)\n"
++    "    map_before = @gc_local_snapshot(this)\n"
+ 
+     "  be trace(x: Any iso) =>\n"
+     "    let y = consume ref x\n"
+     "    match y\n"
+     "    | (let c1: C, let c2: C) =>\n"
+-    "      let map_after = @gc_local[Pointer[None]](this)\n"
+-    "      let ok = @objectmap_has_object_rc[Bool](map_before, y, USize(1)) and\n"
+-    "        @objectmap_has_object_rc[Bool](map_after, y, USize(0)) and\n"
+-    "        @objectmap_has_object_rc[Bool](map_before, c1, USize(1)) and\n"
+-    "        @objectmap_has_object_rc[Bool](map_after, c1, USize(0)) and\n"
+-    "        @objectmap_has_object_rc[Bool](map_before, c2, USize(1)) and\n"
+-    "        @objectmap_has_object_rc[Bool](map_after, c2, USize(0))\n"
+-    "      @gc_local_snapshot_destroy[None](map_before)\n"
+-    "      @pony_exitcode[None](I32(if ok then 1 else 0 end))\n"
++    "      let map_after = @gc_local(this)\n"
++    "      let ok = @objectmap_has_object_rc(map_before, y, USize(1)) and\n"
++    "        @objectmap_has_object_rc(map_after, y, USize(0)) and\n"
++    "        @objectmap_has_object_rc(map_before, c1, USize(1)) and\n"
++    "        @objectmap_has_object_rc(map_after, c1, USize(0)) and\n"
++    "        @objectmap_has_object_rc(map_before, c2, USize(1)) and\n"
++    "        @objectmap_has_object_rc(map_after, c2, USize(0))\n"
++    "      @gc_local_snapshot_destroy(map_before)\n"
++    "      @pony_exitcode(I32(if ok then 1 else 0 end))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+diff --git a/test/libponyc/compiler_serialisation.cc b/test/libponyc/compiler_serialisation.cc
+index a09bf80379..872d5aa6df 100644
+--- a/test/libponyc/compiler_serialisation.cc
++++ b/test/libponyc/compiler_serialisation.cc
+@@ -21,6 +21,7 @@ class CompilerSerialisationTest : public PassTest
+ };
+ 
+ static const char* const src =
++  "use @pony_exitcode[None](code: I32)\n"
+   "actor Main\n"
+   "  new create(env: Env) =>\n"
+   "    let x = recover Array[U8] end\n"
+@@ -30,7 +31,7 @@ static const char* const src =
+   "  be foo(x: Array[U8] val) =>\n"
+   "    try\n"
+   "      if x(0)? == 42 then\n"
+-  "        @pony_exitcode[None](U32(1))\n"
++  "        @pony_exitcode(I32(1))\n"
+   "      end\n"
+   "    end";
+ 
+diff --git a/test/libponyc/ffi.cc b/test/libponyc/ffi.cc
+index 4e3459209a..eef4c75ad4 100644
+--- a/test/libponyc/ffi.cc
++++ b/test/libponyc/ffi.cc
+@@ -11,72 +11,17 @@
+ class FFITest : public PassTest
+ {};
+ 
+-
+ TEST_F(FFITest, NoDeclaration)
+ {
+   const char* src =
+     "class Foo\n"
+     "  fun f() =>\n"
+-    "    @foo[U32]()";
+-
+-  TEST_COMPILE(src);
+-}
+-
+-
+-TEST_F(FFITest, NoDeclarationArg)
+-{
+-  const char* src =
+-    "class Foo\n"
+-    "  fun f() =>\n"
+-    "    @foo[U32](true)";
+-
+-  TEST_COMPILE(src);
+-}
+-
+-
+-TEST_F(FFITest, NoDeclarationMultipleArgs)
+-{
+-  const char* src =
+-    "class Foo\n"
+-    "  fun f(x: U32) =>\n"
+-    "    @foo[U32](true, x, false)";
+-
+-  TEST_COMPILE(src);
+-}
+-
+-
+-TEST_F(FFITest, NoDeclarationNoReturn)
+-{
+-  const char* src =
+-    "class Foo\n"
+-    "  fun f() =>\n"
+-    "    @foo(true)";
+-
+-  TEST_ERROR(src);
+-}
+-
+-
+-TEST_F(FFITest, NoDeclarationMultipleReturn)
+-{
+-  const char* src =
+-    "class Foo\n"
+-    "  fun f() =>\n"
+-    "    @foo[Bool, U32](true)";
++    "    @foo()";
+ 
+   TEST_ERROR(src);
+ }
+ 
+ 
+-TEST_F(FFITest, NoDeclarationLiteralIntArg)
+-{
+-  const char* src =
+-    "class Foo\n"
+-    "  fun f() =>\n"
+-    "    @foo[U32](4)";
+-
+-  TEST_ERROR(src);
+-}
+-
+ 
+ TEST_F(FFITest, Declaration)
+ {
+@@ -143,31 +88,6 @@ TEST_F(FFITest, DeclarationTooManyArgs)
+ }
+ 
+ 
+-TEST_F(FFITest, DeclarationWithReturn)
+-{
+-  const char* src =
+-    "use @foo[U32](a: Bool, b: U32)\n"
+-
+-    "class Foo\n"
+-    "  fun f(x: U32) =>\n"
+-    "    @foo[U32](true, x)";
+-
+-  TEST_COMPILE(src);
+-}
+-
+-
+-TEST_F(FFITest, DeclarationWithDifferentReturn)
+-{
+-  const char* src =
+-    "use @foo[U32](a: Bool, b: U32)\n"
+-
+-    "class Foo\n"
+-    "  fun f(x: U32) =>\n"
+-    "    @foo[U8](true, x)";
+-
+-  TEST_ERROR(src);
+-}
+-
+ 
+ TEST_F(FFITest, DeclarationVoidStarPointer)
+ {
+@@ -176,7 +96,7 @@ TEST_F(FFITest, DeclarationVoidStarPointer)
+ 
+     "class Foo\n"
+     "  fun f(x: Pointer[U32]) =>\n"
+-    "    @foo[U32](x)";
++    "    @foo(x)";
+ 
+   TEST_COMPILE(src);
+ }
+@@ -189,7 +109,7 @@ TEST_F(FFITest, DeclarationVoidStarUSize)
+ 
+     "class Foo\n"
+     "  fun f(x: USize) =>\n"
+-    "    @foo[U32](x)";
++    "    @foo(x)";
+ 
+   TEST_COMPILE(src);
+ }
+@@ -202,7 +122,7 @@ TEST_F(FFITest, DeclarationVoidStarNotPointer)
+ 
+     "class Foo\n"
+     "  fun f(x: U8) =>\n"
+-    "    @foo[U32](x)";
++    "    @foo(x)";
+ 
+   TEST_ERROR(src);
+ }
+diff --git a/test/libponyc/iftype.cc b/test/libponyc/iftype.cc
+index ff52925681..287b16cd49 100644
+--- a/test/libponyc/iftype.cc
++++ b/test/libponyc/iftype.cc
+@@ -184,6 +184,8 @@ TEST_F(IftypeTest, TupleCond_InvalidCardinality)
+ TEST_F(IftypeTest, Codegen_True)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "trait T\n"
+     "class C is T\n"
+ 
+@@ -193,7 +195,7 @@ TEST_F(IftypeTest, Codegen_True)
+ 
+     "  fun foo[A: T](x: A) =>\n"
+     "    iftype A <: C then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -207,6 +209,8 @@ TEST_F(IftypeTest, Codegen_True)
+ TEST_F(IftypeTest, Codegen_False)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
++
+     "trait T\n"
+     "class C is T\n"
+ 
+@@ -218,7 +222,7 @@ TEST_F(IftypeTest, Codegen_False)
+     "    iftype A <: C then\n"
+     "      None\n"
+     "    else\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+@@ -233,6 +237,7 @@ TEST_F(IftypeTest, Codegen_False)
+ TEST_F(IftypeTest, Codegen_ElseIfTrue)
+ {
+   const char* src =
++    "use @pony_exitcode[None](code: I32)\n"
+     "trait T\n"
+     "class C1 is T\n"
+     "class C2 is T\n"
+@@ -245,7 +250,7 @@ TEST_F(IftypeTest, Codegen_ElseIfTrue)
+     "    iftype A <: C1 then\n"
+     "      None\n"
+     "    elseif A <: C2 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(I32(1))\n"
+     "    end";
+ 
+   TEST_COMPILE(src);
+diff --git a/test/libponyc/signature.cc b/test/libponyc/signature.cc
+index ed91804b0a..93c2fbfeac 100644
+--- a/test/libponyc/signature.cc
++++ b/test/libponyc/signature.cc
+@@ -147,14 +147,17 @@ TEST_F(SignatureTest, SerialiseSignature)
+ {
+   const char* src =
+     "use \"serialise\"\n"
++    "use @memcmp[I32](s1: Pointer[None], s2: Pointer[None], size: USize)\n"
++    "use @signature_get[Pointer[U8]]()\n"
++    "use @pony_exitcode[None](code: I32)\n"
+ 
+     "actor Main\n"
+     "  new create(env: Env) =>\n"
+-    "    let sig_in = @signature_get[Pointer[U8]]()\n"
++    "    let sig_in = @signature_get()\n"
+     "    let sig = Serialise.signature()\n"
+-    "    let ok = @memcmp[I32](sig_in, sig.cpointer(), sig.size())\n"
++    "    let ok = @memcmp(sig_in, sig.cpointer(), sig.size())\n"
+     "    if ok == 0 then\n"
+-    "      @pony_exitcode[None](I32(1))\n"
++    "      @pony_exitcode(1)\n"
+     "    end";
+ 
+   set_builtin(nullptr);
+diff --git a/test/libponyc/verify.cc b/test/libponyc/verify.cc
+index 1012c44ea0..657afefa8f 100644
+--- a/test/libponyc/verify.cc
++++ b/test/libponyc/verify.cc
+@@ -566,16 +566,6 @@ TEST_F(VerifyTest, PartialSugaredApplyCallAfterSugaredConstructor)
+   TEST_COMPILE(src);
+ }
+ 
+-TEST_F(VerifyTest, FFICallPartial)
+-{
+-  const char* src =
+-    "primitive Foo\n"
+-    "  fun apply(): U64 ? =>\n"
+-    "    @foo[U64]()?";
+-
+-  TEST_COMPILE(src);
+-}
+-
+ TEST_F(VerifyTest, FFICallPartialWithPartialDeclaration)
+ {
+   const char* src =
+@@ -583,7 +573,7 @@ TEST_F(VerifyTest, FFICallPartialWithPartialDeclaration)
+ 
+     "primitive Foo\n"
+     "  fun apply(): U64 ? =>\n"
+-    "    @foo[U64]()?";
++    "    @foo()?";
+ 
+   TEST_COMPILE(src);
+ }
+@@ -595,7 +585,7 @@ TEST_F(VerifyTest, FFICallWithPartialDeclaration)
+ 
+     "primitive Foo\n"
+     "  fun apply(): U64 ? =>\n"
+-    "    @foo[U64]()?";
++    "    @foo()?";
+ 
+   TEST_COMPILE(src);
+ }
+@@ -607,7 +597,7 @@ TEST_F(VerifyTest, FFICallPartialWithNonPartialDeclaration)
+ 
+     "primitive Foo\n"
+     "  fun apply(): U64 =>\n"
+-    "    @foo[U64]() ?";
++    "    @foo() ?";
+ 
+   TEST_ERRORS_1(src, "call is partial but the declaration is not");
+ }
+@@ -619,7 +609,7 @@ TEST_F(VerifyTest, FFICallNonPartialWithPartialDeclaration)
+ 
+     "primitive Foo\n"
+     "  fun apply(): U64 ? =>\n"
+-    "    @foo[U64]()";
++    "    @foo()";
+ 
+   TEST_ERRORS_1(src, "call is not partial but the declaration is");
+ }

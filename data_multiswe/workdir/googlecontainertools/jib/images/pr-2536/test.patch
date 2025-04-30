@@ -1,0 +1,34 @@
+diff --git a/jib-core/src/test/java/com/google/cloud/tools/jib/registry/credentials/DockerConfigCredentialRetrieverTest.java b/jib-core/src/test/java/com/google/cloud/tools/jib/registry/credentials/DockerConfigCredentialRetrieverTest.java
+index 6fe02af2b8..47803f2de5 100644
+--- a/jib-core/src/test/java/com/google/cloud/tools/jib/registry/credentials/DockerConfigCredentialRetrieverTest.java
++++ b/jib-core/src/test/java/com/google/cloud/tools/jib/registry/credentials/DockerConfigCredentialRetrieverTest.java
+@@ -194,4 +194,15 @@ public void testRetrieve_azureIdentityToken() throws IOException, URISyntaxExcep
+     Assert.assertEquals("<token>", credentials.get().getUsername());
+     Assert.assertEquals("cool identity token", credentials.get().getPassword());
+   }
++
++  @Test
++  public void testRetrieve_noErrorWhenMissingAuthField() throws IOException, URISyntaxException {
++    Path dockerConfigFile = Paths.get(Resources.getResource("core/json/dockerconfig.json").toURI());
++
++    DockerConfigCredentialRetriever dockerConfigCredentialRetriever =
++        DockerConfigCredentialRetriever.create("no auth field", dockerConfigFile);
++
++    Optional<Credential> credentials = dockerConfigCredentialRetriever.retrieve(mockLogger);
++    Assert.assertFalse(credentials.isPresent());
++  }
+ }
+diff --git a/jib-core/src/test/resources/core/json/dockerconfig.json b/jib-core/src/test/resources/core/json/dockerconfig.json
+index 00d7673bd1..8df57f4153 100644
+--- a/jib-core/src/test/resources/core/json/dockerconfig.json
++++ b/jib-core/src/test/resources/core/json/dockerconfig.json
+@@ -4,7 +4,8 @@
+     "some registry":{"auth":"c29tZTphdXRo","password":"ignored"},
+     "https://registry":{"auth":"dG9rZW4="},
+ 
+-    "example.com":{"auth":"should not match example"}
++    "example.com":{"auth":"should not match example"},
++    "no auth field":{}
+   },
+   "credsStore":"some credential store",
+   "credHelpers":{

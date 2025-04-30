@@ -1,0 +1,173 @@
+diff --git a/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js b/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
+index 84f2dc7aeb2068..d75ebf9078e7fe 100644
+--- a/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
++++ b/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
+@@ -245,23 +245,23 @@ describe('grid generator', () => {
+         boxSizing: 'border-box',
+         display: 'flex',
+         flexWrap: 'wrap',
+-        margin: 'calc(var(--Grid-rowSpacing) / -2) calc(var(--Grid-columnSpacing) / -2)',
++        margin: 'calc(var(--Grid-rowSpacing, 0px) / -2) calc(var(--Grid-columnSpacing, 0px) / -2)',
+       });
+     });
+ 
+     it('nested container level 1', () => {
+       const result = generateGridStyles({ ownerState: { container: true, unstable_level: 1 } });
+       sinon.assert.match(result, {
+-        margin: `calc(var(--Grid-rowSpacingLevel1) / -2) calc(var(--Grid-columnSpacingLevel1) / -2)`,
+-        padding: `calc(var(--Grid-rowSpacing) / 2) calc(var(--Grid-columnSpacing) / 2)`,
++        margin: `calc(var(--Grid-rowSpacingLevel1, 0px) / -2) calc(var(--Grid-columnSpacingLevel1, 0px) / -2)`,
++        padding: `calc(var(--Grid-rowSpacing, 0px) / 2) calc(var(--Grid-columnSpacing, 0px) / 2)`,
+       });
+     });
+ 
+     it('nested container level 2', () => {
+       const result = generateGridStyles({ ownerState: { container: true, unstable_level: 2 } });
+       sinon.assert.match(result, {
+-        margin: `calc(var(--Grid-rowSpacingLevel2) / -2) calc(var(--Grid-columnSpacingLevel2) / -2)`,
+-        padding: `calc(var(--Grid-rowSpacingLevel1) / 2) calc(var(--Grid-columnSpacingLevel1) / 2)`,
++        margin: `calc(var(--Grid-rowSpacingLevel2, 0px) / -2) calc(var(--Grid-columnSpacingLevel2, 0px) / -2)`,
++        padding: `calc(var(--Grid-rowSpacingLevel1, 0px) / 2) calc(var(--Grid-columnSpacingLevel1, 0px) / 2)`,
+       });
+     });
+ 
+@@ -270,8 +270,8 @@ describe('grid generator', () => {
+         ownerState: { container: true, unstable_level: 1, disableEqualOverflow: true },
+       });
+       sinon.assert.match(result, {
+-        margin: `calc(var(--Grid-rowSpacingLevel1) * -1) 0px 0px calc(var(--Grid-columnSpacingLevel1) * -1)`,
+-        padding: `var(--Grid-rowSpacing) 0px 0px var(--Grid-columnSpacing)`,
++        margin: `calc(var(--Grid-rowSpacingLevel1, 0px) * -1) 0px 0px calc(var(--Grid-columnSpacingLevel1, 0px) * -1)`,
++        padding: `var(--Grid-rowSpacing, 0px) 0px 0px var(--Grid-columnSpacing, 0px)`,
+       });
+     });
+ 
+@@ -285,8 +285,8 @@ describe('grid generator', () => {
+         },
+       });
+       sinon.assert.match(result, {
+-        margin: `calc(var(--Grid-rowSpacingLevel1) / -2) calc(var(--Grid-columnSpacingLevel1) / -2)`,
+-        padding: `var(--Grid-rowSpacing) 0px 0px var(--Grid-columnSpacing)`,
++        margin: `calc(var(--Grid-rowSpacingLevel1, 0px) / -2) calc(var(--Grid-columnSpacingLevel1, 0px) / -2)`,
++        padding: `var(--Grid-rowSpacing, 0px) 0px 0px var(--Grid-columnSpacing, 0px)`,
+       });
+     });
+ 
+@@ -295,7 +295,7 @@ describe('grid generator', () => {
+       expect(result).to.deep.equal({
+         minWidth: 0,
+         boxSizing: 'border-box',
+-        padding: `calc(var(--Grid-rowSpacing) / 2) calc(var(--Grid-columnSpacing) / 2)`,
++        padding: `calc(var(--Grid-rowSpacing, 0px) / 2) calc(var(--Grid-columnSpacing, 0px) / 2)`,
+       });
+     });
+ 
+@@ -304,7 +304,7 @@ describe('grid generator', () => {
+         ownerState: { container: false, disableEqualOverflow: true },
+       });
+       sinon.assert.match(result, {
+-        padding: `var(--Grid-rowSpacing) 0px 0px var(--Grid-columnSpacing)`,
++        padding: `var(--Grid-rowSpacing, 0px) 0px 0px var(--Grid-columnSpacing, 0px)`,
+       });
+     });
+ 
+@@ -313,7 +313,7 @@ describe('grid generator', () => {
+         ownerState: { container: false, disableEqualOverflow: true, unstable_level: 2 },
+       });
+       sinon.assert.match(result, {
+-        padding: `var(--Grid-rowSpacingLevel1) 0px 0px var(--Grid-columnSpacingLevel1)`,
++        padding: `var(--Grid-rowSpacingLevel1, 0px) 0px 0px var(--Grid-columnSpacingLevel1, 0px)`,
+       });
+     });
+   });
+@@ -345,7 +345,7 @@ describe('grid generator', () => {
+         '@media (min-width:600px)': {
+           flexBasis: 'auto',
+           flexGrow: 0,
+-          width: `calc(100% * 6 / var(--Grid-columns))`,
++          width: `calc(100% * 6 / var(--Grid-columns, 12))`,
+         },
+         '@media (min-width:900px)': {
+           flexBasis: 0,
+@@ -355,7 +355,7 @@ describe('grid generator', () => {
+         '@media (min-width:1200px)': {
+           flexBasis: 'auto',
+           flexGrow: 0,
+-          width: `calc(100% * 4 / var(--Grid-columns))`,
++          width: `calc(100% * 4 / var(--Grid-columns, 12))`,
+         },
+         '@media (min-width:1536px)': {
+           flexBasis: 'auto',
+@@ -475,7 +475,7 @@ describe('grid generator', () => {
+         theme: { breakpoints },
+         ownerState: { container: true, unstable_level: 1 },
+       });
+-      expect(result['--Grid-rowSpacingLevel1']).to.equal('var(--Grid-rowSpacing)');
++      expect(result['--Grid-rowSpacingLevel1']).to.equal('var(--Grid-rowSpacing, 0px)');
+     });
+   });
+ 
+@@ -539,7 +539,7 @@ describe('grid generator', () => {
+         theme: { breakpoints },
+         ownerState: { container: true, unstable_level: 1 },
+       });
+-      expect(result['--Grid-columnSpacingLevel1']).to.equal('var(--Grid-columnSpacing)');
++      expect(result['--Grid-columnSpacingLevel1']).to.equal('var(--Grid-columnSpacing, 0px)');
+     });
+   });
+ 
+@@ -553,7 +553,7 @@ describe('grid generator', () => {
+       ).to.deep.equal({
+         marginLeft: '0px',
+         '@media (min-width:900px)': {
+-          marginLeft: `calc(100% * 5 / var(--Grid-columns))`,
++          marginLeft: `calc(100% * 5 / var(--Grid-columns, 12))`,
+         },
+         '@media (min-width:1200px)': {
+           marginLeft: `auto`,
+diff --git a/test/regressions/fixtures/Grid/DefaultNestedGrid2.js b/test/regressions/fixtures/Grid/DefaultNestedGrid2.js
+new file mode 100644
+index 00000000000000..d32ddcd8aa58b3
+--- /dev/null
++++ b/test/regressions/fixtures/Grid/DefaultNestedGrid2.js
+@@ -0,0 +1,40 @@
++import * as React from 'react';
++import Paper from '@mui/material/Paper';
++import Box from '@mui/material/Box';
++import Grid from '@mui/material/Unstable_Grid2';
++
++export default function StressNestedGrid2() {
++  return (
++    <Box
++      sx={{
++        width: 600,
++        display: 'flex',
++        bgcolor: 'secondary.main',
++        '& .MuiPaper-root': {
++          p: 2,
++          textAlign: 'center',
++        },
++      }}
++    >
++      <Grid container spacing={2}>
++        <Grid xs={12} sx={{ bgcolor: 'grey' }}>
++          {/* Even though the grid container below is not a nested grid container, but it should produce correct grid items */}
++          <Grid container spacing={3}>
++            <Grid xs={6} sx={{ bgcolor: 'red' }}>
++              <Paper>xs=12</Paper>
++            </Grid>
++            <Grid xs={6} sx={{ bgcolor: 'red' }}>
++              <Paper>xs=12</Paper>
++            </Grid>
++          </Grid>
++        </Grid>
++        <Grid xs={6}>
++          <Paper>xs=6</Paper>
++        </Grid>
++        <Grid xs={6}>
++          <Paper>xs=6</Paper>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}

@@ -1,0 +1,79 @@
+diff --git a/packages/mui-material/src/SvgIcon/SvgIcon.js b/packages/mui-material/src/SvgIcon/SvgIcon.js
+index d0ce6e1def2515..2acb58b0c19eda 100644
+--- a/packages/mui-material/src/SvgIcon/SvgIcon.js
++++ b/packages/mui-material/src/SvgIcon/SvgIcon.js
+@@ -85,6 +85,9 @@ const SvgIcon = React.forwardRef(function SvgIcon(inProps, ref) {
+   };
+ 
+   const more = {};
++  let newComponent;
++  let hasTitleAccess = titleAccess !== undefined;
++  let mergedChildren;
+ 
+   if (!inheritViewBox) {
+     more.viewBox = viewBox;
+@@ -92,21 +95,59 @@ const SvgIcon = React.forwardRef(function SvgIcon(inProps, ref) {
+ 
+   const classes = useUtilityClasses(ownerState);
+ 
++  if (typeof component === 'function') {
++    const reactElement = React.createElement(component);
++    const element =
++      reactElement.type.prototype instanceof React.Component
++        ? reactElement.type.prototype.render() // element from class component
++        : component({}); // element from function component
++
++    if (inheritViewBox && element.props.viewBox) {
++      more.viewBox = element.props.viewBox;
++    }
++
++    mergedChildren = [].concat(element.props.children).concat(children);
++    if (titleAccess) {
++      mergedChildren.push(<title>{titleAccess}</title>);
++      hasTitleAccess = true;
++    } else if (element.props.titleAccess) {
++      mergedChildren.push(<title>{element.props.titleAccess}</title>);
++      hasTitleAccess = true;
++    }
++
++    // Component can have no children, so remove undefined items.
++    // Give each object child a key.
++    mergedChildren = mergedChildren
++      .filter((child) => child !== undefined)
++      .map((child, index) => {
++        if (child instanceof Object) {
++          return {
++            ...child,
++            key: index,
++          };
++        }
++        return child;
++      });
++
++    // the type of the element
++    newComponent = element.type;
++  }
++
+   return (
+     <SvgIconRoot
+-      as={component}
++      as={newComponent || component}
+       className={clsx(classes.root, className)}
+       focusable="false"
+       color={htmlColor}
+-      aria-hidden={titleAccess ? undefined : true}
+-      role={titleAccess ? 'img' : undefined}
++      aria-hidden={hasTitleAccess ? undefined : true}
++      role={hasTitleAccess ? 'img' : undefined}
+       ref={ref}
+       {...more}
+       {...other}
+       ownerState={ownerState}
+     >
+-      {children}
+-      {titleAccess ? <title>{titleAccess}</title> : null}
++      {mergedChildren || children}
++      {hasTitleAccess && !mergedChildren ? <title>{titleAccess}</title> : null}
+     </SvgIconRoot>
+   );
+ });

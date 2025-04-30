@@ -1,0 +1,139 @@
+diff --git a/pkg/cmd/pr/checks/aggregate.go b/pkg/cmd/pr/checks/aggregate.go
+index f9f0b73cb98..40e34e79a9d 100644
+--- a/pkg/cmd/pr/checks/aggregate.go
++++ b/pkg/cmd/pr/checks/aggregate.go
+@@ -25,6 +25,7 @@ type checkCounts struct {
+ 	Passed   int
+ 	Pending  int
+ 	Skipping int
++	Canceled int
+ }
+ 
+ func aggregateChecks(checkContexts []api.CheckContext, requiredChecks bool) (checks []check, counts checkCounts) {
+@@ -70,9 +71,12 @@ func aggregateChecks(checkContexts []api.CheckContext, requiredChecks bool) (che
+ 		case "SKIPPED", "NEUTRAL":
+ 			item.Bucket = "skipping"
+ 			counts.Skipping++
+-		case "ERROR", "FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED":
++		case "ERROR", "FAILURE", "TIMED_OUT", "ACTION_REQUIRED":
+ 			item.Bucket = "fail"
+ 			counts.Failed++
++		case "CANCELLED":
++			item.Bucket = "cancel"
++			counts.Canceled++
+ 		default: // "EXPECTED", "REQUESTED", "WAITING", "QUEUED", "PENDING", "IN_PROGRESS", "STALE"
+ 			item.Bucket = "pending"
+ 			counts.Pending++
+diff --git a/pkg/cmd/pr/checks/fixtures/someCancelled.json b/pkg/cmd/pr/checks/fixtures/someCancelled.json
+new file mode 100644
+index 00000000000..5e321a5f33f
+--- /dev/null
++++ b/pkg/cmd/pr/checks/fixtures/someCancelled.json
+@@ -0,0 +1,45 @@
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "CANCELLED",
++                      "status": "COMPLETED",
++                      "name": "sad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "awesome tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
++                }
++              }
++            }
++          }
++        ]
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/checks/fixtures/somePending.json b/pkg/cmd/pr/checks/fixtures/somePending.json
+index a96ea4fda92..c10cb2f8496 100644
+--- a/pkg/cmd/pr/checks/fixtures/somePending.json
++++ b/pkg/cmd/pr/checks/fixtures/somePending.json
+@@ -32,6 +32,14 @@
+                       "completedAt": "2020-08-27T19:00:12Z",
+                       "startedAt": "2020-08-27T18:58:46Z",
+                       "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "CANCELLED",
++                      "status": "COMPLETED",
++                      "name": "sad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
+                     }
+                   ]
+                 }
+diff --git a/pkg/cmd/pr/checks/output.go b/pkg/cmd/pr/checks/output.go
+index a1e3f889afa..9efee29cfa7 100644
+--- a/pkg/cmd/pr/checks/output.go
++++ b/pkg/cmd/pr/checks/output.go
+@@ -28,7 +28,7 @@ func addRow(tp *tableprinter.TablePrinter, io *iostreams.IOStreams, o check) {
+ 	case "pending":
+ 		mark = "*"
+ 		markColor = cs.Yellow
+-	case "skipping":
++	case "skipping", "cancel":
+ 		mark = "-"
+ 		markColor = cs.Gray
+ 	}
+@@ -49,7 +49,11 @@ func addRow(tp *tableprinter.TablePrinter, io *iostreams.IOStreams, o check) {
+ 		tp.AddField(o.Link)
+ 	} else {
+ 		tp.AddField(o.Name)
+-		tp.AddField(o.Bucket)
++		if o.Bucket == "cancel" {
++			tp.AddField("fail")
++		} else {
++			tp.AddField(o.Bucket)
++		}
+ 		if elapsed == "" {
+ 			tp.AddField("0")
+ 		} else {
+@@ -69,12 +73,14 @@ func printSummary(io *iostreams.IOStreams, counts checkCounts) {
+ 			summary = "Some checks were not successful"
+ 		} else if counts.Pending > 0 {
+ 			summary = "Some checks are still pending"
++		} else if counts.Canceled > 0 {
++			summary = "Some checks were cancelled"
+ 		} else {
+ 			summary = "All checks were successful"
+ 		}
+ 
+-		tallies := fmt.Sprintf("%d failing, %d successful, %d skipped, and %d pending checks",
+-			counts.Failed, counts.Passed, counts.Skipping, counts.Pending)
++		tallies := fmt.Sprintf("%d cancelled, %d failing, %d successful, %d skipped, and %d pending checks",
++			counts.Canceled, counts.Failed, counts.Passed, counts.Skipping, counts.Pending)
+ 
+ 		summary = fmt.Sprintf("%s\n%s", io.ColorScheme().Bold(summary), tallies)
+ 	}

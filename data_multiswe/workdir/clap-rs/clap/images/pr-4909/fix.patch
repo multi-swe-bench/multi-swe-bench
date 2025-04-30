@@ -1,0 +1,45 @@
+diff --git a/clap_builder/src/parser/matches/arg_matches.rs b/clap_builder/src/parser/matches/arg_matches.rs
+index 525904291ea..44d2f29b296 100644
+--- a/clap_builder/src/parser/matches/arg_matches.rs
++++ b/clap_builder/src/parser/matches/arg_matches.rs
+@@ -834,7 +834,7 @@ impl ArgMatches {
+         let arg = some!(self.get_arg(id));
+         let i = Indices {
+             iter: arg.indices(),
+-            len: arg.num_vals(),
++            len: arg.num_indices(),
+         };
+         Some(i)
+     }
+diff --git a/clap_builder/src/parser/matches/matched_arg.rs b/clap_builder/src/parser/matches/matched_arg.rs
+index 24df8b16096..e05290aba1e 100644
+--- a/clap_builder/src/parser/matches/matched_arg.rs
++++ b/clap_builder/src/parser/matches/matched_arg.rs
+@@ -67,6 +67,10 @@ impl MatchedArg {
+         self.indices.iter().cloned()
+     }
+ 
++    pub(crate) fn num_indices(&self) -> usize {
++        self.indices.len()
++    }
++
+     pub(crate) fn get_index(&self, index: usize) -> Option<usize> {
+         self.indices.get(index).cloned()
+     }
+diff --git a/clap_builder/src/parser/parser.rs b/clap_builder/src/parser/parser.rs
+index a96c0c77de3..4f6f7b942d9 100644
+--- a/clap_builder/src/parser/parser.rs
++++ b/clap_builder/src/parser/parser.rs
+@@ -1024,6 +1024,12 @@ impl<'cmd> Parser<'cmd> {
+     ) -> ClapResult<()> {
+         debug!("Parser::push_arg_values: {raw_vals:?}");
+ 
++        // If there were no values, treat the arg like a flag
++        if raw_vals.is_empty() {
++            matcher.add_index_to(arg.get_id(), self.cur_idx.get());
++            return Ok(());
++        }
++
+         for raw_val in raw_vals {
+             // update the current index because each value is a distinct index to clap
+             self.cur_idx.set(self.cur_idx.get() + 1);

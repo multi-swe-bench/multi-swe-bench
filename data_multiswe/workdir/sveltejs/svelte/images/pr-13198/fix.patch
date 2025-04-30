@@ -1,0 +1,26 @@
+diff --git a/.changeset/ten-singers-repair.md b/.changeset/ten-singers-repair.md
+new file mode 100644
+index 000000000000..a2936b9151fd
+--- /dev/null
++++ b/.changeset/ten-singers-repair.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: allow more characters in the unicode range as component identifiers
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/element.js b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+index e1a23822f233..d94d8180e7a9 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/element.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+@@ -24,7 +24,9 @@ const regex_attribute_value = /^(?:"([^"]*)"|'([^'])*'|([^>\s]+))/;
+ const regex_valid_element_name =
+ 	/^(?:![a-zA-Z]+|[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?|[a-zA-Z][a-zA-Z0-9]*:[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])$/;
+ const regex_valid_component_name =
+-	/^(?:[A-Z][A-Za-z0-9_$.]*|[a-z][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]+)+)$/;
++	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#identifiers adjusted for our needs
++	// (must start with uppercase letter if no dots, can contain dots)
++	/^(?:\p{Lu}[$\u200c\u200d\p{ID_Continue}.]*|\p{ID_Start}[$\u200c\u200d\p{ID_Continue}]*(?:\.[$\u200c\u200d\p{ID_Continue}]+)+)$/u;
+ 
+ /** @type {Map<string, ElementLike['type']>} */
+ const root_only_meta_tags = new Map([

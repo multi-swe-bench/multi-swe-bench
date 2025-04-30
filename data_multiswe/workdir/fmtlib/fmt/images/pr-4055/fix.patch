@@ -1,0 +1,23 @@
+diff --git a/include/fmt/format.h b/include/fmt/format.h
+index 7c2a19b4084d..41bace093249 100644
+--- a/include/fmt/format.h
++++ b/include/fmt/format.h
+@@ -3978,9 +3978,15 @@ struct formatter<T, Char, enable_if_t<detail::has_format_as<T>::value>>
+   }
+ };
+ 
+-#define FMT_FORMAT_AS(Type, Base) \
+-  template <typename Char>        \
+-  struct formatter<Type, Char> : formatter<Base, Char> {}
++#define FMT_FORMAT_AS(Type, Base)                                              \
++  template <typename Char>                                                     \
++  struct formatter<Type, Char> : formatter<Base, Char> {                       \
++    template <typename FormatContext>                                          \
++    auto format(Type value, FormatContext& ctx) const -> decltype(ctx.out()) { \
++      using base = formatter<Base, Char>;                                      \
++      return base::format(value, ctx);                                         \
++    }                                                                          \
++  }
+ 
+ FMT_FORMAT_AS(signed char, int);
+ FMT_FORMAT_AS(unsigned char, unsigned);

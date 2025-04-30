@@ -1,0 +1,556 @@
+diff --git a/pkg/cmd/gist/list/list_test.go b/pkg/cmd/gist/list/list_test.go
+index 54bb52eb17e..682ebe8dc97 100644
+--- a/pkg/cmd/gist/list/list_test.go
++++ b/pkg/cmd/gist/list/list_test.go
+@@ -180,10 +180,11 @@ func Test_listRun(t *testing.T) {
+ 				)
+ 			},
+ 			wantOut: heredoc.Doc(`
+-				1234567890  cool.txt                         1 file    public  about 6 hours ago
+-				4567890123                                   1 file    public  about 6 hours ago
+-				2345678901  tea leaves thwart those who ...  2 files   secret  about 6 hours ago
+-				3456789012  short desc                       11 files  secret  about 6 hours ago
++				ID          DESCRIPTION                  FILES     VISIBILITY  UPDATED
++				1234567890  cool.txt                     1 file    public      about 6 hours ago
++				4567890123                               1 file    public      about 6 hours ago
++				2345678901  tea leaves thwart those ...  2 files   secret      about 6 hours ago
++				3456789012  short desc                   11 files  secret      about 6 hours ago
+ 			`),
+ 		},
+ 		{
+@@ -214,8 +215,9 @@ func Test_listRun(t *testing.T) {
+ 				)
+ 			},
+ 			wantOut: heredoc.Doc(`
+-				1234567890  cool.txt  1 file  public  about 6 hours ago
+-				4567890123            1 file  public  about 6 hours ago
++				ID          DESCRIPTION  FILES   VISIBILITY  UPDATED
++				1234567890  cool.txt     1 file  public      about 6 hours ago
++				4567890123               1 file  public      about 6 hours ago
+ 			`),
+ 		},
+ 		{
+@@ -261,8 +263,9 @@ func Test_listRun(t *testing.T) {
+ 				)
+ 			},
+ 			wantOut: heredoc.Doc(`
+-				2345678901  tea leaves thwart those who ...  2 files   secret  about 6 hours ago
+-				3456789012  short desc                       11 files  secret  about 6 hours ago
++				ID          DESCRIPTION                  FILES     VISIBILITY  UPDATED
++				2345678901  tea leaves thwart those ...  2 files   secret      about 6 hours ago
++				3456789012  short desc                   11 files  secret      about 6 hours ago
+ 			`),
+ 		},
+ 		{
+@@ -285,7 +288,10 @@ func Test_listRun(t *testing.T) {
+ 					)),
+ 				)
+ 			},
+-			wantOut: "1234567890  cool.txt  1 file  public  about 6 hours ago\n",
++			wantOut: heredoc.Doc(`
++				ID          DESCRIPTION  FILES   VISIBILITY  UPDATED
++				1234567890  cool.txt     1 file  public      about 6 hours ago
++			`),
+ 		},
+ 		{
+ 			name: "nontty output",
+diff --git a/pkg/cmd/issue/develop/develop_test.go b/pkg/cmd/issue/develop/develop_test.go
+index d4f8bce2d85..b834237ab0c 100644
+--- a/pkg/cmd/issue/develop/develop_test.go
++++ b/pkg/cmd/issue/develop/develop_test.go
+@@ -6,6 +6,7 @@ import (
+ 	"net/http"
+ 	"testing"
+ 
++	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/context"
+ 	"github.com/cli/cli/v2/git"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+@@ -245,7 +246,14 @@ func TestDevelopRun(t *testing.T) {
+ 						assert.Equal(t, "REPO", inputs["name"])
+ 					}))
+ 			},
+-			expectedOut: "\nShowing linked branches for OWNER/REPO#42\n\nfoo  https://github.com/OWNER/REPO/tree/foo\nbar  https://github.com/OWNER/OTHER-REPO/tree/bar\n",
++			expectedOut: heredoc.Doc(`
++
++				Showing linked branches for OWNER/REPO#42
++				
++				BRANCH  URL
++				foo     https://github.com/OWNER/REPO/tree/foo
++				bar     https://github.com/OWNER/OTHER-REPO/tree/bar
++			`),
+ 		},
+ 		{
+ 			name: "list branches for an issue providing an issue url",
+diff --git a/pkg/cmd/issue/list/list_test.go b/pkg/cmd/issue/list/list_test.go
+index cf0624c8761..e816500c2de 100644
+--- a/pkg/cmd/issue/list/list_test.go
++++ b/pkg/cmd/issue/list/list_test.go
+@@ -104,9 +104,10 @@ func TestIssueList_tty(t *testing.T) {
+ 
+ 		Showing 3 of 3 open issues in OWNER/REPO
+ 
+-		#1  number won   label  about 1 day ago
+-		#2  number too   label  about 1 month ago
+-		#4  number fore  label  about 2 years ago
++		ID  TITLE        LABELS  UPDATED
++		#1  number won   label   about 1 day ago
++		#2  number too   label   about 1 month ago
++		#4  number fore  label   about 2 years ago
+ 	`), output.String())
+ 	assert.Equal(t, ``, output.Stderr())
+ }
+diff --git a/pkg/cmd/label/list_test.go b/pkg/cmd/label/list_test.go
+index 7e7a9a93d9f..37f4584391a 100644
+--- a/pkg/cmd/label/list_test.go
++++ b/pkg/cmd/label/list_test.go
+@@ -215,7 +215,14 @@ func TestListRun(t *testing.T) {
+ 					),
+ 				)
+ 			},
+-			wantStdout: "\nShowing 2 of 2 labels in OWNER/REPO\n\nbug   This is a bug label   #d73a4a\ndocs  This is a docs label  #ffa8da\n",
++			wantStdout: heredoc.Doc(`
++
++				Showing 2 of 2 labels in OWNER/REPO
++				
++				NAME  DESCRIPTION           COLOR
++				bug   This is a bug label   #d73a4a
++				docs  This is a docs label  #ffa8da
++			`),
+ 		},
+ 		{
+ 			name: "lists labels notty",
+@@ -343,6 +350,7 @@ func TestListRun(t *testing.T) {
+ 
+ 			Showing 2 of 2 labels in OWNER/REPO
+ 
++			NAME  DESCRIPTION           COLOR
+ 			bug   This is a bug label   #d73a4a
+ 			docs  This is a docs label  #ffa8da
+ 			`),
+diff --git a/pkg/cmd/pr/checks/checks_test.go b/pkg/cmd/pr/checks/checks_test.go
+index dcab36117e1..cc21043ba01 100644
+--- a/pkg/cmd/pr/checks/checks_test.go
++++ b/pkg/cmd/pr/checks/checks_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/browser"
+ 	fd "github.com/cli/cli/v2/internal/featuredetection"
+@@ -167,7 +168,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/someFailing.json"),
+ 				)
+ 			},
+-			wantOut: "Some checks were not successful\n0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks\n\nX  sad tests     1m26s  sweet link\n✓  cool tests    1m26s  sweet link\n*  slow tests    1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				Some checks were not successful
++				0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				X  sad tests                1m26s    sweet link
++				✓  cool tests               1m26s    sweet link
++				*  slow tests               1m26s    sweet link
++			`),
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+@@ -179,7 +188,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/someCancelled.json"),
+ 				)
+ 			},
+-			wantOut: "Some checks were cancelled\n1 cancelled, 0 failing, 2 successful, 0 skipped, and 0 pending checks\n\n✓  cool tests       1m26s  sweet link\n-  sad tests        1m26s  sweet link\n✓  awesome tests    1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				Some checks were cancelled
++				1 cancelled, 0 failing, 2 successful, 0 skipped, and 0 pending checks
++				
++				   NAME           DESCRIPTION  ELAPSED  URL
++				✓  cool tests                  1m26s    sweet link
++				-  sad tests                   1m26s    sweet link
++				✓  awesome tests               1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -191,7 +208,16 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/somePending.json"),
+ 				)
+ 			},
+-			wantOut: "Some checks are still pending\n1 cancelled, 0 failing, 2 successful, 0 skipped, and 1 pending checks\n\n✓  cool tests    1m26s  sweet link\n✓  rad tests     1m26s  sweet link\n*  slow tests    1m26s  sweet link\n-  sad tests     1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				Some checks are still pending
++				1 cancelled, 0 failing, 2 successful, 0 skipped, and 1 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				✓  cool tests               1m26s    sweet link
++				✓  rad tests                1m26s    sweet link
++				*  slow tests               1m26s    sweet link
++				-  sad tests                1m26s    sweet link
++			`),
+ 			wantErr: "PendingError",
+ 		},
+ 		{
+@@ -203,7 +229,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/allPassing.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests    1m26s  sweet link\n✓  cool tests       1m26s  sweet link\n✓  rad tests        1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks
++				
++				   NAME           DESCRIPTION  ELAPSED  URL
++				✓  awesome tests               1m26s    sweet link
++				✓  cool tests                  1m26s    sweet link
++				✓  rad tests                   1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -216,7 +250,22 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/allPassing.json"),
+ 				)
+ 			},
+-			wantOut: "\x1b[?1049hAll checks were successful\n0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests    1m26s  sweet link\n✓  cool tests       1m26s  sweet link\n✓  rad tests        1m26s  sweet link\n\x1b[?1049lAll checks were successful\n0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests    1m26s  sweet link\n✓  cool tests       1m26s  sweet link\n✓  rad tests        1m26s  sweet link\n",
++			wantOut: heredoc.Docf(`
++				%[1]s[?1049hAll checks were successful
++				0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks
++				
++				   NAME           DESCRIPTION  ELAPSED  URL
++				✓  awesome tests               1m26s    sweet link
++				✓  cool tests                  1m26s    sweet link
++				✓  rad tests                   1m26s    sweet link
++				%[1]s[?1049lAll checks were successful
++				0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks
++
++				   NAME           DESCRIPTION  ELAPSED  URL
++				✓  awesome tests               1m26s    sweet link
++				✓  cool tests                  1m26s    sweet link
++				✓  rad tests                   1m26s    sweet link
++			`, "\x1b"),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -230,7 +279,24 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/someFailing.json"),
+ 				)
+ 			},
+-			wantOut: "\x1b[?1049h\x1b[0;0H\x1b[JRefreshing checks status every 0 seconds. Press Ctrl+C to quit.\n\nSome checks were not successful\n0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks\n\nX  sad tests     1m26s  sweet link\n✓  cool tests    1m26s  sweet link\n*  slow tests    1m26s  sweet link\n\x1b[?1049lSome checks were not successful\n0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks\n\nX  sad tests     1m26s  sweet link\n✓  cool tests    1m26s  sweet link\n*  slow tests    1m26s  sweet link\n",
++			wantOut: heredoc.Docf(`
++				%[1]s[?1049h%[1]s[0;0H%[1]s[JRefreshing checks status every 0 seconds. Press Ctrl+C to quit.
++				
++				Some checks were not successful
++				0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				X  sad tests                1m26s    sweet link
++				✓  cool tests               1m26s    sweet link
++				*  slow tests               1m26s    sweet link
++				%[1]s[?1049lSome checks were not successful
++				0 cancelled, 1 failing, 1 successful, 0 skipped, and 1 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				X  sad tests                1m26s    sweet link
++				✓  cool tests               1m26s    sweet link
++				*  slow tests               1m26s    sweet link
++			`, "\x1b"),
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+@@ -242,7 +308,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/withStatuses.json"),
+ 				)
+ 			},
+-			wantOut: "Some checks were not successful\n0 cancelled, 1 failing, 2 successful, 0 skipped, and 0 pending checks\n\nX  a status             sweet link\n✓  cool tests    1m26s  sweet link\n✓  rad tests     1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				Some checks were not successful
++				0 cancelled, 1 failing, 2 successful, 0 skipped, and 0 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				X  a status                          sweet link
++				✓  cool tests               1m26s    sweet link
++				✓  rad tests                1m26s    sweet link
++			`),
+ 			wantErr: "SilentError",
+ 		},
+ 		{
+@@ -320,7 +394,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/someSkipping.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 1 successful, 2 skipped, and 0 pending checks\n\n✓  cool tests    1m26s  sweet link\n-  rad tests     1m26s  sweet link\n-  skip tests    1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 1 successful, 2 skipped, and 0 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				✓  cool tests               1m26s    sweet link
++				-  rad tests                1m26s    sweet link
++				-  skip tests               1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -344,7 +426,13 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/onlyRequired.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 1 successful, 0 skipped, and 0 pending checks\n\n✓  cool tests    1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 1 successful, 0 skipped, and 0 pending checks
++				
++				   NAME        DESCRIPTION  ELAPSED  URL
++				✓  cool tests               1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -393,7 +481,15 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/withDescriptions.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks\n\n✓  awesome tests  awesome description  1m26s  sweet link\n✓  cool tests     cool description     1m26s  sweet link\n✓  rad tests      rad description      1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 3 successful, 0 skipped, and 0 pending checks
++				
++				   NAME           DESCRIPTION          ELAPSED  URL
++				✓  awesome tests  awesome description  1m26s    sweet link
++				✓  cool tests     cool description     1m26s    sweet link
++				✓  rad tests      rad description      1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -416,7 +512,14 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/withEvents.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 2 successful, 0 skipped, and 0 pending checks\n\n✓  tests/cool tests (pull_request)  cool description  1m26s  sweet link\n✓  tests/cool tests (push)          cool description  1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 2 successful, 0 skipped, and 0 pending checks
++				
++				   NAME                             DESCRIPTION       ELAPSED  URL
++				✓  tests/cool tests (pull_request)  cool description  1m26s    sweet link
++				✓  tests/cool tests (push)          cool description  1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+@@ -429,7 +532,13 @@ func Test_checksRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/withoutEvents.json"),
+ 				)
+ 			},
+-			wantOut: "All checks were successful\n0 cancelled, 0 failing, 1 successful, 0 skipped, and 0 pending checks\n\n✓  tests/cool tests  cool description  1m26s  sweet link\n",
++			wantOut: heredoc.Doc(`
++				All checks were successful
++				0 cancelled, 0 failing, 1 successful, 0 skipped, and 0 pending checks
++				
++				   NAME              DESCRIPTION       ELAPSED  URL
++				✓  tests/cool tests  cool description  1m26s    sweet link
++			`),
+ 			wantErr: "",
+ 		},
+ 		{
+diff --git a/pkg/cmd/pr/list/list_test.go b/pkg/cmd/pr/list/list_test.go
+index bc661f104ca..d4a658a81e1 100644
+--- a/pkg/cmd/pr/list/list_test.go
++++ b/pkg/cmd/pr/list/list_test.go
+@@ -84,6 +84,7 @@ func TestPRList(t *testing.T) {
+ 
+ 		Showing 3 of 3 open pull requests in OWNER/REPO
+ 
++		ID   TITLE                  BRANCH         CREATED AT
+ 		#32  New feature            feature        about 3 hours ago
+ 		#29  Fixed bad bug          hubot:bug-fix  about 1 month ago
+ 		#28  Improve documentation  docs           about 2 years ago
+diff --git a/pkg/cmd/project/field-list/field_list_test.go b/pkg/cmd/project/field-list/field_list_test.go
+index c6c2f97c6a5..85e67451f50 100644
+--- a/pkg/cmd/project/field-list/field_list_test.go
++++ b/pkg/cmd/project/field-list/field_list_test.go
+@@ -163,7 +163,8 @@ func TestRunList_User(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "monalisa",
+@@ -256,7 +257,8 @@ func TestRunList_Org(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "github",
+@@ -339,7 +341,8 @@ func TestRunList_Me(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "@me",
+@@ -406,7 +409,8 @@ func TestRunList_Empty(t *testing.T) {
+ 
+ 	ios, _, _, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "@me",
+diff --git a/pkg/cmd/project/item-list/item_list_test.go b/pkg/cmd/project/item-list/item_list_test.go
+index 490473691f9..c36dfc589c4 100644
+--- a/pkg/cmd/project/item-list/item_list_test.go
++++ b/pkg/cmd/project/item-list/item_list_test.go
+@@ -178,7 +178,8 @@ func TestRunList_User(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "monalisa",
+@@ -285,7 +286,8 @@ func TestRunList_Org(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "github",
+@@ -382,7 +384,8 @@ func TestRunList_Me(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			number: 1,
+ 			owner:  "@me",
+diff --git a/pkg/cmd/project/list/list_test.go b/pkg/cmd/project/list/list_test.go
+index 492d224b05d..bafdf8e93d0 100644
+--- a/pkg/cmd/project/list/list_test.go
++++ b/pkg/cmd/project/list/list_test.go
+@@ -154,7 +154,8 @@ func TestRunList(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			owner: "monalisa",
+ 		},
+@@ -225,7 +226,8 @@ func TestRunList_Me(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			owner: "@me",
+ 		},
+@@ -296,7 +298,8 @@ func TestRunListViewer(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp:     tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp:     tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts:   listOpts{},
+ 		client: client,
+ 		io:     ios,
+@@ -374,7 +377,8 @@ func TestRunListOrg(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			owner: "github",
+ 		},
+@@ -428,7 +432,8 @@ func TestRunListEmpty(t *testing.T) {
+ 
+ 	ios, _, _, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp:     tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp:     tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts:   listOpts{},
+ 		client: client,
+ 		io:     ios,
+@@ -504,7 +509,8 @@ func TestRunListWithClosed(t *testing.T) {
+ 
+ 	ios, _, stdout, _ := iostreams.Test()
+ 	config := listConfig{
+-		tp: tableprinter.New(ios),
++		//nolint:staticcheck // SA1019: tableprinter.NoHeaders temporarily allowed in project tests.
++		tp: tableprinter.New(ios, tableprinter.NoHeader),
+ 		opts: listOpts{
+ 			owner:  "monalisa",
+ 			closed: true,
+diff --git a/pkg/cmd/repo/deploy-key/list/list_test.go b/pkg/cmd/repo/deploy-key/list/list_test.go
+index 0cefd0eb2c2..4e5a57f1113 100644
+--- a/pkg/cmd/repo/deploy-key/list/list_test.go
++++ b/pkg/cmd/repo/deploy-key/list/list_test.go
+@@ -48,6 +48,7 @@ func TestListRun(t *testing.T) {
+ 				)
+ 			},
+ 			wantStdout: heredoc.Doc(`
++				ID    TITLE          TYPE        KEY                  CREATED AT
+ 				1234  Mac            read-only   ssh-rsa AAAABbBB123  1d
+ 				5678  hubot@Windows  read-write  ssh-rsa EEEEEEEK247  1d
+ 			`),
+diff --git a/pkg/cmd/repo/list/list_test.go b/pkg/cmd/repo/list/list_test.go
+index 3a02cbb2210..55e4da83dec 100644
+--- a/pkg/cmd/repo/list/list_test.go
++++ b/pkg/cmd/repo/list/list_test.go
+@@ -385,6 +385,7 @@ func TestRepoList_tty(t *testing.T) {
+ 
+ 		Showing 3 of 3 repositories in @octocat
+ 
++		NAME                 DESCRIPTION          INFO          UPDATED
+ 		octocat/hello-world  My first repository  public        8h
+ 		octocat/cli          GitHub CLI           public, fork  8h
+ 		octocat/testing                           private       7d
+diff --git a/pkg/cmd/workflow/view/view_test.go b/pkg/cmd/workflow/view/view_test.go
+index 9be264d927a..c706da48f3c 100644
+--- a/pkg/cmd/workflow/view/view_test.go
++++ b/pkg/cmd/workflow/view/view_test.go
+@@ -176,10 +176,11 @@ func TestViewRun(t *testing.T) {
+ 
+ 		Total runs 10
+ 		Recent runs
+-		X  cool commit  a workflow  trunk  push  1
+-		*  cool commit  a workflow  trunk  push  2
+-		✓  cool commit  a workflow  trunk  push  3
+-		X  cool commit  a workflow  trunk  push  4
++		   TITLE        WORKFLOW    BRANCH  EVENT  ID
++		X  cool commit  a workflow  trunk   push   1
++		*  cool commit  a workflow  trunk   push   2
++		✓  cool commit  a workflow  trunk   push   3
++		X  cool commit  a workflow  trunk   push   4
+ 
+ 		To see more runs for this workflow, try: gh run list --workflow flow.yml
+ 		To see the YAML for this workflow, try: gh workflow view flow.yml --yaml

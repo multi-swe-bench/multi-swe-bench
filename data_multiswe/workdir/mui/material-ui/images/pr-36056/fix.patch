@@ -1,0 +1,180 @@
+diff --git a/docs/data/material/components/use-media-query/use-media-query.md b/docs/data/material/components/use-media-query/use-media-query.md
+index 6ff25eeb8c2c97..485214b0a4016b 100644
+--- a/docs/data/material/components/use-media-query/use-media-query.md
++++ b/docs/data/material/components/use-media-query/use-media-query.md
+@@ -94,9 +94,9 @@ describe('MyTests', () => {
+ ## Client-side only rendering
+ 
+ To perform the server-side hydration, the hook needs to render twice.
+-A first time with `false`, the value of the server, and a second time with the resolved value.
+-This double pass rendering cycle comes with a drawback. It's slower.
+-You can set the `noSsr` option to `true` if you are doing **client-side only** rendering.
++A first time with `defaultMatches`, the value of the server, and a second time with the resolved value.
++This double pass rendering cycle comes with a drawback: it's slower.
++You can set the `noSsr` option to `true` if you use the returned value **only** client-side.
+ 
+ ```js
+ const matches = useMediaQuery('(min-width:600px)', { noSsr: true });
+@@ -116,6 +116,10 @@ const theme = createTheme({
+ });
+ ```
+ 
++:::info
++Note that `noSsr` has no effects when using the `createRoot()` API (the client side only API introduced in React 18).
++:::
++
+ ## Server-side rendering
+ 
+ :::warning
+@@ -201,14 +205,14 @@ You can reproduce the same behavior with a `useWidth` hook:
+ 
+ - `options.defaultMatches` (_bool_ [optional]):
+   As `window.matchMedia()` is unavailable on the server,
+-  we return a default matches during the first mount. The default value is `false`.
++  it returns a default matches during the first mount. The default value is `false`.
+ - `options.matchMedia` (_func_ [optional]): You can provide your own implementation of _matchMedia_. This can be used for handling an iframe content window.
+ - `options.noSsr` (_bool_ [optional]): Defaults to `false`.
+   To perform the server-side hydration, the hook needs to render twice.
+-  A first time with `false`, the value of the server, and a second time with the resolved value.
+-  This double pass rendering cycle comes with a drawback. It's slower.
+-  You can set this option to `true` if you are doing **client-side only** rendering.
+-- `options.ssrMatchMedia` (_func_ [optional]): You can provide your own implementation of _matchMedia_ in a [server-side rendering context](#server-side-rendering).
++  A first time with `defaultMatches`, the value of the server, and a second time with the resolved value.
++  This double pass rendering cycle comes with a drawback: it's slower.
++  You can set this option to `true` if you use the returned value **only** client-side.
++- `options.ssrMatchMedia` (_func_ [optional]): You can provide your own implementation of _matchMedia_, it's used when rendering server-side.
+ 
+ Note: You can change the default options using the [`default props`](/material-ui/customization/theme-components/#default-props) feature of the theme with the `MuiUseMediaQuery` key.
+ 
+diff --git a/packages/mui-material/src/styles/props.d.ts b/packages/mui-material/src/styles/props.d.ts
+index 97ae5f767cf66f..f8f08561c9c7d3 100644
+--- a/packages/mui-material/src/styles/props.d.ts
++++ b/packages/mui-material/src/styles/props.d.ts
+@@ -69,7 +69,7 @@ import { MenuProps } from '../Menu';
+ import { MobileStepperProps } from '../MobileStepper';
+ import { ModalProps } from '../Modal';
+ import { NativeSelectProps } from '../NativeSelect';
+-import { Options as useMediaQueryOptions } from '../useMediaQuery';
++import { UseMediaQueryOptions } from '../useMediaQuery';
+ import { OutlinedInputProps } from '../OutlinedInput';
+ import { PaginationProps } from '../Pagination';
+ import { PaginationItemProps } from '../PaginationItem';
+@@ -241,5 +241,5 @@ export interface ComponentsPropsList {
+   MuiTooltip: TooltipProps;
+   MuiTouchRipple: TouchRippleProps;
+   MuiTypography: TypographyProps;
+-  MuiUseMediaQuery: useMediaQueryOptions;
++  MuiUseMediaQuery: UseMediaQueryOptions;
+ }
+diff --git a/packages/mui-material/src/useMediaQuery/useMediaQuery.ts b/packages/mui-material/src/useMediaQuery/useMediaQuery.ts
+index 328489e60f9be3..61214c6d1556ba 100644
+--- a/packages/mui-material/src/useMediaQuery/useMediaQuery.ts
++++ b/packages/mui-material/src/useMediaQuery/useMediaQuery.ts
+@@ -23,15 +23,29 @@ export interface MuiMediaQueryList {
+  */
+ export type MuiMediaQueryListListener = (event: MuiMediaQueryListEvent) => void;
+ 
+-export interface Options {
++export interface UseMediaQueryOptions {
++  /**
++   * As `window.matchMedia()` is unavailable on the server,
++   * it returns a default matches during the first mount.
++   * @default false
++   */
+   defaultMatches?: boolean;
++  /**
++   * You can provide your own implementation of matchMedia.
++   * This can be used for handling an iframe content window.
++   */
+   matchMedia?: typeof window.matchMedia;
+   /**
+-   * This option is kept for backwards compatibility and has no longer any effect.
+-   * It's previous behavior is now handled automatically.
++   * To perform the server-side hydration, the hook needs to render twice.
++   * A first time with `defaultMatches`, the value of the server, and a second time with the resolved value.
++   * This double pass rendering cycle comes with a drawback: it's slower.
++   * You can set this option to `true` if you use the returned value **only** client-side.
++   * @default false
+    */
+-  // TODO: Deprecate for v6
+   noSsr?: boolean;
++  /**
++   * You can provide your own implementation of `matchMedia`, it's used when rendering server-side.
++   */
+   ssrMatchMedia?: (query: string) => { matches: boolean };
+ }
+ 
+@@ -40,13 +54,10 @@ function useMediaQueryOld(
+   defaultMatches: boolean,
+   matchMedia: typeof window.matchMedia | null,
+   ssrMatchMedia: ((query: string) => { matches: boolean }) | null,
+-  noSsr: boolean | undefined,
++  noSsr: boolean,
+ ): boolean {
+-  const supportMatchMedia =
+-    typeof window !== 'undefined' && typeof window.matchMedia !== 'undefined';
+-
+   const [match, setMatch] = React.useState(() => {
+-    if (noSsr && supportMatchMedia) {
++    if (noSsr && matchMedia) {
+       return matchMedia!(query).matches;
+     }
+     if (ssrMatchMedia) {
+@@ -61,7 +72,7 @@ function useMediaQueryOld(
+   useEnhancedEffect(() => {
+     let active = true;
+ 
+-    if (!supportMatchMedia) {
++    if (!matchMedia) {
+       return undefined;
+     }
+ 
+@@ -81,7 +92,7 @@ function useMediaQueryOld(
+       active = false;
+       queryList.removeListener(updateMatch);
+     };
+-  }, [query, matchMedia, supportMatchMedia]);
++  }, [query, matchMedia]);
+ 
+   return match;
+ }
+@@ -94,15 +105,20 @@ function useMediaQueryNew(
+   defaultMatches: boolean,
+   matchMedia: typeof window.matchMedia | null,
+   ssrMatchMedia: ((query: string) => { matches: boolean }) | null,
++  noSsr: boolean,
+ ): boolean {
+   const getDefaultSnapshot = React.useCallback(() => defaultMatches, [defaultMatches]);
+   const getServerSnapshot = React.useMemo(() => {
++    if (noSsr && matchMedia) {
++      return () => matchMedia!(query).matches;
++    }
++
+     if (ssrMatchMedia !== null) {
+       const { matches } = ssrMatchMedia(query);
+       return () => matches;
+     }
+     return getDefaultSnapshot;
+-  }, [getDefaultSnapshot, query, ssrMatchMedia]);
++  }, [getDefaultSnapshot, query, ssrMatchMedia, noSsr, matchMedia]);
+   const [getSnapshot, subscribe] = React.useMemo(() => {
+     if (matchMedia === null) {
+       return [getDefaultSnapshot, () => () => {}];
+@@ -128,7 +144,7 @@ function useMediaQueryNew(
+ 
+ export default function useMediaQuery<Theme = unknown>(
+   queryInput: string | ((theme: Theme) => string),
+-  options: Options = {},
++  options: UseMediaQueryOptions = {},
+ ): boolean {
+   const theme = useTheme<Theme>();
+   // Wait for jsdom to support the match media feature.
+@@ -141,7 +157,7 @@ export default function useMediaQuery<Theme = unknown>(
+     defaultMatches = false,
+     matchMedia = supportMatchMedia ? window.matchMedia : null,
+     ssrMatchMedia = null,
+-    noSsr,
++    noSsr = false,
+   } = getThemeProps({ name: 'MuiUseMediaQuery', props: options, theme });
+ 
+   if (process.env.NODE_ENV !== 'production') {

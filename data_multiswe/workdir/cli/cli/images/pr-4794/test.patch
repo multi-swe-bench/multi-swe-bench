@@ -1,0 +1,212 @@
+diff --git a/api/client_test.go b/api/client_test.go
+index c7848d24250..63d21b776d7 100644
+--- a/api/client_test.go
++++ b/api/client_test.go
+@@ -50,8 +50,16 @@ func TestGraphQLError(t *testing.T) {
+ 		httpmock.GraphQL(""),
+ 		httpmock.StringResponse(`
+ 			{ "errors": [
+-				{"message":"OH NO"},
+-				{"message":"this is fine"}
++				{
++					"type": "NOT_FOUND",
++					"message": "OH NO",
++					"path": ["repository", "issue"]
++				},
++				{
++					"type": "ACTUALLY_ITS_FINE",
++					"message": "this is fine",
++					"path": ["repository", "issues", 0, "comments"]
++				}
+ 			  ]
+ 			}
+ 		`),
+diff --git a/pkg/cmd/issue/close/close_test.go b/pkg/cmd/issue/close/close_test.go
+index 80d1e5366f3..54bf79fd0d2 100644
+--- a/pkg/cmd/issue/close/close_test.go
++++ b/pkg/cmd/issue/close/close_test.go
+@@ -119,9 +119,24 @@ func TestIssueClose_issuesDisabled(t *testing.T) {
+ 	http.Register(
+ 		httpmock.GraphQL(`query IssueByNumber\b`),
+ 		httpmock.StringResponse(`
+-			{ "data": { "repository": {
+-				"hasIssuesEnabled": false
+-			} } }`),
++			{
++				"data": {
++					"repository": {
++						"hasIssuesEnabled": false,
++						"issue": null
++					}
++				},
++				"errors": [
++					{
++						"type": "NOT_FOUND",
++						"path": [
++							"repository",
++							"issue"
++						],
++						"message": "Could not resolve to an issue or pull request with the number of 13."
++					}
++				]
++			}`),
+ 	)
+ 
+ 	_, err := runCommand(http, true, "13")
+diff --git a/pkg/cmd/issue/comment/comment_test.go b/pkg/cmd/issue/comment/comment_test.go
+index 06613002488..a82a0e40516 100644
+--- a/pkg/cmd/issue/comment/comment_test.go
++++ b/pkg/cmd/issue/comment/comment_test.go
+@@ -203,7 +203,6 @@ func Test_commentRun(t *testing.T) {
+ 				ConfirmSubmitSurvey:   func() (bool, error) { return true, nil },
+ 			},
+ 			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueFromNumber(t, reg)
+ 				mockCommentCreate(t, reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/issues/123#issuecomment-456\n",
+@@ -217,9 +216,6 @@ func Test_commentRun(t *testing.T) {
+ 
+ 				OpenInBrowser: func(string) error { return nil },
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueFromNumber(t, reg)
+-			},
+ 			stderr: "Opening github.com/OWNER/REPO/issues/123 in your browser.\n",
+ 		},
+ 		{
+@@ -232,7 +228,6 @@ func Test_commentRun(t *testing.T) {
+ 				EditSurvey: func() (string, error) { return "comment body", nil },
+ 			},
+ 			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueFromNumber(t, reg)
+ 				mockCommentCreate(t, reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/issues/123#issuecomment-456\n",
+@@ -245,7 +240,6 @@ func Test_commentRun(t *testing.T) {
+ 				Body:        "comment body",
+ 			},
+ 			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueFromNumber(t, reg)
+ 				mockCommentCreate(t, reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/issues/123#issuecomment-456\n",
+@@ -259,14 +253,17 @@ func Test_commentRun(t *testing.T) {
+ 
+ 		reg := &httpmock.Registry{}
+ 		defer reg.Verify(t)
+-		tt.httpStubs(t, reg)
+-
+-		httpClient := func() (*http.Client, error) { return &http.Client{Transport: reg}, nil }
+-		baseRepo := func() (ghrepo.Interface, error) { return ghrepo.New("OWNER", "REPO"), nil }
++		if tt.httpStubs != nil {
++			tt.httpStubs(t, reg)
++		}
+ 
+ 		tt.input.IO = io
+-		tt.input.HttpClient = httpClient
+-		tt.input.RetrieveCommentable = retrieveIssue(tt.input.HttpClient, baseRepo, "123")
++		tt.input.HttpClient = func() (*http.Client, error) {
++			return &http.Client{Transport: reg}, nil
++		}
++		tt.input.RetrieveCommentable = func() (shared.Commentable, ghrepo.Interface, error) {
++			return &mockCommentable{}, ghrepo.New("OWNER", "REPO"), nil
++		}
+ 
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			err := shared.CommentableRun(tt.input)
+@@ -277,15 +274,13 @@ func Test_commentRun(t *testing.T) {
+ 	}
+ }
+ 
+-func mockIssueFromNumber(_ *testing.T, reg *httpmock.Registry) {
+-	reg.Register(
+-		httpmock.GraphQL(`query IssueByNumber\b`),
+-		httpmock.StringResponse(`
+-			{ "data": { "repository": { "hasIssuesEnabled": true, "issue": {
+-				"number": 123,
+-				"url": "https://github.com/OWNER/REPO/issues/123"
+-			} } } }`),
+-	)
++type mockCommentable struct{}
++
++func (c mockCommentable) Identifier() string {
++	return "ISSUE-ID"
++}
++func (c mockCommentable) Link() string {
++	return "https://github.com/OWNER/REPO/issues/123"
+ }
+ 
+ func mockCommentCreate(t *testing.T, reg *httpmock.Registry) {
+@@ -296,6 +291,7 @@ func mockCommentCreate(t *testing.T, reg *httpmock.Registry) {
+ 			"url": "https://github.com/OWNER/REPO/issues/123#issuecomment-456"
+ 		} } } } }`,
+ 			func(inputs map[string]interface{}) {
++				assert.Equal(t, "ISSUE-ID", inputs["subjectId"])
+ 				assert.Equal(t, "comment body", inputs["body"])
+ 			}),
+ 	)
+diff --git a/pkg/cmd/issue/delete/delete_test.go b/pkg/cmd/issue/delete/delete_test.go
+index 5c91b39c705..aa6173dc673 100644
+--- a/pkg/cmd/issue/delete/delete_test.go
++++ b/pkg/cmd/issue/delete/delete_test.go
+@@ -145,9 +145,24 @@ func TestIssueDelete_issuesDisabled(t *testing.T) {
+ 	httpRegistry.Register(
+ 		httpmock.GraphQL(`query IssueByNumber\b`),
+ 		httpmock.StringResponse(`
+-			{ "data": { "repository": {
+-				"hasIssuesEnabled": false
+-			} } }`),
++		{
++			"data": {
++				"repository": {
++					"hasIssuesEnabled": false,
++					"issue": null
++				}
++			},
++			"errors": [
++				{
++					"type": "NOT_FOUND",
++					"path": [
++						"repository",
++						"issue"
++					],
++					"message": "Could not resolve to an issue or pull request with the number of 13."
++				}
++			]
++		}`),
+ 	)
+ 
+ 	_, err := runCommand(httpRegistry, true, "13")
+diff --git a/pkg/cmd/issue/reopen/reopen_test.go b/pkg/cmd/issue/reopen/reopen_test.go
+index 3c67f8f8138..b2bf4ad4548 100644
+--- a/pkg/cmd/issue/reopen/reopen_test.go
++++ b/pkg/cmd/issue/reopen/reopen_test.go
+@@ -119,9 +119,24 @@ func TestIssueReopen_issuesDisabled(t *testing.T) {
+ 	http.Register(
+ 		httpmock.GraphQL(`query IssueByNumber\b`),
+ 		httpmock.StringResponse(`
+-			{ "data": { "repository": {
+-				"hasIssuesEnabled": false
+-			} } }`),
++		{
++			"data": {
++				"repository": {
++					"hasIssuesEnabled": false,
++					"issue": null
++				}
++			},
++			"errors": [
++				{
++					"type": "NOT_FOUND",
++					"path": [
++						"repository",
++						"issue"
++					],
++					"message": "Could not resolve to an issue or pull request with the number of 2."
++				}
++			]
++		}`),
+ 	)
+ 
+ 	_, err := runCommand(http, true, "2")

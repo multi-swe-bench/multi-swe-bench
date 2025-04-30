@@ -1,0 +1,69 @@
+diff --git a/.changeset/wet-wombats-repeat.md b/.changeset/wet-wombats-repeat.md
+new file mode 100644
+index 000000000000..339f9ffbfa82
+--- /dev/null
++++ b/.changeset/wet-wombats-repeat.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: prevent snippet children conflict
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 213b689d3ead..c31ad4a0381f 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -296,7 +296,9 @@ const slots = {
+ 	/** @param {string} name @param {string} component */
+ 	'duplicate-slot-name': (name, component) => `Duplicate slot name '${name}' in <${component}>`,
+ 	'invalid-default-slot-content': () =>
+-		`Found default slot content alongside an explicit slot="default"`
++		`Found default slot content alongside an explicit slot="default"`,
++	'conflicting-children-snippet': () =>
++		`Cannot use explicit children snippet at the same time as implicit children content. Remove either the non-whitespace content or the children snippet block`
+ };
+ 
+ /** @satisfies {Errors} */
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index ddb0d1d5843f..6bcfd7bb9aec 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -521,6 +521,24 @@ const validation = {
+ 			);
+ 		}
+ 	},
++	SnippetBlock(node, { path }) {
++		if (node.expression.name !== 'children') return;
++		const parent = path.at(-2);
++		if (!parent) return;
++		if (
++			parent.type === 'Component' ||
++			parent.type === 'SvelteComponent' ||
++			parent.type === 'SvelteSelf'
++		) {
++			if (
++				parent.fragment.nodes.some(
++					(node) => node.type !== 'SnippetBlock' && (node.type !== 'Text' || node.data.trim())
++				)
++			) {
++				error(node, 'conflicting-children-snippet');
++			}
++		}
++	},
+ 	SvelteHead(node) {
+ 		const attribute = node.attributes[0];
+ 		if (attribute) {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/utils.js b/packages/svelte/src/compiler/phases/3-transform/utils.js
+index 3429748e292c..de163612a9d6 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/utils.js
+@@ -1,8 +1,7 @@
+ import {
+ 	regex_ends_with_whitespaces,
+ 	regex_not_whitespace,
+-	regex_starts_with_whitespaces,
+-	regex_whitespaces_strict
++	regex_starts_with_whitespaces
+ } from '../patterns.js';
+ import * as b from '../../utils/builders.js';
+ import { walk } from 'zimmerframe';

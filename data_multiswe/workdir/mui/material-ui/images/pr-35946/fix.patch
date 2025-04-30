@@ -1,0 +1,2563 @@
+diff --git a/docs/data/base/components/menu/UseMenu.js b/docs/data/base/components/menu/UseMenu.js
+index df277a54b158fc..8639a64df642d7 100644
+--- a/docs/data/base/components/menu/UseMenu.js
++++ b/docs/data/base/components/menu/UseMenu.js
+@@ -138,32 +138,23 @@ const styles = `
+ const Menu = React.forwardRef(function Menu(props, ref) {
+   const { children, onClose, open, ...other } = props;
+ 
+-  const {
+-    registerItem,
+-    unregisterItem,
+-    getListboxProps,
+-    getItemProps,
+-    getItemState,
+-  } = useMenu({
++  const { contextValue, getListboxProps } = useMenu({
+     listboxRef: ref,
+     onClose,
+     open,
+   });
+ 
+-  const contextValue = React.useMemo(
++  const menuContextValue = React.useMemo(
+     () => ({
+-      registerItem,
+-      unregisterItem,
+-      getItemState,
+-      getItemProps,
++      ...contextValue,
+       open: true,
+     }),
+-    [getItemProps, getItemState, registerItem, unregisterItem],
++    [contextValue],
+   );
+ 
+   return (
+     <ul className="menu-root" {...other} {...getListboxProps()}>
+-      <MenuUnstyledContext.Provider value={contextValue}>
++      <MenuUnstyledContext.Provider value={menuContextValue}>
+         {children}
+       </MenuUnstyledContext.Provider>
+     </ul>
+diff --git a/docs/data/base/components/menu/UseMenu.tsx b/docs/data/base/components/menu/UseMenu.tsx
+index dd693e238d9163..ecee57f7c32613 100644
+--- a/docs/data/base/components/menu/UseMenu.tsx
++++ b/docs/data/base/components/menu/UseMenu.tsx
+@@ -147,32 +147,23 @@ const Menu = React.forwardRef(function Menu(
+ ) {
+   const { children, onClose, open, ...other } = props;
+ 
+-  const {
+-    registerItem,
+-    unregisterItem,
+-    getListboxProps,
+-    getItemProps,
+-    getItemState,
+-  } = useMenu({
++  const { contextValue, getListboxProps } = useMenu({
+     listboxRef: ref,
+     onClose,
+     open,
+   });
+ 
+-  const contextValue: MenuUnstyledContextType = React.useMemo(
++  const menuContextValue: MenuUnstyledContextType = React.useMemo(
+     () => ({
+-      registerItem,
+-      unregisterItem,
+-      getItemState,
+-      getItemProps,
++      ...contextValue,
+       open: true,
+     }),
+-    [getItemProps, getItemState, registerItem, unregisterItem],
++    [contextValue],
+   );
+ 
+   return (
+     <ul className="menu-root" {...other} {...getListboxProps()}>
+-      <MenuUnstyledContext.Provider value={contextValue}>
++      <MenuUnstyledContext.Provider value={menuContextValue}>
+         {children}
+       </MenuUnstyledContext.Provider>
+     </ul>
+diff --git a/docs/data/base/components/select/UseSelect.js b/docs/data/base/components/select/UseSelect.js
+index a3709c24a474b9..da15812ce309a3 100644
+--- a/docs/data/base/components/select/UseSelect.js
++++ b/docs/data/base/components/select/UseSelect.js
+@@ -1,8 +1,9 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+-import { useSelect } from '@mui/base';
++import { useSelect, useOption, SelectUnstyledContext } from '@mui/base';
+ import { styled } from '@mui/system';
+ import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
++import clsx from 'clsx';
+ 
+ const blue = {
+   100: '#DAECFF',
+@@ -144,17 +145,41 @@ function renderSelectedValue(value, options) {
+   return selectedOption ? `${selectedOption.label} (${value})` : null;
+ }
+ 
++function CustomOption(props) {
++  const { children, value, className, disabled = false } = props;
++  const { getRootProps, highlighted } = useOption({
++    value,
++    disabled,
++  });
++
++  return (
++    <Option
++      {...getRootProps()}
++      className={clsx({ highlighted }, className)}
++      style={{ '--color': value }}
++    >
++      {children}
++    </Option>
++  );
++}
++
++CustomOption.propTypes = {
++  children: PropTypes.node,
++  className: PropTypes.string,
++  disabled: PropTypes.bool,
++  value: PropTypes.string.isRequired,
++};
++
+ function CustomSelect({ options, placeholder }) {
+   const listboxRef = React.useRef(null);
+   const [listboxVisible, setListboxVisible] = React.useState(false);
+ 
+-  const { getButtonProps, getListboxProps, getOptionProps, getOptionState, value } =
+-    useSelect({
+-      listboxRef,
+-      onOpenChange: setListboxVisible,
+-      open: listboxVisible,
+-      options,
+-    });
++  const { getButtonProps, getListboxProps, contextValue, value } = useSelect({
++    listboxRef,
++    onOpenChange: setListboxVisible,
++    open: listboxVisible,
++    options,
++  });
+ 
+   React.useEffect(() => {
+     if (listboxVisible) {
+@@ -176,19 +201,15 @@ function CustomSelect({ options, placeholder }) {
+         aria-hidden={!listboxVisible}
+         className={listboxVisible ? '' : 'hidden'}
+       >
+-        {options.map((option) => {
+-          const optionState = getOptionState(option);
+-          return (
+-            <Option
+-              key={option.value}
+-              {...getOptionProps(option)}
+-              style={{ '--color': option.value }}
+-              className={optionState.highlighted ? 'highlighted' : ''}
+-            >
+-              {option.label}
+-            </Option>
+-          );
+-        })}
++        <SelectUnstyledContext.Provider value={contextValue}>
++          {options.map((option) => {
++            return (
++              <CustomOption key={option.value} value={option.value}>
++                {option.label}
++              </CustomOption>
++            );
++          })}
++        </SelectUnstyledContext.Provider>
+       </Listbox>
+     </Root>
+   );
+diff --git a/docs/data/base/components/select/UseSelect.tsx b/docs/data/base/components/select/UseSelect.tsx
+index 68b2cec36fd3be..93e036a2702a5c 100644
+--- a/docs/data/base/components/select/UseSelect.tsx
++++ b/docs/data/base/components/select/UseSelect.tsx
+@@ -1,7 +1,13 @@
+ import * as React from 'react';
+-import { useSelect, SelectOption } from '@mui/base';
++import {
++  useSelect,
++  SelectOption,
++  useOption,
++  SelectUnstyledContext,
++} from '@mui/base';
+ import { styled } from '@mui/system';
+ import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
++import clsx from 'clsx';
+ 
+ const blue = {
+   100: '#DAECFF',
+@@ -142,23 +148,47 @@ interface Props {
+   placeholder?: string;
+ }
+ 
++interface OptionProps {
++  children?: React.ReactNode;
++  className?: string;
++  value: string;
++  disabled?: boolean;
++}
++
+ function renderSelectedValue(value: string | null, options: SelectOption<string>[]) {
+   const selectedOption = options.find((option) => option.value === value);
+ 
+   return selectedOption ? `${selectedOption.label} (${value})` : null;
+ }
+ 
++function CustomOption(props: OptionProps) {
++  const { children, value, className, disabled = false } = props;
++  const { getRootProps, highlighted } = useOption({
++    value,
++    disabled,
++  });
++
++  return (
++    <Option
++      {...getRootProps()}
++      className={clsx({ highlighted }, className)}
++      style={{ '--color': value } as any}
++    >
++      {children}
++    </Option>
++  );
++}
++
+ function CustomSelect({ options, placeholder }: Props) {
+   const listboxRef = React.useRef<HTMLUListElement>(null);
+   const [listboxVisible, setListboxVisible] = React.useState(false);
+ 
+-  const { getButtonProps, getListboxProps, getOptionProps, getOptionState, value } =
+-    useSelect({
+-      listboxRef,
+-      onOpenChange: setListboxVisible,
+-      open: listboxVisible,
+-      options,
+-    });
++  const { getButtonProps, getListboxProps, contextValue, value } = useSelect({
++    listboxRef,
++    onOpenChange: setListboxVisible,
++    open: listboxVisible,
++    options,
++  });
+ 
+   React.useEffect(() => {
+     if (listboxVisible) {
+@@ -180,19 +210,15 @@ function CustomSelect({ options, placeholder }: Props) {
+         aria-hidden={!listboxVisible}
+         className={listboxVisible ? '' : 'hidden'}
+       >
+-        {options.map((option) => {
+-          const optionState = getOptionState(option);
+-          return (
+-            <Option
+-              key={option.value}
+-              {...getOptionProps(option)}
+-              style={{ '--color': option.value } as any}
+-              className={optionState.highlighted ? 'highlighted' : ''}
+-            >
+-              {option.label}
+-            </Option>
+-          );
+-        })}
++        <SelectUnstyledContext.Provider value={contextValue}>
++          {options.map((option) => {
++            return (
++              <CustomOption key={option.value} value={option.value}>
++                {option.label}
++              </CustomOption>
++            );
++          })}
++        </SelectUnstyledContext.Provider>
+       </Listbox>
+     </Root>
+   );
+diff --git a/docs/data/base/pagesApi.js b/docs/data/base/pagesApi.js
+index 246c790c78b01a..57d013f9b79d5a 100644
+--- a/docs/data/base/pagesApi.js
++++ b/docs/data/base/pagesApi.js
+@@ -31,6 +31,7 @@ module.exports = [
+   { pathname: '/base/api/use-input' },
+   { pathname: '/base/api/use-menu' },
+   { pathname: '/base/api/use-menu-item' },
++  { pathname: '/base/api/use-option' },
+   { pathname: '/base/api/use-select' },
+   { pathname: '/base/api/use-slider' },
+   { pathname: '/base/api/use-snackbar' },
+diff --git a/docs/pages/base/api/use-option.js b/docs/pages/base/api/use-option.js
+new file mode 100644
+index 00000000000000..f534644284f7c6
+--- /dev/null
++++ b/docs/pages/base/api/use-option.js
+@@ -0,0 +1,19 @@
++import * as React from 'react';
++import HookApiPage from 'docs/src/modules/components/HookApiPage';
++import mapApiPageTranslations from 'docs/src/modules/utils/mapApiPageTranslations';
++import jsonPageContent from './use-option.json';
++
++export default function Page(props) {
++  const { descriptions, pageContent } = props;
++  return <HookApiPage descriptions={descriptions} pageContent={pageContent} />;
++}
++
++Page.getInitialProps = () => {
++  const req = require.context('docs/translations/api-docs/use-option', false, /use-option.*.json$/);
++  const descriptions = mapApiPageTranslations(req);
++
++  return {
++    descriptions,
++    pageContent: jsonPageContent,
++  };
++};
+diff --git a/docs/pages/base/api/use-option.json b/docs/pages/base/api/use-option.json
+new file mode 100644
+index 00000000000000..9bca58810c52c8
+--- /dev/null
++++ b/docs/pages/base/api/use-option.json
+@@ -0,0 +1,22 @@
++{
++  "parameters": {
++    "disabled": { "type": { "name": "boolean", "description": "" }, "required": true },
++    "value": { "type": { "name": "Value", "description": "" }, "required": true },
++    "optionRef": { "type": { "name": "React.Ref<HTMLElement>", "description": "" } }
++  },
++  "returnValue": {
++    "getRootProps": {
++      "type": {
++        "name": "<Other extends EventHandlers>(otherHandlers?: Other) => UseOptionRootSlotProps<Other>",
++        "description": ""
++      },
++      "required": true
++    },
++    "highlighted": { "type": { "name": "boolean", "description": "" }, "required": true },
++    "index": { "type": { "name": "number", "description": "" }, "required": true },
++    "selected": { "type": { "name": "boolean", "description": "" }, "required": true }
++  },
++  "name": "useOption",
++  "filename": "/packages/mui-base/src/OptionUnstyled/useOption.ts",
++  "demos": "<ul></ul>"
++}
+diff --git a/docs/translations/api-docs/use-option/use-option.json b/docs/translations/api-docs/use-option/use-option.json
+new file mode 100644
+index 00000000000000..e3eb65c6e43006
+--- /dev/null
++++ b/docs/translations/api-docs/use-option/use-option.json
+@@ -0,0 +1,1 @@
++{ "hookDescription": "", "parametersDescriptions": {}, "returnValueDescriptions": {} }
+diff --git a/packages/api-docs-builder/buildApiUtils.ts b/packages/api-docs-builder/buildApiUtils.ts
+index a36d102c6b15e5..c283189e88e08b 100644
+--- a/packages/api-docs-builder/buildApiUtils.ts
++++ b/packages/api-docs-builder/buildApiUtils.ts
+@@ -47,6 +47,7 @@ const parseFile = (filename: string) => {
+     shouldSkip:
+       filename.indexOf('internal') !== -1 ||
+       !!src.match(/@ignore - internal component\./) ||
++      !!src.match(/@ignore - internal hook\./) ||
+       !!src.match(/@ignore - do not document\./),
+     spread: !src.match(/ = exactProp\(/),
+     EOL: getLineFeed(src),
+diff --git a/packages/mui-base/src/ListboxUnstyled/defaultListboxReducer.ts b/packages/mui-base/src/ListboxUnstyled/defaultListboxReducer.ts
+index d9341ca2c8ff71..4cf188fd808ba1 100644
+--- a/packages/mui-base/src/ListboxUnstyled/defaultListboxReducer.ts
++++ b/packages/mui-base/src/ListboxUnstyled/defaultListboxReducer.ts
+@@ -2,8 +2,8 @@ import * as React from 'react';
+ import {
+   ListboxState,
+   UseListboxPropsWithDefaults,
+-  ListboxAction,
+   ActionTypes,
++  ListboxReducerAction,
+ } from './useListbox.types';
+ 
+ type OptionPredicate<TOption> = (option: TOption, index: number) => boolean;
+@@ -338,7 +338,7 @@ function handleOptionsChange<TOption>(
+ 
+ export default function defaultListboxReducer<TOption>(
+   state: Readonly<ListboxState<TOption>>,
+-  action: ListboxAction<TOption>,
++  action: ListboxReducerAction<TOption>,
+ ): Readonly<ListboxState<TOption>> {
+   const { type } = action;
+ 
+diff --git a/packages/mui-base/src/ListboxUnstyled/useControllableReducer.ts b/packages/mui-base/src/ListboxUnstyled/useControllableReducer.ts
+index 062a94be5c10ea..97b3f11cda0477 100644
+--- a/packages/mui-base/src/ListboxUnstyled/useControllableReducer.ts
++++ b/packages/mui-base/src/ListboxUnstyled/useControllableReducer.ts
+@@ -1,7 +1,9 @@
+ import * as React from 'react';
+ import {
++  ActionTypes,
+   ListboxAction,
+   ListboxReducer,
++  ListboxReducerAction,
+   ListboxState,
+   UseListboxPropsWithDefaults,
+ } from './useListbox.types';
+@@ -39,7 +41,12 @@ function areOptionsEqual<TOption>(
+ }
+ 
+ /**
+- * Triggers change event handlers when reducer returns changed state.
++ * Triggers change event handlers (onChange and onHighlightChange) when reducer returns changed state.
++ *
++ * @param nextState The next state returned by the reducer.
++ * @param internalPreviousState The previous state. If the component is controlled, this is merged with the props to determine the final state.
++ * @param propsRef The props with defaults applied.
++ * @param lastActionRef The last action that was dispatched.
+  */
+ function useStateChangeDetection<TOption>(
+   nextState: ListboxState<TOption>,
+@@ -53,6 +60,14 @@ function useStateChangeDetection<TOption>(
+       return;
+     }
+ 
++    if (
++      lastActionRef.current.type === ActionTypes.setValue ||
++      lastActionRef.current.type === ActionTypes.setHighlight
++    ) {
++      // Don't fire change events when the value has been changed externally (e.g. by changing the controlled prop).
++      return;
++    }
++
+     const previousState = getControlledState(internalPreviousState, propsRef.current);
+     const { multiple, optionComparer } = propsRef.current;
+ 
+@@ -114,17 +129,14 @@ function useStateChangeDetection<TOption>(
+ export default function useControllableReducer<TOption>(
+   internalReducer: ListboxReducer<TOption>,
+   externalReducer: ListboxReducer<TOption> | undefined,
+-  props: UseListboxPropsWithDefaults<TOption>,
++  props: React.RefObject<UseListboxPropsWithDefaults<TOption>>,
+ ): [ListboxState<TOption>, (action: ListboxAction<TOption>) => void] {
+-  const { value, defaultValue } = props;
+-
+-  const propsRef = React.useRef(props);
+-  propsRef.current = props;
++  const { value, defaultValue, multiple } = props.current!;
+ 
+   const actionRef = React.useRef<ListboxAction<TOption> | null>(null);
+ 
+   const initialSelectedValue =
+-    (value === undefined ? defaultValue : value) ?? (props.multiple ? [] : null);
++    (value === undefined ? defaultValue : value) ?? (multiple ? [] : null);
+ 
+   const initialState = {
+     highlightedValue: null,
+@@ -132,25 +144,35 @@ export default function useControllableReducer<TOption>(
+   };
+ 
+   const combinedReducer = React.useCallback(
+-    (state: ListboxState<TOption>, action: ListboxAction<TOption>) => {
++    (state: ListboxState<TOption>, action: ListboxReducerAction<TOption>) => {
+       actionRef.current = action;
+ 
+       if (externalReducer) {
+-        return externalReducer(getControlledState(state, propsRef.current), action);
++        return externalReducer(getControlledState(state, action.props), action);
+       }
+ 
+-      return internalReducer(getControlledState(state, propsRef.current), action);
++      return internalReducer(getControlledState(state, action.props), action);
+     },
+-    [externalReducer, internalReducer, propsRef],
++    [externalReducer, internalReducer],
+   );
+ 
+   const [nextState, dispatch] = React.useReducer(combinedReducer, initialState);
+ 
++  const dispatchWithProps = React.useCallback(
++    (action: ListboxAction<TOption>) => {
++      dispatch({
++        props: props.current,
++        ...action,
++      } as ListboxReducerAction<TOption>);
++    },
++    [dispatch, props],
++  );
++
+   const previousState = React.useRef<ListboxState<TOption>>(initialState);
+   React.useEffect(() => {
+     previousState.current = nextState;
+   }, [previousState, nextState]);
+ 
+-  useStateChangeDetection<TOption>(nextState, previousState.current, propsRef, actionRef);
+-  return [getControlledState(nextState, propsRef.current), dispatch];
++  useStateChangeDetection<TOption>(nextState, previousState.current, props, actionRef);
++  return [getControlledState(nextState, props.current!), dispatchWithProps];
+ }
+diff --git a/packages/mui-base/src/ListboxUnstyled/useListbox.ts b/packages/mui-base/src/ListboxUnstyled/useListbox.ts
+index fbc5624d1f271e..386d05fa94945a 100644
+--- a/packages/mui-base/src/ListboxUnstyled/useListbox.ts
++++ b/packages/mui-base/src/ListboxUnstyled/useListbox.ts
+@@ -12,8 +12,8 @@ import defaultReducer from './defaultListboxReducer';
+ import useControllableReducer from './useControllableReducer';
+ import areArraysEqual from '../utils/areArraysEqual';
+ import { EventHandlers } from '../utils/types';
+-
+-const TEXT_NAVIGATION_RESET_TIMEOUT = 500; // milliseconds
++import useLatest from '../utils/useLatest';
++import useTextNavigation from '../utils/useTextNavigation';
+ 
+ const defaultOptionComparer = <TOption>(optionA: TOption, optionB: TOption) => optionA === optionB;
+ const defaultIsOptionDisabled = () => false;
+@@ -36,50 +36,69 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+     optionStringifier = defaultOptionStringifier,
+     options,
+     stateReducer: externalReducer,
++    value: valueParam,
+   } = props;
+ 
+   const id = useId(idProp);
+ 
+-  function defaultIdGenerator(_: TOption, index: number) {
+-    return `${id}-option-${index}`;
+-  }
++  const defaultIdGenerator = React.useCallback(
++    (_: TOption, index: number) => `${id}-option-${index}`,
++    [id],
++  );
+ 
+   const optionIdGenerator = props.optionIdGenerator ?? defaultIdGenerator;
+ 
+-  const propsWithDefaults: UseListboxPropsWithDefaults<TOption> = {
+-    ...props,
+-    disabledItemsFocusable,
+-    disableListWrap,
+-    focusManagement,
+-    isOptionDisabled,
+-    multiple,
+-    optionComparer,
+-    optionStringifier,
+-  };
++  const propsWithDefaults: React.RefObject<UseListboxPropsWithDefaults<TOption>> = useLatest(
++    {
++      ...props,
++      disabledItemsFocusable,
++      disableListWrap,
++      focusManagement,
++      isOptionDisabled,
++      multiple,
++      optionComparer,
++      optionStringifier,
++    },
++    [props],
++  );
+ 
+   const listboxRef = React.useRef<HTMLUListElement>(null);
+   const handleRef = useForkRef(externalListboxRef, listboxRef);
+ 
+-  const textCriteriaRef = React.useRef<{
+-    searchString: string;
+-    lastTime: number | null;
+-  }>({
+-    searchString: '',
+-    lastTime: null,
+-  });
+-
+   const [{ highlightedValue, selectedValue }, dispatch] = useControllableReducer(
+     defaultReducer,
+     externalReducer,
+     propsWithDefaults,
+   );
+ 
++  const handleTextNavigation = useTextNavigation((searchString, event) =>
++    dispatch({
++      type: ActionTypes.textNavigation,
++      event,
++      searchString,
++    }),
++  );
++
++  React.useEffect(() => {
++    // if a controlled value changes, we need to update the state to keep things in sync
++    if (valueParam !== undefined && valueParam !== selectedValue) {
++      dispatch({
++        type: ActionTypes.setValue,
++        event: null,
++        value: valueParam,
++      });
++    }
++  }, [valueParam, selectedValue, dispatch]);
++
+   const highlightedIndex = React.useMemo(() => {
+     return highlightedValue == null
+       ? -1
+       : options.findIndex((option) => optionComparer(option, highlightedValue));
+   }, [highlightedValue, options, optionComparer]);
+ 
++  // introducing refs to avoid recreating the getOptionState function on each change.
++  const latestSelectedValue = useLatest(selectedValue);
++  const latestHighlightedIndex = useLatest(highlightedIndex);
+   const previousOptions = React.useRef<TOption[]>([]);
+ 
+   React.useEffect(() => {
+@@ -92,13 +111,9 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+       event: null,
+       options,
+       previousOptions: previousOptions.current,
+-      props: propsWithDefaults,
+     });
+ 
+     previousOptions.current = options;
+-
+-    // No need to re-run this effect if props change
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [options, optionComparer, dispatch]);
+ 
+   const setSelectedValue = React.useCallback(
+@@ -123,39 +138,41 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+     [dispatch],
+   );
+ 
+-  const createHandleOptionClick =
++  const createHandleOptionClick = React.useCallback(
+     (option: TOption, other: Record<string, React.EventHandler<any>>) =>
+-    (event: React.MouseEvent) => {
+-      other.onClick?.(event);
+-      if (event.defaultPrevented) {
+-        return;
+-      }
++      (event: React.MouseEvent) => {
++        other.onClick?.(event);
++        if (event.defaultPrevented) {
++          return;
++        }
+ 
+-      event.preventDefault();
++        event.preventDefault();
+ 
+-      dispatch({
+-        type: ActionTypes.optionClick,
+-        option,
+-        event,
+-        props: propsWithDefaults,
+-      });
+-    };
++        dispatch({
++          type: ActionTypes.optionClick,
++          option,
++          event,
++        });
++      },
++    [dispatch],
++  );
+ 
+-  const createHandleOptionPointerOver =
++  const createHandleOptionPointerOver = React.useCallback(
+     (option: TOption, other: Record<string, React.EventHandler<any>>) =>
+-    (event: React.PointerEvent) => {
+-      other.onMouseOver?.(event);
+-      if (event.defaultPrevented) {
+-        return;
+-      }
++      (event: React.PointerEvent) => {
++        other.onMouseOver?.(event);
++        if (event.defaultPrevented) {
++          return;
++        }
+ 
+-      dispatch({
+-        type: ActionTypes.optionHover,
+-        option,
+-        event,
+-        props: propsWithDefaults,
+-      });
+-    };
++        dispatch({
++          type: ActionTypes.optionHover,
++          option,
++          event,
++        });
++      },
++    [dispatch],
++  );
+ 
+   const createHandleKeyDown =
+     (other: Record<string, React.EventHandler<any>>) =>
+@@ -183,37 +200,9 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+       dispatch({
+         type: ActionTypes.keyDown,
+         event,
+-        props: propsWithDefaults,
+       });
+ 
+-      // Handle text navigation
+-      if (event.key.length === 1 && event.key !== ' ') {
+-        const textCriteria = textCriteriaRef.current;
+-        const lowerKey = event.key.toLowerCase();
+-        const currentTime = performance.now();
+-        if (
+-          textCriteria.searchString.length > 0 &&
+-          textCriteria.lastTime &&
+-          currentTime - textCriteria.lastTime > TEXT_NAVIGATION_RESET_TIMEOUT
+-        ) {
+-          textCriteria.searchString = lowerKey;
+-        } else if (
+-          textCriteria.searchString.length !== 1 ||
+-          lowerKey !== textCriteria.searchString
+-        ) {
+-          // If there is just one character in the buffer and the key is the same, do not append
+-          textCriteria.searchString += lowerKey;
+-        }
+-
+-        textCriteria.lastTime = currentTime;
+-
+-        dispatch({
+-          type: ActionTypes.textNavigation,
+-          event,
+-          searchString: textCriteria.searchString,
+-          props: propsWithDefaults,
+-        });
+-      }
++      handleTextNavigation(event);
+     };
+ 
+   const createHandleBlur =
+@@ -232,7 +221,6 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+       dispatch({
+         type: ActionTypes.blur,
+         event,
+-        props: propsWithDefaults,
+       });
+     };
+ 
+@@ -254,63 +242,86 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+     };
+   };
+ 
+-  const getOptionState = (option: TOption): OptionState => {
+-    let selected: boolean;
+-    const index = options.findIndex((opt) => optionComparer(opt, option));
+-    if (multiple) {
+-      selected = ((selectedValue as TOption[]) ?? []).some(
+-        (value) => value != null && optionComparer(option, value),
+-      );
+-    } else {
+-      selected = optionComparer(option, selectedValue as TOption);
+-    }
+-
+-    const disabled = isOptionDisabled(option, index);
++  const getOptionState = React.useCallback(
++    (option: TOption): OptionState => {
++      let selected: boolean;
++      const index = options.findIndex((opt) => optionComparer(opt, option));
++      if (multiple) {
++        selected = ((latestSelectedValue.current as TOption[]) ?? []).some(
++          (value) => value != null && optionComparer(option, value),
++        );
++      } else {
++        selected = optionComparer(option, latestSelectedValue.current as TOption);
++      }
+ 
+-    return {
+-      selected,
+-      disabled,
+-      highlighted: highlightedIndex === index && index !== -1,
+-    };
+-  };
++      const disabled = isOptionDisabled(option, index);
++      const highlighted = latestHighlightedIndex.current === index && index !== -1;
+ 
+-  const getOptionTabIndex = (optionState: OptionState) => {
+-    if (focusManagement === 'activeDescendant') {
+-      return undefined;
+-    }
++      return {
++        disabled,
++        highlighted,
++        index,
++        selected,
++      };
++    },
++    [
++      options,
++      multiple,
++      isOptionDisabled,
++      optionComparer,
++      latestSelectedValue,
++      latestHighlightedIndex,
++    ],
++  );
+ 
+-    if (!optionState.highlighted) {
+-      return -1;
+-    }
++  const getOptionTabIndex = React.useCallback(
++    (optionState: OptionState) => {
++      if (focusManagement === 'activeDescendant') {
++        return undefined;
++      }
+ 
+-    if (optionState.disabled && !disabledItemsFocusable) {
+-      return -1;
+-    }
++      if (!optionState.highlighted) {
++        return -1;
++      }
+ 
+-    return 0;
+-  };
++      if (optionState.disabled && !disabledItemsFocusable) {
++        return -1;
++      }
+ 
+-  const getOptionProps = <TOther extends EventHandlers = {}>(
+-    option: TOption,
+-    otherHandlers: TOther = {} as TOther,
+-  ): UseListboxOptionSlotProps<TOther> => {
+-    const optionState = getOptionState(option);
+-    const index = options.findIndex((opt) => optionComparer(opt, option));
++      return 0;
++    },
++    [focusManagement, disabledItemsFocusable],
++  );
+ 
+-    return {
+-      ...otherHandlers,
+-      'aria-disabled': optionState.disabled || undefined,
+-      'aria-selected': optionState.selected,
+-      id: optionIdGenerator(option, index),
+-      onClick: createHandleOptionClick(option, otherHandlers),
+-      onPointerOver: createHandleOptionPointerOver(option, otherHandlers),
+-      role: 'option',
+-      tabIndex: getOptionTabIndex(optionState),
+-    };
+-  };
++  const getOptionProps = React.useCallback(
++    <TOther extends EventHandlers = {}>(
++      option: TOption,
++      otherHandlers: TOther = {} as TOther,
++    ): UseListboxOptionSlotProps<TOther> => {
++      const optionState = getOptionState(option);
++
++      return {
++        ...otherHandlers,
++        'aria-disabled': optionState.disabled || undefined,
++        'aria-selected': optionState.selected,
++        id: optionIdGenerator(option, optionState.index),
++        onClick: createHandleOptionClick(option, otherHandlers),
++        onPointerOver: createHandleOptionPointerOver(option, otherHandlers),
++        role: 'option',
++        tabIndex: getOptionTabIndex(optionState),
++      };
++    },
++    [
++      optionIdGenerator,
++      createHandleOptionClick,
++      createHandleOptionPointerOver,
++      getOptionTabIndex,
++      getOptionState,
++    ],
++  );
+ 
+   React.useDebugValue({
+-    highlightedOption: options[highlightedIndex],
++    highlightedOption: highlightedValue,
+     selectedOption: selectedValue,
+   });
+ 
+@@ -318,7 +329,7 @@ export default function useListbox<TOption>(props: UseListboxParameters<TOption>
+     getRootProps,
+     getOptionProps,
+     getOptionState,
+-    highlightedOption: options[highlightedIndex] ?? null,
++    highlightedOption: highlightedValue,
+     selectedOption: selectedValue,
+     setSelectedValue,
+     setHighlightedValue,
+diff --git a/packages/mui-base/src/ListboxUnstyled/useListbox.types.ts b/packages/mui-base/src/ListboxUnstyled/useListbox.types.ts
+index 9d1b574068f94c..1318ac98aaff64 100644
+--- a/packages/mui-base/src/ListboxUnstyled/useListbox.types.ts
++++ b/packages/mui-base/src/ListboxUnstyled/useListbox.types.ts
+@@ -35,32 +35,27 @@ interface OptionClickAction<TOption> {
+   type: ActionTypes.optionClick;
+   option: TOption;
+   event: React.MouseEvent;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+ interface OptionHoverAction<TOption> {
+   type: ActionTypes.optionHover;
+   option: TOption;
+   event: React.MouseEvent;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+-interface FocusAction<TOption> {
++interface FocusAction {
+   type: ActionTypes.focus;
+   event: React.FocusEvent;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+-interface BlurAction<TOption> {
++interface BlurAction {
+   type: ActionTypes.blur;
+   event: React.FocusEvent;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+-interface KeyDownAction<TOption> {
++interface KeyDownAction {
+   type: ActionTypes.keyDown;
+   event: React.KeyboardEvent;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+ interface SetValueAction<TOption> {
+@@ -75,11 +70,10 @@ interface SetHighlightAction<TOption> {
+   highlight: TOption | null;
+ }
+ 
+-interface TextNavigationAction<TOption> {
++interface TextNavigationAction {
+   type: ActionTypes.textNavigation;
+   event: React.KeyboardEvent;
+   searchString: string;
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+ interface OptionsChangeAction<TOption> {
+@@ -87,20 +81,21 @@ interface OptionsChangeAction<TOption> {
+   event: null;
+   options: TOption[];
+   previousOptions: TOption[];
+-  props: UseListboxPropsWithDefaults<TOption>;
+ }
+ 
+ export type ListboxAction<TOption> =
+   | OptionClickAction<TOption>
+   | OptionHoverAction<TOption>
+-  | FocusAction<TOption>
+-  | BlurAction<TOption>
+-  | KeyDownAction<TOption>
++  | FocusAction
++  | BlurAction
++  | KeyDownAction
+   | SetHighlightAction<TOption>
+-  | TextNavigationAction<TOption>
++  | TextNavigationAction
+   | SetValueAction<TOption>
+   | OptionsChangeAction<TOption>;
+ 
++export type ListboxReducerAction<T> = ListboxAction<T> & { props: UseListboxPropsWithDefaults<T> };
++
+ export interface ListboxState<TOption> {
+   highlightedValue: TOption | null;
+   selectedValue: TOption | TOption[] | null;
+@@ -108,7 +103,7 @@ export interface ListboxState<TOption> {
+ 
+ export type ListboxReducer<TOption> = (
+   state: ListboxState<TOption>,
+-  action: ListboxAction<TOption>,
++  action: ListboxReducerAction<TOption>,
+ ) => ListboxState<TOption>;
+ 
+ interface UseListboxCommonProps<TOption> {
+@@ -170,16 +165,16 @@ interface UseListboxCommonProps<TOption> {
+ 
+ interface UseSingleSelectListboxParameters<TOption> extends UseListboxCommonProps<TOption> {
+   /**
+-   * The default selected value. Use when the component is not controlled.
++   * The default selected value. Use when the listbox is not controlled.
+    */
+   defaultValue?: TOption | null;
+   /**
+-   * If `true`, the component will allow to select multiple options.
++   * If `true`, the listbox will allow to select multiple options.
+    * @default false
+    */
+   multiple?: false;
+   /**
+-   * The selected value. Use when the component is controlled.
++   * The selected value. Use when the listbox is controlled.
+    */
+   value?: TOption | null;
+   /**
+@@ -193,18 +188,18 @@ interface UseSingleSelectListboxParameters<TOption> extends UseListboxCommonProp
+ 
+ interface UseMultiSelectListboxParameters<TOption> extends UseListboxCommonProps<TOption> {
+   /**
+-   * The default selected value. Use when the component is not controlled.
++   * The default selected value. Use when the listbox is not controlled.
+    */
+   defaultValue?: TOption[];
+   /**
+-   * If `true`, the component will allow to select multiple options.
++   * If `true`, the listbox will allow to select multiple options.
+    * @default false
+    */
+   multiple: true;
+   /**
+-   * The selected value. Use when the component is controlled.
++   * The selected value. Use when the listbox is controlled.
+    */
+-  value?: TOption[];
++  value: TOption[];
+   /**
+    * Callback fired when the value changes.
+    */
+@@ -221,6 +216,7 @@ export type UseListboxParameters<TOption> =
+ export interface OptionState {
+   disabled: boolean;
+   highlighted: boolean;
++  index: number;
+   selected: boolean;
+ }
+ 
+diff --git a/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.tsx b/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.tsx
+index 704b91f37fb501..39f03c027732f9 100644
+--- a/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.tsx
++++ b/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.tsx
+@@ -44,13 +44,13 @@ const MenuItemUnstyled = React.forwardRef(function MenuItemUnstyled<
+     ...other
+   } = props;
+ 
+-  const { getRootProps, disabled, focusVisible } = useMenuItem({
++  const { getRootProps, disabled, focusVisible, highlighted } = useMenuItem({
+     disabled: disabledProp,
+     ref,
+     label,
+   });
+ 
+-  const ownerState: MenuItemUnstyledOwnerState = { ...props, disabled, focusVisible };
++  const ownerState: MenuItemUnstyledOwnerState = { ...props, disabled, focusVisible, highlighted };
+ 
+   const classes = getUtilityClasses(ownerState);
+ 
+diff --git a/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.types.ts b/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.types.ts
+index 75350bdea3f5de..6450192a17fce7 100644
+--- a/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.types.ts
++++ b/packages/mui-base/src/MenuItemUnstyled/MenuItemUnstyled.types.ts
+@@ -7,6 +7,7 @@ export interface MenuItemUnstyledRootSlotPropsOverrides {}
+ export interface MenuItemUnstyledOwnerState extends MenuItemUnstyledOwnProps {
+   disabled: boolean;
+   focusVisible: boolean;
++  highlighted: boolean;
+ }
+ 
+ export interface MenuItemUnstyledOwnProps {
+diff --git a/packages/mui-base/src/MenuItemUnstyled/useMenuItem.ts b/packages/mui-base/src/MenuItemUnstyled/useMenuItem.ts
+index 9e49184417c13a..f2a70f134b9132 100644
+--- a/packages/mui-base/src/MenuItemUnstyled/useMenuItem.ts
++++ b/packages/mui-base/src/MenuItemUnstyled/useMenuItem.ts
+@@ -4,6 +4,7 @@ import { EventHandlers } from '../utils/types';
+ import { MenuUnstyledContext } from '../MenuUnstyled';
+ import { useButton } from '../ButtonUnstyled';
+ import { UseMenuItemParameters } from './useMenuItem.types';
++import useForcedRerendering from '../utils/useForcedRerendering';
+ 
+ /**
+  *
+@@ -28,7 +29,7 @@ export default function useMenuItem(props: UseMenuItemParameters) {
+     throw new Error('MenuItemUnstyled must be used within a MenuUnstyled');
+   }
+ 
+-  const { registerItem, unregisterItem, open } = menuContext;
++  const { registerItem, unregisterItem, open, registerHighlightChangeHandler } = menuContext;
+ 
+   React.useEffect(() => {
+     if (id === undefined) {
+@@ -66,7 +67,22 @@ export default function useMenuItem(props: UseMenuItemParameters) {
+ 
+   const { highlighted } = itemState ?? { highlighted: false };
+ 
++  const rerender = useForcedRerendering();
++
++  React.useEffect(() => {
++    function updateHighlightedState(highlightedItemId: string | null) {
++      if (highlightedItemId === id && !highlighted) {
++        rerender();
++      } else if (highlightedItemId !== id && highlighted) {
++        rerender();
++      }
++    }
++
++    return registerHighlightChangeHandler(updateHighlightedState);
++  });
++
+   React.useEffect(() => {
++    // TODO: this should be handled by the MenuButton
+     requestFocus(highlighted && open);
+   }, [highlighted, open]);
+ 
+@@ -79,6 +95,7 @@ export default function useMenuItem(props: UseMenuItemParameters) {
+       }),
+       disabled: false,
+       focusVisible,
++      highlighted: false,
+     };
+   }
+ 
+@@ -96,5 +113,6 @@ export default function useMenuItem(props: UseMenuItemParameters) {
+     },
+     disabled: itemState?.disabled ?? false,
+     focusVisible,
++    highlighted,
+   };
+ }
+diff --git a/packages/mui-base/src/MenuUnstyled/MenuUnstyled.tsx b/packages/mui-base/src/MenuUnstyled/MenuUnstyled.tsx
+index 24efe56b16072e..9e1d154ca10590 100644
+--- a/packages/mui-base/src/MenuUnstyled/MenuUnstyled.tsx
++++ b/packages/mui-base/src/MenuUnstyled/MenuUnstyled.tsx
+@@ -51,15 +51,7 @@ const MenuUnstyled = React.forwardRef(function MenuUnstyled<
+     ...other
+   } = props;
+ 
+-  const {
+-    registerItem,
+-    unregisterItem,
+-    getListboxProps,
+-    getItemProps,
+-    getItemState,
+-    highlightFirstItem,
+-    highlightLastItem,
+-  } = useMenu({
++  const { contextValue, getListboxProps, highlightFirstItem, highlightLastItem } = useMenu({
+     open,
+     onClose,
+     listboxId,
+@@ -106,21 +98,20 @@ const MenuUnstyled = React.forwardRef(function MenuUnstyled<
+     className: classes.listbox,
+   });
+ 
+-  const contextValue: MenuUnstyledContextType = React.useMemo(
++  const menuContextValue: MenuUnstyledContextType = React.useMemo(
+     () => ({
+-      registerItem,
+-      unregisterItem,
+-      getItemState,
+-      getItemProps,
++      ...contextValue,
+       open,
+     }),
+-    [getItemProps, getItemState, open, registerItem, unregisterItem],
++    [contextValue, open],
+   );
+ 
+   return (
+     <Root {...rootProps}>
+       <Listbox {...listboxProps}>
+-        <MenuUnstyledContext.Provider value={contextValue}>{children}</MenuUnstyledContext.Provider>
++        <MenuUnstyledContext.Provider value={menuContextValue}>
++          {children}
++        </MenuUnstyledContext.Provider>
+       </Listbox>
+     </Root>
+   );
+diff --git a/packages/mui-base/src/MenuUnstyled/MenuUnstyledContext.ts b/packages/mui-base/src/MenuUnstyled/MenuUnstyledContext.ts
+index fd541855a86802..57558f571df133 100644
+--- a/packages/mui-base/src/MenuUnstyled/MenuUnstyledContext.ts
++++ b/packages/mui-base/src/MenuUnstyled/MenuUnstyledContext.ts
+@@ -10,6 +10,7 @@ export interface MenuUnstyledContextType {
+     otherHandlers?: Record<string, React.EventHandler<any>>,
+   ) => Record<string, any>;
+   open: boolean;
++  registerHighlightChangeHandler: (handler: (itemId: string | null) => void) => void;
+ }
+ 
+ const MenuUnstyledContext = React.createContext<MenuUnstyledContextType | null>(null);
+diff --git a/packages/mui-base/src/MenuUnstyled/useMenu.ts b/packages/mui-base/src/MenuUnstyled/useMenu.ts
+index 07a191ce6278f7..57f3776675d870 100644
+--- a/packages/mui-base/src/MenuUnstyled/useMenu.ts
++++ b/packages/mui-base/src/MenuUnstyled/useMenu.ts
+@@ -2,10 +2,10 @@ import * as React from 'react';
+ import { unstable_useForkRef as useForkRef } from '@mui/utils';
+ import {
+   defaultListboxReducer,
+-  ListboxAction,
+   ListboxState,
+   useListbox,
+   ActionTypes,
++  ListboxReducerAction,
+ } from '../ListboxUnstyled';
+ import {
+   MenuItemMetadata,
+@@ -14,10 +14,11 @@ import {
+   UseMenuParameters,
+ } from './useMenu.types';
+ import { EventHandlers } from '../utils';
++import useMenuChangeNotifiers from './useMenuChangeNotifiers';
+ 
+ function stateReducer(
+   state: ListboxState<string>,
+-  action: ListboxAction<string>,
++  action: ListboxReducerAction<string>,
+ ): ListboxState<string> {
+   if (
+     action.type === ActionTypes.blur ||
+@@ -76,6 +77,8 @@ export default function useMenu(parameters: UseMenuParameters = {}) {
+     });
+   }, []);
+ 
++  const { notifyHighlightChanged, registerHighlightChangeHandler } = useMenuChangeNotifiers();
++
+   const {
+     getOptionState,
+     getOptionProps,
+@@ -93,6 +96,10 @@ export default function useMenu(parameters: UseMenuParameters = {}) {
+     disabledItemsFocusable: true,
+   });
+ 
++  React.useEffect(() => {
++    notifyHighlightChanged(highlightedOption);
++  }, [highlightedOption, notifyHighlightChanged]);
++
+   const highlightFirstItem = React.useCallback(() => {
+     if (Object.keys(menuItems).length > 0) {
+       setListboxHighlight(menuItems[Object.keys(menuItems)[0]].id);
+@@ -152,22 +159,33 @@ export default function useMenu(parameters: UseMenuParameters = {}) {
+     };
+   };
+ 
+-  const getItemState = (id: string): MenuItemState => {
+-    const { disabled, highlighted } = getOptionState(id);
+-    return { disabled, highlighted };
+-  };
++  const getItemState = React.useCallback(
++    (id: string): MenuItemState => {
++      const { disabled, highlighted } = getOptionState(id);
++      return { disabled, highlighted };
++    },
++    [getOptionState],
++  );
+ 
+   React.useDebugValue({ menuItems, highlightedOption });
+ 
++  const contextValue = React.useMemo(
++    () => ({
++      getItemProps: getOptionProps,
++      getItemState,
++      registerHighlightChangeHandler,
++      registerItem,
++      unregisterItem,
++    }),
++    [getOptionProps, getItemState, registerHighlightChangeHandler, registerItem, unregisterItem],
++  );
++
+   return {
+-    registerItem,
+-    unregisterItem,
+-    menuItems,
++    contextValue,
+     getListboxProps,
+-    getItemState,
+-    getItemProps: getOptionProps,
+     highlightedOption,
+     highlightFirstItem,
+     highlightLastItem,
++    menuItems,
+   };
+ }
+diff --git a/packages/mui-base/src/MenuUnstyled/useMenuChangeNotifiers.ts b/packages/mui-base/src/MenuUnstyled/useMenuChangeNotifiers.ts
+new file mode 100644
+index 00000000000000..ed4bc97edd1849
+--- /dev/null
++++ b/packages/mui-base/src/MenuUnstyled/useMenuChangeNotifiers.ts
+@@ -0,0 +1,43 @@
++import * as React from 'react';
++import useMessageBus from '../utils/useMessageBus';
++
++const HIGHLIGHT_CHANGE_TOPIC = 'menu:change-highlight';
++
++export interface MenuChangeNotifiers {
++  /**
++   * Calls all the registered highlight change handlers.
++   *
++   * @param newValue - The newly highlighted value.
++   */
++  notifyHighlightChanged: (newValue: string | null) => void;
++
++  registerHighlightChangeHandler: (handler: (newValue: string | null) => void) => () => void;
++}
++
++/**
++ * @ignore - internal hook.
++ *
++ * This hook is used to notify any interested components about changes in the Menu's selection and highlight.
++ */
++export default function useMenuChangeNotifiers(): MenuChangeNotifiers {
++  const messageBus = useMessageBus();
++
++  const notifyHighlightChanged = React.useCallback(
++    (newValue: string | null) => {
++      messageBus.publish(HIGHLIGHT_CHANGE_TOPIC, newValue);
++    },
++    [messageBus],
++  );
++
++  const registerHighlightChangeHandler = React.useCallback(
++    (handler: (newValue: string | null) => void) => {
++      return messageBus.subscribe(HIGHLIGHT_CHANGE_TOPIC, handler);
++    },
++    [messageBus],
++  );
++
++  return {
++    notifyHighlightChanged,
++    registerHighlightChangeHandler,
++  };
++}
+diff --git a/packages/mui-base/src/MultiSelectUnstyled/MultiSelectUnstyled.tsx b/packages/mui-base/src/MultiSelectUnstyled/MultiSelectUnstyled.tsx
+index 5b8eb0d250e252..868a07eccc2771 100644
+--- a/packages/mui-base/src/MultiSelectUnstyled/MultiSelectUnstyled.tsx
++++ b/packages/mui-base/src/MultiSelectUnstyled/MultiSelectUnstyled.tsx
+@@ -135,19 +135,21 @@ const MultiSelectUnstyled = React.forwardRef(function MultiSelectUnstyled<TValue
+     }
+   }, [autoFocus]);
+ 
+-  const handleOpenChange = (isOpen: boolean) => {
+-    setListboxOpen(isOpen);
+-    onListboxOpenChange?.(isOpen);
+-  };
++  const handleOpenChange = React.useCallback(
++    (isOpen: boolean) => {
++      setListboxOpen(isOpen);
++      onListboxOpenChange?.(isOpen);
++    },
++    [setListboxOpen, onListboxOpenChange],
++  );
+ 
+   const {
+     buttonActive,
+     buttonFocusVisible,
++    contextValue,
+     disabled,
+     getButtonProps,
+     getListboxProps,
+-    getOptionProps,
+-    getOptionState,
+     value,
+   } = useSelect<TValue>({
+     buttonRef: handleButtonRef,
+@@ -221,11 +223,10 @@ const MultiSelectUnstyled = React.forwardRef(function MultiSelectUnstyled<TValue
+ 
+   const context: SelectUnstyledContextType = React.useMemo(
+     () => ({
+-      getOptionProps,
+-      getOptionState,
++      ...contextValue,
+       listboxRef,
+     }),
+-    [getOptionProps, getOptionState],
++    [contextValue],
+   );
+ 
+   return (
+diff --git a/packages/mui-base/src/OptionUnstyled/OptionUnstyled.tsx b/packages/mui-base/src/OptionUnstyled/OptionUnstyled.tsx
+index 6bb069f7edcaf9..78a46ed6933562 100644
+--- a/packages/mui-base/src/OptionUnstyled/OptionUnstyled.tsx
++++ b/packages/mui-base/src/OptionUnstyled/OptionUnstyled.tsx
+@@ -1,6 +1,5 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+-import { unstable_useForkRef as useForkRef } from '@mui/utils';
+ import { OptionState } from '../ListboxUnstyled';
+ import composeClasses from '../composeClasses';
+ import {
+@@ -11,6 +10,7 @@ import {
+ import { SelectUnstyledContext } from '../SelectUnstyled/SelectUnstyledContext';
+ import { getOptionUnstyledUtilityClass } from './optionUnstyledClasses';
+ import { useSlotProps } from '../utils';
++import useOption from './useOption';
+ 
+ function useUtilityClasses(ownerState: OptionState) {
+   const { disabled, highlighted, selected } = ownerState;
+@@ -32,7 +32,7 @@ const OptionUnstyled = React.forwardRef(function OptionUnstyled<TValue>(
+   const {
+     children,
+     component,
+-    disabled,
++    disabled = false,
+     label,
+     slotProps = {},
+     slots = {},
+@@ -47,51 +47,27 @@ const OptionUnstyled = React.forwardRef(function OptionUnstyled<TValue>(
+ 
+   const Root = component || slots.root || 'li';
+ 
+-  const selectOption = {
+-    value,
+-    label: label || children,
++  const { getRootProps, selected, highlighted, index } = useOption({
+     disabled,
+-  };
+-
+-  const optionState = selectContext.getOptionState(selectOption);
+-  const optionProps = selectContext.getOptionProps(selectOption);
+-  const listboxRef = selectContext.listboxRef;
++    value,
++    optionRef: ref,
++  });
+ 
+   const ownerState: OptionUnstyledOwnerState<TValue> = {
+     ...props,
+-    ...optionState,
++    disabled,
++    highlighted,
++    index,
++    selected,
+   };
+ 
+-  const optionRef = React.useRef<HTMLLIElement>(null);
+-  const handleRef = useForkRef(ref, optionRef);
+-
+-  React.useEffect(() => {
+-    // Scroll to the currently highlighted option
+-    if (optionState.highlighted) {
+-      if (!listboxRef.current || !optionRef.current) {
+-        return;
+-      }
+-      const listboxClientRect = listboxRef.current.getBoundingClientRect();
+-      const optionClientRect = optionRef.current.getBoundingClientRect();
+-
+-      if (optionClientRect.top < listboxClientRect.top) {
+-        listboxRef.current.scrollTop -= listboxClientRect.top - optionClientRect.top;
+-      } else if (optionClientRect.bottom > listboxClientRect.bottom) {
+-        listboxRef.current.scrollTop += optionClientRect.bottom - listboxClientRect.bottom;
+-      }
+-    }
+-  }, [optionState.highlighted, listboxRef]);
+-
+   const classes = useUtilityClasses(ownerState);
+ 
+   const rootProps = useSlotProps({
++    getSlotProps: getRootProps,
+     elementType: Root,
+     externalSlotProps: slotProps.root,
+     externalForwardedProps: other,
+-    additionalProps: {
+-      ...optionProps,
+-      ref: handleRef,
+-    },
+     className: classes.root,
+     ownerState,
+   });
+diff --git a/packages/mui-base/src/OptionUnstyled/index.ts b/packages/mui-base/src/OptionUnstyled/index.ts
+index 71841c1f883e07..f90e361c3df87b 100644
+--- a/packages/mui-base/src/OptionUnstyled/index.ts
++++ b/packages/mui-base/src/OptionUnstyled/index.ts
+@@ -4,3 +4,6 @@ export * from './OptionUnstyled.types';
+ 
+ export { default as optionUnstyledClasses } from './optionUnstyledClasses';
+ export * from './optionUnstyledClasses';
++
++export { default as useOption } from './useOption';
++export * from './useOption.types';
+diff --git a/packages/mui-base/src/OptionUnstyled/useOption.ts b/packages/mui-base/src/OptionUnstyled/useOption.ts
+new file mode 100644
+index 00000000000000..7f03dd5a4ec35a
+--- /dev/null
++++ b/packages/mui-base/src/OptionUnstyled/useOption.ts
+@@ -0,0 +1,102 @@
++import * as React from 'react';
++import { unstable_useForkRef as useForkRef } from '@mui/utils';
++import { SelectUnstyledContext } from '../SelectUnstyled/SelectUnstyledContext';
++import { UseOptionParameters, UseOptionReturnValue } from './useOption.types';
++import { EventHandlers } from '../utils';
++import useForcedRerendering from '../utils/useForcedRerendering';
++
++/**
++ *
++ * API:
++ *
++ * - [useOption API](https://mui.com/base/api/use-option/)
++ */
++export default function useOption<Value>(params: UseOptionParameters<Value>): UseOptionReturnValue {
++  const { value, optionRef: optionRefParam } = params;
++
++  const selectContext = React.useContext(SelectUnstyledContext);
++  if (!selectContext) {
++    throw new Error(
++      'Option must have access to the SelectUnstyledContext (i.e., be used inside a SelectUnstyled component).',
++    );
++  }
++
++  const {
++    getOptionProps,
++    getOptionState,
++    listboxRef,
++    registerHighlightChangeHandler,
++    registerSelectionChangeHandler,
++  } = selectContext;
++
++  const optionState = getOptionState(value);
++
++  const { selected, highlighted } = optionState;
++
++  const rerender = useForcedRerendering();
++
++  React.useEffect(() => {
++    function updateSelectedState(selectedValues: Value | Value[] | null) {
++      if (!selected) {
++        if (Array.isArray(selectedValues)) {
++          if (selectedValues.includes(value)) {
++            rerender();
++          }
++        } else if (selectedValues === value) {
++          rerender();
++        }
++      } else if (Array.isArray(selectedValues)) {
++        if (!selectedValues.includes(value)) {
++          rerender();
++        }
++      } else if (selectedValues !== value) {
++        rerender();
++      }
++    }
++
++    return registerSelectionChangeHandler(updateSelectedState);
++  }, [registerSelectionChangeHandler, rerender, selected, value]);
++
++  React.useEffect(() => {
++    function updateHighlightedState(highlightedValue: Value | null) {
++      if (highlightedValue === value && !highlighted) {
++        rerender();
++      } else if (highlightedValue !== value && highlighted) {
++        rerender();
++      }
++    }
++
++    return registerHighlightChangeHandler(updateHighlightedState);
++  }, [registerHighlightChangeHandler, rerender, value, highlighted]);
++
++  const optionRef = React.useRef<HTMLLIElement>(null);
++  const handleRef = useForkRef(optionRefParam, optionRef);
++
++  React.useEffect(() => {
++    // Scroll to the currently highlighted option
++    if (highlighted) {
++      if (!listboxRef.current || !optionRef.current) {
++        return;
++      }
++      const listboxClientRect = (listboxRef.current as HTMLElement).getBoundingClientRect();
++      const optionClientRect = optionRef.current.getBoundingClientRect();
++
++      if (optionClientRect.top < listboxClientRect.top) {
++        listboxRef.current.scrollTop -= listboxClientRect.top - optionClientRect.top;
++      } else if (optionClientRect.bottom > listboxClientRect.bottom) {
++        listboxRef.current.scrollTop += optionClientRect.bottom - listboxClientRect.bottom;
++      }
++    }
++  }, [highlighted, listboxRef]);
++
++  return {
++    getRootProps: <Other extends EventHandlers = {}>(otherHandlers: Other = {} as Other) => ({
++      ...otherHandlers,
++      ...getOptionProps(value, otherHandlers),
++      ref: handleRef,
++    }),
++    highlighted,
++    index: optionState.index,
++    selected,
++  };
++}
+diff --git a/packages/mui-base/src/OptionUnstyled/useOption.types.ts b/packages/mui-base/src/OptionUnstyled/useOption.types.ts
+new file mode 100644
+index 00000000000000..2f05482ce336b1
+--- /dev/null
++++ b/packages/mui-base/src/OptionUnstyled/useOption.types.ts
+@@ -0,0 +1,21 @@
++import { UseSelectOptionSlotProps } from '../SelectUnstyled';
++import { EventHandlers } from '../utils';
++
++export interface UseOptionParameters<Value> {
++  disabled: boolean;
++  value: Value;
++  optionRef?: React.Ref<HTMLElement>;
++}
++
++export interface UseOptionReturnValue {
++  selected: boolean;
++  highlighted: boolean;
++  index: number;
++  getRootProps: <Other extends EventHandlers>(
++    otherHandlers?: Other,
++  ) => UseOptionRootSlotProps<Other>;
++}
++
++export type UseOptionRootSlotProps<Other extends EventHandlers = {}> = UseSelectOptionSlotProps & {
++  ref?: React.RefCallback<HTMLElement> | null;
++} & Other;
+diff --git a/packages/mui-base/src/SelectUnstyled/SelectUnstyled.tsx b/packages/mui-base/src/SelectUnstyled/SelectUnstyled.tsx
+index a89a8865ac5b0a..1dffaf849bbe6e 100644
+--- a/packages/mui-base/src/SelectUnstyled/SelectUnstyled.tsx
++++ b/packages/mui-base/src/SelectUnstyled/SelectUnstyled.tsx
+@@ -17,7 +17,7 @@ import useSelect from './useSelect';
+ import { SelectChild, SelectOption } from './useSelect.types';
+ import { useSlotProps, WithOptionalOwnerState } from '../utils';
+ import PopperUnstyled from '../PopperUnstyled';
+-import { SelectUnstyledContext, SelectUnstyledContextType } from './SelectUnstyledContext';
++import { SelectUnstyledContext } from './SelectUnstyledContext';
+ import composeClasses from '../composeClasses';
+ import { getSelectUnstyledUtilityClass } from './selectUnstyledClasses';
+ import defaultOptionStringifier from './defaultOptionStringifier';
+@@ -127,10 +127,13 @@ const SelectUnstyled = React.forwardRef(function SelectUnstyled<TValue extends {
+     }
+   }, [autoFocus]);
+ 
+-  const handleOpenChange = (isOpen: boolean) => {
+-    setListboxOpen(isOpen);
+-    onListboxOpenChange?.(isOpen);
+-  };
++  const handleOpenChange = React.useCallback(
++    (isOpen: boolean) => {
++      setListboxOpen(isOpen);
++      onListboxOpenChange?.(isOpen);
++    },
++    [setListboxOpen, onListboxOpenChange],
++  );
+ 
+   const {
+     buttonActive,
+@@ -138,8 +141,7 @@ const SelectUnstyled = React.forwardRef(function SelectUnstyled<TValue extends {
+     disabled,
+     getButtonProps,
+     getListboxProps,
+-    getOptionProps,
+-    getOptionState,
++    contextValue,
+     value,
+   } = useSelect({
+     buttonRef: handleButtonRef,
+@@ -147,9 +149,9 @@ const SelectUnstyled = React.forwardRef(function SelectUnstyled<TValue extends {
+     disabled: disabledProp,
+     listboxId,
+     multiple: false,
++    open: listboxOpen,
+     onChange,
+     onOpenChange: handleOpenChange,
+-    open: listboxOpen,
+     options,
+     optionStringifier,
+     value: valueProp,
+@@ -208,22 +210,13 @@ const SelectUnstyled = React.forwardRef(function SelectUnstyled<TValue extends {
+     className: classes.popper,
+   });
+ 
+-  const context: SelectUnstyledContextType = React.useMemo(
+-    () => ({
+-      getOptionProps,
+-      getOptionState,
+-      listboxRef,
+-    }),
+-    [getOptionProps, getOptionState],
+-  );
+-
+   return (
+     <React.Fragment>
+       <Button {...buttonProps}>{renderValue(selectedOption as any)}</Button>
+       {buttonDefined && (
+         <Popper {...popperProps}>
+           <ListboxRoot {...listboxProps}>
+-            <SelectUnstyledContext.Provider value={context}>
++            <SelectUnstyledContext.Provider value={contextValue}>
+               {children}
+             </SelectUnstyledContext.Provider>
+           </ListboxRoot>
+diff --git a/packages/mui-base/src/SelectUnstyled/SelectUnstyledContext.ts b/packages/mui-base/src/SelectUnstyled/SelectUnstyledContext.ts
+index 4ebdcc60e85caf..3212d2ddfdb650 100644
+--- a/packages/mui-base/src/SelectUnstyled/SelectUnstyledContext.ts
++++ b/packages/mui-base/src/SelectUnstyled/SelectUnstyledContext.ts
+@@ -1,11 +1,18 @@
+ import * as React from 'react';
+ import { OptionState } from '../ListboxUnstyled';
+-import { SelectOption, UseSelectOptionSlotProps } from './useSelect.types';
++import { EventHandlers } from '../utils';
++import { UseSelectOptionSlotProps } from './useSelect.types';
++import { SelectChangeNotifiers } from './useSelectChangeNotifiers';
+ 
+ export interface SelectUnstyledContextType {
+-  getOptionState: (value: SelectOption<any>) => OptionState;
+-  getOptionProps: (option: SelectOption<any>) => UseSelectOptionSlotProps;
+-  listboxRef: React.RefObject<HTMLElement>;
++  getOptionState: (value: any) => OptionState;
++  getOptionProps: <OtherHandlers extends EventHandlers>(
++    value: any,
++    otherHandlers: OtherHandlers,
++  ) => UseSelectOptionSlotProps;
++  listboxRef: React.RefObject<any>;
++  registerSelectionChangeHandler: SelectChangeNotifiers<any>['registerSelectionChangeHandler'];
++  registerHighlightChangeHandler: SelectChangeNotifiers<any>['registerHighlightChangeHandler'];
+ }
+ 
+ export const SelectUnstyledContext = React.createContext<SelectUnstyledContextType | undefined>(
+diff --git a/packages/mui-base/src/SelectUnstyled/useSelect.ts b/packages/mui-base/src/SelectUnstyled/useSelect.ts
+index 4e70cdcf551251..cc53c19b8ee4a1 100644
+--- a/packages/mui-base/src/SelectUnstyled/useSelect.ts
++++ b/packages/mui-base/src/SelectUnstyled/useSelect.ts
+@@ -1,9 +1,5 @@
+ import * as React from 'react';
+-import {
+-  unstable_useControlled as useControlled,
+-  unstable_useForkRef as useForkRef,
+-  unstable_useId as useId,
+-} from '@mui/utils';
++import { unstable_useForkRef as useForkRef, unstable_useId as useId } from '@mui/utils';
+ import { useButton } from '../ButtonUnstyled';
+ import {
+   SelectOption,
+@@ -25,6 +21,7 @@ import {
+ } from '../ListboxUnstyled';
+ import { EventHandlers } from '../utils/types';
+ import defaultOptionStringifier from './defaultOptionStringifier';
++import useSelectChangeNotifiers from './useSelectChangeNotifiers';
+ 
+ function useSelect<TValue>(props: UseSelectSingleParameters<TValue>): UseSelectSingleResult<TValue>;
+ function useSelect<TValue>(props: UseSelectMultiParameters<TValue>): UseSelectMultiResult<TValue>;
+@@ -41,12 +38,13 @@ function useSelect<TValue>(props: UseSelectMultiParameters<TValue>): UseSelectMu
+ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+   const {
+     buttonRef: buttonRefProp,
+-    defaultValue,
++    defaultValue: defaultValueProp,
+     disabled = false,
+     listboxId: listboxIdProp,
+     listboxRef: listboxRefProp,
+     multiple = false,
+     onChange,
++    onHighlightChange,
+     onOpenChange,
+     open = false,
+     options,
+@@ -60,12 +58,18 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+   const listboxRef = React.useRef<HTMLElement | null>(null);
+   const listboxId = useId(listboxIdProp);
+ 
+-  const [value, setValue] = useControlled({
+-    controlled: valueProp,
+-    default: defaultValue,
+-    name: 'SelectUnstyled',
+-    state: 'value',
+-  });
++  let defaultValue = defaultValueProp;
++  if (valueProp === undefined && defaultValueProp === undefined) {
++    defaultValue = multiple ? [] : null;
++  }
++
++  const optionsMap = React.useMemo(() => {
++    const map = new Map<TValue, SelectOption<TValue>>();
++    options.forEach((option) => {
++      map.set(option.value, option);
++    });
++    return map;
++  }, [options]);
+ 
+   // prevents closing the listbox on keyUp right after opening it
+   const ignoreEnterKeyUp = React.useRef(false);
+@@ -86,6 +90,13 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+ 
+   const handleListboxRef = useForkRef(listboxRefProp, listboxRef, focusListboxIfRequested);
+ 
++  const {
++    notifySelectionChanged,
++    notifyHighlightChanged,
++    registerHighlightChangeHandler,
++    registerSelectionChangeHandler,
++  } = useSelectChangeNotifiers<TValue>();
++
+   React.useEffect(() => {
+     focusListboxIfRequested();
+   }, [focusListboxIfRequested]);
+@@ -146,7 +157,7 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       ignoreEnterKeyUp.current = false;
+     };
+ 
+-  const createHandleListboxItemClick =
++  const createHandleListboxItemClick = React.useCallback(
+     (otherHandlers?: Record<string, React.EventHandler<any>>) => (event: React.MouseEvent) => {
+       otherHandlers?.onClick?.(event);
+       if (event.defaultPrevented) {
+@@ -156,7 +167,9 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       if (!multiple) {
+         onOpenChange?.(false);
+       }
+-    };
++    },
++    [multiple, onOpenChange],
++  );
+ 
+   const createHandleListboxBlur =
+     (otherHandlers?: Record<string, React.EventHandler<any>>) => (event: React.FocusEvent) => {
+@@ -166,34 +179,37 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       }
+     };
+ 
+-  const listboxReducer: ListboxReducer<SelectOption<TValue>> = (state, action) => {
+-    const newState = defaultListboxReducer(state, action);
+-
+-    // change selection when listbox is closed
+-    if (
+-      action.type === ActionTypes.keyDown &&
+-      !open &&
+-      (action.event.key === 'ArrowUp' || action.event.key === 'ArrowDown')
+-    ) {
+-      return {
+-        ...newState,
+-        selectedValue: newState.highlightedValue,
+-      };
+-    }
++  const listboxReducer: ListboxReducer<TValue> = React.useCallback(
++    (state, action) => {
++      const newState = defaultListboxReducer(state, action);
++
++      // change selection when listbox is closed
++      if (
++        action.type === ActionTypes.keyDown &&
++        !open &&
++        (action.event.key === 'ArrowUp' || action.event.key === 'ArrowDown')
++      ) {
++        return {
++          ...newState,
++          selectedValue: newState.highlightedValue,
++        };
++      }
+ 
+-    if (
+-      action.type === ActionTypes.blur ||
+-      action.type === ActionTypes.setValue ||
+-      action.type === ActionTypes.optionsChange
+-    ) {
+-      return {
+-        ...newState,
+-        highlightedValue: newState.selectedValue as SelectOption<TValue>,
+-      };
+-    }
++      if (
++        action.type === ActionTypes.blur ||
++        action.type === ActionTypes.setValue ||
++        action.type === ActionTypes.optionsChange
++      ) {
++        return {
++          ...newState,
++          highlightedValue: newState.selectedValue as TValue,
++        };
++      }
+ 
+-    return newState;
+-  };
++      return newState;
++    },
++    [open],
++  );
+ 
+   const {
+     getRootProps: getButtonRootProps,
+@@ -204,15 +220,29 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+     ref: handleButtonRef,
+   });
+ 
+-  const selectedOption = React.useMemo(
+-    () =>
+-      props.multiple
+-        ? props.options.filter((o) => (value as TValue[]).includes(o.value))
+-        : props.options.find((o) => o.value === value) ?? null,
+-    [props.multiple, props.options, value],
++  const optionValues = React.useMemo(() => options.map((o) => o.value), [options]);
++
++  let useListboxParameters: UseListboxParameters<TValue>;
++
++  const isOptionDisabled = React.useCallback(
++    (valueToCheck: TValue) => {
++      const option = optionsMap.get(valueToCheck);
++      return option?.disabled ?? false;
++    },
++    [optionsMap],
+   );
+ 
+-  let useListboxParameters: UseListboxParameters<SelectOption<TValue>>;
++  const stringifyOption = React.useCallback(
++    (valueToCheck: TValue) => {
++      const option = optionsMap.get(valueToCheck);
++      if (!option) {
++        return '';
++      }
++
++      return optionStringifier(option);
++    },
++    [optionsMap, optionStringifier],
++  );
+ 
+   if (props.multiple) {
+     const onChangeMultiple = onChange as (
+@@ -220,19 +250,20 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       value: TValue[],
+     ) => void;
+     useListboxParameters = {
++      defaultValue: defaultValue as TValue[],
+       id: listboxId,
+-      isOptionDisabled: (o) => o?.disabled ?? false,
+-      optionComparer: (o, v) => o?.value === v?.value,
++      isOptionDisabled,
+       listboxRef: handleListboxRef,
+       multiple: true,
+-      onChange: (e, newOptions) => {
+-        const newValues = newOptions.map((o) => o.value);
+-        setValue(newValues);
++      onChange: (e, newValues) => {
+         onChangeMultiple?.(e, newValues);
+       },
+-      options,
+-      optionStringifier,
+-      value: selectedOption as SelectOption<TValue>[],
++      onHighlightChange: (e, newValue) => {
++        onHighlightChange?.(e, newValue ?? null);
++      },
++      options: optionValues,
++      optionStringifier: stringifyOption,
++      value: valueProp as TValue[],
+     };
+   } else {
+     const onChangeSingle = onChange as (
+@@ -240,19 +271,21 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       value: TValue | null,
+     ) => void;
+     useListboxParameters = {
++      defaultValue: defaultValue as TValue | null,
+       id: listboxId,
+-      isOptionDisabled: (o) => o?.disabled ?? false,
+-      optionComparer: (o, v) => o?.value === v?.value,
++      isOptionDisabled,
+       listboxRef: handleListboxRef,
+       multiple: false,
+-      onChange: (e, option: SelectOption<TValue> | null) => {
+-        setValue(option?.value ?? null);
+-        onChangeSingle?.(e, option?.value ?? null);
++      onChange: (e, newValue: TValue | null) => {
++        onChangeSingle?.(e, newValue);
+       },
+-      options,
+-      optionStringifier,
++      onHighlightChange: (e, newValue) => {
++        onHighlightChange?.(e, newValue);
++      },
++      options: optionValues,
++      optionStringifier: stringifyOption,
+       stateReducer: listboxReducer,
+-      value: selectedOption as SelectOption<TValue> | null,
++      value: valueProp as TValue | null,
+     };
+   }
+ 
+@@ -261,9 +294,17 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+     getOptionProps: getListboxOptionProps,
+     getOptionState,
+     highlightedOption,
+-    selectedOption: listboxSelectedOption,
++    selectedOption,
+   } = useListbox(useListboxParameters);
+ 
++  React.useEffect(() => {
++    notifySelectionChanged(selectedOption);
++  }, [selectedOption, notifySelectionChanged]);
++
++  React.useEffect(() => {
++    notifyHighlightChanged(highlightedOption);
++  }, [highlightedOption, notifyHighlightChanged]);
++
+   const getButtonProps = <TOther extends EventHandlers>(
+     otherHandlers: TOther = {} as TOther,
+   ): UseSelectButtonSlotProps<TOther> => {
+@@ -290,32 +331,51 @@ function useSelect<TValue>(props: UseSelectParameters<TValue>) {
+       onKeyUp: createHandleListboxKeyUp(otherHandlers),
+     });
+ 
+-  const getOptionProps = <TOther extends EventHandlers>(
+-    option: SelectOption<TValue>,
+-    otherHandlers: TOther = {} as TOther,
+-  ): UseSelectOptionSlotProps<TOther> => {
+-    return getListboxOptionProps(option, {
+-      ...otherHandlers,
+-      onClick: createHandleListboxItemClick(otherHandlers),
+-    });
+-  };
++  const getOptionProps = React.useCallback(
++    <TOther extends EventHandlers>(
++      optionValue: TValue,
++      otherHandlers: TOther = {} as TOther,
++    ): UseSelectOptionSlotProps<TOther> => {
++      return getListboxOptionProps(optionValue, {
++        ...otherHandlers,
++        onClick: createHandleListboxItemClick(otherHandlers),
++      });
++    },
++    [getListboxOptionProps, createHandleListboxItemClick],
++  );
+ 
+   React.useDebugValue({
+-    selectedOption: listboxSelectedOption,
++    selectedOption,
+     highlightedOption,
+     open,
+   });
+ 
++  const contextValue = React.useMemo(
++    () => ({
++      listboxRef,
++      getOptionProps,
++      getOptionState,
++      registerHighlightChangeHandler,
++      registerSelectionChangeHandler,
++    }),
++    [
++      getOptionProps,
++      getOptionState,
++      registerHighlightChangeHandler,
++      registerSelectionChangeHandler,
++    ],
++  );
++
+   return {
+     buttonActive,
+     buttonFocusVisible,
+     disabled,
+     getButtonProps,
+     getListboxProps,
+-    getOptionProps,
+-    getOptionState,
++    contextValue,
+     open,
+-    value,
++    value: selectedOption,
++    highlightedOption,
+   };
+ }
+ 
+diff --git a/packages/mui-base/src/SelectUnstyled/useSelect.types.ts b/packages/mui-base/src/SelectUnstyled/useSelect.types.ts
+index 35f43fa99dda1a..2b141c38945fcf 100644
+--- a/packages/mui-base/src/SelectUnstyled/useSelect.types.ts
++++ b/packages/mui-base/src/SelectUnstyled/useSelect.types.ts
+@@ -6,6 +6,7 @@ import {
+   UseListboxRootSlotProps,
+ } from '../ListboxUnstyled';
+ import { EventHandlers } from '../utils/types';
++import { SelectChangeNotifiers } from './useSelectChangeNotifiers';
+ 
+ export interface SelectOption<TValue> {
+   value: TValue;
+@@ -27,12 +28,26 @@ export function isOptionGroup<TValue>(
+   return !!(child as SelectOptionGroup<TValue>).options;
+ }
+ 
++export type SelectChangeEventType =
++  | React.MouseEvent<Element, MouseEvent>
++  | React.KeyboardEvent<Element>
++  | React.FocusEvent<Element, Element>
++  | null;
++
+ interface UseSelectCommonProps<TValue> {
+   buttonRef?: React.Ref<Element>;
+   disabled?: boolean;
+   listboxId?: string;
+   listboxRef?: React.Ref<Element>;
+   onOpenChange?: (open: boolean) => void;
++  onHighlightChange?: (
++    e:
++      | React.MouseEvent<Element, MouseEvent>
++      | React.KeyboardEvent<Element>
++      | React.FocusEvent<Element, Element>
++      | null,
++    highlighted: TValue | null,
++  ) => void;
+   open?: boolean;
+   options: SelectOption<TValue>[];
+   optionStringifier?: (option: SelectOption<TValue>) => string;
+@@ -102,12 +117,26 @@ interface UseSelectCommonResult<TValue> {
+   getListboxProps: <TOther extends EventHandlers = {}>(
+     otherHandlers?: TOther,
+   ) => UseSelectListboxSlotProps<TOther>;
+-  getOptionProps: <TOther extends EventHandlers = {}>(
+-    option: SelectOption<TValue>,
+-    otherHandlers?: TOther,
+-  ) => UseSelectOptionSlotProps<TOther>;
+-  getOptionState: (option: SelectOption<TValue>) => OptionState;
++  contextValue: {
++    getOptionProps: <TOther extends EventHandlers = {}>(
++      option: SelectOption<TValue>,
++      otherHandlers?: TOther,
++    ) => UseSelectOptionSlotProps<TOther>;
++    getOptionState: (option: SelectOption<TValue>) => OptionState;
++    listboxRef: React.RefObject<HTMLElement>;
++    /**
++     * Registers a handler for when the highlighted option changes.
++     * @param handler A function that will be called with the new highlighted option.
++     */
++    registerHighlightChangeHandler: SelectChangeNotifiers<TValue>['registerHighlightChangeHandler'];
++    /**
++     * Registers a handler for when the selection changes.
++     * @param handler A function that will be called with the new selected items.
++     */
++    registerSelectionChangeHandler: SelectChangeNotifiers<TValue>['registerSelectionChangeHandler'];
++  };
+   open: boolean;
++  highlightedOption: TValue | null;
+ }
+ 
+ export interface UseSelectSingleResult<TValue> extends UseSelectCommonResult<TValue> {
+diff --git a/packages/mui-base/src/SelectUnstyled/useSelectChangeNotifiers.ts b/packages/mui-base/src/SelectUnstyled/useSelectChangeNotifiers.ts
+new file mode 100644
+index 00000000000000..426c7e1910a71e
+--- /dev/null
++++ b/packages/mui-base/src/SelectUnstyled/useSelectChangeNotifiers.ts
+@@ -0,0 +1,70 @@
++import * as React from 'react';
++import useMessageBus from '../utils/useMessageBus';
++
++const SELECTION_CHANGE_TOPIC = 'select:change-selection';
++const HIGHLIGHT_CHANGE_TOPIC = 'select:change-highlight';
++
++export interface SelectChangeNotifiers<TValue> {
++  /**
++   * Calls all the registered selection change handlers.
++   *
++   * @param newValue - The newly selected value(s).
++   */
++  notifySelectionChanged: (newValue: TValue | TValue[] | null) => void;
++  /**
++   * Calls all the registered highlight change handlers.
++   *
++   * @param newValue - The newly highlighted value.
++   */
++  notifyHighlightChanged: (newValue: TValue | null) => void;
++
++  registerSelectionChangeHandler: (
++    handler: (newValue: TValue | TValue[] | null) => void,
++  ) => () => void;
++
++  registerHighlightChangeHandler: (handler: (newValue: TValue | null) => void) => () => void;
++}
++
++/**
++ * @ignore - internal hook.
++ *
++ * This hook is used to notify any interested components about changes in the Select's selection and highlight.
++ */
++export default function useSelectChangeNotifiers<TValue>(): SelectChangeNotifiers<TValue> {
++  const messageBus = useMessageBus();
++
++  const notifySelectionChanged = React.useCallback(
++    (newValue: TValue | TValue[] | null) => {
++      messageBus.publish(SELECTION_CHANGE_TOPIC, newValue);
++    },
++    [messageBus],
++  );
++
++  const notifyHighlightChanged = React.useCallback(
++    (newValue: TValue | null) => {
++      messageBus.publish(HIGHLIGHT_CHANGE_TOPIC, newValue);
++    },
++    [messageBus],
++  );
++
++  const registerSelectionChangeHandler = React.useCallback(
++    (handler: (newValue: TValue | TValue[] | null) => void) => {
++      return messageBus.subscribe(SELECTION_CHANGE_TOPIC, handler);
++    },
++    [messageBus],
++  );
++
++  const registerHighlightChangeHandler = React.useCallback(
++    (handler: (newValue: TValue | null) => void) => {
++      return messageBus.subscribe(HIGHLIGHT_CHANGE_TOPIC, handler);
++    },
++    [messageBus],
++  );
++
++  return {
++    notifySelectionChanged,
++    notifyHighlightChanged,
++    registerSelectionChangeHandler,
++    registerHighlightChangeHandler,
++  };
++}
+diff --git a/packages/mui-base/src/SelectUnstyled/utils.tsx b/packages/mui-base/src/SelectUnstyled/utils.tsx
+index daeaaa1d0089ea..0c70e05e0af316 100644
+--- a/packages/mui-base/src/SelectUnstyled/utils.tsx
++++ b/packages/mui-base/src/SelectUnstyled/utils.tsx
+@@ -1,5 +1,5 @@
+ import * as React from 'react';
+-import { OptionUnstyledProps } from '../OptionUnstyled';
++import { OptionUnstyledProps } from '../OptionUnstyled/OptionUnstyled.types';
+ import { OptionGroupUnstyledProps } from '../OptionGroupUnstyled';
+ import { isOptionGroup, SelectChild, SelectOption, SelectOptionGroup } from './useSelect.types';
+ 
+diff --git a/packages/mui-base/src/utils/useForcedRerendering.ts b/packages/mui-base/src/utils/useForcedRerendering.ts
+new file mode 100644
+index 00000000000000..a3bdedb9377858
+--- /dev/null
++++ b/packages/mui-base/src/utils/useForcedRerendering.ts
+@@ -0,0 +1,11 @@
++import * as React from 'react';
++/**
++ * @ignore - internal hook.
++ */
++export default function useForcedRerendering() {
++  const [, setState] = React.useState({});
++
++  return React.useCallback(() => {
++    setState({});
++  }, []);
++}
+diff --git a/packages/mui-base/src/utils/useMessageBus.ts b/packages/mui-base/src/utils/useMessageBus.ts
+new file mode 100644
+index 00000000000000..ef2d8d9f898c4b
+--- /dev/null
++++ b/packages/mui-base/src/utils/useMessageBus.ts
+@@ -0,0 +1,48 @@
++import * as React from 'react';
++
++export interface MessageBus {
++  subscribe(topic: string, callback: Function): () => void;
++  publish(topic: string, ...args: unknown[]): void;
++}
++
++export function createMessageBus(): MessageBus {
++  const listeners = new Map<string, Set<Function>>();
++
++  function subscribe(topic: string, callback: Function) {
++    let topicListeners = listeners.get(topic);
++    if (!topicListeners) {
++      topicListeners = new Set([callback]);
++      listeners.set(topic, topicListeners);
++    } else {
++      topicListeners.add(callback);
++    }
++
++    return () => {
++      topicListeners!.delete(callback);
++      if (topicListeners!.size === 0) {
++        listeners.delete(topic);
++      }
++    };
++  }
++
++  function publish(topic: string, ...args: unknown[]) {
++    const topicListeners = listeners.get(topic);
++    if (topicListeners) {
++      topicListeners.forEach((callback) => callback(...args));
++    }
++  }
++
++  return { subscribe, publish };
++}
++
++/**
++ * @ignore - internal hook.
++ */
++export default function useMessageBus() {
++  const bus = React.useRef<MessageBus>();
++  if (!bus.current) {
++    bus.current = createMessageBus();
++  }
++
++  return bus.current;
++}
+diff --git a/packages/mui-base/src/utils/useTextNavigation.ts b/packages/mui-base/src/utils/useTextNavigation.ts
+new file mode 100644
+index 00000000000000..92b8c159768ab0
+--- /dev/null
++++ b/packages/mui-base/src/utils/useTextNavigation.ts
+@@ -0,0 +1,52 @@
++import * as React from 'react';
++
++const TEXT_NAVIGATION_RESET_TIMEOUT = 500; // milliseconds
++
++/**
++ * @ignore - internal hook.
++ *
++ * Provides a handler for text navigation.
++ * It's used to navigate the listbox by typing the first letters of the options.
++ *
++ * @param callback A function to be called when the navigation should be performed.
++ * @returns A function to be used in a keydown event handler.
++ */
++export default function useTextNavigation(
++  callback: (searchString: string, event: React.KeyboardEvent) => void,
++) {
++  const textCriteriaRef = React.useRef<{
++    searchString: string;
++    lastTime: number | null;
++  }>({
++    searchString: '',
++    lastTime: null,
++  });
++
++  return React.useCallback(
++    (event: React.KeyboardEvent) => {
++      if (event.key.length === 1 && event.key !== ' ') {
++        const textCriteria = textCriteriaRef.current;
++        const lowerKey = event.key.toLowerCase();
++        const currentTime = performance.now();
++        if (
++          textCriteria.searchString.length > 0 &&
++          textCriteria.lastTime &&
++          currentTime - textCriteria.lastTime > TEXT_NAVIGATION_RESET_TIMEOUT
++        ) {
++          textCriteria.searchString = lowerKey;
++        } else if (
++          textCriteria.searchString.length !== 1 ||
++          lowerKey !== textCriteria.searchString
++        ) {
++          // If there is just one character in the buffer and the key is the same, do not append
++          textCriteria.searchString += lowerKey;
++        }
++
++        textCriteria.lastTime = currentTime;
++
++        callback(textCriteria.searchString, event);
++      }
++    },
++    [callback],
++  );
++}
+diff --git a/packages/mui-joy/src/Menu/Menu.tsx b/packages/mui-joy/src/Menu/Menu.tsx
+index 30d228154e76a1..659999312e131e 100644
+--- a/packages/mui-joy/src/Menu/Menu.tsx
++++ b/packages/mui-joy/src/Menu/Menu.tsx
+@@ -77,15 +77,7 @@ const Menu = React.forwardRef(function Menu(inProps, ref) {
+   const { getColor } = useColorInversion(variant);
+   const color = disablePortal ? getColor(inProps.color, colorProp) : colorProp;
+ 
+-  const {
+-    registerItem,
+-    unregisterItem,
+-    getListboxProps,
+-    getItemProps,
+-    getItemState,
+-    highlightFirstItem,
+-    highlightLastItem,
+-  } = useMenu({
++  const { contextValue, getListboxProps, highlightFirstItem, highlightLastItem } = useMenu({
+     open,
+     onClose,
+     listboxId: id,
+@@ -144,20 +136,17 @@ const Menu = React.forwardRef(function Menu(inProps, ref) {
+     [modifiersProp],
+   );
+ 
+-  const contextValue: MenuUnstyledContextType = React.useMemo(
++  const menuContextValue: MenuUnstyledContextType = React.useMemo(
+     () => ({
+-      registerItem,
+-      unregisterItem,
+-      getItemState,
+-      getItemProps,
++      ...contextValue,
+       open,
+     }),
+-    [getItemProps, getItemState, open, registerItem, unregisterItem],
++    [contextValue, open],
+   );
+ 
+   const result = (
+     <PopperUnstyled {...rootProps} modifiers={modifiers}>
+-      <MenuUnstyledContext.Provider value={contextValue}>
++      <MenuUnstyledContext.Provider value={menuContextValue}>
+         <ListProvider nested>
+           {disablePortal ? (
+             children
+diff --git a/packages/mui-joy/src/MenuList/MenuList.tsx b/packages/mui-joy/src/MenuList/MenuList.tsx
+index a5ac9f13d38c5b..a8264beee51dc8 100644
+--- a/packages/mui-joy/src/MenuList/MenuList.tsx
++++ b/packages/mui-joy/src/MenuList/MenuList.tsx
+@@ -67,15 +67,7 @@ const MenuList = React.forwardRef(function MenuList(inProps, ref) {
+   const { getColor } = useColorInversion(variant);
+   const color = getColor(inProps.color, colorProp);
+ 
+-  const {
+-    registerItem,
+-    unregisterItem,
+-    getListboxProps,
+-    getItemProps,
+-    getItemState,
+-    highlightFirstItem,
+-    highlightLastItem,
+-  } = useMenu({
++  const { contextValue, getListboxProps, highlightFirstItem, highlightLastItem } = useMenu({
+     listboxRef: ref,
+     listboxId: idProp,
+   });
+@@ -112,22 +104,19 @@ const MenuList = React.forwardRef(function MenuList(inProps, ref) {
+     className: classes.root,
+   });
+ 
+-  const contextValue = React.useMemo(
++  const menuContextValue = React.useMemo(
+     () =>
+       ({
+-        registerItem,
+-        unregisterItem,
+-        getItemState,
+-        getItemProps,
++        ...contextValue,
+         getListboxProps,
+         open: true,
+       } as MenuUnstyledContextType),
+-    [getItemProps, getItemState, getListboxProps, registerItem, unregisterItem],
++    [contextValue, getListboxProps],
+   );
+ 
+   return (
+     <MenuListRoot {...listboxProps}>
+-      <MenuUnstyledContext.Provider value={contextValue}>
++      <MenuUnstyledContext.Provider value={menuContextValue}>
+         <ListProvider nested>{children}</ListProvider>
+       </MenuUnstyledContext.Provider>
+     </MenuListRoot>
+diff --git a/packages/mui-joy/src/Option/Option.tsx b/packages/mui-joy/src/Option/Option.tsx
+index da68b786665160..63f5f2fcb60e09 100644
+--- a/packages/mui-joy/src/Option/Option.tsx
++++ b/packages/mui-joy/src/Option/Option.tsx
+@@ -1,9 +1,8 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+-import { unstable_useForkRef as useForkRef } from '@mui/utils';
+ import composeClasses from '@mui/base/composeClasses';
++import { useOption } from '@mui/base/OptionUnstyled';
+ import { useSlotProps } from '@mui/base/utils';
+-import { SelectUnstyledContext } from '@mui/base/SelectUnstyled';
+ import { StyledListItemButton } from '../ListItemButton/ListItemButton';
+ import { styled, useThemeProps } from '../styles';
+ import { useColorInversion } from '../styles/ColorInversion';
+@@ -43,7 +42,7 @@ const Option = React.forwardRef(function Option(inProps, ref) {
+   const {
+     component = 'li',
+     children,
+-    disabled,
++    disabled = false,
+     value,
+     label,
+     variant = 'plain',
+@@ -52,63 +51,36 @@ const Option = React.forwardRef(function Option(inProps, ref) {
+   } = props;
+ 
+   const row = React.useContext(RowListContext);
+-  const selectContext = React.useContext(SelectUnstyledContext);
+-
+-  if (!selectContext) {
+-    throw new Error('OptionUnstyled must be used within a SelectUnstyled');
+-  }
+ 
+-  const selectOption = {
+-    value,
+-    label: label || children,
++  const { getRootProps, selected, highlighted, index } = useOption({
+     disabled,
+-  };
+-
+-  const optionState = selectContext.getOptionState(selectOption);
+-  const optionProps = selectContext.getOptionProps(selectOption);
+-  const listboxRef = selectContext.listboxRef;
++    value,
++    optionRef: ref,
++  });
+ 
+   const { getColor } = useColorInversion(variant);
+-  const color = getColor(inProps.color, optionState.selected ? 'primary' : colorProp);
++  const color = getColor(inProps.color, selected ? 'primary' : colorProp);
+ 
+   const ownerState = {
+     ...props,
+-    ...optionState,
++    disabled,
++    selected,
++    highlighted,
++    index,
+     component,
+     variant,
+     color,
+     row,
+   };
+ 
+-  const optionRef = React.useRef<HTMLLIElement>(null);
+-  const handleRef = useForkRef(ref, optionRef);
+-
+-  React.useEffect(() => {
+-    // Scroll to the currently highlighted option
+-    if (optionState.highlighted) {
+-      if (!listboxRef.current || !optionRef.current) {
+-        return;
+-      }
+-      const listboxClientRect = listboxRef.current.getBoundingClientRect();
+-      const optionClientRect = optionRef.current.getBoundingClientRect();
+-
+-      if (optionClientRect.top < listboxClientRect.top) {
+-        listboxRef.current.scrollTop -= listboxClientRect.top - optionClientRect.top;
+-      } else if (optionClientRect.bottom > listboxClientRect.bottom) {
+-        listboxRef.current.scrollTop += optionClientRect.bottom - listboxClientRect.bottom;
+-      }
+-    }
+-  }, [optionState.highlighted, listboxRef]);
+-
+   const classes = useUtilityClasses(ownerState);
+ 
+   const rootProps = useSlotProps({
++    getSlotProps: getRootProps,
+     elementType: OptionRoot,
+     externalSlotProps: {},
+     externalForwardedProps: other,
+     additionalProps: {
+-      ...optionProps,
+-      ref: handleRef,
+       as: component,
+     },
+     className: classes.root,
+diff --git a/packages/mui-joy/src/Select/Select.tsx b/packages/mui-joy/src/Select/Select.tsx
+index 8263635235ae7f..9b627d3a1bd5ca 100644
+--- a/packages/mui-joy/src/Select/Select.tsx
++++ b/packages/mui-joy/src/Select/Select.tsx
+@@ -420,22 +420,24 @@ const Select = React.forwardRef(function Select<TValue extends {}>(
+     }
+   }, [autoFocus]);
+ 
+-  const handleOpenChange = (isOpen: boolean) => {
+-    setListboxOpen(isOpen);
+-    onListboxOpenChange?.(isOpen);
+-    if (!isOpen) {
+-      onClose?.();
+-    }
+-  };
++  const handleOpenChange = React.useCallback(
++    (isOpen: boolean) => {
++      setListboxOpen(isOpen);
++      onListboxOpenChange?.(isOpen);
++      if (!isOpen) {
++        onClose?.();
++      }
++    },
++    [onClose, onListboxOpenChange, setListboxOpen],
++  );
+ 
+   const {
+     buttonActive,
+     buttonFocusVisible,
++    contextValue,
+     disabled,
+     getButtonProps,
+     getListboxProps,
+-    getOptionProps,
+-    getOptionState,
+     value,
+   } = useSelect({
+     buttonRef,
+@@ -559,12 +561,10 @@ const Select = React.forwardRef(function Select<TValue extends {}>(
+ 
+   const context = React.useMemo(
+     () => ({
+-      getOptionProps,
+-      getOptionState,
+-      listboxRef,
++      ...contextValue,
+       color,
+     }),
+-    [color, getOptionProps, getOptionState],
++    [color, contextValue],
+   );
+ 
+   const modifiers = React.useMemo(

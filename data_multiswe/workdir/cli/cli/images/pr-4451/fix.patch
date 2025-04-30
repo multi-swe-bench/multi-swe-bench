@@ -1,0 +1,178 @@
+diff --git a/pkg/cmd/repo/delete/delete.go b/pkg/cmd/repo/delete/delete.go
+new file mode 100644
+index 00000000000..9dda14e2d70
+--- /dev/null
++++ b/pkg/cmd/repo/delete/delete.go
+@@ -0,0 +1,113 @@
++package delete
++
++import (
++	"errors"
++	"fmt"
++	"net/http"
++	"strings"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/prompt"
++
++	"github.com/AlecAivazis/survey/v2"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/spf13/cobra"
++)
++
++type DeleteOptions struct {
++	HttpClient func() (*http.Client, error)
++	IO         *iostreams.IOStreams
++	RepoArg    string
++	Confirmed  bool
++}
++
++func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Command {
++	opts := &DeleteOptions{
++		IO:         f.IOStreams,
++		HttpClient: f.HttpClient,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "delete <repository>",
++		Short: "Delete a repository",
++		Long: `Delete a GitHub repository.
++
++Deletion requires authorization with the "delete_repo" scope. 
++To authorize, run "gh auth refresh -s delete_repo"`,
++		Args: cmdutil.ExactArgs(1, "cannot delete: repository argument required"),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.RepoArg = args[0]
++			if !opts.IO.CanPrompt() && !opts.Confirmed {
++				return &cmdutil.FlagError{
++					Err: errors.New("could not prompt: confirmation with prompt or --confirm flag required")}
++			}
++			if runF != nil {
++				return runF(opts)
++			}
++			return deleteRun(opts)
++		},
++	}
++
++	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "confirm deletion without prompting")
++	return cmd
++}
++
++func deleteRun(opts *DeleteOptions) error {
++	httpClient, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++	apiClient := api.NewClientFromHTTP(httpClient)
++
++	repoSelector := opts.RepoArg
++	var toDelete ghrepo.Interface
++
++	if !strings.Contains(repoSelector, "/") {
++		currentUser, err := api.CurrentLoginName(apiClient, ghinstance.Default())
++		if err != nil {
++			return err
++		}
++		repoSelector = currentUser + "/" + repoSelector
++	}
++	toDelete, err = ghrepo.FromFullName(repoSelector)
++	if err != nil {
++		return fmt.Errorf("argument error: %w", err)
++	}
++
++	fullName := ghrepo.FullName(toDelete)
++
++	if !opts.Confirmed {
++		var valid string
++		err := prompt.SurveyAskOne(
++			&survey.Input{Message: fmt.Sprintf("Type %s to confirm deletion:", fullName)},
++			&valid,
++			survey.WithValidator(
++				func(val interface{}) error {
++					if str := val.(string); !strings.EqualFold(str, fullName) {
++						return fmt.Errorf("You entered %s", str)
++					}
++					return nil
++				}))
++		if err != nil {
++			return fmt.Errorf("could not prompt: %w", err)
++		}
++	}
++
++	err = deleteRepo(httpClient, toDelete)
++	if err != nil {
++		return err
++	}
++
++	if opts.IO.IsStdoutTTY() {
++		cs := opts.IO.ColorScheme()
++		fmt.Fprintf(opts.IO.Out,
++			"%s Deleted repository %s\n",
++			cs.SuccessIcon(),
++			fullName)
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/delete/http.go b/pkg/cmd/repo/delete/http.go
+new file mode 100644
+index 00000000000..bd77328acb2
+--- /dev/null
++++ b/pkg/cmd/repo/delete/http.go
+@@ -0,0 +1,33 @@
++package delete
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++func deleteRepo(client *http.Client, repo ghrepo.Interface) error {
++	url := fmt.Sprintf("%srepos/%s",
++		ghinstance.RESTPrefix(repo.RepoHost()),
++		ghrepo.FullName(repo))
++
++	request, err := http.NewRequest("DELETE", url, nil)
++	if err != nil {
++		return err
++	}
++
++	resp, err := client.Do(request)
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode > 299 {
++		return api.HandleHTTPError(resp)
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/repo.go b/pkg/cmd/repo/repo.go
+index 11c36b012ce..5b2f467d934 100644
+--- a/pkg/cmd/repo/repo.go
++++ b/pkg/cmd/repo/repo.go
+@@ -6,6 +6,7 @@ import (
+ 	repoCloneCmd "github.com/cli/cli/v2/pkg/cmd/repo/clone"
+ 	repoCreateCmd "github.com/cli/cli/v2/pkg/cmd/repo/create"
+ 	creditsCmd "github.com/cli/cli/v2/pkg/cmd/repo/credits"
++	repoDeleteCmd "github.com/cli/cli/v2/pkg/cmd/repo/delete"
+ 	repoForkCmd "github.com/cli/cli/v2/pkg/cmd/repo/fork"
+ 	gardenCmd "github.com/cli/cli/v2/pkg/cmd/repo/garden"
+ 	repoListCmd "github.com/cli/cli/v2/pkg/cmd/repo/list"
+@@ -43,6 +44,7 @@ func NewCmdRepo(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(repoSyncCmd.NewCmdSync(f, nil))
+ 	cmd.AddCommand(creditsCmd.NewCmdRepoCredits(f, nil))
+ 	cmd.AddCommand(gardenCmd.NewCmdGarden(f, nil))
++	cmd.AddCommand(repoDeleteCmd.NewCmdDelete(f, nil))
+ 	cmd.AddCommand(repoArchiveCmd.NewCmdArchive(f, nil))
+ 
+ 	return cmd

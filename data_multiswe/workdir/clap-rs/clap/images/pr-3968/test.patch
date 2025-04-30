@@ -1,0 +1,75 @@
+diff --git a/tests/builder/app_settings.rs b/tests/builder/app_settings.rs
+index 9cd549a6b53..fd83961eb2c 100644
+--- a/tests/builder/app_settings.rs
++++ b/tests/builder/app_settings.rs
+@@ -234,7 +234,7 @@ fn infer_subcommands_fail_no_args() {
+         .subcommand(Command::new("temp"))
+         .try_get_matches_from(vec!["prog", "te"]);
+     assert!(m.is_err(), "{:#?}", m.unwrap());
+-    assert_eq!(m.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(m.unwrap_err().kind(), ErrorKind::InvalidSubcommand);
+ }
+ 
+ #[cfg(feature = "suggestions")]
+@@ -333,7 +333,7 @@ fn infer_subcommands_fail_suggestions() {
+         .subcommand(Command::new("temp"))
+         .try_get_matches_from(vec!["prog", "temps"]);
+     assert!(m.is_err(), "{:#?}", m.unwrap());
+-    assert_eq!(m.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(m.unwrap_err().kind(), ErrorKind::InvalidSubcommand);
+ }
+ 
+ #[test]
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index 3262465d8a9..50b292e19d1 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -2599,7 +2599,7 @@ fn disabled_help_flag() {
+         .try_get_matches_from("foo a".split(' '));
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
+ }
+ 
+ #[test]
+@@ -2611,7 +2611,7 @@ fn disabled_help_flag_and_subcommand() {
+         .try_get_matches_from("foo help".split(' '));
+     assert!(res.is_err());
+     let err = res.unwrap_err();
+-    assert_eq!(err.kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
+     assert!(
+         err.to_string().ends_with('\n'),
+         "Errors should have a trailing newline, got {:?}",
+diff --git a/tests/builder/subcommands.rs b/tests/builder/subcommands.rs
+index df31ebb866a..9bc4728dfeb 100644
+--- a/tests/builder/subcommands.rs
++++ b/tests/builder/subcommands.rs
+@@ -539,7 +539,7 @@ fn busybox_like_multicall() {
+ 
+     let m = cmd.clone().try_get_matches_from(&["a.out"]);
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(m.unwrap_err().kind(), ErrorKind::InvalidSubcommand);
+ }
+ 
+ #[test]
+@@ -560,7 +560,7 @@ fn hostname_like_multicall() {
+ 
+     let m = cmd.clone().try_get_matches_from(&["a.out"]);
+     assert!(m.is_err());
+-    assert_eq!(m.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(m.unwrap_err().kind(), ErrorKind::InvalidSubcommand);
+ 
+     let m = cmd.try_get_matches_from_mut(&["hostname", "hostname"]);
+     assert!(m.is_err());
+@@ -581,7 +581,7 @@ fn bad_multicall_command_error() {
+         .subcommand(Command::new("bar"));
+ 
+     let err = cmd.clone().try_get_matches_from(&["world"]).unwrap_err();
+-    assert_eq!(err.kind(), ErrorKind::UnrecognizedSubcommand);
++    assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
+     static HELLO_EXPECTED: &str = "\
+ error: The subcommand 'world' wasn't recognized
+ 

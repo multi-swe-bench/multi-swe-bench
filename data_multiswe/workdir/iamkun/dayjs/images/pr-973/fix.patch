@@ -1,0 +1,40 @@
+diff --git a/src/plugin/utc/index.js b/src/plugin/utc/index.js
+index a5bc6353f..3030f2b8a 100644
+--- a/src/plugin/utc/index.js
++++ b/src/plugin/utc/index.js
+@@ -45,7 +45,7 @@ export default (option, Dayjs, dayjs) => {
+   }
+ 
+   const oldUtcOffset = proto.utcOffset
+-  proto.utcOffset = function (input) {
++  proto.utcOffset = function (input, keepLocalTime) {
+     const { u } = this.$utils()
+     if (u(input)) {
+       if (this.$u) {
+@@ -57,7 +57,12 @@ export default (option, Dayjs, dayjs) => {
+       return oldUtcOffset.call(this)
+     }
+     const offset = Math.abs(input) <= 16 ? input * 60 : input
+-    let ins
++    let ins = this
++    if (keepLocalTime) {
++      ins.$offset = offset
++      ins.$u = input === 0
++      return ins
++    }
+     if (input !== 0) {
+       ins = this.local().add(offset + localOffset, MIN)
+       ins.$offset = offset
+diff --git a/types/plugin/utc.d.ts b/types/plugin/utc.d.ts
+index d25e2e847..180276175 100644
+--- a/types/plugin/utc.d.ts
++++ b/types/plugin/utc.d.ts
+@@ -12,7 +12,7 @@ declare module 'dayjs' {
+ 
+     isUTC(): boolean
+ 
+-    utcOffset(offset: number): Dayjs
++    utcOffset(offset: number, keepLocalTime?: boolean): Dayjs
+   }
+ 
+   export function utc(config?: ConfigType, format?: string): Dayjs

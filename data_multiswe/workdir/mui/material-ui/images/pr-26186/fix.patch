@@ -1,0 +1,504 @@
+diff --git a/docs/pages/api-docs/native-select.json b/docs/pages/api-docs/native-select.json
+index 215b3a1d03c1d8..bd478f50ad7a0f 100644
+--- a/docs/pages/api-docs/native-select.json
++++ b/docs/pages/api-docs/native-select.json
+@@ -1,7 +1,7 @@
+ {
+   "props": {
+     "children": { "type": { "name": "node" } },
+-    "classes": { "type": { "name": "object" } },
++    "classes": { "type": { "name": "object" }, "default": "{}" },
+     "IconComponent": { "type": { "name": "elementType" }, "default": "ArrowDropDownIcon" },
+     "input": { "type": { "name": "element" }, "default": "<Input />" },
+     "inputProps": { "type": { "name": "object" } },
+@@ -23,7 +23,6 @@
+       "filled",
+       "outlined",
+       "standard",
+-      "selectMenu",
+       "disabled",
+       "icon",
+       "iconOpen",
+diff --git a/docs/pages/api-docs/select.json b/docs/pages/api-docs/select.json
+index 5f39c1a64842ba..36f4c06b7db268 100644
+--- a/docs/pages/api-docs/select.json
++++ b/docs/pages/api-docs/select.json
+@@ -38,7 +38,6 @@
+       "filled",
+       "outlined",
+       "standard",
+-      "selectMenu",
+       "disabled",
+       "icon",
+       "iconOpen",
+diff --git a/docs/src/pages/guides/migration-v4/migration-v4.md b/docs/src/pages/guides/migration-v4/migration-v4.md
+index 584edd0ddbffb5..5492a8d1849a37 100644
+--- a/docs/src/pages/guides/migration-v4/migration-v4.md
++++ b/docs/src/pages/guides/migration-v4/migration-v4.md
+@@ -956,6 +956,15 @@ As the core components use emotion as a styled engine, the props used by emotion
+ - Remove `onRendered` prop.
+   Depending on your use case either use a [callback ref](https://reactjs.org/docs/refs-and-the-dom.html#callback-refs) on the child element or an effect hook in the child component.
+ 
++### NativeSelect
++
++- Merge the `selectMenu` slot into `select`. Slot `selectMenu` was redundant. The `root` slot is no longer applied to the select, but to the root.
++
++  ```diff
++  -<NativeSelect classes={{ root: 'class1', select: 'class2', selectMenu: 'class3' }} />
++  +<NativeSelect classes={{ select: 'class1 class2 class3' }} />
++  ```
++
+ ### OutlinedInput
+ 
+ - Remove the `labelWidth` prop. The `label` prop now fulfills the same purpose, using CSS layout instead of JavaScript measurement to render the gap in the outlined.
+@@ -1125,6 +1134,13 @@ As the core components use emotion as a styled engine, the props used by emotion
+   +<Select label="Gender" />
+   ```
+ 
++- Merge the `selectMenu` slot into `select`. Slot `selectMenu` was redundant. The `root` slot is no longer applied to the select, but to the root.
++
++  ```diff
++  -<Select classes={{ root: 'class1', select: 'class2', selectMenu: 'class3' }} />
++  +<Select classes={{ select: 'class1 class2 class3' }} />
++  ```
++
+ ### Skeleton
+ 
+ - Move the component from the lab to the core. The component is now stable.
+@@ -1308,6 +1324,15 @@ As the core components use emotion as a styled engine, the props used by emotion
+   />
+   ```
+ 
++- Move the custom class on `input` to `select`. The `input` key is being applied on another element.
++
++  ```diff
++  <TablePagination
++  - classes={{ input: 'foo' }}
++  + classes={{ select: 'foo' }}
++  />
++  ```
++
+ - Rename the `default` value of the `padding` prop to `normal`.
+ 
+   ```diff
+diff --git a/docs/translations/api-docs/native-select/native-select.json b/docs/translations/api-docs/native-select/native-select.json
+index 23bb06bf89737b..fb63889c682e0c 100644
+--- a/docs/translations/api-docs/native-select/native-select.json
++++ b/docs/translations/api-docs/native-select/native-select.json
+@@ -12,10 +12,7 @@
+     "variant": "The variant to use."
+   },
+   "classDescriptions": {
+-    "root": {
+-      "description": "Styles applied to {{nodeName}}.",
+-      "nodeName": "the select component `root` class"
+-    },
++    "root": { "description": "Styles applied to the root element." },
+     "select": {
+       "description": "Styles applied to {{nodeName}}.",
+       "nodeName": "the select component `select` class"
+@@ -35,10 +32,6 @@
+       "nodeName": "the select component",
+       "conditions": "<code>variant=\"standard\"</code>"
+     },
+-    "selectMenu": {
+-      "description": "Styles applied to {{nodeName}}.",
+-      "nodeName": "the select component `selectMenu` class"
+-    },
+     "disabled": {
+       "description": "Pseudo-class applied to {{nodeName}}.",
+       "nodeName": "the select component `disabled` class"
+diff --git a/docs/translations/api-docs/select/select.json b/docs/translations/api-docs/select/select.json
+index 5d08baa69fa2fa..f068cc76d9780f 100644
+--- a/docs/translations/api-docs/select/select.json
++++ b/docs/translations/api-docs/select/select.json
+@@ -26,10 +26,7 @@
+     "variant": "The variant to use."
+   },
+   "classDescriptions": {
+-    "root": {
+-      "description": "Styles applied to {{nodeName}}.",
+-      "nodeName": "the select component `root` class"
+-    },
++    "root": { "description": "Styles applied to the root element." },
+     "select": {
+       "description": "Styles applied to {{nodeName}}.",
+       "nodeName": "the select component `select` class"
+@@ -49,10 +46,6 @@
+       "nodeName": "the select component",
+       "conditions": "<code>variant=\"standard\"</code>"
+     },
+-    "selectMenu": {
+-      "description": "Styles applied to {{nodeName}}.",
+-      "nodeName": "the select component `selectMenu` class"
+-    },
+     "disabled": {
+       "description": "Pseudo-class applied to {{nodeName}}.",
+       "nodeName": "the select component `disabled` class"
+diff --git a/packages/material-ui/src/NativeSelect/NativeSelect.d.ts b/packages/material-ui/src/NativeSelect/NativeSelect.d.ts
+index 802e5c2339b51b..abac721aa98984 100644
+--- a/packages/material-ui/src/NativeSelect/NativeSelect.d.ts
++++ b/packages/material-ui/src/NativeSelect/NativeSelect.d.ts
+@@ -13,9 +13,10 @@ export interface NativeSelectProps
+   children?: React.ReactNode;
+   /**
+    * Override or extend the styles applied to the component.
++   * @default {}
+    */
+   classes?: {
+-    /** Styles applied to the select component `root` class. */
++    /** Styles applied to the root element. */
+     root?: string;
+     /** Styles applied to the select component `select` class. */
+     select?: string;
+@@ -25,8 +26,6 @@ export interface NativeSelectProps
+     outlined?: string;
+     /** Styles applied to the select component if `variant="standard"`. */
+     standard?: string;
+-    /** Styles applied to the select component `selectMenu` class. */
+-    selectMenu?: string;
+     /** Pseudo-class applied to the select component `disabled` class. */
+     disabled?: string;
+     /** Styles applied to the icon component. */
+diff --git a/packages/material-ui/src/NativeSelect/NativeSelect.js b/packages/material-ui/src/NativeSelect/NativeSelect.js
+index 06483c417194d3..edb7faa8b081b1 100644
+--- a/packages/material-ui/src/NativeSelect/NativeSelect.js
++++ b/packages/material-ui/src/NativeSelect/NativeSelect.js
+@@ -1,12 +1,24 @@
+ import * as React from 'react';
+ import clsx from 'clsx';
+ import PropTypes from 'prop-types';
++import { unstable_composeClasses as composeClasses } from '@material-ui/unstyled';
+ import NativeSelectInput from './NativeSelectInput';
+ import formControlState from '../FormControl/formControlState';
+ import useFormControl from '../FormControl/useFormControl';
+ import ArrowDropDownIcon from '../internal/svg-icons/ArrowDropDown';
+ import Input from '../Input';
+ import useThemeProps from '../styles/useThemeProps';
++import { getNativeSelectUtilityClasses } from './nativeSelectClasses';
++
++const useUtilityClasses = (styleProps) => {
++  const { classes } = styleProps;
++
++  const slots = {
++    root: ['root'],
++  };
++
++  return composeClasses(slots, getNativeSelectUtilityClasses, classes);
++};
+ 
+ const defaultInput = <Input />;
+ /**
+@@ -17,7 +29,7 @@ const NativeSelect = React.forwardRef(function NativeSelect(inProps, ref) {
+   const {
+     className,
+     children,
+-    classes,
++    classes: classesProp = {},
+     IconComponent = ArrowDropDownIcon,
+     input = defaultInput,
+     inputProps,
+@@ -32,13 +44,17 @@ const NativeSelect = React.forwardRef(function NativeSelect(inProps, ref) {
+     states: ['variant'],
+   });
+ 
++  const styleProps = { ...props, classes: classesProp };
++  const classes = useUtilityClasses(styleProps);
++  const { root, ...otherClasses } = classesProp;
++
+   return React.cloneElement(input, {
+     // Most of the logic is implemented in `NativeSelectInput`.
+     // The `Select` component is a simple API wrapper to expose something better to play with.
+     inputComponent: NativeSelectInput,
+     inputProps: {
+       children,
+-      classes,
++      classes: otherClasses,
+       IconComponent,
+       variant: fcs.variant,
+       type: undefined, // We render a select. We can ignore the type provided by the `Input`.
+@@ -47,7 +63,7 @@ const NativeSelect = React.forwardRef(function NativeSelect(inProps, ref) {
+     },
+     ref,
+     ...other,
+-    className: clsx(className, input.props.className),
++    className: clsx(classes.root, input.props.className, className),
+   });
+ });
+ 
+@@ -63,6 +79,7 @@ NativeSelect.propTypes /* remove-proptypes */ = {
+   children: PropTypes.node,
+   /**
+    * Override or extend the styles applied to the component.
++   * @default {}
+    */
+   classes: PropTypes.object,
+   /**
+diff --git a/packages/material-ui/src/NativeSelect/NativeSelectInput.js b/packages/material-ui/src/NativeSelect/NativeSelectInput.js
+index 340c537fbf964c..141e6ef0c61996 100644
+--- a/packages/material-ui/src/NativeSelect/NativeSelectInput.js
++++ b/packages/material-ui/src/NativeSelect/NativeSelectInput.js
+@@ -11,14 +11,14 @@ const useUtilityClasses = (styleProps) => {
+   const { classes, variant, disabled, open } = styleProps;
+ 
+   const slots = {
+-    root: ['root', 'select', variant, disabled && 'disabled'],
++    select: ['select', variant, disabled && 'disabled'],
+     icon: ['icon', `icon${capitalize(variant)}`, open && 'iconOpen', disabled && 'disabled'],
+   };
+ 
+   return composeClasses(slots, getNativeSelectUtilityClasses, classes);
+ };
+ 
+-export const nativeSelectRootStyles = ({ styleProps, theme }) => ({
++export const nativeSelectSelectStyles = ({ styleProps, theme }) => ({
+   MozAppearance: 'none', // Reset
+   WebkitAppearance: 'none', // Reset
+   // When interacting quickly, the text can end up selected.
+@@ -66,23 +66,22 @@ export const nativeSelectRootStyles = ({ styleProps, theme }) => ({
+   }),
+ });
+ 
+-const NativeSelectRoot = experimentalStyled(
++const NativeSelectSelect = experimentalStyled(
+   'select',
+   {},
+   {
+     name: 'MuiNativeSelect',
+-    slot: 'Root',
++    slot: 'Select',
+     overridesResolver: (props, styles) => {
+       const { styleProps } = props;
+ 
+       return {
+-        ...styles.root,
+         ...styles.select,
+         ...styles[styleProps.variant],
+       };
+     },
+   },
+-)(nativeSelectRootStyles);
++)(nativeSelectSelectStyles);
+ 
+ export const nativeSelectIconStyles = ({ styleProps, theme }) => ({
+   // We use a position absolute over a flexbox in order to forward the pointer events
+@@ -138,9 +137,9 @@ const NativeSelectInput = React.forwardRef(function NativeSelectInput(props, ref
+   const classes = useUtilityClasses(styleProps);
+   return (
+     <React.Fragment>
+-      <NativeSelectRoot
++      <NativeSelectSelect
+         styleProps={styleProps}
+-        className={clsx(classes.root, className)}
++        className={clsx(classes.select, className)}
+         disabled={disabled}
+         ref={inputRef || ref}
+         {...other}
+diff --git a/packages/material-ui/src/NativeSelect/nativeSelectClasses.js b/packages/material-ui/src/NativeSelect/nativeSelectClasses.js
+index 37dba0ebfe7ca6..cffb956791b05f 100644
+--- a/packages/material-ui/src/NativeSelect/nativeSelectClasses.js
++++ b/packages/material-ui/src/NativeSelect/nativeSelectClasses.js
+@@ -10,7 +10,6 @@ const nativeSelectClasses = generateUtilityClasses('MuiNativeSelect', [
+   'filled',
+   'outlined',
+   'standard',
+-  'selectMenu',
+   'disabled',
+   'icon',
+   'iconOpen',
+diff --git a/packages/material-ui/src/Select/Select.d.ts b/packages/material-ui/src/Select/Select.d.ts
+index 38c885ec7fed55..4eeb18b96e4fd8 100644
+--- a/packages/material-ui/src/Select/Select.d.ts
++++ b/packages/material-ui/src/Select/Select.d.ts
+@@ -26,7 +26,7 @@ export interface SelectProps<T = unknown>
+    * @default {}
+    */
+   classes?: {
+-    /** Styles applied to the select component `root` class. */
++    /** Styles applied to the root element. */
+     root?: string;
+     /** Styles applied to the select component `select` class. */
+     select?: string;
+@@ -36,8 +36,6 @@ export interface SelectProps<T = unknown>
+     outlined?: string;
+     /** Styles applied to the select component if `variant="standard"`. */
+     standard?: string;
+-    /** Styles applied to the select component `selectMenu` class. */
+-    selectMenu?: string;
+     /** Pseudo-class applied to the select component `disabled` class. */
+     disabled?: string;
+     /** Styles applied to the icon component. */
+diff --git a/packages/material-ui/src/Select/Select.js b/packages/material-ui/src/Select/Select.js
+index 8c4ac956b952dc..8b9555ffcb1cca 100644
+--- a/packages/material-ui/src/Select/Select.js
++++ b/packages/material-ui/src/Select/Select.js
+@@ -2,6 +2,7 @@ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+ import { deepmerge } from '@material-ui/utils';
++import { unstable_composeClasses as composeClasses } from '@material-ui/unstyled';
+ import SelectInput from './SelectInput';
+ import formControlState from '../FormControl/formControlState';
+ import useFormControl from '../FormControl/useFormControl';
+@@ -11,13 +12,24 @@ import NativeSelectInput from '../NativeSelect/NativeSelectInput';
+ import FilledInput from '../FilledInput';
+ import OutlinedInput from '../OutlinedInput';
+ import useThemeProps from '../styles/useThemeProps';
++import { getSelectUtilityClasses } from './selectClasses';
++
++const useUtilityClasses = (styleProps) => {
++  const { classes } = styleProps;
++
++  const slots = {
++    root: ['root'],
++  };
++
++  return composeClasses(slots, getSelectUtilityClasses, classes);
++};
+ 
+ const Select = React.forwardRef(function Select(inProps, ref) {
+   const props = useThemeProps({ name: 'MuiSelect', props: inProps });
+   const {
+     autoWidth = false,
+     children,
+-    classes = {},
++    classes: classesProp = {},
+     className,
+     displayEmpty = false,
+     IconComponent = ArrowDropDownIcon,
+@@ -57,6 +69,10 @@ const Select = React.forwardRef(function Select(inProps, ref) {
+       filled: <FilledInput />,
+     }[variant];
+ 
++  const styleProps = { ...props, classes: classesProp };
++  const classes = useUtilityClasses(styleProps);
++  const { root, ...otherClasses } = classesProp;
++
+   return React.cloneElement(InputComponent, {
+     // Most of the logic is implemented in `SelectInput`.
+     // The `Select` component is a simple API wrapper to expose something better to play with.
+@@ -81,12 +97,12 @@ const Select = React.forwardRef(function Select(inProps, ref) {
+             SelectDisplayProps: { id, ...SelectDisplayProps },
+           }),
+       ...inputProps,
+-      classes: inputProps ? deepmerge(classes, inputProps.classes) : classes,
++      classes: inputProps ? deepmerge(otherClasses, inputProps.classes) : otherClasses,
+       ...(input ? input.props.inputProps : {}),
+     },
+     ...(multiple && native && variant === 'outlined' ? { notched: true } : {}),
+     ref,
+-    className: clsx(className, InputComponent.props.className),
++    className: clsx(classes.root, InputComponent.props.className, className),
+     ...other,
+   });
+ });
+diff --git a/packages/material-ui/src/Select/SelectInput.js b/packages/material-ui/src/Select/SelectInput.js
+index de74690a55f431..10f7c20aa21ebf 100644
+--- a/packages/material-ui/src/Select/SelectInput.js
++++ b/packages/material-ui/src/Select/SelectInput.js
+@@ -8,35 +8,36 @@ import { refType } from '@material-ui/utils';
+ import ownerDocument from '../utils/ownerDocument';
+ import capitalize from '../utils/capitalize';
+ import Menu from '../Menu/Menu';
+-import { nativeSelectRootStyles, nativeSelectIconStyles } from '../NativeSelect/NativeSelectInput';
++import {
++  nativeSelectSelectStyles,
++  nativeSelectIconStyles,
++} from '../NativeSelect/NativeSelectInput';
+ import { isFilled } from '../InputBase/utils';
+ import experimentalStyled, { slotShouldForwardProp } from '../styles/experimentalStyled';
+ import useForkRef from '../utils/useForkRef';
+ import useControlled from '../utils/useControlled';
+ import selectClasses, { getSelectUtilityClasses } from './selectClasses';
+ 
+-const SelectRoot = experimentalStyled(
++const SelectSelect = experimentalStyled(
+   'div',
+   {},
+   {
+     name: 'MuiSelect',
+-    slot: 'Root',
++    slot: 'Select',
+     overridesResolver: (props, styles) => {
+       const { styleProps } = props;
+       return {
++        // Win specificity over the input base
+         [`&.${selectClasses.select}`]: {
+-          // TODO v5: remove `root` and `selectMenu`
+-          ...styles.root,
+           ...styles.select,
+-          ...styles.selectMenu,
+           ...styles[styleProps.variant],
+         },
+       };
+     },
+   },
+-)(nativeSelectRootStyles, {
++)(nativeSelectSelectStyles, {
+   // Win specificity over the input base
+-  [`&.${selectClasses.selectMenu}`]: {
++  [`&.${selectClasses.select}`]: {
+     height: 'auto', // Resets for multiple select with chips
+     minHeight: '1.4375em', // Required for select\text-field height consistency
+     textOverflow: 'ellipsis',
+@@ -98,7 +99,7 @@ const useUtilityClasses = (styleProps) => {
+   const { classes, variant, disabled, open } = styleProps;
+ 
+   const slots = {
+-    root: ['root', 'select', variant, disabled && 'disabled', 'selectMenu'],
++    select: ['select', variant, disabled && 'disabled'],
+     icon: ['icon', `icon${capitalize(variant)}`, open && 'iconOpen', disabled && 'disabled'],
+     nativeInput: ['nativeInput'],
+   };
+@@ -459,7 +460,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+ 
+   return (
+     <React.Fragment>
+-      <SelectRoot
++      <SelectSelect
+         ref={handleDisplayRef}
+         tabIndex={tabIndex}
+         role="button"
+@@ -475,7 +476,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+         onFocus={onFocus}
+         {...SelectDisplayProps}
+         styleProps={styleProps}
+-        className={clsx(classes.root, className, SelectDisplayProps.className)}
++        className={clsx(classes.select, className, SelectDisplayProps.className)}
+         // The id is required for proper a11y
+         id={buttonId}
+       >
+@@ -487,7 +488,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+         ) : (
+           display
+         )}
+-      </SelectRoot>
++      </SelectSelect>
+       <SelectNativeInput
+         value={Array.isArray(value) ? value.join(',') : value}
+         name={name}
+diff --git a/packages/material-ui/src/Select/selectClasses.js b/packages/material-ui/src/Select/selectClasses.js
+index 4d66e62cb347ac..8228a585933b0a 100644
+--- a/packages/material-ui/src/Select/selectClasses.js
++++ b/packages/material-ui/src/Select/selectClasses.js
+@@ -10,7 +10,6 @@ const selectClasses = generateUtilityClasses('MuiSelect', [
+   'filled',
+   'outlined',
+   'standard',
+-  'selectMenu',
+   'disabled',
+   'focused',
+   'icon',
+diff --git a/packages/material-ui/src/TablePagination/TablePagination.js b/packages/material-ui/src/TablePagination/TablePagination.js
+index 92e6f047a11904..ab9de56da58040 100644
+--- a/packages/material-ui/src/TablePagination/TablePagination.js
++++ b/packages/material-ui/src/TablePagination/TablePagination.js
+@@ -103,7 +103,7 @@ const TablePaginationSelect = experimentalStyled(
+   flexShrink: 0,
+   marginRight: 32,
+   marginLeft: 8,
+-  [`& .${tablePaginationClasses.input}`]: {
++  [`& .${tablePaginationClasses.select}`]: {
+     paddingLeft: 8,
+     paddingRight: 24,
+     textAlign: 'right',

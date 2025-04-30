@@ -1,0 +1,63 @@
+diff --git a/.changeset/lazy-months-knock.md b/.changeset/lazy-months-knock.md
+new file mode 100644
+index 000000000000..193e628fcfcd
+--- /dev/null
++++ b/.changeset/lazy-months-knock.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: make fallback prop values readonly
+diff --git a/packages/svelte/src/internal/client/proxy/readonly.js b/packages/svelte/src/internal/client/proxy/readonly.js
+index fa698c3b0830..f0dbea76a194 100644
+--- a/packages/svelte/src/internal/client/proxy/readonly.js
++++ b/packages/svelte/src/internal/client/proxy/readonly.js
+@@ -44,7 +44,7 @@ export function readonly(value) {
+ 
+ /** @returns {never} */
+ const readonly_error = () => {
+-	throw new Error(`Props are read-only, unless used with \`bind:\``);
++	throw new Error(`Props cannot be mutated, unless used with \`bind:\``);
+ };
+ 
+ /** @type {ProxyHandler<StateObject<any>>} */
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 462372f83f97..e9eeace7f0c8 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -3,6 +3,7 @@ import { subscribe_to_store } from '../../store/utils.js';
+ import { EMPTY_FUNC, run_all } from '../common.js';
+ import { get_descriptor, get_descriptors, is_array } from './utils.js';
+ import { PROPS_CALL_DEFAULT_VALUE, PROPS_IS_IMMUTABLE, PROPS_IS_RUNES } from '../../constants.js';
++import { readonly } from './proxy/readonly.js';
+ 
+ export const SOURCE = 1;
+ export const DERIVED = 1 << 1;
+@@ -1422,13 +1423,14 @@ export function is_store(val) {
+ export function prop_source(props_obj, key, flags, default_value) {
+ 	const call_default_value = (flags & PROPS_CALL_DEFAULT_VALUE) !== 0;
+ 	const immutable = (flags & PROPS_IS_IMMUTABLE) !== 0;
++	const runes = (flags & PROPS_IS_RUNES) !== 0;
+ 
+ 	const props = is_signal(props_obj) ? get(props_obj) : props_obj;
+ 	const update_bound_prop = get_descriptor(props, key)?.set;
+ 	let value = props[key];
+ 	const should_set_default_value = value === undefined && default_value !== undefined;
+ 
+-	if (update_bound_prop && default_value !== undefined && (flags & PROPS_IS_RUNES) !== 0) {
++	if (update_bound_prop && runes && default_value !== undefined) {
+ 		// TODO consolidate all these random runtime errors
+ 		throw new Error('Cannot use fallback values with bind:');
+ 	}
+@@ -1437,6 +1439,10 @@ export function prop_source(props_obj, key, flags, default_value) {
+ 		value =
+ 			// @ts-expect-error would need a cumbersome method overload to type this
+ 			call_default_value ? default_value() : default_value;
++
++		if (DEV && runes) {
++			value = readonly(/** @type {any} */ (value));
++		}
+ 	}
+ 
+ 	const source_signal = immutable ? source(value) : mutable_source(value);

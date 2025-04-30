@@ -1,0 +1,933 @@
+diff --git a/packages/mui-base/src/Dropdown/Dropdown.test.tsx b/packages/mui-base/src/Dropdown/Dropdown.test.tsx
+new file mode 100644
+index 00000000000000..3e591d5a26992c
+--- /dev/null
++++ b/packages/mui-base/src/Dropdown/Dropdown.test.tsx
+@@ -0,0 +1,108 @@
++import * as React from 'react';
++import { expect } from 'chai';
++import { act, createRenderer } from 'test/utils';
++import Dropdown from '@mui/base/Dropdown';
++import { DropdownContext } from '@mui/base/useDropdown';
++import MenuButton from '@mui/base/MenuButton';
++import MenuItem from '@mui/base/MenuItem';
++import Menu from '@mui/base/Menu';
++
++describe('<Dropdown />', () => {
++  const { render } = createRenderer();
++
++  it('registers a popup id correctly', () => {
++    function TestComponent() {
++      const { registerPopup, popupId } = React.useContext(DropdownContext)!;
++      expect(context).not.to.equal(null);
++
++      React.useEffect(() => {
++        registerPopup('test-popup');
++      }, [registerPopup]);
++
++      return <p>{popupId}</p>;
++    }
++
++    const { container } = render(
++      <Dropdown>
++        <TestComponent />
++      </Dropdown>,
++    );
++
++    expect(container.innerHTML).to.equal('<p>test-popup</p>');
++  });
++
++  it('registers a trigger element correctly', () => {
++    const trigger = document.createElement('button');
++    trigger.setAttribute('data-testid', 'test-button');
++
++    function TestComponent() {
++      const { registerTrigger, triggerElement } = React.useContext(DropdownContext)!;
++      expect(context).not.to.equal(null);
++
++      React.useEffect(() => {
++        registerTrigger(trigger);
++      }, [registerTrigger]);
++
++      return <p>{triggerElement?.getAttribute('data-testid')}</p>;
++    }
++
++    const { container } = render(
++      <Dropdown>
++        <TestComponent />
++      </Dropdown>,
++    );
++
++    expect(container.innerHTML).to.equal('<p>test-button</p>');
++  });
++
++  it('focuses the first item after the menu is opened', () => {
++    const { getByRole, getAllByRole } = render(
++      <div>
++        <Dropdown>
++          <MenuButton>Toggle</MenuButton>
++          <Menu>
++            <MenuItem>One</MenuItem>
++            <MenuItem>Two</MenuItem>
++            <MenuItem>Three</MenuItem>
++          </Menu>
++        </Dropdown>
++      </div>,
++    );
++
++    const button = getByRole('button');
++    act(() => {
++      button.click();
++    });
++
++    const menuItems = getAllByRole('menuitem');
++
++    expect(menuItems[0]).toHaveFocus();
++  });
++
++  it('focuses the trigger after the menu is closed', () => {
++    const { getByRole } = render(
++      <div>
++        <input type="text" />
++        <Dropdown>
++          <MenuButton>Toggle</MenuButton>
++          <Menu>
++            <MenuItem>Close</MenuItem>
++          </Menu>
++        </Dropdown>
++        <input type="text" />
++      </div>,
++    );
++
++    const button = getByRole('button');
++    act(() => {
++      button.click();
++    });
++
++    const menuItem = getByRole('menuitem');
++    act(() => {
++      menuItem.click();
++    });
++
++    expect(button).toHaveFocus();
++  });
++});
+diff --git a/packages/mui-base/src/Menu/Menu.test.tsx b/packages/mui-base/src/Menu/Menu.test.tsx
+index 30f5f50676e3b5..80a5edb5981122 100644
+--- a/packages/mui-base/src/Menu/Menu.test.tsx
++++ b/packages/mui-base/src/Menu/Menu.test.tsx
+@@ -10,51 +10,57 @@ import {
+ } from 'test/utils';
+ import Menu, { menuClasses } from '@mui/base/Menu';
+ import MenuItem from '@mui/base/MenuItem';
++import { DropdownContext, DropdownContextValue } from '@mui/base/useDropdown';
++
++const testContext: DropdownContextValue = {
++  dispatch: () => {},
++  popupId: 'menu-popup',
++  registerPopup: () => {},
++  registerTrigger: () => {},
++  state: { open: true },
++  triggerElement: null,
++};
+ 
+ describe('<Menu />', () => {
+   const mount = createMount();
+   const { render } = createRenderer();
+ 
+-  const defaultProps = {
+-    anchorEl: document.createElement('div'),
+-    open: true,
+-  };
+-
+-  describeConformanceUnstyled(<Menu {...defaultProps} />, () => ({
++  describeConformanceUnstyled(<Menu />, () => ({
+     inheritComponent: 'div',
+-    render,
+-    mount,
++    render: (node) => {
++      return render(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++    },
++    mount: (node: React.ReactNode) => {
++      const wrapper = mount(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++      return wrapper.childAt(0);
++    },
+     refInstanceof: window.HTMLDivElement,
+     muiName: 'MuiMenu',
+     slots: {
+       root: {
+         expectedClassName: menuClasses.root,
+-        testWithElement: null,
+       },
+       listbox: {
+         expectedClassName: menuClasses.listbox,
+       },
+     },
+-    skip: ['reactTestRenderer', 'propsSpread', 'componentProp', 'slotsProp'],
++    skip: ['reactTestRenderer', 'componentProp', 'slotsProp'],
+   }));
+ 
+   describe('after initialization', () => {
+-    const spyFocus = spy();
+-
+     function Test() {
+-      React.useEffect(() => {
+-        document.addEventListener('focus', spyFocus, true);
+-        return () => {
+-          document.removeEventListener('focus', spyFocus, true);
+-        };
+-      }, []);
+-
+       return (
+-        <Menu {...defaultProps}>
+-          <MenuItem>1</MenuItem>
+-          <MenuItem>2</MenuItem>
+-          <MenuItem>3</MenuItem>
+-        </Menu>
++        <DropdownContext.Provider value={testContext}>
++          <Menu>
++            <MenuItem>1</MenuItem>
++            <MenuItem>2</MenuItem>
++            <MenuItem>3</MenuItem>
++          </Menu>
++        </DropdownContext.Provider>
+       );
+     }
+ 
+@@ -66,19 +72,19 @@ describe('<Menu />', () => {
+       otherItems.forEach((item) => {
+         expect(item.tabIndex).to.equal(-1);
+       });
+-      expect(spyFocus.callCount).to.equal(1);
+-      expect(spyFocus.firstCall.args[0]).to.have.property('target', firstItem);
+     });
+   });
+ 
+   describe('keyboard navigation', () => {
+     it('changes the highlighted item using the arrow keys', () => {
+       const { getByTestId } = render(
+-        <Menu {...defaultProps}>
+-          <MenuItem data-testid="item-1">1</MenuItem>
+-          <MenuItem data-testid="item-2">2</MenuItem>
+-          <MenuItem data-testid="item-3">3</MenuItem>
+-        </Menu>,
++        <DropdownContext.Provider value={testContext}>
++          <Menu>
++            <MenuItem data-testid="item-1">1</MenuItem>
++            <MenuItem data-testid="item-2">2</MenuItem>
++            <MenuItem data-testid="item-3">3</MenuItem>
++          </Menu>
++        </DropdownContext.Provider>,
+       );
+ 
+       const item1 = getByTestId('item-1');
+@@ -101,11 +107,13 @@ describe('<Menu />', () => {
+ 
+     it('changes the highlighted item using the Home and End keys', () => {
+       const { getByTestId } = render(
+-        <Menu {...defaultProps}>
+-          <MenuItem data-testid="item-1">1</MenuItem>
+-          <MenuItem data-testid="item-2">2</MenuItem>
+-          <MenuItem data-testid="item-3">3</MenuItem>
+-        </Menu>,
++        <DropdownContext.Provider value={testContext}>
++          <Menu>
++            <MenuItem data-testid="item-1">1</MenuItem>
++            <MenuItem data-testid="item-2">2</MenuItem>
++            <MenuItem data-testid="item-3">3</MenuItem>
++          </Menu>
++        </DropdownContext.Provider>,
+       );
+ 
+       const item1 = getByTestId('item-1');
+@@ -124,12 +132,14 @@ describe('<Menu />', () => {
+ 
+     it('includes disabled items during keyboard navigation', () => {
+       const { getByTestId } = render(
+-        <Menu {...defaultProps}>
+-          <MenuItem data-testid="item-1">1</MenuItem>
+-          <MenuItem disabled data-testid="item-2">
+-            2
+-          </MenuItem>
+-        </Menu>,
++        <DropdownContext.Provider value={testContext}>
++          <Menu>
++            <MenuItem data-testid="item-1">1</MenuItem>
++            <MenuItem disabled data-testid="item-2">
++              2
++            </MenuItem>
++          </Menu>
++        </DropdownContext.Provider>,
+       );
+ 
+       const item1 = getByTestId('item-1');
+@@ -154,14 +164,16 @@ describe('<Menu />', () => {
+         }
+ 
+         const { getByText, getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem>Aa</MenuItem>
+-            <MenuItem>Ba</MenuItem>
+-            <MenuItem>Bb</MenuItem>
+-            <MenuItem>Ca</MenuItem>
+-            <MenuItem>Cb</MenuItem>
+-            <MenuItem>Cd</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem>Aa</MenuItem>
++              <MenuItem>Ba</MenuItem>
++              <MenuItem>Bb</MenuItem>
++              <MenuItem>Ca</MenuItem>
++              <MenuItem>Cb</MenuItem>
++              <MenuItem>Cd</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -187,12 +199,14 @@ describe('<Menu />', () => {
+         }
+ 
+         const { getByText, getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem>Aa</MenuItem>
+-            <MenuItem>Ba</MenuItem>
+-            <MenuItem>Bb</MenuItem>
+-            <MenuItem>Ca</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem>Aa</MenuItem>
++              <MenuItem>Ba</MenuItem>
++              <MenuItem>Bb</MenuItem>
++              <MenuItem>Ca</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -216,12 +230,14 @@ describe('<Menu />', () => {
+ 
+       it('changes the highlighted item using text navigation on label prop', () => {
+         const { getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem label="Aa">1</MenuItem>
+-            <MenuItem label="Ba">2</MenuItem>
+-            <MenuItem label="Bb">3</MenuItem>
+-            <MenuItem label="Ca">4</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem label="Aa">1</MenuItem>
++              <MenuItem label="Ba">2</MenuItem>
++              <MenuItem label="Bb">3</MenuItem>
++              <MenuItem label="Ca">4</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -251,17 +267,19 @@ describe('<Menu />', () => {
+         }
+ 
+         const { getByText, getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem>Aa</MenuItem>
+-            <MenuItem>Ba</MenuItem>
+-            <MenuItem />
+-            <MenuItem>
+-              <div>Nested Content</div>
+-            </MenuItem>
+-            <MenuItem>{undefined}</MenuItem>
+-            <MenuItem>{null}</MenuItem>
+-            <MenuItem>Bc</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem>Aa</MenuItem>
++              <MenuItem>Ba</MenuItem>
++              <MenuItem />
++              <MenuItem>
++                <div>Nested Content</div>
++              </MenuItem>
++              <MenuItem>{undefined}</MenuItem>
++              <MenuItem>{null}</MenuItem>
++              <MenuItem>Bc</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -291,12 +309,14 @@ describe('<Menu />', () => {
+         }
+ 
+         const { getByText, getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem>Aa</MenuItem>
+-            <MenuItem>Ba</MenuItem>
+-            <MenuItem>Bb</MenuItem>
+-            <MenuItem>Bą</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem>Aa</MenuItem>
++              <MenuItem>Ba</MenuItem>
++              <MenuItem>Bb</MenuItem>
++              <MenuItem>Bą</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -324,12 +344,14 @@ describe('<Menu />', () => {
+         }
+ 
+         const { getByText, getAllByRole } = render(
+-          <Menu {...defaultProps}>
+-            <MenuItem>Aa</MenuItem>
+-            <MenuItem>ąa</MenuItem>
+-            <MenuItem>ąb</MenuItem>
+-            <MenuItem>ąc</MenuItem>
+-          </Menu>,
++          <DropdownContext.Provider value={testContext}>
++            <Menu>
++              <MenuItem>Aa</MenuItem>
++              <MenuItem>ąa</MenuItem>
++              <MenuItem>ąb</MenuItem>
++              <MenuItem>ąc</MenuItem>
++            </Menu>
++          </DropdownContext.Provider>,
+         );
+ 
+         const items = getAllByRole('menuitem');
+@@ -364,17 +386,24 @@ describe('<Menu />', () => {
+       const handleItemsChange = spy();
+ 
+       const { setProps } = render(
+-        <Menu {...defaultProps} onItemsChange={handleItemsChange}>
+-          <MenuItem key="1">1</MenuItem>
+-          <MenuItem key="2">2</MenuItem>
+-        </Menu>,
++        <DropdownContext.Provider value={testContext}>
++          <Menu onItemsChange={handleItemsChange}>
++            <MenuItem key="1">1</MenuItem>
++            <MenuItem key="2">2</MenuItem>
++          </Menu>
++        </DropdownContext.Provider>,
+       );
+ 
+       // The first call is the initial render.
+       expect(handleItemsChange.callCount).to.equal(1);
+ 
+       setProps({
+-        children: [<MenuItem key="1">1</MenuItem>, <MenuItem key="3">3</MenuItem>],
++        children: (
++          <Menu onItemsChange={handleItemsChange}>
++            <MenuItem key="1">1</MenuItem>
++            <MenuItem key="3">3</MenuItem>
++          </Menu>
++        ),
+       });
+ 
+       expect(handleItemsChange.callCount).to.equal(2);
+diff --git a/packages/mui-base/src/MenuButton/MenuButton.test.tsx b/packages/mui-base/src/MenuButton/MenuButton.test.tsx
+new file mode 100644
+index 00000000000000..e1b10baaea2df5
+--- /dev/null
++++ b/packages/mui-base/src/MenuButton/MenuButton.test.tsx
+@@ -0,0 +1,215 @@
++import * as React from 'react';
++import { expect } from 'chai';
++import { spy } from 'sinon';
++import {
++  act,
++  createMount,
++  createRenderer,
++  describeConformanceUnstyled,
++  fireEvent,
++} from 'test/utils';
++import MenuButton, { menuButtonClasses } from '@mui/base/MenuButton';
++import { DropdownContext, DropdownContextValue, DropdownActionTypes } from '@mui/base/useDropdown';
++
++const testContext: DropdownContextValue = {
++  dispatch: () => {},
++  popupId: 'menu-popup',
++  registerPopup: () => {},
++  registerTrigger: () => {},
++  state: { open: true },
++  triggerElement: null,
++};
++
++describe('<MenuButton />', () => {
++  const mount = createMount();
++  const { render } = createRenderer();
++
++  describeConformanceUnstyled(<MenuButton />, () => ({
++    inheritComponent: 'button',
++    render: (node) => {
++      return render(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++    },
++    mount: (node: React.ReactNode) => {
++      const wrapper = mount(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++      return wrapper.childAt(0);
++    },
++    refInstanceof: window.HTMLButtonElement,
++    muiName: 'MuiMenuButton',
++    slots: {
++      root: {
++        expectedClassName: menuButtonClasses.root,
++        testWithElement: null,
++      },
++    },
++    skip: ['componentProp', 'reactTestRenderer'],
++  }));
++
++  describe('prop: disabled', () => {
++    it('should render a disabled button', () => {
++      const { getByRole } = render(
++        <DropdownContext.Provider value={testContext}>
++          <MenuButton disabled />
++        </DropdownContext.Provider>,
++      );
++
++      const button = getByRole('button');
++      expect(button).to.have.property('disabled', true);
++    });
++
++    it('should not open the menu when clicked', () => {
++      const dispatchSpy = spy();
++      const context = {
++        ...testContext,
++        state: { open: false },
++        dispatch: dispatchSpy,
++      };
++
++      const { getByRole } = render(
++        <DropdownContext.Provider value={context}>
++          <MenuButton disabled />
++        </DropdownContext.Provider>,
++      );
++
++      const button = getByRole('button');
++      button.click();
++
++      expect(dispatchSpy.called).to.equal(false);
++    });
++  });
++
++  describe('prop: focusableWhenDisabled', () => {
++    it('has the aria-disabled instead of disabled attribute when disabled', () => {
++      const { getByRole } = render(
++        <DropdownContext.Provider value={testContext}>
++          <MenuButton disabled focusableWhenDisabled />
++        </DropdownContext.Provider>,
++      );
++
++      const button = getByRole('button');
++      expect(button).to.have.attribute('aria-disabled');
++      expect(button).not.to.have.attribute('disabled');
++    });
++
++    it('can receive focus when focusableWhenDisabled is set', () => {
++      const { getByRole } = render(
++        <DropdownContext.Provider value={testContext}>
++          <MenuButton disabled focusableWhenDisabled />
++        </DropdownContext.Provider>,
++      );
++
++      const button = getByRole('button');
++      act(() => {
++        button.focus();
++      });
++
++      expect(document.activeElement).to.equal(button);
++    });
++  });
++
++  it('toggles the menu state when clicked', () => {
++    const dispatchSpy = spy();
++    const context = {
++      ...testContext,
++      state: { open: false },
++      dispatch: dispatchSpy,
++    };
++
++    const { getByRole } = render(
++      <DropdownContext.Provider value={context}>
++        <MenuButton />
++      </DropdownContext.Provider>,
++    );
++
++    const button = getByRole('button');
++    button.click();
++
++    expect(dispatchSpy.calledOnce).to.equal(true);
++    expect(dispatchSpy.args[0][0]).to.contain({ type: DropdownActionTypes.toggle });
++  });
++
++  describe('keyboard navigation', () => {
++    ['ArrowUp', 'ArrowDown'].forEach((key) =>
++      it(`opens the menu when pressing ${key}`, () => {
++        const dispatchSpy = spy();
++        const context = {
++          ...testContext,
++          state: { open: false },
++          dispatch: dispatchSpy,
++        };
++
++        const { getByRole } = render(
++          <DropdownContext.Provider value={context}>
++            <MenuButton />
++          </DropdownContext.Provider>,
++        );
++        const button = getByRole('button');
++
++        act(() => {
++          button.focus();
++        });
++
++        fireEvent.keyDown(button, { key });
++
++        expect(dispatchSpy.calledOnce).to.equal(true);
++        expect(dispatchSpy.args[0][0]).to.contain({ type: DropdownActionTypes.open });
++      }),
++    );
++  });
++
++  describe('accessibility attributes', () => {
++    it('has the aria-haspopup attribute', () => {
++      const { getByRole } = render(
++        <DropdownContext.Provider value={testContext}>
++          <MenuButton />
++        </DropdownContext.Provider>,
++      );
++
++      const button = getByRole('button');
++      expect(button).to.have.attribute('aria-haspopup');
++    });
++
++    it('has the aria-expanded=false attribute when closed', () => {
++      const context = {
++        ...testContext,
++        state: { open: false },
++      };
++
++      const { getByRole } = render(
++        <DropdownContext.Provider value={context}>
++          <MenuButton />
++        </DropdownContext.Provider>,
++      );
++      const button = getByRole('button');
++      expect(button).to.have.attribute('aria-expanded', 'false');
++    });
++
++    it('has the aria-expanded=true attribute when open', () => {
++      const context = {
++        ...testContext,
++        state: { open: true },
++      };
++
++      const { getByRole } = render(
++        <DropdownContext.Provider value={context}>
++          <MenuButton />
++        </DropdownContext.Provider>,
++      );
++      const button = getByRole('button');
++      expect(button).to.have.attribute('aria-expanded', 'true');
++    });
++
++    it('has the aria-controls attribute', () => {
++      const { getByRole } = render(
++        <DropdownContext.Provider value={testContext}>
++          <MenuButton />
++        </DropdownContext.Provider>,
++      );
++      const button = getByRole('button');
++      expect(button).to.have.attribute('aria-controls', 'menu-popup');
++    });
++  });
++});
+diff --git a/packages/mui-base/src/utils/combineHooksSlotProps.test.ts b/packages/mui-base/src/utils/combineHooksSlotProps.test.ts
+index b3aaae42f35784..05f944b9683045 100644
+--- a/packages/mui-base/src/utils/combineHooksSlotProps.test.ts
++++ b/packages/mui-base/src/utils/combineHooksSlotProps.test.ts
+@@ -3,39 +3,54 @@ import combineHooksSlotProps from './combineHooksSlotProps';
+ import { EventHandlers } from './types';
+ 
+ describe('combineHooksSlotProps', () => {
+-  it('should work', () => {
+-    let log: string[] = [];
+-
+-    function getFirstSlotProps<Other extends EventHandlers>(other: Other = {} as Other) {
+-      return {
+-        ...other,
+-        'data-testid': 'first',
+-        onClick: (event: React.MouseEvent) => {
+-          other?.onClick?.(event);
+-          log.push('first onClick');
+-        },
+-        onMouseDown: (event: React.MouseEvent) => {
+-          other?.onMouseDown?.(event);
+-          log.push('first onMouseDown');
+-        },
+-      };
+-    }
+-
+-    function getSecondSlotProps<Other extends EventHandlers>(other: Other = {} as Other) {
+-      return {
+-        ...other,
+-        'data-testid': 'second',
+-        onClick: (event: React.MouseEvent) => {
+-          other?.onClick?.(event);
+-          log.push('second onClick');
+-        },
+-        onBlur: (event: React.FocusEvent) => {
+-          other?.onBlur?.(event);
+-          log.push('second onBlur');
+-        },
+-      };
+-    }
++  let log: string[];
+ 
++  beforeEach(() => {
++    log = [];
++  });
++
++  function getFirstSlotProps<Other extends EventHandlers>(other: Other = {} as Other) {
++    return {
++      ...other,
++      'data-testid': 'first',
++      onClick: (event: React.MouseEvent) => {
++        other?.onClick?.(event);
++        log.push('first onClick');
++      },
++      onMouseDown: (event: React.MouseEvent) => {
++        other?.onMouseDown?.(event);
++        log.push('first onMouseDown');
++      },
++    };
++  }
++
++  function getSecondSlotProps<Other extends EventHandlers>(other: Other = {} as Other) {
++    return {
++      ...other,
++      'data-testid': 'second',
++      onClick: (event: React.MouseEvent) => {
++        other?.onClick?.(event);
++        log.push('second onClick');
++      },
++      onBlur: (event: React.FocusEvent) => {
++        other?.onBlur?.(event);
++        log.push('second onBlur');
++      },
++    };
++  }
++
++  function getThirdSlotProps<Other extends EventHandlers>(other: Other = {} as Other) {
++    return {
++      ...other,
++      'data-testid': 'third',
++      onClick: (event: React.MouseEvent) => {
++        other?.onClick?.(event);
++        log.push('third onClick');
++      },
++    };
++  }
++
++  it('combines two prop getters', () => {
+     const externalEventHandlers = {
+       onClick: () => {
+         log.push('external onClick');
+@@ -77,4 +92,52 @@ describe('combineHooksSlotProps', () => {
+     slotProps.onFocus();
+     expect(log).to.deep.equal(['external onFocus']);
+   });
++
++  it('can be composed', () => {
++    const externalEventHandlers = {
++      onClick: () => {
++        log.push('external onClick');
++      },
++    };
++
++    const createCombinedSlotProps = combineHooksSlotProps(
++      getFirstSlotProps,
++      combineHooksSlotProps(getSecondSlotProps, getThirdSlotProps),
++    );
++
++    const slotProps = createCombinedSlotProps(externalEventHandlers);
++    expect(slotProps['data-testid']).to.equal('third');
++
++    slotProps.onClick({} as React.MouseEvent);
++    expect(log).to.deep.equal([
++      'external onClick',
++      'first onClick',
++      'second onClick',
++      'third onClick',
++    ]);
++  });
++
++  it('can be composed in another way', () => {
++    const externalEventHandlers = {
++      onClick: () => {
++        log.push('external onClick');
++      },
++    };
++
++    const createCombinedSlotProps = combineHooksSlotProps(
++      combineHooksSlotProps(getFirstSlotProps, getSecondSlotProps),
++      getThirdSlotProps,
++    );
++
++    const slotProps = createCombinedSlotProps(externalEventHandlers);
++    expect(slotProps['data-testid']).to.equal('third');
++
++    slotProps.onClick({} as React.MouseEvent);
++    expect(log).to.deep.equal([
++      'external onClick',
++      'first onClick',
++      'second onClick',
++      'third onClick',
++    ]);
++  });
+ });
+diff --git a/packages/mui-joy/src/Menu/Menu.test.tsx b/packages/mui-joy/src/Menu/Menu.test.tsx
+index b9fbf3a207ae06..586df4e18c6f35 100644
+--- a/packages/mui-joy/src/Menu/Menu.test.tsx
++++ b/packages/mui-joy/src/Menu/Menu.test.tsx
+@@ -8,20 +8,41 @@ import {
+   screen,
+   fireEvent,
+   describeJoyColorInversion,
+-  strictModeDoubleLoggingSuppressed,
+ } from 'test/utils';
+ import { ThemeProvider } from '@mui/joy/styles';
+ import Menu, { menuClasses as classes } from '@mui/joy/Menu';
++import Dropdown from '@mui/joy/Dropdown';
+ import MenuItem from '@mui/joy/MenuItem';
++import MenuButton from '@mui/joy/MenuButton';
+ import PopperUnstyled from '@mui/base/Popper';
++import { DropdownContext, DropdownContextValue } from '@mui/base/useDropdown';
++
++const testContext: DropdownContextValue = {
++  dispatch: () => {},
++  popupId: 'menu-popup',
++  registerPopup: () => {},
++  registerTrigger: () => {},
++  state: { open: true },
++  triggerElement: document.createElement('div'),
++};
+ 
+ describe('Joy <Menu />', () => {
+   const { render } = createRenderer({ clock: 'fake' });
+ 
+-  describeConformance(<Menu anchorEl={() => document.createElement('div')} open />, () => ({
++  describeConformance(<Menu />, () => ({
+     classes,
+     inheritComponent: PopperUnstyled, // `Unstyled` suffix must exist for parser to recognise that this component inherits Base UI component
+-    render,
++    render: (node) => {
++      return render(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++    },
++    wrapMount: (mount) => (node: React.ReactNode) => {
++      const wrapper = mount(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++      return wrapper.childAt(0);
++    },
+     ThemeProvider,
+     muiName: 'JoyMenu',
+     refInstanceof: window.HTMLUListElement,
+@@ -50,16 +71,6 @@ describe('Joy <Menu />', () => {
+     },
+   );
+ 
+-  it("should show warning if `id` does not match the anchorEl's `aria-controls`", () => {
+-    expect(() =>
+-      render(<Menu id="foo" anchorEl={anchorEl} open data-testid="popover" />),
+-    ).toErrorDev([
+-      'MUI: the anchorEl must have [aria-controls="foo"] but got [aria-controls="test"].',
+-      !strictModeDoubleLoggingSuppressed &&
+-        'MUI: the anchorEl must have [aria-controls="foo"] but got [aria-controls="test"].',
+-    ]);
+-  });
+-
+   it('should render with `ul` by default', () => {
+     render(<Menu anchorEl={anchorEl} open data-testid="popover" />);
+     expect(screen.getByTestId('popover')).to.have.tagName('ul');
+@@ -68,9 +79,12 @@ describe('Joy <Menu />', () => {
+   it('should pass onClose prop to Popover', () => {
+     const handleClose = spy();
+     render(
+-      <Menu anchorEl={anchorEl} open onClose={handleClose}>
+-        <MenuItem />
+-      </Menu>,
++      <Dropdown open onOpenChange={handleClose}>
++        <MenuButton />
++        <Menu>
++          <MenuItem />
++        </Menu>
++      </Dropdown>,
+     );
+ 
+     const item = screen.getByRole('menuitem');
+diff --git a/packages/mui-joy/src/MenuButton/MenuButton.test.tsx b/packages/mui-joy/src/MenuButton/MenuButton.test.tsx
+new file mode 100644
+index 00000000000000..eed4eff1a044b2
+--- /dev/null
++++ b/packages/mui-joy/src/MenuButton/MenuButton.test.tsx
+@@ -0,0 +1,43 @@
++import * as React from 'react';
++import { createRenderer, describeConformance } from 'test/utils';
++import { ThemeProvider } from '@mui/joy/styles';
++import MenuButton, { menuButtonClasses as classes } from '@mui/joy/MenuButton';
++import { DropdownContext, DropdownContextValue } from '@mui/base/useDropdown';
++
++const testContext: DropdownContextValue = {
++  dispatch: () => {},
++  popupId: 'menu-popup',
++  registerPopup: () => {},
++  registerTrigger: () => {},
++  state: { open: true },
++  triggerElement: null,
++};
++
++describe('<MenuButton />', () => {
++  const { render } = createRenderer();
++
++  describeConformance(<MenuButton />, () => ({
++    classes,
++    inheritComponent: 'button',
++    wrapMount: (mount) => (node: React.ReactNode) => {
++      const wrapper = mount(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++      return wrapper.childAt(0);
++    },
++    muiName: 'JoyMenuButton',
++    refInstanceof: window.HTMLButtonElement,
++    render: (node) => {
++      return render(
++        <DropdownContext.Provider value={testContext}>{node}</DropdownContext.Provider>,
++      );
++    },
++    slots: {
++      root: { expectedClassName: classes.root },
++    },
++    skip: ['reactTestRenderer', 'componentsProp', 'classesRoot'],
++    testRootOverrides: { slotName: 'root', slotClassName: classes.root },
++    testVariantProps: { variant: 'soft' },
++    ThemeProvider,
++  }));
++});

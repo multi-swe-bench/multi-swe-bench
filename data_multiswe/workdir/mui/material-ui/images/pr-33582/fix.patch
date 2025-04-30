@@ -1,0 +1,139 @@
+diff --git a/docs/pages/material-ui/api/alert.json b/docs/pages/material-ui/api/alert.json
+index be6954fa5caf05..cabe756d9cfeee 100644
+--- a/docs/pages/material-ui/api/alert.json
++++ b/docs/pages/material-ui/api/alert.json
+@@ -10,6 +10,17 @@
+         "description": "'error'<br>&#124;&nbsp;'info'<br>&#124;&nbsp;'success'<br>&#124;&nbsp;'warning'<br>&#124;&nbsp;string"
+       }
+     },
++    "components": {
++      "type": {
++        "name": "shape",
++        "description": "{ CloseButton?: elementType, CloseIcon?: elementType }"
++      },
++      "default": "{}"
++    },
++    "componentsProps": {
++      "type": { "name": "shape", "description": "{ closeButton?: object, closeIcon?: object }" },
++      "default": "{}"
++    },
+     "icon": { "type": { "name": "node" } },
+     "iconMapping": {
+       "type": {
+diff --git a/docs/translations/api-docs/alert/alert.json b/docs/translations/api-docs/alert/alert.json
+index 413996d2cc9a26..815d7c33cde109 100644
+--- a/docs/translations/api-docs/alert/alert.json
++++ b/docs/translations/api-docs/alert/alert.json
+@@ -6,6 +6,8 @@
+     "classes": "Override or extend the styles applied to the component. See <a href=\"#css\">CSS API</a> below for more details.",
+     "closeText": "Override the default label for the <em>close popup</em> icon button.<br>For localization purposes, you can use the provided <a href=\"/material-ui/guides/localization/\">translations</a>.",
+     "color": "The color of the component. Unless provided, the value is taken from the <code>severity</code> prop. It supports both default and custom theme colors, which can be added as shown in the <a href=\"https://mui.com/material-ui/customization/palette/#adding-new-colors\">palette customization guide</a>.",
++    "components": "The components used for each slot inside the Alert. Either a string to use a HTML element or a component.",
++    "componentsProps": "The props used for each slot inside.",
+     "icon": "Override the icon displayed before the children. Unless provided, the icon is mapped to the value of the <code>severity</code> prop. Set to <code>false</code> to remove the <code>icon</code>.",
+     "iconMapping": "The component maps the <code>severity</code> prop to a range of different icons, for instance success to <code>&lt;SuccessOutlined&gt;</code>. If you wish to change this mapping, you can provide your own. Alternatively, you can use the <code>icon</code> prop to override the icon displayed.",
+     "onClose": "Callback fired when the component requests to be closed. When provided and no <code>action</code> prop is set, a close icon button is displayed that triggers the callback when clicked.<br><br><strong>Signature:</strong><br><code>function(event: React.SyntheticEvent) =&gt; void</code><br><em>event:</em> The event source of the callback.",
+diff --git a/packages/mui-material/src/Alert/Alert.d.ts b/packages/mui-material/src/Alert/Alert.d.ts
+index fc9da6a657da9d..66987f9cdc143e 100644
+--- a/packages/mui-material/src/Alert/Alert.d.ts
++++ b/packages/mui-material/src/Alert/Alert.d.ts
+@@ -1,7 +1,7 @@
+ import * as React from 'react';
+ import { OverridableStringUnion } from '@mui/types';
+ import { SxProps } from '@mui/system';
+-import { InternalStandardProps as StandardProps, Theme } from '..';
++import { IconButtonProps, InternalStandardProps as StandardProps, SvgIconProps, Theme } from '..';
+ import { PaperProps } from '../Paper';
+ import { AlertClasses } from './alertClasses';
+ 
+@@ -33,6 +33,23 @@ export interface AlertProps extends StandardProps<PaperProps, 'variant'> {
+    * [palette customization guide](https://mui.com/material-ui/customization/palette/#adding-new-colors).
+    */
+   color?: OverridableStringUnion<AlertColor, AlertPropsColorOverrides>;
++  /**
++   * The components used for each slot inside the Alert.
++   * Either a string to use a HTML element or a component.
++   * @default {}
++   */
++  components?: {
++    CloseButton?: React.ElementType;
++    CloseIcon?: React.ElementType;
++  };
++  /**
++   * The props used for each slot inside.
++   * @default {}
++   */
++  componentsProps?: {
++    closeButton?: IconButtonProps;
++    closeIcon?: SvgIconProps;
++  };
+   /**
+    * The severity of the alert. This defines the color and icon used.
+    * @default 'success'
+diff --git a/packages/mui-material/src/Alert/Alert.js b/packages/mui-material/src/Alert/Alert.js
+index 5cfcd0492e59e0..42bb4e3852acdc 100644
+--- a/packages/mui-material/src/Alert/Alert.js
++++ b/packages/mui-material/src/Alert/Alert.js
+@@ -154,6 +154,8 @@ const Alert = React.forwardRef(function Alert(inProps, ref) {
+     className,
+     closeText = 'Close',
+     color,
++    components = {},
++    componentsProps = {},
+     icon,
+     iconMapping = defaultIconMapping,
+     onClose,
+@@ -172,6 +174,9 @@ const Alert = React.forwardRef(function Alert(inProps, ref) {
+ 
+   const classes = useUtilityClasses(ownerState);
+ 
++  const AlertCloseButton = components.CloseButton ?? IconButton;
++  const AlertCloseIcon = components.CloseIcon ?? CloseIcon;
++
+   return (
+     <AlertRoot
+       role={role}
+@@ -196,15 +201,16 @@ const Alert = React.forwardRef(function Alert(inProps, ref) {
+       ) : null}
+       {action == null && onClose ? (
+         <AlertAction ownerState={ownerState} className={classes.action}>
+-          <IconButton
++          <AlertCloseButton
+             size="small"
+             aria-label={closeText}
+             title={closeText}
+             color="inherit"
+             onClick={onClose}
++            {...componentsProps.closeButton}
+           >
+-            <CloseIcon fontSize="small" />
+-          </IconButton>
++            <AlertCloseIcon fontSize="small" {...componentsProps.closeIcon} />
++          </AlertCloseButton>
+         </AlertAction>
+       ) : null}
+     </AlertRoot>
+@@ -248,6 +254,23 @@ Alert.propTypes /* remove-proptypes */ = {
+     PropTypes.oneOf(['error', 'info', 'success', 'warning']),
+     PropTypes.string,
+   ]),
++  /**
++   * The components used for each slot inside the Alert.
++   * Either a string to use a HTML element or a component.
++   * @default {}
++   */
++  components: PropTypes.shape({
++    CloseButton: PropTypes.elementType,
++    CloseIcon: PropTypes.elementType,
++  }),
++  /**
++   * The props used for each slot inside.
++   * @default {}
++   */
++  componentsProps: PropTypes.shape({
++    closeButton: PropTypes.object,
++    closeIcon: PropTypes.object,
++  }),
+   /**
+    * Override the icon displayed before the children.
+    * Unless provided, the icon is mapped to the value of the `severity` prop.

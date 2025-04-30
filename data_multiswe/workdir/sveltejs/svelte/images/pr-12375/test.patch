@@ -1,0 +1,107 @@
+diff --git a/packages/svelte/tests/runtime-legacy/shared.ts b/packages/svelte/tests/runtime-legacy/shared.ts
+index 62a85c182f6c..6d98e06c16b9 100644
+--- a/packages/svelte/tests/runtime-legacy/shared.ts
++++ b/packages/svelte/tests/runtime-legacy/shared.ts
+@@ -104,7 +104,10 @@ export function runtime_suite(runes: boolean) {
+ 				if (config.skip_mode?.includes('hydrate')) return true;
+ 			}
+ 
+-			if (variant === 'dom' && config.skip_mode?.includes('client')) {
++			if (
++				variant === 'dom' &&
++				(config.skip_mode?.includes('client') || (config.mode && !config.mode.includes('client')))
++			) {
+ 				return 'no-test';
+ 			}
+ 
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/_config.js b/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/_config.js
+new file mode 100644
+index 000000000000..62d0aae0b8e5
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/_config.js
+@@ -0,0 +1,13 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: '<p><p>invalid</p></p>',
++	mode: ['hydrate'],
++	recover: true,
++	test({ assert, target, logs }) {
++		target.click();
++		flushSync();
++		assert.deepEqual(logs, ['body', 'document', 'window']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/main.svelte
+new file mode 100644
+index 000000000000..3109b83cd6a4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-hydration-error-cleanup/main.svelte
+@@ -0,0 +1,5 @@
++<svelte:window onclick={() => console.log('window')} />
++<svelte:document onclick={() => console.log('document')} />
++<svelte:body onclick={() => console.log('body')} />
++
++<p>{@html '<p>invalid</p>'}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Inner.svelte b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Inner.svelte
+new file mode 100644
+index 000000000000..0fb7efdad760
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Inner.svelte
+@@ -0,0 +1,3 @@
++<script>
++	throw new Error('boom');
++</script>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Outer.svelte b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Outer.svelte
+new file mode 100644
+index 000000000000..86848025f11b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/Outer.svelte
+@@ -0,0 +1,9 @@
++<script>
++	import Inner from './Inner.svelte';
++</script>
++
++<svelte:window onclick={() => console.log('window')} />
++<svelte:document onclick={() => console.log('document')} />
++<svelte:body onclick={() => console.log('body')} />
++
++<Inner />
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/_config.js b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/_config.js
+new file mode 100644
+index 000000000000..fbf92711c52a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/_config.js
+@@ -0,0 +1,11 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	mode: ['client'],
++	test({ assert, target, logs }) {
++		target.click();
++		flushSync();
++		assert.deepEqual(logs, []);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/main.svelte
+new file mode 100644
+index 000000000000..f1944089b918
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-global-mount-error-cleanup/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++	import { mount, onMount } from 'svelte';
++	import Outer from './Outer.svelte';
++
++	let el;
++
++	onMount(() => {
++		try {
++			mount(Outer, { target: el });
++		} catch {}
++	});
++</script>
++
++<div bind:this={el}></div>

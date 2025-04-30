@@ -1,0 +1,26 @@
+diff --git a/.release-notes/3763.md b/.release-notes/3763.md
+new file mode 100644
+index 0000000000..385a06a7aa
+--- /dev/null
++++ b/.release-notes/3763.md
+@@ -0,0 +1,3 @@
++## Fix "iftype" expressions not being usable in lambdas or object literals
++
++This release fixes an issue where the compiler would hit an assertion error when compiling programs that placed `iftype` expressions inside lambdas or object literals.
+diff --git a/src/libponyc/pass/scope.c b/src/libponyc/pass/scope.c
+index 73f332c0c7..0764935b56 100644
+--- a/src/libponyc/pass/scope.c
++++ b/src/libponyc/pass/scope.c
+@@ -208,6 +208,12 @@ static ast_result_t scope_iftype(pass_opt_t* opt, ast_t* ast)
+   pony_assert(ast_id(ast) == TK_IFTYPE);
+ 
+   AST_GET_CHILDREN(ast, subtype, supertype, body, typeparam_store);
++  // Prevent this from running again, if, for example, the iftype
++  // occurs inside an object literal (or lambda). In those cases,
++  // a "catch up" will take place and the compiler will try to run
++  // this pass again.
++  if(ast_id(typeparam_store) != TK_NONE)
++    return AST_IGNORE;
+ 
+   ast_t* typeparams = ast_from(ast, TK_TYPEPARAMS);
+ 

@@ -1,0 +1,97 @@
+diff --git a/packages/mui-material/src/styles/CssVarsProvider.tsx b/packages/mui-material/src/styles/CssVarsProvider.tsx
+index c2b10da4b4894b..f45fd6ec66bd77 100644
+--- a/packages/mui-material/src/styles/CssVarsProvider.tsx
++++ b/packages/mui-material/src/styles/CssVarsProvider.tsx
+@@ -1,6 +1,7 @@
+ import { unstable_createCssVarsProvider as createCssVarsProvider } from '@mui/system';
+ import experimental_extendTheme, { SupportedColorScheme } from './experimental_extendTheme';
+ import createTypography from './createTypography';
++import excludeVariablesFromRoot from './excludeVariablesFromRoot';
+ 
+ const shouldSkipGeneratingVar = (keys: string[]) =>
+   !!keys[0].match(/(typography|mixins|breakpoints|direction|transitions)/) ||
+@@ -27,6 +28,7 @@ const { CssVarsProvider, useColorScheme, getInitColorSchemeScript } =
+       return newTheme;
+     },
+     shouldSkipGeneratingVar,
++    excludeVariablesFromRoot,
+   });
+ 
+ export {
+diff --git a/packages/mui-material/src/styles/excludeVariablesFromRoot.ts b/packages/mui-material/src/styles/excludeVariablesFromRoot.ts
+new file mode 100644
+index 00000000000000..415ff2af84f850
+--- /dev/null
++++ b/packages/mui-material/src/styles/excludeVariablesFromRoot.ts
+@@ -0,0 +1,12 @@
++/**
++ * @internal These variables should not appear in the :root stylesheet when the `defaultMode="dark"`
++ */
++const excludeVariablesFromRoot = (cssVarPrefix: string) => [
++  ...[...Array(24)].map(
++    (_, index) => `--${cssVarPrefix ? `${cssVarPrefix}-` : ''}overlays-${index + 1}`,
++  ),
++  `--${cssVarPrefix ? `${cssVarPrefix}-` : ''}palette-AppBar-darkBg`,
++  `--${cssVarPrefix ? `${cssVarPrefix}-` : ''}palette-AppBar-darkColor`,
++];
++
++export default excludeVariablesFromRoot;
+diff --git a/packages/mui-system/src/cssVars/createCssVarsProvider.d.ts b/packages/mui-system/src/cssVars/createCssVarsProvider.d.ts
+index af76711d05982e..75b04405daf9fa 100644
+--- a/packages/mui-system/src/cssVars/createCssVarsProvider.d.ts
++++ b/packages/mui-system/src/cssVars/createCssVarsProvider.d.ts
+@@ -124,6 +124,14 @@ export default function createCssVarsProvider<ColorScheme extends string>(
+      * variants from those tokens.
+      */
+     resolveTheme?: (theme: any) => any; // the type is any because it depends on the design system.
++    /**
++     * @internal
++     * A function that returns a list of variables that will be excluded from the `colorSchemeSelector` (:root by default)
++     *
++     * Some variables are intended to be used in a specific color scheme only. They should be excluded when the default mode is set to the color scheme.
++     * This is introduced to fix https://github.com/mui/material-ui/issues/34084
++     */
++    excludeVariablesFromRoot?: (cssVarPrefix: string) => string[];
+   },
+ ): CreateCssVarsProviderResult<ColorScheme>;
+ 
+diff --git a/packages/mui-system/src/cssVars/createCssVarsProvider.js b/packages/mui-system/src/cssVars/createCssVarsProvider.js
+index d3b4cc78e330e5..b3e2c847215eb2 100644
+--- a/packages/mui-system/src/cssVars/createCssVarsProvider.js
++++ b/packages/mui-system/src/cssVars/createCssVarsProvider.js
+@@ -27,6 +27,7 @@ export default function createCssVarsProvider(options) {
+     enableColorScheme: designSystemEnableColorScheme = true,
+     shouldSkipGeneratingVar: designSystemShouldSkipGeneratingVar,
+     resolveTheme,
++    excludeVariablesFromRoot,
+   } = options;
+ 
+   if (
+@@ -156,6 +157,14 @@ export default function createCssVarsProvider(options) {
+         return defaultColorScheme.light;
+       })();
+       if (key === resolvedDefaultColorScheme) {
++        if (excludeVariablesFromRoot) {
++          const excludedVariables = {};
++          excludeVariablesFromRoot(cssVarPrefix).forEach((cssVar) => {
++            excludedVariables[cssVar] = css[cssVar];
++            delete css[cssVar];
++          });
++          defaultColorSchemeStyleSheet[`[${attribute}="${key}"]`] = excludedVariables;
++        }
+         defaultColorSchemeStyleSheet[`${colorSchemeSelector}, [${attribute}="${key}"]`] = css;
+       } else {
+         otherColorSchemesStyleSheet[
+diff --git a/packages/mui-system/src/cssVars/cssVarsParser.ts b/packages/mui-system/src/cssVars/cssVarsParser.ts
+index 402b21034216c1..305d580719591b 100644
+--- a/packages/mui-system/src/cssVars/cssVarsParser.ts
++++ b/packages/mui-system/src/cssVars/cssVarsParser.ts
+@@ -128,7 +128,7 @@ export default function cssVarsParser<T extends Record<string, any>>(
+   },
+ ) {
+   const { prefix, shouldSkipGeneratingVar } = options || {};
+-  const css = {} as NestedRecord<string>;
++  const css = {} as Record<string, string | number>;
+   const vars = {} as NestedRecord<string>;
+   const parsedTheme = {} as T;
+ 

@@ -1,0 +1,556 @@
+diff --git a/.release-notes/3746.md b/.release-notes/3746.md
+new file mode 100644
+index 0000000000..d23ca99e1a
+--- /dev/null
++++ b/.release-notes/3746.md
+@@ -0,0 +1,55 @@
++## Improve error messages when matching on struct types
++
++A struct type doesn't have a type descriptor, which means that they cannot be used in match or "as" statements. Before this change, the compiler would incorrectly warn that matching against a struct wasn't possible due to a violation of capabilities, which was confusing. With this release, the compiler will now show a more helpful error message, explicitly mentioning that struct types can't be used in union types.
++
++As an example, the following piece of Pony code:
++
++```pony
++struct Rect
++
++actor Main
++  new create(env: Env) =>
++    let a: (Rect | None) = None
++    match a
++    | let a': Rect => None
++    | None => None
++    end
++```
++
++would fail to compile on ponyc 0.40.0 with the following error message:
++
++```
++Error:
++main.pony:7:7: this capture violates capabilities, because the match would need to differentiate by capability at runtime instead of matching on type alone
++    | let a': Rect => None
++      ^
++    Info:
++    main.pony:5:18: the match type allows for more than one possibility with the same type as pattern type, but different capabilities. match type: (Rect ref | None val)
++        let a: (Rect | None) = None
++                     ^
++    main.pony:7:7: pattern type: Rect ref
++        | let a': Rect => None
++          ^
++    main.pony:7:15: matching (Rect ref | None val) with Rect ref could violate capabilities
++        | let a': Rect => None
++                  ^
++```
++
++Starting with this release, the error message is:
++
++```
++Error:
++main.pony:7:7: this capture cannot match, since the type Rect ref is a struct and lacks a type descriptor
++    | let a': Rect => None
++      ^
++    Info:
++    main.pony:5:18: a struct cannot be part of a union type. match type: (Rect ref | None val)
++        let a: (Rect | None) = None
++                     ^
++    main.pony:7:7: pattern type: Rect ref
++        | let a': Rect => None
++          ^
++    main.pony:7:15: matching (Rect ref | None val) with Rect ref is not possible, since a struct lacks a type descriptor
++        | let a': Rect => None
++                  ^
++```
+diff --git a/src/libponyc/expr/match.c b/src/libponyc/expr/match.c
+index f4f3491bd8..7d16066f67 100644
+--- a/src/libponyc/expr/match.c
++++ b/src/libponyc/expr/match.c
+@@ -528,7 +528,7 @@ bool expr_case(pass_opt_t* opt, ast_t* ast)
+       break;
+     }
+ 
+-    case MATCHTYPE_DENY:
++    case MATCHTYPE_DENY_CAP:
+     {
+       errorframe_t frame = NULL;
+       ast_error_frame(&frame, pattern,
+@@ -547,6 +547,24 @@ bool expr_case(pass_opt_t* opt, ast_t* ast)
+       ok = false;
+       break;
+     }
++
++    case MATCHTYPE_DENY_NODESC:
++    {
++      errorframe_t frame = NULL;
++      ast_error_frame(&frame, pattern,
++        "this capture cannot match, since the type %s "
++        "is a struct and lacks a type descriptor",
++        ast_print_type(pattern_type));
++      ast_error_frame(&frame, match_type,
++        "a struct cannot be part of a union type. match type: %s",
++        ast_print_type(match_type));
++      ast_error_frame(&frame, pattern, "pattern type: %s",
++        ast_print_type(pattern_type));
++      errorframe_append(&frame, &info);
++      errorframe_report(&frame, opt->check.errors);
++      ok = false;
++      break;
++    }
+   }
+ 
+   if(ast_id(guard) != TK_NONE)
+diff --git a/src/libponyc/expr/operator.c b/src/libponyc/expr/operator.c
+index 0f10b7a62a..732272cc36 100644
+--- a/src/libponyc/expr/operator.c
++++ b/src/libponyc/expr/operator.c
+@@ -500,7 +500,8 @@ static bool add_as_type(pass_opt_t* opt, ast_t* ast, ast_t* expr,
+ 
+       ast_t* expr_type = ast_type(expr);
+       errorframe_t info = NULL;
+-      if(is_matchtype(expr_type, type, &info, opt) == MATCHTYPE_DENY)
++      matchtype_t is_match = is_matchtype(expr_type, type, &info, opt);
++      if(is_match == MATCHTYPE_DENY_CAP)
+       {
+         errorframe_t frame = NULL;
+         ast_error_frame(&frame, ast,
+@@ -512,6 +513,21 @@ static bool add_as_type(pass_opt_t* opt, ast_t* ast, ast_t* expr,
+         errorframe_append(&frame, &info);
+         errorframe_report(&frame, opt->check.errors);
+ 
++        return false;
++      } else if(is_match == MATCHTYPE_DENY_NODESC){
++        errorframe_t frame = NULL;
++        ast_error_frame(&frame, ast,
++          "matching variable of type %s with %s is not possible, "
++          "since a struct lacks a type descriptor",
++          ast_print_type(expr_type), ast_print_type(type));
++        ast_error_frame(&frame, type,
++          "match type: %s", ast_print_type(type));
++        ast_error_frame(&frame, expr,
++          "a struct cannot be part of a union type. "
++          "pattern type: %s", ast_print_type(expr_type));
++        errorframe_append(&frame, &info);
++        errorframe_report(&frame, opt->check.errors);
++
+         return false;
+       }
+ 
+diff --git a/src/libponyc/type/matchtype.c b/src/libponyc/type/matchtype.c
+index 1572d47b89..fab100f520 100644
+--- a/src/libponyc/type/matchtype.c
++++ b/src/libponyc/type/matchtype.c
+@@ -29,20 +29,24 @@ static matchtype_t is_union_match_x(ast_t* operand, ast_t* pattern,
+       case MATCHTYPE_REJECT:
+         break;
+ 
+-      case MATCHTYPE_DENY:
+-        // If any type in the operand union denies a match, then the entire
+-        // operand union is denied a match.
+-        ok = MATCHTYPE_DENY;
++      // If any type in the operand union denies a match, then the entire
++      // operand union is denied a match.
++      case MATCHTYPE_DENY_CAP:
++        ok = MATCHTYPE_DENY_CAP;
++        break;
++
++      case MATCHTYPE_DENY_NODESC:
++        ok = MATCHTYPE_DENY_NODESC;
+         break;
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       break;
+   }
+ 
+   if((ok != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       report_reject = false;
+ 
+     for(ast_t* child = ast_child(operand);
+@@ -52,11 +56,15 @@ static matchtype_t is_union_match_x(ast_t* operand, ast_t* pattern,
+       is_x_match_x(child, pattern, errorf, report_reject, opt);
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if(ok == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities",
+         ast_print_type(operand), ast_print_type(pattern));
++    } else if(ok == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern, "no element of %s can match %s",
+         ast_print_type(operand), ast_print_type(pattern));
+@@ -86,20 +94,24 @@ static matchtype_t is_isect_match_x(ast_t* operand, ast_t* pattern,
+         ok = MATCHTYPE_REJECT;
+         break;
+ 
+-      case MATCHTYPE_DENY:
++      case MATCHTYPE_DENY_CAP:
+         // If any type in the operand isect denies a match, then the entire
+         // operand isect is denied a match.
+-        ok = MATCHTYPE_DENY;
++        ok = MATCHTYPE_DENY_CAP;
++        break;
++
++      case MATCHTYPE_DENY_NODESC:
++        ok = MATCHTYPE_DENY_NODESC;
+         break;
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       break;
+   }
+ 
+   if((ok != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       report_reject = false;
+ 
+     for(ast_t* child = ast_child(operand);
+@@ -109,11 +121,15 @@ static matchtype_t is_isect_match_x(ast_t* operand, ast_t* pattern,
+       is_x_match_x(child, pattern, errorf, report_reject, opt);
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if(ok == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities",
+         ast_print_type(operand), ast_print_type(pattern));
++    } else if(ok == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern, "not every element of %s can match %s",
+         ast_print_type(operand), ast_print_type(pattern));
+@@ -143,20 +159,24 @@ static matchtype_t is_x_match_union(ast_t* operand, ast_t* pattern,
+       case MATCHTYPE_REJECT:
+         break;
+ 
+-      case MATCHTYPE_DENY:
++      case MATCHTYPE_DENY_CAP:
+         // If any type in the pattern union denies a match, the entire pattern
+         // union denies a match.
+-        ok = MATCHTYPE_DENY;
++        ok = MATCHTYPE_DENY_CAP;
++        break;
++
++      case MATCHTYPE_DENY_NODESC:
++        ok = MATCHTYPE_DENY_NODESC;
+         break;
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       break;
+   }
+ 
+   if((ok != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       report_reject = false;
+ 
+     for(ast_t* child = ast_child(pattern);
+@@ -166,11 +186,15 @@ static matchtype_t is_x_match_union(ast_t* operand, ast_t* pattern,
+       is_x_match_x(operand, child, errorf, report_reject, opt);
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if(ok == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities",
+         ast_print_type(operand), ast_print_type(pattern));
++    } else if(ok == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern, "%s cannot match any element of %s",
+         ast_print_type(operand), ast_print_type(pattern));
+@@ -200,20 +224,24 @@ static matchtype_t is_x_match_isect(ast_t* operand, ast_t* pattern,
+         ok = MATCHTYPE_REJECT;
+         break;
+ 
+-      case MATCHTYPE_DENY:
++      case MATCHTYPE_DENY_CAP:
+         // If any type in the pattern isect denies a match, the entire pattern
+         // isect denies a match.
+-        ok = MATCHTYPE_DENY;
++        ok = MATCHTYPE_DENY_CAP;
++        break;
++
++      case MATCHTYPE_DENY_NODESC:
++        ok = MATCHTYPE_DENY_NODESC;
+         break;
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       break;
+   }
+ 
+   if((ok != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       report_reject = false;
+ 
+     for(ast_t* child = ast_child(pattern);
+@@ -223,11 +251,15 @@ static matchtype_t is_x_match_isect(ast_t* operand, ast_t* pattern,
+       is_x_match_x(operand, child, errorf, report_reject, opt);
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if(ok == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities",
+         ast_print_type(operand), ast_print_type(pattern));
++    } else if(ok == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern, "%s cannot match every element of %s",
+         ast_print_type(operand), ast_print_type(pattern));
+@@ -268,8 +300,12 @@ static matchtype_t is_tuple_match_tuple(ast_t* operand, ast_t* pattern,
+         ok = MATCHTYPE_REJECT;
+         break;
+ 
+-      case MATCHTYPE_DENY:
+-        ok = MATCHTYPE_DENY;
++      case MATCHTYPE_DENY_CAP:
++        ok = MATCHTYPE_DENY_CAP;
++        break;
++
++      case MATCHTYPE_DENY_NODESC:
++        ok = MATCHTYPE_DENY_NODESC;
+         break;
+     }
+ 
+@@ -282,7 +318,7 @@ static matchtype_t is_tuple_match_tuple(ast_t* operand, ast_t* pattern,
+ 
+   if((ok != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(ok == MATCHTYPE_DENY)
++    if((ok == MATCHTYPE_DENY_CAP) || (ok == MATCHTYPE_DENY_NODESC))
+       report_reject = false;
+ 
+     operand_child = ast_child(operand);
+@@ -296,11 +332,15 @@ static matchtype_t is_tuple_match_tuple(ast_t* operand, ast_t* pattern,
+       pattern_child = ast_sibling(pattern_child);
+     }
+ 
+-    if(ok == MATCHTYPE_DENY)
++    if(ok == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities",
+         ast_print_type(operand), ast_print_type(pattern));
++    } else if(ok == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern, "%s cannot pairwise match %s",
+         ast_print_type(operand), ast_print_type(pattern));
+@@ -336,7 +376,7 @@ static matchtype_t is_nominal_match_tuple(ast_t* operand, ast_t* pattern,
+     matchtype_t r = is_x_match_x(operand, child, errorf, false, opt);
+     pony_assert(r != MATCHTYPE_REJECT);
+ 
+-    if(r == MATCHTYPE_DENY)
++    if(r == MATCHTYPE_DENY_CAP)
+     {
+       if(errorf != NULL)
+       {
+@@ -345,6 +385,15 @@ static matchtype_t is_nominal_match_tuple(ast_t* operand, ast_t* pattern,
+           ast_print_type(operand), ast_print_type(pattern));
+       }
+ 
++      return r;
++    } else if (r == MATCHTYPE_DENY_NODESC) {
++      if(errorf != NULL)
++      {
++        ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
++      }
++
+       return r;
+     }
+ 
+@@ -378,12 +427,12 @@ static matchtype_t is_typeparam_match_typeparam(ast_t* operand, ast_t* pattern,
+   if(operand_def == pattern_def)
+   {
+     r = is_cap_sub_cap_bound(ast_id(o_cap), TK_EPHEMERAL,
+-      ast_id(p_cap), ast_id(p_eph)) ? MATCHTYPE_ACCEPT : MATCHTYPE_DENY;
++      ast_id(p_cap), ast_id(p_eph)) ? MATCHTYPE_ACCEPT : MATCHTYPE_DENY_CAP;
+   }
+ 
+   if((r != MATCHTYPE_ACCEPT) && (errorf != NULL))
+   {
+-    if(r == MATCHTYPE_DENY)
++    if(r == MATCHTYPE_DENY_CAP)
+     {
+       ast_error_frame(errorf, pattern,
+         "matching %s with %s could violate capabilities: "
+@@ -391,6 +440,10 @@ static matchtype_t is_typeparam_match_typeparam(ast_t* operand, ast_t* pattern,
+         ast_print_type(operand), ast_print_type(pattern),
+         ast_print_type(o_cap), ast_print_type(o_eph),
+         ast_print_type(p_cap), ast_print_type(p_eph));
++    } else if (r == MATCHTYPE_DENY_NODESC) {
++      ast_error_frame(errorf, pattern,
++        "matching %s with %s is not possible, since a struct lacks a type descriptor",
++        ast_print_type(operand), ast_print_type(pattern));
+     } else if(report_reject) {
+       ast_error_frame(errorf, pattern,
+         "%s cannot match %s: they are different type parameters",
+@@ -459,7 +512,7 @@ static matchtype_t is_arrow_match_x(ast_t* operand, ast_t* pattern,
+         ast_print_type(operand), ast_print_type(pattern));
+     }
+ 
+-    return MATCHTYPE_DENY;
++    return MATCHTYPE_DENY_CAP;
+   }
+ 
+   matchtype_t ok = is_x_match_x(operand_view, pattern, errorf, report_reject,
+@@ -496,7 +549,7 @@ static matchtype_t is_x_match_tuple(ast_t* operand, ast_t* pattern,
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ static matchtype_t is_nominal_match_entity(ast_t* operand, ast_t* pattern,
+@@ -538,7 +591,7 @@ static matchtype_t is_nominal_match_entity(ast_t* operand, ast_t* pattern,
+         ast_print_type(p_cap), ast_print_type(p_eph));
+     }
+ 
+-    return MATCHTYPE_DENY;
++    return MATCHTYPE_DENY_CAP;
+   }
+ 
+   // Otherwise, accept the match.
+@@ -568,7 +621,7 @@ static matchtype_t is_nominal_match_struct(ast_t* operand, ast_t* pattern,
+         "would be impossible");
+     }
+ 
+-    return MATCHTYPE_DENY;
++    return MATCHTYPE_DENY_NODESC;
+   }
+ 
+   return is_nominal_match_entity(operand, pattern, errorf, report_reject, opt);
+@@ -612,7 +665,7 @@ static matchtype_t is_entity_match_trait(ast_t* operand, ast_t* pattern,
+         ast_print_type(p_cap), ast_print_type(p_eph));
+     }
+ 
+-    return MATCHTYPE_DENY;
++    return MATCHTYPE_DENY_CAP;
+   }
+ 
+   // Otherwise, accept the match.
+@@ -641,7 +694,7 @@ static matchtype_t is_trait_match_trait(ast_t* operand, ast_t* pattern,
+         ast_print_type(p_cap), ast_print_type(p_eph));
+     }
+ 
+-    return MATCHTYPE_DENY;
++    return MATCHTYPE_DENY_CAP;
+   }
+ 
+   // Otherwise, accept the match.
+@@ -671,7 +724,7 @@ static matchtype_t is_nominal_match_trait(ast_t* operand, ast_t* pattern,
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ static matchtype_t is_nominal_match_nominal(ast_t* operand, ast_t* pattern,
+@@ -700,7 +753,7 @@ static matchtype_t is_nominal_match_nominal(ast_t* operand, ast_t* pattern,
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ static matchtype_t is_tuple_match_nominal(ast_t* operand, ast_t* pattern,
+@@ -750,7 +803,7 @@ static matchtype_t is_x_match_nominal(ast_t* operand, ast_t* pattern,
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ static matchtype_t is_x_match_base_typeparam(ast_t* operand, ast_t* pattern,
+@@ -781,7 +834,7 @@ static matchtype_t is_x_match_base_typeparam(ast_t* operand, ast_t* pattern,
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ static matchtype_t is_x_match_typeparam(ast_t* operand, ast_t* pattern,
+@@ -858,13 +911,13 @@ static matchtype_t is_x_match_x(ast_t* operand, ast_t* pattern,
+       return is_x_match_arrow(operand, pattern, errorf, report_reject, opt);
+ 
+     case TK_FUNTYPE:
+-      return MATCHTYPE_DENY;
++      return MATCHTYPE_DENY_CAP;
+ 
+     default: {}
+   }
+ 
+   pony_assert(0);
+-  return MATCHTYPE_DENY;
++  return MATCHTYPE_DENY_CAP;
+ }
+ 
+ matchtype_t is_matchtype(ast_t* operand, ast_t* pattern, errorframe_t* errorf,
+diff --git a/src/libponyc/type/matchtype.h b/src/libponyc/type/matchtype.h
+index 07798ed147..f0b5f85663 100644
+--- a/src/libponyc/type/matchtype.h
++++ b/src/libponyc/type/matchtype.h
+@@ -12,7 +12,8 @@ typedef enum
+ {
+   MATCHTYPE_ACCEPT,
+   MATCHTYPE_REJECT,
+-  MATCHTYPE_DENY
++  MATCHTYPE_DENY_CAP,
++  MATCHTYPE_DENY_NODESC
+ } matchtype_t;
+ 
+ /**
+@@ -28,13 +29,16 @@ typedef enum
+  *    runtime and must be handled entirely at compile time.
+  * 3. A subtype of pattern_type.
+  *
+- * Return DENY if no such type can exist, but one could if capabilities were
++ * Return DENY_CAP if no such type can exist, but one could if capabilities were
+  * ignored. For example an operand_type of "Foo box" and a pattern_type of
+  * "Foo ref". This is to prevent a match that could be detected with runtime
+  * information but would actually violate the capability guarantees.
+- * When DENY is returned, no matching is allowed, even if some other
++ * When DENY_CAP is returned, no matching is allowed, even if some other
+  * is_matchtype() relationship exists.
+  *
++ * Return DENY_NODESC if no such type can exist, due to either type lacking
++ * a type descriptor, like a struct.
++ *
+  * Return REJECT if no such type can exist.
+  */
+ matchtype_t is_matchtype(ast_t* operand, ast_t* pattern, errorframe_t* errorf,

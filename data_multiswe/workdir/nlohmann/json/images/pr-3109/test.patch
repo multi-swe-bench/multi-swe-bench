@@ -1,0 +1,78 @@
+diff --git a/test/src/unit-ordered_map.cpp b/test/src/unit-ordered_map.cpp
+index 7a23e36fb3..a8f2850c8c 100644
+--- a/test/src/unit-ordered_map.cpp
++++ b/test/src/unit-ordered_map.cpp
+@@ -210,6 +210,45 @@ TEST_CASE("ordered_map")
+             ++it2;
+             CHECK(it2 == om.end());
+         }
++
++        SECTION("with iterator pair")
++        {
++            SECTION("range in the middle")
++            {
++                // need more elements
++                om["vier"] = "four";
++                om["fünf"] = "five";
++
++                // delete "zwei" and "drei"
++                auto it = om.erase(om.begin() + 1, om.begin() + 3);
++                CHECK(it->first == "vier");
++                CHECK(om.size() == 3);
++            }
++
++            SECTION("range at the beginning")
++            {
++                // need more elements
++                om["vier"] = "four";
++                om["fünf"] = "five";
++
++                // delete "eins" and "zwei"
++                auto it = om.erase(om.begin(), om.begin() + 2);
++                CHECK(it->first == "drei");
++                CHECK(om.size() == 3);
++            }
++
++            SECTION("range at the end")
++            {
++                // need more elements
++                om["vier"] = "four";
++                om["fünf"] = "five";
++
++                // delete "vier" and "fünf"
++                auto it = om.erase(om.begin() + 3, om.end());
++                CHECK(it == om.end());
++                CHECK(om.size() == 3);
++            }
++        }
+     }
+ 
+     SECTION("count")
+diff --git a/test/src/unit-regression2.cpp b/test/src/unit-regression2.cpp
+index f0c4ef4519..b2f2a7dc37 100644
+--- a/test/src/unit-regression2.cpp
++++ b/test/src/unit-regression2.cpp
+@@ -746,6 +746,23 @@ TEST_CASE("regression tests 2")
+         std::vector<FooBar> foo;
+         j.get_to(foo);
+     }
++
++    SECTION("issue #3108 - ordered_json doesn't support range based erase")
++    {
++        ordered_json j = {1, 2, 2, 4};
++
++        auto last = std::unique(j.begin(), j.end());
++        j.erase(last, j.end());
++
++        CHECK(j.dump() == "[1,2,4]");
++
++        j.erase(std::remove_if(j.begin(), j.end(), [](const ordered_json & val)
++        {
++            return val == 2;
++        }), j.end());
++
++        CHECK(j.dump() == "[1,4]");
++    }
+ }
+ 
+ DOCTEST_CLANG_SUPPRESS_WARNING_POP

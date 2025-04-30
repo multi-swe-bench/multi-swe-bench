@@ -1,0 +1,41 @@
+diff --git a/pkg/cmd/extension/command.go b/pkg/cmd/extension/command.go
+index b3c7b0c9f01..30a7cb50824 100644
+--- a/pkg/cmd/extension/command.go
++++ b/pkg/cmd/extension/command.go
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	gio "io"
+ 	"os"
++	"path/filepath"
+ 	"strings"
+ 	"time"
+ 
+@@ -317,6 +318,10 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
+ 						if err != nil {
+ 							return err
+ 						}
++						_, err = checkValidExtension(cmd.Root(), m, filepath.Base(wd), "")
++						if err != nil {
++							return err
++						}
+ 						return m.InstallLocal(wd)
+ 					}
+ 
+@@ -641,7 +646,7 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
+ 
+ func checkValidExtension(rootCmd *cobra.Command, m extensions.ExtensionManager, extName, extOwner string) (extensions.Extension, error) {
+ 	if !strings.HasPrefix(extName, "gh-") {
+-		return nil, errors.New("extension repository name must start with `gh-`")
++		return nil, errors.New("extension name must start with `gh-`")
+ 	}
+ 
+ 	commandName := strings.TrimPrefix(extName, "gh-")
+@@ -651,7 +656,7 @@ func checkValidExtension(rootCmd *cobra.Command, m extensions.ExtensionManager,
+ 
+ 	for _, ext := range m.List() {
+ 		if ext.Name() == commandName {
+-			if ext.Owner() == extOwner {
++			if extOwner != "" && ext.Owner() == extOwner {
+ 				return ext, alreadyInstalledError
+ 			}
+ 			return ext, fmt.Errorf("there is already an installed extension that provides the %q command", commandName)

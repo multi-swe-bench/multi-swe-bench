@@ -1,0 +1,195 @@
+diff --git a/src/build/arg/debug_asserts.rs b/src/build/arg/debug_asserts.rs
+index 9ca7a9c740d..3daad75da9e 100644
+--- a/src/build/arg/debug_asserts.rs
++++ b/src/build/arg/debug_asserts.rs
+@@ -67,7 +67,7 @@ fn assert_app_flags(arg: &Arg) {
+         }
+     }
+ 
+-    checker!(AllowEmptyValues requires TakesValue);
++    checker!(NoEmptyValues requires TakesValue);
+     checker!(RequireDelimiter requires TakesValue | UseValueDelimiter);
+     checker!(HidePossibleValues requires TakesValue);
+     checker!(AllowHyphenValues requires TakesValue);
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index e0bb2b82f77..2337599b105 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -4160,10 +4160,11 @@ impl<'help> Arg<'help> {
+         self.multiple_occurrences(multi).multiple_values(multi)
+     }
+ 
+-    /// Allows an argument to accept explicitly empty values. An empty value must be specified at
+-    /// the command line with an explicit `""`, `''`, or `--option=`
++    /// Don't allow an argument to accept explicitly empty values. An empty value
++    /// must be specified at the command line with an explicit `""`, `''`, or
++    /// `--option=`
+     ///
+-    /// **NOTE:** By default empty values are *not* allowed
++    /// **NOTE:** By default empty values are allowed.
+     ///
+     /// **NOTE:** Setting this requires [`ArgSettings::TakesValue`].
+     ///
+@@ -4173,11 +4174,12 @@ impl<'help> Arg<'help> {
+     /// # use clap::{App, Arg, ArgSettings};
+     /// Arg::new("file")
+     ///     .long("file")
+-    ///     .setting(ArgSettings::TakesValue)
+-    ///     .setting(ArgSettings::AllowEmptyValues)
++    ///     .takes_value(true)
++    ///     .forbid_empty_values(true)
+     /// # ;
+     /// ```
+-    /// The default is to *not* allow empty values.
++    ///
++    /// The default is allowing empty values.
+     ///
+     /// ```rust
+     /// # use clap::{App, Arg, ErrorKind, ArgSettings};
+@@ -4185,33 +4187,44 @@ impl<'help> Arg<'help> {
+     ///     .arg(Arg::new("cfg")
+     ///         .long("config")
+     ///         .short('v')
+-    ///         .setting(ArgSettings::TakesValue))
++    ///         .takes_value(true))
+     ///     .try_get_matches_from(vec![
+     ///         "prog", "--config="
+     ///     ]);
+     ///
+-    /// assert!(res.is_err());
+-    /// assert_eq!(res.unwrap_err().kind, ErrorKind::EmptyValue);
++    /// assert!(res.is_ok());
++    /// assert_eq!(res.unwrap().value_of("config"), None);
+     /// ```
+-    /// By adding this setting, we can allow empty values
++    ///
++    /// By adding this setting, we can forbid empty values.
+     ///
+     /// ```rust
+-    /// # use clap::{App, Arg, ArgSettings};
++    /// # use clap::{App, Arg, ErrorKind, ArgSettings};
+     /// let res = App::new("prog")
+     ///     .arg(Arg::new("cfg")
+     ///         .long("config")
+     ///         .short('v')
+-    ///         .setting(ArgSettings::TakesValue)
+-    ///         .setting(ArgSettings::AllowEmptyValues))
++    ///         .takes_value(true)
++    ///         .forbid_empty_values(true))
+     ///     .try_get_matches_from(vec![
+     ///         "prog", "--config="
+     ///     ]);
+     ///
+-    /// assert!(res.is_ok());
+-    /// assert_eq!(res.unwrap().value_of("config"), None);
++    /// assert!(res.is_err());
++    /// assert_eq!(res.unwrap_err().kind, ErrorKind::EmptyValue);
+     /// ```
+     /// [`ArgSettings::TakesValue`]: ./enum.ArgSettings.html#variant.TakesValue
+     #[inline]
++    pub fn forbid_empty_values(self, empty: bool) -> Self {
++        if empty {
++            self.setting(ArgSettings::NoEmptyValues)
++        } else {
++            self.unset_setting(ArgSettings::NoEmptyValues)
++        }
++    }
++
++    /// Placeholder documentation
++    #[inline]
+     pub fn multiple_values(self, multi: bool) -> Self {
+         if multi {
+             self.setting(ArgSettings::MultipleValues)
+diff --git a/src/build/arg/settings.rs b/src/build/arg/settings.rs
+index 14b0279d82a..ff49ec6c738 100644
+--- a/src/build/arg/settings.rs
++++ b/src/build/arg/settings.rs
+@@ -8,7 +8,7 @@ bitflags! {
+     struct Flags: u32 {
+         const REQUIRED         = 1;
+         const MULTIPLE_OCC     = 1 << 1;
+-        const EMPTY_VALS       = 1 << 2;
++        const NO_EMPTY_VALS    = 1 << 2;
+         const GLOBAL           = 1 << 3;
+         const HIDDEN           = 1 << 4;
+         const TAKES_VAL        = 1 << 5;
+@@ -39,7 +39,7 @@ impl_settings! { ArgSettings, ArgFlags,
+     Required("required") => Flags::REQUIRED,
+     MultipleOccurrences("multipleoccurrences") => Flags::MULTIPLE_OCC,
+     MultipleValues("multiplevalues") => Flags::MULTIPLE_VALS,
+-    AllowEmptyValues("allowemptyvalues") => Flags::EMPTY_VALS,
++    NoEmptyValues("noemptyvalues") => Flags::NO_EMPTY_VALS,
+     Hidden("hidden") => Flags::HIDDEN,
+     TakesValue("takesvalue") => Flags::TAKES_VAL,
+     UseValueDelimiter("usevaluedelimiter") => Flags::USE_DELIM,
+@@ -80,8 +80,8 @@ pub enum ArgSettings {
+     MultipleValues,
+     /// Allows an arg to appear multiple times
+     MultipleOccurrences,
+-    /// Allows an arg accept empty values such as `""`
+-    AllowEmptyValues,
++    /// Disallows an arg from accepting empty values such as `""`
++    NoEmptyValues,
+     /// Hides an arg from the help message
+     Hidden,
+     /// Allows an argument to take a value (such as `--option value`)
+@@ -130,8 +130,8 @@ mod test {
+             ArgSettings::AllowHyphenValues
+         );
+         assert_eq!(
+-            "allowemptyvalues".parse::<ArgSettings>().unwrap(),
+-            ArgSettings::AllowEmptyValues
++            "noemptyvalues".parse::<ArgSettings>().unwrap(),
++            ArgSettings::NoEmptyValues
+         );
+         assert_eq!(
+             "hidepossiblevalues".parse::<ArgSettings>().unwrap(),
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index c69d42ecc48..3800b819a80 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -116,6 +116,7 @@ pub enum ErrorKind {
+     /// let res = App::new("prog")
+     ///     .arg(Arg::new("color")
+     ///          .setting(ArgSettings::TakesValue)
++    ///          .setting(ArgSettings::NoEmptyValues)
+     ///          .long("color"))
+     ///     .try_get_matches_from(vec!["prog", "--color="]);
+     /// assert!(res.is_err());
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 7fb1cf6eaa3..250691c9048 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -1153,7 +1153,7 @@ impl<'help, 'app> Parser<'help, 'app> {
+         // has_eq: --flag=value
+         let mut has_eq = false;
+         let no_val = val.is_none();
+-        let empty_vals = opt.is_set(ArgSettings::AllowEmptyValues);
++        let no_empty_vals = opt.is_set(ArgSettings::NoEmptyValues);
+         let min_vals_zero = opt.min_vals.unwrap_or(1) == 0;
+         let require_equals = opt.is_set(ArgSettings::RequireEquals);
+ 
+@@ -1161,7 +1161,7 @@ impl<'help, 'app> Parser<'help, 'app> {
+         if let Some(fv) = val {
+             has_eq = fv.starts_with("=");
+             let v = fv.trim_start_n_matches(1, b'=');
+-            if !empty_vals && (v.is_empty() || (require_equals && !has_eq)) {
++            if no_empty_vals && (v.is_empty() || (require_equals && !has_eq)) {
+                 debug!("Found Empty - Error");
+                 return Err(ClapError::empty_value(
+                     opt,
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index 56c0ae11a87..515a3667ef6 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -125,9 +125,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+                     ));
+                 }
+             }
+-            if !arg.is_set(ArgSettings::AllowEmptyValues)
+-                && val.is_empty()
+-                && matcher.contains(&arg.id)
++            if arg.is_set(ArgSettings::NoEmptyValues) && val.is_empty() && matcher.contains(&arg.id)
+             {
+                 debug!("Validator::validate_arg_values: illegal empty val found");
+                 return Err(Error::empty_value(

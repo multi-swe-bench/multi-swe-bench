@@ -1,0 +1,148 @@
+diff --git a/lib/common/error_private.h b/lib/common/error_private.h
+index ced1a3ba978..982cf8e9fe6 100644
+--- a/lib/common/error_private.h
++++ b/lib/common/error_private.h
+@@ -49,7 +49,7 @@ typedef ZSTD_ErrorCode ERR_enum;
+ /*-****************************************
+ *  Error codes handling
+ ******************************************/
+-#undef ERROR   /* reported already defined on VS 2015 (Rich Geldreich) */
++#undef ERROR   /* already defined on Visual Studio */
+ #define ERROR(name) ZSTD_ERROR(name)
+ #define ZSTD_ERROR(name) ((size_t)-PREFIX(name))
+ 
+diff --git a/lib/compress/zstd_compress.c b/lib/compress/zstd_compress.c
+index 538f8e9e2ab..8776c5cd270 100644
+--- a/lib/compress/zstd_compress.c
++++ b/lib/compress/zstd_compress.c
+@@ -15,7 +15,7 @@
+ #include <string.h>         /* memset */
+ #include "../common/cpu.h"
+ #include "../common/mem.h"
+-#include "hist.h"       /* HIST_countFast_wksp */
++#include "hist.h"           /* HIST_countFast_wksp */
+ #define FSE_STATIC_LINKING_ONLY   /* FSE_encodeSymbol */
+ #include "../common/fse.h"
+ #define HUF_STATIC_LINKING_ONLY
+@@ -90,7 +90,7 @@ ZSTD_CCtx* ZSTD_createCCtx_advanced(ZSTD_customMem customMem)
+     }
+ }
+ 
+-ZSTD_CCtx* ZSTD_initStaticCCtx(void *workspace, size_t workspaceSize)
++ZSTD_CCtx* ZSTD_initStaticCCtx(void* workspace, size_t workspaceSize)
+ {
+     ZSTD_cwksp ws;
+     ZSTD_CCtx* cctx;
+@@ -99,9 +99,8 @@ ZSTD_CCtx* ZSTD_initStaticCCtx(void *workspace, size_t workspaceSize)
+     ZSTD_cwksp_init(&ws, workspace, workspaceSize);
+ 
+     cctx = (ZSTD_CCtx*)ZSTD_cwksp_reserve_object(&ws, sizeof(ZSTD_CCtx));
+-    if (cctx == NULL) {
+-        return NULL;
+-    }
++    if (cctx == NULL) return NULL;
++
+     memset(cctx, 0, sizeof(ZSTD_CCtx));
+     ZSTD_cwksp_move(&cctx->workspace, &ws);
+     cctx->staticSize = workspaceSize;
+@@ -110,8 +109,7 @@ ZSTD_CCtx* ZSTD_initStaticCCtx(void *workspace, size_t workspaceSize)
+     if (!ZSTD_cwksp_check_available(&cctx->workspace, HUF_WORKSPACE_SIZE + 2 * sizeof(ZSTD_compressedBlockState_t))) return NULL;
+     cctx->blockState.prevCBlock = (ZSTD_compressedBlockState_t*)ZSTD_cwksp_reserve_object(&cctx->workspace, sizeof(ZSTD_compressedBlockState_t));
+     cctx->blockState.nextCBlock = (ZSTD_compressedBlockState_t*)ZSTD_cwksp_reserve_object(&cctx->workspace, sizeof(ZSTD_compressedBlockState_t));
+-    cctx->entropyWorkspace = (U32*)ZSTD_cwksp_reserve_object(
+-        &cctx->workspace, HUF_WORKSPACE_SIZE);
++    cctx->entropyWorkspace = (U32*)ZSTD_cwksp_reserve_object(&cctx->workspace, HUF_WORKSPACE_SIZE);
+     cctx->bmi2 = ZSTD_cpuid_bmi2(ZSTD_cpuid());
+     return cctx;
+ }
+@@ -421,9 +419,8 @@ ZSTD_bounds ZSTD_cParam_getBounds(ZSTD_cParameter param)
+         return bounds;
+ 
+     default:
+-        {   ZSTD_bounds const boundError = { ERROR(parameter_unsupported), 0, 0 };
+-            return boundError;
+-        }
++        bounds.error = ERROR(parameter_unsupported);
++        return bounds;
+     }
+ }
+ 
+@@ -1458,7 +1455,7 @@ static size_t ZSTD_resetCCtx_internal(ZSTD_CCtx* zc,
+             needsIndexReset = ZSTDirp_reset;
+         }
+ 
+-        ZSTD_cwksp_bump_oversized_duration(ws, 0);
++        if (!zc->staticSize) ZSTD_cwksp_bump_oversized_duration(ws, 0);
+ 
+         /* Check if workspace is large enough, alloc a new one if needed */
+         {   size_t const cctxSpace = zc->staticSize ? ZSTD_cwksp_alloc_size(sizeof(ZSTD_CCtx)) : 0;
+@@ -1774,7 +1771,7 @@ static size_t ZSTD_copyCCtx_internal(ZSTD_CCtx* dstCCtx,
+                             ZSTD_buffered_policy_e zbuff)
+ {
+     DEBUGLOG(5, "ZSTD_copyCCtx_internal");
+-    RETURN_ERROR_IF(srcCCtx->stage!=ZSTDcs_init, stage_wrong, 
++    RETURN_ERROR_IF(srcCCtx->stage!=ZSTDcs_init, stage_wrong,
+                     "Can't copy a ctx that's not in init stage.");
+ 
+     memcpy(&dstCCtx->customMem, &srcCCtx->customMem, sizeof(ZSTD_customMem));
+diff --git a/lib/zstd.h b/lib/zstd.h
+index 18c20c87e3e..8c6fc6ae90e 100644
+--- a/lib/zstd.h
++++ b/lib/zstd.h
+@@ -274,9 +274,9 @@ typedef enum {
+                               * Default level is ZSTD_CLEVEL_DEFAULT==3.
+                               * Special: value 0 means default, which is controlled by ZSTD_CLEVEL_DEFAULT.
+                               * Note 1 : it's possible to pass a negative compression level.
+-                              * Note 2 : setting a level does not automatically set all other compression parameters 
+-                              *   to default. Setting this will however eventually dynamically impact the compression 
+-                              *   parameters which have not been manually set. The manually set 
++                              * Note 2 : setting a level does not automatically set all other compression parameters
++                              *   to default. Setting this will however eventually dynamically impact the compression
++                              *   parameters which have not been manually set. The manually set
+                               *   ones will 'stick'. */
+     /* Advanced compression parameters :
+      * It's possible to pin down compression parameters to some specific values.
+@@ -1268,23 +1268,28 @@ ZSTDLIB_API size_t ZSTD_getSequences(ZSTD_CCtx* zc, ZSTD_Sequence* outSeqs,
+ ***************************************/
+ 
+ /*! ZSTD_estimate*() :
+- *  These functions make it possible to estimate memory usage of a future
+- *  {D,C}Ctx, before its creation.
++ *  These functions make it possible to estimate memory usage
++ *  of a future {D,C}Ctx, before its creation.
+  *
+- *  ZSTD_estimateCCtxSize() will provide a budget large enough for any
+- *  compression level up to selected one. Unlike ZSTD_estimateCStreamSize*(),
+- *  this estimate does not include space for a window buffer, so this estimate
+- *  is guaranteed to be enough for single-shot compressions, but not streaming
+- *  compressions. It will however assume the input may be arbitrarily large,
+- *  which is the worst case. If srcSize is known to always be small,
+- *  ZSTD_estimateCCtxSize_usingCParams() can provide a tighter estimation.
+- *  ZSTD_estimateCCtxSize_usingCParams() can be used in tandem with
+- *  ZSTD_getCParams() to create cParams from compressionLevel.
+- *  ZSTD_estimateCCtxSize_usingCCtxParams() can be used in tandem with
+- *  ZSTD_CCtxParams_setParameter().
++ *  ZSTD_estimateCCtxSize() will provide a memory budget large enough
++ *  for any compression level up to selected one.
++ *  Note : Unlike ZSTD_estimateCStreamSize*(), this estimate
++ *         does not include space for a window buffer.
++ *         Therefore, the estimation is only guaranteed for single-shot compressions, not streaming.
++ *  The estimate will assume the input may be arbitrarily large,
++ *  which is the worst case.
+  *
+- *  Note: only single-threaded compression is supported. This function will
+- *  return an error code if ZSTD_c_nbWorkers is >= 1. */
++ *  When srcSize can be bound by a known and rather "small" value,
++ *  this fact can be used to provide a tighter estimation
++ *  because the CCtx compression context will need less memory.
++ *  This tighter estimation can be provided by more advanced functions
++ *  ZSTD_estimateCCtxSize_usingCParams(), which can be used in tandem with ZSTD_getCParams(),
++ *  and ZSTD_estimateCCtxSize_usingCCtxParams(), which can be used in tandem with ZSTD_CCtxParams_setParameter().
++ *  Both can be used to estimate memory using custom compression parameters and arbitrary srcSize limits.
++ *
++ *  Note 2 : only single-threaded compression is supported.
++ *  ZSTD_estimateCCtxSize_usingCCtxParams() will return an error code if ZSTD_c_nbWorkers is >= 1.
++ */
+ ZSTDLIB_API size_t ZSTD_estimateCCtxSize(int compressionLevel);
+ ZSTDLIB_API size_t ZSTD_estimateCCtxSize_usingCParams(ZSTD_compressionParameters cParams);
+ ZSTDLIB_API size_t ZSTD_estimateCCtxSize_usingCCtxParams(const ZSTD_CCtx_params* params);

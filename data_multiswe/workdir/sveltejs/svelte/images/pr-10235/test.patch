@@ -1,0 +1,67 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/Component.svelte b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/Component.svelte
+new file mode 100644
+index 000000000000..4b4bd05df62c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/Component.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import { createEventDispatcher } from "svelte";
++
++    const dispatch = createEventDispatcher();
++</script>
++
++<button on:click={() => dispatch('event-name')}>toggle</button>
+diff --git a/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/_config.js b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/_config.js
+index 76492ec3a471..3a030adca4d0 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/_config.js
++++ b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/_config.js
+@@ -3,11 +3,14 @@ import { ok, test } from '../../test';
+ export default test({
+ 	html: `
+ 		<div>toggle</div>
++		<button>toggle</button>
+ 	`,
+ 
+ 	async test({ assert, target, window }) {
+ 		const div = target.querySelector('div');
++		const button = target.querySelector('button');
+ 		ok(div);
++		ok(button);
+ 		const event = new window.MouseEvent('some-event');
+ 
+ 		await div.dispatchEvent(event);
+@@ -15,15 +18,17 @@ export default test({
+ 			target.innerHTML,
+ 			`
+ 			<div>toggle</div>
++			<button>toggle</button>
+ 			<p>hello!</p>
+ 		`
+ 		);
+ 
+-		await div.dispatchEvent(event);
++		await button.click();
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+ 			`
+ 			<div>toggle</div>
++			<button>toggle</button>
+ 		`
+ 		);
+ 	}
+diff --git a/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/main.svelte b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/main.svelte
+index 5171820c8368..d2023319a3a3 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/main.svelte
++++ b/packages/svelte/tests/runtime-legacy/samples/event-handler-sanitize/main.svelte
+@@ -1,8 +1,11 @@
+ <script>
++	import Component from "./Component.svelte";
++
+ 	export let visible;
+ </script>
+ 
+ <div on:some-event='{() => visible = !visible}'>toggle</div>
++<Component on:event-name={() => visible = !visible}></Component>
+ 
+ {#if visible}
+ 	<p>hello!</p>

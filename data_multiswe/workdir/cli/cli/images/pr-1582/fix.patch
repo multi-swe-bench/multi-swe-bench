@@ -1,0 +1,99 @@
+diff --git a/pkg/cmd/issue/create/create.go b/pkg/cmd/issue/create/create.go
+index 8d47e4e2783..4190fba3fd7 100644
+--- a/pkg/cmd/issue/create/create.go
++++ b/pkg/cmd/issue/create/create.go
+@@ -23,6 +23,8 @@ type CreateOptions struct {
+ 	IO         *iostreams.IOStreams
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 
++	RootDirOverride string
++
+ 	RepoOverride string
+ 	WebMode      bool
+ 
+@@ -94,9 +96,10 @@ func createRun(opts *CreateOptions) error {
+ 	}
+ 
+ 	var nonLegacyTemplateFiles []string
+-	if opts.RepoOverride == "" {
++	if opts.RootDirOverride != "" {
++		nonLegacyTemplateFiles = githubtemplate.FindNonLegacy(opts.RootDirOverride, "ISSUE_TEMPLATE")
++	} else if opts.RepoOverride == "" {
+ 		if rootDir, err := git.ToplevelDir(); err == nil {
+-			// TODO: figure out how to stub this in tests
+ 			nonLegacyTemplateFiles = githubtemplate.FindNonLegacy(rootDir, "ISSUE_TEMPLATE")
+ 		}
+ 	}
+diff --git a/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/bug_report.md b/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/bug_report.md
+new file mode 100644
+index 00000000000..d57082bcfae
+--- /dev/null
++++ b/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/bug_report.md
+@@ -0,0 +1,9 @@
++---
++name: Bug report
++about: Report a bug or unexpected behavior
++title: Bug Report
++labels: bug
++
++---
++
++I wanna report a bug
+\ No newline at end of file
+diff --git a/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/enhancement.md b/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/enhancement.md
+new file mode 100644
+index 00000000000..0fe84afa3d8
+--- /dev/null
++++ b/pkg/cmd/issue/create/fixtures/repoWithNonLegacyIssueTemplates/.github/ISSUE_TEMPLATE/enhancement.md
+@@ -0,0 +1,9 @@
++---
++name: Submit a request
++about: Propose an improvement
++title: Enhancement Proposal
++labels: enhancement
++
++---
++
++I have a suggestion for an enhancement
+\ No newline at end of file
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index c9e1fb6ab57..156244ea536 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -28,6 +28,8 @@ type CreateOptions struct {
+ 	Remotes    func() (context.Remotes, error)
+ 	Branch     func() (string, error)
+ 
++	RootDirOverride string
++
+ 	RepoOverride string
+ 
+ 	Autofill bool
+@@ -246,8 +248,11 @@ func createRun(opts *CreateOptions) error {
+ 	if !opts.WebMode && !opts.Autofill && interactive {
+ 		var nonLegacyTemplateFiles []string
+ 		var legacyTemplateFile *string
+-		if rootDir, err := git.ToplevelDir(); err == nil {
+-			// TODO: figure out how to stub this in tests
++
++		if opts.RootDirOverride != "" {
++			nonLegacyTemplateFiles = githubtemplate.FindNonLegacy(opts.RootDirOverride, "PULL_REQUEST_TEMPLATE")
++			legacyTemplateFile = githubtemplate.FindLegacy(opts.RootDirOverride, "PULL_REQUEST_TEMPLATE")
++		} else if rootDir, err := git.ToplevelDir(); err == nil {
+ 			nonLegacyTemplateFiles = githubtemplate.FindNonLegacy(rootDir, "PULL_REQUEST_TEMPLATE")
+ 			legacyTemplateFile = githubtemplate.FindLegacy(rootDir, "PULL_REQUEST_TEMPLATE")
+ 		}
+diff --git a/pkg/cmd/pr/create/fixtures/repoWithNonLegacyPRTemplates/.github/PULL_REQUEST_TEMPLATE/bug_fix.md b/pkg/cmd/pr/create/fixtures/repoWithNonLegacyPRTemplates/.github/PULL_REQUEST_TEMPLATE/bug_fix.md
+new file mode 100644
+index 00000000000..5e98de34460
+--- /dev/null
++++ b/pkg/cmd/pr/create/fixtures/repoWithNonLegacyPRTemplates/.github/PULL_REQUEST_TEMPLATE/bug_fix.md
+@@ -0,0 +1,7 @@
++---
++name: "Bug fix"
++about: Fix a bug
++
++---
++
++Fixes a bug and Closes an issue
+\ No newline at end of file

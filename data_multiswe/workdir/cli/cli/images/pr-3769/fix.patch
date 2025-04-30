@@ -1,0 +1,102 @@
+diff --git a/docs/project-layout.md b/docs/project-layout.md
+index cf594a2e709..cf9758b46b2 100644
+--- a/docs/project-layout.md
++++ b/docs/project-layout.md
+@@ -75,7 +75,7 @@ and talk through which code gets run in order.
+ This task might be tricky. Typically, gh commands do things like look up information from the git repository
+ in the current directory, query the GitHub API, scan the user's `~/.ssh/config` file, clone or fetch git
+ repositories, etc. Naturally, none of these things should ever happen for real when running tests, unless
+-you are sure that any filesystem operations are stricly scoped to a location made for and maintained by the
++you are sure that any filesystem operations are strictly scoped to a location made for and maintained by the
+ test itself. To avoid actually running things like making real API requests or shelling out to `git`
+ commands, we stub them. You should look at how that's done within some existing tests.
+ 
+diff --git a/pkg/cmd/secret/set/http.go b/pkg/cmd/secret/set/http.go
+index 8c589adec71..3ecee37c0da 100644
+--- a/pkg/cmd/secret/set/http.go
++++ b/pkg/cmd/secret/set/http.go
+@@ -90,6 +90,15 @@ func putOrgSecret(client *api.Client, host string, pk *PubKey, opts SetOptions,
+ 	return putSecret(client, host, path, payload)
+ }
+ 
++func putEnvSecret(client *api.Client, pk *PubKey, repo ghrepo.Interface, envName string, secretName, eValue string) error {
++	payload := SecretPayload{
++		EncryptedValue: eValue,
++		KeyID:          pk.ID,
++	}
++	path := fmt.Sprintf("repos/%s/environments/%s/secrets/%s", ghrepo.FullName(repo), envName, secretName)
++	return putSecret(client, repo.RepoHost(), path, payload)
++}
++
+ func putRepoSecret(client *api.Client, pk *PubKey, repo ghrepo.Interface, secretName, eValue string) error {
+ 	payload := SecretPayload{
+ 		EncryptedValue: eValue,
+diff --git a/pkg/cmd/secret/set/set.go b/pkg/cmd/secret/set/set.go
+index cb1975ad33b..8f6de703dc6 100644
+--- a/pkg/cmd/secret/set/set.go
++++ b/pkg/cmd/secret/set/set.go
+@@ -33,6 +33,7 @@ type SetOptions struct {
+ 
+ 	SecretName      string
+ 	OrgName         string
++	EnvName         string
+ 	Body            string
+ 	Visibility      string
+ 	RepositoryNames []string
+@@ -48,7 +49,7 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command
+ 	cmd := &cobra.Command{
+ 		Use:   "set <secret-name>",
+ 		Short: "Create or update secrets",
+-		Long:  "Locally encrypt a new or updated secret at either the repository or organization level and send it to GitHub for storage.",
++		Long:  "Locally encrypt a new or updated secret at either the repository, environment, or organization level and send it to GitHub for storage.",
+ 		Example: heredoc.Doc(`
+ 			Paste secret in prompt
+ 			$ gh secret set MYSECRET
+@@ -59,6 +60,9 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command
+ 			Use file as secret value
+ 			$ gh secret set MYSECRET < file.json
+ 
++			Set environment level secret
++			$ gh secret set MYSECRET -bval --env=anEnv
++
+ 			Set organization level secret visible to entire organization
+ 			$ gh secret set MYSECRET -bval --org=anOrg --visibility=all
+ 
+@@ -75,6 +79,10 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command
+ 			// support `-R, --repo` override
+ 			opts.BaseRepo = f.BaseRepo
+ 
++			if err := cmdutil.MutuallyExclusive("specify only one of `--org` or `--env`", opts.OrgName != "", opts.EnvName != ""); err != nil {
++				return err
++			}
++
+ 			opts.SecretName = args[0]
+ 
+ 			err := validSecretName(opts.SecretName)
+@@ -115,7 +123,8 @@ func NewCmdSet(f *cmdutil.Factory, runF func(*SetOptions) error) *cobra.Command
+ 			return setRun(opts)
+ 		},
+ 	}
+-	cmd.Flags().StringVarP(&opts.OrgName, "org", "o", "", "List secrets for an organization")
++	cmd.Flags().StringVarP(&opts.OrgName, "org", "o", "", "Set a secret for an organization")
++	cmd.Flags().StringVarP(&opts.EnvName, "env", "e", "", "Set a secret for an organization")
+ 	cmd.Flags().StringVarP(&opts.Visibility, "visibility", "v", "private", "Set visibility for an organization secret: `all`, `private`, or `selected`")
+ 	cmd.Flags().StringSliceVarP(&opts.RepositoryNames, "repos", "r", []string{}, "List of repository names for `selected` visibility")
+ 	cmd.Flags().StringVarP(&opts.Body, "body", "b", "", "A value for the secret. Reads from STDIN if not specified.")
+@@ -136,6 +145,7 @@ func setRun(opts *SetOptions) error {
+ 	client := api.NewClientFromHTTP(c)
+ 
+ 	orgName := opts.OrgName
++	envName := opts.EnvName
+ 
+ 	var baseRepo ghrepo.Interface
+ 	if orgName == "" {
+@@ -174,6 +184,8 @@ func setRun(opts *SetOptions) error {
+ 
+ 	if orgName != "" {
+ 		err = putOrgSecret(client, host, pk, *opts, encoded)
++	} else if envName != "" {
++		err = putEnvSecret(client, pk, baseRepo, envName, opts.SecretName, encoded)
+ 	} else {
+ 		err = putRepoSecret(client, pk, baseRepo, opts.SecretName, encoded)
+ 	}

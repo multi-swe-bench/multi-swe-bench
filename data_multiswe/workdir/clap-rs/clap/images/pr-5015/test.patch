@@ -1,0 +1,79 @@
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index 401bc432ff2..fda7a9aeb13 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -1063,6 +1063,65 @@ Options:
+     utils::assert_output(cmd, "myapp --help", LONG_ABOUT, false);
+ }
+ 
++#[test]
++fn explicit_short_long_help() {
++    static SHORT_ABOUT: &str = "\
++bar
++
++Usage: myapp [arg1]
++
++Arguments:
++  [arg1]  some option
++
++Options:
++  -?             
++  -h, --help     
++  -V, --version  Print version
++";
++
++    static LONG_ABOUT: &str = "\
++something really really long, with
++multiple lines of text
++that should be displayed
++
++Usage: myapp [arg1]
++
++Arguments:
++  [arg1]
++          some option
++
++Options:
++  -?
++          
++
++  -h, --help
++          
++
++  -V, --version
++          Print version
++";
++
++    let cmd = Command::new("myapp")
++        .disable_help_flag(true)
++        .version("1.0")
++        .author("foo")
++        .about("bar")
++        .long_about(
++            "something really really long, with\nmultiple lines of text\nthat should be displayed",
++        )
++        .arg(Arg::new("arg1").help("some option"))
++        .arg(Arg::new("short").short('?').action(ArgAction::HelpShort))
++        .arg(
++            Arg::new("long")
++                .short('h')
++                .long("help")
++                .action(ArgAction::HelpLong),
++        );
++    utils::assert_output(cmd.clone(), "myapp -?", SHORT_ABOUT, false);
++    utils::assert_output(cmd.clone(), "myapp -h", LONG_ABOUT, false);
++    utils::assert_output(cmd, "myapp --help", LONG_ABOUT, false);
++}
++
+ #[test]
+ fn ripgrep_usage() {
+     static RIPGREP_USAGE: &str = "\
+@@ -1292,7 +1351,7 @@ fn override_help_short() {
+ }
+ 
+ static OVERRIDE_HELP_LONG: &str = "\
+-Usage: test [OPTIONS]
++Usage: test
+ 
+ Options:
+   -h, --hell     Print help

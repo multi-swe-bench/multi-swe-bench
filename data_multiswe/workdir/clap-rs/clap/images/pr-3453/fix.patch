@@ -1,0 +1,212 @@
+diff --git a/clap_complete/src/shells/zsh.rs b/clap_complete/src/shells/zsh.rs
+index 3861bf6f120..0b6f7eda1ae 100644
+--- a/clap_complete/src/shells/zsh.rs
++++ b/clap_complete/src/shells/zsh.rs
+@@ -545,7 +545,7 @@ fn write_flags_of(p: &App, p_global: Option<&App>) -> String {
+     let mut ret = vec![];
+ 
+     for f in utils::flags(p) {
+-        debug!("write_flags_of:iter: f={}", f.get_name());
++        debug!("write_flags_of:iter: f={}", f.get_id());
+ 
+         let help = f.get_help().map_or(String::new(), escape_help);
+         let conflicts = arg_conflicts(p, &f, p_global);
+@@ -639,7 +639,7 @@ fn write_positionals_of(p: &App) -> String {
+         let a = format!(
+             "'{cardinality}:{name}{help}:{value_completion}' \\",
+             cardinality = cardinality,
+-            name = arg.get_name(),
++            name = arg.get_id(),
+             help = arg
+                 .get_help()
+                 .map_or("".to_owned(), |v| " -- ".to_owned() + v)
+diff --git a/clap_complete_fig/src/fig.rs b/clap_complete_fig/src/fig.rs
+index 8dec8b892c4..95c3ef467f5 100644
+--- a/clap_complete_fig/src/fig.rs
++++ b/clap_complete_fig/src/fig.rs
+@@ -221,7 +221,7 @@ fn gen_args(arg: &Arg, indent: usize) -> String {
+     buffer.push_str(&format!(
+         "{{\n{:indent$}  name: \"{}\",\n",
+         "",
+-        arg.get_name(),
++        arg.get_id(),
+         indent = indent
+     ));
+ 
+diff --git a/clap_mangen/src/render.rs b/clap_mangen/src/render.rs
+index df753ae302c..ced17bcdeea 100644
+--- a/clap_mangen/src/render.rs
++++ b/clap_mangen/src/render.rs
+@@ -61,7 +61,7 @@ pub(crate) fn synopsis(roff: &mut Roff, app: &clap::App) {
+     for arg in app.get_positionals() {
+         let (lhs, rhs) = option_markers(arg);
+         line.push(roman(lhs));
+-        line.push(italic(arg.get_name()));
++        line.push(italic(arg.get_id()));
+         line.push(roman(rhs));
+         line.push(roman(" "));
+     }
+@@ -120,7 +120,7 @@ pub(crate) fn options(roff: &mut Roff, app: &clap::App) {
+ 
+     for pos in items.iter().filter(|a| a.is_positional()) {
+         let (lhs, rhs) = option_markers(pos);
+-        let name = format!("{}{}{}", lhs, pos.get_name(), rhs);
++        let name = format!("{}{}{}", lhs, pos.get_id(), rhs);
+ 
+         let mut header = vec![bold(&name)];
+ 
+diff --git a/src/build/arg.rs b/src/build/arg.rs
+index 499eade3f2a..4975ca4ae9b 100644
+--- a/src/build/arg.rs
++++ b/src/build/arg.rs
+@@ -117,13 +117,19 @@ impl<'help> Arg<'help> {
+     ///
+     /// See [`Arg::new`] for more details.
+     #[must_use]
+-    pub fn name<S: Into<&'help str>>(mut self, n: S) -> Self {
++    pub fn id<S: Into<&'help str>>(mut self, n: S) -> Self {
+         let name = n.into();
+         self.id = Id::from(&*name);
+         self.name = name;
+         self
+     }
+ 
++    /// Deprecated, replaced with [`Arg::id`]
++    #[deprecated(since = "3.1.0", note = "Replaced with `Arg::id`")]
++    pub fn name<S: Into<&'help str>>(self, n: S) -> Self {
++        self.id(n)
++    }
++
+     /// Sets the short version of the argument without the preceding `-`.
+     ///
+     /// By default `V` and `h` are used by the auto-generated `version` and `help` arguments,
+@@ -4489,10 +4495,16 @@ impl<'help> Arg<'help> {
+ impl<'help> Arg<'help> {
+     /// Get the name of the argument
+     #[inline]
+-    pub fn get_name(&self) -> &'help str {
++    pub fn get_id(&self) -> &'help str {
+         self.name
+     }
+ 
++    /// Deprecated, replaced with [`Arg::get_id`]
++    #[deprecated(since = "3.1.0", note = "Replaced with `Arg::get_id`")]
++    pub fn get_name(&self) -> &'help str {
++        self.get_id()
++    }
++
+     /// Get the help specified for this argument, if any
+     #[inline]
+     pub fn get_help(&self) -> Option<&'help str> {
+diff --git a/src/build/arg_group.rs b/src/build/arg_group.rs
+index 0c4a0b85cab..20588578b49 100644
+--- a/src/build/arg_group.rs
++++ b/src/build/arg_group.rs
+@@ -109,7 +109,7 @@ impl<'help> ArgGroup<'help> {
+     /// # ;
+     /// ```
+     pub fn new<S: Into<&'help str>>(n: S) -> Self {
+-        ArgGroup::default().name(n)
++        ArgGroup::default().id(n)
+     }
+ 
+     /// Sets the group name.
+@@ -122,12 +122,18 @@ impl<'help> ArgGroup<'help> {
+     /// # ;
+     /// ```
+     #[must_use]
+-    pub fn name<S: Into<&'help str>>(mut self, n: S) -> Self {
++    pub fn id<S: Into<&'help str>>(mut self, n: S) -> Self {
+         self.name = n.into();
+         self.id = Id::from(self.name);
+         self
+     }
+ 
++    /// Deprecated, replaced with [`ArgGroup::id`]
++    #[deprecated(since = "3.1.0", note = "Replaced with `ArgGroup::id`")]
++    pub fn name<S: Into<&'help str>>(self, n: S) -> Self {
++        self.id(n)
++    }
++
+     /// Adds an [argument] to this group by name
+     ///
+     /// # Examples
+@@ -495,7 +501,7 @@ impl<'help> From<&'help Yaml> for ArgGroup<'help> {
+                 "conflicts_with" => yaml_vec_or_str!(a, v, conflicts_with),
+                 "name" => {
+                     if let Some(ys) = v.as_str() {
+-                        a = a.name(ys);
++                        a = a.id(ys);
+                     }
+                     a
+                 }
+diff --git a/src/build/debug_asserts.rs b/src/build/debug_asserts.rs
+index 85874b7f7e0..d4f51f2f782 100644
+--- a/src/build/debug_asserts.rs
++++ b/src/build/debug_asserts.rs
+@@ -648,7 +648,7 @@ fn assert_arg_flags(arg: &Arg) {
+                 )+
+ 
+                 if !s.is_empty() {
+-                    panic!("Argument {:?}\n{}", arg.get_name(), s)
++                    panic!("Argument {:?}\n{}", arg.get_id(), s)
+                 }
+             }
+         }
+diff --git a/src/macros.rs b/src/macros.rs
+index f0ade76381e..701a8ef152f 100644
+--- a/src/macros.rs
++++ b/src/macros.rs
+@@ -382,8 +382,8 @@ macro_rules! arg_impl {
+ 
+                 let mut arg = $arg;
+                 let long = $crate::arg_impl! { @string $long };
+-                if arg.get_name().is_empty() {
+-                    arg = arg.name(long);
++                if arg.get_id().is_empty() {
++                    arg = arg.id(long);
+                 }
+                 arg.long(long)
+             })
+@@ -404,8 +404,8 @@ macro_rules! arg_impl {
+ 
+                 let mut arg = $arg;
+                 let long = $crate::arg_impl! { @string $long };
+-                if arg.get_name().is_empty() {
+-                    arg = arg.name(long);
++                if arg.get_id().is_empty() {
++                    arg = arg.id(long);
+                 }
+                 arg.long(long)
+             })
+@@ -466,8 +466,8 @@ macro_rules! arg_impl {
+                 arg = arg.takes_value(true);
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_name().is_empty() {
+-                    arg = arg.name(value_name);
++                if arg.get_id().is_empty() {
++                    arg = arg.id(value_name);
+                 }
+                 arg.value_name(value_name)
+             })
+@@ -496,8 +496,8 @@ macro_rules! arg_impl {
+                 arg = arg.takes_value(true);
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_name().is_empty() {
+-                    arg = arg.name(value_name);
++                if arg.get_id().is_empty() {
++                    arg = arg.id(value_name);
+                 }
+                 arg.value_name(value_name)
+             })
+@@ -622,7 +622,7 @@ macro_rules! arg {
+         let arg = $crate::arg_impl! {
+             @arg ($crate::Arg::default()) $($tail)+
+         };
+-        debug_assert!(!arg.get_name().is_empty(), "Without a value or long flag, the `name:` prefix is required");
++        debug_assert!(!arg.get_id().is_empty(), "Without a value or long flag, the `name:` prefix is required");
+         arg
+     }};
+ }

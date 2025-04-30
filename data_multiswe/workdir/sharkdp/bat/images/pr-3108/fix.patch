@@ -1,0 +1,69 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 165cf2c223..ec4f260eef 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -19,6 +19,7 @@
+ - Fix handling of inputs with combined ANSI color and attribute sequences, see #2185 and #2856 (@eth-p)
+ - Fix panel width when line 10000 wraps, see #2854 (@eth-p)
+ - Fix compile issue of `time` dependency caused by standard library regression #3045 (@cyqsimon)
++- Fix override behavior of --plain and --paging, see issue #2731 and PR #3108 (@einfachIrgendwer0815)
+ 
+ ## Other
+ 
+diff --git a/src/bin/bat/app.rs b/src/bin/bat/app.rs
+index 4d52c73dfc..c7262aa3b6 100644
+--- a/src/bin/bat/app.rs
++++ b/src/bin/bat/app.rs
+@@ -98,12 +98,30 @@ impl App {
+     pub fn config(&self, inputs: &[Input]) -> Result<Config> {
+         let style_components = self.style_components()?;
+ 
++        let extra_plain = self.matches.get_count("plain") > 1;
++        let plain_last_index = self
++            .matches
++            .indices_of("plain")
++            .and_then(Iterator::max)
++            .unwrap_or_default();
++        let paging_last_index = self
++            .matches
++            .indices_of("paging")
++            .and_then(Iterator::max)
++            .unwrap_or_default();
++
+         let paging_mode = match self.matches.get_one::<String>("paging").map(|s| s.as_str()) {
+-            Some("always") => PagingMode::Always,
++            Some("always") => {
++                // Disable paging if the second -p (or -pp) is specified after --paging=always
++                if extra_plain && plain_last_index > paging_last_index {
++                    PagingMode::Never
++                } else {
++                    PagingMode::Always
++                }
++            }
+             Some("never") => PagingMode::Never,
+             Some("auto") | None => {
+                 // If we have -pp as an option when in auto mode, the pager should be disabled.
+-                let extra_plain = self.matches.get_count("plain") > 1;
+                 if extra_plain || self.matches.get_flag("no-paging") {
+                     PagingMode::Never
+                 } else if inputs.iter().any(Input::is_stdin) {
+diff --git a/src/bin/bat/clap_app.rs b/src/bin/bat/clap_app.rs
+index 4327fa1545..ac1f400733 100644
+--- a/src/bin/bat/clap_app.rs
++++ b/src/bin/bat/clap_app.rs
+@@ -97,7 +97,6 @@ pub fn build_app(interactive_output: bool) -> Command {
+             Arg::new("plain")
+                 .overrides_with("plain")
+                 .overrides_with("number")
+-                .overrides_with("paging")
+                 .short('p')
+                 .long("plain")
+                 .action(ArgAction::Count)
+@@ -322,7 +321,6 @@ pub fn build_app(interactive_output: bool) -> Command {
+                 .long("paging")
+                 .overrides_with("paging")
+                 .overrides_with("no-paging")
+-                .overrides_with("plain")
+                 .value_name("when")
+                 .value_parser(["auto", "never", "always"])
+                 .default_value("auto")

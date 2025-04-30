@@ -1,0 +1,43 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/import-reactive/_config.js b/packages/svelte/tests/runtime-runes/samples/import-reactive/_config.js
+new file mode 100644
+index 000000000000..38d0d5375027
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/import-reactive/_config.js
+@@ -0,0 +1,17 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: '<button>1</button> <button>2</button> <p>1</p>',
++
++	test({ assert, target }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		flushSync(() => btn2.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button> <button>2</button> <p>2</p>`);
++
++		// reset state for next variant
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button> <button>2</button> <p>1</p>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/import-reactive/main.svelte b/packages/svelte/tests/runtime-runes/samples/import-reactive/main.svelte
+new file mode 100644
+index 000000000000..1de5ec8cc179
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/import-reactive/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import { stuff } from './stuff.svelte.js';
++</script>
++
++<button onclick={() => Object.assign(stuff, { x: 1 })}>1</button>
++<button onclick={() => Object.assign(stuff, { x: 2 })}>2</button>
++<p>{Object.values(stuff)}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/import-reactive/stuff.svelte.js b/packages/svelte/tests/runtime-runes/samples/import-reactive/stuff.svelte.js
+new file mode 100644
+index 000000000000..3a0381bbbc4a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/import-reactive/stuff.svelte.js
+@@ -0,0 +1,1 @@
++export const stuff = $state({ x: 1 });

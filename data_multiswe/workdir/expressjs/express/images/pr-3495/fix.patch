@@ -1,0 +1,27 @@
+diff --git a/History.md b/History.md
+index 35147d390d..c29a4490bd 100644
+--- a/History.md
++++ b/History.md
+@@ -3,6 +3,7 @@ unreleased
+ 
+   * Improve error message for non-strings to `res.sendFile`
+   * Improve error message for `null`/`undefined` to `res.status`
++  * Support multiple hosts in `X-Forwarded-Host`
+ 
+ 4.16.4 / 2018-10-10
+ ===================
+diff --git a/lib/request.js b/lib/request.js
+index 8bb86a9acc..a9400ef99d 100644
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -430,6 +430,10 @@ defineGetter(req, 'hostname', function hostname(){
+ 
+   if (!host || !trust(this.connection.remoteAddress, 0)) {
+     host = this.get('Host');
++  } else if (host.indexOf(',') !== -1) {
++    // Note: X-Forwarded-Host is normally only ever a
++    //       single value, but this is to be safe.
++    host = host.substring(0, host.indexOf(',')).trimRight()
+   }
+ 
+   if (!host) return;

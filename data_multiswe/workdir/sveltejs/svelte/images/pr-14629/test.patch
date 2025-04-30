@@ -1,0 +1,221 @@
+diff --git a/packages/svelte/src/internal/shared/clone.test.ts b/packages/svelte/src/internal/shared/clone.test.ts
+index 7a8244a7c1af..9c4c6f097e99 100644
+--- a/packages/svelte/src/internal/shared/clone.test.ts
++++ b/packages/svelte/src/internal/shared/clone.test.ts
+@@ -126,7 +126,7 @@ test('uncloneable value', () => {
+ 
+ 	assert.equal(fn, copy);
+ 	assert.deepEqual(warnings(), [
+-		'%c[svelte] state_snapshot_uncloneable\n%cValue cannot be cloned with `$state.snapshot` — the original value was returned'
++		'%c[svelte] state_snapshot_uncloneable\n%cValue cannot be cloned with `$state.snapshot` — the original value was returned\nhttps://svelte.dev/e/state_snapshot_uncloneable'
+ 	]);
+ });
+ 
+@@ -160,7 +160,8 @@ test('uncloneable properties', () => {
+ - <value>.c[4]
+ - <value>.c[5]
+ - <value>.c[6]
+-- <value>.c[7]`
++- <value>.c[7]
++https://svelte.dev/e/state_snapshot_uncloneable`
+ 	]);
+ });
+ 
+@@ -181,6 +182,7 @@ test('many uncloneable properties', () => {
+ - <value>[4]
+ - <value>[5]
+ - <value>[6]
+-- ...and 93 more`
++- ...and 93 more
++https://svelte.dev/e/state_snapshot_uncloneable`
+ 	]);
+ });
+diff --git a/packages/svelte/tests/compiler-errors/test.ts b/packages/svelte/tests/compiler-errors/test.ts
+index ea696890b4f8..5e57a3a03286 100644
+--- a/packages/svelte/tests/compiler-errors/test.ts
++++ b/packages/svelte/tests/compiler-errors/test.ts
+@@ -12,6 +12,13 @@ interface CompilerErrorTest extends BaseTest {
+ 	};
+ }
+ 
++/**
++ * Remove the "https://svelte.dev/e/..." link
++ */
++function strip_link(message: string) {
++	return message.slice(0, message.lastIndexOf('\n'));
++}
++
+ const { test, run } = suite<CompilerErrorTest>((config, cwd) => {
+ 	if (!fs.existsSync(`${cwd}/main.svelte`) && !fs.existsSync(`${cwd}/main.svelte.js`)) {
+ 		throw new Error('Expected main.svelte or main.svelte.js');
+@@ -30,7 +37,7 @@ const { test, run } = suite<CompilerErrorTest>((config, cwd) => {
+ 			caught_error = true;
+ 
+ 			expect(error.code).toBe(config.error.code);
+-			expect(error.message).toBe(config.error.message);
++			expect(strip_link(error.message)).toBe(config.error.message);
+ 
+ 			if (config.error.position) {
+ 				expect(error.position).toEqual(config.error.position);
+@@ -55,7 +62,7 @@ const { test, run } = suite<CompilerErrorTest>((config, cwd) => {
+ 			caught_error = true;
+ 
+ 			expect(error.code).toEqual(config.error.code);
+-			expect(error.message).toEqual(config.error.message);
++			expect(strip_link(error.message)).toEqual(config.error.message);
+ 
+ 			if (config.error.position) {
+ 				expect(error.position).toEqual(config.error.position);
+diff --git a/packages/svelte/tests/css/test.ts b/packages/svelte/tests/css/test.ts
+index 443ee0295809..dd51f52eabc3 100644
+--- a/packages/svelte/tests/css/test.ts
++++ b/packages/svelte/tests/css/test.ts
+@@ -12,6 +12,14 @@ function normalize_warning(warning: Warning) {
+ 	delete warning.filename;
+ 	delete warning.position;
+ 	delete warning.frame;
++
++	// Remove the "https://svelte.dev/e/..." link at the end
++	const lines = warning.message.split('\n');
++	if (lines.at(-1)?.startsWith('https://svelte.dev/e/')) {
++		lines.pop();
++	}
++	warning.message = lines.join('\n');
++
+ 	return warning;
+ }
+ 
+@@ -28,6 +36,13 @@ interface CssTest extends BaseTest {
+ 	props?: Record<string, any>;
+ }
+ 
++/**
++ * Remove the "https://svelte.dev/e/..." link
++ */
++function strip_link(message: string) {
++	return message.slice(0, message.lastIndexOf('\n'));
++}
++
+ const { test, run } = suite<CssTest>(async (config, cwd) => {
+ 	await compile_directory(cwd, 'client', { cssHash: () => 'svelte-xyz', ...config.compileOptions });
+ 	await compile_directory(cwd, 'server', { cssHash: () => 'svelte-xyz', ...config.compileOptions });
+diff --git a/packages/svelte/tests/hydration/test.ts b/packages/svelte/tests/hydration/test.ts
+index 7247778d0ffa..3bf2dd286cd0 100644
+--- a/packages/svelte/tests/hydration/test.ts
++++ b/packages/svelte/tests/hydration/test.ts
+@@ -77,7 +77,14 @@ const { test, run } = suite<HydrationTest>(async (config, cwd) => {
+ 				// TODO convert this to structured data, for more robust comparison?
+ 				const text = args[0];
+ 				const code = text.slice(11, text.indexOf('\n%c', 11));
+-				const message = text.slice(text.indexOf('%c', 2) + 2);
++				let message = text.slice(text.indexOf('%c', 2) + 2);
++
++				// Remove the "https://svelte.dev/e/..." link at the end
++				const lines = message.split('\n');
++				if (lines.at(-1)?.startsWith('https://svelte.dev/e/')) {
++					lines.pop();
++				}
++				message = lines.join('\n');
+ 
+ 				if (typeof message === 'string' && code === 'hydration_mismatch') {
+ 					got_hydration_error = true;
+diff --git a/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/_config.js b/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/_config.js
+index 9e4b7222afd0..3eba548d7c24 100644
+--- a/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/_config.js
++++ b/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/_config.js
+@@ -18,7 +18,7 @@ export default test({
+ 2: 
+ 3: unterminated template
+                         ^`,
+-			message: 'Unexpected end of input',
++			message: 'Unexpected end of input\nhttps://svelte.dev/e/unexpected_eof',
+ 			position: [30, 30],
+ 			start: {
+ 				character: 30,
+diff --git a/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/output.svelte b/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/output.svelte
+index a4c705695a1d..441605f4f978 100644
+--- a/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/output.svelte
++++ b/packages/svelte/tests/migrate/samples/impossible-migrate-with-errors/output.svelte
+@@ -1,4 +1,5 @@
+-<!-- @migration-task Error while migrating Svelte code: Unexpected end of input -->
++<!-- @migration-task Error while migrating Svelte code: Unexpected end of input
++https://svelte.dev/e/unexpected_eof -->
+ <script
+ 
+ unterminated template
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-browser/custom-elements-samples/extended-builtin/_config.js b/packages/svelte/tests/runtime-browser/custom-elements-samples/extended-builtin/_config.js
+index c5dfa8ecc7d2..022bc2df2096 100644
+--- a/packages/svelte/tests/runtime-browser/custom-elements-samples/extended-builtin/_config.js
++++ b/packages/svelte/tests/runtime-browser/custom-elements-samples/extended-builtin/_config.js
+@@ -5,7 +5,8 @@ export default test({
+ 	warnings: [
+ 		{
+ 			code: 'attribute_avoid_is',
+-			message: 'The "is" attribute is not supported cross-browser and should be avoided',
++			message:
++				'The "is" attribute is not supported cross-browser and should be avoided\nhttps://svelte.dev/e/attribute_avoid_is',
+ 			start: {
+ 				character: 109,
+ 				column: 8,
+diff --git a/packages/svelte/tests/runtime-legacy/shared.ts b/packages/svelte/tests/runtime-legacy/shared.ts
+index b14c0bdf4bd3..e6dc0f385bf9 100644
+--- a/packages/svelte/tests/runtime-legacy/shared.ts
++++ b/packages/svelte/tests/runtime-legacy/shared.ts
+@@ -216,8 +216,18 @@ async function run_test_variant(
+ 			console.warn = (...args) => {
+ 				if (args[0].startsWith('%c[svelte]')) {
+ 					// TODO convert this to structured data, for more robust comparison?
+-					const message = args[0];
+-					warnings.push(message.slice(message.indexOf('%c', 2) + 2));
++
++					let message = args[0];
++					message = message.slice(message.indexOf('%c', 2) + 2);
++
++					// Remove the "https://svelte.dev/e/..." link at the end
++					const lines = message.split('\n');
++					if (lines.at(-1)?.startsWith('https://svelte.dev/e/')) {
++						lines.pop();
++					}
++					message = lines.join('\n');
++
++					warnings.push(message);
+ 				} else {
+ 					warnings.push(...args);
+ 				}
+diff --git a/packages/svelte/tests/validator/test.ts b/packages/svelte/tests/validator/test.ts
+index 1dcc5a58d5a5..99d8feba2497 100644
+--- a/packages/svelte/tests/validator/test.ts
++++ b/packages/svelte/tests/validator/test.ts
+@@ -13,6 +13,13 @@ interface ValidatorTest extends BaseTest {
+ 	};
+ }
+ 
++/**
++ * Remove the "https://svelte.dev/e/..." link
++ */
++function strip_link(message: string) {
++	return message.slice(0, message.lastIndexOf('\n'));
++}
++
+ const { test, run } = suite<ValidatorTest>(async (config, cwd) => {
+ 	const expected_warnings = try_load_json(`${cwd}/warnings.json`) || [];
+ 	const expected_errors = try_load_json(`${cwd}/errors.json`);
+@@ -40,7 +47,7 @@ const { test, run } = suite<ValidatorTest>(async (config, cwd) => {
+ 		assert.deepEqual(
+ 			warnings.map((w) => ({
+ 				code: w.code,
+-				message: w.message,
++				message: strip_link(w.message),
+ 				start: { line: w.start?.line, column: w.start?.column },
+ 				end: { line: w.end?.line, column: w.end?.column }
+ 			})),
+@@ -56,7 +63,7 @@ const { test, run } = suite<ValidatorTest>(async (config, cwd) => {
+ 		assert.deepEqual(
+ 			{
+ 				code: error.code,
+-				message: error.message,
++				message: strip_link(error.message),
+ 				start: { line: error.start?.line, column: error.start?.column },
+ 				end: { line: error.end?.line, column: error.end?.column }
+ 			},

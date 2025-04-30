@@ -1,0 +1,781 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 18217a583f1..df96569d4db 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -67,19 +67,7 @@ type PullRequest struct {
+ 		Nodes      []PullRequestCommit
+ 	}
+ 	StatusCheckRollup struct {
+-		Nodes []struct {
+-			Commit struct {
+-				StatusCheckRollup struct {
+-					Contexts struct {
+-						Nodes    []CheckContext
+-						PageInfo struct {
+-							HasNextPage bool
+-							EndCursor   string
+-						}
+-					}
+-				}
+-			}
+-		}
++		Nodes []StatusCheckRollupNode
+ 	}
+ 
+ 	Assignees      Assignees
+@@ -93,9 +81,30 @@ type PullRequest struct {
+ 	ReviewRequests ReviewRequests
+ }
+ 
++type StatusCheckRollupNode struct {
++	Commit StatusCheckRollupCommit
++}
++
++type StatusCheckRollupCommit struct {
++	StatusCheckRollup CommitStatusCheckRollup
++}
++
++type CommitStatusCheckRollup struct {
++	Contexts CheckContexts
++}
++
++type CheckContexts struct {
++	Nodes    []CheckContext
++	PageInfo struct {
++		HasNextPage bool
++		EndCursor   string
++	}
++}
++
+ type CheckContext struct {
+ 	TypeName   string `json:"__typename"`
+ 	Name       string `json:"name"`
++	IsRequired bool   `json:"isRequired"`
+ 	CheckSuite struct {
+ 		WorkflowRun struct {
+ 			Workflow struct {
+diff --git a/api/query_builder.go b/api/query_builder.go
+index 16665cfd834..996a52a714f 100644
+--- a/api/query_builder.go
++++ b/api/query_builder.go
+@@ -164,6 +164,45 @@ func StatusCheckRollupGraphQL(after string) string {
+ 	}`), afterClause)
+ }
+ 
++func RequiredStatusCheckRollupGraphQL(prID, after string) string {
++	var afterClause string
++	if after != "" {
++		afterClause = ",after:" + after
++	}
++	return fmt.Sprintf(shortenQuery(`
++	statusCheckRollup: commits(last: 1) {
++		nodes {
++			commit {
++				statusCheckRollup {
++					contexts(first:100%[1]s) {
++						nodes {
++							__typename
++							...on StatusContext {
++								context,
++								state,
++								targetUrl,
++								createdAt,
++                isRequired(pullRequestId: %[2]s)
++							},
++							...on CheckRun {
++								name,
++								checkSuite{workflowRun{workflow{name}}},
++								status,
++								conclusion,
++								startedAt,
++								completedAt,
++								detailsUrl,
++                isRequired(pullRequestId: %[2]s)
++							}
++						},
++						pageInfo{hasNextPage,endCursor}
++					}
++				}
++			}
++		}
++	}`), afterClause, prID)
++}
++
+ var IssueFields = []string{
+ 	"assignees",
+ 	"author",
+diff --git a/pkg/cmd/pr/checks/aggregate.go b/pkg/cmd/pr/checks/aggregate.go
+index 9247082b958..2a01b31d875 100644
+--- a/pkg/cmd/pr/checks/aggregate.go
++++ b/pkg/cmd/pr/checks/aggregate.go
+@@ -24,7 +24,7 @@ type checkCounts struct {
+ 	Skipping int
+ }
+ 
+-func aggregateChecks(pr *api.PullRequest) ([]check, checkCounts, error) {
++func aggregateChecks(pr *api.PullRequest, requiredChecks bool) ([]check, checkCounts, error) {
+ 	checks := []check{}
+ 	counts := checkCounts{}
+ 
+@@ -39,6 +39,10 @@ func aggregateChecks(pr *api.PullRequest) ([]check, checkCounts, error) {
+ 
+ 	checkContexts := pr.StatusCheckRollup.Nodes[0].Commit.StatusCheckRollup.Contexts.Nodes
+ 	for _, c := range eliminateDuplicates(checkContexts) {
++		if requiredChecks && !c.IsRequired {
++			continue
++		}
++
+ 		state := c.State
+ 		if state == "" {
+ 			if c.Status == "COMPLETED" {
+@@ -83,6 +87,10 @@ func aggregateChecks(pr *api.PullRequest) ([]check, checkCounts, error) {
+ 		checks = append(checks, item)
+ 	}
+ 
++	if len(checks) == 0 && requiredChecks {
++		return checks, counts, fmt.Errorf("no required checks reported on the '%s' branch", pr.HeadRefName)
++	}
++
+ 	return checks, counts, nil
+ }
+ 
+diff --git a/pkg/cmd/pr/checks/checks.go b/pkg/cmd/pr/checks/checks.go
+index 4bb536bc421..7e8294dbb20 100644
+--- a/pkg/cmd/pr/checks/checks.go
++++ b/pkg/cmd/pr/checks/checks.go
+@@ -2,6 +2,7 @@ package checks
+ 
+ import (
+ 	"fmt"
++	"net/http"
+ 	"time"
+ 
+ 	"github.com/MakeNowJust/heredoc"
+@@ -18,8 +19,9 @@ import (
+ const defaultInterval time.Duration = 10 * time.Second
+ 
+ type ChecksOptions struct {
+-	IO      *iostreams.IOStreams
+-	Browser browser.Browser
++	HttpClient func() (*http.Client, error)
++	IO         *iostreams.IOStreams
++	Browser    browser.Browser
+ 
+ 	Finder shared.PRFinder
+ 
+@@ -27,14 +29,16 @@ type ChecksOptions struct {
+ 	WebMode     bool
+ 	Interval    time.Duration
+ 	Watch       bool
++	Required    bool
+ }
+ 
+ func NewCmdChecks(f *cmdutil.Factory, runF func(*ChecksOptions) error) *cobra.Command {
+ 	var interval int
+ 	opts := &ChecksOptions{
+-		IO:       f.IOStreams,
+-		Browser:  f.Browser,
+-		Interval: defaultInterval,
++		HttpClient: f.HttpClient,
++		IO:         f.IOStreams,
++		Browser:    f.Browser,
++		Interval:   defaultInterval,
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -82,6 +86,7 @@ func NewCmdChecks(f *cmdutil.Factory, runF func(*ChecksOptions) error) *cobra.Co
+ 	cmd.Flags().BoolVarP(&opts.WebMode, "web", "w", false, "Open the web browser to show details about checks")
+ 	cmd.Flags().BoolVarP(&opts.Watch, "watch", "", false, "Watch checks until they finish")
+ 	cmd.Flags().IntVarP(&interval, "interval", "i", 10, "Refresh interval in seconds when using `--watch` flag")
++	cmd.Flags().BoolVar(&opts.Required, "required", false, "Only show checks that are required")
+ 
+ 	return cmd
+ }
+@@ -111,6 +116,22 @@ func checksRun(opts *ChecksOptions) error {
+ 		return checksRunWebMode(opts)
+ 	}
+ 
++	findOptions := shared.FindOptions{
++		Selector: opts.SelectorArg,
++		Fields:   []string{"number", "headRefName"},
++	}
++
++	var pr *api.PullRequest
++	pr, repo, findErr := opts.Finder.Find(findOptions)
++	if findErr != nil {
++		return findErr
++	}
++
++	client, clientErr := opts.HttpClient()
++	if clientErr != nil {
++		return clientErr
++	}
++
+ 	if opts.Watch {
+ 		opts.IO.StartAlternateScreenBuffer()
+ 	} else {
+@@ -127,19 +148,14 @@ func checksRun(opts *ChecksOptions) error {
+ 
+ 	// Do not return err until we can StopAlternateScreenBuffer()
+ 	var err error
+-	for {
+-		findOptions := shared.FindOptions{
+-			Selector: opts.SelectorArg,
+-			Fields:   []string{"number", "headRefName", "statusCheckRollup"},
+-		}
+ 
+-		var pr *api.PullRequest
+-		pr, _, err = opts.Finder.Find(findOptions)
++	for {
++		err = populateStatusChecks(client, repo, pr)
+ 		if err != nil {
+ 			break
+ 		}
+ 
+-		checks, counts, err = aggregateChecks(pr)
++		checks, counts, err = aggregateChecks(pr, opts.Required)
+ 		if err != nil {
+ 			break
+ 		}
+@@ -183,3 +199,63 @@ func checksRun(opts *ChecksOptions) error {
+ 
+ 	return nil
+ }
++
++func populateStatusChecks(client *http.Client, repo ghrepo.Interface, pr *api.PullRequest) error {
++	apiClient := api.NewClientFromHTTP(client)
++
++	type response struct {
++		Node *api.PullRequest
++	}
++
++	query := fmt.Sprintf(`
++	query PullRequestStatusChecks($id: ID!, $endCursor: String!) {
++		node(id: $id) {
++			...on PullRequest {
++				%s
++			}
++		}
++	}`, api.RequiredStatusCheckRollupGraphQL("$id", "$endCursor"))
++
++	variables := map[string]interface{}{
++		"id": pr.ID,
++	}
++
++	statusCheckRollup := api.CheckContexts{}
++	endCursor := ""
++
++	for {
++		variables["endCursor"] = endCursor
++		var resp response
++		err := apiClient.GraphQL(repo.RepoHost(), query, variables, &resp)
++		if err != nil {
++			return err
++		}
++
++		if len(resp.Node.StatusCheckRollup.Nodes) == 0 {
++			return nil
++		}
++
++		result := resp.Node.StatusCheckRollup.Nodes[0].Commit.StatusCheckRollup.Contexts
++		statusCheckRollup.Nodes = append(
++			statusCheckRollup.Nodes,
++			result.Nodes...,
++		)
++
++		if !result.PageInfo.HasNextPage {
++			break
++		}
++		endCursor = result.PageInfo.EndCursor
++	}
++
++	statusCheckRollup.PageInfo.HasNextPage = false
++
++	pr.StatusCheckRollup.Nodes = []api.StatusCheckRollupNode{{
++		Commit: api.StatusCheckRollupCommit{
++			StatusCheckRollup: api.CommitStatusCheckRollup{
++				Contexts: statusCheckRollup,
++			},
++		},
++	}}
++
++	return nil
++}
+diff --git a/pkg/cmd/pr/checks/fixtures/allPassing.json b/pkg/cmd/pr/checks/fixtures/allPassing.json
+index 8d1f335105a..47df80c8efd 100644
+--- a/pkg/cmd/pr/checks/fixtures/allPassing.json
++++ b/pkg/cmd/pr/checks/fixtures/allPassing.json
+@@ -1,42 +1,45 @@
+-{ 
+-  "number": 123, 
+-  "statusCheckRollup": { 
+-    "nodes": [
+-      {
+-        "commit": {
+-          "oid": "abc",
+-          "statusCheckRollup": {
+-            "contexts": {
+-              "nodes": [
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "cool tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "rad tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "awesome tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "awesome tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
+                 }
+-              ]
++              }
+             }
+           }
+-        }
++        ]
+       }
+-    ]
++    }
+   }
+ }
+diff --git a/pkg/cmd/pr/checks/fixtures/onlyRequired.json b/pkg/cmd/pr/checks/fixtures/onlyRequired.json
+new file mode 100644
+index 00000000000..b4a8ddbdd35
+--- /dev/null
++++ b/pkg/cmd/pr/checks/fixtures/onlyRequired.json
+@@ -0,0 +1,48 @@
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link",
++                      "isRequired": true
++                    },
++                    {
++                      "conclusion": "SKIPPED",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link",
++                      "isRequired": false
++                    },
++                    {
++                      "conclusion": "SKIPPED",
++                      "status": "COMPLETED",
++                      "name": "skip tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link",
++                      "isRequired": false
++                    }
++                  ]
++                }
++              }
++            }
++          }
++        ]
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/checks/fixtures/someFailing.json b/pkg/cmd/pr/checks/fixtures/someFailing.json
+index f407cd4b541..9814d5e76d7 100644
+--- a/pkg/cmd/pr/checks/fixtures/someFailing.json
++++ b/pkg/cmd/pr/checks/fixtures/someFailing.json
+@@ -1,42 +1,45 @@
+-{ 
+-  "number": 123, 
+-  "statusCheckRollup": { 
+-    "nodes": [
+-      {
+-        "commit": {
+-          "oid": "abc",
+-          "statusCheckRollup": {
+-            "contexts": {
+-              "nodes": [
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "cool tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "FAILURE",
+-                  "status": "COMPLETED",
+-                  "name": "sad tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "",
+-                  "status": "IN_PROGRESS",
+-                  "name": "slow tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "FAILURE",
++                      "status": "COMPLETED",
++                      "name": "sad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "",
++                      "status": "IN_PROGRESS",
++                      "name": "slow tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
+                 }
+-              ]
++              }
+             }
+           }
+-        }
++        ]
+       }
+-    ]
++    }
+   }
+ }
+diff --git a/pkg/cmd/pr/checks/fixtures/somePending.json b/pkg/cmd/pr/checks/fixtures/somePending.json
+index 2d558f39e28..a96ea4fda92 100644
+--- a/pkg/cmd/pr/checks/fixtures/somePending.json
++++ b/pkg/cmd/pr/checks/fixtures/somePending.json
+@@ -1,42 +1,45 @@
+-{ 
+-  "number": 123, 
+-  "statusCheckRollup": { 
+-    "nodes": [
+-      {
+-        "commit": {
+-          "oid": "abc",
+-          "statusCheckRollup": {
+-            "contexts": {
+-              "nodes": [
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "cool tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "rad tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "",
+-                  "status": "IN_PROGRESS",
+-                  "name": "slow tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "",
++                      "status": "IN_PROGRESS",
++                      "name": "slow tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
+                 }
+-              ]
++              }
+             }
+           }
+-        }
++        ]
+       }
+-    ]
++    }
+   }
+ }
+diff --git a/pkg/cmd/pr/checks/fixtures/someSkipping.json b/pkg/cmd/pr/checks/fixtures/someSkipping.json
+index 65ac5b98fd0..f267f3ddb6e 100644
+--- a/pkg/cmd/pr/checks/fixtures/someSkipping.json
++++ b/pkg/cmd/pr/checks/fixtures/someSkipping.json
+@@ -1,42 +1,45 @@
+-{ 
+-  "number": 123, 
+-  "statusCheckRollup": { 
+-    "nodes": [
+-      {
+-        "commit": {
+-          "oid": "abc",
+-          "statusCheckRollup": {
+-            "contexts": {
+-              "nodes": [
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "cool tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SKIPPED",
+-                  "status": "COMPLETED",
+-                  "name": "rad tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SKIPPED",
+-                  "status": "COMPLETED",
+-                  "name": "skip tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SKIPPED",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SKIPPED",
++                      "status": "COMPLETED",
++                      "name": "skip tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    }
++                  ]
+                 }
+-              ]
++              }
+             }
+           }
+-        }
++        ]
+       }
+-    ]
++    }
+   }
+ }
+diff --git a/pkg/cmd/pr/checks/fixtures/withStatuses.json b/pkg/cmd/pr/checks/fixtures/withStatuses.json
+index ddc7374baf6..ed8300eb7a6 100644
+--- a/pkg/cmd/pr/checks/fixtures/withStatuses.json
++++ b/pkg/cmd/pr/checks/fixtures/withStatuses.json
+@@ -1,39 +1,42 @@
+-{ 
+-  "number": 123, 
+-  "statusCheckRollup": { 
+-    "nodes": [
+-      {
+-        "commit": {
+-          "oid": "abc",
+-          "statusCheckRollup": {
+-            "contexts": {
+-              "nodes": [
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "cool tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "conclusion": "SUCCESS",
+-                  "status": "COMPLETED",
+-                  "name": "rad tests",
+-                  "completedAt": "2020-08-27T19:00:12Z",
+-                  "startedAt": "2020-08-27T18:58:46Z",
+-                  "detailsUrl": "sweet link"
+-                },
+-                {
+-                  "state": "FAILURE",
+-                  "name": "a status",
+-                  "targetUrl": "sweet link"
++{
++  "data": {
++    "node": {
++      "statusCheckRollup": {
++        "nodes": [
++          {
++            "commit": {
++              "oid": "abc",
++              "statusCheckRollup": {
++                "contexts": {
++                  "nodes": [
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "cool tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "conclusion": "SUCCESS",
++                      "status": "COMPLETED",
++                      "name": "rad tests",
++                      "completedAt": "2020-08-27T19:00:12Z",
++                      "startedAt": "2020-08-27T18:58:46Z",
++                      "detailsUrl": "sweet link"
++                    },
++                    {
++                      "state": "FAILURE",
++                      "name": "a status",
++                      "targetUrl": "sweet link"
++                    }
++                  ]
+                 }
+-              ]
++              }
+             }
+           }
+-        }
++        ]
+       }
+-    ]
++    }
+   }
+ }

@@ -1,0 +1,74 @@
+diff --git a/tests/basictests.cpp b/tests/basictests.cpp
+index 56b9c7b828..d0547a8f83 100644
+--- a/tests/basictests.cpp
++++ b/tests/basictests.cpp
+@@ -805,14 +805,14 @@ namespace dom_api_tests {
+ 
+   bool document_object_index() {
+     std::cout << "Running " << __func__ << std::endl;
+-    string json(R"({ "a": 1, "b": 2, "c": 3})");
++    string json(R"({ "a": 1, "b": 2, "c/d": 3})");
+     dom::parser parser;
+     auto [doc, error] = parser.parse(json);
+     if (doc["a"].get<uint64_t>().first != 1) { cerr << "Expected uint64_t(doc[\"a\"]) to be 1, was " << doc["a"].first << endl; return false; }
+     if (doc["b"].get<uint64_t>().first != 2) { cerr << "Expected uint64_t(doc[\"b\"]) to be 2, was " << doc["b"].first << endl; return false; }
+-    if (doc["c"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(doc[\"c\"]) to be 3, was " << doc["c"].first << endl; return false; }
++    if (doc["c/d"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(doc[\"c/d\"]) to be 3, was " << doc["c"].first << endl; return false; }
+     // Check all three again in backwards order, to ensure we can go backwards
+-    if (doc["c"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(doc[\"c\"]) to be 3, was " << doc["c"].first << endl; return false; }
++    if (doc["c/d"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(doc[\"c/d\"]) to be 3, was " << doc["c"].first << endl; return false; }
+     if (doc["b"].get<uint64_t>().first != 2) { cerr << "Expected uint64_t(doc[\"b\"]) to be 2, was " << doc["b"].first << endl; return false; }
+     if (doc["a"].get<uint64_t>().first != 1) { cerr << "Expected uint64_t(doc[\"a\"]) to be 1, was " << doc["a"].first << endl; return false; }
+ 
+@@ -825,7 +825,7 @@ namespace dom_api_tests {
+ 
+   bool object_index() {
+     std::cout << "Running " << __func__ << std::endl;
+-    string json(R"({ "obj": { "a": 1, "b": 2, "c": 3 } })");
++    string json(R"({ "obj": { "a": 1, "b": 2, "c/d": 3 } })");
+     dom::parser parser;
+     auto [doc, error] = parser.parse(json);
+     if (error) { cerr << "Error: " << error << endl; return false; }
+@@ -839,9 +839,9 @@ namespace dom_api_tests {
+     obj["obj"].get<dom::object>().tie(obj, error); //  tie(...) = fails with "no viable overloaded '='" on Apple clang version 11.0.0
+     if (obj["a"].get<uint64_t>().first != 1) { cerr << "Expected uint64_t(obj[\"a\"]) to be 1, was " << obj["a"].first << endl; return false; }
+     if (obj["b"].get<uint64_t>().first != 2) { cerr << "Expected uint64_t(obj[\"b\"]) to be 2, was " << obj["b"].first << endl; return false; }
+-    if (obj["c"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(obj[\"c\"]) to be 3, was " << obj["c"].first << endl; return false; }
++    if (obj["c/d"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(obj[\"c\"]) to be 3, was " << obj["c"].first << endl; return false; }
+     // Check all three again in backwards order, to ensure we can go backwards
+-    if (obj["c"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(obj[\"c\"]) to be 3, was " << obj["c"].first << endl; return false; }
++    if (obj["c/d"].get<uint64_t>().first != 3) { cerr << "Expected uint64_t(obj[\"c\"]) to be 3, was " << obj["c"].first << endl; return false; }
+     if (obj["b"].get<uint64_t>().first != 2) { cerr << "Expected uint64_t(obj[\"b\"]) to be 2, was " << obj["b"].first << endl; return false; }
+     if (obj["a"].get<uint64_t>().first != 1) { cerr << "Expected uint64_t(obj[\"a\"]) to be 1, was " << obj["a"].first << endl; return false; }
+ 
+diff --git a/tests/pointercheck.cpp b/tests/pointercheck.cpp
+index dbaf404e45..1b3a719f12 100644
+--- a/tests/pointercheck.cpp
++++ b/tests/pointercheck.cpp
+@@ -35,7 +35,7 @@ const padded_string TEST_JSON = R"(
+ bool json_pointer_success_test(const char *json_pointer, std::string_view expected_value) {
+   std::cout << "Running successful JSON pointer test '" << json_pointer << "' ..." << std::endl;
+   dom::parser parser;
+-  auto [value, error] = parser.parse(TEST_JSON)[json_pointer].get<std::string_view>();
++  auto [value, error] = parser.parse(TEST_JSON).at(json_pointer).get<std::string_view>();
+   if (error) { std::cerr << "Unexpected Error: " << error << std::endl; return false; }
+   ASSERT(value == expected_value);
+   return true;
+@@ -44,7 +44,7 @@ bool json_pointer_success_test(const char *json_pointer, std::string_view expect
+ bool json_pointer_success_test(const char *json_pointer) {
+   std::cout << "Running successful JSON pointer test '" << json_pointer << "' ..." << std::endl;
+   dom::parser parser;
+-  auto [value, error] = parser.parse(TEST_JSON)[json_pointer];
++  auto [value, error] = parser.parse(TEST_JSON).at(json_pointer);
+   if (error) { std::cerr << "Unexpected Error: " << error << std::endl; return false; }
+   return true;
+ }
+@@ -53,7 +53,7 @@ bool json_pointer_success_test(const char *json_pointer) {
+ bool json_pointer_failure_test(const char *json_pointer, error_code expected_failure_test) {
+   std::cout << "Running invalid JSON pointer test '" << json_pointer << "' ..." << std::endl;
+   dom::parser parser;
+-  auto [value, error] = parser.parse(TEST_JSON)[json_pointer];
++  auto [value, error] = parser.parse(TEST_JSON).at(json_pointer);
+   ASSERT(error == expected_failure_test);
+   return true;
+ }

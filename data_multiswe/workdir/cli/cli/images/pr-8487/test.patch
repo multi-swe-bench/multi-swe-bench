@@ -1,0 +1,154 @@
+diff --git a/git/client_test.go b/git/client_test.go
+index 841a496da9a..ed3b66244df 100644
+--- a/git/client_test.go
++++ b/git/client_test.go
+@@ -608,7 +608,7 @@ func TestClientDeleteLocalBranch(t *testing.T) {
+ 	}{
+ 		{
+ 			name:        "delete local branch",
+-			wantCmdArgs: `path/to/git branch -D trunk`,
++			wantCmdArgs: `path/to/git branch -D trunk path/to/git branch -d -r origin/trunk`,
+ 		},
+ 		{
+ 			name:          "git error",
+diff --git a/pkg/cmd/pr/close/close_test.go b/pkg/cmd/pr/close/close_test.go
+index b435fb8aabb..16dc6442e37 100644
+--- a/pkg/cmd/pr/close/close_test.go
++++ b/pkg/cmd/pr/close/close_test.go
+@@ -164,7 +164,9 @@ func TestPrClose_deleteBranch_sameRepo(t *testing.T) {
+ 	defer cmdTeardown(t)
+ 
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
++	cs.Register(`git rev-parse --git-dir`, 128, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 
+ 	output, err := runCommand(http, true, `96 --delete-branch`)
+ 	assert.NoError(t, err)
+@@ -196,6 +198,7 @@ func TestPrClose_deleteBranch_crossRepo(t *testing.T) {
+ 
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 
+ 	output, err := runCommand(http, true, `96 --delete-branch`)
+ 	assert.NoError(t, err)
+@@ -231,7 +234,9 @@ func TestPrClose_deleteBranch_sameBranch(t *testing.T) {
+ 
+ 	cs.Register(`git checkout main`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/trunk`, 0, "")
++	cs.Register(`git rev-parse --git-dir`, 128, "")
+ 	cs.Register(`git branch -D trunk`, 0, "")
++	cs.Register(`git branch -d -r origin/trunk`, 0, "")
+ 
+ 	output, err := runCommand(http, true, `96 --delete-branch`)
+ 	assert.NoError(t, err)
+@@ -308,3 +313,40 @@ func TestPrClose_withComment(t *testing.T) {
+ 	assert.Equal(t, "", output.String())
+ 	assert.Equal(t, "✓ Closed pull request #96 (The title of the PR)\n", output.Stderr())
+ }
++
++func TestPrClose_deleteBranch_inGitRepo(t *testing.T) {
++	http := &httpmock.Registry{}
++	defer http.Verify(t)
++
++	baseRepo, pr := stubPR("OWNER/REPO:main", "OWNER/REPO:trunk")
++	pr.Title = "The title of the PR"
++	shared.RunCommandFinder("96", pr, baseRepo)
++
++	http.Register(
++		httpmock.GraphQL(`mutation PullRequestClose\b`),
++		httpmock.GraphQLMutation(`{"id": "THE-ID"}`,
++			func(inputs map[string]interface{}) {
++				assert.Equal(t, inputs["pullRequestId"], "THE-ID")
++			}),
++	)
++	http.Register(
++		httpmock.REST("DELETE", "repos/OWNER/REPO/git/refs/heads/trunk"),
++		httpmock.StringResponse(`{}`))
++
++	cs, cmdTeardown := run.Stub()
++	defer cmdTeardown(t)
++
++	cs.Register(`git rev-parse --verify refs/heads/trunk`, 0, "")
++	cs.Register(`git rev-parse --git-dir`, 0, ".git")
++	cs.Register(`git checkout main`, 0, "")
++	cs.Register(`git branch -D trunk`, 0, "")
++	cs.Register(`git branch -d -r origin/trunk`, 0, "")
++
++	output, err := runCommand(http, true, `96 --delete-branch`)
++	assert.NoError(t, err)
++	assert.Equal(t, "", output.String())
++	assert.Equal(t, heredoc.Doc(`
++		✓ Closed pull request #96 (The title of the PR)
++		✓ Deleted branch trunk and switched to branch main
++	`), output.Stderr())
++}
+diff --git a/pkg/cmd/pr/merge/merge_test.go b/pkg/cmd/pr/merge/merge_test.go
+index 0eb6a81fba5..8fcaa8ed2cd 100644
+--- a/pkg/cmd/pr/merge/merge_test.go
++++ b/pkg/cmd/pr/merge/merge_test.go
+@@ -644,6 +644,7 @@ func TestPrMerge_deleteBranch(t *testing.T) {
+ 	cs.Register(`git checkout main`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	output, err := runCommand(http, nil, "blueberries", true, `pr merge --merge --delete-branch`)
+@@ -695,6 +696,7 @@ func TestPrMerge_deleteBranch_nonDefault(t *testing.T) {
+ 	cs.Register(`git checkout fruit`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	output, err := runCommand(http, nil, "blueberries", true, `pr merge --merge --delete-branch`)
+@@ -744,6 +746,7 @@ func TestPrMerge_deleteBranch_onlyLocally(t *testing.T) {
+ 	cs.Register(`git checkout main`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	output, err := runCommand(http, nil, "blueberries", true, `pr merge --merge --delete-branch`)
+@@ -794,6 +797,7 @@ func TestPrMerge_deleteBranch_checkoutNewBranch(t *testing.T) {
+ 	cs.Register(`git checkout -b fruit --track origin/fruit`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	output, err := runCommand(http, nil, "blueberries", true, `pr merge --merge --delete-branch`)
+@@ -842,6 +846,7 @@ func TestPrMerge_deleteNonCurrentBranch(t *testing.T) {
+ 
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 
+ 	output, err := runCommand(http, nil, "main", true, `pr merge --merge --delete-branch blueberries`)
+ 	if err != nil {
+@@ -1081,6 +1086,7 @@ func TestPrMerge_alreadyMerged(t *testing.T) {
+ 	cs.Register(`git checkout main`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	pm := &prompter.PrompterMock{
+@@ -1153,6 +1159,7 @@ func TestPrMerge_alreadyMerged_withMergeStrategy_TTY(t *testing.T) {
+ 
+ 	cs.Register(`git rev-parse --verify refs/heads/`, 0, "")
+ 	cs.Register(`git branch -D `, 0, "")
++	cs.Register(`git branch -d -r origin/`, 0, "")
+ 
+ 	pm := &prompter.PrompterMock{
+ 		ConfirmFunc: func(p string, d bool) (bool, error) {
+@@ -1324,6 +1331,7 @@ func TestPRMergeTTY_withDeleteBranch(t *testing.T) {
+ 	cs.Register(`git checkout main`, 0, "")
+ 	cs.Register(`git rev-parse --verify refs/heads/blueberries`, 0, "")
+ 	cs.Register(`git branch -D blueberries`, 0, "")
++	cs.Register(`git branch -d -r origin/blueberries`, 0, "")
+ 	cs.Register(`git pull --ff-only`, 0, "")
+ 
+ 	pm := &prompter.PrompterMock{

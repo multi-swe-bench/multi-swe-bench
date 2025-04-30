@@ -1,0 +1,29 @@
+diff --git a/.changeset/few-mails-play.md b/.changeset/few-mails-play.md
+new file mode 100644
+index 000000000000..593bb38c6bf8
+--- /dev/null
++++ b/.changeset/few-mails-play.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: allow trailing comments on functions
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/expression.js b/packages/svelte/src/compiler/phases/1-parse/read/expression.js
+index aa86b850081d..61ecb5473cdc 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/expression.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/expression.js
+@@ -18,7 +18,12 @@ export default function read_expression(parser) {
+ 
+ 		let index = /** @type {number} */ (node.end);
+ 		if (node.trailingComments !== undefined && node.trailingComments.length > 0) {
+-			index = node.trailingComments.at(-1).end;
++			// in simple expressions like {true/*this is literal*/} trailing comments are not included
++			// in the node end so we need them added to the index to keep the parser in check.
++			// but for arrow functions trailing comments are actually already included in the end
++			// and doesn't include whitespace in the end so if we set the parse index to that we
++			// will loose chars that we already read.
++			index = Math.max(node.trailingComments.at(-1).end, index);
+ 		}
+ 
+ 		while (num_parens > 0) {

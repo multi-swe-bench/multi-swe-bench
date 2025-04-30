@@ -1,0 +1,180 @@
+diff --git a/cmd/gh/main.go b/cmd/gh/main.go
+index a8f1ed1418f..9a2501f491e 100644
+--- a/cmd/gh/main.go
++++ b/cmd/gh/main.go
+@@ -58,7 +58,7 @@ func mainRun() exitCode {
+ 		updateMessageChan <- rel
+ 	}()
+ 
+-	hasDebug := os.Getenv("DEBUG") != ""
++	hasDebug, _ := utils.IsDebugEnabled()
+ 
+ 	cmdFactory := factory.New(buildVersion)
+ 	stderr := cmdFactory.IOStreams.ErrOut
+@@ -327,8 +327,10 @@ func checkForUpdate(currentVersion string) (*update.ReleaseInfo, error) {
+ // does not depend on user configuration
+ func basicClient(currentVersion string) (*api.Client, error) {
+ 	var opts []api.ClientOption
+-	if verbose := os.Getenv("DEBUG"); verbose != "" {
+-		opts = append(opts, apiVerboseLog())
++	if isVerbose, debugValue := utils.IsDebugEnabled(); isVerbose {
++		colorize := utils.IsTerminal(os.Stderr)
++		logTraffic := strings.Contains(debugValue, "api")
++		opts = append(opts, api.VerboseLog(colorable.NewColorable(os.Stderr), logTraffic, colorize))
+ 	}
+ 	opts = append(opts, api.AddHeader("User-Agent", fmt.Sprintf("GitHub CLI %s", currentVersion)))
+ 
+@@ -344,12 +346,6 @@ func basicClient(currentVersion string) (*api.Client, error) {
+ 	return api.NewClient(opts...), nil
+ }
+ 
+-func apiVerboseLog() api.ClientOption {
+-	logTraffic := strings.Contains(os.Getenv("DEBUG"), "api")
+-	colorize := utils.IsTerminal(os.Stderr)
+-	return api.VerboseLog(colorable.NewColorable(os.Stderr), logTraffic, colorize)
+-}
+-
+ func isRecentRelease(publishedAt time.Time) bool {
+ 	return !publishedAt.IsZero() && time.Since(publishedAt) < time.Hour*24
+ }
+diff --git a/internal/authflow/flow.go b/internal/authflow/flow.go
+index fbf0a9e341c..c809e455a2e 100644
+--- a/internal/authflow/flow.go
++++ b/internal/authflow/flow.go
+@@ -12,6 +12,7 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/utils"
+ 	"github.com/cli/oauth"
+ )
+ 
+@@ -53,8 +54,9 @@ func authFlow(oauthHost string, IO *iostreams.IOStreams, notice string, addition
+ 	cs := IO.ColorScheme()
+ 
+ 	httpClient := http.DefaultClient
+-	if envDebug := os.Getenv("DEBUG"); envDebug != "" {
+-		logTraffic := strings.Contains(envDebug, "api") || strings.Contains(envDebug, "oauth")
++	debugEnabled, debugValue := utils.IsDebugEnabled()
++	if debugEnabled {
++		logTraffic := strings.Contains(debugValue, "api")
+ 		httpClient.Transport = api.VerboseLog(IO.ErrOut, logTraffic, IO.ColorEnabled())(httpClient.Transport)
+ 	}
+ 
+diff --git a/internal/run/run.go b/internal/run/run.go
+index 58fb189e389..d482e04cc86 100644
+--- a/internal/run/run.go
++++ b/internal/run/run.go
+@@ -8,6 +8,8 @@ import (
+ 	"os/exec"
+ 	"path/filepath"
+ 	"strings"
++
++	"github.com/cli/cli/v2/utils"
+ )
+ 
+ // Runnable is typically an exec.Cmd or its stub in tests
+@@ -28,7 +30,7 @@ type cmdWithStderr struct {
+ }
+ 
+ func (c cmdWithStderr) Output() ([]byte, error) {
+-	if os.Getenv("DEBUG") != "" {
++	if isVerbose, _ := utils.IsDebugEnabled(); isVerbose {
+ 		_ = printArgs(os.Stderr, c.Cmd.Args)
+ 	}
+ 	if c.Cmd.Stderr != nil {
+@@ -44,7 +46,7 @@ func (c cmdWithStderr) Output() ([]byte, error) {
+ }
+ 
+ func (c cmdWithStderr) Run() error {
+-	if os.Getenv("DEBUG") != "" {
++	if isVerbose, _ := utils.IsDebugEnabled(); isVerbose {
+ 		_ = printArgs(os.Stderr, c.Cmd.Args)
+ 	}
+ 	if c.Cmd.Stderr != nil {
+diff --git a/pkg/cmd/factory/http.go b/pkg/cmd/factory/http.go
+index 7037b1558c2..f5c30582faf 100644
+--- a/pkg/cmd/factory/http.go
++++ b/pkg/cmd/factory/http.go
+@@ -3,7 +3,6 @@ package factory
+ import (
+ 	"fmt"
+ 	"net/http"
+-	"os"
+ 	"regexp"
+ 	"strings"
+ 	"time"
+@@ -12,6 +11,7 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/httpunix"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/utils"
+ )
+ 
+ var timezoneNames = map[int]string{
+@@ -84,8 +84,8 @@ func NewHTTPClient(io *iostreams.IOStreams, cfg configGetter, appVersion string,
+ 		}))
+ 	}
+ 
+-	if verbose := os.Getenv("DEBUG"); verbose != "" {
+-		logTraffic := strings.Contains(verbose, "api")
++	if isVerbose, debugValue := utils.IsDebugEnabled(); isVerbose {
++		logTraffic := strings.Contains(debugValue, "api")
+ 		opts = append(opts, api.VerboseLog(io.ErrOut, logTraffic, io.IsStderrTTY()))
+ 	}
+ 
+diff --git a/pkg/cmd/root/help_topic.go b/pkg/cmd/root/help_topic.go
+index 489df7f64d7..757e972edca 100644
+--- a/pkg/cmd/root/help_topic.go
++++ b/pkg/cmd/root/help_topic.go
+@@ -47,8 +47,11 @@ var HelpTopics = map[string]map[string]string{
+ 
+ 			GH_BROWSER, BROWSER (in order of precedence): the web browser to use for opening links.
+ 
+-			DEBUG: set to any value to enable verbose output to standard error. Include values "api"
+-			or "oauth" to print detailed information about HTTP requests or authentication flow.
++			GH_DEBUG: set to a truthy value to enable verbose output on standard error. Set to "api"
++			to additionally log details of HTTP traffic.
++
++			DEBUG (deprecated): set to "1", "true", or "yes" to enable verbose output on standard
++			error.
+ 
+ 			GH_PAGER, PAGER (in order of precedence): a terminal paging program to send standard output
+ 			to, e.g. "less".
+diff --git a/utils/utils.go b/utils/utils.go
+index cd423bf659f..e73b2af269d 100644
+--- a/utils/utils.go
++++ b/utils/utils.go
+@@ -3,6 +3,7 @@ package utils
+ import (
+ 	"fmt"
+ 	"net/url"
++	"os"
+ 	"strings"
+ 	"time"
+ )
+@@ -83,3 +84,24 @@ func DisplayURL(urlStr string) string {
+ func ValidURL(urlStr string) bool {
+ 	return len(urlStr) < 8192
+ }
++
++func IsDebugEnabled() (bool, string) {
++	debugValue, isDebugSet := os.LookupEnv("GH_DEBUG")
++	legacyDebugValue := os.Getenv("DEBUG")
++
++	if !isDebugSet {
++		switch legacyDebugValue {
++		case "true", "1", "yes", "api":
++			return true, legacyDebugValue
++		default:
++			return false, legacyDebugValue
++		}
++	}
++
++	switch debugValue {
++	case "false", "0", "no", "":
++		return false, debugValue
++	default:
++		return true, debugValue
++	}
++}

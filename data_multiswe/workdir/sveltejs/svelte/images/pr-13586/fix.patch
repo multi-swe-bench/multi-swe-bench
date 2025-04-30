@@ -1,0 +1,155 @@
+diff --git a/.changeset/friendly-mice-perform.md b/.changeset/friendly-mice-perform.md
+new file mode 100644
+index 000000000000..eddece249075
+--- /dev/null
++++ b/.changeset/friendly-mice-perform.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: cleanup non render effects created inside block effects
+diff --git a/packages/svelte/src/internal/client/constants.js b/packages/svelte/src/internal/client/constants.js
+index 53df86126ac4..f995c1dd9d51 100644
+--- a/packages/svelte/src/internal/client/constants.js
++++ b/packages/svelte/src/internal/client/constants.js
+@@ -19,6 +19,7 @@ export const LEGACY_DERIVED_PROP = 1 << 16;
+ export const INSPECT_EFFECT = 1 << 17;
+ export const HEAD_EFFECT = 1 << 18;
+ export const EFFECT_HAS_DERIVED = 1 << 19;
++export const PRE_EFFECT = 1 << 20;
+ 
+ export const STATE_SYMBOL = Symbol('$state');
+ export const STATE_SYMBOL_METADATA = Symbol('$state metadata');
+diff --git a/packages/svelte/src/internal/client/reactivity/effects.js b/packages/svelte/src/internal/client/reactivity/effects.js
+index b5955e9b32c0..df2c823ef038 100644
+--- a/packages/svelte/src/internal/client/reactivity/effects.js
++++ b/packages/svelte/src/internal/client/reactivity/effects.js
+@@ -35,7 +35,8 @@ import {
+ 	INSPECT_EFFECT,
+ 	HEAD_EFFECT,
+ 	MAYBE_DIRTY,
+-	EFFECT_HAS_DERIVED
++	EFFECT_HAS_DERIVED,
++	PRE_EFFECT
+ } from '../constants.js';
+ import { set } from './sources.js';
+ import * as e from '../errors.js';
+@@ -226,7 +227,7 @@ export function user_pre_effect(fn) {
+ 			value: '$effect.pre'
+ 		});
+ 	}
+-	return render_effect(fn);
++	return render_effect(fn, PRE_EFFECT);
+ }
+ 
+ /** @param {() => void | (() => void)} fn */
+@@ -308,10 +309,11 @@ export function legacy_pre_effect_reset() {
+ 
+ /**
+  * @param {() => void | (() => void)} fn
++ * @param {number} flags
+  * @returns {Effect}
+  */
+-export function render_effect(fn) {
+-	return create_effect(RENDER_EFFECT, fn, true);
++export function render_effect(fn, flags = 0) {
++	return create_effect(RENDER_EFFECT | flags, fn, true);
+ }
+ 
+ /**
+@@ -386,7 +388,7 @@ export function destroy_effect(effect, remove_dom = true) {
+ 		removed = true;
+ 	}
+ 
+-	destroy_effect_children(effect, remove_dom && !removed);
++	destroy_effect_children(effect, remove_dom && !removed, true);
+ 	remove_reactions(effect, 0);
+ 	set_signal_status(effect, DESTROYED);
+ 
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 2a159724a687..cb4670a76dce 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -22,7 +22,8 @@ import {
+ 	BLOCK_EFFECT,
+ 	ROOT_EFFECT,
+ 	LEGACY_DERIVED_PROP,
+-	DISCONNECTED
++	DISCONNECTED,
++	PRE_EFFECT
+ } from './constants.js';
+ import { flush_tasks } from './dom/task.js';
+ import { add_owner } from './dev/ownership.js';
+@@ -405,17 +406,57 @@ export function remove_reactions(signal, start_index) {
+ /**
+  * @param {Effect} signal
+  * @param {boolean} remove_dom
++ * @param {boolean} [force]
+  * @returns {void}
+  */
+-export function destroy_effect_children(signal, remove_dom = false) {
++export function destroy_effect_children(signal, remove_dom = false, force = false) {
+ 	var effect = signal.first;
+-	signal.first = signal.last = null;
++	var parent_is_block = (signal.f & BLOCK_EFFECT) !== 0;
++	/**
++	 * @param {Effect} effect
++	 */
++	function is_render_not_pre(effect) {
++		return (effect.f & RENDER_EFFECT) !== 0 && (effect.f & PRE_EFFECT) === 0;
++	}
++	// we only clear the first property either if it's forced, if the parent is not a block
++	// or if signal.first is a proper RENDER effect (not a PRE)
++	if (force || !parent_is_block || (signal.first && !is_render_not_pre(signal.first))) {
++		signal.first = null;
++	}
++	// we only clear the last property either if it's forced, if the parent is not a block
++	// or if signal.last is a proper RENDER effect (not a PRE)
++	if (force || !parent_is_block || (signal.last && !is_render_not_pre(signal.last))) {
++		signal.last = null;
++	}
+ 
+ 	while (effect !== null) {
+ 		var next = effect.next;
+-		destroy_effect(effect, remove_dom);
++		// we only destroy the effect if it's not a proper RENDER effect (not a PRE) or if it's forced
++		if (force || !parent_is_block || !is_render_not_pre(effect)) {
++			destroy_effect(effect, remove_dom);
++		} else if (signal.first === null && parent_is_block && !force) {
++			// if we didn't destroy this effect and first is null it means that first was "destroyed"
++			// and we need to update the linked list...we only need to do this if parent is BLOCK
++			signal.first = effect;
++		}
++		if (
++			next === null &&
++			signal.last === null &&
++			parent_is_block &&
++			is_render_not_pre(effect) &&
++			!force
++		) {
++			// if we are about to exit this while and we didn't destroy this effect and signal was last
++			// we update signal.last to keep the linked list up to date
++			signal.last = effect;
++		}
+ 		effect = next;
+ 	}
++	// if after the while signal.first is not null but signal.last is null we update
++	// signal.last to be signal.first
++	if (signal.first !== null && signal.last === null && parent_is_block && !force) {
++		signal.last = signal.first;
++	}
+ }
+ 
+ /**
+@@ -443,9 +484,7 @@ export function update_effect(effect) {
+ 	}
+ 
+ 	try {
+-		if ((flags & BLOCK_EFFECT) === 0) {
+-			destroy_effect_children(effect);
+-		}
++		destroy_effect_children(effect);
+ 
+ 		execute_effect_teardown(effect);
+ 		var teardown = update_reaction(effect);

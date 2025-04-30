@@ -1,0 +1,59 @@
+diff --git a/pkg/cmd/repo/create/create.go b/pkg/cmd/repo/create/create.go
+index 097bd193547..3cc1d2f625f 100644
+--- a/pkg/cmd/repo/create/create.go
++++ b/pkg/cmd/repo/create/create.go
+@@ -164,8 +164,8 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 			if cmd.Flags().Changed("enable-wiki") {
+ 				opts.DisableWiki = !enableWiki
+ 			}
+-			if opts.Template != "" && (opts.Homepage != "" || opts.Team != "" || opts.DisableIssues || opts.DisableWiki) {
+-				return cmdutil.FlagErrorf("the `--template` option is not supported with `--homepage`, `--team`, `--disable-issues`, or `--disable-wiki`")
++			if opts.Template != "" && (opts.Homepage != "" || opts.Team != "" || opts.DisableIssues) {
++				return cmdutil.FlagErrorf("the `--template` option is not supported with `--homepage`, `--team`, or `--disable-issues`")
+ 			}
+ 
+ 			if opts.Template == "" && opts.IncludeAllBranches {
+diff --git a/pkg/cmd/repo/create/http.go b/pkg/cmd/repo/create/http.go
+index dc8e708be98..d3a07730095 100644
+--- a/pkg/cmd/repo/create/http.go
++++ b/pkg/cmd/repo/create/http.go
+@@ -64,6 +64,11 @@ type cloneTemplateRepositoryInput struct {
+ 	IncludeAllBranches bool   `json:"includeAllBranches"`
+ }
+ 
++type updateRepositoryInput struct {
++	RepositoryID   string `json:"repositoryId"`
++	HasWikiEnabled bool   `json:"hasWikiEnabled"`
++}
++
+ // repoCreate creates a new GitHub repository
+ func repoCreate(client *http.Client, hostname string, input repoCreateInput) (*api.Repository, error) {
+ 	isOrg := false
+@@ -133,6 +138,27 @@ func repoCreate(client *http.Client, hostname string, input repoCreateInput) (*a
+ 			return nil, err
+ 		}
+ 
++		if !input.HasWikiEnabled {
++			updateVariables := map[string]interface{}{
++				"input": updateRepositoryInput{
++					RepositoryID:   response.CloneTemplateRepository.Repository.ID,
++					HasWikiEnabled: input.HasWikiEnabled,
++				},
++			}
++
++			if err := apiClient.GraphQL(hostname, `
++				mutation UpdateRepository($input: UpdateRepositoryInput!) {
++					updateRepository(input: $input) {
++						repository {
++							id
++						}
++					}
++				}
++			`, updateVariables, nil); err != nil {
++				return nil, err
++			}
++		}
++
+ 		return api.InitRepoHostname(&response.CloneTemplateRepository.Repository, hostname), nil
+ 	}
+ 

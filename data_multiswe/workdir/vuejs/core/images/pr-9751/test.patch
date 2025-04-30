@@ -1,0 +1,28 @@
+diff --git a/packages/reactivity/__tests__/reactiveArray.spec.ts b/packages/reactivity/__tests__/reactiveArray.spec.ts
+index 808c5aa5529..8686f60c7e2 100644
+--- a/packages/reactivity/__tests__/reactiveArray.spec.ts
++++ b/packages/reactivity/__tests__/reactiveArray.spec.ts
+@@ -142,6 +142,23 @@ describe('reactivity/reactive/Array', () => {
+     expect(length).toBe('01')
+   })
+ 
++  // #9742
++  test('Array can be proxied', () => {
++    const array = reactive<number[]>([])
++    const proxy = new Proxy(array, {})
++    proxy.push(1)
++    expect(array).toHaveLength(1)
++    expect(proxy).toHaveLength(1)
++  })
++
++  test('toRaw on array using reactive as prototype', () => {
++    const original = reactive([])
++    const obj = Object.create(original)
++    const raw = toRaw(obj)
++    expect(raw).toBe(obj)
++    expect(raw).not.toBe(toRaw(original))
++  })
++
+   describe('Array methods w/ refs', () => {
+     let original: any[]
+     beforeEach(() => {

@@ -1,0 +1,270 @@
+diff --git a/docs/pages/material-ui/api/button-base.json b/docs/pages/material-ui/api/button-base.json
+index dca661a0aa1464..38564d2bcb17c6 100644
+--- a/docs/pages/material-ui/api/button-base.json
++++ b/docs/pages/material-ui/api/button-base.json
+@@ -22,7 +22,7 @@
+     "touchRippleRef": {
+       "type": {
+         "name": "union",
+-        "description": "func<br>&#124;&nbsp;{ current?: { pulsate: func, start: func, stop: func } }"
++        "description": "func<br>&#124;&nbsp;{ current?: { start: func, stop: func } }"
+       }
+     }
+   },
+diff --git a/packages/mui-material/src/ButtonBase/ButtonBase.js b/packages/mui-material/src/ButtonBase/ButtonBase.js
+index 8ac7e66e16c19a..8519ec2f18e364 100644
+--- a/packages/mui-material/src/ButtonBase/ButtonBase.js
++++ b/packages/mui-material/src/ButtonBase/ButtonBase.js
+@@ -142,7 +142,7 @@ const ButtonBase = React.forwardRef(function ButtonBase(inProps, ref) {
+ 
+   React.useEffect(() => {
+     if (focusVisible && focusRipple && !disableRipple && mountedState) {
+-      rippleRef.current.pulsate();
++      rippleRef.current.start();
+     }
+   }, [disableRipple, focusRipple, focusVisible, mountedState]);
+ 
+@@ -269,7 +269,7 @@ const ButtonBase = React.forwardRef(function ButtonBase(inProps, ref) {
+     ) {
+       keydownRef.current = false;
+       rippleRef.current.stop(event, () => {
+-        rippleRef.current.pulsate(event);
++        rippleRef.current.start(event);
+       });
+     }
+     if (onKeyUp) {
+@@ -525,7 +525,6 @@ ButtonBase.propTypes /* remove-proptypes */ = {
+     PropTypes.func,
+     PropTypes.shape({
+       current: PropTypes.shape({
+-        pulsate: PropTypes.func.isRequired,
+         start: PropTypes.func.isRequired,
+         stop: PropTypes.func.isRequired,
+       }),
+diff --git a/packages/mui-material/src/ButtonBase/Ripple.js b/packages/mui-material/src/ButtonBase/Ripple.js
+index ae9ac4f6e965d1..ca0ac46b9a559c 100644
+--- a/packages/mui-material/src/ButtonBase/Ripple.js
++++ b/packages/mui-material/src/ButtonBase/Ripple.js
+@@ -6,22 +6,10 @@ import clsx from 'clsx';
+  * @ignore - internal component.
+  */
+ function Ripple(props) {
+-  const {
+-    className,
+-    classes,
+-    pulsate = false,
+-    rippleX,
+-    rippleY,
+-    rippleSize,
+-    in: inProp,
+-    onExited,
+-    timeout,
+-  } = props;
++  const { className, classes, rippleX, rippleY, rippleSize, in: inProp, onExited, timeout } = props;
+   const [leaving, setLeaving] = React.useState(false);
+ 
+-  const rippleClassName = clsx(className, classes.ripple, classes.rippleVisible, {
+-    [classes.ripplePulsate]: pulsate,
+-  });
++  const rippleClassName = clsx(className, classes.ripple, classes.rippleVisible);
+ 
+   const rippleStyles = {
+     width: rippleSize,
+@@ -32,7 +20,6 @@ function Ripple(props) {
+ 
+   const childClassName = clsx(classes.child, {
+     [classes.childLeaving]: leaving,
+-    [classes.childPulsate]: pulsate,
+   });
+ 
+   if (!inProp && !leaving) {
+@@ -71,10 +58,6 @@ Ripple.propTypes = {
+    * @ignore - injected from TransitionGroup
+    */
+   onExited: PropTypes.func,
+-  /**
+-   * If `true`, the ripple pulsates, typically indicating the keyboard focus state of an element.
+-   */
+-  pulsate: PropTypes.bool,
+   /**
+    * Diameter of the ripple.
+    */
+diff --git a/packages/mui-material/src/ButtonBase/TouchRipple.d.ts b/packages/mui-material/src/ButtonBase/TouchRipple.d.ts
+index 24fde425c0a987..e653350b6933b2 100644
+--- a/packages/mui-material/src/ButtonBase/TouchRipple.d.ts
++++ b/packages/mui-material/src/ButtonBase/TouchRipple.d.ts
+@@ -5,7 +5,6 @@ import { TouchRippleClasses, TouchRippleClassKey } from './touchRippleClasses';
+ export { TouchRippleClassKey };
+ 
+ export interface StartActionOptions {
+-  pulsate?: boolean;
+   center?: boolean;
+ }
+ 
+@@ -15,7 +14,6 @@ export interface TouchRippleActions {
+     options?: StartActionOptions,
+     callback?: () => void,
+   ) => void;
+-  pulsate: (event?: React.SyntheticEvent) => void;
+   stop: (event?: React.SyntheticEvent, callback?: () => void) => void;
+ }
+ 
+diff --git a/packages/mui-material/src/ButtonBase/TouchRipple.js b/packages/mui-material/src/ButtonBase/TouchRipple.js
+index 2e299b19d0b3b0..40f1e8b30c4c5d 100644
+--- a/packages/mui-material/src/ButtonBase/TouchRipple.js
++++ b/packages/mui-material/src/ButtonBase/TouchRipple.js
+@@ -33,20 +33,6 @@ const exitKeyframe = keyframes`
+   }
+ `;
+ 
+-const pulsateKeyframe = keyframes`
+-  0% {
+-    transform: scale(1);
+-  }
+-
+-  50% {
+-    transform: scale(0.92);
+-  }
+-
+-  100% {
+-    transform: scale(1);
+-  }
+-`;
+-
+ export const TouchRippleRoot = styled('span', {
+   name: 'MuiTouchRipple',
+   slot: 'Root',
+@@ -79,10 +65,6 @@ export const TouchRippleRipple = styled(Ripple, {
+     animation-timing-function: ${({ theme }) => theme.transitions.easing.easeInOut};
+   }
+ 
+-  &.${touchRippleClasses.ripplePulsate} {
+-    animation-duration: ${({ theme }) => theme.transitions.duration.shorter}ms;
+-  }
+-
+   & .${touchRippleClasses.child} {
+     opacity: 1;
+     display: block;
+@@ -98,18 +80,6 @@ export const TouchRippleRipple = styled(Ripple, {
+     animation-duration: ${DURATION}ms;
+     animation-timing-function: ${({ theme }) => theme.transitions.easing.easeInOut};
+   }
+-
+-  & .${touchRippleClasses.childPulsate} {
+-    position: absolute;
+-    /* @noflip */
+-    left: 0px;
+-    top: 0;
+-    animation-name: ${pulsateKeyframe};
+-    animation-duration: 2500ms;
+-    animation-timing-function: ${({ theme }) => theme.transitions.easing.easeInOut};
+-    animation-iteration-count: infinite;
+-    animation-delay: 200ms;
+-  }
+ `;
+ 
+ /**
+@@ -150,7 +120,7 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+ 
+   const startCommit = React.useCallback(
+     (params) => {
+-      const { pulsate, rippleX, rippleY, rippleSize, cb } = params;
++      const { rippleX, rippleY, rippleSize, cb } = params;
+ 
+       setRipples((oldRipples) => [
+         ...oldRipples,
+@@ -159,13 +129,10 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+           classes={{
+             ripple: clsx(classes.ripple, touchRippleClasses.ripple),
+             rippleVisible: clsx(classes.rippleVisible, touchRippleClasses.rippleVisible),
+-            ripplePulsate: clsx(classes.ripplePulsate, touchRippleClasses.ripplePulsate),
+             child: clsx(classes.child, touchRippleClasses.child),
+             childLeaving: clsx(classes.childLeaving, touchRippleClasses.childLeaving),
+-            childPulsate: clsx(classes.childPulsate, touchRippleClasses.childPulsate),
+           }}
+           timeout={DURATION}
+-          pulsate={pulsate}
+           rippleX={rippleX}
+           rippleY={rippleY}
+           rippleSize={rippleSize}
+@@ -180,8 +147,7 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+   const start = React.useCallback(
+     (event = {}, options = {}, cb) => {
+       const {
+-        pulsate = false,
+-        center = centerProp || options.pulsate,
++        center = centerProp,
+         fakeElement = false, // For test purposes
+       } = options;
+ 
+@@ -225,7 +191,7 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+       }
+ 
+       if (center) {
+-        rippleSize = Math.sqrt((2 * rect.width ** 2 + rect.height ** 2) / 3);
++        rippleSize = Math.max(rect.width, rect.height);
+ 
+         // For some reason the animation is broken on Mobile Chrome if the size is even.
+         if (rippleSize % 2 === 0) {
+@@ -247,7 +213,7 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+         if (startTimerCommit.current === null) {
+           // Prepare the ripple effect.
+           startTimerCommit.current = () => {
+-            startCommit({ pulsate, rippleX, rippleY, rippleSize, cb });
++            startCommit({ rippleX, rippleY, rippleSize, cb });
+           };
+           // Delay the execution of the ripple effect.
+           startTimer.current = setTimeout(() => {
+@@ -258,16 +224,12 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+           }, DELAY_RIPPLE); // We have to make a tradeoff with this value.
+         }
+       } else {
+-        startCommit({ pulsate, rippleX, rippleY, rippleSize, cb });
++        startCommit({ rippleX, rippleY, rippleSize, cb });
+       }
+     },
+     [centerProp, startCommit],
+   );
+ 
+-  const pulsate = React.useCallback(() => {
+-    start({}, { pulsate: true });
+-  }, [start]);
+-
+   const stop = React.useCallback((event, cb) => {
+     clearTimeout(startTimer.current);
+ 
+@@ -296,11 +258,10 @@ const TouchRipple = React.forwardRef(function TouchRipple(inProps, ref) {
+   React.useImperativeHandle(
+     ref,
+     () => ({
+-      pulsate,
+       start,
+       stop,
+     }),
+-    [pulsate, start, stop],
++    [start, stop],
+   );
+ 
+   return (
+diff --git a/packages/mui-material/src/useTouchRipple/useTouchRipple.ts b/packages/mui-material/src/useTouchRipple/useTouchRipple.ts
+index 1894bc2188b94c..dae86d6ac95fef 100644
+--- a/packages/mui-material/src/useTouchRipple/useTouchRipple.ts
++++ b/packages/mui-material/src/useTouchRipple/useTouchRipple.ts
+@@ -37,7 +37,7 @@ const useTouchRipple = (props: UseTouchRippleProps) => {
+ 
+   React.useEffect(() => {
+     if (focusVisible && !disableFocusRipple && !disableRipple) {
+-      rippleRef.current?.pulsate();
++      rippleRef.current?.start();
+     }
+   }, [rippleRef, focusVisible, disableFocusRipple, disableRipple]);
+ 
+@@ -82,7 +82,7 @@ const useTouchRipple = (props: UseTouchRippleProps) => {
+     ) {
+       keydownRef.current = false;
+       rippleRef.current.stop(event, () => {
+-        rippleRef?.current?.pulsate(event);
++        rippleRef?.current?.start(event);
+       });
+     }
+   });

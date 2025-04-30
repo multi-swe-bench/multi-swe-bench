@@ -1,0 +1,90 @@
+diff --git a/.gitignore b/.gitignore
+index 00a5bb5a69e..9895939a6e6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -16,4 +16,7 @@
+ # macOS
+ .DS_Store
+ 
++# vim
++*.swp
++
+ vendor/
+diff --git a/pkg/cmd/factory/default.go b/pkg/cmd/factory/default.go
+index ae8622b2aae..2c70ab5cd5b 100644
+--- a/pkg/cmd/factory/default.go
++++ b/pkg/cmd/factory/default.go
+@@ -5,9 +5,11 @@ import (
+ 	"fmt"
+ 	"net/http"
+ 	"os"
++	"strings"
+ 
+ 	"github.com/cli/cli/git"
+ 	"github.com/cli/cli/internal/config"
++	"github.com/cli/cli/internal/ghinstance"
+ 	"github.com/cli/cli/internal/ghrepo"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/cli/cli/pkg/iostreams"
+@@ -31,11 +33,16 @@ func New(appVersion string) *cmdutil.Factory {
+ 		return cachedConfig, configError
+ 	}
+ 
++	hostOverride := ""
++	if !strings.EqualFold(ghinstance.Default(), ghinstance.OverridableDefault()) {
++		hostOverride = ghinstance.OverridableDefault()
++	}
++
+ 	rr := &remoteResolver{
+ 		readRemotes: git.Remotes,
+ 		getConfig:   configFunc,
+ 	}
+-	remotesFunc := rr.Resolver()
++	remotesFunc := rr.Resolver(hostOverride)
+ 
+ 	return &cmdutil.Factory{
+ 		IOStreams: io,
+diff --git a/pkg/cmd/factory/remote_resolver.go b/pkg/cmd/factory/remote_resolver.go
+index 589b1995960..ee603e49d79 100644
+--- a/pkg/cmd/factory/remote_resolver.go
++++ b/pkg/cmd/factory/remote_resolver.go
+@@ -4,6 +4,7 @@ import (
+ 	"errors"
+ 	"net/url"
+ 	"sort"
++	"strings"
+ 
+ 	"github.com/cli/cli/context"
+ 	"github.com/cli/cli/git"
+@@ -17,7 +18,7 @@ type remoteResolver struct {
+ 	urlTranslator func(*url.URL) *url.URL
+ }
+ 
+-func (rr *remoteResolver) Resolver() func() (context.Remotes, error) {
++func (rr *remoteResolver) Resolver(hostOverride string) func() (context.Remotes, error) {
+ 	var cachedRemotes context.Remotes
+ 	var remotesError error
+ 
+@@ -59,6 +60,22 @@ func (rr *remoteResolver) Resolver() func() (context.Remotes, error) {
+ 		var hostname string
+ 		cachedRemotes = context.Remotes{}
+ 		sort.Sort(resolvedRemotes)
++
++		if hostOverride != "" {
++			for _, r := range resolvedRemotes {
++				if strings.EqualFold(r.RepoHost(), hostOverride) {
++					cachedRemotes = append(cachedRemotes, r)
++				}
++			}
++
++			if len(cachedRemotes) == 0 {
++				remotesError = errors.New("none of the git remotes configured for this repository correspond to the GH_HOST environment variable. Try adding a matching remote or unsetting the variable.")
++				return nil, remotesError
++			}
++
++			return cachedRemotes, nil
++		}
++
+ 		for _, r := range resolvedRemotes {
+ 			if hostname == "" {
+ 				if !knownHosts[r.RepoHost()] {

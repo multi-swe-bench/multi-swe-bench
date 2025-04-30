@@ -1,0 +1,480 @@
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index a287b6557fe..6064036ff62 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -215,6 +215,11 @@ func (r Repository) RepoHost() string {
+ 	return r.hostname
+ }
+ 
++// String returns the OWNER/NAME of the repository
++func (r Repository) String() string {
++	return fmt.Sprintf("%s/%s", r.Owner.Login, r.Name)
++}
++
+ // ViewerCanPush is true when the requesting user has push access
+ func (r Repository) ViewerCanPush() bool {
+ 	switch r.ViewerPermission {
+diff --git a/internal/ghrepo/repo.go b/internal/ghrepo/repo.go
+index cb969ef9426..72457b3f0b6 100644
+--- a/internal/ghrepo/repo.go
++++ b/internal/ghrepo/repo.go
+@@ -11,6 +11,7 @@ import (
+ 
+ // Interface describes an object that represents a GitHub repository
+ type Interface interface {
++	fmt.Stringer
+ 	RepoName() string
+ 	RepoOwner() string
+ 	RepoHost() string
+@@ -144,3 +145,7 @@ func (r ghRepo) RepoName() string {
+ func (r ghRepo) RepoHost() string {
+ 	return r.hostname
+ }
++
++func (r ghRepo) String() string {
++	return fmt.Sprintf("%s/%s", r.owner, r.name)
++}
+diff --git a/pkg/cmd/label/clone.go b/pkg/cmd/label/clone.go
+new file mode 100644
+index 00000000000..aa5d2424648
+--- /dev/null
++++ b/pkg/cmd/label/clone.go
+@@ -0,0 +1,136 @@
++package label
++
++import (
++	"errors"
++	"fmt"
++	"net/http"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/utils"
++	"github.com/spf13/cobra"
++)
++
++type cloneOptions struct {
++	BaseRepo   func() (ghrepo.Interface, error)
++	HttpClient func() (*http.Client, error)
++	IO         *iostreams.IOStreams
++
++	SourceRepo ghrepo.Interface
++	Force      bool
++}
++
++func newCmdClone(f *cmdutil.Factory, runF func(*cloneOptions) error) *cobra.Command {
++	opts := cloneOptions{
++		HttpClient: f.HttpClient,
++		IO:         f.IOStreams,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "clone <source-repository>",
++		Short: "Clones labels from one repository to another",
++		Long: heredoc.Doc(`
++			Clones labels from a source repository to a destination repository on GitHub.
++			By default, the destination repository is the current repository.
++
++			All labels from the source repository will be copied to the destination
++			repository. Labels in the destination repository that are not in the source
++			repository will not be deleted or modified.
++
++			Labels from the source repository that already exist in the destination
++			repository will be skipped. You can overwrite existing labels in the
++			destination repository using the --force flag.
++		`),
++		Example: heredoc.Doc(`
++			# clone and overwrite labels from cli/cli repository into the current repository
++			$ gh label clone cli/cli --force
++
++			# clone labels from cli/cli repository into a octocat/cli repository
++			$ gh label clone cli/cli --repo octocat/cli
++		`),
++		Args: cmdutil.ExactArgs(1, "cannot clone labels: source-repository argument required"),
++		RunE: func(c *cobra.Command, args []string) error {
++			var err error
++			opts.BaseRepo = f.BaseRepo
++			opts.SourceRepo, err = ghrepo.FromFullName(args[0])
++			if err != nil {
++				return err
++			}
++			if runF != nil {
++				return runF(&opts)
++			}
++			return cloneRun(&opts)
++		},
++	}
++
++	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Overwrite labels in the destination repository")
++
++	return cmd
++}
++
++func cloneRun(opts *cloneOptions) error {
++	httpClient, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++
++	baseRepo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	opts.IO.StartProgressIndicator()
++	successCount, totalCount, err := cloneLabels(httpClient, opts.SourceRepo, baseRepo, opts.Force)
++	opts.IO.StopProgressIndicator()
++	if err != nil {
++		return err
++	}
++
++	if opts.IO.IsStdoutTTY() {
++		cs := opts.IO.ColorScheme()
++		pluralize := func(num int) string {
++			return utils.Pluralize(num, "label")
++		}
++
++		switch {
++		case successCount == totalCount:
++			fmt.Fprintf(opts.IO.Out, "%s Cloned %s from %s to %s\n", cs.SuccessIcon(), pluralize(successCount), opts.SourceRepo, ghrepo.FullName(baseRepo))
++		default:
++			fmt.Fprintf(opts.IO.Out, "%s Cloned %s of %d from %s to %s\n", cs.WarningIcon(), pluralize(successCount), totalCount, opts.SourceRepo, ghrepo.FullName(baseRepo))
++		}
++	}
++
++	return nil
++}
++
++func cloneLabels(client *http.Client, source, destination ghrepo.Interface, force bool) (successCount, totalCount int, err error) {
++	successCount = 0
++	labels, totalCount, err := listLabels(client, source, -1)
++	if err != nil {
++		return
++	}
++
++	createOpts := createOptions{
++		Force: force,
++	}
++
++	for _, label := range labels {
++		createOpts.Name = label.Name
++		createOpts.Description = label.Description
++		createOpts.Color = label.Color
++
++		createErr := createLabel(client, destination, &createOpts)
++		if createErr != nil {
++			if !errors.Is(createErr, errLabelAlreadyExists) {
++				err = createErr
++				return
++			}
++		} else {
++			successCount++
++		}
++	}
++
++	return
++}
+diff --git a/pkg/cmd/label/create/create.go b/pkg/cmd/label/create.go
+similarity index 92%
+rename from pkg/cmd/label/create/create.go
+rename to pkg/cmd/label/create.go
+index 581cf5234ee..ecad7dc443f 100644
+--- a/pkg/cmd/label/create/create.go
++++ b/pkg/cmd/label/create.go
+@@ -1,4 +1,4 @@
+-package create
++package label
+ 
+ import (
+ 	"bytes"
+@@ -13,7 +13,6 @@ import (
+ 	"github.com/MakeNowJust/heredoc"
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+-	"github.com/cli/cli/v2/pkg/cmd/label/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/spf13/cobra"
+@@ -38,7 +37,7 @@ var randomColors = []string{
+ 	"D4C5F9",
+ }
+ 
+-type CreateOptions struct {
++type createOptions struct {
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	HttpClient func() (*http.Client, error)
+ 	IO         *iostreams.IOStreams
+@@ -49,8 +48,8 @@ type CreateOptions struct {
+ 	Force       bool
+ }
+ 
+-func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+-	opts := CreateOptions{
++func newCmdCreate(f *cmdutil.Factory, runF func(*createOptions) error) *cobra.Command {
++	opts := createOptions{
+ 		HttpClient: f.HttpClient,
+ 		IO:         f.IOStreams,
+ 	}
+@@ -58,7 +57,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 	cmd := &cobra.Command{
+ 		Use:   "create <name>",
+ 		Short: "Create a new label",
+-		Long: heredoc.Docf(`
++		Long: heredoc.Doc(`
+ 			Create a new label on GitHub.
+ 
+ 			Must specify name for the label, the description and color are optional.
+@@ -90,7 +89,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ var errLabelAlreadyExists = errors.New("label already exists")
+ 
+-func createRun(opts *CreateOptions) error {
++func createRun(opts *createOptions) error {
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -125,7 +124,7 @@ func createRun(opts *CreateOptions) error {
+ 	return nil
+ }
+ 
+-func createLabel(client *http.Client, repo ghrepo.Interface, opts *CreateOptions) error {
++func createLabel(client *http.Client, repo ghrepo.Interface, opts *createOptions) error {
+ 	apiClient := api.NewClientFromHTTP(client)
+ 	path := fmt.Sprintf("repos/%s/%s/labels", repo.RepoOwner(), repo.RepoName())
+ 	requestByte, err := json.Marshal(map[string]string{
+@@ -137,7 +136,7 @@ func createLabel(client *http.Client, repo ghrepo.Interface, opts *CreateOptions
+ 		return err
+ 	}
+ 	requestBody := bytes.NewReader(requestByte)
+-	result := shared.Label{}
++	result := label{}
+ 	err = apiClient.REST(repo.RepoHost(), "POST", path, requestBody, &result)
+ 
+ 	if httpError, ok := err.(api.HTTPError); ok && isLabelAlreadyExistsError(httpError) {
+@@ -151,7 +150,7 @@ func createLabel(client *http.Client, repo ghrepo.Interface, opts *CreateOptions
+ 	return err
+ }
+ 
+-func updateLabel(apiClient *api.Client, repo ghrepo.Interface, opts *CreateOptions) error {
++func updateLabel(apiClient *api.Client, repo ghrepo.Interface, opts *createOptions) error {
+ 	path := fmt.Sprintf("repos/%s/%s/labels/%s", repo.RepoOwner(), repo.RepoName(), opts.Name)
+ 	requestByte, err := json.Marshal(map[string]string{
+ 		"description": opts.Description,
+@@ -161,7 +160,7 @@ func updateLabel(apiClient *api.Client, repo ghrepo.Interface, opts *CreateOptio
+ 		return err
+ 	}
+ 	requestBody := bytes.NewReader(requestByte)
+-	result := shared.Label{}
++	result := label{}
+ 	return apiClient.REST(repo.RepoHost(), "PATCH", path, requestBody, &result)
+ }
+ 
+diff --git a/pkg/cmd/label/list/http.go b/pkg/cmd/label/http.go
+similarity index 61%
+rename from pkg/cmd/label/list/http.go
+rename to pkg/cmd/label/http.go
+index aec0c8d56f9..5610992a713 100644
+--- a/pkg/cmd/label/list/http.go
++++ b/pkg/cmd/label/http.go
+@@ -1,14 +1,30 @@
+-package list
++package label
+ 
+ import (
+ 	"net/http"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+-	"github.com/cli/cli/v2/pkg/cmd/label/shared"
+ )
+ 
+-func listLabels(client *http.Client, repo ghrepo.Interface, limit int) ([]shared.Label, int, error) {
++const maxPageSize = 100
++
++type listLabelsResponseData struct {
++	Repository struct {
++		Labels struct {
++			TotalCount int
++			Nodes      []label
++			PageInfo   struct {
++				HasNextPage bool
++				EndCursor   string
++			}
++		}
++	}
++}
++
++// listLabels lists the labels in the given repo. Pass -1 for limit to list all labels;
++// otherwise, only that number of labels is returned for any number of pages.
++func listLabels(client *http.Client, repo ghrepo.Interface, limit int) ([]label, int, error) {
+ 	apiClient := api.NewClientFromHTTP(client)
+ 	query := `
+ 	query LabelList($owner: String!,$repo: String!, $limit: Int!, $endCursor: String) {
+@@ -33,28 +49,13 @@ func listLabels(client *http.Client, repo ghrepo.Interface, limit int) ([]shared
+ 		"repo":  repo.RepoName(),
+ 	}
+ 
+-	type responseData struct {
+-		Repository struct {
+-			Labels struct {
+-				TotalCount int
+-				Nodes      []shared.Label
+-				PageInfo   struct {
+-					HasNextPage bool
+-					EndCursor   string
+-				}
+-			}
+-			HasIssuesEnabled bool
+-		}
+-	}
+-
+-	var labels []shared.Label
++	var labels []label
+ 	var totalCount int
+-	pageLimit := min(limit, 100)
+ 
+ loop:
+ 	for {
+-		var response responseData
+-		variables["limit"] = pageLimit
++		var response listLabelsResponseData
++		variables["limit"] = determinePageSize(limit - len(labels))
+ 		err := apiClient.GraphQL(repo.RepoHost(), query, variables, &response)
+ 		if err != nil {
+ 			return nil, 0, err
+@@ -71,7 +72,6 @@ loop:
+ 
+ 		if response.Repository.Labels.PageInfo.HasNextPage {
+ 			variables["endCursor"] = response.Repository.Labels.PageInfo.EndCursor
+-			pageLimit = min(pageLimit, limit-len(labels))
+ 		} else {
+ 			break
+ 		}
+@@ -80,9 +80,10 @@ loop:
+ 	return labels, totalCount, nil
+ }
+ 
+-func min(a, b int) int {
+-	if a < b {
+-		return a
++func determinePageSize(numRequestedItems int) int {
++	// If numRequestedItems is -1 then retrieve maxPageSize
++	if numRequestedItems < 0 || numRequestedItems > maxPageSize {
++		return maxPageSize
+ 	}
+-	return b
++	return numRequestedItems
+ }
+diff --git a/pkg/cmd/label/label.go b/pkg/cmd/label/label.go
+index f5ded1defd5..a4bfee76d04 100644
+--- a/pkg/cmd/label/label.go
++++ b/pkg/cmd/label/label.go
+@@ -1,8 +1,6 @@
+ package label
+ 
+ import (
+-	labelCreateCmd "github.com/cli/cli/v2/pkg/cmd/label/create"
+-	labelListCmd "github.com/cli/cli/v2/pkg/cmd/label/list"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+ )
+@@ -15,8 +13,9 @@ func NewCmdLabel(f *cmdutil.Factory) *cobra.Command {
+ 	}
+ 	cmdutil.EnableRepoOverride(cmd, f)
+ 
+-	cmd.AddCommand(labelListCmd.NewCmdList(f, nil))
+-	cmd.AddCommand(labelCreateCmd.NewCmdCreate(f, nil))
++	cmd.AddCommand(newCmdList(f, nil))
++	cmd.AddCommand(newCmdCreate(f, nil))
++	cmd.AddCommand(newCmdClone(f, nil))
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/label/list/list.go b/pkg/cmd/label/list.go
+similarity index 87%
+rename from pkg/cmd/label/list/list.go
+rename to pkg/cmd/label/list.go
+index 87f81ad3df9..dbbe56bf4cb 100644
+--- a/pkg/cmd/label/list/list.go
++++ b/pkg/cmd/label/list.go
+@@ -1,11 +1,10 @@
+-package list
++package label
+ 
+ import (
+ 	"fmt"
+ 	"net/http"
+ 
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+-	"github.com/cli/cli/v2/pkg/cmd/label/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/cli/cli/v2/pkg/text"
+@@ -13,11 +12,13 @@ import (
+ 	"github.com/spf13/cobra"
+ )
+ 
++const listLimit = 30
++
+ type browser interface {
+ 	Browse(string) error
+ }
+ 
+-type ListOptions struct {
++type listOptions struct {
+ 	BaseRepo   func() (ghrepo.Interface, error)
+ 	Browser    browser
+ 	HttpClient func() (*http.Client, error)
+@@ -27,8 +28,8 @@ type ListOptions struct {
+ 	WebMode bool
+ }
+ 
+-func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Command {
+-	opts := ListOptions{
++func newCmdList(f *cmdutil.Factory, runF func(*listOptions) error) *cobra.Command {
++	opts := listOptions{
+ 		Browser:    f.Browser,
+ 		HttpClient: f.HttpClient,
+ 		IO:         f.IOStreams,
+@@ -56,12 +57,12 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd.Flags().BoolVarP(&opts.WebMode, "web", "w", false, "List labels in the web browser")
+-	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", 30, "Maximum number of items to fetch")
++	cmd.Flags().IntVarP(&opts.Limit, "limit", "L", listLimit, "Maximum number of items to fetch")
+ 
+ 	return cmd
+ }
+ 
+-func listRun(opts *ListOptions) error {
++func listRun(opts *listOptions) error {
+ 	httpClient, err := opts.HttpClient()
+ 	if err != nil {
+ 		return err
+@@ -101,7 +102,7 @@ func listRun(opts *ListOptions) error {
+ 	return printLabels(opts.IO, labels)
+ }
+ 
+-func printLabels(io *iostreams.IOStreams, labels []shared.Label) error {
++func printLabels(io *iostreams.IOStreams, labels []label) error {
+ 	cs := io.ColorScheme()
+ 	table := utils.NewTablePrinter(io)
+ 
+diff --git a/pkg/cmd/label/shared/shared.go b/pkg/cmd/label/shared.go
+similarity index 64%
+rename from pkg/cmd/label/shared/shared.go
+rename to pkg/cmd/label/shared.go
+index e17b6cc862a..5d7122914dd 100644
+--- a/pkg/cmd/label/shared/shared.go
++++ b/pkg/cmd/label/shared.go
+@@ -1,6 +1,6 @@
+-package shared
++package label
+ 
+-type Label struct {
++type label struct {
+ 	Name        string
+ 	Color       string
+ 	Description string

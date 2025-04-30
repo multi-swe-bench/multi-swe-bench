@@ -1,0 +1,149 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d48c3177c..d016699f8 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -12,6 +12,8 @@
+ 
+ - Add new `--no-ignore-parent` flag, see #787 (@will459)
+ 
++- Add new `--batch-size` flag, see #410 (@devonhollowood)
++
+ ## Bugfixes
+ 
+ - Set default path separator to `/` in MSYS, see #537 and #730 (@aswild)
+diff --git a/contrib/completion/_fd b/contrib/completion/_fd
+index 28b37eef5..a17c748d9 100644
+--- a/contrib/completion/_fd
++++ b/contrib/completion/_fd
+@@ -138,6 +138,7 @@ _fd() {
+     + '(exec-cmds)' # execute command
+     '(long-listing max-results)'{-x+,--exec=}'[execute command for each search result]:command: _command_names -e:*\;::program arguments: _normal'
+     '(long-listing max-results)'{-X+,--exec-batch=}'[execute command for all search results at once]:command: _command_names -e:*\;::program arguments: _normal'
++    '(long-listing max-results)'{--batch-size=}'[max number of args for each -X call]:size'
+ 
+     + other
+     '!(--max-buffer-time)--max-buffer-time=[set amount of time to buffer before showing output]:time (ms)'
+diff --git a/doc/fd.1 b/doc/fd.1
+index 69e843854..66413cc3d 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -405,5 +405,11 @@ $ fd -e py
+ .TP
+ .RI "Open all search results with vim:"
+ $ fd pattern -X vim
++.TP
++.BI "\-\-batch\-size " size
++Pass at most
++.I size
++arguments to each call to the command given with -X.
++.TP
+ .SH SEE ALSO
+ .BR find (1)
+diff --git a/src/app.rs b/src/app.rs
+index b26593bea..3f5bc2b17 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -365,6 +365,21 @@ pub fn build_app() -> App<'static, 'static> {
+                      "
+                 ),
+         )
++        .arg(
++            Arg::with_name("batch-size")
++            .long("batch-size")
++            .takes_value(true)
++            .value_name("size")
++            .hidden_short_help(true)
++            .requires("exec-batch")
++            .help("Max number of arguments to run as a batch with -X")
++            .long_help(
++                "Maximum number of arguments to pass to the command given with -X. \
++                If the number of results is greater than the given size, \
++                the command given with -X is run again with remaining arguments. \
++                A batch size of zero means there is no limit.",
++            ),
++        )
+         .arg(
+             Arg::with_name("exclude")
+                 .long("exclude")
+diff --git a/src/config.rs b/src/config.rs
+index a053e6ef2..c11f88bab 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -85,6 +85,10 @@ pub struct Config {
+     /// If a value is supplied, each item found will be used to generate and execute commands.
+     pub command: Option<Arc<CommandTemplate>>,
+ 
++    /// Maximum number of search results to pass to each `command`. If zero, the number is
++    /// unlimited.
++    pub batch_size: usize,
++
+     /// A list of glob patterns that should be excluded from the search.
+     pub exclude_patterns: Vec<String>,
+ 
+diff --git a/src/exec/job.rs b/src/exec/job.rs
+index 83abf1a17..aa8164cd4 100644
+--- a/src/exec/job.rs
++++ b/src/exec/job.rs
+@@ -50,6 +50,7 @@ pub fn batch(
+     cmd: &CommandTemplate,
+     show_filesystem_errors: bool,
+     buffer_output: bool,
++    limit: usize,
+ ) -> ExitCode {
+     let paths = rx.iter().filter_map(|value| match value {
+         WorkerResult::Entry(val) => Some(val),
+@@ -60,5 +61,17 @@ pub fn batch(
+             None
+         }
+     });
+-    cmd.generate_and_execute_batch(paths, buffer_output)
++    if limit == 0 {
++        // no limit
++        return cmd.generate_and_execute_batch(paths, buffer_output);
++    }
++
++    let mut exit_codes = Vec::new();
++    let mut peekable = paths.peekable();
++    while peekable.peek().is_some() {
++        let limited = peekable.by_ref().take(limit);
++        let exit_code = cmd.generate_and_execute_batch(limited, buffer_output);
++        exit_codes.push(exit_code);
++    }
++    merge_exitcodes(exit_codes)
+ }
+diff --git a/src/main.rs b/src/main.rs
+index da5fcd9c7..321df542d 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -348,6 +348,12 @@ fn construct_config(matches: clap::ArgMatches, pattern_regex: &str) -> Result<Co
+             })
+             .transpose()?,
+         command: command.map(Arc::new),
++        batch_size: matches
++            .value_of("batch-size")
++            .map(|n| n.parse::<usize>())
++            .transpose()
++            .context("Failed to parse --batch-size argument")?
++            .unwrap_or_default(),
+         exclude_patterns: matches
+             .values_of("exclude")
+             .map(|v| v.map(|p| String::from("!") + p).collect())
+diff --git a/src/walk.rs b/src/walk.rs
+index 7850ad7e7..789a5008a 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -179,7 +179,13 @@ fn spawn_receiver(
+         // This will be set to `Some` if the `--exec` argument was supplied.
+         if let Some(ref cmd) = config.command {
+             if cmd.in_batch_mode() {
+-                exec::batch(rx, cmd, show_filesystem_errors, enable_output_buffering)
++                exec::batch(
++                    rx,
++                    cmd,
++                    show_filesystem_errors,
++                    enable_output_buffering,
++                    config.batch_size,
++                )
+             } else {
+                 let shared_rx = Arc::new(Mutex::new(rx));
+ 

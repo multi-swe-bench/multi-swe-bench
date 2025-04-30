@@ -1,0 +1,385 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/_config.js b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/_config.js
+index d73f3351a30c..e0f3a58f3ff2 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/_config.js
+@@ -1,36 +1,41 @@
+ import { flushSync } from 'svelte';
+ import { test } from '../../test';
++import { log } from './log.js';
+ 
+ export default test({
+ 	// The component context class instance gets shared between tests, strangely, causing hydration to fail?
+ 	skip_if_hydrate: 'permanent',
+ 
+-	async test({ assert, target, component }) {
++	before_test() {
++		log.length = 0;
++	},
++
++	async test({ assert, target }) {
+ 		const btn = target.querySelector('button');
+ 
+ 		flushSync(() => {
+ 			btn?.click();
+ 		});
+ 
+-		assert.deepEqual(component.log, [0, 'class trigger false', 'local trigger false', 1]);
++		assert.deepEqual(log, [0, 'class trigger false', 'local trigger false', 1]);
+ 
+ 		flushSync(() => {
+ 			btn?.click();
+ 		});
+ 
+-		assert.deepEqual(component.log, [0, 'class trigger false', 'local trigger false', 1, 2]);
++		assert.deepEqual(log, [0, 'class trigger false', 'local trigger false', 1, 2]);
+ 
+ 		flushSync(() => {
+ 			btn?.click();
+ 		});
+ 
+-		assert.deepEqual(component.log, [0, 'class trigger false', 'local trigger false', 1, 2, 3]);
++		assert.deepEqual(log, [0, 'class trigger false', 'local trigger false', 1, 2, 3]);
+ 
+ 		flushSync(() => {
+ 			btn?.click();
+ 		});
+ 
+-		assert.deepEqual(component.log, [
++		assert.deepEqual(log, [
+ 			0,
+ 			'class trigger false',
+ 			'local trigger false',
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/log.js b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/log.js
+new file mode 100644
+index 000000000000..d3df521f4da7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/log.js
+@@ -0,0 +1,2 @@
++/** @type {any[]} */
++export const log = [];
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/main.svelte b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/main.svelte
+index 58b96457dbb6..6f1c26db048e 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-derived-unowned/main.svelte
+@@ -1,17 +1,17 @@
+ <script context="module">
+-		class SomeLogic {
+-			someValue = $state(0);
+-			isAboveThree = $derived(this.someValue > 3);
+-			trigger() {
+-				this.someValue++;
+-			}
++	class SomeLogic {
++		someValue = $state(0);
++		isAboveThree = $derived(this.someValue > 3);
++		trigger() {
++			this.someValue++;
+ 		}
++	}
+ 
+ 	const someLogic = new SomeLogic();
+ </script>
+ 
+ <script>
+-	const {log = []} = $props();
++	import { log } from './log.js';
+ 
+ 	function increment() {
+ 		someLogic.trigger();
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/_config.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/_config.js
+index 81f5456ad344..e11107a95cb8 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/_config.js
+@@ -1,9 +1,14 @@
+ import { test } from '../../test';
++import { log } from './log.js';
+ 
+ export default test({
+ 	html: `<button>0</button>`,
+ 
+-	async test({ assert, target, component }) {
++	before_test() {
++		log.length = 0;
++	},
++
++	async test({ assert, target }) {
+ 		const btn = target.querySelector('button');
+ 
+ 		await btn?.click();
+@@ -12,6 +17,6 @@ export default test({
+ 		await btn?.click();
+ 		assert.htmlEqual(target.innerHTML, `<button>2</button>`);
+ 
+-		assert.deepEqual(component.log, [undefined]);
++		assert.deepEqual(log, [undefined]);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/log.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/log.js
+new file mode 100644
+index 000000000000..d3df521f4da7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/log.js
+@@ -0,0 +1,2 @@
++/** @type {any[]} */
++export const log = [];
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/main.svelte b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/main.svelte
+index a8420548ccea..5a0d7b0de245 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-2/main.svelte
+@@ -1,5 +1,5 @@
+ <script>
+-	const {log = []} = $props();
++	import { log } from './log.js';
+ 
+ 	const logger = (obj) => {
+ 		log.push(obj.count)
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/_config.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/_config.js
+index 81f5456ad344..e11107a95cb8 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/_config.js
+@@ -1,9 +1,14 @@
+ import { test } from '../../test';
++import { log } from './log.js';
+ 
+ export default test({
+ 	html: `<button>0</button>`,
+ 
+-	async test({ assert, target, component }) {
++	before_test() {
++		log.length = 0;
++	},
++
++	async test({ assert, target }) {
+ 		const btn = target.querySelector('button');
+ 
+ 		await btn?.click();
+@@ -12,6 +17,6 @@ export default test({
+ 		await btn?.click();
+ 		assert.htmlEqual(target.innerHTML, `<button>2</button>`);
+ 
+-		assert.deepEqual(component.log, [undefined]);
++		assert.deepEqual(log, [undefined]);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/log.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/log.js
+new file mode 100644
+index 000000000000..d3df521f4da7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/log.js
+@@ -0,0 +1,2 @@
++/** @type {any[]} */
++export const log = [];
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/main.svelte b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/main.svelte
+index 289a3beebd62..b4e63089b4be 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager-3/main.svelte
+@@ -1,5 +1,5 @@
+ <script>
+-	const {log = []} = $props();
++	import { log } from './log.js';
+ 
+ 	class Counter {
+ 		count = $state();
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/_config.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/_config.js
+index 597626f9a7d4..e6f52509c452 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/_config.js
+@@ -1,9 +1,14 @@
+ import { test } from '../../test';
++import { log } from './log.js';
+ 
+ export default test({
+ 	html: `<button>0</button>`,
+ 
+-	async test({ assert, target, component }) {
++	before_test() {
++		log.length = 0;
++	},
++
++	async test({ assert, target }) {
+ 		const btn = target.querySelector('button');
+ 
+ 		await btn?.click();
+@@ -12,6 +17,6 @@ export default test({
+ 		await btn?.click();
+ 		assert.htmlEqual(target.innerHTML, `<button>2</button>`);
+ 
+-		assert.deepEqual(component.log, [100]);
++		assert.deepEqual(log, [100]);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/log.js b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/log.js
+new file mode 100644
+index 000000000000..d3df521f4da7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/log.js
+@@ -0,0 +1,2 @@
++/** @type {any[]} */
++export const log = [];
+diff --git a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/main.svelte b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/main.svelte
+index 1411755df916..1fff8c1fece5 100644
+--- a/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/class-state-init-eager/main.svelte
+@@ -1,5 +1,5 @@
+ <script>
+-	const {log = []} = $props();
++	import { log } from './log.js';
+ 
+ 	class Counter {
+ 		count = $state(100);
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-template/_config.js b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/_config.js
+index 340b0ff4c984..c8d797b1a697 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-template/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/_config.js
+@@ -1,8 +1,13 @@
+ import { flushSync } from 'svelte';
+ import { test } from '../../test';
++import { log } from './log.js';
+ 
+ export default test({
+-	async test({ assert, target, component }) {
++	before_test() {
++		log.length = 0;
++	},
++
++	async test({ assert, target }) {
+ 		const [b1] = target.querySelectorAll('button');
+ 
+ 		flushSync(() => {
+@@ -10,6 +15,6 @@ export default test({
+ 		});
+ 
+ 		await Promise.resolve();
+-		assert.deepEqual(component.log, ['onclick']);
++		assert.deepEqual(log, ['onclick']);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-template/log.js b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/log.js
+new file mode 100644
+index 000000000000..d3df521f4da7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/log.js
+@@ -0,0 +1,2 @@
++/** @type {any[]} */
++export const log = [];
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-template/main.svelte b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/main.svelte
+index 66db0b6013fc..5976ab15f88a 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-template/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/event-attribute-template/main.svelte
+@@ -1,5 +1,5 @@
+ <script>
+-	const {log = []} = $props();
++	import { log } from './log.js';
+ 
+ 	function send() {
+ 		log.push("onclick")
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte
+new file mode 100644
+index 000000000000..1097b68f6f30
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte
+@@ -0,0 +1,8 @@
++<script>
++	/** @type {{ object?: { count: number }}} */
++	let { object = { count: 0 } } = $props();
++</script>
++
++<button onclick={() => object = { count: object.count + 1 } }>
++	clicks: {object.count}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js
+new file mode 100644
+index 000000000000..9787b1ca9271
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js
+@@ -0,0 +1,19 @@
++import { test } from '../../test';
++
++export default test({
++	html: `<button>clicks: 0</button>`,
++
++	compileOptions: {
++		dev: true
++	},
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++
++		await btn?.click();
++		assert.htmlEqual(target.innerHTML, `<button>clicks: 1</button>`);
++
++		await btn?.click();
++		assert.htmlEqual(target.innerHTML, `<button>clicks: 2</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte
+new file mode 100644
+index 000000000000..391afc4b232e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte
+@@ -0,0 +1,5 @@
++<script>
++	import Counter from './Counter.svelte';
++</script>
++
++<Counter />
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte
+new file mode 100644
+index 000000000000..91ccc2af8188
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte
+@@ -0,0 +1,8 @@
++<script>
++	/** @type {{ object?: { count: number }}} */
++	let { object = { count: 0 } } = $props();
++</script>
++
++<button onclick={() => object.count += 1}>
++	clicks: {object.count}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js
+new file mode 100644
+index 000000000000..65d89b5f46c7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js
+@@ -0,0 +1,18 @@
++import { test } from '../../test';
++
++export default test({
++	html: `<button>clicks: 0</button>`,
++
++	compileOptions: {
++		dev: true
++	},
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		await btn?.click();
++
++		assert.htmlEqual(target.innerHTML, `<button>clicks: 0</button>`);
++	},
++
++	runtime_error: 'Props cannot be mutated, unless used with `bind:`'
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte
+new file mode 100644
+index 000000000000..391afc4b232e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte
+@@ -0,0 +1,5 @@
++<script>
++	import Counter from './Counter.svelte';
++</script>
++
++<Counter />
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js
+index 5e0eb0e2da60..65d89b5f46c7 100644
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js
+@@ -14,5 +14,5 @@ export default test({
+ 		assert.htmlEqual(target.innerHTML, `<button>clicks: 0</button>`);
+ 	},
+ 
+-	runtime_error: 'Props are read-only, unless used with `bind:`'
++	runtime_error: 'Props cannot be mutated, unless used with `bind:`'
+ });

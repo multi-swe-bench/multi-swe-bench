@@ -1,0 +1,110 @@
+diff --git a/internal/docs/man.go b/internal/docs/man.go
+index 41d3371db5d..5ac353a4631 100644
+--- a/internal/docs/man.go
++++ b/internal/docs/man.go
+@@ -179,6 +179,14 @@ func manPrintOptions(buf *bytes.Buffer, command *cobra.Command) {
+ 	}
+ }
+ 
++func manPrintAliases(buf *bytes.Buffer, command *cobra.Command) {
++	if len(command.Aliases) > 0 {
++		buf.WriteString("# ALIASES\n")
++		buf.WriteString(strings.Join(root.BuildAliasList(command, command.Aliases), ", "))
++		buf.WriteString("\n")
++	}
++}
++
+ func manPrintJSONFields(buf *bytes.Buffer, command *cobra.Command) {
+ 	raw, ok := command.Annotations["help:json-fields"]
+ 	if !ok {
+@@ -207,6 +215,7 @@ func genMan(cmd *cobra.Command, header *GenManHeader) []byte {
+ 		}
+ 	}
+ 	manPrintOptions(buf, cmd)
++	manPrintAliases(buf, cmd)
+ 	manPrintJSONFields(buf, cmd)
+ 	if len(cmd.Example) > 0 {
+ 		buf.WriteString("# EXAMPLE\n")
+diff --git a/internal/docs/markdown.go b/internal/docs/markdown.go
+index 19899110d8a..825db931cb7 100644
+--- a/internal/docs/markdown.go
++++ b/internal/docs/markdown.go
+@@ -26,6 +26,15 @@ func printJSONFields(w io.Writer, cmd *cobra.Command) {
+ 	fmt.Fprint(w, "\n\n")
+ }
+ 
++func printAliases(w io.Writer, cmd *cobra.Command) {
++	if len(cmd.Aliases) > 0 {
++		fmt.Fprintf(w, "### ALIASES\n\n")
++		fmt.Fprint(w, text.FormatSlice(strings.Split(strings.Join(root.BuildAliasList(cmd, cmd.Aliases), ", "), ","), 0, 0, "", "", true))
++		fmt.Fprint(w, "\n\n")
++	}
++
++}
++
+ func printOptions(w io.Writer, cmd *cobra.Command) error {
+ 	flags := cmd.NonInheritedFlags()
+ 	flags.SetOutput(w)
+@@ -147,6 +156,7 @@ func genMarkdownCustom(cmd *cobra.Command, w io.Writer, linkHandler func(string)
+ 	if err := printOptions(w, cmd); err != nil {
+ 		return err
+ 	}
++	printAliases(w, cmd)
+ 	printJSONFields(w, cmd)
+ 	fmt.Fprint(w, "{% endraw %}\n")
+ 
+diff --git a/pkg/cmd/root/help.go b/pkg/cmd/root/help.go
+index 7180a3152e0..ee5db5e6843 100644
+--- a/pkg/cmd/root/help.go
++++ b/pkg/cmd/root/help.go
+@@ -132,7 +132,7 @@ func rootHelpFunc(f *cmdutil.Factory, command *cobra.Command, args []string) {
+ 	helpEntries = append(helpEntries, helpEntry{"USAGE", command.UseLine()})
+ 
+ 	if len(command.Aliases) > 0 {
+-		helpEntries = append(helpEntries, helpEntry{"ALIASES", strings.Join(command.Aliases, "\n")})
++		helpEntries = append(helpEntries, helpEntry{"ALIASES", strings.Join(BuildAliasList(command, command.Aliases), ", ") + "\n"})
+ 	}
+ 
+ 	for _, g := range GroupedCommands(command) {
+@@ -302,3 +302,24 @@ func dedent(s string) string {
+ 	}
+ 	return strings.TrimSuffix(buf.String(), "\n")
+ }
++
++func BuildAliasList(cmd *cobra.Command, aliases []string) []string {
++	if !cmd.HasParent() {
++		return aliases
++	}
++
++	parentAliases := append(cmd.Parent().Aliases, cmd.Parent().Name())
++	sort.Strings(parentAliases)
++
++	var aliasesWithParentAliases []string
++	// e.g aliases = [ls]
++	for _, alias := range aliases {
++		// e.g parentAliases = [codespaces, cs]
++		for _, parentAlias := range parentAliases {
++			// e.g. aliasesWithParentAliases = [codespaces list, codespaces ls, cs list, cs ls]
++			aliasesWithParentAliases = append(aliasesWithParentAliases, fmt.Sprintf("%s %s", parentAlias, alias))
++		}
++	}
++
++	return BuildAliasList(cmd.Parent(), aliasesWithParentAliases)
++}
+diff --git a/pkg/cmd/root/help_reference.go b/pkg/cmd/root/help_reference.go
+index 76e9db24ef7..fb2e74aa00a 100644
+--- a/pkg/cmd/root/help_reference.go
++++ b/pkg/cmd/root/help_reference.go
+@@ -62,6 +62,12 @@ func cmdRef(w io.Writer, cmd *cobra.Command, depth int) {
+ 		fmt.Fprintf(w, "```\n%s````\n\n", dedent(flagUsages))
+ 	}
+ 
++	// Aliases
++	if len(cmd.Aliases) > 0 {
++		fmt.Fprintf(w, "%s\n\n", "Aliases")
++		fmt.Fprintf(w, "\n%s\n\n", dedent(strings.Join(BuildAliasList(cmd, cmd.Aliases), ", ")))
++	}
++
+ 	// Subcommands
+ 	for _, c := range cmd.Commands() {
+ 		if c.Hidden {

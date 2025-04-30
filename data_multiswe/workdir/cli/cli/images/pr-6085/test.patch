@@ -1,0 +1,125 @@
+diff --git a/pkg/cmd/pr/list/list_test.go b/pkg/cmd/pr/list/list_test.go
+index 006f2e78be5..ba6149e2914 100644
+--- a/pkg/cmd/pr/list/list_test.go
++++ b/pkg/cmd/pr/list/list_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"io"
+ 	"net/http"
++	"regexp"
+ 	"strings"
+ 	"testing"
+ 
+@@ -71,14 +72,18 @@ func TestPRList(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 
++	out := output.String()
++	timeRE := regexp.MustCompile(`\d+ years`)
++	out = timeRE.ReplaceAllString(out, "X years")
++
+ 	assert.Equal(t, heredoc.Doc(`
+ 
+ 		Showing 3 of 3 open pull requests in OWNER/REPO
+ 
+-		#32  New feature            feature
+-		#29  Fixed bad bug          hubot:bug-fix
+-		#28  Improve documentation  docs
+-	`), output.String())
++		#32  New feature            feature        about X years ago
++		#29  Fixed bad bug          hubot:bug-fix  about X years ago
++		#28  Improve documentation  docs           about X years ago
++	`), out)
+ 	assert.Equal(t, ``, output.Stderr())
+ }
+ 
+@@ -95,10 +100,14 @@ func TestPRList_nontty(t *testing.T) {
+ 
+ 	assert.Equal(t, "", output.Stderr())
+ 
+-	assert.Equal(t, `32	New feature	feature	DRAFT
+-29	Fixed bad bug	hubot:bug-fix	OPEN
+-28	Improve documentation	docs	MERGED
+-`, output.String())
++	out := output.String()
++	timeRE := regexp.MustCompile(`\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d .\d\d\d\d UTC`)
++	out = timeRE.ReplaceAllString(out, "XXXX-XX-XX XX:XX:XX +XXXX UTC")
++
++	assert.Equal(t, `32	New feature	feature	DRAFT	XXXX-XX-XX XX:XX:XX +XXXX UTC
++29	Fixed bad bug	hubot:bug-fix	OPEN	XXXX-XX-XX XX:XX:XX +XXXX UTC
++28	Improve documentation	docs	MERGED	XXXX-XX-XX XX:XX:XX +XXXX UTC
++`, out)
+ }
+ 
+ func TestPRList_filtering(t *testing.T) {
+diff --git a/pkg/cmd/pr/view/view_test.go b/pkg/cmd/pr/view/view_test.go
+index a909f0b6c8d..5791fb59d8c 100644
+--- a/pkg/cmd/pr/view/view_test.go
++++ b/pkg/cmd/pr/view/view_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"io"
+ 	"net/http"
+ 	"os"
++	"regexp"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/v2/api"
+@@ -351,7 +352,7 @@ func TestPRView_Preview(t *testing.T) {
+ 			},
+ 			expectedOutputs: []string{
+ 				`Blueberries are from a fork #12`,
+-				`Open.*nobody wants to merge 12 commits into master from blueberries.+100.-10`,
++				`Open.*nobody wants to merge 12 commits into master from blueberries . about X years ago.+100.-10`,
+ 				`blueberries taste good`,
+ 				`View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12`,
+ 			},
+@@ -364,7 +365,7 @@ func TestPRView_Preview(t *testing.T) {
+ 			},
+ 			expectedOutputs: []string{
+ 				`Blueberries are from a fork #12`,
+-				`Open.*nobody wants to merge 12 commits into master from blueberries.+100.-10`,
++				`Open.*nobody wants to merge 12 commits into master from blueberries . about X years ago.+100.-10`,
+ 				`Reviewers:.*1 \(.*Requested.*\)\n`,
+ 				`Assignees:.*marseilles, monaco\n`,
+ 				`Labels:.*one, two, three, four, five\n`,
+@@ -396,7 +397,7 @@ func TestPRView_Preview(t *testing.T) {
+ 			},
+ 			expectedOutputs: []string{
+ 				`Blueberries are from a fork #12`,
+-				`Closed.*nobody wants to merge 12 commits into master from blueberries.+100.-10`,
++				`Closed.*nobody wants to merge 12 commits into master from blueberries . about X years ago.+100.-10`,
+ 				`blueberries taste good`,
+ 				`View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12`,
+ 			},
+@@ -409,7 +410,7 @@ func TestPRView_Preview(t *testing.T) {
+ 			},
+ 			expectedOutputs: []string{
+ 				`Blueberries are from a fork #12`,
+-				`Merged.*nobody wants to merge 12 commits into master from blueberries.+100.-10`,
++				`Merged.*nobody wants to merge 12 commits into master from blueberries . about X years ago.+100.-10`,
+ 				`blueberries taste good`,
+ 				`View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12`,
+ 			},
+@@ -422,7 +423,7 @@ func TestPRView_Preview(t *testing.T) {
+ 			},
+ 			expectedOutputs: []string{
+ 				`Blueberries are from a fork #12`,
+-				`Draft.*nobody wants to merge 12 commits into master from blueberries.+100.-10`,
++				`Draft.*nobody wants to merge 12 commits into master from blueberries . about X years ago.+100.-10`,
+ 				`blueberries taste good`,
+ 				`View this pull request on GitHub: https://github.com/OWNER/REPO/pull/12`,
+ 			},
+@@ -445,8 +446,12 @@ func TestPRView_Preview(t *testing.T) {
+ 
+ 			assert.Equal(t, "", output.Stderr())
+ 
++			out := output.String()
++			timeRE := regexp.MustCompile(`\d+ years`)
++			out = timeRE.ReplaceAllString(out, "X years")
++
+ 			//nolint:staticcheck // prefer exact matchers over ExpectLines
+-			test.ExpectLines(t, output.String(), tc.expectedOutputs...)
++			test.ExpectLines(t, out, tc.expectedOutputs...)
+ 		})
+ 	}
+ }

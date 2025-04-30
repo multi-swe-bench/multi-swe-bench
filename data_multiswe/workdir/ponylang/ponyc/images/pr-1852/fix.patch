@@ -1,0 +1,126 @@
+diff --git a/src/libponyc/codegen/gendesc.c b/src/libponyc/codegen/gendesc.c
+index abeac10206..98b26203c9 100644
+--- a/src/libponyc/codegen/gendesc.c
++++ b/src/libponyc/codegen/gendesc.c
+@@ -481,14 +481,20 @@ void gendesc_table(compile_t* c)
+   }
+ 
+   LLVMTypeRef type = LLVMArrayType(c->descriptor_ptr, len);
+-  LLVMValueRef table = LLVMAddGlobal(c->module, type, "__DescTable");
++  LLVMValueRef table = LLVMAddGlobal(c->module, type, "__PonyDescTable");
+   LLVMValueRef value = LLVMConstArray(c->descriptor_ptr, args, len);
+   LLVMSetInitializer(table, value);
+   LLVMSetGlobalConstant(table, true);
+-  LLVMSetDLLStorageClass(table, LLVMDLLExportStorageClass);
++  LLVMSetLinkage(table, LLVMPrivateLinkage);
++
++  type = LLVMPointerType(type, 0);
++  LLVMValueRef table_ptr = LLVMAddGlobal(c->module, type, "__PonyDescTablePtr");
++  LLVMSetInitializer(table_ptr, table);
++  LLVMSetGlobalConstant(table_ptr, true);
++  LLVMSetDLLStorageClass(table_ptr, LLVMDLLExportStorageClass);
+ 
+   LLVMValueRef table_size = LLVMAddGlobal(c->module, c->intptr,
+-    "__DescTableSize");
++    "__PonyDescTableSize");
+   LLVMSetInitializer(table_size, LLVMConstInt(c->intptr, len, false));
+   LLVMSetGlobalConstant(table_size, true);
+   LLVMSetDLLStorageClass(table_size, LLVMDLLExportStorageClass);
+diff --git a/src/libponyc/codegen/genexe.c b/src/libponyc/codegen/genexe.c
+index 5ce6b596b4..5af05d7f23 100644
+--- a/src/libponyc/codegen/genexe.c
++++ b/src/libponyc/codegen/genexe.c
+@@ -263,8 +263,8 @@ static bool link_exe(compile_t* c, ast_t* program,
+   const char* fuseld = target_is_linux(c->opt->triple) ? "-fuse-ld=gold" : "";
+   const char* ldl = target_is_linux(c->opt->triple) ? "-ldl" : "";
+   const char* export = target_is_linux(c->opt->triple) ?
+-    "-Wl,--export-dynamic-symbol=__DescTable "
+-    "-Wl,--export-dynamic-symbol=__DescTableSize" : "-rdynamic";
++    "-Wl,--export-dynamic-symbol=__PonyDescTablePtr "
++    "-Wl,--export-dynamic-symbol=__PonyDescTableSize" : "-rdynamic";
+ 
+   size_t ld_len = 512 + strlen(file_exe) + strlen(file_o) + strlen(lib_args)
+                   + strlen(arch) + strlen(mcx16_arg) + strlen(fuseld)
+diff --git a/src/libponyc/codegen/genjit.c b/src/libponyc/codegen/genjit.c
+index 6ae98a97e9..6f949b81b7 100644
+--- a/src/libponyc/codegen/genjit.c
++++ b/src/libponyc/codegen/genjit.c
+@@ -1,8 +1,8 @@
+ #include "genjit.h"
+ #include "genexe.h"
+ #include "genopt.h"
+-
+ #include <llvm-c/ExecutionEngine.h>
++#include <string.h>
+ 
+ static LLVMBool jit_init(compile_t* c, LLVMExecutionEngineRef* engine)
+ {
+@@ -43,7 +43,7 @@ bool gen_jit_and_run(compile_t* c, int* exit_code, jit_symbol_t* symbols,
+       return false;
+     }
+ 
+-    *symbols[i].address = (void*)(uintptr_t)address;
++    memcpy(symbols[i].address, (void*)(uintptr_t)address, symbols[i].size);
+   }
+ 
+   const char* argv[] = {"ponyjit", NULL};
+diff --git a/src/libponyc/codegen/genjit.h b/src/libponyc/codegen/genjit.h
+index d9c80250f6..8bc056ca4d 100644
+--- a/src/libponyc/codegen/genjit.h
++++ b/src/libponyc/codegen/genjit.h
+@@ -9,14 +9,16 @@ PONY_EXTERN_C_BEGIN
+ typedef struct
+ {
+   const char* name;
+-  void** address;
++  void* address;
++  size_t size;
+ } jit_symbol_t;
+ 
+-// JIT a program and start the Pony runtime.
+-// Should only be used for compiler tests.
+-// For each element in the `symbols` array, the symbol address will be fetched
+-// from the generated program and be assigned to the value pointed by the
+-// `address` field.
++/** JIT a program and start the Pony runtime.
++ * Should only be used for compiler tests.
++ * For each element in the `symbols` array, the symbol address will be fetched
++ * from the generated program and the contents will be copied (via memcpy) to
++ * the memory pointed by the `address` field.
++ */
+ bool gen_jit_and_run(compile_t* c, int* exit_code, jit_symbol_t* symbols,
+   size_t symbol_count);
+ 
+diff --git a/src/libponyrt/gc/serialise.c b/src/libponyrt/gc/serialise.c
+index 14b07f719a..6935665100 100644
+--- a/src/libponyrt/gc/serialise.c
++++ b/src/libponyrt/gc/serialise.c
+@@ -77,22 +77,22 @@ static void serialise_cleanup(pony_ctx_t* ctx)
+ bool ponyint_serialise_setup()
+ {
+ #if defined(PLATFORM_IS_POSIX_BASED)
+-  void* tbl_size_sym = dlsym(RTLD_DEFAULT, "__DescTableSize");
+-  void* tbl_sym = dlsym(RTLD_DEFAULT, "__DescTable");
++  void* tbl_size_sym = dlsym(RTLD_DEFAULT, "__PonyDescTableSize");
++  void* tbl_ptr_sym = dlsym(RTLD_DEFAULT, "__PonyDescTablePtr");
+ #else
+   HMODULE program = GetModuleHandle(NULL);
+ 
+   if(program == NULL)
+     return false;
+ 
+-  void* tbl_size_sym = (void*)GetProcAddress(program, "__DescTableSize");
+-  void* tbl_sym = (void*)GetProcAddress(program, "__DescTable");
++  void* tbl_size_sym = (void*)GetProcAddress(program, "__PonyDescTableSize");
++  void* tbl_ptr_sym = (void*)GetProcAddress(program, "__PonyDescTablePtr");
+ #endif
+-  if((tbl_size_sym == NULL) || (tbl_sym == NULL))
++  if((tbl_size_sym == NULL) || (tbl_ptr_sym == NULL))
+     return false;
+ 
+   desc_table_size = *(size_t*)tbl_size_sym;
+-  desc_table = (pony_type_t**)tbl_sym;
++  desc_table = *(pony_type_t***)tbl_ptr_sym;
+ 
+   return true;
+ }

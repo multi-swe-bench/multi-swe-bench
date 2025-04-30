@@ -1,0 +1,97 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/_config.js b/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/_config.js
+index e7d3c80cfde9..82c87fd0e4a8 100644
+--- a/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/_config.js
+@@ -35,9 +35,7 @@ export default test({
+ 		const btn = target.querySelector('button');
+ 		const clickEvent = new window.Event('click', { bubbles: true });
+ 		await btn?.dispatchEvent(clickEvent);
+-		for (let i = 1; i <= 42; i += 1) {
+-			await Promise.resolve();
+-		}
++		await new Promise((r) => setTimeout(() => r(0), 100));
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/_config.js b/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/_config.js
+new file mode 100644
+index 000000000000..789057ed3767
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/_config.js
+@@ -0,0 +1,13 @@
++import { test } from '../../test';
++
++export default test({
++	compileOptions: {
++		dev: false // or else the arg will be called eagerly anyway to check for dead zones
++	},
++	html: `
++	<div>1 1 1</div>
++	<div>2 2 2</div>
++	<div>1 1 1</div>
++	<p>2</p>
++	`
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/main.svelte b/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/main.svelte
+new file mode 100644
+index 000000000000..b9e77c47954b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-block-default-arg/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++	import { untrack } from 'svelte';
++
++	let count = $state(0);
++	function default_arg() {
++		untrack(() => count++);
++		return 1;
++	}
++</script>
++
++{#each [{}, { a: 2 }, {}] as { a = default_arg() }}
++	<div>{a} {a} {a}</div>
++{/each}
++<p>{count}</p>
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/_config.js
+new file mode 100644
+index 000000000000..789057ed3767
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/_config.js
+@@ -0,0 +1,13 @@
++import { test } from '../../test';
++
++export default test({
++	compileOptions: {
++		dev: false // or else the arg will be called eagerly anyway to check for dead zones
++	},
++	html: `
++	<div>1 1 1</div>
++	<div>2 2 2</div>
++	<div>1 1 1</div>
++	<p>2</p>
++	`
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/main.svelte
+new file mode 100644
+index 000000000000..dc39503e3a94
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-default-arg/main.svelte
+@@ -0,0 +1,18 @@
++<script>
++	import { untrack } from 'svelte';
++
++	let count = $state(0);
++	function default_arg() {
++		untrack(() => count++);
++		return 1;
++	}
++</script>
++
++{#snippet item(id = default_arg())}
++	<div>{id} {id} {id}</div>
++{/snippet}
++
++{@render item()}
++{@render item(2)}
++{@render item()}
++<p>{count}</p>

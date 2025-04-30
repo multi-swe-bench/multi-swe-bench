@@ -1,0 +1,216 @@
+diff --git a/.changeset/nervous-ducks-repeat.md b/.changeset/nervous-ducks-repeat.md
+new file mode 100644
+index 000000000000..3d07becb0917
+--- /dev/null
++++ b/.changeset/nervous-ducks-repeat.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: better binding interop between runes/non-runes components
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+index da2502b6f512..90b2a36f9511 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/transform-client.js
+@@ -363,7 +363,12 @@ export function client_component(source, analysis, options) {
+ 	}
+ 
+ 	if (analysis.uses_props || analysis.uses_rest_props) {
+-		const to_remove = [b.literal('children'), b.literal('$$slots'), b.literal('$$events')];
++		const to_remove = [
++			b.literal('children'),
++			b.literal('$$slots'),
++			b.literal('$$events'),
++			b.literal('$$legacy')
++		];
+ 		if (analysis.custom_element) {
+ 			to_remove.push(b.literal('$$host'));
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/utils.js b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+index 884a7addfadd..c716bb83b694 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+@@ -89,7 +89,7 @@ export function serialize_get_binding(node, state) {
+ 	}
+ 
+ 	if (binding.kind === 'prop' || binding.kind === 'bindable_prop') {
+-		if (!state.analysis.runes || binding.reassigned || binding.initial) {
++		if (is_prop_source(binding, state)) {
+ 			return b.call(node);
+ 		}
+ 
+@@ -391,18 +391,20 @@ export function serialize_set_binding(node, context, fallback, prefix, options)
+ 					),
+ 					b.call('$.untrack', b.id('$' + left_name))
+ 				);
+-			} else if (!state.analysis.runes) {
++			} else if (
++				!state.analysis.runes ||
++				// this condition can go away once legacy mode is gone; only necessary for interop with legacy parent bindings
++				(binding.mutated && binding.kind === 'bindable_prop')
++			) {
+ 				if (binding.kind === 'bindable_prop') {
+ 					return b.call(
+ 						left,
+-						b.sequence([
+-							b.assignment(
+-								node.operator,
+-								/** @type {import('estree').Pattern} */ (visit(node.left)),
+-								value
+-							),
+-							b.call(left)
+-						])
++						b.assignment(
++							node.operator,
++							/** @type {import('estree').Pattern} */ (visit(node.left)),
++							value
++						),
++						b.true
+ 					);
+ 				} else {
+ 					return b.call(
+@@ -538,9 +540,7 @@ function get_hoistable_params(node, context) {
+ 			} else if (
+ 				// If we are referencing a simple $$props value, then we need to reference the object property instead
+ 				(binding.kind === 'prop' || binding.kind === 'bindable_prop') &&
+-				!binding.reassigned &&
+-				binding.initial === null &&
+-				!context.state.analysis.accessors
++				!is_prop_source(binding, context.state)
+ 			) {
+ 				push_unique(b.id('$$props'));
+ 			} else {
+@@ -602,7 +602,9 @@ export function get_prop_source(binding, state, name, initial) {
+ 
+ 	if (
+ 		state.analysis.accessors ||
+-		(state.analysis.immutable ? binding.reassigned : binding.mutated)
++		(state.analysis.immutable
++			? binding.reassigned || (state.analysis.runes && binding.mutated)
++			: binding.mutated)
+ 	) {
+ 		flags |= PROPS_IS_UPDATED;
+ 	}
+@@ -637,6 +639,25 @@ export function get_prop_source(binding, state, name, initial) {
+ 	return b.call('$.prop', ...args);
+ }
+ 
++/**
++ *
++ * @param {import('#compiler').Binding} binding
++ * @param {import('./types').ClientTransformState} state
++ * @returns
++ */
++export function is_prop_source(binding, state) {
++	return (
++		(binding.kind === 'prop' || binding.kind === 'bindable_prop') &&
++		(!state.analysis.runes ||
++			state.analysis.accessors ||
++			binding.reassigned ||
++			binding.initial ||
++			// Until legacy mode is gone, we also need to use the prop source when only mutated is true,
++			// because the parent could be a legacy component which needs coarse-grained reactivity
++			binding.mutated)
++	);
++}
++
+ /**
+  * @param {import('estree').Expression} node
+  * @param {import("../../scope.js").Scope | null} scope
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+index b35e01b2d7e7..91934738b0db 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-runes.js
+@@ -4,6 +4,7 @@ import * as b from '../../../../utils/builders.js';
+ import * as assert from '../../../../utils/assert.js';
+ import {
+ 	get_prop_source,
++	is_prop_source,
+ 	is_state_source,
+ 	serialize_proxy_reassignment,
+ 	should_proxy_or_freeze
+@@ -240,7 +241,11 @@ export const javascript_visitors_runes = {
+ 				assert.equal(declarator.id.type, 'ObjectPattern');
+ 
+ 				/** @type {string[]} */
+-				const seen = [];
++				const seen = ['$$slots', '$$events', '$$legacy'];
++
++				if (state.analysis.custom_element) {
++					seen.push('$$host');
++				}
+ 
+ 				for (const property of declarator.id.properties) {
+ 					if (property.type === 'Property') {
+@@ -264,7 +269,7 @@ export const javascript_visitors_runes = {
+ 							initial = b.call('$.proxy', initial);
+ 						}
+ 
+-						if (binding.reassigned || state.analysis.accessors || initial) {
++						if (is_prop_source(binding, state)) {
+ 							declarations.push(b.declarator(id, get_prop_source(binding, state, name, initial)));
+ 						}
+ 					} else {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index e7d01f33db94..3134409b85cc 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -900,6 +900,10 @@ function serialize_inline_component(node, component_name, context) {
+ 		push_prop(b.init('$$slots', b.object(serialized_slots)));
+ 	}
+ 
++	if (!context.state.analysis.runes) {
++		push_prop(b.init('$$legacy', b.true));
++	}
++
+ 	const props_expression =
+ 		props_and_spreads.length === 0 ||
+ 		(props_and_spreads.length === 1 && Array.isArray(props_and_spreads[0]))
+diff --git a/packages/svelte/src/internal/client/reactivity/props.js b/packages/svelte/src/internal/client/reactivity/props.js
+index 5d4634f91394..3232239a75dd 100644
+--- a/packages/svelte/src/internal/client/reactivity/props.js
++++ b/packages/svelte/src/internal/client/reactivity/props.js
+@@ -267,9 +267,16 @@ export function prop(props, key, flags, fallback) {
+ 	// intermediate mode — prop is written to, but the parent component had
+ 	// `bind:foo` which means we can just call `$$props.foo = value` directly
+ 	if (setter) {
+-		return function (/** @type {V} */ value) {
+-			if (arguments.length === 1) {
+-				/** @type {Function} */ (setter)(value);
++		var legacy_parent = props.$$legacy;
++		return function (/** @type {any} */ value, /** @type {boolean} */ mutation) {
++			if (arguments.length > 0) {
++				// We don't want to notify if the value was mutated and the parent is in runes mode.
++				// In that case the state proxy (if it exists) should take care of the notification.
++				// If the parent is not in runes mode, we need to notify on mutation, too, that the prop
++				// has changed because the parent will not be able to detect the change otherwise.
++				if (!runes || !mutation || legacy_parent) {
++					/** @type {Function} */ (setter)(mutation ? getter() : value);
++				}
+ 				return value;
+ 			} else {
+ 				return getter();
+@@ -302,7 +309,7 @@ export function prop(props, key, flags, fallback) {
+ 
+ 	if (!immutable) current_value.equals = safe_equals;
+ 
+-	return function (/** @type {V} */ value) {
++	return function (/** @type {any} */ value, /** @type {boolean} */ mutation) {
+ 		var current = get(current_value);
+ 
+ 		// legacy nonsense — need to ensure the source is invalidated when necessary
+@@ -318,9 +325,11 @@ export function prop(props, key, flags, fallback) {
+ 		}
+ 
+ 		if (arguments.length > 0) {
+-			if (!current_value.equals(value)) {
++			const new_value = mutation ? get(current_value) : value;
++
++			if (!current_value.equals(new_value)) {
+ 				from_child = true;
+-				set(inner_current_value, value);
++				set(inner_current_value, new_value);
+ 				get(current_value); // force a synchronisation immediately
+ 			}
+ 

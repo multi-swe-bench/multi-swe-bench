@@ -1,0 +1,234 @@
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index 5a208fd1d67..56f51807b82 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -1248,7 +1248,7 @@ OPTIONS:
+ fn override_help_short() {
+     let cmd = Command::new("test")
+         .version("0.1")
+-        .arg(arg!(-H --help "Print help information"))
++        .arg(arg!(-H --help "Print help information").action(ArgAction::Help))
+         .disable_help_flag(true);
+ 
+     utils::assert_output(cmd.clone(), "test --help", OVERRIDE_HELP_SHORT, false);
+@@ -1290,7 +1290,7 @@ OPTIONS:
+ fn override_help_about() {
+     let cmd = Command::new("test")
+         .version("0.1")
+-        .arg(arg!(-h --help "Print custom help information"))
++        .arg(arg!(-h --help "Print custom help information").action(ArgAction::Help))
+         .disable_help_flag(true);
+ 
+     utils::assert_output(cmd.clone(), "test --help", OVERRIDE_HELP_ABOUT, false);
+@@ -2237,7 +2237,7 @@ fn only_custom_heading_opts_no_args() {
+         .version("1.4")
+         .disable_version_flag(true)
+         .disable_help_flag(true)
+-        .arg(arg!(--help).hide(true))
++        .arg(arg!(--help).action(ArgAction::Help).hide(true))
+         .next_help_heading(Some("NETWORKING"))
+         .arg(arg!(-s --speed <SPEED> "How fast").required(false));
+ 
+@@ -2259,7 +2259,7 @@ fn only_custom_heading_pos_no_args() {
+         .version("1.4")
+         .disable_version_flag(true)
+         .disable_help_flag(true)
+-        .arg(arg!(--help).hide(true))
++        .arg(arg!(--help).action(ArgAction::Help).hide(true))
+         .next_help_heading(Some("NETWORKING"))
+         .arg(Arg::new("speed").help("How fast"));
+ 
+@@ -2624,7 +2624,7 @@ ARGS:
+ fn help_without_short() {
+     let mut cmd = clap::Command::new("test")
+         .arg(arg!(-h --hex <NUM>))
+-        .arg(arg!(--help))
++        .arg(arg!(--help).action(ArgAction::Help))
+         .disable_help_flag(true);
+ 
+     cmd.build();
+diff --git a/tests/builder/hidden_args.rs b/tests/builder/hidden_args.rs
+index 588c3124ccc..e97b623d56d 100644
+--- a/tests/builder/hidden_args.rs
++++ b/tests/builder/hidden_args.rs
+@@ -248,7 +248,7 @@ fn hide_opt_args_only() {
+         .after_help("After help")
+         .disable_help_flag(true)
+         .disable_version_flag(true)
+-        .arg(arg!(-h - -help).hide(true))
++        .arg(arg!(-h - -help).action(ArgAction::Help).hide(true))
+         .arg(arg!(-v - -version).hide(true))
+         .arg(
+             arg!(--option <opt> "some option")
+@@ -274,7 +274,7 @@ fn hide_pos_args_only() {
+         .after_help("After help")
+         .disable_help_flag(true)
+         .disable_version_flag(true)
+-        .arg(arg!(-h - -help).hide(true))
++        .arg(arg!(-h - -help).action(ArgAction::Help).hide(true))
+         .arg(arg!(-v - -version).hide(true))
+         .args(&[Arg::new("pos").help("some pos").hide(true)]);
+ 
+@@ -296,7 +296,7 @@ fn hide_subcmds_only() {
+         .after_help("After help")
+         .disable_help_flag(true)
+         .disable_version_flag(true)
+-        .arg(arg!(-h - -help).hide(true))
++        .arg(arg!(-h - -help).action(ArgAction::Help).hide(true))
+         .arg(arg!(-v - -version).hide(true))
+         .subcommand(Command::new("sub").hide(true));
+ 
+diff --git a/tests/builder/version.rs b/tests/builder/version.rs
+index 317c9933b0e..dd6a3ddf779 100644
+--- a/tests/builder/version.rs
++++ b/tests/builder/version.rs
+@@ -140,9 +140,9 @@ fn propagate_version_short() {
+ #[cfg(debug_assertions)]
+ #[test]
+ #[should_panic = "`ArgAction::Version` used without providing Command::version or Command::long_version"]
+-fn mut_arg_version_panic() {
++fn version_required() {
+     let _res = common()
+-        .mut_arg("version", |v| v.short('z'))
++        .arg(clap::arg!(--version).action(ArgAction::Version))
+         .try_get_matches_from("foo -z".split(' '));
+ }
+ 
+diff --git a/tests/derive/help.rs b/tests/derive/help.rs
+index e0518e00ec2..6fa457c79c9 100644
+--- a/tests/derive/help.rs
++++ b/tests/derive/help.rs
+@@ -1,4 +1,4 @@
+-use clap::{Args, CommandFactory, Parser, Subcommand};
++use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand};
+ 
+ #[test]
+ fn arg_help_heading_applied() {
+@@ -441,3 +441,31 @@ OPTIONS:
+     let help = String::from_utf8(buffer).unwrap();
+     snapbox::assert_eq(HELP, help);
+ }
++
++#[test]
++fn custom_help_flag() {
++    #[derive(Debug, Clone, Parser)]
++    #[clap(disable_help_flag = true)]
++    struct CliOptions {
++        #[clap(short = 'h', long = "verbose-help", action = ArgAction::Help)]
++        help: bool,
++    }
++
++    let result = CliOptions::try_parse_from(["cmd", "--verbose-help"]);
++    let err = result.unwrap_err();
++    assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
++}
++
++#[test]
++fn custom_version_flag() {
++    #[derive(Debug, Clone, Parser)]
++    #[clap(disable_version_flag = true, version = "2.0.0")]
++    struct CliOptions {
++        #[clap(short = 'V', long = "verbose-version", action = ArgAction::Version)]
++        version: bool,
++    }
++
++    let result = CliOptions::try_parse_from(["cmd", "--verbose-version"]);
++    let err = result.unwrap_err();
++    assert_eq!(err.kind(), clap::error::ErrorKind::DisplayVersion);
++}
+diff --git a/tests/macros.rs b/tests/macros.rs
+index 3c7ba48ef79..c52eae7e433 100644
+--- a/tests/macros.rs
++++ b/tests/macros.rs
+@@ -115,49 +115,67 @@ mod arg {
+     #[test]
+     fn short_help() {
+         let arg = clap::arg!(help: -b);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
+-
+-        let arg = clap::arg!(help: -b ...);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
+ 
+-        let arg = clap::arg!(help: -b <NUM>);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        let mut cmd = clap::Command::new("cmd")
++            .disable_help_flag(true)
++            .arg(clap::arg!(help: -b).action(clap::ArgAction::Help));
++        cmd.build();
++        let arg = cmd
++            .get_arguments()
++            .find(|arg| arg.get_id() == "help")
++            .unwrap();
++        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
+     }
+ 
+     #[test]
+     fn long_help() {
+         let arg = clap::arg!(-'?' - -help);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
+-
+-        let arg = clap::arg!(-'?' --help ...);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
+ 
+-        let arg = clap::arg!(-'?' --help <NUM>);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        let mut cmd = clap::Command::new("cmd")
++            .disable_help_flag(true)
++            .arg(clap::arg!(-'?' - -help).action(clap::ArgAction::Help));
++        cmd.build();
++        let arg = cmd
++            .get_arguments()
++            .find(|arg| arg.get_id() == "help")
++            .unwrap();
++        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
+     }
+ 
+     #[test]
+     fn short_version() {
+         let arg = clap::arg!(version: -b);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
+-
+-        let arg = clap::arg!(version: -b ...);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
+ 
+-        let arg = clap::arg!(version: -b <NUM>);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        let mut cmd = clap::Command::new("cmd")
++            .disable_version_flag(true)
++            .version("1.0.0")
++            .arg(clap::arg!(version: -b).action(clap::ArgAction::Version));
++        cmd.build();
++        let arg = cmd
++            .get_arguments()
++            .find(|arg| arg.get_id() == "version")
++            .unwrap();
++        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
+     }
+ 
+     #[test]
+     fn long_version() {
+         let arg = clap::arg!(-'?' - -version);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
+-
+-        let arg = clap::arg!(-'?' --version ...);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++        assert!(matches!(arg.get_action(), clap::ArgAction::SetTrue));
+ 
+-        let arg = clap::arg!(-'?' --version <NUM>);
+-        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++        let mut cmd = clap::Command::new("cmd")
++            .disable_version_flag(true)
++            .version("1.0.0")
++            .arg(clap::arg!(-'?' - -version).action(clap::ArgAction::Version));
++        cmd.build();
++        let arg = cmd
++            .get_arguments()
++            .find(|arg| arg.get_id() == "version")
++            .unwrap();
++        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
+     }
+ 
+     #[test]

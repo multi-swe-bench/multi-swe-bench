@@ -1,0 +1,64 @@
+diff --git a/api/queries_issue.go b/api/queries_issue.go
+index 2c755b1d3b1..f83e43d9216 100644
+--- a/api/queries_issue.go
++++ b/api/queries_issue.go
+@@ -171,7 +171,7 @@ func IssueStatus(client *Client, repo ghrepo.Interface, currentUsername string)
+ 	return &payload, nil
+ }
+ 
+-func IssueList(client *Client, repo ghrepo.Interface, state string, labels []string, assigneeString string, limit int) ([]Issue, error) {
++func IssueList(client *Client, repo ghrepo.Interface, state string, labels []string, assigneeString string, limit int, authorString string) ([]Issue, error) {
+ 	var states []string
+ 	switch state {
+ 	case "open", "":
+@@ -185,10 +185,10 @@ func IssueList(client *Client, repo ghrepo.Interface, state string, labels []str
+ 	}
+ 
+ 	query := fragments + `
+-	query($owner: String!, $repo: String!, $limit: Int, $endCursor: String, $states: [IssueState!] = OPEN, $labels: [String!], $assignee: String) {
++	query($owner: String!, $repo: String!, $limit: Int, $endCursor: String, $states: [IssueState!] = OPEN, $labels: [String!], $assignee: String, $author: String) {
+ 		repository(owner: $owner, name: $repo) {
+ 			hasIssuesEnabled
+-			issues(first: $limit, after: $endCursor, orderBy: {field: CREATED_AT, direction: DESC}, states: $states, labels: $labels, filterBy: {assignee: $assignee}) {
++			issues(first: $limit, after: $endCursor, orderBy: {field: CREATED_AT, direction: DESC}, states: $states, labels: $labels, filterBy: {assignee: $assignee, createdBy: $author}) {
+ 				nodes {
+ 					...issue
+ 				}
+@@ -212,6 +212,9 @@ func IssueList(client *Client, repo ghrepo.Interface, state string, labels []str
+ 	if assigneeString != "" {
+ 		variables["assignee"] = assigneeString
+ 	}
++	if authorString != "" {
++		variables["author"] = authorString
++	}
+ 
+ 	var response struct {
+ 		Repository struct {
+diff --git a/command/issue.go b/command/issue.go
+index 4fc6d5ab2c7..8d83e392b3d 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -37,6 +37,7 @@ func init() {
+ 	issueListCmd.Flags().StringSliceP("label", "l", nil, "Filter by label")
+ 	issueListCmd.Flags().StringP("state", "s", "", "Filter by state: {open|closed|all}")
+ 	issueListCmd.Flags().IntP("limit", "L", 30, "Maximum number of issues to fetch")
++	issueListCmd.Flags().StringP("author", "A", "", "Filter by author")
+ 
+ 	issueViewCmd.Flags().BoolP("preview", "p", false, "Display preview of issue content")
+ }
+@@ -109,9 +110,14 @@ func issueList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
++	author, err := cmd.Flags().GetString("author")
++	if err != nil {
++		return err
++	}
++
+ 	fmt.Fprintf(colorableErr(cmd), "\nIssues for %s\n\n", ghrepo.FullName(baseRepo))
+ 
+-	issues, err := api.IssueList(apiClient, baseRepo, state, labels, assignee, limit)
++	issues, err := api.IssueList(apiClient, baseRepo, state, labels, assignee, limit, author)
+ 	if err != nil {
+ 		return err
+ 	}

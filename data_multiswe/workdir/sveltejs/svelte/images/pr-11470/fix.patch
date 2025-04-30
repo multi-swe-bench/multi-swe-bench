@@ -1,0 +1,59 @@
+diff --git a/.changeset/ten-tables-speak.md b/.changeset/ten-tables-speak.md
+new file mode 100644
+index 000000000000..4e60c55b3ac6
+--- /dev/null
++++ b/.changeset/ten-tables-speak.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: allow for arrays in member access in directives
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index b6fe9649eb3d..8fc7834018fe 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -34,7 +34,10 @@ import {
+ 	TRANSITION_OUT
+ } from '../../../../../constants.js';
+ import { escape_html } from '../../../../../escaping.js';
+-import { regex_is_valid_identifier } from '../../../patterns.js';
++import {
++	regex_is_valid_identifier,
++	regex_is_valid_member_access_directive
++} from '../../../patterns.js';
+ import { javascript_visitors_runes } from './javascript-runes.js';
+ import { sanitize_template_string } from '../../../../utils/sanitize_template_string.js';
+ import { walk } from 'zimmerframe';
+@@ -118,7 +121,17 @@ function parse_directive_name(name) {
+ 	let expression = b.id(part);
+ 
+ 	while ((part = /** @type {string} */ (parts.shift()))) {
+-		const computed = !regex_is_valid_identifier.test(part);
++		const computed = !regex_is_valid_member_access_directive.test(part);
++		const has_array_access = part.indexOf('[');
++		if (computed && has_array_access !== -1) {
++			const literal_part = part.substring(0, has_array_access);
++			const identifier_parts = part.substring(has_array_access).replaceAll('[', '').split(']');
++			expression = b.member(expression, b.literal(literal_part), computed);
++			for (const identifier_part of identifier_parts) {
++				if (identifier_part) expression = b.member(expression, b.id(identifier_part), computed);
++			}
++			continue;
++		}
+ 		expression = b.member(expression, computed ? b.literal(part) : b.id(part), computed);
+ 	}
+ 
+diff --git a/packages/svelte/src/compiler/phases/patterns.js b/packages/svelte/src/compiler/phases/patterns.js
+index bda299de9e18..2fc20e5597fd 100644
+--- a/packages/svelte/src/compiler/phases/patterns.js
++++ b/packages/svelte/src/compiler/phases/patterns.js
+@@ -15,6 +15,8 @@ export const regex_only_whitespaces = /^[ \t\n\r\f]+$/;
+ export const regex_not_newline_characters = /[^\n]/g;
+ 
+ export const regex_is_valid_identifier = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
++export const regex_is_valid_member_access_directive =
++	/^[a-zA-Z_$][a-zA-Z_$0-9]*(\[[a-zA-Z_$0-9]+\])*$/;
+ // used in replace all to remove all invalid chars from a literal identifier
+ export const regex_invalid_identifier_chars = /(^[^a-zA-Z_$]|[^a-zA-Z0-9_$])/g;
+ 

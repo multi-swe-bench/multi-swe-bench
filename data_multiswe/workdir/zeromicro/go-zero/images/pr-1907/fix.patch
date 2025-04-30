@@ -1,0 +1,44 @@
+diff --git a/zrpc/client.go b/zrpc/client.go
+index 699486a4d74f..5240a4790595 100644
+--- a/zrpc/client.go
++++ b/zrpc/client.go
+@@ -15,6 +15,8 @@ var (
+ 	WithDialOption = internal.WithDialOption
+ 	// WithNonBlock sets the dialing to be nonblock.
+ 	WithNonBlock = internal.WithNonBlock
++	// WithStreamClientInterceptor is an alias of internal.WithStreamClientInterceptor.
++	WithStreamClientInterceptor = internal.WithStreamClientInterceptor
+ 	// WithTimeout is an alias of internal.WithTimeout.
+ 	WithTimeout = internal.WithTimeout
+ 	// WithTransportCredentials return a func to make the gRPC calls secured with given credentials.
+diff --git a/zrpc/internal/client.go b/zrpc/internal/client.go
+index 53a920df5534..6b3151bf0e0a 100644
+--- a/zrpc/internal/client.go
++++ b/zrpc/internal/client.go
+@@ -131,6 +131,13 @@ func WithNonBlock() ClientOption {
+ 	}
+ }
+ 
++// WithStreamClientInterceptor returns a func to customize a ClientOptions with given interceptor.
++func WithStreamClientInterceptor(interceptor grpc.StreamClientInterceptor) ClientOption {
++	return func(options *ClientOptions) {
++		options.DialOptions = append(options.DialOptions, WithStreamClientInterceptors(interceptor))
++	}
++}
++
+ // WithTimeout returns a func to customize a ClientOptions with given timeout.
+ func WithTimeout(timeout time.Duration) ClientOption {
+ 	return func(options *ClientOptions) {
+diff --git a/zrpc/internal/rpcserver.go b/zrpc/internal/rpcserver.go
+index a05d45659d11..be378deb5c70 100644
+--- a/zrpc/internal/rpcserver.go
++++ b/zrpc/internal/rpcserver.go
+@@ -71,7 +71,7 @@ func (s *rpcServer) Start(register RegisterFn) error {
+ 		WithStreamServerInterceptors(streamInterceptors...))
+ 	server := grpc.NewServer(options...)
+ 	register(server)
+-	// we need to make sure all others are wrapped up
++	// we need to make sure all others are wrapped up,
+ 	// so we do graceful stop at shutdown phase instead of wrap up phase
+ 	waitForCalled := proc.AddWrapUpListener(func() {
+ 		server.GracefulStop()

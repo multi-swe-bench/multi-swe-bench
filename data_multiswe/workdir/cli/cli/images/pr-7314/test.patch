@@ -1,0 +1,121 @@
+diff --git a/api/queries_repo_test.go b/api/queries_repo_test.go
+index 4ea14d0f596..1c790e3d8f5 100644
+--- a/api/queries_repo_test.go
++++ b/api/queries_repo_test.go
+@@ -8,6 +8,7 @@ import (
+ 
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/pkg/httpmock"
++	"github.com/stretchr/testify/assert"
+ )
+ 
+ func TestGitHubRepo_notFound(t *testing.T) {
+@@ -467,3 +468,72 @@ func TestDisplayName(t *testing.T) {
+ 		}
+ 	}
+ }
++
++func TestRepoExists(t *testing.T) {
++	tests := []struct {
++		name       string
++		httpStub   func(*httpmock.Registry)
++		repo       ghrepo.Interface
++		existCheck bool
++		wantErrMsg string
++	}{
++		{
++			name: "repo exists",
++			httpStub: func(r *httpmock.Registry) {
++				r.Register(
++					httpmock.REST("HEAD", "repos/OWNER/REPO"),
++					httpmock.StringResponse("{}"),
++				)
++			},
++			repo:       ghrepo.New("OWNER", "REPO"),
++			existCheck: true,
++			wantErrMsg: "",
++		},
++		{
++			name: "repo does not exists",
++			httpStub: func(r *httpmock.Registry) {
++				r.Register(
++					httpmock.REST("HEAD", "repos/OWNER/REPO"),
++					httpmock.StatusStringResponse(404, "Not Found"),
++				)
++			},
++			repo:       ghrepo.New("OWNER", "REPO"),
++			existCheck: false,
++			wantErrMsg: "",
++		},
++		{
++			name: "http error",
++			httpStub: func(r *httpmock.Registry) {
++				r.Register(
++					httpmock.REST("HEAD", "repos/OWNER/REPO"),
++					httpmock.StatusStringResponse(500, "Internal Server Error"),
++				)
++			},
++			repo:       ghrepo.New("OWNER", "REPO"),
++			existCheck: false,
++			wantErrMsg: "HTTP 500 (https://api.github.com/repos/OWNER/REPO)",
++		},
++	}
++	for _, tt := range tests {
++		reg := &httpmock.Registry{}
++		if tt.httpStub != nil {
++			tt.httpStub(reg)
++		}
++
++		client := newTestClient(reg)
++
++		t.Run(tt.name, func(t *testing.T) {
++			exist, err := RepoExists(client, ghrepo.New("OWNER", "REPO"))
++			if tt.wantErrMsg != "" {
++				assert.Equal(t, tt.wantErrMsg, err.Error())
++			} else {
++				assert.NoError(t, err)
++			}
++
++			if exist != tt.existCheck {
++				t.Errorf("RepoExists() returns %v, expected %v", exist, tt.existCheck)
++				return
++			}
++		})
++	}
++}
+diff --git a/pkg/cmd/browse/browse_test.go b/pkg/cmd/browse/browse_test.go
+index 616c1f7e4dd..67b920fdba4 100644
+--- a/pkg/cmd/browse/browse_test.go
++++ b/pkg/cmd/browse/browse_test.go
+@@ -232,6 +232,7 @@ func Test_runBrowse(t *testing.T) {
+ 	tests := []struct {
+ 		name          string
+ 		opts          BrowseOptions
++		httpStub      func(*httpmock.Registry)
+ 		baseRepo      ghrepo.Interface
+ 		defaultBranch string
+ 		expectedURL   string
+@@ -432,6 +433,12 @@ func Test_runBrowse(t *testing.T) {
+ 				SelectorArg:   "init.rb:6",
+ 				NoBrowserFlag: true,
+ 			},
++			httpStub: func(r *httpmock.Registry) {
++				r.Register(
++					httpmock.REST("HEAD", "repos/mislav/will_paginate"),
++					httpmock.StringResponse("{}"),
++				)
++			},
+ 			baseRepo:    ghrepo.New("mislav", "will_paginate"),
+ 			wantsErr:    false,
+ 			expectedURL: "https://github.com/mislav/will_paginate/blob/3-0-stable/init.rb?plain=1#L6",
+@@ -556,6 +563,10 @@ func Test_runBrowse(t *testing.T) {
+ 				reg.StubRepoInfoResponse(tt.baseRepo.RepoOwner(), tt.baseRepo.RepoName(), tt.defaultBranch)
+ 			}
+ 
++			if tt.httpStub != nil {
++				tt.httpStub(&reg)
++			}
++
+ 			opts := tt.opts
+ 			opts.IO = ios
+ 			opts.BaseRepo = func() (ghrepo.Interface, error) {

@@ -1,0 +1,266 @@
+diff --git a/packages/material-ui/src/MenuItem/MenuItem.js b/packages/material-ui/src/MenuItem/MenuItem.js
+index 63d7108f8d0422..b3b5131beb6c38 100644
+--- a/packages/material-ui/src/MenuItem/MenuItem.js
++++ b/packages/material-ui/src/MenuItem/MenuItem.js
+@@ -1,8 +1,10 @@
+ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
++import useForkRef from '../utils/useForkRef';
+ import withStyles from '../styles/withStyles';
+ import ListItem from '../ListItem';
++import MenuListContext from '../MenuList/MenuListContext';
+ 
+ export const styles = (theme) => ({
+   /* Styles applied to the root element. */
+@@ -43,11 +45,23 @@ const MenuItem = React.forwardRef(function MenuItem(props, ref) {
+     ...other
+   } = props;
+ 
++  const itemRef = React.useRef(null);
++
++  const { registerMenuItem } = React.useContext(MenuListContext);
++
+   let tabIndex;
+   if (!props.disabled) {
+     tabIndex = tabIndexProp !== undefined ? tabIndexProp : -1;
+   }
+ 
++  React.useEffect(() => {
++    if (registerMenuItem) {
++      registerMenuItem(itemRef);
++    }
++  }, [registerMenuItem]);
++
++  const handleRef = useForkRef(itemRef, ref);
++
+   return (
+     <ListItem
+       button
+@@ -65,7 +79,7 @@ const MenuItem = React.forwardRef(function MenuItem(props, ref) {
+         },
+         className,
+       )}
+-      ref={ref}
++      ref={handleRef}
+       {...other}
+     />
+   );
+diff --git a/packages/material-ui/src/MenuList/MenuList.js b/packages/material-ui/src/MenuList/MenuList.js
+index 07e6dc8d930053..37aabab55087ca 100644
+--- a/packages/material-ui/src/MenuList/MenuList.js
++++ b/packages/material-ui/src/MenuList/MenuList.js
+@@ -6,25 +6,28 @@ import List from '../List';
+ import getScrollbarSize from '../utils/getScrollbarSize';
+ import useForkRef from '../utils/useForkRef';
+ import useEnhancedEffect from '../utils/useEnhancedEffect';
++import MenuListContext from './MenuListContext';
+ 
+-function nextItem(list, item, disableListWrap) {
+-  if (list === item) {
+-    return list.firstChild;
++function nextItem(list, item, disableListWrap, listRef) {
++  if (listRef.current === item) {
++    return list[0].current;
+   }
+-  if (item && item.nextElementSibling) {
+-    return item.nextElementSibling;
++  const i = list.findIndex((c) => c.current === item);
++  if (item && i > -1 && i + 1 < list.length) {
++    return list[i + 1].current;
+   }
+-  return disableListWrap ? null : list.firstChild;
++  return disableListWrap ? null : list[0].current;
+ }
+ 
+-function previousItem(list, item, disableListWrap) {
+-  if (list === item) {
+-    return disableListWrap ? list.firstChild : list.lastChild;
++function previousItem(list, item, disableListWrap, listRef) {
++  if (listRef.current === item) {
++    return disableListWrap ? list[0].current : list[list.length - 1].current;
+   }
+-  if (item && item.previousElementSibling) {
+-    return item.previousElementSibling;
++  const i = list.findIndex((c) => c.current === item);
++  if (item && i > -1 && i - 1 >= 0) {
++    return list[i - 1].current;
+   }
+-  return disableListWrap ? null : list.lastChild;
++  return disableListWrap ? null : list[list.length - 1].current;
+ }
+ 
+ function textCriteriaMatches(nextFocus, textCriteria) {
+@@ -53,13 +56,19 @@ function moveFocus(
+   disabledItemsFocusable,
+   traversalFunction,
+   textCriteria,
++  listRef,
+ ) {
+   let wrappedOnce = false;
+-  let nextFocus = traversalFunction(list, currentFocus, currentFocus ? disableListWrap : false);
++  let nextFocus = traversalFunction(
++    list,
++    currentFocus,
++    currentFocus ? disableListWrap : false,
++    listRef,
++  );
+ 
+   while (nextFocus) {
+     // Prevent infinite loop.
+-    if (nextFocus === list.firstChild) {
++    if (nextFocus === list[0].current) {
+       if (wrappedOnce) {
+         return;
+       }
+@@ -77,7 +86,7 @@ function moveFocus(
+       nextFocusDisabled
+     ) {
+       // Move to the next element.
+-      nextFocus = traversalFunction(list, nextFocus, disableListWrap);
++      nextFocus = traversalFunction(list, nextFocus, disableListWrap, listRef);
+     } else {
+       nextFocus.focus();
+       return;
+@@ -114,6 +123,8 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+     lastTime: null,
+   });
+ 
++  const menuItemRefs = React.useRef([]);
++
+   useEnhancedEffect(() => {
+     if (autoFocus) {
+       listRef.current.focus();
+@@ -141,7 +152,7 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+   );
+ 
+   const handleKeyDown = (event) => {
+-    const list = listRef.current;
++    const list = menuItemRefs.current;
+     const key = event.key;
+     /**
+      * @type {Element} - will always be defined since we are in a keydown handler
+@@ -149,21 +160,45 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+      * or document.body or document.documentElement. Only the first case will
+      * trigger this specific handler.
+      */
+-    const currentFocus = ownerDocument(list).activeElement;
++    const currentFocus = ownerDocument(listRef.current).activeElement;
+ 
+     if (key === 'ArrowDown') {
+       // Prevent scroll of the page
+       event.preventDefault();
+-      moveFocus(list, currentFocus, disableListWrap, disabledItemsFocusable, nextItem);
++      moveFocus(
++        list,
++        currentFocus,
++        disableListWrap,
++        disabledItemsFocusable,
++        nextItem,
++        undefined,
++        listRef,
++      );
+     } else if (key === 'ArrowUp') {
+       event.preventDefault();
+-      moveFocus(list, currentFocus, disableListWrap, disabledItemsFocusable, previousItem);
++      moveFocus(
++        list,
++        currentFocus,
++        disableListWrap,
++        disabledItemsFocusable,
++        previousItem,
++        undefined,
++        listRef,
++      );
+     } else if (key === 'Home') {
+       event.preventDefault();
+-      moveFocus(list, null, disableListWrap, disabledItemsFocusable, nextItem);
++      moveFocus(list, null, disableListWrap, disabledItemsFocusable, nextItem, undefined, listRef);
+     } else if (key === 'End') {
+       event.preventDefault();
+-      moveFocus(list, null, disableListWrap, disabledItemsFocusable, previousItem);
++      moveFocus(
++        list,
++        null,
++        disableListWrap,
++        disabledItemsFocusable,
++        previousItem,
++        undefined,
++        listRef,
++      );
+     } else if (key.length === 1) {
+       const criteria = textCriteriaRef.current;
+       const lowerKey = key.toLowerCase();
+@@ -185,7 +220,7 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+       if (
+         criteria.previousKeyMatched &&
+         (keepFocusOnCurrent ||
+-          moveFocus(list, currentFocus, false, disabledItemsFocusable, nextItem, criteria))
++          moveFocus(list, currentFocus, false, disabledItemsFocusable, nextItem, criteria, listRef))
+       ) {
+         event.preventDefault();
+       } else {
+@@ -200,6 +235,13 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+ 
+   const handleRef = useForkRef(listRef, ref);
+ 
++  const registerMenuItem = React.useCallback(
++    (item) => {
++      menuItemRefs.current.push(item);
++    },
++    [menuItemRefs],
++  );
++
+   /**
+    * the index of the item should receive focus
+    * in a `variant="selectedMenu"` it's the first `selected` item
+@@ -251,16 +293,22 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+   });
+ 
+   return (
+-    <List
+-      role="menu"
+-      ref={handleRef}
+-      className={className}
+-      onKeyDown={handleKeyDown}
+-      tabIndex={autoFocus ? 0 : -1}
+-      {...other}
++    <MenuListContext.Provider
++      value={{
++        registerMenuItem,
++      }}
+     >
+-      {items}
+-    </List>
++      <List
++        role="menu"
++        ref={handleRef}
++        className={className}
++        onKeyDown={handleKeyDown}
++        tabIndex={autoFocus ? 0 : -1}
++        {...other}
++      >
++        {items}
++      </List>
++    </MenuListContext.Provider>
+   );
+ });
+ 
+diff --git a/packages/material-ui/src/MenuList/MenuListContext.js b/packages/material-ui/src/MenuList/MenuListContext.js
+new file mode 100644
+index 00000000000000..a90fbd1c05f061
+--- /dev/null
++++ b/packages/material-ui/src/MenuList/MenuListContext.js
+@@ -0,0 +1,12 @@
++import * as React from 'react';
++
++/**
++ * @ignore - internal component.
++ */
++const MenuListContext = React.createContext({});
++
++if (process.env.NODE_ENV !== 'production') {
++  MenuListContext.displayName = 'MenuListContext';
++}
++
++export default MenuListContext;

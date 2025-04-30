@@ -1,0 +1,171 @@
+diff --git a/packages/material-ui/src/Select/Select.test.js b/packages/material-ui/src/Select/Select.test.js
+index 344ea4c7a085f3..e74932f9161b5e 100644
+--- a/packages/material-ui/src/Select/Select.test.js
++++ b/packages/material-ui/src/Select/Select.test.js
+@@ -1112,4 +1112,23 @@ describe('<Select />', () => {
+     );
+     expect(document.activeElement).to.equal(getByRole('button'));
+   });
++
++  it('should not override the event.target on mouse events', () => {
++    const handleChange = spy();
++    const handleEvent = spy((event) => event.target);
++    render(
++      <div onClick={handleEvent}>
++        <Select open onChange={handleChange} value="second">
++          <MenuItem value="first" />
++          <MenuItem value="second" />
++        </Select>
++      </div>,
++    );
++
++    const options = screen.getAllByRole('option');
++    options[0].click();
++
++    expect(handleChange.callCount).to.equal(1);
++    expect(handleEvent.returnValues).to.have.members([options[0]]);
++  });
+ });
+diff --git a/packages/material-ui/src/Slider/Slider.test.js b/packages/material-ui/src/Slider/Slider.test.js
+index 548350c853797c..7e4e9300c44a33 100644
+--- a/packages/material-ui/src/Slider/Slider.test.js
++++ b/packages/material-ui/src/Slider/Slider.test.js
+@@ -2,11 +2,17 @@ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import { spy, stub } from 'sinon';
+ import { expect } from 'chai';
+-import { createMount, describeConformanceV5, act, createClientRender, fireEvent } from 'test/utils';
++import {
++  createMount,
++  describeConformanceV5,
++  act,
++  createClientRender,
++  fireEvent,
++  screen,
++} from 'test/utils';
+ import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
+ import { SliderUnstyled } from '@material-ui/unstyled';
+-import clsx from 'clsx';
+-import Slider, { sliderClasses as classes } from './Slider';
++import Slider, { sliderClasses as classes } from '@material-ui/core/Slider';
+ 
+ function createTouches(touches) {
+   return {
+@@ -103,7 +109,7 @@ describe('<Slider />', () => {
+     expect(handleChangeCommitted.callCount).to.equal(1);
+   });
+ 
+-  it('should edge against a dropped mouseup event', () => {
++  it('should hedge against a dropped mouseup event', () => {
+     const handleChange = spy();
+     const { container } = render(<Slider onChange={handleChange} value={0} />);
+     stub(container.firstChild, 'getBoundingClientRect').callsFake(() => ({
+@@ -702,14 +708,14 @@ describe('<Slider />', () => {
+       function ValueLabelComponent(props) {
+         const { value, open } = props;
+         return (
+-          <span data-testid="value-label" className={clsx({ open })}>
++          <span data-testid="value-label" className={open ? 'open' : ''}>
+             {value}
+           </span>
+         );
+       }
+       ValueLabelComponent.propTypes = { value: PropTypes.number };
+ 
+-      const screen = render(
++      const { setProps } = render(
+         <Slider
+           components={{ ValueLabel: ValueLabelComponent }}
+           valueLabelDisplay="on"
+@@ -719,7 +725,7 @@ describe('<Slider />', () => {
+ 
+       expect(screen.queryByTestId('value-label')).to.have.class('open');
+ 
+-      screen.setProps({
++      setProps({
+         valueLabelDisplay: 'off',
+       });
+ 
+@@ -944,7 +950,8 @@ describe('<Slider />', () => {
+     });
+ 
+     expect(handleChange.callCount).to.equal(1);
+-    expect(handleChange.firstCall.returnValue).to.deep.equal({
++    const target = handleChange.firstCall.returnValue;
++    expect(target).to.deep.equal({
+       name: 'change-testing',
+       value: 4,
+     });
+@@ -970,4 +977,60 @@ describe('<Slider />', () => {
+       expect(getByTestId('value-label')).to.have.text('1010');
+     });
+   });
++
++  it('should not override the event.target on touch events', () => {
++    const handleChange = spy();
++    const handleNativeEvent = spy((event) => event.target);
++    const handleEvent = spy((event) => event.target);
++    function Test() {
++      React.useEffect(() => {
++        document.addEventListener('touchstart', handleNativeEvent);
++        return () => {
++          document.removeEventListener('touchstart', handleNativeEvent);
++        };
++      });
++
++      return (
++        <div onTouchStart={handleEvent}>
++          <Slider data-testid="slider" value={0} onChange={handleChange} />
++        </div>
++      );
++    }
++    render(<Test />);
++    const slider = screen.getByTestId('slider');
++
++    fireEvent.touchStart(slider, createTouches([{ identifier: 1 }]));
++
++    expect(handleChange.callCount).to.equal(1);
++    expect(handleNativeEvent.returnValues).to.have.members([slider]);
++    expect(handleEvent.returnValues).to.have.members([slider]);
++  });
++
++  it('should not override the event.target on mouse events', () => {
++    const handleChange = spy();
++    const handleNativeEvent = spy((event) => event.target);
++    const handleEvent = spy((event) => event.target);
++    function Test() {
++      React.useEffect(() => {
++        document.addEventListener('mousedown', handleNativeEvent);
++        return () => {
++          document.removeEventListener('mousedown', handleNativeEvent);
++        };
++      });
++
++      return (
++        <div onMouseDown={handleEvent}>
++          <Slider data-testid="slider" value={0} onChange={handleChange} />
++        </div>
++      );
++    }
++    render(<Test />);
++    const slider = screen.getByTestId('slider');
++
++    fireEvent.mouseDown(slider);
++
++    expect(handleChange.callCount).to.equal(1);
++    expect(handleNativeEvent.returnValues).to.have.members([slider]);
++    expect(handleEvent.returnValues).to.have.members([slider]);
++  });
+ });
+diff --git a/test/utils/createDOM.js b/test/utils/createDOM.js
+index 2e02509b235d94..f6cf75e4e1e2c8 100644
+--- a/test/utils/createDOM.js
++++ b/test/utils/createDOM.js
+@@ -6,6 +6,7 @@ const whitelist = [
+   'CSSStyleDeclaration',
+   'Element',
+   'Event',
++  'TouchEvent',
+   'Image',
+   'HTMLElement',
+   'HTMLInputElement',

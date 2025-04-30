@@ -1,0 +1,75 @@
+diff --git a/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/_config.js b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/_config.js
+new file mode 100644
+index 000000000000..f848528c6c47
+--- /dev/null
++++ b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/_config.js
+@@ -0,0 +1,8 @@
++import { test } from '../../test';
++
++export default test({
++	error: {
++		code: 'invalid-host-location',
++		message: '$host() can only be used inside custom element component instances'
++	}
++});
+diff --git a/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte
+new file mode 100644
+index 000000000000..d4ac5ced65a1
+--- /dev/null
++++ b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte
+@@ -0,0 +1,3 @@
++<script>
++	$host();
++</script>
+diff --git a/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte.js b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte.js
+new file mode 100644
+index 000000000000..b7e4b4aee3cd
+--- /dev/null
++++ b/packages/svelte/tests/compiler-errors/samples/runes-wrong-host-placement/main.svelte.js
+@@ -0,0 +1,1 @@
++$host();
+diff --git a/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/_config.js b/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/_config.js
+new file mode 100644
+index 000000000000..0c2625dc204e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/_config.js
+@@ -0,0 +1,24 @@
++import { test } from '../../assert';
++const tick = () => Promise.resolve();
++
++export default test({
++	async test({ assert, target }) {
++		target.innerHTML = '<custom-element></custom-element>';
++		/** @type {any} */
++		const el = target.querySelector('custom-element');
++
++		/** @type {string[]} */
++		const events = [];
++		const handle_evt = (e) => events.push(e.type, e.detail);
++		el.addEventListener('greeting', handle_evt);
++
++		await tick();
++
++		el.shadowRoot.querySelector('button').click();
++		assert.deepEqual(events, ['greeting', 'hello']);
++
++		el.removeEventListener('greeting', handle_evt);
++		el.shadowRoot.querySelector('button').click();
++		assert.deepEqual(events, ['greeting', 'hello']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/main.svelte b/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/main.svelte
+new file mode 100644
+index 000000000000..080e7a2740ce
+--- /dev/null
++++ b/packages/svelte/tests/runtime-browser/custom-elements-samples/host-rune/main.svelte
+@@ -0,0 +1,9 @@
++<svelte:options customElement="custom-element" />
++
++<script>
++	function greet(greeting) {
++		$host().dispatchEvent(new CustomEvent('greeting', { detail: greeting }))
++	}
++</script>
++
++<button onclick={() => greet('hello')}>say hello</button>

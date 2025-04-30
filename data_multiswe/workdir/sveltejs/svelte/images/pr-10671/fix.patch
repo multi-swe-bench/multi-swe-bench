@@ -1,0 +1,78 @@
+diff --git a/.changeset/popular-ligers-perform.md b/.changeset/popular-ligers-perform.md
+new file mode 100644
+index 000000000000..e041720facda
+--- /dev/null
++++ b/.changeset/popular-ligers-perform.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: handle TypeScript's optional parameter syntax in snippets
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/context.js b/packages/svelte/src/compiler/phases/1-parse/read/context.js
+index 3759dd2049ca..054d60cb0d2c 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/context.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/context.js
+@@ -13,16 +13,17 @@ import { error } from '../../../errors.js';
+ 
+ /**
+  * @param {import('../index.js').Parser} parser
++ * @param {boolean} [optional_allowed]
+  * @returns {import('estree').Pattern}
+  */
+-export default function read_pattern(parser) {
++export default function read_pattern(parser, optional_allowed = false) {
+ 	const start = parser.index;
+ 	let i = parser.index;
+ 
+ 	const code = full_char_code_at(parser.template, i);
+ 	if (isIdentifierStart(code, true)) {
+ 		const name = /** @type {string} */ (parser.read_identifier());
+-		const annotation = read_type_annotation(parser);
++		const annotation = read_type_annotation(parser, optional_allowed);
+ 
+ 		return {
+ 			type: 'Identifier',
+@@ -83,7 +84,7 @@ export default function read_pattern(parser) {
+ 			parse_expression_at(`${space_with_newline}(${pattern_string} = 1)`, parser.ts, start - 1)
+ 		).left;
+ 
+-		expression.typeAnnotation = read_type_annotation(parser);
++		expression.typeAnnotation = read_type_annotation(parser, optional_allowed);
+ 		if (expression.typeAnnotation) {
+ 			expression.end = expression.typeAnnotation.end;
+ 		}
+@@ -96,12 +97,19 @@ export default function read_pattern(parser) {
+ 
+ /**
+  * @param {import('../index.js').Parser} parser
++ * @param {boolean} [optional_allowed]
+  * @returns {any}
+  */
+-function read_type_annotation(parser) {
++function read_type_annotation(parser, optional_allowed = false) {
+ 	const start = parser.index;
+ 	parser.allow_whitespace();
+ 
++	if (optional_allowed && parser.eat('?')) {
++		// Acorn-TS puts the optional info as a property on the surrounding node.
++		// We spare the work here because it doesn't matter for us anywhere else.
++		parser.allow_whitespace();
++	}
++
+ 	if (!parser.eat(':')) {
+ 		parser.index = start;
+ 		return undefined;
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/tag.js b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+index a457a82059f3..821c82d73a1a 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/tag.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+@@ -276,7 +276,7 @@ function open(parser) {
+ 		const parameters = [];
+ 
+ 		while (!parser.match(')')) {
+-			let pattern = read_pattern(parser);
++			let pattern = read_pattern(parser, true);
+ 
+ 			parser.allow_whitespace();
+ 			if (parser.eat('=')) {

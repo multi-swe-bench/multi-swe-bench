@@ -1,0 +1,114 @@
+diff --git a/pkg/cmd/extension/command.go b/pkg/cmd/extension/command.go
+index 30a7cb50824..410e96f5336 100644
+--- a/pkg/cmd/extension/command.go
++++ b/pkg/cmd/extension/command.go
+@@ -293,19 +293,35 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
+ 				Use:   "install <repository>",
+ 				Short: "Install a gh extension from a repository",
+ 				Long: heredoc.Docf(`
+-					Install a GitHub repository locally as a GitHub CLI extension.
++					Install a GitHub CLI extension from a GitHub or local repository.
+ 
+-					The repository argument can be specified in %[1]sOWNER/REPO%[1]s format as well as a full URL.
++					For GitHub repositories, the repository argument can be specified in %[1]sOWNER/REPO%[1]s format or as a full repository URL.
+ 					The URL format is useful when the repository is not hosted on github.com.
+ 
+-					To install an extension in development from the current directory, use %[1]s.%[1]s as the
+-					value of the repository argument.
++					For local repositories, often used while developing extensions, use %[1]s.%[1]s as the
++					value of the repository argument. Note the following:
++
++					- After installing an extension from a locally cloned repository, the GitHub CLI will
++					manage this extension as a symbolic link (or equivalent mechanism on Windows) pointing
++					to an executable file with the same name as the repository in the repository's root.
++					For example, if the repository is named %[1]sgh-foobar%[1]s, the symbolic link will point
++					to %[1]sgh-foobar%[1]s in the extension repository's root.
++					- When executing the extension, the GitHub CLI will run the executable file found
++					by following the symbolic link. If no executable file is found, the extension
++					will fail to execute.
++					- If the extension is precompiled, the executable file must be built manually and placed
++					in the repository's root.
+ 
+ 					For the list of available extensions, see <https://github.com/topics/gh-extension>.
+ 				`, "`"),
+ 				Example: heredoc.Doc(`
++					# Install an extension from a remote repository hosted on GitHub
+ 					$ gh extension install owner/gh-extension
+-					$ gh extension install https://git.example.com/owner/gh-extension
++
++					# Install an extension from a remote repository via full URL
++					$ gh extension install https://my.ghes.com/owner/gh-extension
++
++					# Install an extension from a local repository in the current working directory
+ 					$ gh extension install .
+ 				`),
+ 				Args: cmdutil.MinimumArgs(1, "must specify a repository to install from"),
+@@ -322,7 +338,17 @@ func NewCmdExtension(f *cmdutil.Factory) *cobra.Command {
+ 						if err != nil {
+ 							return err
+ 						}
+-						return m.InstallLocal(wd)
++
++						err = m.InstallLocal(wd)
++						var ErrExtensionExecutableNotFound *ErrExtensionExecutableNotFound
++						if errors.As(err, &ErrExtensionExecutableNotFound) {
++							cs := io.ColorScheme()
++							if io.IsStdoutTTY() {
++								fmt.Fprintf(io.ErrOut, "%s %s", cs.WarningIcon(), ErrExtensionExecutableNotFound.Error())
++							}
++							return nil
++						}
++						return err
+ 					}
+ 
+ 					repo, err := ghrepo.FromFullName(args[0])
+diff --git a/pkg/cmd/extension/manager.go b/pkg/cmd/extension/manager.go
+index 2431c6b83e5..269d58ae055 100644
+--- a/pkg/cmd/extension/manager.go
++++ b/pkg/cmd/extension/manager.go
+@@ -29,6 +29,15 @@ import (
+ // ErrInitialCommitFailed indicates the initial commit when making a new extension failed.
+ var ErrInitialCommitFailed = errors.New("initial commit failed")
+ 
++type ErrExtensionExecutableNotFound struct {
++	Dir  string
++	Name string
++}
++
++func (e *ErrExtensionExecutableNotFound) Error() string {
++	return fmt.Sprintf("an extension has been installed but there is no executable: executable file named \"%s\" in %s is required to run the extension after install. Perhaps you need to build it?\n", e.Name, e.Dir)
++}
++
+ const darwinAmd64 = "darwin-amd64"
+ 
+ type Manager struct {
+@@ -194,10 +203,28 @@ func (m *Manager) populateLatestVersions(exts []*Extension) {
+ func (m *Manager) InstallLocal(dir string) error {
+ 	name := filepath.Base(dir)
+ 	targetLink := filepath.Join(m.installDir(), name)
++
+ 	if err := os.MkdirAll(filepath.Dir(targetLink), 0755); err != nil {
+ 		return err
+ 	}
+-	return makeSymlink(dir, targetLink)
++	if err := makeSymlink(dir, targetLink); err != nil {
++		return err
++	}
++
++	// Check if an executable of the same name exists in the target directory.
++	// An error here doesn't indicate a failed extension installation, but
++	// it does indicate that the user will not be able to run the extension until
++	// the executable file is built or created manually somehow.
++	if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
++		if os.IsNotExist(err) {
++			return &ErrExtensionExecutableNotFound{
++				Dir:  dir,
++				Name: name,
++			}
++		}
++		return err
++	}
++	return nil
+ }
+ 
+ type binManifest struct {

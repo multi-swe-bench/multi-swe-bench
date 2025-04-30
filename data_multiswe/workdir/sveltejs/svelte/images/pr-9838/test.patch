@@ -1,0 +1,112 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-derived/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-derived/_config.js
+index ea62c919a14c..a8c47665b5d3 100644
+--- a/packages/svelte/tests/runtime-runes/samples/inspect-derived/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-derived/_config.js
+@@ -26,6 +26,6 @@ export default test({
+ 		button?.click();
+ 		await Promise.resolve();
+ 
+-		assert.deepEqual(log, ['X', 'init', 'XX', 'update', 'XXX', 'update']);
++		assert.deepEqual(log, ['init', 'X', 'update', 'XX', 'update', 'XXX']);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-derived/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-derived/main.svelte
+index db4968aae40b..e05f6def7c27 100644
+--- a/packages/svelte/tests/runtime-runes/samples/inspect-derived/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-derived/main.svelte
+@@ -5,7 +5,7 @@
+ 	let x = $state('x');
+ 	let y = $derived(x.toUpperCase());
+ 
+-	$inspect(y, push);
++	$inspect(y).with(push);
+ </script>
+ 
+ <button on:click={() => x += 'x'}>{x}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-multiple/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-multiple/_config.js
+new file mode 100644
+index 000000000000..be3c1988bd14
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-multiple/_config.js
+@@ -0,0 +1,34 @@
++import { test } from '../../test';
++
++/**
++ * @type {any[]}
++ */
++let log;
++/**
++ * @type {typeof console.log}}
++ */
++let original_log;
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++	before_test() {
++		log = [];
++		original_log = console.log;
++		console.log = (...v) => {
++			log.push(...v);
++		};
++	},
++	after_test() {
++		console.log = original_log;
++	},
++	async test({ assert, target }) {
++		const [b1, b2] = target.querySelectorAll('button');
++		b1.click();
++		b2.click();
++		await Promise.resolve();
++
++		assert.deepEqual(log, ['init', 0, 0, 'update', 1, 0, 'update', 1, 1]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-multiple/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-multiple/main.svelte
+new file mode 100644
+index 000000000000..8f7b3e22cae6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-multiple/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let x = $state(0);
++	let y = $state(0);
++
++	$inspect(x, y);
++</script>
++
++<button on:click={() => x++}>{x}</button>
++<button on:click={() => y++}>{y}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-trace/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-trace/main.svelte
+index ca4627350d03..d42742c5b5d5 100644
+--- a/packages/svelte/tests/runtime-runes/samples/inspect-trace/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-trace/main.svelte
+@@ -2,7 +2,7 @@
+ 	let x = $state(0);
+ 	let y = $state(0);
+ 
+-	$inspect(x, (x, type) => {
++	$inspect(x).with((type, x) => {
+ 		if (type === 'update') console.log(new Error(), x);
+ 	});
+ </script>
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect/_config.js
+index 00a43e404e1c..1f63249e31ad 100644
+--- a/packages/svelte/tests/runtime-runes/samples/inspect/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/inspect/_config.js
+@@ -23,12 +23,12 @@ export default test({
+ 	after_test() {
+ 		console.log = original_log;
+ 	},
+-	async test({ assert, target, component }) {
++	async test({ assert, target }) {
+ 		const [b1, b2] = target.querySelectorAll('button');
+ 		b1.click();
+ 		b2.click();
+ 		await Promise.resolve();
+ 
+-		assert.deepEqual(log, [0, 'init', 1, 'update']);
++		assert.deepEqual(log, ['init', 0, 'update', 1]);
+ 	}
+ });

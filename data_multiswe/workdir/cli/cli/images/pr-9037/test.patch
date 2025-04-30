@@ -1,0 +1,272 @@
+diff --git a/pkg/cmd/issue/edit/edit_test.go b/pkg/cmd/issue/edit/edit_test.go
+index db0b09d2d0f..8f95743b37c 100644
+--- a/pkg/cmd/issue/edit/edit_test.go
++++ b/pkg/cmd/issue/edit/edit_test.go
+@@ -283,7 +283,7 @@ func Test_editRun(t *testing.T) {
+ 	tests := []struct {
+ 		name      string
+ 		input     *EditOptions
+-		httpStubs func(*testing.T, *httpmock.Registry)
++		httpStubs func(*httpmock.Registry)
+ 		stdout    string
+ 		stderr    string
+ 		wantErr   bool
+@@ -331,13 +331,14 @@ func Test_editRun(t *testing.T) {
+ 				},
+ 				FetchOptions: prShared.FetchOptions,
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueGet(t, reg)
+-				mockIssueProjectItemsGet(t, reg)
+-				mockRepoMetadata(t, reg)
+-				mockIssueUpdate(t, reg)
+-				mockIssueUpdateLabels(t, reg)
+-				mockProjectV2ItemUpdate(t, reg)
++			httpStubs: func(reg *httpmock.Registry) {
++				mockIssueGet(reg)
++				mockIssueProjectItemsGet(reg)
++				mockRepoMetadata(reg)
++				mockIssueUpdate(reg)
++				mockIssueUpdateAssignee(reg)
++				mockIssueUpdateLabels(reg)
++				mockProjectV2ItemUpdate(reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/issue/123\n",
+ 		},
+@@ -371,20 +372,22 @@ func Test_editRun(t *testing.T) {
+ 				},
+ 				FetchOptions: prShared.FetchOptions,
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
++			httpStubs: func(reg *httpmock.Registry) {
+ 				// Should only be one fetch of metadata.
+-				mockRepoMetadata(t, reg)
++				mockRepoMetadata(reg)
+ 				// All other queries and mutations should be doubled.
+-				mockIssueNumberGet(t, reg, 123)
+-				mockIssueNumberGet(t, reg, 456)
+-				mockIssueProjectItemsGet(t, reg)
+-				mockIssueProjectItemsGet(t, reg)
+-				mockIssueUpdate(t, reg)
+-				mockIssueUpdate(t, reg)
+-				mockIssueUpdateLabels(t, reg)
+-				mockIssueUpdateLabels(t, reg)
+-				mockProjectV2ItemUpdate(t, reg)
+-				mockProjectV2ItemUpdate(t, reg)
++				mockIssueNumberGet(reg, 123)
++				mockIssueNumberGet(reg, 456)
++				mockIssueProjectItemsGet(reg)
++				mockIssueProjectItemsGet(reg)
++				mockIssueUpdate(reg)
++				mockIssueUpdate(reg)
++				mockIssueUpdateAssignee(reg)
++				mockIssueUpdateAssignee(reg)
++				mockIssueUpdateLabels(reg)
++				mockIssueUpdateLabels(reg)
++				mockProjectV2ItemUpdate(reg)
++				mockProjectV2ItemUpdate(reg)
+ 			},
+ 			stdout: heredoc.Doc(`
+ 				https://github.com/OWNER/REPO/issue/123
+@@ -421,8 +424,8 @@ func Test_editRun(t *testing.T) {
+ 				},
+ 				FetchOptions: prShared.FetchOptions,
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueNumberGet(t, reg, 123)
++			httpStubs: func(reg *httpmock.Registry) {
++				mockIssueNumberGet(reg, 123)
+ 				reg.Register(
+ 					httpmock.GraphQL(`query IssueByNumber\b`),
+ 					httpmock.StringResponse(`
+@@ -454,7 +457,7 @@ func Test_editRun(t *testing.T) {
+ 				},
+ 				FetchOptions: prShared.FetchOptions,
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
++			httpStubs: func(reg *httpmock.Registry) {
+ 				// Should only be one fetch of metadata.
+ 				reg.Register(
+ 					httpmock.GraphQL(`query RepositoryAssignableUsers\b`),
+@@ -462,6 +465,7 @@ func Test_editRun(t *testing.T) {
+ 					{ "data": { "repository": { "assignableUsers": {
+ 						"nodes": [
+ 							{ "login": "hubot", "id": "HUBOTID" },
++							{ "login": "octocat", "id": "OCTOCATID" },
+ 							{ "login": "MonaLisa", "id": "MONAID" }
+ 						],
+ 						"pageInfo": { "hasNextPage": false }
+@@ -479,8 +483,8 @@ func Test_editRun(t *testing.T) {
+ 					} } } }
+ 					`))
+ 				// All other queries should be doubled.
+-				mockIssueNumberGet(t, reg, 123)
+-				mockIssueNumberGet(t, reg, 456)
++				mockIssueNumberGet(reg, 123)
++				mockIssueNumberGet(reg, 456)
+ 				// Updating 123 should succeed.
+ 				reg.Register(
+ 					httpmock.GraphQLMutationMatcher(`mutation IssueUpdate\b`, func(m map[string]interface{}) bool {
+@@ -499,6 +503,9 @@ func Test_editRun(t *testing.T) {
+ 							{ "errors": [ { "message": "test error" } ] }`,
+ 						func(inputs map[string]interface{}) {}),
+ 				)
++
++				mockIssueUpdateAssignee(reg)
++				mockIssueUpdateAssignee(reg)
+ 			},
+ 			stdout: heredoc.Doc(`
+ 				https://github.com/OWNER/REPO/issue/123
+@@ -534,13 +541,13 @@ func Test_editRun(t *testing.T) {
+ 				FetchOptions:    prShared.FetchOptions,
+ 				DetermineEditor: func() (string, error) { return "vim", nil },
+ 			},
+-			httpStubs: func(t *testing.T, reg *httpmock.Registry) {
+-				mockIssueGet(t, reg)
+-				mockIssueProjectItemsGet(t, reg)
+-				mockRepoMetadata(t, reg)
+-				mockIssueUpdate(t, reg)
+-				mockIssueUpdateLabels(t, reg)
+-				mockProjectV2ItemUpdate(t, reg)
++			httpStubs: func(reg *httpmock.Registry) {
++				mockIssueGet(reg)
++				mockIssueProjectItemsGet(reg)
++				mockRepoMetadata(reg)
++				mockIssueUpdate(reg)
++				mockIssueUpdateLabels(reg)
++				mockProjectV2ItemUpdate(reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/issue/123\n",
+ 		},
+@@ -554,7 +561,7 @@ func Test_editRun(t *testing.T) {
+ 
+ 			reg := &httpmock.Registry{}
+ 			defer reg.Verify(t)
+-			tt.httpStubs(t, reg)
++			tt.httpStubs(reg)
+ 
+ 			httpClient := func() (*http.Client, error) { return &http.Client{Transport: reg}, nil }
+ 			baseRepo := func() (ghrepo.Interface, error) { return ghrepo.New("OWNER", "REPO"), nil }
+@@ -576,11 +583,11 @@ func Test_editRun(t *testing.T) {
+ 	}
+ }
+ 
+-func mockIssueGet(_ *testing.T, reg *httpmock.Registry) {
+-	mockIssueNumberGet(nil, reg, 123)
++func mockIssueGet(reg *httpmock.Registry) {
++	mockIssueNumberGet(reg, 123)
+ }
+ 
+-func mockIssueNumberGet(_ *testing.T, reg *httpmock.Registry, number int) {
++func mockIssueNumberGet(reg *httpmock.Registry, number int) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`query IssueByNumber\b`),
+ 		httpmock.StringResponse(fmt.Sprintf(`
+@@ -602,7 +609,7 @@ func mockIssueNumberGet(_ *testing.T, reg *httpmock.Registry, number int) {
+ 	)
+ }
+ 
+-func mockIssueProjectItemsGet(_ *testing.T, reg *httpmock.Registry) {
++func mockIssueProjectItemsGet(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`query IssueProjectItems\b`),
+ 		httpmock.StringResponse(`
+@@ -616,13 +623,14 @@ func mockIssueProjectItemsGet(_ *testing.T, reg *httpmock.Registry) {
+ 	)
+ }
+ 
+-func mockRepoMetadata(_ *testing.T, reg *httpmock.Registry) {
++func mockRepoMetadata(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`query RepositoryAssignableUsers\b`),
+ 		httpmock.StringResponse(`
+ 		{ "data": { "repository": { "assignableUsers": {
+ 			"nodes": [
+ 				{ "login": "hubot", "id": "HUBOTID" },
++				{ "login": "octocat", "id": "OCTOCATID" },
+ 				{ "login": "MonaLisa", "id": "MONAID" }
+ 			],
+ 			"pageInfo": { "hasNextPage": false }
+@@ -706,7 +714,7 @@ func mockRepoMetadata(_ *testing.T, reg *httpmock.Registry) {
+ 		`))
+ }
+ 
+-func mockIssueUpdate(t *testing.T, reg *httpmock.Registry) {
++func mockIssueUpdate(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`mutation IssueUpdate\b`),
+ 		httpmock.GraphQLMutation(`
+@@ -715,7 +723,7 @@ func mockIssueUpdate(t *testing.T, reg *httpmock.Registry) {
+ 	)
+ }
+ 
+-func mockIssueUpdateLabels(t *testing.T, reg *httpmock.Registry) {
++func mockIssueUpdateLabels(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`mutation LabelAdd\b`),
+ 		httpmock.GraphQLMutation(`
+@@ -730,7 +738,16 @@ func mockIssueUpdateLabels(t *testing.T, reg *httpmock.Registry) {
+ 	)
+ }
+ 
+-func mockProjectV2ItemUpdate(t *testing.T, reg *httpmock.Registry) {
++func mockIssueUpdateAssignee(reg *httpmock.Registry) {
++	reg.Register(
++		httpmock.GraphQL(`mutation AssigneeAdd\b`),
++		httpmock.StringResponse(`{}`))
++	reg.Register(
++		httpmock.GraphQL(`mutation AssigneeRemove\b`),
++		httpmock.StringResponse(`{}`))
++}
++
++func mockProjectV2ItemUpdate(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`mutation UpdateProjectV2Items\b`),
+ 		httpmock.GraphQLMutation(`
+diff --git a/pkg/cmd/pr/edit/edit_test.go b/pkg/cmd/pr/edit/edit_test.go
+index 0986797eacb..e90c1363c1d 100644
+--- a/pkg/cmd/pr/edit/edit_test.go
++++ b/pkg/cmd/pr/edit/edit_test.go
+@@ -362,8 +362,9 @@ func Test_editRun(t *testing.T) {
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				mockRepoMetadata(reg, false)
+ 				mockPullRequestUpdate(reg)
+-				mockPullRequestReviewersUpdate(reg)
++				mockPullRequestUpdateAssignee(reg)
+ 				mockPullRequestUpdateLabels(reg)
++				mockPullRequestReviewersUpdate(reg)
+ 				mockProjectV2ItemUpdate(reg)
+ 			},
+ 			stdout: "https://github.com/OWNER/REPO/pull/123\n",
+@@ -416,6 +417,7 @@ func Test_editRun(t *testing.T) {
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				mockRepoMetadata(reg, true)
+ 				mockPullRequestUpdate(reg)
++				mockPullRequestUpdateAssignee(reg)
+ 				mockPullRequestUpdateLabels(reg)
+ 				mockProjectV2ItemUpdate(reg)
+ 			},
+@@ -494,6 +496,7 @@ func mockRepoMetadata(reg *httpmock.Registry, skipReviewers bool) {
+ 		{ "data": { "repository": { "assignableUsers": {
+ 			"nodes": [
+ 				{ "login": "hubot", "id": "HUBOTID" },
++				{ "login": "octocat", "id": "OCTOCATID" },
+ 				{ "login": "MonaLisa", "id": "MONAID" }
+ 			],
+ 			"pageInfo": { "hasNextPage": false }
+@@ -622,6 +625,15 @@ func mockPullRequestUpdateLabels(reg *httpmock.Registry) {
+ 	)
+ }
+ 
++func mockPullRequestUpdateAssignee(reg *httpmock.Registry) {
++	reg.Register(
++		httpmock.GraphQL(`mutation AssigneeAdd\b`),
++		httpmock.StringResponse(`{}`))
++	reg.Register(
++		httpmock.GraphQL(`mutation AssigneeRemove\b`),
++		httpmock.StringResponse(`{}`))
++}
++
+ func mockProjectV2ItemUpdate(reg *httpmock.Registry) {
+ 	reg.Register(
+ 		httpmock.GraphQL(`mutation UpdateProjectV2Items\b`),

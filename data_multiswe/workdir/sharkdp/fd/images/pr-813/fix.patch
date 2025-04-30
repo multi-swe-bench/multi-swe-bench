@@ -1,0 +1,150 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d9d98d616..27edc5a68 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,8 @@
+ 
+ ## Features
+ 
++- Add new `-q, --quiet` flag, see #303 (@Asha20)
++
+ ## Bugfixes
+ 
+ - Set default path separator to `/` in MSYS, see #537 and #730 (@aswild)
+diff --git a/doc/fd.1 b/doc/fd.1
+index 94feaa1b4..03787acc7 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -92,6 +92,13 @@ Limit the number of search results to 'count' and quit immediately.
+ .B \-1
+ Limit the search to a single result and quit immediately. This is an alias for '--max-results=1'.
+ .TP
++.B \-q, \-\-quiet
++When the flag is present, the program does not print anything and will instead exit with a code of 0 if there is at least one search result.
++Otherwise, the exit code will be 1.
++This is mainly for usage in scripts and can be faster than checking for output because the search can be stopped early after the first match.
++.B \-\-has\-results
++can be used as an alias.
++.TP
+ .B \-\-show-errors
+ Enable the display of filesystem errors for situations such as insufficient
+ permissions or dead symlinks.
+diff --git a/src/app.rs b/src/app.rs
+index 2d6ec9484..7139e9d17 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -504,6 +504,20 @@ pub fn build_app() -> App<'static, 'static> {
+                 .long_help("Limit the search to a single result and quit immediately. \
+                                 This is an alias for '--max-results=1'.")
+         )
++        .arg(
++            Arg::with_name("quiet")
++                .long("quiet")
++                .short("q")
++                .alias("has-results")
++                .hidden_short_help(true)
++                .conflicts_with_all(&["exec", "exec-batch", "list-details", "max-results"])
++                .long_help(
++                    "When the flag is present, the program does not print anything and will \
++                     return with an exit code of 0 if there is at least one match. Otherwise, the \
++                     exit code will be 1. \
++                     '--has-results' can be used as an alias."
++                )
++        )
+         .arg(
+             Arg::with_name("show-errors")
+                 .long("show-errors")
+diff --git a/src/exit_codes.rs b/src/exit_codes.rs
+index 720440f39..2083b3275 100644
+--- a/src/exit_codes.rs
++++ b/src/exit_codes.rs
+@@ -1,6 +1,7 @@
+ #[derive(Debug, Clone, Copy, PartialEq)]
+ pub enum ExitCode {
+     Success,
++    HasResults(bool),
+     GeneralError,
+     KilledBySigint,
+ }
+@@ -9,6 +10,7 @@ impl From<ExitCode> for i32 {
+     fn from(code: ExitCode) -> Self {
+         match code {
+             ExitCode::Success => 0,
++            ExitCode::HasResults(has_results) => !has_results as i32,
+             ExitCode::GeneralError => 1,
+             ExitCode::KilledBySigint => 130,
+         }
+@@ -17,7 +19,7 @@ impl From<ExitCode> for i32 {
+ 
+ impl ExitCode {
+     fn is_error(self) -> bool {
+-        self != ExitCode::Success
++        i32::from(self) != 0
+     }
+ }
+ 
+diff --git a/src/main.rs b/src/main.rs
+index 8654688ad..50b535adc 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -20,8 +20,8 @@ use anyhow::{anyhow, Context, Result};
+ use atty::Stream;
+ use globset::GlobBuilder;
+ use lscolors::LsColors;
+-use regex::bytes::{RegexBuilder, RegexSetBuilder};
+ use normpath::PathExt;
++use regex::bytes::{RegexBuilder, RegexSetBuilder};
+ 
+ use crate::error::print_error;
+ use crate::exec::CommandTemplate;
+@@ -344,6 +344,7 @@ fn run() -> Result<ExitCode> {
+         follow_links: matches.is_present("follow"),
+         one_file_system: matches.is_present("one-file-system"),
+         null_separator: matches.is_present("null_separator"),
++        quiet: matches.is_present("quiet"),
+         max_depth: matches
+             .value_of("max-depth")
+             .or_else(|| matches.value_of("rg-depth"))
+diff --git a/src/options.rs b/src/options.rs
+index aa9b5ea90..c17dd4d0a 100644
+--- a/src/options.rs
++++ b/src/options.rs
+@@ -54,6 +54,10 @@ pub struct Options {
+     /// The number of threads to use.
+     pub threads: usize,
+ 
++    /// If true, the program doesn't print anything and will instead return an exit code of 0
++    /// if there's at least one match. Otherwise, the exit code will be 1.
++    pub quiet: bool,
++
+     /// Time to buffer results internally before streaming to the console. This is useful to
+     /// provide a sorted output, in case the total execution time is shorter than
+     /// `max_buffer_time`.
+diff --git a/src/walk.rs b/src/walk.rs
+index a07387322..02f488b30 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -225,6 +225,10 @@ fn spawn_receiver(
+             for worker_result in rx {
+                 match worker_result {
+                     WorkerResult::Entry(value) => {
++                        if config.quiet {
++                            return ExitCode::HasResults(true);
++                        }
++
+                         match mode {
+                             ReceiverMode::Buffering => {
+                                 buffer.push(value);
+@@ -278,7 +282,11 @@ fn spawn_receiver(
+                 }
+             }
+ 
+-            ExitCode::Success
++            if config.quiet {
++                ExitCode::HasResults(false)
++            } else {
++                ExitCode::Success
++            }
+         }
+     })
+ }

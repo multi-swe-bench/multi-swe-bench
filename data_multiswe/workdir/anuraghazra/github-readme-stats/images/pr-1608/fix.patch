@@ -1,0 +1,148 @@
+diff --git a/src/common/utils.js b/src/common/utils.js
+index baa93c69f0b5a..92d8f45fe86a9 100644
+--- a/src/common/utils.js
++++ b/src/common/utils.js
+@@ -273,13 +273,28 @@ class CustomError extends Error {
+   constructor(message, type) {
+     super(message);
+     this.type = type;
+-    this.secondaryMessage = SECONDARY_ERROR_MESSAGES[type] || "adsad";
++    this.secondaryMessage = SECONDARY_ERROR_MESSAGES[type] || type;
+   }
+ 
+   static MAX_RETRY = "MAX_RETRY";
+   static USER_NOT_FOUND = "USER_NOT_FOUND";
+ }
+ 
++class MissingParamError extends Error {
++  /**
++   * @param {string[]} missedParams
++   * @param {string?=} secondaryMessage
++   */
++  constructor(missedParams, secondaryMessage) {
++    const msg = `Missing params ${missedParams
++      .map((p) => `"${p}"`)
++      .join(", ")} make sure you pass the parameters in URL`;
++    super(msg);
++    this.missedParams = missedParams;
++    this.secondaryMessage = secondaryMessage;
++  }
++}
++
+ /**
+  * @see https://stackoverflow.com/a/48172630/10629172
+  * @param {string} str
+@@ -372,6 +387,7 @@ module.exports = {
+   logger,
+   CONSTANTS,
+   CustomError,
++  MissingParamError,
+   lowercaseTrim,
+   chunkArray,
+   parseEmojis,
+diff --git a/src/fetchers/repo-fetcher.js b/src/fetchers/repo-fetcher.js
+index 4490adb205bf6..0bad5f2bd08fd 100644
+--- a/src/fetchers/repo-fetcher.js
++++ b/src/fetchers/repo-fetcher.js
+@@ -1,6 +1,6 @@
+ // @ts-check
+ const retryer = require("../common/retryer");
+-const { request } = require("../common/utils");
++const { request, MissingParamError } = require("../common/utils");
+ 
+ /**
+  * @param {import('Axios').AxiosRequestHeaders} variables
+@@ -48,15 +48,19 @@ const fetcher = (variables, token) => {
+   );
+ };
+ 
++const urlExample = "/api/pin?username=USERNAME&amp;repo=REPO_NAME";
++
+ /**
+  * @param {string} username
+  * @param {string} reponame
+  * @returns {Promise<import("./types").RepositoryData>}
+  */
+ async function fetchRepo(username, reponame) {
+-  if (!username || !reponame) {
+-    throw new Error("Invalid username or reponame");
++  if (!username && !reponame) {
++    throw new MissingParamError(["username", "repo"], urlExample);
+   }
++  if (!username) throw new MissingParamError(["username"], urlExample);
++  if (!reponame) throw new MissingParamError(["repo"], urlExample);
+ 
+   let res = await retryer(fetcher, { login: username, repo: reponame });
+ 
+diff --git a/src/fetchers/stats-fetcher.js b/src/fetchers/stats-fetcher.js
+index 1caa62d19576e..04b4b3e58e928 100644
+--- a/src/fetchers/stats-fetcher.js
++++ b/src/fetchers/stats-fetcher.js
+@@ -4,7 +4,12 @@ const githubUsernameRegex = require("github-username-regex");
+ 
+ const retryer = require("../common/retryer");
+ const calculateRank = require("../calculateRank");
+-const { request, logger, CustomError } = require("../common/utils");
++const {
++  request,
++  logger,
++  CustomError,
++  MissingParamError,
++} = require("../common/utils");
+ 
+ require("dotenv").config();
+ 
+@@ -103,7 +108,7 @@ async function fetchStats(
+   count_private = false,
+   include_all_commits = false,
+ ) {
+-  if (!username) throw Error("Invalid username");
++  if (!username) throw new MissingParamError(["username"]);
+ 
+   const stats = {
+     name: "",
+diff --git a/src/fetchers/top-languages-fetcher.js b/src/fetchers/top-languages-fetcher.js
+index 555b454ba4d04..9dd109e22ee2b 100644
+--- a/src/fetchers/top-languages-fetcher.js
++++ b/src/fetchers/top-languages-fetcher.js
+@@ -1,5 +1,5 @@
+ // @ts-check
+-const { request, logger } = require("../common/utils");
++const { request, logger, MissingParamError } = require("../common/utils");
+ const retryer = require("../common/retryer");
+ require("dotenv").config();
+ 
+@@ -45,7 +45,7 @@ const fetcher = (variables, token) => {
+  * @returns {Promise<import("./types").TopLangData>}
+  */
+ async function fetchTopLanguages(username, exclude_repo = []) {
+-  if (!username) throw Error("Invalid username");
++  if (!username) throw new MissingParamError(["username"]);
+ 
+   const res = await retryer(fetcher, { login: username });
+ 
+diff --git a/src/fetchers/wakatime-fetcher.js b/src/fetchers/wakatime-fetcher.js
+index f8080e82a445e..e9779d600429a 100644
+--- a/src/fetchers/wakatime-fetcher.js
++++ b/src/fetchers/wakatime-fetcher.js
+@@ -1,15 +1,18 @@
+ const axios = require("axios");
++const { MissingParamError } = require("../common/utils");
+ 
+ /**
+  * @param {{username: string, api_domain: string, range: string}} props
+- * @returns {Promise<WakaTimeData>} 
++ * @returns {Promise<WakaTimeData>}
+  */
+ const fetchWakatimeStats = async ({ username, api_domain, range }) => {
++  if (!username) throw new MissingParamError(["username"]);
++  
+   try {
+     const { data } = await axios.get(
+       `https://${
+         api_domain ? api_domain.replace(/\/$/gi, "") : "wakatime.com"
+-      }/api/v1/users/${username}/stats/${range || ''}?is_including_today=true`,
++      }/api/v1/users/${username}/stats/${range || ""}?is_including_today=true`,
+     );
+ 
+     return data.data;

@@ -1,0 +1,34 @@
+diff --git a/test/libponyc/badpony.cc b/test/libponyc/badpony.cc
+index e0661c24f2..323e408d21 100644
+--- a/test/libponyc/badpony.cc
++++ b/test/libponyc/badpony.cc
+@@ -205,3 +205,29 @@ TEST_F(BadPonyTest, MainActorFunCreate)
+ 
+   TEST_ERRORS_1(src, "the create method of a Main actor must be a constructor");
+ }
++
++TEST_F(BadPonyTest, ParenthesisedReturn)
++{
++  // From issue #1050
++  const char* src =
++    "actor Main\n"
++    "  new create(env: Env) =>\n"
++    "    (return)";
++
++  TEST_ERRORS_1(src, "use return only to exit early from a method");
++}
++
++TEST_F(BadPonyTest, ParenthesisedReturn2)
++{
++  // From issue #1050
++  const char* src =
++    "actor Main\n"
++    "  new create(env: Env) =>\n"
++    "    foo()\n"
++
++    "  fun foo(): U64 =>\n"
++    "    (return 0)\n"
++    "    2";
++
++  TEST_ERRORS_1(src, "Unreachable code");
++}

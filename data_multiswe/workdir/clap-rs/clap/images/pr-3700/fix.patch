@@ -1,0 +1,39 @@
+diff --git a/src/build/arg.rs b/src/build/arg.rs
+index 80c5199dfb8..9fdf2a1cff5 100644
+--- a/src/build/arg.rs
++++ b/src/build/arg.rs
+@@ -5287,7 +5287,10 @@ where
+                         write(&delim, false)?;
+                     }
+                 }
+-                if (num_val_names == 1 && mult_val) || (arg.is_positional() && mult_occ) {
++                if (num_val_names == 1 && mult_val)
++                    || (arg.is_positional() && mult_occ)
++                    || num_val_names < arg.num_vals.unwrap_or(0)
++                {
+                     write("...", true)?;
+                 }
+             }
+diff --git a/src/build/debug_asserts.rs b/src/build/debug_asserts.rs
+index 90f1b7e0d91..251ed8766ab 100644
+--- a/src/build/debug_asserts.rs
++++ b/src/build/debug_asserts.rs
+@@ -636,6 +636,18 @@ fn assert_arg(arg: &Arg) {
+         );
+     }
+ 
++    #[cfg(feature = "unstable-v4")]
++    {
++        let num_vals = arg.get_num_vals().unwrap_or(usize::MAX);
++        let num_val_names = arg.get_value_names().unwrap_or(&[]).len();
++        if num_vals < num_val_names {
++            panic!(
++                "Argument {}: Too many value names ({}) compared to number_of_values ({})",
++                arg.name, num_val_names, num_vals
++            );
++        }
++    }
++
+     assert_arg_flags(arg);
+ 
+     assert_defaults(arg, "default_value", arg.default_vals.iter().copied());

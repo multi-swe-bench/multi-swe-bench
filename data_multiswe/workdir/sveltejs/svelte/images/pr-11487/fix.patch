@@ -1,0 +1,37 @@
+diff --git a/.changeset/gentle-toys-chew.md b/.changeset/gentle-toys-chew.md
+new file mode 100644
+index 000000000000..dfc9f2013be5
+--- /dev/null
++++ b/.changeset/gentle-toys-chew.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: allow to access private fields after `this` reassignment
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/global.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/global.js
+index 811407b35b84..e229b5edf772 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/global.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/global.js
+@@ -13,15 +13,13 @@ export const global_visitors = {
+ 		}
+ 	},
+ 	MemberExpression(node, { state, next }) {
+-		if (node.object.type === 'ThisExpression') {
+-			// rewrite `this.#foo` as `this.#foo.v` inside a constructor
+-			if (node.property.type === 'PrivateIdentifier') {
+-				const field = state.private_state.get(node.property.name);
+-				if (field) {
+-					return state.in_constructor ? b.member(node, b.id('v')) : b.call('$.get', node);
+-				}
++		// rewrite `this.#foo` as `this.#foo.v` inside a constructor
++		if (node.property.type === 'PrivateIdentifier') {
++			const field = state.private_state.get(node.property.name);
++			if (field) {
++				return state.in_constructor ? b.member(node, b.id('v')) : b.call('$.get', node);
+ 			}
+-
++		} else if (node.object.type === 'ThisExpression') {
+ 			// rewrite `this.foo` as `this.#foo.v` inside a constructor
+ 			if (node.property.type === 'Identifier' && !node.computed) {
+ 				const field = state.public_state.get(node.property.name);

@@ -1,0 +1,34 @@
+diff --git a/.changeset/cold-cows-enjoy.md b/.changeset/cold-cows-enjoy.md
+new file mode 100644
+index 000000000000..f3005f6ec388
+--- /dev/null
++++ b/.changeset/cold-cows-enjoy.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: don't add parenthesis to media query if already present
+diff --git a/packages/svelte/src/reactivity/media-query.js b/packages/svelte/src/reactivity/media-query.js
+index 7da9ada667f9..22310df18d53 100644
+--- a/packages/svelte/src/reactivity/media-query.js
++++ b/packages/svelte/src/reactivity/media-query.js
+@@ -1,6 +1,8 @@
+ import { on } from '../events/index.js';
+ import { ReactiveValue } from './reactive-value.js';
+ 
++const parenthesis_regex = /\(.+\)/;
++
+ /**
+  * Creates a media query and provides a `current` property that reflects whether or not it matches.
+  *
+@@ -25,7 +27,8 @@ export class MediaQuery extends ReactiveValue {
+ 	 * @param {boolean} [fallback] Fallback value for the server
+ 	 */
+ 	constructor(query, fallback) {
+-		const q = window.matchMedia(`(${query})`);
++		let final_query = parenthesis_regex.test(query) ? query : `(${query})`;
++		const q = window.matchMedia(final_query);
+ 		super(
+ 			() => q.matches,
+ 			(update) => on(q, 'change', update)

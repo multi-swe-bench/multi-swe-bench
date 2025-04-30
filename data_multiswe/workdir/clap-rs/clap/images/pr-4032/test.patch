@@ -1,0 +1,207 @@
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index 93c4006cc0f..e61d5c714e4 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -401,21 +401,25 @@ OPTIONS:
+             Arg::new("all")
+                 .short('a')
+                 .long("all")
++                .action(ArgAction::SetTrue)
+                 .help("Also do versioning for private crates (will not be published)"),
+         )
+         .arg(
+             Arg::new("exact")
+                 .long("exact")
++                .action(ArgAction::SetTrue)
+                 .help("Specify inter dependency version numbers exactly with `=`"),
+         )
+         .arg(
+             Arg::new("no_git_commit")
+                 .long("no-git-commit")
++                .action(ArgAction::SetTrue)
+                 .help("Do not commit version changes"),
+         )
+         .arg(
+             Arg::new("no_git_push")
+                 .long("no-git-push")
++                .action(ArgAction::SetTrue)
+                 .help("Do not push generated commit and tags to git remote"),
+         );
+     utils::assert_output(cmd, "test --help", WRAPPED_HELP, false);
+@@ -445,21 +449,25 @@ OPTIONS:
+             Arg::new("all")
+                 .short('a')
+                 .long("all")
++                .action(ArgAction::SetTrue)
+                 .help("Also do versioning for private crates (will not be published)"),
+         )
+         .arg(
+             Arg::new("exact")
+                 .long("exact")
++                .action(ArgAction::SetTrue)
+                 .help("Specify inter dependency version numbers exactly with `=`"),
+         )
+         .arg(
+             Arg::new("no_git_commit")
+                 .long("no-git-commit")
++                .action(ArgAction::SetTrue)
+                 .help("Do not commit version changes"),
+         )
+         .arg(
+             Arg::new("no_git_push")
+                 .long("no-git-push")
++                .action(ArgAction::SetTrue)
+                 .help("Do not push generated commit and tags to git remote"),
+         );
+     utils::assert_output(cmd, "test --help", UNWRAPPED_HELP, false);
+diff --git a/tests/builder/help_env.rs b/tests/builder/help_env.rs
+index 8ab74c7d7dc..4407709c0e9 100644
+--- a/tests/builder/help_env.rs
++++ b/tests/builder/help_env.rs
+@@ -172,6 +172,7 @@ fn hide_env_flag() {
+         Arg::new("cafe")
+             .short('c')
+             .long("cafe")
++            .action(ArgAction::SetTrue)
+             .hide_env(true)
+             .env("ENVVAR")
+             .help("A coffeehouse, coffee shop, or café."),
+@@ -188,6 +189,7 @@ fn show_env_flag() {
+         Arg::new("cafe")
+             .short('c')
+             .long("cafe")
++            .action(ArgAction::SetTrue)
+             .env("ENVVAR")
+             .help("A coffeehouse, coffee shop, or café."),
+     );
+@@ -203,6 +205,7 @@ fn hide_env_vals_flag() {
+         Arg::new("cafe")
+             .short('c')
+             .long("cafe")
++            .action(ArgAction::SetTrue)
+             .hide_env_values(true)
+             .env("ENVVAR")
+             .help("A coffeehouse, coffee shop, or café."),
+@@ -219,6 +222,7 @@ fn show_env_vals_flag() {
+         Arg::new("cafe")
+             .short('c')
+             .long("cafe")
++            .action(ArgAction::SetTrue)
+             .env("ENVVAR")
+             .help("A coffeehouse, coffee shop, or café."),
+     );
+diff --git a/tests/derive/flags.rs b/tests/derive/flags.rs
+index 77383f92df3..31343206231 100644
+--- a/tests/derive/flags.rs
++++ b/tests/derive/flags.rs
+@@ -12,6 +12,7 @@
+ // commit#ea76fa1b1b273e65e3b0b1046643715b49bec51f which is licensed under the
+ // MIT/Apache 2.0 license.
+ 
++use clap::CommandFactory;
+ use clap::Parser;
+ 
+ #[test]
+@@ -42,6 +43,43 @@ fn bool_type_is_flag() {
+     assert!(Opt::try_parse_from(&["test", "-a", "foo"]).is_err());
+ }
+ 
++#[test]
++#[ignore] // Not a good path for supporting this atm
++fn inferred_help() {
++    #[derive(Parser, PartialEq, Debug)]
++    struct Opt {
++        /// Foo
++        #[clap(short, long)]
++        help: bool,
++    }
++
++    let mut cmd = Opt::command();
++    cmd.build();
++    let arg = cmd.get_arguments().find(|a| a.get_id() == "help").unwrap();
++    assert_eq!(arg.get_help(), Some("Foo"), "Incorrect help");
++    assert!(matches!(arg.get_action(), clap::ArgAction::Help));
++}
++
++#[test]
++#[ignore] // Not a good path for supporting this atm
++fn inferred_version() {
++    #[derive(Parser, PartialEq, Debug)]
++    struct Opt {
++        /// Foo
++        #[clap(short, long)]
++        version: bool,
++    }
++
++    let mut cmd = Opt::command();
++    cmd.build();
++    let arg = cmd
++        .get_arguments()
++        .find(|a| a.get_id() == "version")
++        .unwrap();
++    assert_eq!(arg.get_help(), Some("Foo"), "Incorrect help");
++    assert!(matches!(arg.get_action(), clap::ArgAction::Version));
++}
++
+ #[test]
+ fn count() {
+     #[derive(Parser, PartialEq, Debug)]
+diff --git a/tests/macros.rs b/tests/macros.rs
+index f22c1baa308..3c7ba48ef79 100644
+--- a/tests/macros.rs
++++ b/tests/macros.rs
+@@ -112,6 +112,54 @@ mod arg {
+         assert_eq!(arg.get_help(), Some("How to use it"));
+     }
+ 
++    #[test]
++    fn short_help() {
++        let arg = clap::arg!(help: -b);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
++
++        let arg = clap::arg!(help: -b ...);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++
++        let arg = clap::arg!(help: -b <NUM>);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++    }
++
++    #[test]
++    fn long_help() {
++        let arg = clap::arg!(-'?' - -help);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Help));
++
++        let arg = clap::arg!(-'?' --help ...);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++
++        let arg = clap::arg!(-'?' --help <NUM>);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++    }
++
++    #[test]
++    fn short_version() {
++        let arg = clap::arg!(version: -b);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
++
++        let arg = clap::arg!(version: -b ...);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++
++        let arg = clap::arg!(version: -b <NUM>);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++    }
++
++    #[test]
++    fn long_version() {
++        let arg = clap::arg!(-'?' - -version);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Version));
++
++        let arg = clap::arg!(-'?' --version ...);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Count));
++
++        let arg = clap::arg!(-'?' --version <NUM>);
++        assert!(matches!(arg.get_action(), clap::ArgAction::Set));
++    }
++
+     #[test]
+     fn short_with_value() {
+         let arg = clap::arg!(foo: -b <NUM>);

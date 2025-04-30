@@ -1,0 +1,89 @@
+diff --git a/tracing-core/src/dispatcher.rs b/tracing-core/src/dispatcher.rs
+index 086e53d40b..1e622f16ef 100644
+--- a/tracing-core/src/dispatcher.rs
++++ b/tracing-core/src/dispatcher.rs
+@@ -107,7 +107,7 @@
+ //! // no default subscriber
+ //!
+ //! # #[cfg(feature = "std")]
+-//! dispatcher::set_global_default(my_dispatch)
++//! dispatcher::set_global_default(&my_dispatch)
+ //!     // `set_global_default` will return an error if the global default
+ //!     // subscriber has already been set.
+ //!     .expect("global default was already set!");
+@@ -307,12 +307,12 @@ pub fn set_default(dispatcher: &Dispatch) -> DefaultGuard {
+ /// [span]: super::span
+ /// [`Subscriber`]: super::subscriber::Subscriber
+ /// [`Event`]: super::event::Event
+-pub fn set_global_default(dispatcher: Dispatch) -> Result<(), SetGlobalDefaultError> {
++pub fn set_global_default(dispatcher: &Dispatch) -> Result<(), SetGlobalDefaultError> {
+     if GLOBAL_INIT.compare_and_swap(UNINITIALIZED, INITIALIZING, Ordering::SeqCst) == UNINITIALIZED
+     {
+         #[cfg(feature = "alloc")]
+         let subscriber = {
+-            let subscriber = match dispatcher.subscriber {
++            let subscriber = match dispatcher.subscriber.clone() {
+                 Kind::Global(s) => s,
+                 Kind::Scoped(s) => unsafe {
+                     // safety: this leaks the subscriber onto the heap. the
+@@ -527,7 +527,7 @@ impl Dispatch {
+     ///
+     ///     let dispatch = Dispatch::from_static(&SUBSCRIBER);
+     ///
+-    ///     dispatcher::set_global_default(dispatch)
++    ///     dispatcher::set_global_default(&dispatch)
+     ///         .expect("no global default subscriber should have been set previously!");
+     /// }
+     /// ```
+diff --git a/tracing-subscriber/src/fmt/mod.rs b/tracing-subscriber/src/fmt/mod.rs
+index 541f4c372a..439c6896a2 100644
+--- a/tracing-subscriber/src/fmt/mod.rs
++++ b/tracing-subscriber/src/fmt/mod.rs
+@@ -415,7 +415,7 @@ where
+         #[cfg(feature = "tracing-log")]
+         tracing_log::LogTracer::init().map_err(Box::new)?;
+ 
+-        tracing_core::dispatcher::set_global_default(tracing_core::dispatcher::Dispatch::new(
++        tracing_core::dispatcher::set_global_default(&tracing_core::dispatcher::Dispatch::new(
+             self.finish(),
+         ))?;
+         Ok(())
+diff --git a/tracing-subscriber/src/util.rs b/tracing-subscriber/src/util.rs
+index 48d62c50a5..87c1d6c449 100644
+--- a/tracing-subscriber/src/util.rs
++++ b/tracing-subscriber/src/util.rs
+@@ -53,7 +53,7 @@ where
+         #[cfg(feature = "tracing-log")]
+         tracing_log::LogTracer::init().map_err(TryInitError::new)?;
+ 
+-        dispatcher::set_global_default(self.into()).map_err(TryInitError::new)?;
++        dispatcher::set_global_default(&self.into()).map_err(TryInitError::new)?;
+ 
+         Ok(())
+     }
+diff --git a/tracing/src/dispatcher.rs b/tracing/src/dispatcher.rs
+index a7e2a7c5aa..6509df655f 100644
+--- a/tracing/src/dispatcher.rs
++++ b/tracing/src/dispatcher.rs
+@@ -108,7 +108,7 @@
+ //! // no default subscriber
+ //!
+ //! # #[cfg(feature = "alloc")]
+-//! dispatcher::set_global_default(my_dispatch)
++//! dispatcher::set_global_default(&my_dispatch)
+ //!     // `set_global_default` will return an error if the global default
+ //!     // subscriber has already been set.
+ //!     .expect("global default was already set!");
+diff --git a/tracing/src/subscriber.rs b/tracing/src/subscriber.rs
+index bcb51c5053..f7fdc87c31 100644
+--- a/tracing/src/subscriber.rs
++++ b/tracing/src/subscriber.rs
+@@ -42,7 +42,7 @@ pub fn set_global_default<S>(subscriber: S) -> Result<(), SetGlobalDefaultError>
+ where
+     S: Subscriber + Send + Sync + 'static,
+ {
+-    crate::dispatcher::set_global_default(crate::Dispatch::new(subscriber))
++    crate::dispatcher::set_global_default(&crate::Dispatch::new(subscriber))
+ }
+ 
+ /// Sets the subscriber as the default for the duration of the lifetime of the

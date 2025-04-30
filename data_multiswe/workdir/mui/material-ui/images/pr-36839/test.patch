@@ -1,0 +1,75 @@
+diff --git a/packages/mui-joy/src/Table/Table.test.tsx b/packages/mui-joy/src/Table/Table.test.tsx
+index 870f0a344b6ea5..fa428fa1641aaf 100644
+--- a/packages/mui-joy/src/Table/Table.test.tsx
++++ b/packages/mui-joy/src/Table/Table.test.tsx
+@@ -6,7 +6,7 @@ import Table, { tableClasses as classes } from '@mui/joy/Table';
+ import { unstable_capitalize as capitalize } from '@mui/utils';
+ 
+ describe('<Table />', () => {
+-  const { render } = createRenderer({ emotionCompat: true });
++  const { render } = createRenderer();
+ 
+   describeConformance(<Table />, () => ({
+     classes,
+@@ -35,7 +35,7 @@ describe('<Table />', () => {
+     },
+   }));
+ 
+-  describeJoyColorInversion(<Table />, { muiName: 'JoyTable', classes, emotionCompat: true });
++  describeJoyColorInversion(<Table />, { muiName: 'JoyTable', classes });
+ 
+   describe('prop: variant', () => {
+     it('plain by default', () => {
+diff --git a/test/utils/createRenderer.tsx b/test/utils/createRenderer.tsx
+index 48ee73bd398847..d4dd831f1b43f1 100644
+--- a/test/utils/createRenderer.tsx
++++ b/test/utils/createRenderer.tsx
+@@ -441,11 +441,6 @@ export interface CreateRendererOptions extends Pick<RenderOptions, 'strict' | 's
+    */
+   clock?: 'fake' | 'real';
+   clockConfig?: ClockConfig;
+-  /**
+-   * To disable SSR warnings when using CSS pseudo selectors, e.g. :first-child
+-   * https://github.com/emotion-js/emotion/issues/1105#issuecomment-1058225197
+-   */
+-  emotionCompat?: true;
+ }
+ 
+ export function createRenderer(globalOptions: CreateRendererOptions = {}): Renderer {
+@@ -454,7 +449,6 @@ export function createRenderer(globalOptions: CreateRendererOptions = {}): Rende
+     clockConfig,
+     strict: globalStrict = true,
+     strictEffects: globalStrictEffects = globalStrict,
+-    emotionCompat,
+   } = globalOptions;
+   // save stack to re-use in test-hooks
+   const { stack: createClientRenderStack } = new Error();
+@@ -520,10 +514,6 @@ export function createRenderer(globalOptions: CreateRendererOptions = {}): Rende
+ 
+     emotionCache = createEmotionCache({ key: 'emotion-client-render' });
+ 
+-    if (emotionCompat) {
+-      emotionCache.compat = true;
+-    }
+-
+     serverContainer = document.createElement('div');
+     document.body.appendChild(serverContainer);
+ 
+diff --git a/test/utils/describeJoyColorInversion.tsx b/test/utils/describeJoyColorInversion.tsx
+index 8691cd9ab3a4f9..318f62621007ed 100644
+--- a/test/utils/describeJoyColorInversion.tsx
++++ b/test/utils/describeJoyColorInversion.tsx
+@@ -17,11 +17,10 @@ export default function describeJoyColorInversion(
+     classes: { colorContext: string; colorPrimary: string; colorSuccess: string };
+     wrapper?: (node: React.ReactElement) => React.ReactElement;
+     portalSlot?: string;
+-    emotionCompat?: true;
+   },
+ ) {
+-  const { classes, muiName, wrapper = (node) => node, portalSlot, emotionCompat } = options;
+-  const { render } = createRenderer({ emotionCompat });
++  const { classes, muiName, wrapper = (node) => node, portalSlot } = options;
++  const { render } = createRenderer();
+   const getTestElement = (result: MuiRenderResult, id = '') => {
+     const { container, queryByTestId } = result;
+     let testElement = queryByTestId('test-element') ?? container.firstChild?.firstChild;

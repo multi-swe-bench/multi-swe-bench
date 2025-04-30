@@ -1,0 +1,83 @@
+diff --git a/.changeset/shaggy-cameras-live.md b/.changeset/shaggy-cameras-live.md
+new file mode 100644
+index 000000000000..230154b652c2
+--- /dev/null
++++ b/.changeset/shaggy-cameras-live.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: wire up `events` in `mount` correctly and fix its types
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index 74a41ccc9abd..0da5bf690a4e 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -2432,7 +2432,7 @@ export function createRoot() {
+  * @param {{
+  * 		target: Node;
+  * 		props?: Props;
+- * 		events?: Events;
++ * 		events?: { [Property in keyof Events]: (e: Events[Property]) => any };
+  *  	context?: Map<any, any>;
+  * 		intro?: boolean;
+  * 	}} options
+@@ -2456,7 +2456,7 @@ export function mount(component, options) {
+  * @param {{
+  * 		target: Node;
+  * 		props?: Props;
+- * 		events?: Events;
++ * 		events?: { [Property in keyof Events]: (e: Events[Property]) => any };
+  *  	context?: Map<any, any>;
+  * 		intro?: boolean;
+  * 		recover?: false;
+@@ -2524,7 +2524,7 @@ export function hydrate(component, options) {
+  * 		target: Node;
+  * 		anchor: null | Text;
+  * 		props?: Props;
+- * 		events?: Events;
++ * 		events?: { [Property in keyof Events]: (e: Events[Property]) => any };
+  *  	context?: Map<any, any>;
+  * 		intro?: boolean;
+  * 		recover?: false;
+@@ -2547,8 +2547,16 @@ function _mount(Component, options) {
+ 				/** @type {import('../client/types.js').ComponentContext} */ (current_component_context).c =
+ 					options.context;
+ 			}
+-			// @ts-expect-error the public typings are not what the actual function looks like
+-			component = Component(options.anchor, options.props || {}) || {};
++			if (!options.props) {
++				options.props = /** @type {Props} */ ({});
++			}
++			if (options.events) {
++				// We can't spread the object or else we'd lose the state proxy stuff, if it is one
++				/** @type {any} */ (options.props).$$events = options.events;
++			}
++			component =
++				// @ts-expect-error the public typings are not what the actual function looks like
++				Component(options.anchor, options.props) || {};
+ 			if (options.context) {
+ 				pop();
+ 			}
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index db6efb9fb420..d3fb1f340d58 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -334,7 +334,7 @@ declare module 'svelte' {
+ 	export function mount<Props extends Record<string, any>, Exports extends Record<string, any>, Events extends Record<string, any>>(component: ComponentType<SvelteComponent<Props, Events, any>>, options: {
+ 		target: Node;
+ 		props?: Props | undefined;
+-		events?: Events | undefined;
++		events?: { [Property in keyof Events]: (e: Events[Property]) => any; } | undefined;
+ 		context?: Map<any, any> | undefined;
+ 		intro?: boolean | undefined;
+ 	}): Exports;
+@@ -345,7 +345,7 @@ declare module 'svelte' {
+ 	export function hydrate<Props extends Record<string, any>, Exports extends Record<string, any>, Events extends Record<string, any>>(component: ComponentType<SvelteComponent<Props, Events, any>>, options: {
+ 		target: Node;
+ 		props?: Props | undefined;
+-		events?: Events | undefined;
++		events?: { [Property in keyof Events]: (e: Events[Property]) => any; } | undefined;
+ 		context?: Map<any, any> | undefined;
+ 		intro?: boolean | undefined;
+ 		recover?: false | undefined;

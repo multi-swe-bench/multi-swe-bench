@@ -1,0 +1,69 @@
+diff --git a/packages/runtime-core/src/component.ts b/packages/runtime-core/src/component.ts
+index 1508627e579..ed1f8efee52 100644
+--- a/packages/runtime-core/src/component.ts
++++ b/packages/runtime-core/src/component.ts
+@@ -519,6 +519,12 @@ export interface ComponentInternalInstance {
+    * @internal
+    */
+   ut?: (vars?: Record<string, string>) => void
++
++  /**
++   * dev only. For style v-bind hydration mismatch checks
++   * @internal
++   */
++  getCssVars?: () => Record<string, string>
+ }
+ 
+ const emptyAppContext = createAppContext()
+diff --git a/packages/runtime-core/src/hydration.ts b/packages/runtime-core/src/hydration.ts
+index b22afdb7aa5..1e9200ce27b 100644
+--- a/packages/runtime-core/src/hydration.ts
++++ b/packages/runtime-core/src/hydration.ts
+@@ -449,7 +449,10 @@ export function createHydrationFunctions(
+         ) {
+           for (const key in props) {
+             // check hydration mismatch
+-            if (__DEV__ && propHasMismatch(el, key, props[key], vnode)) {
++            if (
++              __DEV__ &&
++              propHasMismatch(el, key, props[key], vnode, parentComponent)
++            ) {
+               hasMismatch = true
+             }
+             if (
+@@ -718,6 +721,7 @@ function propHasMismatch(
+   key: string,
+   clientValue: any,
+   vnode: VNode,
++  instance: ComponentInternalInstance | null,
+ ): boolean {
+   let mismatchType: string | undefined
+   let mismatchKey: string | undefined
+@@ -748,6 +752,12 @@ function propHasMismatch(
+         }
+       }
+     }
++
++    const cssVars = instance?.getCssVars?.()
++    for (const key in cssVars) {
++      expectedMap.set(`--${key}`, String(cssVars[key]))
++    }
++
+     if (!isMapEqual(actualMap, expectedMap)) {
+       mismatchType = mismatchKey = 'style'
+     }
+diff --git a/packages/runtime-dom/src/helpers/useCssVars.ts b/packages/runtime-dom/src/helpers/useCssVars.ts
+index 72714e6f623..1666e3cb3dc 100644
+--- a/packages/runtime-dom/src/helpers/useCssVars.ts
++++ b/packages/runtime-dom/src/helpers/useCssVars.ts
+@@ -32,6 +32,10 @@ export function useCssVars(getter: (ctx: any) => Record<string, string>) {
+     ).forEach(node => setVarsOnNode(node, vars))
+   })
+ 
++  if (__DEV__) {
++    instance.getCssVars = () => getter(instance.proxy)
++  }
++
+   const setVars = () => {
+     const vars = getter(instance.proxy)
+     setVarsOnVNode(instance.subTree, vars)

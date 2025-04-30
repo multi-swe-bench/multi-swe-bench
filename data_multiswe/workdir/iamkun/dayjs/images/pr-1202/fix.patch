@@ -1,0 +1,61 @@
+diff --git a/src/constant.js b/src/constant.js
+index a4f034fa2..22c1319e0 100644
+--- a/src/constant.js
++++ b/src/constant.js
+@@ -27,4 +27,4 @@ export const INVALID_DATE_STRING = 'Invalid Date'
+ 
+ // regex
+ export const REGEX_PARSE = /^(\d{4})[-/]?(\d{1,2})?[-/]?(\d{0,2})[^0-9]*(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?.?(\d+)?$/
+-export const REGEX_FORMAT = /\[([^\]]+)]|Y{2,4}|M{1,4}|D{1,2}|d{1,4}|H{1,2}|h{1,2}|a|A|m{1,2}|s{1,2}|Z{1,2}|SSS/g
++export const REGEX_FORMAT = /\[([^\]]+)]|Y{1,4}|M{1,4}|D{1,2}|d{1,4}|H{1,2}|h{1,2}|a|A|m{1,2}|s{1,2}|Z{1,2}|SSS/g
+diff --git a/src/plugin/duration/index.js b/src/plugin/duration/index.js
+index 50f660484..02f12bcb4 100644
+--- a/src/plugin/duration/index.js
++++ b/src/plugin/duration/index.js
+@@ -1,4 +1,4 @@
+-import { MILLISECONDS_A_DAY, MILLISECONDS_A_HOUR, MILLISECONDS_A_MINUTE, MILLISECONDS_A_SECOND, MILLISECONDS_A_WEEK } from '../../constant'
++import { MILLISECONDS_A_DAY, MILLISECONDS_A_HOUR, MILLISECONDS_A_MINUTE, MILLISECONDS_A_SECOND, MILLISECONDS_A_WEEK, REGEX_FORMAT } from '../../constant'
+ 
+ const MILLISECONDS_A_YEAR = MILLISECONDS_A_DAY * 365
+ const MILLISECONDS_A_MONTH = MILLISECONDS_A_DAY * 30
+@@ -105,6 +105,27 @@ class Duration {
+     return this.toISOString()
+   }
+ 
++  format(formatStr) {
++    const str = formatStr || 'YYYY-MM-DDTHH:mm:ss'
++    const matches = {
++      Y: this.$d.years,
++      YY: $u.s(this.$d.years, 2, '0'),
++      YYYY: $u.s(this.$d.years, 4, '0'),
++      M: this.$d.months,
++      MM: $u.s(this.$d.months, 2, '0'),
++      D: this.$d.days,
++      DD: $u.s(this.$d.days, 2, '0'),
++      H: this.$d.hours,
++      HH: $u.s(this.$d.hours, 2, '0'),
++      m: this.$d.minutes,
++      mm: $u.s(this.$d.minutes, 2, '0'),
++      s: this.$d.seconds,
++      ss: $u.s(this.$d.seconds, 2, '0'),
++      SSS: $u.s(this.$d.milliseconds, 3, '0')
++    }
++    return str.replace(REGEX_FORMAT, (match, $1) => $1 || String(matches[match]))
++  }
++
+   as(unit) {
+     return this.$ms / (unitToMS[prettyUnit(unit)])
+   }
+diff --git a/types/plugin/duration.d.ts b/types/plugin/duration.d.ts
+index c09dc9f09..3695eeaaf 100644
+--- a/types/plugin/duration.d.ts
++++ b/types/plugin/duration.d.ts
+@@ -51,6 +51,8 @@ declare namespace plugin {
+ 
+     toISOString(): string
+ 
++    format(formatStr?: string): string
++
+     locale(locale: string): Duration
+   }
+ }

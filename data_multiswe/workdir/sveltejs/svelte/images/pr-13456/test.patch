@@ -1,0 +1,93 @@
+diff --git a/packages/svelte/tests/migrate/samples/accessors/input.svelte b/packages/svelte/tests/migrate/samples/accessors/input.svelte
+new file mode 100644
+index 000000000000..d987aeddadc0
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/accessors/input.svelte
+@@ -0,0 +1,14 @@
++<script lang="ts">
++	type $$Props = {
++		test: string;
++	}
++	
++	export let count = 0;
++	export let stuff;
++</script>
++
++<button>
++	<slot name="cool" />
++</button>
++
++<svelte:options accessors immutable/>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/accessors/output.svelte b/packages/svelte/tests/migrate/samples/accessors/output.svelte
+new file mode 100644
+index 000000000000..67b0737d0e99
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/accessors/output.svelte
+@@ -0,0 +1,29 @@
++<script lang="ts">
++	
++	
++	interface Props {
++		test: string;
++		count?: number;
++		stuff: any;
++		cool?: import('svelte').Snippet;
++	}
++
++	let {
++		test,
++		count = 0,
++		stuff,
++		cool
++	}: Props = $props();
++
++	export {
++		test,
++		count,
++		stuff,
++	}
++</script>
++
++<button>
++	{@render cool?.()}
++</button>
++
++<svelte:options immutable/>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-runes/samples/accessors-props/_config.js b/packages/svelte/tests/runtime-runes/samples/accessors-props/_config.js
+new file mode 100644
+index 000000000000..27b511330728
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/accessors-props/_config.js
+@@ -0,0 +1,15 @@
++import { ok, test } from '../../test';
++import { flushSync } from 'svelte';
++
++export default test({
++	html: `<p>0</p>`,
++
++	async test({ assert, target, instance }) {
++		const p = target.querySelector('p');
++		ok(p);
++		flushSync(() => {
++			instance.count++;
++		});
++		assert.equal(p.innerHTML, '1');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/accessors-props/main.svelte b/packages/svelte/tests/runtime-runes/samples/accessors-props/main.svelte
+new file mode 100644
+index 000000000000..faeca3cd8cd5
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/accessors-props/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let { count=0 } = $props();
++
++	export {
++		count
++	}
++</script>
++
++<p>{count}</p>

@@ -1,0 +1,449 @@
+diff --git a/docs/src/modules/utils/replaceMarkdownLinks.test.js b/docs/src/modules/utils/replaceMarkdownLinks.test.js
+index 9d9bb064b168fd..f7fe13b8f3ac30 100644
+--- a/docs/src/modules/utils/replaceMarkdownLinks.test.js
++++ b/docs/src/modules/utils/replaceMarkdownLinks.test.js
+@@ -197,7 +197,7 @@ describe('replaceMarkdownLinks', () => {
+       [ButtonUnstyled](/api/button-unstyled)
+       [TabPanelUnstyled](/api/tab-panel-unstyled)
+       [TabsListUnstyled](/api/tabs-list-unstyled)
+-      [TrapFocus](/api/trap-focus)
++      [FocusTrap](/api/focus-trap)
+       [ClickAwayListener](/api/click-away-listener)
+       [IconButton](/api/icon-button)
+       [LoadingButton](/api/loading-button)
+@@ -216,7 +216,7 @@ describe('replaceMarkdownLinks', () => {
+       [ButtonUnstyled](/base/api/button-unstyled)
+       [TabPanelUnstyled](/base/api/tab-panel-unstyled)
+       [TabsListUnstyled](/base/api/tabs-list-unstyled)
+-      [TrapFocus](/base/api/trap-focus)
++      [FocusTrap](/base/api/focus-trap)
+       [ClickAwayListener](/base/api/click-away-listener)
+       [IconButton](/material-ui/api/icon-button)
+       [LoadingButton](/material-ui/api/loading-button)
+@@ -365,7 +365,7 @@ describe('replaceMarkdownLinks', () => {
+ 
+   it('does not trasform material-ui', () => {
+     expect(
+-      replaceMarkdownLinks(`[Trap Focus](https://mui.com/material-ui/react-trap-focus/)`),
+-    ).to.equal(`[Trap Focus](https://mui.com/material-ui/react-trap-focus/)`);
++      replaceMarkdownLinks(`[Focus Trap](https://mui.com/material-ui/react-trap-focus/)`),
++    ).to.equal(`[Focus Trap](https://mui.com/material-ui/react-trap-focus/)`);
+   });
+ });
+diff --git a/packages/mui-base/src/TrapFocus/TrapFocus.test.js b/packages/mui-base/src/FocusTrap/FocusTrap.test.js
+similarity index 90%
+rename from packages/mui-base/src/TrapFocus/TrapFocus.test.js
+rename to packages/mui-base/src/FocusTrap/FocusTrap.test.js
+index d65f3951bab254..ec70b8b528ca3f 100644
+--- a/packages/mui-base/src/TrapFocus/TrapFocus.test.js
++++ b/packages/mui-base/src/FocusTrap/FocusTrap.test.js
+@@ -2,10 +2,10 @@ import * as React from 'react';
+ import * as ReactDOM from 'react-dom';
+ import { expect } from 'chai';
+ import { act, createRenderer, screen } from 'test/utils';
+-import TrapFocus from '@mui/base/TrapFocus';
++import FocusTrap from '@mui/base/FocusTrap';
+ import Portal from '@mui/base/Portal';
+ 
+-describe('<TrapFocus />', () => {
++describe('<FocusTrap />', () => {
+   const { clock, render } = createRenderer();
+ 
+   let initialFocus = null;
+@@ -25,11 +25,11 @@ describe('<TrapFocus />', () => {
+ 
+   it('should return focus to the root', () => {
+     const { getByTestId } = render(
+-      <TrapFocus open>
++      <FocusTrap open>
+         <div tabIndex={-1} data-testid="root">
+           <input autoFocus data-testid="auto-focus" />
+         </div>
+-      </TrapFocus>,
++      </FocusTrap>,
+       // TODO: https://github.com/reactwg/react-18/discussions/18#discussioncomment-893076
+       { strictEffects: false },
+     );
+@@ -44,11 +44,11 @@ describe('<TrapFocus />', () => {
+ 
+   it('should not return focus to the children when disableEnforceFocus is true', () => {
+     const { getByTestId } = render(
+-      <TrapFocus open disableEnforceFocus>
++      <FocusTrap open disableEnforceFocus>
+         <div tabIndex={-1}>
+           <input autoFocus data-testid="auto-focus" />
+         </div>
+-      </TrapFocus>,
++      </FocusTrap>,
+       // TODO: https://github.com/reactwg/react-18/discussions/18#discussioncomment-893076s
+       { strictEffects: false },
+     );
+@@ -64,13 +64,13 @@ describe('<TrapFocus />', () => {
+ 
+   it('should focus first focusable child in portal', () => {
+     const { getByTestId } = render(
+-      <TrapFocus open>
++      <FocusTrap open>
+         <div tabIndex={-1}>
+           <Portal>
+             <input autoFocus data-testid="auto-focus" />
+           </Portal>
+         </div>
+-      </TrapFocus>,
++      </FocusTrap>,
+     );
+ 
+     expect(getByTestId('auto-focus')).toHaveFocus();
+@@ -81,9 +81,9 @@ describe('<TrapFocus />', () => {
+ 
+     expect(() => {
+       render(
+-        <TrapFocus open>
++        <FocusTrap open>
+           <UnfocusableDialog />
+-        </TrapFocus>,
++        </FocusTrap>,
+       );
+     }).toErrorDev('MUI: The modal content node does not accept focus');
+   });
+@@ -92,19 +92,19 @@ describe('<TrapFocus />', () => {
+     const EmptyDialog = React.forwardRef(() => null);
+ 
+     render(
+-      <TrapFocus open>
++      <FocusTrap open>
+         <EmptyDialog />
+-      </TrapFocus>,
++      </FocusTrap>,
+     );
+   });
+ 
+   it('should focus rootRef if no tabbable children are rendered', () => {
+     render(
+-      <TrapFocus open>
++      <FocusTrap open>
+         <div tabIndex={-1} data-testid="root">
+           <div>Title</div>
+         </div>
+-      </TrapFocus>,
++      </FocusTrap>,
+     );
+     expect(screen.getByTestId('root')).toHaveFocus();
+   });
+@@ -112,11 +112,11 @@ describe('<TrapFocus />', () => {
+   it('does not steal focus from a portaled element if any prop but open changes', () => {
+     function Test(props) {
+       return (
+-        <TrapFocus disableAutoFocus open {...props}>
++        <FocusTrap disableAutoFocus open {...props}>
+           <div data-testid="focus-root" tabIndex={-1}>
+             {ReactDOM.createPortal(<input data-testid="portal-input" />, document.body)}
+           </div>
+-        </TrapFocus>
++        </FocusTrap>
+       );
+     }
+     const { setProps } = render(<Test />);
+@@ -159,9 +159,9 @@ describe('<TrapFocus />', () => {
+       return null;
+     });
+     render(
+-      <TrapFocus open>
++      <FocusTrap open>
+         <DeferredComponent data-testid="deferred-component" />
+-      </TrapFocus>,
++      </FocusTrap>,
+     );
+ 
+     expect(initialFocus).toHaveFocus();
+@@ -181,11 +181,11 @@ describe('<TrapFocus />', () => {
+     function Test(props) {
+       return (
+         <div onBlur={() => eventLog.push('blur')}>
+-          <TrapFocus open {...props}>
++          <FocusTrap open {...props}>
+             <div data-testid="root" tabIndex={-1}>
+               <input data-testid="focus-input" />
+             </div>
+-          </TrapFocus>
++          </FocusTrap>
+         </div>
+       );
+     }
+@@ -207,9 +207,9 @@ describe('<TrapFocus />', () => {
+       return (
+         <div>
+           <input />
+-          <TrapFocus open {...props}>
++          <FocusTrap open {...props}>
+             <div tabIndex={-1} data-testid="root" />
+-          </TrapFocus>
++          </FocusTrap>
+         </div>
+       );
+     }
+@@ -232,11 +232,11 @@ describe('<TrapFocus />', () => {
+   it('restores focus when closed', () => {
+     function Test(props) {
+       return (
+-        <TrapFocus open {...props}>
++        <FocusTrap open {...props}>
+           <div data-testid="focus-root" tabIndex={-1}>
+             <input />
+           </div>
+-        </TrapFocus>
++        </FocusTrap>
+       );
+     }
+     const { setProps } = render(<Test />);
+@@ -249,11 +249,11 @@ describe('<TrapFocus />', () => {
+   it('undesired: enabling restore-focus logic when closing has no effect', () => {
+     function Test(props) {
+       return (
+-        <TrapFocus open disableRestoreFocus {...props}>
++        <FocusTrap open disableRestoreFocus {...props}>
+           <div data-testid="root" tabIndex={-1}>
+             <input data-testid="focus-input" />
+           </div>
+-        </TrapFocus>
++        </FocusTrap>
+       );
+     }
+     const { setProps } = render(<Test />);
+@@ -267,11 +267,11 @@ describe('<TrapFocus />', () => {
+   it('undesired: setting `disableRestoreFocus` to false before closing has no effect', () => {
+     function Test(props) {
+       return (
+-        <TrapFocus open disableRestoreFocus {...props}>
++        <FocusTrap open disableRestoreFocus {...props}>
+           <div data-testid="root" tabIndex={-1}>
+             <input data-testid="focus-input" />
+           </div>
+-        </TrapFocus>
++        </FocusTrap>
+       );
+     }
+     const { setProps } = render(<Test />);
+@@ -289,7 +289,7 @@ describe('<TrapFocus />', () => {
+     it('contains the focus if the active element is removed', () => {
+       function WithRemovableElement({ hideButton = false }) {
+         return (
+-          <TrapFocus open>
++          <FocusTrap open>
+             <div tabIndex={-1} data-testid="root">
+               {!hideButton && (
+                 <button type="button" data-testid="hide-button">
+@@ -297,7 +297,7 @@ describe('<TrapFocus />', () => {
+                 </button>
+               )}
+             </div>
+-          </TrapFocus>
++          </FocusTrap>
+         );
+       }
+ 
+@@ -320,9 +320,9 @@ describe('<TrapFocus />', () => {
+         const { getByRole } = render(
+           <div>
+             <input />
+-            <TrapFocus open disableAutoFocus>
++            <FocusTrap open disableAutoFocus>
+               <div tabIndex={-1} data-testid="root" />
+-            </TrapFocus>
++            </FocusTrap>
+           </div>,
+         );
+ 
+@@ -339,11 +339,11 @@ describe('<TrapFocus />', () => {
+         render(
+           <div>
+             <input data-testid="outside-input" />
+-            <TrapFocus open disableAutoFocus>
++            <FocusTrap open disableAutoFocus>
+               <div tabIndex={-1} data-testid="root">
+                 <button type="buton" data-testid="focus-input" />
+               </div>
+-            </TrapFocus>
++            </FocusTrap>
+           </div>,
+         );
+ 
+@@ -371,11 +371,11 @@ describe('<TrapFocus />', () => {
+         const Test = (props) => (
+           <div>
+             <input data-testid="outside-input" />
+-            <TrapFocus open disableAutoFocus {...props}>
++            <FocusTrap open disableAutoFocus {...props}>
+               <div tabIndex={-1} data-testid="root">
+                 <input data-testid="focus-input" />
+               </div>
+-            </TrapFocus>
++            </FocusTrap>
+           </div>
+         );
+ 
+diff --git a/test/e2e/README.md b/test/e2e/README.md
+index 07ef9769fae8cc..c63897e3b45049 100644
+--- a/test/e2e/README.md
++++ b/test/e2e/README.md
+@@ -15,7 +15,7 @@ If you're adding a new test prefer a new component instead of editing existing f
+ 
+ We're using [`playwright`](https://playwright.dev) to replay user actions.
+ Each test tests only a single fixture.
+-A fixture can be loaded with `await renderFixture(fixturePath)` e.g. `renderFixture('TrapFocus/OpenTrapFocus')`.
++A fixture can be loaded with `await renderFixture(fixturePath)` e.g. `renderFixture('FocusTrap/OpenFocusTrap')`.
+ 
+ ## Commands
+ 
+diff --git a/test/e2e/fixtures/TrapFocus/ClosedTrapFocus.tsx b/test/e2e/fixtures/FocusTrap/ClosedFocusTrap.tsx
+similarity index 70%
+rename from test/e2e/fixtures/TrapFocus/ClosedTrapFocus.tsx
+rename to test/e2e/fixtures/FocusTrap/ClosedFocusTrap.tsx
+index 48d61d96af8afb..7db44c3e95c5df 100644
+--- a/test/e2e/fixtures/TrapFocus/ClosedTrapFocus.tsx
++++ b/test/e2e/fixtures/FocusTrap/ClosedFocusTrap.tsx
+@@ -1,17 +1,17 @@
+ import * as React from 'react';
+-import TrapFocus from '@mui/base/TrapFocus';
++import FocusTrap from '@mui/base/FocusTrap';
+ 
+-export default function ClosedTrapFocus() {
++export default function ClosedFocusTrap() {
+   return (
+     <React.Fragment>
+       <button type="button" autoFocus>
+         initial focus
+       </button>
+-      <TrapFocus open={false}>
++      <FocusTrap open={false}>
+         <div data-testid="root">
+           <button type="button">inside focusable</button>
+         </div>
+-      </TrapFocus>
++      </FocusTrap>
+       <button type="button">final tab target</button>
+     </React.Fragment>
+   );
+diff --git a/test/e2e/fixtures/TrapFocus/DefaultOpenLazyTrapFocus.tsx b/test/e2e/fixtures/FocusTrap/DefaultOpenLazyFocusTrap.tsx
+similarity index 73%
+rename from test/e2e/fixtures/TrapFocus/DefaultOpenLazyTrapFocus.tsx
+rename to test/e2e/fixtures/FocusTrap/DefaultOpenLazyFocusTrap.tsx
+index 564d51c5b03c57..299576bae265ec 100644
+--- a/test/e2e/fixtures/TrapFocus/DefaultOpenLazyTrapFocus.tsx
++++ b/test/e2e/fixtures/FocusTrap/DefaultOpenLazyFocusTrap.tsx
+@@ -1,7 +1,7 @@
+ import * as React from 'react';
+-import TrapFocus from '@mui/base/TrapFocus';
++import FocusTrap from '@mui/base/FocusTrap';
+ 
+-export default function BaseTrapFocus() {
++export default function BaseFocusTrap() {
+   const [open, close] = React.useReducer(() => false, true);
+ 
+   return (
+@@ -9,7 +9,7 @@ export default function BaseTrapFocus() {
+       <button type="button" autoFocus data-testid="initial-focus">
+         initial focus
+       </button>
+-      <TrapFocus isEnabled={() => true} open={open} disableAutoFocus>
++      <FocusTrap isEnabled={() => true} open={open} disableAutoFocus>
+         <div data-testid="root">
+           <div>Title</div>
+           <button type="button" onClick={close}>
+@@ -17,7 +17,7 @@ export default function BaseTrapFocus() {
+           </button>
+           <button type="button">noop</button>
+         </div>
+-      </TrapFocus>
++      </FocusTrap>
+     </React.Fragment>
+   );
+ }
+diff --git a/test/e2e/fixtures/TrapFocus/OpenTrapFocus.tsx b/test/e2e/fixtures/FocusTrap/OpenFocusTrap.tsx
+similarity index 73%
+rename from test/e2e/fixtures/TrapFocus/OpenTrapFocus.tsx
+rename to test/e2e/fixtures/FocusTrap/OpenFocusTrap.tsx
+index d3735e514e1b97..30e5548dd2c2ab 100644
+--- a/test/e2e/fixtures/TrapFocus/OpenTrapFocus.tsx
++++ b/test/e2e/fixtures/FocusTrap/OpenFocusTrap.tsx
+@@ -1,20 +1,20 @@
+ import * as React from 'react';
+-import TrapFocus from '@mui/base/TrapFocus';
++import FocusTrap from '@mui/base/FocusTrap';
+ 
+-export default function BaseTrapFocus() {
++export default function BaseFocusTrap() {
+   return (
+     <React.Fragment>
+       <button type="button" autoFocus data-testid="initial-focus">
+         initial focus
+       </button>
+-      <TrapFocus isEnabled={() => true} open>
++      <FocusTrap isEnabled={() => true} open>
+         <div tabIndex={-1} data-testid="root">
+           <div>Title</div>
+           <button type="button">x</button>
+           <button type="button">cancel</button>
+           <button type="button">ok</button>
+         </div>
+-      </TrapFocus>
++      </FocusTrap>
+     </React.Fragment>
+   );
+ }
+diff --git a/test/e2e/index.test.ts b/test/e2e/index.test.ts
+index 97386094b96cd7..1bf5820a2bf9bd 100644
+--- a/test/e2e/index.test.ts
++++ b/test/e2e/index.test.ts
+@@ -115,9 +115,9 @@ describe('e2e', () => {
+     await browser.close();
+   });
+ 
+-  describe('<TrapFocus />', () => {
++  describe('<FocusTrap />', () => {
+     it('should loop the tab key', async () => {
+-      await renderFixture('TrapFocus/OpenTrapFocus');
++      await renderFixture('FocusTrap/OpenFocusTrap');
+ 
+       await expect(screen.getByTestId('root')).toHaveFocus();
+ 
+@@ -138,7 +138,7 @@ describe('e2e', () => {
+     });
+ 
+     it('should loop the tab key after activation', async () => {
+-      await renderFixture('TrapFocus/DefaultOpenLazyTrapFocus');
++      await renderFixture('FocusTrap/DefaultOpenLazyFocusTrap');
+ 
+       await expect(screen.getByTestId('initial-focus')).toHaveFocus();
+ 
+@@ -153,7 +153,7 @@ describe('e2e', () => {
+     });
+ 
+     it('should focus on first focus element after last has received a tab click', async () => {
+-      await renderFixture('TrapFocus/OpenTrapFocus');
++      await renderFixture('FocusTrap/OpenFocusTrap');
+ 
+       await page.keyboard.press('Tab');
+       await expect(screen.getByText('x')).toHaveFocus();
+@@ -164,7 +164,7 @@ describe('e2e', () => {
+     });
+ 
+     it('should be able to be tabbed straight through when rendered closed', async () => {
+-      await renderFixture('TrapFocus/ClosedTrapFocus');
++      await renderFixture('FocusTrap/ClosedFocusTrap');
+ 
+       await expect(screen.getByText('initial focus')).toHaveFocus();
+       await page.keyboard.press('Tab');
+diff --git a/test/regressions/README.md b/test/regressions/README.md
+index 8f1dfcd7fc4265..1304ddfe3e61b3 100644
+--- a/test/regressions/README.md
++++ b/test/regressions/README.md
+@@ -41,7 +41,7 @@ It allows catching regressions like this one:
+ 
+ Screenshots are saved in `./screenshots/$BROWSER_NAME/`.
+ Each test tests only a single fixture.
+-A fixture can be loaded with `await renderFixture(fixturePath)` e.g. `renderFixture('TrapFocus/OpenTrapFocus')`.
++A fixture can be loaded with `await renderFixture(fixturePath)` e.g. `renderFixture('FocusTrap/OpenFocusTrap')`.
+ 
+ ## Commands
+ 

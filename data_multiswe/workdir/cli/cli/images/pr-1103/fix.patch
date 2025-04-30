@@ -1,0 +1,168 @@
+diff --git a/command/alias.go b/command/alias.go
+index 26272d3b0b5..da005a4ab04 100644
+--- a/command/alias.go
++++ b/command/alias.go
+@@ -14,6 +14,7 @@ func init() {
+ 	RootCmd.AddCommand(aliasCmd)
+ 	aliasCmd.AddCommand(aliasSetCmd)
+ 	aliasCmd.AddCommand(aliasListCmd)
++	aliasCmd.AddCommand(aliasDeleteCmd)
+ }
+ 
+ var aliasCmd = &cobra.Command{
+@@ -23,10 +24,8 @@ var aliasCmd = &cobra.Command{
+ 
+ var aliasSetCmd = &cobra.Command{
+ 	Use: "set <alias> <expansion>",
+-	// NB: Even when inside of a single-quoted string, cobra was noticing and parsing any flags
+-	// used in an alias expansion string argument. Since this command needs no flags, I disabled their
+-	// parsing. If we ever want to add flags to alias set we'll have to figure this out. I tested on
+-	// linux in various shells against cobra 1.0; others on macos did /not/ see the same behavior.
++	// NB: this allows a user to eschew quotes when specifiying an alias expansion. We'll have to
++	// revisit it if we ever want to add flags to alias set but we have no current plans for that.
+ 	DisableFlagParsing: true,
+ 	Short:              "Create a shortcut for a gh command",
+ 	Long:               `This command lets you write your own shortcuts for running gh. They can be simple strings or accept placeholder arguments.`,
+@@ -74,11 +73,12 @@ func aliasSet(cmd *cobra.Command, args []string) error {
+ 
+ 	successMsg := fmt.Sprintf("%s Added alias.", utils.Green("✓"))
+ 
+-	if aliasCfg.Exists(alias) {
++	oldExpansion, ok := aliasCfg.Get(alias)
++	if ok {
+ 		successMsg = fmt.Sprintf("%s Changed alias %s from %s to %s",
+ 			utils.Green("✓"),
+ 			utils.Bold(alias),
+-			utils.Bold(aliasCfg.Get(alias)),
++			utils.Bold(oldExpansion),
+ 			utils.Bold(expansionStr),
+ 		)
+ 	}
+@@ -166,3 +166,43 @@ func aliasList(cmd *cobra.Command, args []string) error {
+ 
+ 	return tp.Render()
+ }
++
++var aliasDeleteCmd = &cobra.Command{
++	Use:     "delete <alias>",
++	Short:   "Delete an alias.",
++	Args:    cobra.ExactArgs(1),
++	Example: "gh alias delete co",
++	RunE:    aliasDelete,
++}
++
++func aliasDelete(cmd *cobra.Command, args []string) error {
++	alias := args[0]
++
++	ctx := contextForCommand(cmd)
++	cfg, err := ctx.Config()
++	if err != nil {
++		return fmt.Errorf("couldn't read config: %w", err)
++	}
++
++	aliasCfg, err := cfg.Aliases()
++	if err != nil {
++		return fmt.Errorf("couldn't read aliases config: %w", err)
++	}
++
++	expansion, ok := aliasCfg.Get(alias)
++	if !ok {
++		return fmt.Errorf("no such alias %s", alias)
++
++	}
++
++	err = aliasCfg.Delete(alias)
++	if err != nil {
++		return fmt.Errorf("failed to delete alias %s: %w", alias, err)
++	}
++
++	out := colorableOut(cmd)
++	redCheck := utils.Red("✓")
++	fmt.Fprintf(out, "%s Deleted alias %s; was %s\n", redCheck, alias, expansion)
++
++	return nil
++}
+diff --git a/command/root.go b/command/root.go
+index db76509edd1..e7cea4c1a5e 100644
+--- a/command/root.go
++++ b/command/root.go
+@@ -464,9 +464,9 @@ func ExpandAlias(args []string) ([]string, error) {
+ 		return empty, err
+ 	}
+ 
+-	if aliases.Exists(args[1]) {
++	expansion, ok := aliases.Get(args[1])
++	if ok {
+ 		extraArgs := []string{}
+-		expansion := aliases.Get(args[1])
+ 		for i, a := range args[2:] {
+ 			if !strings.Contains(expansion, "$") {
+ 				extraArgs = append(extraArgs, a)
+diff --git a/internal/config/alias_config.go b/internal/config/alias_config.go
+index 979ab3b9af9..148eb21f9fd 100644
+--- a/internal/config/alias_config.go
++++ b/internal/config/alias_config.go
+@@ -9,19 +9,13 @@ type AliasConfig struct {
+ 	Parent Config
+ }
+ 
+-func (a *AliasConfig) Exists(alias string) bool {
++func (a *AliasConfig) Get(alias string) (string, bool) {
+ 	if a.Empty() {
+-		return false
++		return "", false
+ 	}
+ 	value, _ := a.GetStringValue(alias)
+ 
+-	return value != ""
+-}
+-
+-func (a *AliasConfig) Get(alias string) string {
+-	value, _ := a.GetStringValue(alias)
+-
+-	return value
++	return value, value != ""
+ }
+ 
+ func (a *AliasConfig) Add(alias, expansion string) error {
+@@ -39,7 +33,13 @@ func (a *AliasConfig) Add(alias, expansion string) error {
+ }
+ 
+ func (a *AliasConfig) Delete(alias string) error {
+-	// TODO when we get to gh alias delete
++	a.RemoveEntry(alias)
++
++	err := a.Parent.Write()
++	if err != nil {
++		return fmt.Errorf("failed to write config: %w", err)
++	}
++
+ 	return nil
+ }
+ 
+diff --git a/internal/config/config_type.go b/internal/config/config_type.go
+index f136663644e..8db26f96548 100644
+--- a/internal/config/config_type.go
++++ b/internal/config/config_type.go
+@@ -100,6 +100,21 @@ func (cm *ConfigMap) FindEntry(key string) (ce *ConfigEntry, err error) {
+ 	return ce, &NotFoundError{errors.New("not found")}
+ }
+ 
++func (cm *ConfigMap) RemoveEntry(key string) {
++	newContent := []*yaml.Node{}
++
++	content := cm.Root.Content
++	for i := 0; i < len(content); i++ {
++		if content[i].Value == key {
++			i++ // skip the next node which is this key's value
++		} else {
++			newContent = append(newContent, content[i])
++		}
++	}
++
++	cm.Root.Content = newContent
++}
++
+ func NewConfig(root *yaml.Node) Config {
+ 	return &fileConfig{
+ 		ConfigMap:    ConfigMap{Root: root.Content[0]},

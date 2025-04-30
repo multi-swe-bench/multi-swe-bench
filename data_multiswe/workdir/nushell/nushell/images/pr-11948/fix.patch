@@ -1,0 +1,54 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 1a03df41fa039..849de67ea691d 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2994,6 +2994,7 @@ dependencies = [
+  "linked-hash-map",
+  "num-traits",
+  "serde",
++ "serde_json",
+ ]
+ 
+ [[package]]
+@@ -4954,9 +4955,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "serde_json"
+-version = "1.0.112"
++version = "1.0.114"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "4d1bd37ce2324cf3bf85e5a25f96eb4baf0d5aa6eba43e7ae8958870c4ec48ed"
++checksum = "c5f09b1bd632ef549eaa9f60a1f8de742bdbc698e6cee2095fc84dde5f549ae0"
+ dependencies = [
+  "indexmap",
+  "itoa",
+diff --git a/crates/nu-json/Cargo.toml b/crates/nu-json/Cargo.toml
+index d0da473c17284..bdd3bfd307ab6 100644
+--- a/crates/nu-json/Cargo.toml
++++ b/crates/nu-json/Cargo.toml
+@@ -20,6 +20,7 @@ default = ["preserve_order"]
+ linked-hash-map = { version = "0.5", optional = true }
+ num-traits = "0.2"
+ serde = "1.0"
++serde_json = "1.0.114"
+ 
+ [dev-dependencies]
+ # nu-path = { path="../nu-path", version = "0.91.1" }
+diff --git a/crates/nu-json/src/ser.rs b/crates/nu-json/src/ser.rs
+index 128a294e2ffac..cf345a1f641ef 100644
+--- a/crates/nu-json/src/ser.rs
++++ b/crates/nu-json/src/ser.rs
+@@ -1032,8 +1032,9 @@ pub fn to_string_raw<T>(value: &T) -> Result<String>
+ where
+     T: ser::Serialize,
+ {
+-    let vec = to_vec(value)?;
+-    let string = String::from_utf8(vec)?;
+-    let output = string.lines().map(str::trim).collect();
+-    Ok(output)
++    let result = serde_json::to_string(value);
++    match result {
++        Ok(result_string) => Ok(result_string),
++        Err(error) => Err(Error::Io(std::io::Error::from(error))),
++    }
+ }

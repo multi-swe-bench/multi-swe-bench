@@ -1,0 +1,54 @@
+diff --git a/.changeset/cool-clocks-film.md b/.changeset/cool-clocks-film.md
+new file mode 100644
+index 000000000000..a38b2e19d497
+--- /dev/null
++++ b/.changeset/cool-clocks-film.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: treat `undefined` and `null` the same for the initial input value
+diff --git a/packages/svelte/src/internal/client/dom/elements/attributes.js b/packages/svelte/src/internal/client/dom/elements/attributes.js
+index 2229c1a36135..0276069eee49 100644
+--- a/packages/svelte/src/internal/client/dom/elements/attributes.js
++++ b/packages/svelte/src/internal/client/dom/elements/attributes.js
+@@ -60,13 +60,19 @@ export function remove_input_defaults(input) {
+ export function set_value(element, value) {
+ 	// @ts-expect-error
+ 	var attributes = (element.__attributes ??= {});
++
+ 	if (
+-		attributes.value === (attributes.value = value) ||
++		attributes.value ===
++			(attributes.value =
++				// treat null and undefined the same for the initial value
++				value ?? undefined) ||
+ 		// @ts-expect-error
+ 		// `progress` elements always need their value set when its `0`
+ 		(element.value === value && (value !== 0 || element.nodeName !== 'PROGRESS'))
+-	)
++	) {
+ 		return;
++	}
++
+ 	// @ts-expect-error
+ 	element.value = value;
+ }
+@@ -79,7 +85,15 @@ export function set_checked(element, checked) {
+ 	// @ts-expect-error
+ 	var attributes = (element.__attributes ??= {});
+ 
+-	if (attributes.checked === (attributes.checked = checked)) return;
++	if (
++		attributes.checked ===
++		(attributes.checked =
++			// treat null and undefined the same for the initial value
++			checked ?? undefined)
++	) {
++		return;
++	}
++
+ 	// @ts-expect-error
+ 	element.checked = checked;
+ }

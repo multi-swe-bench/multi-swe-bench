@@ -1,0 +1,68 @@
+diff --git a/.changeset/odd-taxis-retire.md b/.changeset/odd-taxis-retire.md
+new file mode 100644
+index 000000000000..b60a450c3a87
+--- /dev/null
++++ b/.changeset/odd-taxis-retire.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: disallow exporting props, derived and reassigned state from within components
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 4d6b91c007ed..414f5e3bd2fe 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -169,8 +169,12 @@ const runes = {
+ 	'invalid-legacy-export': () => `Cannot use \`export let\` in runes mode — use $props instead`,
+ 	/** @param {string} rune */
+ 	'invalid-rune-usage': (rune) => `Cannot use ${rune} rune in non-runes mode`,
+-	'invalid-state-export': () => `Cannot export state if it is reassigned`,
+-	'invalid-derived-export': () => `Cannot export derived state`,
++	'invalid-state-export': () =>
++		`Cannot export state if it is reassigned. Either export a function returning the state value or only mutate the state value's properties`,
++	'invalid-derived-export': () =>
++		`Cannot export derived state. To expose the current derived value, export a function returning its value`,
++	'invalid-prop-export': () =>
++		`Cannot export properties. To expose the current value of a property, export a function returning its value`,
+ 	'invalid-props-id': () => `$props() can only be used with an object destructuring pattern`,
+ 	'invalid-props-pattern': () =>
+ 		`$props() assignment must not contain nested properties or computed keys`,
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 6a1aaf0fecce..1855079ef049 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -710,6 +710,10 @@ function validate_export(node, scope, name) {
+ 	const binding = scope.get(name);
+ 	if (!binding) return;
+ 
++	if (binding.kind === 'prop') {
++		error(node, 'invalid-prop-export');
++	}
++
+ 	if (binding.kind === 'derived') {
+ 		error(node, 'invalid-derived-export');
+ 	}
+@@ -941,10 +945,20 @@ export const validation_runes = merge(validation, a11y_validators, {
+ 		if (node.label.name !== '$' || path.at(-1)?.type !== 'Program') return;
+ 		error(node, 'invalid-legacy-reactive-statement');
+ 	},
+-	ExportNamedDeclaration(node, { state }) {
++	ExportNamedDeclaration(node, { state, next }) {
+ 		if (node.declaration?.type !== 'VariableDeclaration') return;
+-		if (node.declaration.kind !== 'let') return;
++
++		// visit children, so bindings are correctly initialised
++		next();
++
++		for (const declarator of node.declaration.declarations) {
++			for (const id of extract_identifiers(declarator.id)) {
++				validate_export(node, state.scope, id.name);
++			}
++		}
++
+ 		if (state.analysis.instance.scope !== state.scope) return;
++		if (node.declaration.kind !== 'let') return;
+ 		error(node, 'invalid-legacy-export');
+ 	},
+ 	ExportSpecifier(node, { state }) {

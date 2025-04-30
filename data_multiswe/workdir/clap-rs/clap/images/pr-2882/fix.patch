@@ -1,0 +1,165 @@
+diff --git a/clap_derive/src/attrs.rs b/clap_derive/src/attrs.rs
+index 2ac7b1a8f6c..a72669586c2 100644
+--- a/clap_derive/src/attrs.rs
++++ b/clap_derive/src/attrs.rs
+@@ -106,6 +106,7 @@ pub struct Attrs {
+     author: Option<Method>,
+     version: Option<Method>,
+     verbatim_doc_comment: Option<Ident>,
++    help_heading: Option<Method>,
+     is_enum: bool,
+     has_custom_parser: bool,
+     kind: Sp<Kind>,
+@@ -285,6 +286,7 @@ impl Attrs {
+             author: None,
+             version: None,
+             verbatim_doc_comment: None,
++            help_heading: None,
+             is_enum: false,
+             has_custom_parser: false,
+             kind: Sp::new(Kind::Arg(Sp::new(Ty::Other, default_span)), default_span),
+@@ -383,6 +385,10 @@ impl Attrs {
+                     self.methods.push(Method::new(raw_ident, val));
+                 }
+ 
++                HelpHeading(ident, expr) => {
++                    self.help_heading = Some(Method::new(ident, quote!(#expr)));
++                }
++
+                 About(ident, about) => {
+                     let method = Method::from_lit_or_env(ident, about, "CARGO_PKG_DESCRIPTION");
+                     self.methods.push(method);
+@@ -773,7 +779,12 @@ impl Attrs {
+     }
+ 
+     /// generate methods from attributes on top of struct or enum
+-    pub fn top_level_methods(&self) -> TokenStream {
++    pub fn initial_top_level_methods(&self) -> TokenStream {
++        let help_heading = self.help_heading.as_ref().into_iter();
++        quote!( #(#help_heading)* )
++    }
++
++    pub fn final_top_level_methods(&self) -> TokenStream {
+         let version = &self.version;
+         let author = &self.author;
+         let methods = &self.methods;
+@@ -786,7 +797,8 @@ impl Attrs {
+     pub fn field_methods(&self) -> proc_macro2::TokenStream {
+         let methods = &self.methods;
+         let doc_comment = &self.doc_comment;
+-        quote!( #(#doc_comment)* #(#methods)* )
++        let help_heading = self.help_heading.as_ref().into_iter();
++        quote!( #(#doc_comment)* #(#help_heading)* #(#methods)* )
+     }
+ 
+     pub fn cased_name(&self) -> TokenStream {
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index 858fd1610ec..3f8bfc84e1c 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -349,11 +349,13 @@ pub fn gen_augment(
+         }
+     });
+ 
+-    let app_methods = parent_attribute.top_level_methods();
++    let initial_app_methods = parent_attribute.initial_top_level_methods();
++    let final_app_methods = parent_attribute.final_top_level_methods();
+     quote! {{
++        let #app_var = #app_var#initial_app_methods;
+         #( #args )*
+         #subcmd
+-        #app_var#app_methods
++        #app_var#final_app_methods
+     }}
+ }
+ 
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index 33c255d2c04..0602464a4b2 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -216,13 +216,15 @@ fn gen_augment(
+                     };
+ 
+                     let name = attrs.cased_name();
+-                    let from_attrs = attrs.top_level_methods();
++                    let initial_app_methods = parent_attribute.initial_top_level_methods();
++                    let final_from_attrs = attrs.final_top_level_methods();
+                     let subcommand = quote! {
+                         let #app_var = #app_var.subcommand({
+                             let #subcommand_var = clap::App::new(#name);
++                            let #subcommand_var = #subcommand_var#initial_app_methods;
+                             let #subcommand_var = #arg_block;
+                             let #subcommand_var = #subcommand_var.setting(::clap::AppSettings::SubcommandRequiredElseHelp);
+-                            #subcommand_var#from_attrs
++                            #subcommand_var#final_from_attrs
+                         });
+                     };
+                     Some(subcommand)
+@@ -257,12 +259,14 @@ fn gen_augment(
+                     };
+ 
+                     let name = attrs.cased_name();
+-                    let from_attrs = attrs.top_level_methods();
++                    let initial_app_methods = parent_attribute.initial_top_level_methods();
++                    let final_from_attrs = attrs.final_top_level_methods();
+                     let subcommand = quote! {
+                         let #app_var = #app_var.subcommand({
+                             let #subcommand_var = clap::App::new(#name);
++                            let #subcommand_var = #subcommand_var#initial_app_methods;
+                             let #subcommand_var = #arg_block;
+-                            #subcommand_var#from_attrs
++                            #subcommand_var#final_from_attrs
+                         });
+                     };
+                     Some(subcommand)
+@@ -271,10 +275,12 @@ fn gen_augment(
+         })
+         .collect();
+ 
+-    let app_methods = parent_attribute.top_level_methods();
++    let initial_app_methods = parent_attribute.initial_top_level_methods();
++    let final_app_methods = parent_attribute.final_top_level_methods();
+     quote! {
++            let #app_var = #app_var#initial_app_methods;
+             #( #subcommands )*;
+-            #app_var #app_methods
++            #app_var #final_app_methods
+     }
+ }
+ 
+diff --git a/clap_derive/src/parse.rs b/clap_derive/src/parse.rs
+index e563bc72cdd..a9117d4267f 100644
+--- a/clap_derive/src/parse.rs
++++ b/clap_derive/src/parse.rs
+@@ -41,6 +41,7 @@ pub enum ClapAttr {
+     // ident = arbitrary_expr
+     NameExpr(Ident, Expr),
+     DefaultValueT(Ident, Option<Expr>),
++    HelpHeading(Ident, Expr),
+ 
+     // ident(arbitrary_expr,*)
+     MethodCall(Ident, Vec<Expr>),
+@@ -100,6 +101,15 @@ impl Parse for ClapAttr {
+                         Ok(Skip(name, Some(expr)))
+                     }
+ 
++                    "help_heading" => {
++                        let expr = ExprLit {
++                            attrs: vec![],
++                            lit: Lit::Str(lit),
++                        };
++                        let expr = Expr::Lit(expr);
++                        Ok(HelpHeading(name, expr))
++                    }
++
+                     _ => Ok(NameLitStr(name, lit)),
+                 }
+             } else {
+@@ -107,6 +117,7 @@ impl Parse for ClapAttr {
+                     Ok(expr) => match &*name_str {
+                         "skip" => Ok(Skip(name, Some(expr))),
+                         "default_value_t" => Ok(DefaultValueT(name, Some(expr))),
++                        "help_heading" => Ok(HelpHeading(name, expr)),
+                         _ => Ok(NameExpr(name, expr)),
+                     },
+ 

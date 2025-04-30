@@ -1,0 +1,40 @@
+diff --git a/test/src/unit-regression.cpp b/test/src/unit-regression.cpp
+index 1e1588e603..edd03b9cd8 100644
+--- a/test/src/unit-regression.cpp
++++ b/test/src/unit-regression.cpp
+@@ -36,6 +36,22 @@ using nlohmann::json;
+ #include <list>
+ #include <cstdio>
+ 
++namespace
++{
++  struct nocopy
++  {
++    nocopy() = default;
++    nocopy(const nocopy &) = delete;
++
++    int val = 0;
++
++    friend void to_json(json& j, const nocopy& n)
++    {
++      j = {{"val", n.val}};
++    }
++  };
++}
++
+ TEST_CASE("regression tests")
+ {
+     SECTION("issue #60 - Double quotation mark is not parsed correctly")
+@@ -1282,4 +1298,12 @@ TEST_CASE("regression tests")
+             }
+         }
+     */
++
++    SECTION("issue #805 - copy constructor is used with std::initializer_list constructor.")
++    {
++      nocopy n;
++      json j;
++      j = {{"nocopy", n}};
++      CHECK(j["nocopy"]["val"] == 0);
++    }
+ }

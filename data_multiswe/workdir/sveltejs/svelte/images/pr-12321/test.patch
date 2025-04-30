@@ -1,0 +1,96 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-abort/_config.js b/packages/svelte/tests/runtime-legacy/samples/transition-abort/_config.js
+index 5072e9fa191c..e35b08f2a8ca 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/transition-abort/_config.js
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-abort/_config.js
+@@ -12,24 +12,48 @@ export default test({
+ 	async test({ assert, component, target, raf }) {
+ 		component.visible = false;
+ 
+-		// abort halfway through the outro transition
+-		raf.tick(50);
++		raf.tick(25);
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<div style="opacity: 0.75;">a</div>
++			<div style="opacity: 0.75;">a</div>
++		`
++		);
+ 
++		// abort 1/4 through the outro transition
+ 		await component.$set({
+ 			visible: true,
+ 			array: ['a', 'b', 'c']
+ 		});
+ 
++		raf.tick(50);
++		assert.htmlEqual(
++			target.innerHTML,
++			// because outro is aborted it will be finished earlier with the intro than the new items
++			`
++			<div style="">a</div>
++			<div style="opacity: 0.25;">b</div>
++			<div style="opacity: 0.25;">c</div>
++
++			<div style="">a</div>
++			<div style="opacity: 0.25;">b</div>
++			<div style="opacity: 0.25;">c</div>
++		`
++		);
++
++		// intros of new items almost finished, aborted outro shouldn't overlap re-intro
++		raf.tick(75);
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+ 			`
+-			<div>a</div>
+-			<div>b</div>
+-			<div>c</div>
++			<div style="">a</div>
++			<div style="opacity: 0.5;">b</div>
++			<div style="opacity: 0.5;">c</div>
+ 
+-			<div>a</div>
+-			<div>b</div>
+-			<div>c</div>
++			<div style="">a</div>
++			<div style="opacity: 0.5;">b</div>
++			<div style="opacity: 0.5;">c</div>
+ 		`
+ 		);
+ 	}
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-abort/main.svelte b/packages/svelte/tests/runtime-legacy/samples/transition-abort/main.svelte
+index b574229712eb..1fbfa1368517 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/transition-abort/main.svelte
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-abort/main.svelte
+@@ -2,20 +2,22 @@
+ 	export let array = ['a'];
+ 	export let visible = true;
+ 
+-	function slide(_, params) {
+-		return params;
++	function slide(_) {
++		return {
++			duration: 100,
++			css: (t) => `opacity: ${t}`
++		};
+ 	}
+ </script>
+ 
+ {#if visible}
+ 	{#each array as item}
+-		<div transition:slide={{duration:100}}>{item}</div>
++		<div transition:slide|global>{item}</div>
+ 	{/each}
+ {/if}
+ 
+-{#if !visible}
+-{:else}
++{#if !visible}{:else}
+ 	{#each array as item}
+-		<div transition:slide={{duration:100}}>{item}</div>
++		<div transition:slide|global>{item}</div>
+ 	{/each}
+-{/if}
+\ No newline at end of file
++{/if}

@@ -1,0 +1,352 @@
+diff --git a/packages/svelte/tests/parser-modern/samples/snippets/output.json b/packages/svelte/tests/parser-modern/samples/snippets/output.json
+index 7d7e41425970..732ba5888aa9 100644
+--- a/packages/svelte/tests/parser-modern/samples/snippets/output.json
++++ b/packages/svelte/tests/parser-modern/samples/snippets/output.json
+@@ -24,27 +24,34 @@
+ 					"end": 42,
+ 					"name": "foo"
+ 				},
+-				"context": {
+-					"type": "Identifier",
+-					"name": "msg",
+-					"start": 43,
+-					"end": 54,
+-					"typeAnnotation": {
+-						"type": "TSStringKeyword",
+-						"start": 48,
++				"parameters": [
++					{
++						"type": "Identifier",
++						"start": 43,
+ 						"end": 54,
+-						"loc": {
+-							"start": {
+-								"line": 1,
+-								"column": 48
+-							},
+-							"end": {
+-								"line": 1,
+-								"column": 54
++						"name": "msg",
++						"typeAnnotation": {
++							"type": "TSTypeAnnotation",
++							"start": 46,
++							"end": 54,
++							"typeAnnotation": {
++								"type": "TSStringKeyword",
++								"start": 48,
++								"end": 54,
++								"loc": {
++									"start": {
++										"line": 3,
++										"column": 19
++									},
++									"end": {
++										"line": 3,
++										"column": 25
++									}
++								}
+ 							}
+ 						}
+ 					}
+-				},
++				],
+ 				"body": {
+ 					"type": "Fragment",
+ 					"nodes": [
+@@ -127,22 +134,24 @@
+ 					},
+ 					"name": "foo"
+ 				},
+-				"argument": {
+-					"type": "Identifier",
+-					"start": 96,
+-					"end": 99,
+-					"loc": {
+-						"start": {
+-							"line": 7,
+-							"column": 13
++				"arguments": [
++					{
++						"type": "Identifier",
++						"start": 96,
++						"end": 99,
++						"loc": {
++							"start": {
++								"line": 7,
++								"column": 13
++							},
++							"end": {
++								"line": 7,
++								"column": 16
++							}
+ 						},
+-						"end": {
+-							"line": 7,
+-							"column": 16
+-						}
+-					},
+-					"name": "msg"
+-				}
++						"name": "msg"
++					}
++				]
+ 			}
+ 		],
+ 		"transparent": false
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/_config.js
+new file mode 100644
+index 000000000000..e756ff5cc237
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/_config.js
+@@ -0,0 +1,21 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<p>clicks: 0, doubled: 0</p>
++		<button>click me</button>
++	`,
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++
++		await btn?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>clicks: 1, doubled: 2</p>
++				<button>click me</button>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/main.svelte
+new file mode 100644
+index 000000000000..34583ae1ccc4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-argument-destructured-multiple/main.svelte
+@@ -0,0 +1,14 @@
++<script>
++	let count = $state(0);
++	let doubled = $derived(count * 2);
++</script>
++
++{#snippet foo({ count }, { doubled })}
++	<p>clicks: {count}, doubled: {doubled}</p>
++{/snippet}
++
++{@render foo({ count }, { doubled })}
++
++<button on:click={() => count += 1}>
++	click me
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/_config.js
+new file mode 100644
+index 000000000000..e756ff5cc237
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/_config.js
+@@ -0,0 +1,21 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<p>clicks: 0, doubled: 0</p>
++		<button>click me</button>
++	`,
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++
++		await btn?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>clicks: 1, doubled: 2</p>
++				<button>click me</button>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/main.svelte
+new file mode 100644
+index 000000000000..6de6a8564773
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-argument-multiple/main.svelte
+@@ -0,0 +1,14 @@
++<script lang="ts">
++	let count = $state(0);
++	let doubled = $derived(count * 2);
++</script>
++
++{#snippet foo(n: number, doubled: number)}
++	<p>clicks: {n}, doubled: {doubled}</p>
++{/snippet}
++
++{@render foo(count, doubled)}
++
++<button on:click={() => count += 1}>
++	click me
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/_config.js
+new file mode 100644
+index 000000000000..4a403b328111
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/_config.js
+@@ -0,0 +1,31 @@
++import { test } from '../../test';
++
++export default test({
++	async test({ assert, target }) {
++		/** @type {HTMLButtonElement | null} */
++		const increment = target.querySelector('#increment');
++		/** @type {HTMLButtonElement | null} */
++		const change_ref = target.querySelector('#change-ref');
++		/** @type {HTMLParagraphElement | null} */
++		const count = target.querySelector('#count');
++		/** @type {HTMLParagraphElement | null} */
++		const fallback_count = target.querySelector('#fallback-count');
++
++		assert.htmlEqual(count?.innerHTML ?? '', 'Count: 0');
++		assert.htmlEqual(fallback_count?.innerHTML ?? '', 'Fallback count: 0');
++
++		await increment?.click();
++		assert.htmlEqual(count?.innerHTML ?? '', 'Count: 1');
++		assert.htmlEqual(fallback_count?.innerHTML ?? '', 'Fallback count: 0');
++
++		await change_ref?.click();
++		await increment?.click();
++		assert.htmlEqual(count?.innerHTML ?? '', 'Count: 1');
++		assert.htmlEqual(fallback_count?.innerHTML ?? '', 'Fallback count: 1');
++
++		await change_ref?.click();
++		await increment?.click();
++		assert.htmlEqual(count?.innerHTML ?? '', 'Count: 2');
++		assert.htmlEqual(fallback_count?.innerHTML ?? '', 'Fallback count: 1');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/main.svelte
+new file mode 100644
+index 000000000000..cd31067575fe
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-complicated-defaults/main.svelte
+@@ -0,0 +1,26 @@
++<script>
++	function box(value) {
++		let state = $state(value);
++		return {
++			get value() {
++				return state
++			},
++			set value(v) {
++				state = v
++			}
++		}
++	}
++
++  let count = box(0);
++	let fallback_count = box(0);
++	let toggle_state = $state(false);
++</script>
++
++{#snippet counter(c = count)}
++	<p id="count">Count: {count.value}</p>
++	<p id="fallback-count">Fallback count: {fallback_count.value}</p>
++  <button id="increment" on:click={() => (c.value += 1)}>Click to change referenced state value</button>
++	<button id="change-ref" on:click={() => toggle_state = !toggle_state}>Click to change state reference</button>
++{/snippet}
++
++{@render counter(toggle_state ? fallback_count : undefined)}
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/_config.js
+new file mode 100644
+index 000000000000..203cb1c43267
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/_config.js
+@@ -0,0 +1,15 @@
++import { test } from '../../test';
++
++export default test({
++	async test({ assert, target }) {
++		const count = target.querySelector('button');
++		const fallback = target.querySelector('p');
++
++		assert.htmlEqual(count?.innerHTML ?? '', '0');
++		assert.htmlEqual(fallback?.innerHTML ?? '', 'fallback');
++
++		await count?.click();
++		assert.htmlEqual(count?.innerHTML ?? '', '1');
++		assert.htmlEqual(fallback?.innerHTML ?? '', 'fallback');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/main.svelte
+new file mode 100644
+index 000000000000..03d3c29c450d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-optional-arguments/main.svelte
+@@ -0,0 +1,28 @@
++<script>
++	function box(value) {
++		let state = $state(value);
++
++		return {
++			get value() {
++				return state
++			},
++			set value(v) {
++				state = v;
++			}
++		}
++	}
++
++	let count = box(0);
++</script>
++
++{#snippet counter(c)}
++	{#if c}
++  	<button on:click={() => (c.value += 1)}>{c.value}</button>
++	{:else}
++		<p>fallback</p>
++	{/if}
++{/snippet}
++
++{@render counter()}
++{@render counter(count)}
++
+diff --git a/packages/svelte/tests/types/snippet.ts b/packages/svelte/tests/types/snippet.ts
+index 5a1e46c24149..edc5aba12378 100644
+--- a/packages/svelte/tests/types/snippet.ts
++++ b/packages/svelte/tests/types/snippet.ts
+@@ -20,18 +20,18 @@ const d: Snippet<boolean> = (a: string, b: number) => {
+ const e: Snippet = (a: string) => {
+ 	return return_type;
+ };
++// @ts-expect-error
+ const f: Snippet = (a) => {
+-	// @ts-expect-error
+ 	a?.x;
+ 	return return_type;
+ };
+-const g: Snippet<boolean> = (a) => {
++const g: Snippet<[boolean]> = (a) => {
+ 	// @ts-expect-error
+ 	a === '';
+ 	a === true;
+ 	return return_type;
+ };
+-const h: Snippet<{ a: true }> = (a) => {
++const h: Snippet<[{ a: true }]> = (a) => {
+ 	a.a === true;
+ 	return return_type;
+ };
+diff --git a/vitest.config.js b/vitest.config.js
+index 30e3917caa61..2af320902dbf 100644
+--- a/vitest.config.js
++++ b/vitest.config.js
+@@ -37,6 +37,7 @@ export default defineConfig({
+ 		dir: '.',
+ 		reporters: ['dot'],
+ 		include: [
++			'packages/svelte/**/*.test.ts',
+ 			'packages/svelte/tests/*/test.ts',
+ 			'packages/svelte/tests/runtime-browser/test-ssr.ts'
+ 		],

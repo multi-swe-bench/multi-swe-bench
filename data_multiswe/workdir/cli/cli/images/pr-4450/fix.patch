@@ -1,0 +1,277 @@
+diff --git a/git/remote.go b/git/remote.go
+index f9dfbc4bd74..91bbb677024 100644
+--- a/git/remote.go
++++ b/git/remote.go
+@@ -140,6 +140,14 @@ func AddRemote(name, u string) (*Remote, error) {
+ 	}, nil
+ }
+ 
++func UpdateRemoteURL(name, u string) error {
++	addCmd, err := GitCommand("remote", "set-url", name, u)
++	if err != nil {
++		return err
++	}
++	return run.PrepareCmd(addCmd).Run()
++}
++
+ func SetRemoteResolution(name, resolution string) error {
+ 	addCmd, err := GitCommand("config", "--add", fmt.Sprintf("remote.%s.gh-resolved", name), resolution)
+ 	if err != nil {
+diff --git a/pkg/cmd/repo/rename/http.go b/pkg/cmd/repo/rename/http.go
+new file mode 100644
+index 00000000000..1e5d73477df
+--- /dev/null
++++ b/pkg/cmd/repo/rename/http.go
+@@ -0,0 +1,61 @@
++package rename
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"io/ioutil"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++func apiRename(client *http.Client, repo ghrepo.Interface, newRepoName string) (ghrepo.Interface, error) {
++	input := map[string]string{"name": newRepoName}
++	body, err := json.Marshal(input)
++	if err != nil {
++		return nil, err
++	}
++
++	path := fmt.Sprintf("%srepos/%s",
++		ghinstance.RESTPrefix(repo.RepoHost()),
++		ghrepo.FullName(repo))
++
++	request, err := http.NewRequest("PATCH", path, bytes.NewBuffer(body))
++	if err != nil {
++		return nil, err
++	}
++
++	request.Header.Set("Content-Type", "application/json; charset=utf-8")
++
++	resp, err := client.Do(request)
++	if err != nil {
++		return nil, err
++	}
++
++	if resp.StatusCode > 299 {
++		return nil, api.HandleHTTPError(resp)
++	}
++
++	defer resp.Body.Close()
++	b, err := ioutil.ReadAll(resp.Body)
++	if err != nil {
++		return nil, err
++	}
++
++	result := struct {
++		Name  string
++		Owner struct {
++			Login string
++		}
++	}{}
++	if err := json.Unmarshal(b, &result); err != nil {
++		return nil, fmt.Errorf("error unmarshaling response: %w", err)
++	}
++
++	newRepo := ghrepo.NewWithHost(result.Owner.Login, result.Name, repo.RepoHost())
++
++	return newRepo, nil
++}
+diff --git a/pkg/cmd/repo/rename/rename.go b/pkg/cmd/repo/rename/rename.go
+new file mode 100644
+index 00000000000..d8b0e812389
+--- /dev/null
++++ b/pkg/cmd/repo/rename/rename.go
+@@ -0,0 +1,165 @@
++package rename
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/AlecAivazis/survey/v2"
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/context"
++	"github.com/cli/cli/v2/git"
++	"github.com/cli/cli/v2/internal/config"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/pkg/prompt"
++	"github.com/spf13/cobra"
++)
++
++type RenameOptions struct {
++	HttpClient      func() (*http.Client, error)
++	IO              *iostreams.IOStreams
++	Config          func() (config.Config, error)
++	BaseRepo        func() (ghrepo.Interface, error)
++	Remotes         func() (context.Remotes, error)
++	DoConfirm       bool
++	HasRepoOverride bool
++	newRepoSelector string
++}
++
++func NewCmdRename(f *cmdutil.Factory, runf func(*RenameOptions) error) *cobra.Command {
++	opts := &RenameOptions{
++		IO:         f.IOStreams,
++		HttpClient: f.HttpClient,
++		Remotes:    f.Remotes,
++		Config:     f.Config,
++	}
++
++	var confirm bool
++
++	cmd := &cobra.Command{
++		Use:   "rename [<new-name>]",
++		Short: "Rename a repository",
++		Long: heredoc.Doc(`Rename a GitHub repository
++
++		By default, this renames the current repository; otherwise renames the specified repository.`),
++		Args: cobra.MaximumNArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++			opts.HasRepoOverride = cmd.Flags().Changed("repo")
++
++			if len(args) > 0 {
++				opts.newRepoSelector = args[0]
++			} else if !opts.IO.CanPrompt() {
++				return cmdutil.FlagErrorf("new name argument required when not running interactively")
++			}
++
++			if len(args) == 1 && !confirm && !opts.HasRepoOverride {
++				if !opts.IO.CanPrompt() {
++					return cmdutil.FlagErrorf("--confirm required when passing a single argument")
++				}
++				opts.DoConfirm = true
++			}
++
++			if runf != nil {
++				return runf(opts)
++			}
++			return renameRun(opts)
++		},
++	}
++
++	cmdutil.EnableRepoOverride(cmd, f)
++	cmd.Flags().BoolVarP(&confirm, "confirm", "y", false, "skip confirmation prompt")
++
++	return cmd
++}
++
++func renameRun(opts *RenameOptions) error {
++	httpClient, err := opts.HttpClient()
++	if err != nil {
++		return err
++	}
++
++	newRepoName := opts.newRepoSelector
++
++	currRepo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	if newRepoName == "" {
++		err = prompt.SurveyAskOne(
++			&survey.Input{
++				Message: fmt.Sprintf("Rename %s to: ", ghrepo.FullName(currRepo)),
++			},
++			&newRepoName,
++		)
++		if err != nil {
++			return err
++		}
++	}
++
++	if opts.DoConfirm {
++		var confirmed bool
++		p := &survey.Confirm{
++			Message: fmt.Sprintf("Rename %s to %s?", ghrepo.FullName(currRepo), newRepoName),
++			Default: false,
++		}
++		err = prompt.SurveyAskOne(p, &confirmed)
++		if err != nil {
++			return fmt.Errorf("failed to prompt: %w", err)
++		}
++		if !confirmed {
++			return nil
++		}
++	}
++
++	newRepo, err := apiRename(httpClient, currRepo, newRepoName)
++	if err != nil {
++		return err
++	}
++
++	cs := opts.IO.ColorScheme()
++	if opts.IO.IsStdoutTTY() {
++		fmt.Fprintf(opts.IO.Out, "%s Renamed repository %s\n", cs.SuccessIcon(), ghrepo.FullName(newRepo))
++	}
++
++	if opts.HasRepoOverride {
++		return nil
++	}
++
++	remote, err := updateRemote(currRepo, newRepo, opts)
++	if err != nil {
++		fmt.Fprintf(opts.IO.ErrOut, "%s Warning: unable to update remote %q: %v\n", cs.WarningIcon(), remote.Name, err)
++	} else if opts.IO.IsStdoutTTY() {
++		fmt.Fprintf(opts.IO.Out, "%s Updated the %q remote\n", cs.SuccessIcon(), remote.Name)
++	}
++
++	return nil
++}
++
++func updateRemote(repo ghrepo.Interface, renamed ghrepo.Interface, opts *RenameOptions) (*context.Remote, error) {
++	cfg, err := opts.Config()
++	if err != nil {
++		return nil, err
++	}
++
++	protocol, err := cfg.Get(repo.RepoHost(), "git_protocol")
++	if err != nil {
++		return nil, err
++	}
++
++	remotes, err := opts.Remotes()
++	if err != nil {
++		return nil, err
++	}
++
++	remote, err := remotes.FindByRepo(repo.RepoOwner(), repo.RepoName())
++	if err != nil {
++		return nil, err
++	}
++
++	remoteURL := ghrepo.FormatRemoteURL(renamed, protocol)
++	err = git.UpdateRemoteURL(remote.Name, remoteURL)
++	return remote, err
++}
+diff --git a/pkg/cmd/repo/repo.go b/pkg/cmd/repo/repo.go
+index 5b2f467d934..ec16d731be4 100644
+--- a/pkg/cmd/repo/repo.go
++++ b/pkg/cmd/repo/repo.go
+@@ -10,6 +10,7 @@ import (
+ 	repoForkCmd "github.com/cli/cli/v2/pkg/cmd/repo/fork"
+ 	gardenCmd "github.com/cli/cli/v2/pkg/cmd/repo/garden"
+ 	repoListCmd "github.com/cli/cli/v2/pkg/cmd/repo/list"
++	repoRenameCmd "github.com/cli/cli/v2/pkg/cmd/repo/rename"
+ 	repoSyncCmd "github.com/cli/cli/v2/pkg/cmd/repo/sync"
+ 	repoViewCmd "github.com/cli/cli/v2/pkg/cmd/repo/view"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+@@ -44,6 +45,7 @@ func NewCmdRepo(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(repoSyncCmd.NewCmdSync(f, nil))
+ 	cmd.AddCommand(creditsCmd.NewCmdRepoCredits(f, nil))
+ 	cmd.AddCommand(gardenCmd.NewCmdGarden(f, nil))
++	cmd.AddCommand(repoRenameCmd.NewCmdRename(f, nil))
+ 	cmd.AddCommand(repoDeleteCmd.NewCmdDelete(f, nil))
+ 	cmd.AddCommand(repoArchiveCmd.NewCmdArchive(f, nil))
+ 

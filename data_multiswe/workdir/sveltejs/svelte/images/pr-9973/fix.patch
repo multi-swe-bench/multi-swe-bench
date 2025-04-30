@@ -1,0 +1,103 @@
+diff --git a/.changeset/long-buckets-lay.md b/.changeset/long-buckets-lay.md
+new file mode 100644
+index 000000000000..3611480fbc45
+--- /dev/null
++++ b/.changeset/long-buckets-lay.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++Fix interopability between backticks and templates
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 6ad1026cc744..0bf3bffdbd21 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -33,6 +33,7 @@ import {
+ } from '../../../../../constants.js';
+ import { regex_is_valid_identifier } from '../../../patterns.js';
+ import { javascript_visitors_runes } from './javascript-runes.js';
++import { sanitize_template_string } from '../../../../utils/sanitize_template_string.js';
+ 
+ /**
+  * @param {import('#compiler').RegularElement | import('#compiler').SvelteElement} element
+@@ -1636,7 +1637,7 @@ function serialize_template_literal(values, visit, state) {
+ 		const node = values[i];
+ 		if (node.type === 'Text') {
+ 			const last = /** @type {import('estree').TemplateElement} */ (quasis.at(-1));
+-			last.value.raw += node.data;
++			last.value.raw += sanitize_template_string(node.data);
+ 		} else {
+ 			if (node.type === 'ExpressionTag' && node.metadata.contains_call_expression) {
+ 				contains_call_expression = true;
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index 79c62e396d47..76e87406fc14 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -26,6 +26,7 @@ import { binding_properties } from '../../bindings.js';
+ import { regex_starts_with_newline, regex_whitespaces_strict } from '../../patterns.js';
+ import { remove_types } from '../typescript.js';
+ import { DOMBooleanAttributes } from '../../../../constants.js';
++import { sanitize_template_string } from '../../../utils/sanitize_template_string.js';
+ 
+ /**
+  * @param {string} value
+@@ -117,14 +118,6 @@ function serialize_template(template, out = b.id('out')) {
+ 	return statements;
+ }
+ 
+-/**
+- * @param {string} str
+- * @returns {string}
+- */
+-function sanitize_template_string(str) {
+-	return str.replace(/(`|\${|\\)/g, '\\$1');
+-}
+-
+ /**
+  * Processes an array of template nodes, joining sibling text/expression nodes and
+  * recursing into child nodes.
+@@ -194,7 +187,10 @@ function process_children(nodes, parent, { visit, state }) {
+ 			const node = sequence[i];
+ 			if (node.type === 'Text' || node.type === 'Comment') {
+ 				let last = /** @type {import('estree').TemplateElement} */ (quasis.at(-1));
+-				last.value.raw += node.type === 'Comment' ? `<!--${node.data}-->` : escape_html(node.data);
++				last.value.raw +=
++					node.type === 'Comment'
++						? `<!--${node.data}-->`
++						: sanitize_template_string(escape_html(node.data));
+ 			} else if (node.type === 'Anchor') {
+ 				expressions.push(node.id);
+ 				quasis.push(b.quasi('', i + 1 === sequence.length));
+diff --git a/packages/svelte/src/compiler/utils/builders.js b/packages/svelte/src/compiler/utils/builders.js
+index d98b840a195e..f0907f293f39 100644
+--- a/packages/svelte/src/compiler/utils/builders.js
++++ b/packages/svelte/src/compiler/utils/builders.js
+@@ -1,4 +1,5 @@
+ import { regex_is_valid_identifier } from '../phases/patterns.js';
++import { sanitize_template_string } from './sanitize_template_string.js';
+ 
+ /**
+  * @param {Array<import('estree').Expression | import('estree').SpreadElement | null>} elements
+@@ -314,7 +315,7 @@ export function prop_def(key, value, computed = false, is_static = false) {
+  * @returns {import('estree').TemplateElement}
+  */
+ export function quasi(cooked, tail = false) {
+-	const raw = cooked.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
++	const raw = sanitize_template_string(cooked);
+ 	return { type: 'TemplateElement', value: { raw, cooked }, tail };
+ }
+ 
+diff --git a/packages/svelte/src/compiler/utils/sanitize_template_string.js b/packages/svelte/src/compiler/utils/sanitize_template_string.js
+new file mode 100644
+index 000000000000..80357d908d9a
+--- /dev/null
++++ b/packages/svelte/src/compiler/utils/sanitize_template_string.js
+@@ -0,0 +1,7 @@
++/**
++ * @param {string} str
++ * @returns {string}
++ */
++export function sanitize_template_string(str) {
++	return str.replace(/(`|\${|\\)/g, '\\$1');
++}

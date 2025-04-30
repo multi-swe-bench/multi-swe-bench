@@ -1,0 +1,162 @@
+diff --git a/internal/ghinstance/host_test.go b/internal/ghinstance/host_test.go
+index 10a40a4328e..787569c68d4 100644
+--- a/internal/ghinstance/host_test.go
++++ b/internal/ghinstance/host_test.go
+@@ -2,6 +2,8 @@ package ghinstance
+ 
+ import (
+ 	"testing"
++
++	"github.com/stretchr/testify/assert"
+ )
+ 
+ func TestOverridableDefault(t *testing.T) {
+@@ -97,6 +99,50 @@ func TestNormalizeHostname(t *testing.T) {
+ 	}
+ }
+ 
++func TestHostnameValidator(t *testing.T) {
++	tests := []struct {
++		name     string
++		input    interface{}
++		wantsErr bool
++	}{
++		{
++			name:     "valid hostname",
++			input:    "internal.instance",
++			wantsErr: false,
++		},
++		{
++			name:     "hostname with slashes",
++			input:    "//internal.instance",
++			wantsErr: true,
++		},
++		{
++			name:     "empty hostname",
++			input:    "   ",
++			wantsErr: true,
++		},
++		{
++			name:     "hostname with colon",
++			input:    "internal.instance:2205",
++			wantsErr: true,
++		},
++		{
++			name:     "non-string hostname",
++			input:    62,
++			wantsErr: true,
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			err := HostnameValidator(tt.input)
++			if tt.wantsErr {
++				assert.Error(t, err)
++				return
++			}
++			assert.Equal(t, nil, err)
++		})
++	}
++}
+ func TestGraphQLEndpoint(t *testing.T) {
+ 	tests := []struct {
+ 		host string
+diff --git a/pkg/cmd/api/api_test.go b/pkg/cmd/api/api_test.go
+index a810fa7fcf4..6cd693ce1a5 100644
+--- a/pkg/cmd/api/api_test.go
++++ b/pkg/cmd/api/api_test.go
+@@ -31,6 +31,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "no flags",
+ 			cli:  "graphql",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "graphql",
+@@ -48,6 +49,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "override method",
+ 			cli:  "repos/octocat/Spoon-Knife -XDELETE",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "DELETE",
+ 				RequestMethodPassed: true,
+ 				RequestPath:         "repos/octocat/Spoon-Knife",
+@@ -65,6 +67,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "with fields",
+ 			cli:  "graphql -f query=QUERY -F body=@file.txt",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "graphql",
+@@ -82,6 +85,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "with headers",
+ 			cli:  "user -H 'accept: text/plain' -i",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "user",
+@@ -99,6 +103,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "with pagination",
+ 			cli:  "repos/OWNER/REPO/issues --paginate",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "repos/OWNER/REPO/issues",
+@@ -116,6 +121,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "with silenced output",
+ 			cli:  "repos/OWNER/REPO/issues --silent",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "repos/OWNER/REPO/issues",
+@@ -138,6 +144,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "GraphQL pagination",
+ 			cli:  "-XPOST graphql --paginate",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "POST",
+ 				RequestMethodPassed: true,
+ 				RequestPath:         "graphql",
+@@ -160,6 +167,7 @@ func Test_NewCmdApi(t *testing.T) {
+ 			name: "with request body from file",
+ 			cli:  "user --input myfile",
+ 			wants: ApiOptions{
++				Hostname:            "",
+ 				RequestMethod:       "GET",
+ 				RequestMethodPassed: false,
+ 				RequestPath:         "user",
+@@ -178,10 +186,29 @@ func Test_NewCmdApi(t *testing.T) {
+ 			cli:      "",
+ 			wantsErr: true,
+ 		},
++		{
++			name: "with hostname",
++			cli:  "graphql --hostname tom.petty",
++			wants: ApiOptions{
++				Hostname:            "tom.petty",
++				RequestMethod:       "GET",
++				RequestMethodPassed: false,
++				RequestPath:         "graphql",
++				RequestInputFile:    "",
++				RawFields:           []string(nil),
++				MagicFields:         []string(nil),
++				RequestHeaders:      []string(nil),
++				ShowResponseHeaders: false,
++				Paginate:            false,
++				Silent:              false,
++			},
++			wantsErr: false,
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			cmd := NewCmdApi(f, func(o *ApiOptions) error {
++				assert.Equal(t, tt.wants.Hostname, o.Hostname)
+ 				assert.Equal(t, tt.wants.RequestMethod, o.RequestMethod)
+ 				assert.Equal(t, tt.wants.RequestMethodPassed, o.RequestMethodPassed)
+ 				assert.Equal(t, tt.wants.RequestPath, o.RequestPath)

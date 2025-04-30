@@ -1,0 +1,106 @@
+diff --git a/command/issue.go b/command/issue.go
+index 32858d1459b..4db1942780a 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -39,7 +39,7 @@ func init() {
+ 	issueListCmd.Flags().StringP("author", "A", "", "Filter by author")
+ 
+ 	issueCmd.AddCommand(issueViewCmd)
+-	issueViewCmd.Flags().BoolP("preview", "p", false, "Display preview of issue content")
++	issueViewCmd.Flags().BoolP("web", "w", false, "Open issue in browser")
+ }
+ 
+ var issueCmd = &cobra.Command{
+@@ -74,7 +74,7 @@ var issueViewCmd = &cobra.Command{
+ 		}
+ 		return nil
+ 	},
+-	Short: "View an issue in the browser",
++	Short: "View an issue",
+ 	RunE:  issueView,
+ }
+ 
+@@ -233,17 +233,17 @@ func issueView(cmd *cobra.Command, args []string) error {
+ 	}
+ 	openURL := issue.URL
+ 
+-	preview, err := cmd.Flags().GetBool("preview")
++	web, err := cmd.Flags().GetBool("web")
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	if preview {
+-		out := colorableOut(cmd)
+-		return printIssuePreview(out, issue)
+-	} else {
++	if web {
+ 		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", openURL)
+ 		return utils.OpenInBrowser(openURL)
++	} else {
++		out := colorableOut(cmd)
++		return printIssuePreview(out, issue)
+ 	}
+ 
+ }
+diff --git a/command/pr.go b/command/pr.go
+index e1c8e796ba3..e9f78c8197a 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -31,7 +31,7 @@ func init() {
+ 	prListCmd.Flags().StringSliceP("label", "l", nil, "Filter by label")
+ 	prListCmd.Flags().StringP("assignee", "a", "", "Filter by assignee")
+ 
+-	prViewCmd.Flags().BoolP("preview", "p", false, "Display preview of pull request content")
++	prViewCmd.Flags().BoolP("web", "w", false, "Open pull request in browser")
+ }
+ 
+ var prCmd = &cobra.Command{
+@@ -57,10 +57,10 @@ var prStatusCmd = &cobra.Command{
+ var prViewCmd = &cobra.Command{
+ 	Use:   "view [{<number> | <url> | <branch>}]",
+ 	Short: "View a pull request in the browser",
+-	Long: `View a pull request specified by the argument in the browser.
++	Long: `View a pull request specified by the argument.
+ 
+ Without an argument, the pull request that belongs to the current
+-branch is opened.`,
++branch is displayed.`,
+ 	RunE: prView,
+ }
+ 
+@@ -262,7 +262,7 @@ func prView(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	preview, err := cmd.Flags().GetBool("preview")
++	web, err := cmd.Flags().GetBool("web")
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -283,7 +283,7 @@ func prView(cmd *cobra.Command, args []string) error {
+ 
+ 		if prNumber > 0 {
+ 			openURL = fmt.Sprintf("https://github.com/%s/pull/%d", ghrepo.FullName(baseRepo), prNumber)
+-			if preview {
++			if !web {
+ 				pr, err = api.PullRequestByNumber(apiClient, baseRepo, prNumber)
+ 				if err != nil {
+ 					return err
+@@ -299,12 +299,12 @@ func prView(cmd *cobra.Command, args []string) error {
+ 		}
+ 	}
+ 
+-	if preview {
+-		out := colorableOut(cmd)
+-		return printPrPreview(out, pr)
+-	} else {
++	if web {
+ 		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", openURL)
+ 		return utils.OpenInBrowser(openURL)
++	} else {
++		out := colorableOut(cmd)
++		return printPrPreview(out, pr)
+ 	}
+ }
+ 

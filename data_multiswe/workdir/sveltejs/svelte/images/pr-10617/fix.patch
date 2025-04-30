@@ -1,0 +1,205 @@
+diff --git a/.changeset/silly-ways-wash.md b/.changeset/silly-ways-wash.md
+new file mode 100644
+index 000000000000..5157693e80c3
+--- /dev/null
++++ b/.changeset/silly-ways-wash.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++feat: take form resets into account for two way bindings
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index b2ccd60251ab..c30f78b6da2c 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -2850,6 +2850,10 @@ export const template_visitors = {
+ 					break;
+ 				}
+ 
++				case 'files':
++					call_expr = b.call(`$.bind_files`, state.node, getter, setter);
++					break;
++
+ 				case 'this':
+ 					call_expr = serialize_bind_this(node.expression, context, state.node);
+ 					break;
+diff --git a/packages/svelte/src/compiler/phases/bindings.js b/packages/svelte/src/compiler/phases/bindings.js
+index 820c66d886ff..e3fdd7eb8c07 100644
+--- a/packages/svelte/src/compiler/phases/bindings.js
++++ b/packages/svelte/src/compiler/phases/bindings.js
+@@ -182,8 +182,6 @@ export const binding_properties = {
+ 		valid_elements: ['input', 'textarea', 'select']
+ 	},
+ 	files: {
+-		event: 'change',
+-		type: 'set',
+ 		valid_elements: ['input'],
+ 		omit_in_ssr: true
+ 	}
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/input.js b/packages/svelte/src/internal/client/dom/elements/bindings/input.js
+index fcf56b7e894d..c642d557eb8a 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/input.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/input.js
+@@ -1,6 +1,7 @@
+ import { DEV } from 'esm-env';
+ import { render_effect } from '../../../reactivity/effects.js';
+ import { stringify } from '../../../render.js';
++import { listen_to_event_and_reset_event } from './shared.js';
+ 
+ /**
+  * @param {HTMLInputElement} input
+@@ -9,7 +10,7 @@ import { stringify } from '../../../render.js';
+  * @returns {void}
+  */
+ export function bind_value(input, get_value, update) {
+-	input.addEventListener('input', () => {
++	listen_to_event_and_reset_event(input, 'input', () => {
+ 		if (DEV && input.type === 'checkbox') {
+ 			throw new Error(
+ 				'Using bind:value together with a checkbox input is not allowed. Use bind:checked instead'
+@@ -72,16 +73,22 @@ export function bind_group(inputs, group_index, input, get_value, update) {
+ 
+ 	binding_group.push(input);
+ 
+-	input.addEventListener('change', () => {
+-		// @ts-ignore
+-		var value = input.__value;
++	listen_to_event_and_reset_event(
++		input,
++		'change',
++		() => {
++			// @ts-ignore
++			var value = input.__value;
+ 
+-		if (is_checkbox) {
+-			value = get_binding_group_value(binding_group, value, input.checked);
+-		}
++			if (is_checkbox) {
++				value = get_binding_group_value(binding_group, value, input.checked);
++			}
+ 
+-		update(value);
+-	});
++			update(value);
++		},
++		// TODO better default value handling
++		() => update(is_checkbox ? [] : null)
++	);
+ 
+ 	render_effect(() => {
+ 		var value = get_value();
+@@ -114,7 +121,7 @@ export function bind_group(inputs, group_index, input, get_value, update) {
+  * @returns {void}
+  */
+ export function bind_checked(input, get_value, update) {
+-	input.addEventListener('change', () => {
++	listen_to_event_and_reset_event(input, 'change', () => {
+ 		var value = input.checked;
+ 		update(value);
+ 	});
+@@ -168,3 +175,17 @@ function is_numberlike_input(input) {
+ function to_number(value) {
+ 	return value === '' ? null : +value;
+ }
++
++/**
++ * @param {HTMLInputElement} input
++ * @param {() => FileList | null} get_value
++ * @param {(value: FileList | null) => void} update
++ */
++export function bind_files(input, get_value, update) {
++	listen_to_event_and_reset_event(input, 'change', () => {
++		update(input.files);
++	});
++	render_effect(() => {
++		input.files = get_value();
++	});
++}
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/select.js b/packages/svelte/src/internal/client/dom/elements/bindings/select.js
+index 6ee497f02b62..840be3a7af03 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/select.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/select.js
+@@ -1,4 +1,5 @@
+ import { effect } from '../../../reactivity/effects.js';
++import { listen_to_event_and_reset_event } from './shared.js';
+ import { untrack } from '../../../runtime.js';
+ 
+ /**
+@@ -76,7 +77,7 @@ export function init_select(select, get_value) {
+ export function bind_select_value(select, get_value, update) {
+ 	var mounting = true;
+ 
+-	select.addEventListener('change', () => {
++	listen_to_event_and_reset_event(select, 'change', () => {
+ 		/** @type {unknown} */
+ 		var value;
+ 
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/shared.js b/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
+index 379ce82f1e75..3c4f55259ace 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
+@@ -25,3 +25,51 @@ export function listen(target, events, handler, call_handler_immediately = true)
+ 		};
+ 	});
+ }
++
++let listening_to_form_reset = false;
++
++/**
++ * Listen to the given event, and then instantiate a global form reset listener if not already done,
++ * to notify all bindings when the form is reset
++ * @param {HTMLElement} element
++ * @param {string} event
++ * @param {() => void} handler
++ * @param {() => void} [on_reset]
++ */
++export function listen_to_event_and_reset_event(element, event, handler, on_reset = handler) {
++	element.addEventListener(event, handler);
++	// @ts-expect-error
++	const prev = element.__on_r;
++	if (prev) {
++		// special case for checkbox that can have multiple binds (group & checked)
++		// @ts-expect-error
++		element.__on_r = () => {
++			prev();
++			on_reset();
++		};
++	} else {
++		// @ts-expect-error
++		element.__on_r = on_reset;
++	}
++
++	if (!listening_to_form_reset) {
++		listening_to_form_reset = true;
++		document.addEventListener(
++			'reset',
++			(evt) => {
++				// Needs to happen one tick later or else the dom properties of the form
++				// elements have not updated to their reset values yet
++				Promise.resolve().then(() => {
++					if (!evt.defaultPrevented) {
++						for (const e of /**@type {HTMLFormElement} */ (evt.target).elements) {
++							// @ts-expect-error
++							e.__on_r?.();
++						}
++					}
++				});
++			},
++			// In the capture phase to guarantee we get noticed of it (no possiblity of stopPropagation)
++			{ capture: true }
++		);
++	}
++}
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 205bdd2bf20d..d88a749bc839 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -179,3 +179,7 @@ In Svelte 4, `null` and `undefined` were printed as the corresponding string. In
+ ### `bind:files` values can only be `null`, `undefined` or `FileList`
+ 
+ `bind:files` is now a two-way binding. As such, when setting a value, it needs to be either falsy (`null` or `undefined`) or of type `FileList`.
++
++### Bindings now react to form resets
++
++Previously, bindings did not take into account `reset` event of forms, and therefore values could get out of sync with the DOM. Svelte 5 fixes this by placing a `reset` listener on the document and invoking bindings where necessary.

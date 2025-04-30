@@ -1,0 +1,364 @@
+diff --git a/tracing-attributes/src/attr.rs b/tracing-attributes/src/attr.rs
+index 2af0400f2b..6bb586ef40 100644
+--- a/tracing-attributes/src/attr.rs
++++ b/tracing-attributes/src/attr.rs
+@@ -6,6 +6,14 @@ use quote::{quote, quote_spanned, ToTokens};
+ use syn::ext::IdentExt as _;
+ use syn::parse::{Parse, ParseStream};
+ 
++/// Arguments to `#[instrument(err(...))]` and `#[instrument(ret(...))]` which describe how the
++/// return value event should be emitted.
++#[derive(Clone, Default, Debug)]
++pub(crate) struct EventArgs {
++    level: Option<Level>,
++    pub(crate) mode: FormatMode,
++}
++
+ #[derive(Clone, Default, Debug)]
+ pub(crate) struct InstrumentArgs {
+     level: Option<Level>,
+@@ -15,51 +23,15 @@ pub(crate) struct InstrumentArgs {
+     pub(crate) follows_from: Option<Expr>,
+     pub(crate) skips: HashSet<Ident>,
+     pub(crate) fields: Option<Fields>,
+-    pub(crate) err_mode: Option<FormatMode>,
+-    pub(crate) ret_mode: Option<FormatMode>,
++    pub(crate) err_args: Option<EventArgs>,
++    pub(crate) ret_args: Option<EventArgs>,
+     /// Errors describing any unrecognized parse inputs that we skipped.
+     parse_warnings: Vec<syn::Error>,
+ }
+ 
+ impl InstrumentArgs {
+-    pub(crate) fn level(&self) -> impl ToTokens {
+-        fn is_level(lit: &LitInt, expected: u64) -> bool {
+-            match lit.base10_parse::<u64>() {
+-                Ok(value) => value == expected,
+-                Err(_) => false,
+-            }
+-        }
+-
+-        match &self.level {
+-            Some(Level::Str(ref lit)) if lit.value().eq_ignore_ascii_case("trace") => {
+-                quote!(tracing::Level::TRACE)
+-            }
+-            Some(Level::Str(ref lit)) if lit.value().eq_ignore_ascii_case("debug") => {
+-                quote!(tracing::Level::DEBUG)
+-            }
+-            Some(Level::Str(ref lit)) if lit.value().eq_ignore_ascii_case("info") => {
+-                quote!(tracing::Level::INFO)
+-            }
+-            Some(Level::Str(ref lit)) if lit.value().eq_ignore_ascii_case("warn") => {
+-                quote!(tracing::Level::WARN)
+-            }
+-            Some(Level::Str(ref lit)) if lit.value().eq_ignore_ascii_case("error") => {
+-                quote!(tracing::Level::ERROR)
+-            }
+-            Some(Level::Int(ref lit)) if is_level(lit, 1) => quote!(tracing::Level::TRACE),
+-            Some(Level::Int(ref lit)) if is_level(lit, 2) => quote!(tracing::Level::DEBUG),
+-            Some(Level::Int(ref lit)) if is_level(lit, 3) => quote!(tracing::Level::INFO),
+-            Some(Level::Int(ref lit)) if is_level(lit, 4) => quote!(tracing::Level::WARN),
+-            Some(Level::Int(ref lit)) if is_level(lit, 5) => quote!(tracing::Level::ERROR),
+-            Some(Level::Path(ref pat)) => quote!(#pat),
+-            Some(_) => quote! {
+-                compile_error!(
+-                    "unknown verbosity level, expected one of \"trace\", \
+-                     \"debug\", \"info\", \"warn\", or \"error\", or a number 1-5"
+-                )
+-            },
+-            None => quote!(tracing::Level::INFO),
+-        }
++    pub(crate) fn level(&self) -> Level {
++        self.level.clone().unwrap_or(Level::Info)
+     }
+ 
+     pub(crate) fn target(&self) -> impl ToTokens {
+@@ -154,12 +126,12 @@ impl Parse for InstrumentArgs {
+                 args.fields = Some(input.parse()?);
+             } else if lookahead.peek(kw::err) {
+                 let _ = input.parse::<kw::err>();
+-                let mode = FormatMode::parse(input)?;
+-                args.err_mode = Some(mode);
++                let err_args = EventArgs::parse(input)?;
++                args.err_args = Some(err_args);
+             } else if lookahead.peek(kw::ret) {
+                 let _ = input.parse::<kw::ret>()?;
+-                let mode = FormatMode::parse(input)?;
+-                args.ret_mode = Some(mode);
++                let ret_args = EventArgs::parse(input)?;
++                args.ret_args = Some(ret_args);
+             } else if lookahead.peek(Token![,]) {
+                 let _ = input.parse::<Token![,]>()?;
+             } else {
+@@ -177,6 +149,55 @@ impl Parse for InstrumentArgs {
+     }
+ }
+ 
++impl EventArgs {
++    pub(crate) fn level(&self, default: Level) -> Level {
++        self.level.clone().unwrap_or(default)
++    }
++}
++
++impl Parse for EventArgs {
++    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
++        if !input.peek(syn::token::Paren) {
++            return Ok(Self::default());
++        }
++        let content;
++        let _ = syn::parenthesized!(content in input);
++        let mut result = Self::default();
++        let mut parse_one_arg =
++            || {
++                let lookahead = content.lookahead1();
++                if lookahead.peek(kw::level) {
++                    if result.level.is_some() {
++                        return Err(content.error("expected only a single `level` argument"));
++                    }
++                    result.level = Some(content.parse()?);
++                } else if result.mode != FormatMode::default() {
++                    return Err(content.error("expected only a single format argument"));
++                } else if let Some(ident) = content.parse::<Option<Ident>>()? {
++                    match ident.to_string().as_str() {
++                        "Debug" => result.mode = FormatMode::Debug,
++                        "Display" => result.mode = FormatMode::Display,
++                        _ => return Err(syn::Error::new(
++                            ident.span(),
++                            "unknown event formatting mode, expected either `Debug` or `Display`",
++                        )),
++                    }
++                }
++                Ok(())
++            };
++        parse_one_arg()?;
++        if !content.is_empty() {
++            if content.lookahead1().peek(Token![,]) {
++                let _ = content.parse::<Token![,]>()?;
++                parse_one_arg()?;
++            } else {
++                return Err(content.error("expected `,` or `)`"));
++            }
++        }
++        Ok(result)
++    }
++}
++
+ struct StrArg<T> {
+     value: LitStr,
+     _p: std::marker::PhantomData<T>,
+@@ -247,27 +268,6 @@ impl Default for FormatMode {
+     }
+ }
+ 
+-impl Parse for FormatMode {
+-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+-        if !input.peek(syn::token::Paren) {
+-            return Ok(FormatMode::default());
+-        }
+-        let content;
+-        let _ = syn::parenthesized!(content in input);
+-        let maybe_mode: Option<Ident> = content.parse()?;
+-        maybe_mode.map_or(Ok(FormatMode::default()), |ident| {
+-            match ident.to_string().as_str() {
+-                "Debug" => Ok(FormatMode::Debug),
+-                "Display" => Ok(FormatMode::Display),
+-                _ => Err(syn::Error::new(
+-                    ident.span(),
+-                    "unknown error mode, must be Debug or Display",
+-                )),
+-            }
+-        })
+-    }
+-}
+-
+ #[derive(Clone, Debug)]
+ pub(crate) struct Fields(pub(crate) Punctuated<Field, Token![,]>);
+ 
+@@ -363,9 +363,12 @@ impl ToTokens for FieldKind {
+ }
+ 
+ #[derive(Clone, Debug)]
+-enum Level {
+-    Str(LitStr),
+-    Int(LitInt),
++pub(crate) enum Level {
++    Trace,
++    Debug,
++    Info,
++    Warn,
++    Error,
+     Path(Path),
+ }
+ 
+@@ -375,9 +378,37 @@ impl Parse for Level {
+         let _ = input.parse::<Token![=]>()?;
+         let lookahead = input.lookahead1();
+         if lookahead.peek(LitStr) {
+-            Ok(Self::Str(input.parse()?))
++            let str: LitStr = input.parse()?;
++            match str.value() {
++                s if s.eq_ignore_ascii_case("trace") => Ok(Level::Trace),
++                s if s.eq_ignore_ascii_case("debug") => Ok(Level::Debug),
++                s if s.eq_ignore_ascii_case("info") => Ok(Level::Info),
++                s if s.eq_ignore_ascii_case("warn") => Ok(Level::Warn),
++                s if s.eq_ignore_ascii_case("error") => Ok(Level::Error),
++                _ => Err(input.error(
++                    "unknown verbosity level, expected one of \"trace\", \
++                     \"debug\", \"info\", \"warn\", or \"error\", or a number 1-5",
++                )),
++            }
+         } else if lookahead.peek(LitInt) {
+-            Ok(Self::Int(input.parse()?))
++            fn is_level(lit: &LitInt, expected: u64) -> bool {
++                match lit.base10_parse::<u64>() {
++                    Ok(value) => value == expected,
++                    Err(_) => false,
++                }
++            }
++            let int: LitInt = input.parse()?;
++            match &int {
++                i if is_level(i, 1) => Ok(Level::Trace),
++                i if is_level(i, 2) => Ok(Level::Debug),
++                i if is_level(i, 3) => Ok(Level::Info),
++                i if is_level(i, 4) => Ok(Level::Warn),
++                i if is_level(i, 5) => Ok(Level::Error),
++                _ => Err(input.error(
++                    "unknown verbosity level, expected one of \"trace\", \
++                     \"debug\", \"info\", \"warn\", or \"error\", or a number 1-5",
++                )),
++            }
+         } else if lookahead.peek(Ident) {
+             Ok(Self::Path(input.parse()?))
+         } else {
+@@ -386,6 +417,19 @@ impl Parse for Level {
+     }
+ }
+ 
++impl ToTokens for Level {
++    fn to_tokens(&self, tokens: &mut TokenStream) {
++        match self {
++            Level::Trace => tokens.extend(quote!(tracing::Level::TRACE)),
++            Level::Debug => tokens.extend(quote!(tracing::Level::DEBUG)),
++            Level::Info => tokens.extend(quote!(tracing::Level::INFO)),
++            Level::Warn => tokens.extend(quote!(tracing::Level::WARN)),
++            Level::Error => tokens.extend(quote!(tracing::Level::ERROR)),
++            Level::Path(ref pat) => tokens.extend(quote!(#pat)),
++        }
++    }
++}
++
+ mod kw {
+     syn::custom_keyword!(fields);
+     syn::custom_keyword!(skip);
+diff --git a/tracing-attributes/src/expand.rs b/tracing-attributes/src/expand.rs
+index 0390a8c44e..d6b7855615 100644
+--- a/tracing-attributes/src/expand.rs
++++ b/tracing-attributes/src/expand.rs
+@@ -10,7 +10,7 @@ use syn::{
+ };
+ 
+ use crate::{
+-    attr::{Field, Fields, FormatMode, InstrumentArgs},
++    attr::{Field, Fields, FormatMode, InstrumentArgs, Level},
+     MaybeItemFn, MaybeItemFnRef,
+ };
+ 
+@@ -116,7 +116,8 @@ fn gen_block<B: ToTokens>(
+         .map(|name| quote!(#name))
+         .unwrap_or_else(|| quote!(#instrumented_function_name));
+ 
+-    let level = args.level();
++    let args_level = args.level();
++    let level = args_level.clone();
+ 
+     let follows_from = args.follows_from.iter();
+     let follows_from = quote! {
+@@ -232,21 +233,33 @@ fn gen_block<B: ToTokens>(
+ 
+     let target = args.target();
+ 
+-    let err_event = match args.err_mode {
+-        Some(FormatMode::Default) | Some(FormatMode::Display) => {
+-            Some(quote!(tracing::error!(target: #target, error = %e)))
++    let err_event = match args.err_args {
++        Some(event_args) => {
++            let level_tokens = event_args.level(Level::Error);
++            match event_args.mode {
++                FormatMode::Default | FormatMode::Display => Some(quote!(
++                    tracing::event!(target: #target, #level_tokens, error = %e)
++                )),
++                FormatMode::Debug => Some(quote!(
++                    tracing::event!(target: #target, #level_tokens, error = ?e)
++                )),
++            }
+         }
+-        Some(FormatMode::Debug) => Some(quote!(tracing::error!(target: #target, error = ?e))),
+         _ => None,
+     };
+ 
+-    let ret_event = match args.ret_mode {
+-        Some(FormatMode::Display) => Some(quote!(
+-            tracing::event!(target: #target, #level, return = %x)
+-        )),
+-        Some(FormatMode::Default) | Some(FormatMode::Debug) => Some(quote!(
+-            tracing::event!(target: #target, #level, return = ?x)
+-        )),
++    let ret_event = match args.ret_args {
++        Some(event_args) => {
++            let level_tokens = event_args.level(args_level);
++            match event_args.mode {
++                FormatMode::Display => Some(quote!(
++                    tracing::event!(target: #target, #level_tokens, return = %x)
++                )),
++                FormatMode::Default | FormatMode::Debug => Some(quote!(
++                    tracing::event!(target: #target, #level_tokens, return = ?x)
++                )),
++            }
++        }
+         _ => None,
+     };
+ 
+diff --git a/tracing-attributes/src/lib.rs b/tracing-attributes/src/lib.rs
+index 6165803695..269e32522c 100644
+--- a/tracing-attributes/src/lib.rs
++++ b/tracing-attributes/src/lib.rs
+@@ -227,10 +227,20 @@ mod expand;
+ ///     42
+ /// }
+ /// ```
+-/// The return value event will have the same level as the span generated by `#[instrument]`.
+-/// By default, this will be `TRACE`, but if the level is overridden, the event will be at the same
++/// The level of the return value event defaults to the same level as the span generated by `#[instrument]`.
++/// By default, this will be `TRACE`, but if the span level is overridden, the event will be at the same
+ /// level.
+ ///
++/// It's also possible to override the level for the `ret` event independently:
++///
++/// ```
++/// # use tracing_attributes::instrument;
++/// #[instrument(ret(level = "warn"))]
++/// fn my_function() -> i32 {
++///     42
++/// }
++/// ```
++///
+ /// **Note**:  if the function returns a `Result<T, E>`, `ret` will record returned values if and
+ /// only if the function returns [`Result::Ok`].
+ ///
+@@ -257,6 +267,16 @@ mod expand;
+ /// }
+ /// ```
+ ///
++/// Similarly, you can override the level of the `err` event:
++///
++/// ```
++/// # use tracing_attributes::instrument;
++/// #[instrument(err(level = "info"))]
++/// fn my_function(arg: usize) -> Result<(), std::io::Error> {
++///     Ok(())
++/// }
++/// ```
++///
+ /// By default, error values will be recorded using their `std::fmt::Display` implementations.
+ /// If an error implements `std::fmt::Debug`, it can be recorded using its `Debug` implementation
+ /// instead, by writing `err(Debug)`:

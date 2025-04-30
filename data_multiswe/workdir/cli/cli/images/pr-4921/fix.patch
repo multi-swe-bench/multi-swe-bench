@@ -1,0 +1,36 @@
+diff --git a/pkg/cmd/release/list/http.go b/pkg/cmd/release/list/http.go
+index 9b28c4f6406..f502b75d4e1 100644
+--- a/pkg/cmd/release/list/http.go
++++ b/pkg/cmd/release/list/http.go
+@@ -15,6 +15,7 @@ type Release struct {
+ 	Name         string
+ 	TagName      string
+ 	IsDraft      bool
++	IsLatest     bool
+ 	IsPrerelease bool
+ 	CreatedAt    time.Time
+ 	PublishedAt  time.Time
+diff --git a/pkg/cmd/release/list/list.go b/pkg/cmd/release/list/list.go
+index 5d0320406f4..4b0b768b0ea 100644
+--- a/pkg/cmd/release/list/list.go
++++ b/pkg/cmd/release/list/list.go
+@@ -66,7 +66,6 @@ func listRun(opts *ListOptions) error {
+ 	now := time.Now()
+ 	table := utils.NewTablePrinter(opts.IO)
+ 	iofmt := opts.IO.ColorScheme()
+-	seenLatest := false
+ 	for _, rel := range releases {
+ 		title := text.ReplaceExcessiveWhitespace(rel.Name)
+ 		if title == "" {
+@@ -76,10 +75,9 @@ func listRun(opts *ListOptions) error {
+ 
+ 		badge := ""
+ 		var badgeColor func(string) string
+-		if !rel.IsDraft && !rel.IsPrerelease && !seenLatest {
++		if rel.IsLatest {
+ 			badge = "Latest"
+ 			badgeColor = iofmt.Green
+-			seenLatest = true
+ 		} else if rel.IsDraft {
+ 			badge = "Draft"
+ 			badgeColor = iofmt.Red

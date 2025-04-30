@@ -1,0 +1,37 @@
+diff --git a/.changeset/shiny-melons-love.md b/.changeset/shiny-melons-love.md
+new file mode 100644
+index 000000000000..5633aff875c5
+--- /dev/null
++++ b/.changeset/shiny-melons-love.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: ensure derived is detected as dirty correctly
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index cb5bb185c059..be35678c1167 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -200,11 +200,6 @@ export function check_dirtiness(reaction) {
+ 
+ 				if (!is_dirty && check_dirtiness(/** @type {import('#client').Derived} */ (dependency))) {
+ 					update_derived(/** @type {import('#client').Derived} **/ (dependency), true);
+-
+-					// `signal` might now be dirty, as a result of calling `update_derived`
+-					if ((reaction.f & DIRTY) !== 0) {
+-						return true;
+-					}
+ 				}
+ 
+ 				if (is_unowned) {
+@@ -230,6 +225,9 @@ export function check_dirtiness(reaction) {
+ 							reactions.push(reaction);
+ 						}
+ 					}
++				} else if ((reaction.f & DIRTY) !== 0) {
++					// `signal` might now be dirty, as a result of calling `check_dirtiness` and/or `update_derived`
++					return true;
+ 				}
+ 			}
+ 		}

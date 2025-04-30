@@ -1,0 +1,262 @@
+diff --git a/.changeset/cyan-flowers-destroy.md b/.changeset/cyan-flowers-destroy.md
+new file mode 100644
+index 000000000000..2db04a758838
+--- /dev/null
++++ b/.changeset/cyan-flowers-destroy.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: correctly determine `bind:group` members
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 28e7e9a65569..6f8bfd2064d9 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -1,9 +1,9 @@
+ import is_reference from 'is-reference';
+ import { walk } from 'zimmerframe';
+ import { error } from '../../errors.js';
+-import * as assert from '../../utils/assert.js';
+ import {
+ 	extract_identifiers,
++	extract_all_identifiers_from_expression,
+ 	extract_paths,
+ 	is_event_attribute,
+ 	is_text_attribute,
+@@ -1008,39 +1008,52 @@ const common_visitors = {
+ 
+ 		if (node.name !== 'group') return;
+ 
++		// Traverse the path upwards and find all EachBlocks who are (indirectly) contributing to bind:group,
++		// i.e. one of their declarations is referenced in the binding. This allows group bindings to work
++		// correctly when referencing a variable declared in an EachBlock by using the index of the each block
++		// entries as keys.
+ 		i = context.path.length;
++		const each_blocks = [];
++		const expression_ids = extract_all_identifiers_from_expression(node.expression);
++		let ids = expression_ids;
+ 		while (i--) {
+ 			const parent = context.path[i];
+ 			if (parent.type === 'EachBlock') {
+-				parent.metadata.contains_group_binding = true;
+-				for (const binding of parent.metadata.references) {
+-					binding.mutated = true;
++				const references = ids.filter((id) => parent.metadata.declarations.has(id.name));
++				if (references.length > 0) {
++					parent.metadata.contains_group_binding = true;
++					for (const binding of parent.metadata.references) {
++						binding.mutated = true;
++					}
++					each_blocks.push(parent);
++					ids = ids.filter((id) => !references.includes(id));
++					ids.push(...extract_all_identifiers_from_expression(parent.expression));
+ 				}
+ 			}
+ 		}
+ 
+-		const id = object(node.expression);
+-
+-		const binding = id === null ? null : context.state.scope.get(id.name);
+-		assert.ok(binding);
+-
+-		let group = context.state.analysis.binding_groups.get(binding);
+-		if (!group) {
+-			group = {
+-				name: context.state.scope.root.unique('binding_group'),
+-				directives: []
+-			};
+-
+-			context.state.analysis.binding_groups.set(binding, group);
++		// The identifiers that make up the binding expression form they key for the binding group.
++		// If the same identifiers in the same order are used in another bind:group, they will be in the same group.
++		// (there's an edge case where `bind:group={a[i]}` will be in a different group than `bind:group={a[j]}` even when i == j,
++		//  but this is a limitation of the current static analysis we do; it also never worked in Svelte 4)
++		const bindings = expression_ids.map((id) => context.state.scope.get(id.name));
++		let group_name;
++		outer: for (const [b, group] of context.state.analysis.binding_groups) {
++			if (b.length !== bindings.length) continue;
++			for (let i = 0; i < bindings.length; i++) {
++				if (bindings[i] !== b[i]) continue outer;
++			}
++			group_name = group;
+ 		}
+ 
+-		group.directives.push(node);
++		if (!group_name) {
++			group_name = context.state.scope.root.unique('binding_group');
++			context.state.analysis.binding_groups.set(bindings, group_name);
++		}
+ 
+ 		node.metadata = {
+-			binding_group_name: group.name,
+-			parent_each_blocks: /** @type {import('#compiler').EachBlock[]} */ (
+-				context.path.filter((p) => p.type === 'EachBlock')
+-			)
++			binding_group_name: group_name,
++			parent_each_blocks: each_blocks
+ 		};
+ 	},
+ 	ArrowFunctionExpression: function_visitor,
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 6e369a7ce5cd..5297a403cee0 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -2720,8 +2720,7 @@ export const template_visitors = {
+ 				case 'group': {
+ 					/** @type {import('estree').CallExpression[]} */
+ 					const indexes = [];
+-					// we only care about the indexes above the first each block
+-					for (const parent_each_block of node.metadata.parent_each_blocks.slice(0, -1)) {
++					for (const parent_each_block of node.metadata.parent_each_blocks) {
+ 						indexes.push(b.call('$.unwrap', parent_each_block.metadata.index));
+ 					}
+ 
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 79fd249adf1e..24083fec00b6 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -3,7 +3,7 @@ import { walk } from 'zimmerframe';
+ import { is_element_node } from './nodes.js';
+ import * as b from '../utils/builders.js';
+ import { error } from '../errors.js';
+-import { extract_identifiers, extract_identifiers_from_expression } from '../utils/ast.js';
++import { extract_identifiers, extract_identifiers_from_destructuring } from '../utils/ast.js';
+ import { JsKeywords, Runes } from './constants.js';
+ 
+ export class Scope {
+@@ -306,7 +306,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 			scopes.set(attribute, scope);
+ 
+ 			if (attribute.expression) {
+-				for (const id of extract_identifiers_from_expression(attribute.expression)) {
++				for (const id of extract_identifiers_from_destructuring(attribute.expression)) {
+ 					const binding = scope.declare(id, 'derived', 'const');
+ 					bindings.push(binding);
+ 				}
+@@ -548,6 +548,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				array_name: needs_array_deduplication ? state.scope.root.unique('$$array') : null,
+ 				index: scope.root.unique('$$index'),
+ 				item_name: node.context.type === 'Identifier' ? node.context.name : '$$item',
++				declarations: scope.declarations,
+ 				references: [...references_within]
+ 					.map((id) => /** @type {import('#compiler').Binding} */ (state.scope.get(id.name)))
+ 					.filter(Boolean),
+diff --git a/packages/svelte/src/compiler/phases/types.d.ts b/packages/svelte/src/compiler/phases/types.d.ts
+index f2f9868e1315..ba1c14788910 100644
+--- a/packages/svelte/src/compiler/phases/types.d.ts
++++ b/packages/svelte/src/compiler/phases/types.d.ts
+@@ -28,11 +28,6 @@ export interface ReactiveStatement {
+ 	dependencies: Set<Binding>;
+ }
+ 
+-export interface BindingGroup {
+-	name: Identifier;
+-	directives: BindDirective[];
+-}
+-
+ export interface RawWarning {
+ 	code: string;
+ 	message: string;
+@@ -72,7 +67,8 @@ export interface ComponentAnalysis extends Analysis {
+ 	/** If `true`, should append styles through JavaScript */
+ 	inject_styles: boolean;
+ 	reactive_statements: Map<LabeledStatement, ReactiveStatement>;
+-	binding_groups: Map<Binding, BindingGroup>;
++	/** Identifiers that make up the `bind:group` expression -> internal group binding name */
++	binding_groups: Map<Array<Binding | null>, Identifier>;
+ 	slot_names: Set<string>;
+ }
+ 
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index 694b1231a50d..bed42415aa6d 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -379,6 +379,7 @@ export interface EachBlock extends BaseNode {
+ 		array_name: Identifier | null;
+ 		index: Identifier;
+ 		item_name: string;
++		declarations: Map<string, Binding>;
+ 		/** List of bindings that are referenced within the expression */
+ 		references: Binding[];
+ 		/**
+diff --git a/packages/svelte/src/compiler/utils/ast.js b/packages/svelte/src/compiler/utils/ast.js
+index 62a23025f54d..9f16679bc730 100644
+--- a/packages/svelte/src/compiler/utils/ast.js
++++ b/packages/svelte/src/compiler/utils/ast.js
+@@ -1,3 +1,4 @@
++import { walk } from 'zimmerframe';
+ import * as b from '../utils/builders.js';
+ 
+ /**
+@@ -96,11 +97,36 @@ export function extract_identifiers(param, nodes = []) {
+ 
+ /**
+  * Extracts all identifiers from an expression.
++ * @param {import('estree').Expression} expr
++ * @returns {import('estree').Identifier[]}
++ */
++export function extract_all_identifiers_from_expression(expr) {
++	/** @type {import('estree').Identifier[]} */
++	let nodes = [];
++
++	walk(
++		expr,
++		{},
++		{
++			Identifier(node, { path }) {
++				const parent = path.at(-1);
++				if (parent?.type !== 'MemberExpression' || parent.property !== node || parent.computed) {
++					nodes.push(node);
++				}
++			}
++		}
++	);
++
++	return nodes;
++}
++
++/**
++ * Extracts all leaf identifiers from a destructuring expression.
+  * @param {import('estree').Identifier | import('estree').ObjectExpression | import('estree').ArrayExpression} node
+  * @param {import('estree').Identifier[]} [nodes]
+  * @returns
+  */
+-export function extract_identifiers_from_expression(node, nodes = []) {
++export function extract_identifiers_from_destructuring(node, nodes = []) {
+ 	// TODO This isn't complete, but it should be enough for our purposes
+ 	switch (node.type) {
+ 		case 'Identifier':
+@@ -110,9 +136,9 @@ export function extract_identifiers_from_expression(node, nodes = []) {
+ 		case 'ObjectExpression':
+ 			for (const prop of node.properties) {
+ 				if (prop.type === 'Property') {
+-					extract_identifiers_from_expression(/** @type {any} */ (prop.value), nodes);
++					extract_identifiers_from_destructuring(/** @type {any} */ (prop.value), nodes);
+ 				} else {
+-					extract_identifiers_from_expression(/** @type {any} */ (prop.argument), nodes);
++					extract_identifiers_from_destructuring(/** @type {any} */ (prop.argument), nodes);
+ 				}
+ 			}
+ 
+@@ -120,7 +146,7 @@ export function extract_identifiers_from_expression(node, nodes = []) {
+ 
+ 		case 'ArrayExpression':
+ 			for (const element of node.elements) {
+-				if (element) extract_identifiers_from_expression(/** @type {any} */ (element), nodes);
++				if (element) extract_identifiers_from_destructuring(/** @type {any} */ (element), nodes);
+ 			}
+ 
+ 			break;
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 6414dc80b2f7..e47331a7a35d 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1408,6 +1408,7 @@ declare module 'svelte/compiler' {
+ 			array_name: Identifier | null;
+ 			index: Identifier;
+ 			item_name: string;
++			declarations: Map<string, Binding>;
+ 			/** List of bindings that are referenced within the expression */
+ 			references: Binding[];
+ 			/**

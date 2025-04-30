@@ -1,0 +1,86 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index 92057b7785b..72286a3e9f3 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -1086,23 +1086,20 @@ impl<'help> App<'help> {
+     /// [argument]: Arg
+     pub fn arg<A: Into<Arg<'help>>>(mut self, a: A) -> Self {
+         let mut arg = a.into();
+-        if let Some(help_heading) = self.current_help_heading {
+-            arg = arg.help_heading(Some(help_heading));
+-        }
++        arg.help_heading.get_or_insert(self.current_help_heading);
+         self.args.push(arg);
+         self
+     }
+ 
+-    /// Set a custom section heading for future args. Every call to [`App::arg`]
+-    /// (and its related methods) will use this header (instead of the default
+-    /// header for the specified argument type) until a subsequent call to
+-    /// [`App::help_heading`].
++    /// Set the default section heading for future args.
++    ///
++    /// This will be used for any arg that hasn't had [`Arg::help_heading`] called.
+     ///
+     /// This is useful if the default `OPTIONS` or `ARGS` headings are
+     /// not specific enough for one's use case.
+     ///
+     /// [`App::arg`]: App::arg()
+-    /// [`App::help_heading`]: App::help_heading()
++    /// [`Arg::help_heading`]: crate::Arg::help_heading()
+     #[inline]
+     pub fn help_heading<O>(mut self, heading: O) -> Self
+     where
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index a3becc65824..ab9fc3fb3ef 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -118,7 +118,7 @@ pub struct Arg<'help> {
+     pub(crate) env: Option<(&'help OsStr, Option<OsString>)>,
+     pub(crate) terminator: Option<&'help str>,
+     pub(crate) index: Option<usize>,
+-    pub(crate) help_heading: Option<&'help str>,
++    pub(crate) help_heading: Option<Option<&'help str>>,
+     pub(crate) global: bool,
+     pub(crate) exclusive: bool,
+     pub(crate) value_hint: ValueHint,
+@@ -156,7 +156,7 @@ impl<'help> Arg<'help> {
+     /// Get the help heading specified for this argument, if any
+     #[inline]
+     pub fn get_help_heading(&self) -> Option<&str> {
+-        self.help_heading
++        self.help_heading.unwrap_or_default()
+     }
+ 
+     /// Get the short option name for this argument, if any
+@@ -4699,7 +4699,7 @@ impl<'help> Arg<'help> {
+     where
+         O: Into<Option<&'help str>>,
+     {
+-        self.help_heading = heading.into();
++        self.help_heading = Some(heading.into());
+         self
+     }
+ 
+diff --git a/src/output/help.rs b/src/output/help.rs
+index 82d3df27444..da22bae9942 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -755,7 +755,7 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+             .app
+             .args
+             .args()
+-            .filter_map(|arg| arg.help_heading)
++            .filter_map(|arg| arg.get_help_heading())
+             .collect::<IndexSet<_>>();
+ 
+         let mut first = if !pos.is_empty() {
+@@ -783,7 +783,7 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+                     .args
+                     .args()
+                     .filter(|a| {
+-                        if let Some(help_heading) = a.help_heading {
++                        if let Some(help_heading) = a.get_help_heading() {
+                             return help_heading == heading;
+                         }
+                         false

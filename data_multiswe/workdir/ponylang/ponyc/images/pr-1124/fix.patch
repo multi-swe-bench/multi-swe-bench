@@ -1,0 +1,208 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 0c0e36d6ce..3bfde52d58 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -7,6 +7,7 @@ All notable changes to the Pony compiler and standard library will be documented
+ ### Fixed
+ 
+ - Compiling ponyrt with Clang versions >= 3.3, < 3.6.
++- Restrict mutable tuple recovery to maintain reference capability security (issue #1123)
+ 
+ ### Added
+ 
+diff --git a/src/libponyc/type/alias.c b/src/libponyc/type/alias.c
+index 3b391d90e5..4585c504af 100644
+--- a/src/libponyc/type/alias.c
++++ b/src/libponyc/type/alias.c
+@@ -330,33 +330,60 @@ ast_t* consume_type(ast_t* type, token_id cap)
+   return NULL;
+ }
+ 
+-ast_t* recover_type(ast_t* type, token_id cap)
++static ast_t* recover_complex(ast_t* type, token_id cap)
+ {
+   switch(ast_id(type))
+   {
+     case TK_UNIONTYPE:
+     case TK_ISECTTYPE:
+     case TK_TUPLETYPE:
++      break;
++
++    default:
++      assert(false);
++      break;
++  }
++
++  // recover each element
++  ast_t* r_type = ast_from(type, ast_id(type));
++  ast_t* child = ast_child(type);
++
++  while(child != NULL)
++  {
++    ast_t* r_right = recover_type(child, cap);
++
++    if(r_right == NULL)
+     {
+-      // recover each element
+-      ast_t* r_type = ast_from(type, ast_id(type));
+-      ast_t* child = ast_child(type);
++      ast_free_unattached(r_type);
++      return NULL;
++    }
+ 
+-      while(child != NULL)
+-      {
+-        ast_t* r_right = recover_type(child, cap);
++    ast_append(r_type, r_right);
++    child = ast_sibling(child);
++  }
+ 
+-        if(r_right == NULL)
+-        {
+-          ast_free_unattached(r_type);
+-          return NULL;
+-        }
++  return r_type;
++}
+ 
+-        ast_append(r_type, r_right);
+-        child = ast_sibling(child);
+-      }
++ast_t* recover_type(ast_t* type, token_id cap)
++{
++  switch(ast_id(type))
++  {
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++      return recover_complex(type, cap);
+ 
+-      return r_type;
++    case TK_TUPLETYPE:
++    {
++      if((cap == TK_VAL) || (cap == TK_BOX) || (cap == TK_TAG))
++        return recover_complex(type, cap);
++
++      if(immutable_or_opaque(type))
++        return recover_complex(type, cap);
++
++      // If we're recovering to something writable, we can't lift the reference
++      // capability because the objects in the tuple might alias each other.
++      return ast_dup(type);
+     }
+ 
+     case TK_NOMINAL:
+@@ -448,3 +475,61 @@ bool sendable(ast_t* type)
+   assert(0);
+   return false;
+ }
++
++bool immutable_or_opaque(ast_t* type)
++{
++  switch(ast_id(type))
++  {
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++    case TK_TUPLETYPE:
++    {
++      // Test each element.
++      ast_t* child = ast_child(type);
++
++      while(child != NULL)
++      {
++        if(!immutable_or_opaque(child))
++          return false;
++
++        child = ast_sibling(child);
++      }
++
++      return true;
++    }
++
++    case TK_ARROW:
++    {
++      ast_t* lower = viewpoint_lower(type);
++
++      if(lower == NULL)
++        return false;
++
++      bool ok = immutable_or_opaque(lower);
++      ast_free_unattached(lower);
++      return ok;
++    }
++
++    case TK_NOMINAL:
++    {
++      AST_GET_CHILDREN(type, pkg, id, typeparams, cap, eph);
++      return cap_immutable_or_opaque(ast_id(cap));
++    }
++
++    case TK_TYPEPARAMREF:
++    {
++      AST_GET_CHILDREN(type, id, cap, eph);
++      return cap_immutable_or_opaque(ast_id(cap));
++    }
++
++    case TK_FUNTYPE:
++    case TK_INFERTYPE:
++    case TK_ERRORTYPE:
++      return false;
++
++    default: {}
++  }
++
++  assert(0);
++  return false;
++}
+diff --git a/src/libponyc/type/alias.h b/src/libponyc/type/alias.h
+index 770604a70a..47d9d6ae11 100644
+--- a/src/libponyc/type/alias.h
++++ b/src/libponyc/type/alias.h
+@@ -19,6 +19,8 @@ ast_t* recover_type(ast_t* type, token_id cap);
+ 
+ bool sendable(ast_t* type);
+ 
++bool immutable_or_opaque(ast_t* type);
++
+ PONY_EXTERN_C_END
+ 
+ #endif
+diff --git a/src/libponyc/type/cap.c b/src/libponyc/type/cap.c
+index 3549010fc9..d7965942d8 100644
+--- a/src/libponyc/type/cap.c
++++ b/src/libponyc/type/cap.c
+@@ -1076,6 +1076,22 @@ bool cap_sendable(token_id cap)
+   return false;
+ }
+ 
++bool cap_immutable_or_opaque(token_id cap)
++{
++  switch(cap)
++  {
++    case TK_VAL:
++    case TK_BOX:
++    case TK_TAG:
++    case TK_CAP_SHARE:
++      return true;
++
++    default: {}
++  }
++
++  return false;
++}
++
+ bool cap_safetowrite(token_id into, token_id cap)
+ {
+   switch(into)
+diff --git a/src/libponyc/type/cap.h b/src/libponyc/type/cap.h
+index 62b4aed37c..521e5a9fd0 100644
+--- a/src/libponyc/type/cap.h
++++ b/src/libponyc/type/cap.h
+@@ -77,6 +77,8 @@ bool cap_view_lower(token_id left_cap, token_id left_eph,
+ 
+ bool cap_sendable(token_id cap);
+ 
++bool cap_immutable_or_opaque(token_id cap);
++
+ bool cap_safetowrite(token_id into, token_id cap);
+ 
+ PONY_EXTERN_C_END

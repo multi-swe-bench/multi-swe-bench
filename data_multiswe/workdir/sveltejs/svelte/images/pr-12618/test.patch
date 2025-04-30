@@ -1,0 +1,137 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/_config.js b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/_config.js
+index bc32b669cd6d..1e379f6b6160 100644
+--- a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/_config.js
+@@ -12,7 +12,7 @@ export default test({
+ 		dev: true
+ 	},
+ 
+-	html: `<p></p><h1>foo</h1><p></p>`,
++	html: `<p></p><h1>foo</h1><p></p><form></form>`,
+ 
+ 	recover: true,
+ 
+@@ -27,13 +27,15 @@ export default test({
+ 		log.length = 0;
+ 	},
+ 
+-	async test({ assert, target, variant }) {
+-		await assert.htmlEqual(target.innerHTML, `<p></p><h1>foo</h1><p></p>`);
++	async test({ assert, variant }) {
+ 		if (variant === 'hydrate') {
+ 			assert.equal(
+-				log[0],
+-				'`<p>` (main.svelte:5:0) cannot contain `<h1>` (Component.svelte:1:0)\n\n' +
+-					'This can cause content to shift around as the browser repairs the HTML, and will likely result in a `hydration_mismatch` warning.'
++				log[0].split('\n')[0],
++				'node_invalid_placement_ssr: `<p>` (main.svelte:6:0) cannot contain `<h1>` (h1.svelte:1:0)'
++			);
++			assert.equal(
++				log[1].split('\n')[0],
++				'node_invalid_placement_ssr: `<form>` (main.svelte:9:0) cannot contain `<form>` (form.svelte:1:0)'
+ 			);
+ 		}
+ 	}
+diff --git a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/form.svelte b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/form.svelte
+new file mode 100644
+index 000000000000..cddb6e37947d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/form.svelte
+@@ -0,0 +1,1 @@
++<form></form>
+diff --git a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/Component.svelte b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/h1.svelte
+similarity index 100%
+rename from packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/Component.svelte
+rename to packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/h1.svelte
+diff --git a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/main.svelte b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/main.svelte
+index e7fb324d9d96..84af67115573 100644
+--- a/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/invalid-html-ssr/main.svelte
+@@ -1,7 +1,11 @@
+ <script>
+-	import Component from "./Component.svelte";
++	import Form from './form.svelte';
++	import H1 from './h1.svelte';
+ </script>
+ 
+ <p>
+-	<Component />
++	<H1 />
+ </p>
++<form>
++	<Form />
++</form>
+diff --git a/packages/svelte/tests/validator/samples/invalid-node-placement-2/errors.json b/packages/svelte/tests/validator/samples/invalid-node-placement-2/errors.json
+index 045428210304..3d9786582343 100644
+--- a/packages/svelte/tests/validator/samples/invalid-node-placement-2/errors.json
++++ b/packages/svelte/tests/validator/samples/invalid-node-placement-2/errors.json
+@@ -1,7 +1,7 @@
+ [
+ 	{
+ 		"code": "node_invalid_placement",
+-		"message": "<div> is invalid inside <p>",
++		"message": "`<div>` is invalid inside `<p>`",
+ 		"start": {
+ 			"line": 4,
+ 			"column": 3
+diff --git a/packages/svelte/tests/validator/samples/invalid-node-placement-4/errors.json b/packages/svelte/tests/validator/samples/invalid-node-placement-4/errors.json
+index 8b2e2e67bab3..4d637aed805a 100644
+--- a/packages/svelte/tests/validator/samples/invalid-node-placement-4/errors.json
++++ b/packages/svelte/tests/validator/samples/invalid-node-placement-4/errors.json
+@@ -1,7 +1,7 @@
+ [
+ 	{
+ 		"code": "node_invalid_placement",
+-		"message": "<form> is invalid inside <form>",
++		"message": "`<form>` is invalid inside `<form>`",
+ 		"start": {
+ 			"line": 4,
+ 			"column": 3
+diff --git a/packages/svelte/tests/validator/samples/invalid-node-placement-5/input.svelte b/packages/svelte/tests/validator/samples/invalid-node-placement-5/input.svelte
+new file mode 100644
+index 000000000000..c50f4e087fbc
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/invalid-node-placement-5/input.svelte
+@@ -0,0 +1,9 @@
++<div>
++	<form>
++		{#if foo}
++			<form>
++				<input />
++			</form>
++		{/if}
++	</form>
++</div>
+diff --git a/packages/svelte/tests/validator/samples/invalid-node-placement-5/warnings.json b/packages/svelte/tests/validator/samples/invalid-node-placement-5/warnings.json
+new file mode 100644
+index 000000000000..e85050beb721
+--- /dev/null
++++ b/packages/svelte/tests/validator/samples/invalid-node-placement-5/warnings.json
+@@ -0,0 +1,14 @@
++[
++	{
++		"code": "node_invalid_placement_ssr",
++		"message": "`<form>` is invalid inside `<form>`. When rendering this component on the server, the resulting HTML will be modified by the browser, likely resulting in a `hydration_mismatch` warning",
++		"start": {
++			"line": 4,
++			"column": 3
++		},
++		"end": {
++			"line": 6,
++			"column": 10
++		}
++	}
++]
+diff --git a/packages/svelte/tests/validator/samples/invalid-node-placement/errors.json b/packages/svelte/tests/validator/samples/invalid-node-placement/errors.json
+index 2955a1e522f2..b9bdad5e72b9 100644
+--- a/packages/svelte/tests/validator/samples/invalid-node-placement/errors.json
++++ b/packages/svelte/tests/validator/samples/invalid-node-placement/errors.json
+@@ -1,7 +1,7 @@
+ [
+ 	{
+ 		"code": "node_invalid_placement",
+-		"message": "<a> is invalid inside <a>",
++		"message": "`<a>` is invalid inside `<a>`",
+ 		"start": {
+ 			"line": 4,
+ 			"column": 6

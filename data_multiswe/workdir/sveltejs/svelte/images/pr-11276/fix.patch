@@ -1,0 +1,242 @@
+diff --git a/.changeset/small-apples-eat.md b/.changeset/small-apples-eat.md
+new file mode 100644
+index 000000000000..baa6396bb61d
+--- /dev/null
++++ b/.changeset/small-apples-eat.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: implement `:global {...}` CSS blocks
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index ab0a17497e86..71bc3533360a 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -103,6 +103,15 @@ const css = {
+ 	/** @param {string} message */
+ 	'css-parse-error': (message) => message,
+ 	'invalid-css-empty-declaration': () => `Declaration cannot be empty`,
++	'invalid-css-global-block-list': () =>
++		`A :global {...} block cannot be part of a selector list with more than one item`,
++	'invalid-css-global-block-modifier': () =>
++		`A :global {...} block cannot modify an existing selector`,
++	/** @param {string} name */
++	'invalid-css-global-block-combinator': (name) =>
++		`A :global {...} block cannot follow a ${name} combinator`,
++	'invalid-css-global-block-declaration': () =>
++		`A :global {...} block can only contain rules, not declarations`,
+ 	'invalid-css-global-placement': () =>
+ 		`:global(...) can be at the start or end of a selector sequence, but not in the middle`,
+ 	'invalid-css-global-selector': () => `:global(...) must contain exactly one selector`,
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/style.js b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+index ef64a979532b..8ec00daff1c9 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/style.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+@@ -3,7 +3,6 @@ import { error } from '../../../errors.js';
+ const REGEX_MATCHER = /^[~^$*|]?=/;
+ const REGEX_CLOSING_BRACKET = /[\s\]]/;
+ const REGEX_ATTRIBUTE_FLAGS = /^[a-zA-Z]+/; // only `i` and `s` are valid today, but make it future-proof
+-const REGEX_COMBINATOR_WHITESPACE = /^\s*(\+|~|>|\|\|)\s*/;
+ const REGEX_COMBINATOR = /^(\+|~|>|\|\|)/;
+ const REGEX_PERCENTAGE = /^\d+(\.\d+)?%/;
+ const REGEX_NTH_OF =
+@@ -116,7 +115,8 @@ function read_rule(parser) {
+ 		end: parser.index,
+ 		metadata: {
+ 			parent_rule: null,
+-			has_local_selectors: false
++			has_local_selectors: false,
++			is_global_block: false
+ 		}
+ 	};
+ }
+@@ -252,8 +252,6 @@ function read_selector(parser, inside_pseudo_class = false) {
+ 			if (parser.eat('(')) {
+ 				args = read_selector_list(parser, true);
+ 				parser.eat(')', true);
+-			} else if (name === 'global') {
+-				error(parser.index, 'invalid-css-global-selector');
+ 			}
+ 
+ 			relative_selector.selectors.push({
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js b/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
+index 7b6cbff0ae20..38a62b9ca7ae 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
+@@ -69,6 +69,17 @@ const analysis_visitors = {
+ 	Rule(node, context) {
+ 		node.metadata.parent_rule = context.state.rule;
+ 
++		// `:global {...}` or `div :global {...}`
++		node.metadata.is_global_block = node.prelude.children.some((selector) => {
++			const last = selector.children[selector.children.length - 1];
++
++			const s = last.selectors[last.selectors.length - 1];
++
++			if (s.type === 'PseudoClassSelector' && s.name === 'global' && s.args === null) {
++				return true;
++			}
++		});
++
+ 		context.next({
+ 			...context.state,
+ 			rule: node
+@@ -84,6 +95,39 @@ const analysis_visitors = {
+ 
+ /** @type {Visitors} */
+ const validation_visitors = {
++	Rule(node, context) {
++		if (node.metadata.is_global_block) {
++			if (node.prelude.children.length > 1) {
++				error(node.prelude, 'invalid-css-global-block-list');
++			}
++
++			const complex_selector = node.prelude.children[0];
++			const relative_selector = complex_selector.children[complex_selector.children.length - 1];
++
++			if (relative_selector.selectors.length > 1) {
++				error(
++					relative_selector.selectors[relative_selector.selectors.length - 1],
++					'invalid-css-global-block-modifier'
++				);
++			}
++
++			if (relative_selector.combinator && relative_selector.combinator.name !== ' ') {
++				error(
++					relative_selector,
++					'invalid-css-global-block-combinator',
++					relative_selector.combinator.name
++				);
++			}
++
++			const declaration = node.block.children.find((child) => child.type === 'Declaration');
++
++			if (declaration) {
++				error(declaration, 'invalid-css-global-block-declaration');
++			}
++		}
++
++		context.next();
++	},
+ 	ComplexSelector(node, context) {
+ 		// ensure `:global(...)` is not used in the middle of a selector
+ 		{
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js b/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
+index a5010c543a90..1726a4fab184 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
+@@ -1,7 +1,6 @@
+ import { walk } from 'zimmerframe';
+ import { get_possible_values } from './utils.js';
+ import { regex_ends_with_whitespace, regex_starts_with_whitespace } from '../../patterns.js';
+-import { error } from '../../../errors.js';
+ 
+ /**
+  * @typedef {{
+@@ -60,6 +59,13 @@ export function prune(stylesheet, element) {
+ 
+ /** @type {import('zimmerframe').Visitors<import('#compiler').Css.Node, State>} */
+ const visitors = {
++	Rule(node, context) {
++		if (node.metadata.is_global_block) {
++			context.visit(node.prelude);
++		} else {
++			context.next();
++		}
++	},
+ 	ComplexSelector(node, context) {
+ 		const selectors = truncate(node);
+ 		const inner = selectors[selectors.length - 1];
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/css-warn.js b/packages/svelte/src/compiler/phases/2-analyze/css/css-warn.js
+index 8d7fef873f7d..3aa23822051c 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/css-warn.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/css-warn.js
+@@ -30,5 +30,12 @@ const visitors = {
+ 		}
+ 
+ 		context.next();
++	},
++	Rule(node, context) {
++		if (node.metadata.is_global_block) {
++			context.visit(node.prelude);
++		} else {
++			context.next();
++		}
+ 	}
+ };
+diff --git a/packages/svelte/src/compiler/phases/3-transform/css/index.js b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+index a71d77b2aa98..cb54841657b2 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/css/index.js
++++ b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+@@ -116,7 +116,7 @@ const visitors = {
+ 			}
+ 		}
+ 	},
+-	Rule(node, { state, next }) {
++	Rule(node, { state, next, visit }) {
+ 		// keep empty rules in dev, because it's convenient to
+ 		// see them in devtools
+ 		if (!state.dev && is_empty(node)) {
+@@ -134,6 +134,26 @@ const visitors = {
+ 			return;
+ 		}
+ 
++		if (node.metadata.is_global_block) {
++			const selector = node.prelude.children[0];
++
++			if (selector.children.length === 1) {
++				// `:global {...}`
++				state.code.prependRight(node.start, '/* ');
++				state.code.appendLeft(node.block.start + 1, '*/');
++
++				state.code.prependRight(node.block.end - 1, '/*');
++				state.code.appendLeft(node.block.end, '*/');
++
++				// don't recurse into selector or body
++				return;
++			}
++
++			// don't recurse into body
++			visit(node.prelude);
++			return;
++		}
++
+ 		next();
+ 	},
+ 	SelectorList(node, { state, next, path }) {
+@@ -275,6 +295,10 @@ const visitors = {
+ 
+ /** @param {import('#compiler').Css.Rule} rule */
+ function is_empty(rule) {
++	if (rule.metadata.is_global_block) {
++		return rule.block.children.length === 0;
++	}
++
+ 	for (const child of rule.block.children) {
+ 		if (child.type === 'Declaration') {
+ 			return false;
+diff --git a/packages/svelte/src/compiler/types/css.d.ts b/packages/svelte/src/compiler/types/css.d.ts
+index 4bce9044256f..ee323ad6d1ae 100644
+--- a/packages/svelte/src/compiler/types/css.d.ts
++++ b/packages/svelte/src/compiler/types/css.d.ts
+@@ -33,6 +33,7 @@ export namespace Css {
+ 		metadata: {
+ 			parent_rule: null | Rule;
+ 			has_local_selectors: boolean;
++			is_global_block: boolean;
+ 		};
+ 	}
+ 
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 900bee5a7695..401b569a611b 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1122,6 +1122,7 @@ declare module 'svelte/compiler' {
+ 			metadata: {
+ 				parent_rule: null | Rule;
+ 				has_local_selectors: boolean;
++				is_global_block: boolean;
+ 			};
+ 		}
+ 

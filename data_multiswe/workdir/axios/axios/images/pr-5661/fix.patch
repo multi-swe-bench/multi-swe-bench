@@ -1,0 +1,26 @@
+diff --git a/lib/utils.js b/lib/utils.js
+index 6a388721c1..80ae34c0c4 100644
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -188,12 +188,16 @@ const isStream = (val) => isObject(val) && isFunction(val.pipe);
+  * @returns {boolean} True if value is an FormData, otherwise false
+  */
+ const isFormData = (thing) => {
+-  const pattern = '[object FormData]';
++  let kind;
+   return thing && (
+-    (typeof FormData === 'function' && thing instanceof FormData) ||
+-    toString.call(thing) === pattern ||
+-    (isFunction(thing.toString) && thing.toString() === pattern)
+-  );
++    (typeof FormData === 'function' && thing instanceof FormData) || (
++      isFunction(thing.append) && (
++        (kind = kindOf(thing)) === 'formdata' ||
++        // detect form-data instance
++        (kind === 'object' && isFunction(thing.toString) && thing.toString() === '[object FormData]')
++      )
++    )
++  )
+ }
+ 
+ /**

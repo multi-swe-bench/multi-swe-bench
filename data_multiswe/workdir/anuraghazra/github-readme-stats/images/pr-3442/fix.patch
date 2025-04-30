@@ -1,0 +1,1267 @@
+diff --git a/.gitignore b/.gitignore
+index b1d9a017c5b80..496732a5dbd88 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,3 +14,4 @@ vercel_token
+ *.code-workspace
+ 
+ .vercel
++.wrangler
+diff --git a/api/gist.js b/api/gist.js
+index 8821c7b094b9e..500913f7bd4ab 100644
+--- a/api/gist.js
++++ b/api/gist.js
+@@ -8,7 +8,7 @@ import { isLocaleAvailable } from "../src/translations.js";
+ import { renderGistCard } from "../src/cards/gist-card.js";
+ import { fetchGist } from "../src/fetchers/gist-fetcher.js";
+ 
+-export default async (req, res) => {
++export const handler = async (req, res, env) => {
+   const {
+     id,
+     title_color,
+@@ -39,7 +39,7 @@ export default async (req, res) => {
+   }
+ 
+   try {
+-    const gistData = await fetchGist(id);
++    const gistData = await fetchGist(env, id);
+ 
+     let cacheSeconds = clampValue(
+       parseInt(cache_seconds || CONSTANTS.SIX_HOURS, 10),
+@@ -102,3 +102,5 @@ export default async (req, res) => {
+     );
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/index.js b/api/index.js
+index e1e1c27b4e378..22b7d3fd6cc0e 100644
+--- a/api/index.js
++++ b/api/index.js
+@@ -10,7 +10,7 @@ import {
+ import { fetchStats } from "../src/fetchers/stats-fetcher.js";
+ import { isLocaleAvailable } from "../src/translations.js";
+ 
+-export default async (req, res) => {
++export const handler = async (req, res, env) => {
+   const {
+     username,
+     hide,
+@@ -68,6 +68,7 @@ export default async (req, res) => {
+   try {
+     const showStats = parseArray(show);
+     const stats = await fetchStats(
++      env,
+       username,
+       parseBoolean(include_all_commits),
+       parseArray(exclude_repo),
+@@ -82,8 +83,8 @@ export default async (req, res) => {
+       CONSTANTS.SIX_HOURS,
+       CONSTANTS.ONE_DAY,
+     );
+-    cacheSeconds = process.env.CACHE_SECONDS
+-      ? parseInt(process.env.CACHE_SECONDS, 10) || cacheSeconds
++    cacheSeconds = env.CACHE_SECONDS
++      ? parseInt(env.CACHE_SECONDS, 10) || cacheSeconds
+       : cacheSeconds;
+ 
+     res.setHeader(
+@@ -138,3 +139,5 @@ export default async (req, res) => {
+     );
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/pin.js b/api/pin.js
+index bdad925a6efe0..6d9a2cca11742 100644
+--- a/api/pin.js
++++ b/api/pin.js
+@@ -9,7 +9,7 @@ import {
+ import { fetchRepo } from "../src/fetchers/repo-fetcher.js";
+ import { isLocaleAvailable } from "../src/translations.js";
+ 
+-export default async (req, res) => {
++export const handler = async (req, res, env) => {
+   const {
+     username,
+     repo,
+@@ -53,7 +53,7 @@ export default async (req, res) => {
+   }
+ 
+   try {
+-    const repoData = await fetchRepo(username, repo);
++    const repoData = await fetchRepo(env, username, repo);
+ 
+     let cacheSeconds = clampValue(
+       parseInt(cache_seconds || CONSTANTS.CARD_CACHE_SECONDS, 10),
+@@ -116,3 +116,5 @@ export default async (req, res) => {
+     );
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/status/pat-info.js b/api/status/pat-info.js
+index 1f17bf65aadb9..83e01bff93729 100644
+--- a/api/status/pat-info.js
++++ b/api/status/pat-info.js
+@@ -5,6 +5,7 @@
+  * @description This function is currently rate limited to 1 request per 5 minutes.
+  */
+ 
++import process from "node:process";
+ import { logger, request, dateDiff } from "../../src/common/utils.js";
+ export const RATE_LIMIT_SECONDS = 60 * 5; // 1 request per 5 minutes
+ 
+@@ -18,9 +19,10 @@ export const RATE_LIMIT_SECONDS = 60 * 5; // 1 request per 5 minutes
+  *
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} The response.
+  */
+-const uptimeFetcher = (variables, token) => {
++const uptimeFetcher = (variables, token, useFetch) => {
+   return request(
+     {
+       query: `
+@@ -35,11 +37,12 @@ const uptimeFetcher = (variables, token) => {
+     {
+       Authorization: `bearer ${token}`,
+     },
++    useFetch,
+   );
+ };
+ 
+-const getAllPATs = () => {
+-  return Object.keys(process.env).filter((key) => /PAT_\d*$/.exec(key));
++const getAllPATs = (env) => {
++  return Object.keys(env).filter((key) => /PAT_\d*$/.exec(key));
+ };
+ 
+ /**
+@@ -52,15 +55,16 @@ const getAllPATs = () => {
+  *
+  * @param {Fetcher} fetcher The fetcher function.
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
++ * @param {object} env The environment variables.
+  * @returns {Promise<PATInfo>} The response.
+  */
+-const getPATInfo = async (fetcher, variables) => {
++const getPATInfo = async (fetcher, variables, env) => {
+   const details = {};
+-  const PATs = getAllPATs();
++  const PATs = getAllPATs(env);
+ 
+   for (const pat of PATs) {
+     try {
+-      const response = await fetcher(variables, process.env[pat]);
++      const response = await fetcher(variables, env[pat]);
+       const errors = response.data.errors;
+       const hasErrors = Boolean(errors);
+       const errorType = errors?.[0]?.type;
+@@ -135,13 +139,14 @@ const getPATInfo = async (fetcher, variables) => {
+  *
+  * @param {any} _ The request.
+  * @param {any} res The response.
++ * @param {object} env The environment variables.
+  * @returns {Promise<void>} The response.
+  */
+-export default async (_, res) => {
++export const handler = async (_, res, env) => {
+   res.setHeader("Content-Type", "application/json");
+   try {
+     // Add header to prevent abuse.
+-    const PATsInfo = await getPATInfo(uptimeFetcher, {});
++    const PATsInfo = await getPATInfo(uptimeFetcher, {}, env);
+     if (PATsInfo) {
+       res.setHeader(
+         "Cache-Control",
+@@ -156,3 +161,5 @@ export default async (_, res) => {
+     res.send("Something went wrong: " + err.message);
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/status/up.js b/api/status/up.js
+index 786ac0b335a79..10aa4e414f915 100644
+--- a/api/status/up.js
++++ b/api/status/up.js
+@@ -20,9 +20,10 @@ export const RATE_LIMIT_SECONDS = 60 * 5; // 1 request per 5 minutes
+  *
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} The response.
+  */
+-const uptimeFetcher = (variables, token) => {
++const uptimeFetcher = (variables, token, useFetch) => {
+   return request(
+     {
+       query: `
+@@ -37,6 +38,7 @@ const uptimeFetcher = (variables, token) => {
+     {
+       Authorization: `bearer ${token}`,
+     },
++    useFetch,
+   );
+ };
+ 
+@@ -78,9 +80,10 @@ const shieldsUptimeBadge = (up) => {
+  *
+  * @param {any} req The request.
+  * @param {any} res The response.
++ * @param {object} env The environment variables.
+  * @returns {Promise<void>} Nothing.
+  */
+-export default async (req, res) => {
++export const handler = async (req, res, env) => {
+   let { type } = req.query;
+   type = type ? type.toLowerCase() : "boolean";
+ 
+@@ -89,7 +92,7 @@ export default async (req, res) => {
+   try {
+     let PATsValid = true;
+     try {
+-      await retryer(uptimeFetcher, {});
++      await retryer(uptimeFetcher, {}, env);
+     } catch (err) {
+       PATsValid = false;
+     }
+@@ -121,3 +124,5 @@ export default async (req, res) => {
+     res.send("Something went wrong: " + err.message);
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/top-langs.js b/api/top-langs.js
+index 0ca96fe3a4dfc..641c73a338ea5 100644
+--- a/api/top-langs.js
++++ b/api/top-langs.js
+@@ -10,7 +10,7 @@ import {
+ import { fetchTopLanguages } from "../src/fetchers/top-languages-fetcher.js";
+ import { isLocaleAvailable } from "../src/translations.js";
+ 
+-export default async (req, res) => {
++export const handler = async (req, res, env) => {
+   const {
+     username,
+     hide,
+@@ -64,6 +64,7 @@ export default async (req, res) => {
+ 
+   try {
+     const topLangs = await fetchTopLanguages(
++      env,
+       username,
+       parseArray(exclude_repo),
+       size_weight,
+@@ -124,3 +125,5 @@ export default async (req, res) => {
+     );
+   }
+ };
++
++export default async (req, res) => handler(req, res, process.env);
+diff --git a/api/wakatime.js b/api/wakatime.js
+index 732b05a5a9468..6a31b0b92eb19 100644
+--- a/api/wakatime.js
++++ b/api/wakatime.js
+@@ -8,6 +8,7 @@ import {
+ } from "../src/common/utils.js";
+ import { fetchWakatimeStats } from "../src/fetchers/wakatime-fetcher.js";
+ import { isLocaleAvailable } from "../src/translations.js";
++import process from "node:process";
+ 
+ export default async (req, res) => {
+   const {
+diff --git a/cloudflare/adapter.js b/cloudflare/adapter.js
+new file mode 100644
+index 0000000000000..7b599a7d5425e
+--- /dev/null
++++ b/cloudflare/adapter.js
+@@ -0,0 +1,59 @@
++export class RequestAdapter {
++  params = {};
++
++  /**
++   * @param {Request} request Cloudflare Workers request
++   */
++  constructor(request) {
++    this.request = request;
++
++    const url = new URL(request.url);
++    const queryString = url.search.slice(1).split("&");
++
++    queryString.forEach((item) => {
++      const kv = item.split("=");
++      if (kv[0]) {
++        this.params[kv[0]] = kv[1] || true;
++      }
++    });
++  }
++
++  /**
++   * @returns {string} request method
++   * @readonly
++   */
++  get query() {
++    return this.params;
++  }
++}
++
++export class ResponseAdapter {
++  headers = {};
++  body = "";
++
++  /**
++   * @param {string} key header key
++   * @param {string} value header value
++   * @returns {void}
++   */
++  setHeader(key, value) {
++    this.headers[key] = value;
++  }
++
++  /**
++   * @param {string} body response body
++   * @returns {void}
++   */
++  send(body) {
++    this.body = body;
++  }
++
++  /**
++   * @returns {Response} Cloudflare Workers response
++   */
++  toResponse() {
++    return new Response(this.body, {
++      headers: this.headers,
++    });
++  }
++}
+diff --git a/cloudflare/index.js b/cloudflare/index.js
+new file mode 100644
+index 0000000000000..cc48c02d4da53
+--- /dev/null
++++ b/cloudflare/index.js
+@@ -0,0 +1,38 @@
++import { RequestAdapter, ResponseAdapter } from "./adapter.js";
++import { handler as gistHandler } from "../api/gist.js";
++import { handler as indexHandler } from "../api/index.js";
++import { handler as pinHandler } from "../api/pin.js";
++import { handler as topLangsHandler } from "../api/top-langs.js";
++import wakatimeHandler from "../api/wakatime.js";
++import { handler as statusPatInfoHandler } from "../api/status/pat-info.js";
++import { handler as statusUpHandler } from "../api/status/up.js";
++
++export default {
++  async fetch(request, env) {
++    env.IS_CLOUDFLARE = "true"; // used to detect if running on Cloudflare
++
++    const req = new RequestAdapter(request);
++    const res = new ResponseAdapter();
++
++    const { pathname } = new URL(request.url);
++    if (pathname === "/api") {
++      await indexHandler(req, res, env);
++    } else if (pathname === "/api/gist") {
++      await gistHandler(req, res, env);
++    } else if (pathname === "/api/pin") {
++      await pinHandler(req, res, env);
++    } else if (pathname === "/api/top-langs") {
++      await topLangsHandler(req, res, env);
++    } else if (pathname === "/api/wakatime") {
++      await wakatimeHandler(req, res);
++    } else if (pathname === "/api/status/pat-info") {
++      await statusPatInfoHandler(req, res, env);
++    } else if (pathname === "/api/status/up") {
++      await statusUpHandler(req, res, env);
++    } else {
++      return new Response("not found", { status: 404 });
++    }
++
++    return res.toResponse();
++  },
++};
+diff --git a/readme.md b/readme.md
+index a010eca3b6d5f..64c4bc3b2a906 100644
+--- a/readme.md
++++ b/readme.md
+@@ -86,37 +86,39 @@ Please visit [this link](https://give.do/fundraisers/stand-beside-the-victims-of
+ # Features <!-- omit in toc -->
+ 
+ - [GitHub Stats Card](#github-stats-card)
+-    - [Hiding individual stats](#hiding-individual-stats)
+-    - [Showing additional individual stats](#showing-additional-individual-stats)
+-    - [Showing icons](#showing-icons)
+-    - [Themes](#themes)
+-    - [Customization](#customization)
++  - [Hiding individual stats](#hiding-individual-stats)
++  - [Showing additional individual stats](#showing-additional-individual-stats)
++  - [Showing icons](#showing-icons)
++  - [Themes](#themes)
++  - [Customization](#customization)
+ - [GitHub Extra Pins](#github-extra-pins)
+-    - [Usage](#usage)
+-    - [Demo](#demo)
++  - [Usage](#usage)
++  - [Demo](#demo)
+ - [GitHub Gist Pins](#github-gist-pins)
+-    - [Usage](#usage-1)
+-    - [Demo](#demo-1)
++  - [Usage](#usage-1)
++  - [Demo](#demo-1)
+ - [Top Languages Card](#top-languages-card)
+-    - [Usage](#usage-2)
+-    - [Language stats algorithm](#language-stats-algorithm)
+-    - [Exclude individual repositories](#exclude-individual-repositories)
+-    - [Hide individual languages](#hide-individual-languages)
+-    - [Show more languages](#show-more-languages)
+-    - [Compact Language Card Layout](#compact-language-card-layout)
+-    - [Donut Chart Language Card Layout](#donut-chart-language-card-layout)
+-    - [Donut Vertical Chart Language Card Layout](#donut-vertical-chart-language-card-layout)
+-    - [Pie Chart Language Card Layout](#pie-chart-language-card-layout)
+-    - [Hide Progress Bars](#hide-progress-bars)
+-    - [Demo](#demo-2)
++  - [Usage](#usage-2)
++  - [Language stats algorithm](#language-stats-algorithm)
++  - [Exclude individual repositories](#exclude-individual-repositories)
++  - [Hide individual languages](#hide-individual-languages)
++  - [Show more languages](#show-more-languages)
++  - [Compact Language Card Layout](#compact-language-card-layout)
++  - [Donut Chart Language Card Layout](#donut-chart-language-card-layout)
++  - [Donut Vertical Chart Language Card Layout](#donut-vertical-chart-language-card-layout)
++  - [Pie Chart Language Card Layout](#pie-chart-language-card-layout)
++  - [Hide Progress Bars](#hide-progress-bars)
++  - [Demo](#demo-2)
+ - [WakaTime Stats Card](#wakatime-stats-card)
+-    - [Demo](#demo-3)
++  - [Demo](#demo-3)
+ - [All Demos](#all-demos)
+   - [Quick Tip (Align The Cards)](#quick-tip-align-the-cards)
+ - [Deploy on your own](#deploy-on-your-own)
+   - [On Vercel](#on-vercel)
+     - [:film\_projector: Check Out Step By Step Video Tutorial By @codeSTACKr](#film_projector-check-out-step-by-step-video-tutorial-by-codestackr)
+   - [On other platforms](#on-other-platforms)
++    - [Cloudflare Workers](#cloudflare-workers)
++    - [Others](#others)
+   - [Disable rate limit protections](#disable-rate-limit-protections)
+   - [Keep your fork up to date](#keep-your-fork-up-to-date)
+ - [:sparkling\_heart: Support the project](#sparkling_heart-support-the-project)
+@@ -124,7 +126,7 @@ Please visit [this link](https://give.do/fundraisers/stand-beside-the-victims-of
+ # Important Notices <!-- omit in toc -->
+ 
+ > [!IMPORTANT]\
+-> Since the GitHub API only [allows 5k requests per hour per user account](https://docs.github.com/en/graphql/overview/resource-limitations), the public Vercel instance hosted on `https://github-readme-stats.vercel.app/api` could possibly hit the rate limiter (see [#1471](https://github.com/anuraghazra/github-readme-stats/issues/1471)). We use caching to prevent this from happening (see https://github.com/anuraghazra/github-readme-stats#common-options). You can turn off these rate limit protections by deploying [your own Vercel instance](#disable-rate-limit-protections).
++> Since the GitHub API only [allows 5k requests per hour per user account](https://docs.github.com/en/graphql/overview/resource-limitations), the public Vercel instance hosted on `https://github-readme-stats.vercel.app/api` could possibly hit the rate limiter (see [#1471](https://github.com/anuraghazra/github-readme-stats/issues/1471)). We use caching to prevent this from happening (see <https://github.com/anuraghazra/github-readme-stats#common-options>). You can turn off these rate limit protections by deploying [your own Vercel instance](#disable-rate-limit-protections).
+ 
+ <img alt="Uptime Badge" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fgithub-readme-stats-git-monitoring-github-readme-stats-team.vercel.app%2Fapi%2Fstatus%2Fup%3Ftype%3Dshields">
+ 
+@@ -288,16 +290,16 @@ You can customize the appearance of all your cards however you wish with URL par
+ 
+ #### Common Options
+ 
+-*   `title_color` - Card's title color *(hex color)*. Default: `2f80ed`.
+-*   `text_color` - Body text color *(hex color)*. Default: `434d58`.
+-*   `icon_color` - Icons color if available *(hex color)*. Default: `4c71f2`.
+-*   `border_color` - Card's border color *(hex color)*. Default: `e4e2e2` (Does not apply when `hide_border` is enabled).
+-*   `bg_color` - Card's background color *(hex color)* **or** a gradient in the form of *angle,start,end*. Default: `fffefe`
+-*   `hide_border` - Hides the card's border *(boolean)*. Default: `false`
+-*   `theme` - Name of the theme, choose from [all available themes](themes/README.md). Default: `default` theme.
+-*   `cache_seconds` - Sets the cache header manually *(min: 21600, max: 86400)*. Default: `21600 seconds (6 hours)`.
+-*   `locale` - Sets the language in the card, you can check full list of available locales [here](#available-locales). Default: `en`.
+-*   `border_radius` - Corner rounding on the card. Default: `4.5`.
++- `title_color` - Card's title color *(hex color)*. Default: `2f80ed`.
++- `text_color` - Body text color *(hex color)*. Default: `434d58`.
++- `icon_color` - Icons color if available *(hex color)*. Default: `4c71f2`.
++- `border_color` - Card's border color *(hex color)*. Default: `e4e2e2` (Does not apply when `hide_border` is enabled).
++- `bg_color` - Card's background color *(hex color)* **or** a gradient in the form of *angle,start,end*. Default: `fffefe`
++- `hide_border` - Hides the card's border *(boolean)*. Default: `false`
++- `theme` - Name of the theme, choose from [all available themes](themes/README.md). Default: `default` theme.
++- `cache_seconds` - Sets the cache header manually *(min: 21600, max: 86400)*. Default: `21600 seconds (6 hours)`.
++- `locale` - Sets the language in the card, you can check full list of available locales [here](#available-locales). Default: `en`.
++- `border_radius` - Corner rounding on the card. Default: `4.5`.
+ 
+ > [!WARNING]\
+ > We use caching to decrease the load on our servers (see <https://github.com/anuraghazra/github-readme-stats/issues/1471#issuecomment-1271551425>). Our cards have a default cache of 6 hours (21600 seconds). Also, note that the cache is clamped to a minimum of 6 hours and a maximum of 24 hours. If you want the data on your statistics card to be updated more often you can [deploy your own instance](#deploy-on-your-own) and set [environment variable](#disable-rate-limit-protections) `CACHE_SECONDS` to a value of your choosing.
+@@ -364,46 +366,46 @@ If we don't support your language, please consider contributing! You can find mo
+ 
+ #### Stats Card Exclusive Options
+ 
+-*   `hide` - Hides the [specified items](#hiding-individual-stats) from stats *(Comma-separated values)*. Default: `[] (blank array)`.
+-*   `hide_title` - *(boolean)*. Default: `false`.
+-*   `card_width` - Sets the card's width manually *(number)*. Default: `500px  (approx.)`.
+-*   `hide_rank` - *(boolean)* hides the rank and automatically resizes the card width. Default: `false`.
+-*   `rank_icon` - Shows alternative rank icon (i.e. `github`, `percentile` or `default`). Default: `default`.
+-*   `show_icons` - *(boolean)*. Default: `false`.
+-*   `include_all_commits` - Counts total commits instead of just the current year commits *(boolean)*. Default: `false`.
+-*   `line_height` - Sets the line height between text *(number)*. Default: `25`.
+-*   `exclude_repo` - Excludes stars from specified repositories *(Comma-separated values)*. Default: `[] (blank array)`.
+-*   `custom_title` - Sets a custom title for the card. Default:  `<username> GitHub Stats`.
+-*   `text_bold` - Uses bold text *(boolean)*. Default: `true`.
+-*   `disable_animations` - Disables all animations in the card *(boolean)*. Default: `false`.
+-*   `ring_color` - Color of the rank circle *(hex color)*. Defaults to the theme ring color if it exists and otherwise the title color.
+-*   `number_format` - Switches between two available formats for displaying the card values `short` (i.e. `6.6k`) and `long` (i.e. `6626`). Default: `short`.
+-*   `show` - Shows [additional items](#showing-additional-individual-stats) on stats card (i.e. `reviews`, `discussions_started`, `discussions_answered`, `prs_merged` or `prs_merged_percentage`) *(Comma-separated values)*. Default: `[] (blank array)`.
++- `hide` - Hides the [specified items](#hiding-individual-stats) from stats *(Comma-separated values)*. Default: `[] (blank array)`.
++- `hide_title` - *(boolean)*. Default: `false`.
++- `card_width` - Sets the card's width manually *(number)*. Default: `500px  (approx.)`.
++- `hide_rank` - *(boolean)* hides the rank and automatically resizes the card width. Default: `false`.
++- `rank_icon` - Shows alternative rank icon (i.e. `github`, `percentile` or `default`). Default: `default`.
++- `show_icons` - *(boolean)*. Default: `false`.
++- `include_all_commits` - Counts total commits instead of just the current year commits *(boolean)*. Default: `false`.
++- `line_height` - Sets the line height between text *(number)*. Default: `25`.
++- `exclude_repo` - Excludes stars from specified repositories *(Comma-separated values)*. Default: `[] (blank array)`.
++- `custom_title` - Sets a custom title for the card. Default:  `<username> GitHub Stats`.
++- `text_bold` - Uses bold text *(boolean)*. Default: `true`.
++- `disable_animations` - Disables all animations in the card *(boolean)*. Default: `false`.
++- `ring_color` - Color of the rank circle *(hex color)*. Defaults to the theme ring color if it exists and otherwise the title color.
++- `number_format` - Switches between two available formats for displaying the card values `short` (i.e. `6.6k`) and `long` (i.e. `6626`). Default: `short`.
++- `show` - Shows [additional items](#showing-additional-individual-stats) on stats card (i.e. `reviews`, `discussions_started`, `discussions_answered`, `prs_merged` or `prs_merged_percentage`) *(Comma-separated values)*. Default: `[] (blank array)`.
+ 
+ > [!NOTE]\
+ > When hide\_rank=`true`, the minimum card width is 270 px + the title length and padding.
+ 
+ #### Repo Card Exclusive Options
+ 
+-*   `show_owner` - Shows the repo's owner name *(boolean)*. Default: `false`.
++- `show_owner` - Shows the repo's owner name *(boolean)*. Default: `false`.
+ 
+ #### Gist Card Exclusive Options
+ 
+-*   `show_owner` - Shows the gist's owner name *(boolean)*. Default: `false`.
++- `show_owner` - Shows the gist's owner name *(boolean)*. Default: `false`.
+ 
+ #### Language Card Exclusive Options
+ 
+-*   `hide` - Hides the languages specified from the card *(Comma-separated values)*. Default: `[] (blank array)`.
+-*   `hide_title` - *(boolean)*. Default: `false`.
+-*   `layout` - Switches between five available layouts `normal` & `compact` & `donut` & `donut-vertical` & `pie`. Default: `normal`.
+-*   `card_width` - Sets the card's width manually *(number)*. Default `300`.
+-*   `langs_count` - Shows more languages on the card, between 1-20 *(number)*. Default: `5` for `normal` and `donut`, `6` for other layouts.
+-*   `exclude_repo` - Excludes specified repositories *(Comma-separated values)*. Default: `[] (blank array)`.
+-*   `custom_title` - Sets a custom title for the card *(string)*. Default `Most Used Languages`.
+-*   `disable_animations` - Disables all animations in the card *(boolean)*. Default: `false`.
+-*   `hide_progress` - Uses the compact layout option, hides percentages, and removes the bars. Default: `false`.
+-*   `size_weight` - Configures language stats algorithm *(number)* (see [Language stats algorithm](#Language-stats-algorithm)), defaults to 1.
+-*   `count_weight` - Configures language stats algorithm *(number)* (see [Language stats algorithm](#Language-stats-algorithm)), defaults to 0.
++- `hide` - Hides the languages specified from the card *(Comma-separated values)*. Default: `[] (blank array)`.
++- `hide_title` - *(boolean)*. Default: `false`.
++- `layout` - Switches between five available layouts `normal` & `compact` & `donut` & `donut-vertical` & `pie`. Default: `normal`.
++- `card_width` - Sets the card's width manually *(number)*. Default `300`.
++- `langs_count` - Shows more languages on the card, between 1-20 *(number)*. Default: `5` for `normal` and `donut`, `6` for other layouts.
++- `exclude_repo` - Excludes specified repositories *(Comma-separated values)*. Default: `[] (blank array)`.
++- `custom_title` - Sets a custom title for the card *(string)*. Default `Most Used Languages`.
++- `disable_animations` - Disables all animations in the card *(boolean)*. Default: `false`.
++- `hide_progress` - Uses the compact layout option, hides percentages, and removes the bars. Default: `false`.
++- `size_weight` - Configures language stats algorithm *(number)* (see [Language stats algorithm](#language-stats-algorithm)), defaults to 1.
++- `count_weight` - Configures language stats algorithm *(number)* (see [Language stats algorithm](#language-stats-algorithm)), defaults to 0.
+ 
+ > [!WARNING]\
+ > Language names should be URI-escaped, as specified in [Percent Encoding](https://en.wikipedia.org/wiki/Percent-encoding)
+@@ -412,14 +414,14 @@ If we don't support your language, please consider contributing! You can find mo
+ 
+ #### WakaTime Card Exclusive Options
+ 
+-*   `hide` - Hides the languages specified from the card *(Comma-separated values)*. Default: `[] (blank array)`.
+-*   `hide_title` - *(boolean)*. Default `false`.
+-*   `line_height` - Sets the line height between text *(number)*. Default `25`.
+-*   `hide_progress` - Hides the progress bar and percentage *(boolean)*. Default `false`.
+-*   `custom_title` - Sets a custom title for the card *(string)*. Default `WakaTime Stats`.
+-*   `layout` - Switches between two available layouts `default` & `compact`.  Default `default`.
+-*   `langs_count` - Limits the number of languages on the card, defaults to all reported languages *(number)*.
+-*   `api_domain` - Sets a custom API domain for the card, e.g. to use services like [Hakatime](https://github.com/mujx/hakatime) or [Wakapi](https://github.com/muety/wakapi) *(string)*. Default `Waka API`.
++- `hide` - Hides the languages specified from the card *(Comma-separated values)*. Default: `[] (blank array)`.
++- `hide_title` - *(boolean)*. Default `false`.
++- `line_height` - Sets the line height between text *(number)*. Default `25`.
++- `hide_progress` - Hides the progress bar and percentage *(boolean)*. Default `false`.
++- `custom_title` - Sets a custom title for the card *(string)*. Default `WakaTime Stats`.
++- `layout` - Switches between two available layouts `default` & `compact`.  Default `default`.
++- `langs_count` - Limits the number of languages on the card, defaults to all reported languages *(number)*.
++- `api_domain` - Sets a custom API domain for the card, e.g. to use services like [Hakatime](https://github.com/mujx/hakatime) or [Wakapi](https://github.com/muety/wakapi) *(string)*. Default `Waka API`.
+ 
+ ***
+ 
+@@ -505,9 +507,9 @@ ranking_index = (byte_count ^ size_weight) * (repo_count ^ count_weight)
+ 
+ By default, only the byte count is used for determining the languages percentages shown on the language card (i.e. `size_weight=1` and `count_weight=0`). You can, however, use the `&size_weight=` and `&count_weight=` options to weight the language usage calculation. The values must be positive real numbers. [More details about the algorithm can be found here](https://github.com/anuraghazra/github-readme-stats/issues/1600#issuecomment-1046056305).
+ 
+-*   `&size_weight=1&count_weight=0` - *(default)* Orders by byte count.
+-*   `&size_weight=0.5&count_weight=0.5` - *(recommended)* Uses both byte and repo count for ranking
+-*   `&size_weight=0&count_weight=1` - Orders by repo count
++- `&size_weight=1&count_weight=0` - *(default)* Orders by byte count.
++- `&size_weight=0.5&count_weight=0.5` - *(recommended)* Uses both byte and repo count for ranking
++- `&size_weight=0&count_weight=1` - Orders by repo count
+ 
+ ```md
+ ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra&size_weight=0.5&count_weight=0.5)
+@@ -581,23 +583,23 @@ You can use the `&hide_progress=true` option to hide the percentages and the pro
+ 
+ ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra)
+ 
+-*   Compact layout
++- Compact layout
+ 
+ ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra\&layout=compact)
+ 
+-*   Donut Chart layout
++- Donut Chart layout
+ 
+ [![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra\&layout=donut)](https://github.com/anuraghazra/github-readme-stats)
+ 
+-*   Donut Vertical Chart layout
++- Donut Vertical Chart layout
+ 
+ [![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra\&layout=donut-vertical)](https://github.com/anuraghazra/github-readme-stats)
+ 
+-*   Pie Chart layout
++- Pie Chart layout
+ 
+ [![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra\&layout=pie)](https://github.com/anuraghazra/github-readme-stats)
+ 
+-*   Hidden progress bars
++- Hidden progress bars
+ 
+ ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra\&hide_progress=true)
+ 
+@@ -618,7 +620,7 @@ Change the `?username=` value to your [WakaTime](https://wakatime.com) username.
+ 
+ ![Harlok's WakaTime stats](https://github-readme-stats.vercel.app/api/wakatime?username=ffflabs\&hide_progress=true)
+ 
+-*   Compact layout
++- Compact layout
+ 
+ ![Harlok's WakaTime stats](https://github-readme-stats.vercel.app/api/wakatime?username=ffflabs\&layout=compact)
+ 
+@@ -626,73 +628,73 @@ Change the `?username=` value to your [WakaTime](https://wakatime.com) username.
+ 
+ # All Demos
+ 
+-*   Default
++- Default
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra)
+ 
+-*   Hiding specific stats
++- Hiding specific stats
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&hide=contribs,issues)
+ 
+-*   Showing additional stats
++- Showing additional stats
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&show_icons=true\&show=reviews,discussions_started,discussions_answered,prs_merged,prs_merged_percentage)
+ 
+-*   Showing icons
++- Showing icons
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&hide=issues\&show_icons=true)
+ 
+-*   Shows Github logo instead rank level
++- Shows Github logo instead rank level
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&rank_icon=github)
+ 
+-*   Shows user rank percentile instead of rank level
++- Shows user rank percentile instead of rank level
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&rank_icon=percentile)
+ 
+-*   Customize Border Color
++- Customize Border Color
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&border_color=2e4058)
+ 
+-*   Include All Commits
++- Include All Commits
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&include_all_commits=true)
+ 
+-*   Themes
++- Themes
+ 
+ Choose from any of the [default themes](#themes)
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&show_icons=true\&theme=radical)
+ 
+-*   Gradient
++- Gradient
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra\&bg_color=30,e96443,904e95\&title_color=fff\&text_color=fff)
+ 
+-*   Customizing stats card
++- Customizing stats card
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api/?username=anuraghazra\&show_icons=true\&title_color=fff\&icon_color=79ff97\&text_color=9f9f9f\&bg_color=151515)
+ 
+-*   Setting card locale
++- Setting card locale
+ 
+ ![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api/?username=anuraghazra\&locale=es)
+ 
+-*   Customizing repo card
++- Customizing repo card
+ 
+ ![Customized Card](https://github-readme-stats.vercel.app/api/pin?username=anuraghazra\&repo=github-readme-stats\&title_color=fff\&icon_color=f9f9f9\&text_color=9f9f9f\&bg_color=151515)
+ 
+-*   Gist card
++- Gist card
+ 
+ ![Gist Card](https://github-readme-stats.vercel.app/api/gist?id=bbfce31e0217a3689c8d961a356cb10d)
+ 
+-*   Customizing gist card
++- Customizing gist card
+ 
+ ![Gist Card](https://github-readme-stats.vercel.app/api/gist?id=bbfce31e0217a3689c8d961a356cb10d&theme=calm)
+ 
+-*   Top languages
++- Top languages
+ 
+ ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=anuraghazra)
+ 
+-*   WakaTime card
++- WakaTime card
+ 
+ ![Harlok's WakaTime stats](https://github-readme-stats.vercel.app/api/wakatime?username=ffflabs)
+ 
+@@ -758,21 +760,21 @@ Since the GitHub API only allows 5k requests per hour, my `https://github-readme
+ [![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/anuraghazra/github-readme-stats)
+ 
+ <details>
+- <summary><b>:hammer_and_wrench: Step-by-step guide on setting up your own Vercel instance</b></summary>
++<summary><b>:hammer_and_wrench: Step-by-step guide on setting up your own Vercel instance</b></summary>
+ 
+-1.  Go to [vercel.com](https://vercel.com/).
+-2.  Click on `Log in`.
++1. Go to [vercel.com](https://vercel.com/).
++2. Click on `Log in`.
+     ![](https://files.catbox.moe/pcxk33.png)
+-3.  Sign in with GitHub by pressing `Continue with GitHub`.
++3. Sign in with GitHub by pressing `Continue with GitHub`.
+     ![](https://files.catbox.moe/b9oxey.png)
+-4.  Sign in to GitHub and allow access to all repositories if prompted.
+-5.  Fork this repo.
+-6.  Go back to your [Vercel dashboard](https://vercel.com/dashboard).
+-7.  To import a project, click the `Add New...` button and select the `Project` option.
++4. Sign in to GitHub and allow access to all repositories if prompted.
++5. Fork this repo.
++6. Go back to your [Vercel dashboard](https://vercel.com/dashboard).
++7. To import a project, click the `Add New...` button and select the `Project` option.
+     ![](https://files.catbox.moe/3n76fh.png)
+-8.  Click the `Continue with GitHub` button, search for the required Git Repository and import it by clicking the `Import` button. Alternatively, you can import a Third-Party Git Repository using the `Import Third-Party Git Repository ->` link at the bottom of the page.
++8. Click the `Continue with GitHub` button, search for the required Git Repository and import it by clicking the `Import` button. Alternatively, you can import a Third-Party Git Repository using the `Import Third-Party Git Repository ->` link at the bottom of the page.
+     ![](https://files.catbox.moe/mg5p04.png)
+-9.  Create a personal access token (PAT) [here](https://github.com/settings/tokens/new) and enable the `repo` and `user` permissions (this allows access to see private repo and user stats).
++9. Create a personal access token (PAT) [here](https://github.com/settings/tokens/new) and enable the `repo` and `user` permissions (this allows access to see private repo and user stats).
+ 10. Add the PAT as an environment variable named `PAT_1` (as shown).
+     ![](https://files.catbox.moe/0yclio.png)
+ 11. Click deploy, and you're good to go. See your domains to use the API!
+@@ -787,20 +789,31 @@ Since the GitHub API only allows 5k requests per hour, my `https://github-readme
+ <details>
+ <summary><b>:hammer_and_wrench: Step-by-step guide for deploying on other platforms</b></summary>
+ 
+-1.  Fork or clone this repo as per your needs
+-2.  Add `express` to the dependencies section of `package.json`
++### Cloudflare Workers
++
++1. Fork or clone this repo as per your needs
++2. Run `npm i` if needed (initial setup)
++3. Run `npm install wrangler --save-dev`
++4. Run `npx wrangler deploy` to deploy to Cloudflare Workers
++5. You're done 🎉
++
++### Others
++
++1. Fork or clone this repo as per your needs
++2. Add `express` to the dependencies section of `package.json`
+     <https://github.com/anuraghazra/github-readme-stats/blob/ba7c2f8b55eac8452e479c8bd38b044d204d0424/package.json#L54-L61>
+-3.  Run `npm i` if needed (initial setup)
+-4.  Run `node express.js` to start the server, or set the entry point to `express.js` in `package.json` if you're deploying on a managed service
++3. Run `npm i` if needed (initial setup)
++4. Run `node express.js` to start the server, or set the entry point to `express.js` in `package.json` if you're deploying on a managed service
+     <https://github.com/anuraghazra/github-readme-stats/blob/ba7c2f8b55eac8452e479c8bd38b044d204d0424/package.json#L11>
+-5.  You're done 🎉
+-    </details>
++5. You're done 🎉
++
++</details>
+ 
+ ## Disable rate limit protections
+ 
+ Github Readme Stats contains several Vercel environment variables that can be used to remove the rate limit protections:
+ 
+-*   `CACHE_SECONDS`: This environment variable takes precedence over our cache minimum and maximum values and can circumvent these values for self Hosted Vercel instances.
++- `CACHE_SECONDS`: This environment variable takes precedence over our cache minimum and maximum values and can circumvent these values for self Hosted Vercel instances.
+ 
+ See [the Vercel documentation](https://vercel.com/docs/concepts/projects/environment-variables) on adding these environment variables to your Vercel instance.
+ 
+@@ -815,9 +828,9 @@ this takes time. You can use this service for free.
+ 
+ However, if you are using this project and are happy with it or just want to encourage me to continue creating stuff, there are a few ways you can do it:
+ 
+-*   Giving proper credit when you use github-readme-stats on your readme, linking back to it :D
+-*   Starring and sharing the project :rocket:
+-*   [![paypal.me/anuraghazra](https://ionicabizau.github.io/badges/paypal.svg)](https://www.paypal.me/anuraghazra) - You can make one-time donations via PayPal. I'll probably buy a ~~coffee~~ tea. :tea:
++- Giving proper credit when you use github-readme-stats on your readme, linking back to it :D
++- Starring and sharing the project :rocket:
++- [![paypal.me/anuraghazra](https://ionicabizau.github.io/badges/paypal.svg)](https://www.paypal.me/anuraghazra) - You can make one-time donations via PayPal. I'll probably buy a ~~coffee~~ tea. :tea:
+ 
+ Thanks! :heart:
+ 
+diff --git a/src/cards/gist-card.js b/src/cards/gist-card.js
+index 9e889e74424cd..6b313fc609b19 100644
+--- a/src/cards/gist-card.js
++++ b/src/cards/gist-card.js
+@@ -21,9 +21,16 @@ import { icons } from "../common/icons.js";
+  * since vercel is using v16.14.0 which does not yet support json imports without the
+  * --experimental-json-modules flag.
+  */
+-import { createRequire } from "module";
+-const require = createRequire(import.meta.url);
+-const languageColors = require("../common/languageColors.json"); // now works
++let languageColors = {};
++try {
++  import("module").then((mod) => {
++    const { createRequire } = mod.Module;
++    const require = createRequire(import.meta.url);
++    languageColors = require("../common/languageColors.json"); // works
++  });
++} catch (err) {
++  languageColors = await import("../common/languageColors.json");
++}
+ 
+ const ICON_SIZE = 16;
+ const CARD_DEFAULT_WIDTH = 400;
+diff --git a/src/cards/stats-card.js b/src/cards/stats-card.js
+index 5f57205602016..0aa01899d412b 100644
+--- a/src/cards/stats-card.js
++++ b/src/cards/stats-card.js
+@@ -1,4 +1,5 @@
+ // @ts-check
++import process from "node:process";
+ import { Card } from "../common/Card.js";
+ import { I18n } from "../common/I18n.js";
+ import { icons, rankIcon } from "../common/icons.js";
+diff --git a/src/cards/wakatime-card.js b/src/cards/wakatime-card.js
+index a6a203dad9c29..838827e377137 100644
+--- a/src/cards/wakatime-card.js
++++ b/src/cards/wakatime-card.js
+@@ -17,9 +17,16 @@ import { wakatimeCardLocales } from "../translations.js";
+  * since vercel is using v16.14.0 which does not yet support json imports without the
+  * --experimental-json-modules flag.
+  */
+-import { createRequire } from "module";
+-const require = createRequire(import.meta.url);
+-const languageColors = require("../common/languageColors.json"); // now works
++let languageColors = {};
++try {
++  import("module").then((mod) => {
++    const { createRequire } = mod.Module;
++    const require = createRequire(import.meta.url);
++    languageColors = require("../common/languageColors.json"); // works
++  });
++} catch (err) {
++  languageColors = await import("../common/languageColors.json");
++}
+ 
+ /**
+  * Creates the no coding activity SVG node.
+diff --git a/src/common/Card.js b/src/common/Card.js
+index d32da56255f89..18db709d5c8aa 100644
+--- a/src/common/Card.js
++++ b/src/common/Card.js
+@@ -1,4 +1,5 @@
+ import { encodeHTML, flexLayout } from "./utils.js";
++import process from "node:process";
+ 
+ class Card {
+   /**
+diff --git a/src/common/retryer.js b/src/common/retryer.js
+index 3f294d3751327..c8d6cf14cb428 100644
+--- a/src/common/retryer.js
++++ b/src/common/retryer.js
+@@ -1,12 +1,11 @@
+ import { CustomError, logger } from "./utils.js";
+ 
+-// Script variables.
+-
+-// Count the number of GitHub API tokens available.
+-const PATs = Object.keys(process.env).filter((key) =>
+-  /PAT_\d*$/.exec(key),
+-).length;
+-const RETRIES = process.env.NODE_ENV === "test" ? 7 : PATs;
++const getMaxRetries = (env) => {
++  // Count the number of GitHub API tokens available.
++  const PATs = Object.keys(env).filter((key) => /PAT_\d*$/.exec(key)).length;
++  const RETRIES = env.NODE_ENV === "test" ? 7 : PATs;
++  return RETRIES;
++};
+ 
+ /**
+  * @typedef {import("axios").AxiosResponse} AxiosResponse Axios response.
+@@ -18,10 +17,14 @@ const RETRIES = process.env.NODE_ENV === "test" ? 7 : PATs;
+  *
+  * @param {FetcherFunction} fetcher The fetcher function.
+  * @param {object} variables Object with arguments to pass to the fetcher function.
++ * @param {object} env Environment variables.
+  * @param {number} retries How many times to retry.
+  * @returns {Promise<T>} The response from the fetcher function.
+  */
+-const retryer = async (fetcher, variables, retries = 0) => {
++const retryer = async (fetcher, variables, env, retries = 0) => {
++  const useFetch = "IS_CLOUDFLARE" in env; // Cloudflare Workers don't support axios.
++  const RETRIES = getMaxRetries(env);
++
+   if (!RETRIES) {
+     throw new CustomError("No GitHub API tokens found", CustomError.NO_TOKENS);
+   }
+@@ -35,12 +38,13 @@ const retryer = async (fetcher, variables, retries = 0) => {
+     // try to fetch with the first token since RETRIES is 0 index i'm adding +1
+     let response = await fetcher(
+       variables,
+-      process.env[`PAT_${retries + 1}`],
++      env[`PAT_${retries + 1}`],
++      useFetch,
+       retries,
+     );
+ 
+-    // prettier-ignore
+-    const isRateExceeded = response.data.errors && response.data.errors[0].type === "RATE_LIMITED";
++    const isRateExceeded =
++      response.data.errors && response.data.errors[0].type === "RATE_LIMITED";
+ 
+     // if rate limit is hit increase the RETRIES and recursively call the retryer
+     // with username, and current RETRIES
+@@ -48,7 +52,7 @@ const retryer = async (fetcher, variables, retries = 0) => {
+       logger.log(`PAT_${retries + 1} Failed`);
+       retries++;
+       // directly return from the function
+-      return retryer(fetcher, variables, retries);
++      return retryer(fetcher, variables, env, retries);
+     }
+ 
+     // finally return the response
+@@ -65,12 +69,12 @@ const retryer = async (fetcher, variables, retries = 0) => {
+       logger.log(`PAT_${retries + 1} Failed`);
+       retries++;
+       // directly return from the function
+-      return retryer(fetcher, variables, retries);
++      return retryer(fetcher, variables, env, retries);
+     } else {
+       return err.response;
+     }
+   }
+ };
+ 
+-export { retryer, RETRIES };
++export { retryer, getMaxRetries };
+ export default retryer;
+diff --git a/src/common/utils.js b/src/common/utils.js
+index 48ea051783b7f..bf3175a83641b 100644
+--- a/src/common/utils.js
++++ b/src/common/utils.js
+@@ -3,6 +3,7 @@ import axios from "axios";
+ import toEmoji from "emoji-name-map";
+ import wrap from "word-wrap";
+ import { themes } from "../../themes/index.js";
++import process from "node:process";
+ 
+ const TRY_AGAIN_LATER = "Please try again later";
+ 
+@@ -226,11 +227,28 @@ const fallbackColor = (color, fallbackColor) => {
+  * Send GraphQL request to GitHub API.
+  *
+  * @param {AxiosRequestConfigData} data Request data.
+- * @param {AxiosRequestConfigHeaders} headers Request headers.
++ * @param {Record<string, string>} headers Request headers.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<any>} Request response.
+  */
+-const request = (data, headers) => {
+-  return axios({
++const request = async (data, headers, useFetch = false) => {
++  // GitHub now requires User-Agent header
++  // https://docs.github.com/en/rest/overview/resources-in-the-rest-api?apiVersion=2022-11-28#user-agent-required
++  headers["User-Agent"] = "github-readme-stats";
++
++  if (useFetch) {
++    const resp = await fetch("https://api.github.com/graphql", {
++      method: "POST",
++      headers,
++      body: JSON.stringify(data),
++    });
++    return {
++      ...resp,
++      data: await resp.json(),
++    };
++  }
++
++  return await axios({
+     url: "https://api.github.com/graphql",
+     method: "post",
+     headers,
+diff --git a/src/fetchers/gist-fetcher.js b/src/fetchers/gist-fetcher.js
+index 4e0e0f5e7e4f2..6c4778e029880 100644
+--- a/src/fetchers/gist-fetcher.js
++++ b/src/fetchers/gist-fetcher.js
+@@ -37,12 +37,14 @@ query gistInfo($gistName: String!) {
+  *
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} The response.
+  */
+-const fetcher = async (variables, token) => {
++const fetcher = async (variables, token, useFetch) => {
+   return await request(
+     { query: QUERY, variables },
+     { Authorization: `token ${token}` },
++    useFetch,
+   );
+ };
+ 
+@@ -83,14 +85,15 @@ const calculatePrimaryLanguage = (files) => {
+ /**
+  * Fetch GitHub gist information by given username and ID.
+  *
++ * @param {object} env Environment variables.
+  * @param {string} id Github gist ID.
+  * @returns {Promise<GistData>} Gist data.
+  */
+-const fetchGist = async (id) => {
++const fetchGist = async (env, id) => {
+   if (!id) {
+     throw new MissingParamError(["id"], "/api/gist?id=GIST_ID");
+   }
+-  const res = await retryer(fetcher, { gistName: id });
++  const res = await retryer(fetcher, { gistName: id }, env);
+   if (res.data.errors) {
+     throw new Error(res.data.errors[0].message);
+   }
+diff --git a/src/fetchers/repo-fetcher.js b/src/fetchers/repo-fetcher.js
+index 6438f8895cfb6..284cfa40257b0 100644
+--- a/src/fetchers/repo-fetcher.js
++++ b/src/fetchers/repo-fetcher.js
+@@ -12,9 +12,10 @@ import { MissingParamError, request } from "../common/utils.js";
+  *
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} The response.
+  */
+-const fetcher = (variables, token) => {
++const fetcher = (variables, token, useFetch) => {
+   return request(
+     {
+       query: `
+@@ -53,6 +54,7 @@ const fetcher = (variables, token) => {
+     {
+       Authorization: `token ${token}`,
+     },
++    useFetch,
+   );
+ };
+ 
+@@ -65,11 +67,12 @@ const urlExample = "/api/pin?username=USERNAME&amp;repo=REPO_NAME";
+ /**
+  * Fetch repository data.
+  *
++ * @param {object} env Environment variables.
+  * @param {string} username GitHub username.
+  * @param {string} reponame GitHub repository name.
+  * @returns {Promise<RepositoryData>} Repository data.
+  */
+-const fetchRepo = async (username, reponame) => {
++const fetchRepo = async (env, username, reponame) => {
+   if (!username && !reponame) {
+     throw new MissingParamError(["username", "repo"], urlExample);
+   }
+@@ -80,7 +83,7 @@ const fetchRepo = async (username, reponame) => {
+     throw new MissingParamError(["repo"], urlExample);
+   }
+ 
+-  let res = await retryer(fetcher, { login: username, repo: reponame });
++  let res = await retryer(fetcher, { login: username, repo: reponame }, env);
+ 
+   const data = res.data.data;
+ 
+diff --git a/src/fetchers/stats-fetcher.js b/src/fetchers/stats-fetcher.js
+index 115cd50a51564..6701d7a7dc21f 100644
+--- a/src/fetchers/stats-fetcher.js
++++ b/src/fetchers/stats-fetcher.js
+@@ -86,11 +86,12 @@ const GRAPHQL_STATS_QUERY = `
+  *
+  * @param {object} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} Axios response.
+  */
+-const fetcher = (variables, token) => {
++const fetcher = (variables, token, useFetch) => {
+   const query = variables.after ? GRAPHQL_REPOS_QUERY : GRAPHQL_STATS_QUERY;
+-  return request(
++  const resp = request(
+     {
+       query,
+       variables,
+@@ -98,7 +99,9 @@ const fetcher = (variables, token) => {
+     {
+       Authorization: `bearer ${token}`,
+     },
++    useFetch,
+   );
++  return resp;
+ };
+ 
+ /**
+@@ -109,6 +112,7 @@ const fetcher = (variables, token) => {
+  * @param {boolean} variables.includeMergedPullRequests Include merged pull requests.
+  * @param {boolean} variables.includeDiscussions Include discussions.
+  * @param {boolean} variables.includeDiscussionsAnswers Include discussions answers.
++ * @param {object} variables.env Environment variables.
+  * @returns {Promise<AxiosResponse>} Axios response.
+  *
+  * @description This function supports multi-page fetching if the 'FETCH_MULTI_PAGE_STARS' environment variable is set to true.
+@@ -118,6 +122,7 @@ const statsFetcher = async ({
+   includeMergedPullRequests,
+   includeDiscussions,
+   includeDiscussionsAnswers,
++  env,
+ }) => {
+   let stats;
+   let hasNextPage = true;
+@@ -131,7 +136,7 @@ const statsFetcher = async ({
+       includeDiscussions,
+       includeDiscussionsAnswers,
+     };
+-    let res = await retryer(fetcher, variables);
++    let res = await retryer(fetcher, variables, env);
+     if (res.data.errors) {
+       return res;
+     }
+@@ -149,7 +154,7 @@ const statsFetcher = async ({
+       (node) => node.stargazers.totalCount !== 0,
+     );
+     hasNextPage =
+-      process.env.FETCH_MULTI_PAGE_STARS === "true" &&
++      env.FETCH_MULTI_PAGE_STARS === "true" &&
+       repoNodes.length === repoNodesWithStars.length &&
+       res.data.data.user.repositories.pageInfo.hasNextPage;
+     endCursor = res.data.data.user.repositories.pageInfo.endCursor;
+@@ -162,12 +167,13 @@ const statsFetcher = async ({
+  * Fetch all the commits for all the repositories of a given username.
+  *
+  * @param {string} username GitHub username.
++ * @param {object} env Environment variables.
+  * @returns {Promise<number>} Total commits.
+  *
+  * @description Done like this because the GitHub API does not provide a way to fetch all the commits. See
+  * #92#issuecomment-661026467 and #211 for more information.
+  */
+-const totalCommitsFetcher = async (username) => {
++const totalCommitsFetcher = async (username, env) => {
+   if (!githubUsernameRegex.test(username)) {
+     logger.log("Invalid username provided.");
+     throw new Error("Invalid username provided.");
+@@ -188,7 +194,7 @@ const totalCommitsFetcher = async (username) => {
+ 
+   let res;
+   try {
+-    res = await retryer(fetchTotalCommits, { login: username });
++    res = await retryer(fetchTotalCommits, { login: username }, env);
+   } catch (err) {
+     logger.log(err);
+     throw new Error(err);
+@@ -211,6 +217,7 @@ const totalCommitsFetcher = async (username) => {
+ /**
+  * Fetch stats for a given username.
+  *
++ * @param {object} env Environment variables.
+  * @param {string} username GitHub username.
+  * @param {boolean} include_all_commits Include all commits.
+  * @param {string[]} exclude_repo Repositories to exclude.
+@@ -220,6 +227,7 @@ const totalCommitsFetcher = async (username) => {
+  * @returns {Promise<StatsData>} Stats data.
+  */
+ const fetchStats = async (
++  env,
+   username,
+   include_all_commits = false,
+   exclude_repo = [],
+@@ -251,6 +259,7 @@ const fetchStats = async (
+     includeMergedPullRequests: include_merged_pull_requests,
+     includeDiscussions: include_discussions,
+     includeDiscussionsAnswers: include_discussions_answers,
++    env,
+   });
+ 
+   // Catch GraphQL errors.
+@@ -280,7 +289,7 @@ const fetchStats = async (
+ 
+   // if include_all_commits, fetch all commits using the REST API.
+   if (include_all_commits) {
+-    stats.totalCommits = await totalCommitsFetcher(username);
++    stats.totalCommits = await totalCommitsFetcher(username, env);
+   } else {
+     stats.totalCommits = user.contributionsCollection.totalCommitContributions;
+   }
+diff --git a/src/fetchers/top-languages-fetcher.js b/src/fetchers/top-languages-fetcher.js
+index 485cc8b75de8a..c460f975faaba 100644
+--- a/src/fetchers/top-languages-fetcher.js
++++ b/src/fetchers/top-languages-fetcher.js
+@@ -18,9 +18,10 @@ import {
+  *
+  * @param {AxiosRequestHeaders} variables Fetcher variables.
+  * @param {string} token GitHub token.
++ * @param {boolean=} useFetch Use fetch instead of axios.
+  * @returns {Promise<AxiosResponse>} Languages fetcher response.
+  */
+-const fetcher = (variables, token) => {
++const fetcher = (variables, token, useFetch) => {
+   return request(
+     {
+       query: `
+@@ -49,6 +50,7 @@ const fetcher = (variables, token) => {
+     {
+       Authorization: `token ${token}`,
+     },
++    useFetch,
+   );
+ };
+ 
+@@ -59,6 +61,7 @@ const fetcher = (variables, token) => {
+ /**
+  * Fetch top languages for a given username.
+  *
++ * @param {object} env Environment variables.
+  * @param {string} username GitHub username.
+  * @param {string[]} exclude_repo List of repositories to exclude.
+  * @param {number} size_weight Weightage to be given to size.
+@@ -66,6 +69,7 @@ const fetcher = (variables, token) => {
+  * @returns {Promise<TopLangData>} Top languages data.
+  */
+ const fetchTopLanguages = async (
++  env,
+   username,
+   exclude_repo = [],
+   size_weight = 1,
+@@ -75,7 +79,7 @@ const fetchTopLanguages = async (
+     throw new MissingParamError(["username"]);
+   }
+ 
+-  const res = await retryer(fetcher, { login: username });
++  const res = await retryer(fetcher, { login: username }, env);
+ 
+   if (res.data.errors) {
+     logger.error(res.data.errors);
+diff --git a/wrangler.toml b/wrangler.toml
+new file mode 100644
+index 0000000000000..28c882f2103e0
+--- /dev/null
++++ b/wrangler.toml
+@@ -0,0 +1,6 @@
++name = "github-readme-stats"
++main = "cloudflare/index.js"
++compatibility_date = "2023-10-25"
++node_compat = true
++
++[vars]

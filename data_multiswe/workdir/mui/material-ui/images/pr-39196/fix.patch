@@ -1,0 +1,69 @@
+diff --git a/docs/data/system/spacing/spacing.md b/docs/data/system/spacing/spacing.md
+index 3b5a25d6c43d56..6addc04a6994d3 100644
+--- a/docs/data/system/spacing/spacing.md
++++ b/docs/data/system/spacing/spacing.md
+@@ -61,6 +61,23 @@ const theme = {
+ <Box sx={{ m: 2 }} /> // margin: 4px;
+ ```
+ 
++- input: `string` & theme: `function`: the function is called with the prop value.
++
++```jsx
++const spacing = {
++  sm: 2,
++  md: 4,
++  lg: 8,
++}
++
++const theme = {
++  spacing: value => spacing[value],
++}
++
++<Box sx={{ m: 'sm' }} /> // margin: 2px;
++<Box sx={{ m: 'md' }} /> // margin: 4px;
++```
++
+ - input: `string`: the prop value is passed as raw CSS value.
+ 
+ ```jsx
+diff --git a/packages/mui-system/src/spacing.js b/packages/mui-system/src/spacing.js
+index f22063fdfd1229..7513584d6cde77 100644
+--- a/packages/mui-system/src/spacing.js
++++ b/packages/mui-system/src/spacing.js
+@@ -162,22 +162,25 @@ export function createUnarySpacing(theme) {
+ }
+ 
+ export function getValue(transformer, propValue) {
+-  if (typeof propValue === 'string' || propValue == null) {
+-    return propValue;
++  if (typeof propValue === 'string') {
++    return transformer(propValue) || propValue;
+   }
+ 
+-  const abs = Math.abs(propValue);
+-  const transformed = transformer(abs);
++  if (typeof propValue === 'number') {
++    const abs = Math.abs(propValue);
++    const transformed = transformer(abs);
+ 
+-  if (propValue >= 0) {
+-    return transformed;
+-  }
++    if (propValue >= 0) {
++      return transformed;
++    }
+ 
+-  if (typeof transformed === 'number') {
+-    return -transformed;
+-  }
++    if (typeof transformed === 'number') {
++      return -transformed;
++    }
+ 
+-  return `-${transformed}`;
++    return `-${transformed}`;
++  }
++  return propValue;
+ }
+ 
+ export function getStyleFromPropValue(cssProperties, transformer) {

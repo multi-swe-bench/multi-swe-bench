@@ -1,0 +1,221 @@
+diff --git a/command/issue.go b/command/issue.go
+index 3ba00ad4c6d..686baaa9965 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -109,9 +109,9 @@ func issueList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(colorableErr(cmd), "\nIssues for %s\n\n", ghrepo.FullName(*baseRepo))
++	fmt.Fprintf(colorableErr(cmd), "\nIssues for %s\n\n", ghrepo.FullName(baseRepo))
+ 
+-	issues, err := api.IssueList(apiClient, *baseRepo, state, labels, assignee, limit)
++	issues, err := api.IssueList(apiClient, baseRepo, state, labels, assignee, limit)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -169,7 +169,7 @@ func issueStatus(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	issuePayload, err := api.IssueStatus(apiClient, *baseRepo, currentUser)
++	issuePayload, err := api.IssueStatus(apiClient, baseRepo, currentUser)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -177,7 +177,7 @@ func issueStatus(cmd *cobra.Command, args []string) error {
+ 	out := colorableOut(cmd)
+ 
+ 	fmt.Fprintln(out, "")
+-	fmt.Fprintf(out, "Relevant issues in %s\n", ghrepo.FullName(*baseRepo))
++	fmt.Fprintf(out, "Relevant issues in %s\n", ghrepo.FullName(baseRepo))
+ 	fmt.Fprintln(out, "")
+ 
+ 	printHeader(out, "Issues assigned to you")
+@@ -221,7 +221,7 @@ func issueView(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	issue, err := issueFromArg(apiClient, *baseRepo, args[0])
++	issue, err := issueFromArg(apiClient, baseRepo, args[0])
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -294,8 +294,6 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(colorableErr(cmd), "\nCreating issue in %s\n\n", ghrepo.FullName(*baseRepo))
+-
+ 	baseOverride, err := cmd.Flags().GetString("repo")
+ 	if err != nil {
+ 		return err
+@@ -309,40 +307,48 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 		}
+ 	}
+ 
++	title, err := cmd.Flags().GetString("title")
++	if err != nil {
++		return fmt.Errorf("could not parse title: %w", err)
++	}
++	body, err := cmd.Flags().GetString("body")
++	if err != nil {
++		return fmt.Errorf("could not parse body: %w", err)
++	}
++
+ 	if isWeb, err := cmd.Flags().GetBool("web"); err == nil && isWeb {
+ 		// TODO: move URL generation into GitHubRepository
+-		openURL := fmt.Sprintf("https://github.com/%s/issues/new", ghrepo.FullName(*baseRepo))
+-		if len(templateFiles) > 1 {
++		openURL := fmt.Sprintf("https://github.com/%s/issues/new", ghrepo.FullName(baseRepo))
++		if title != "" || body != "" {
++			openURL += fmt.Sprintf(
++				"?title=%s&body=%s",
++				url.QueryEscape(title),
++				url.QueryEscape(body),
++			)
++		} else if len(templateFiles) > 1 {
+ 			openURL += "/choose"
+ 		}
+-		cmd.Printf("Opening %s in your browser.\n", openURL)
++		cmd.Printf("Opening %s in your browser.\n", displayURL(openURL))
+ 		return utils.OpenInBrowser(openURL)
+ 	}
+ 
++	fmt.Fprintf(colorableErr(cmd), "\nCreating issue in %s\n\n", ghrepo.FullName(baseRepo))
++
+ 	apiClient, err := apiClientForContext(ctx)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	repo, err := api.GitHubRepo(apiClient, *baseRepo)
++	repo, err := api.GitHubRepo(apiClient, baseRepo)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	if !repo.HasIssuesEnabled {
+-		return fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(*baseRepo))
++		return fmt.Errorf("the '%s' repository has disabled issues", ghrepo.FullName(baseRepo))
+ 	}
+ 
+ 	action := SubmitAction
+ 
+-	title, err := cmd.Flags().GetString("title")
+-	if err != nil {
+-		return fmt.Errorf("could not parse title: %w", err)
+-	}
+-	body, err := cmd.Flags().GetString("body")
+-	if err != nil {
+-		return fmt.Errorf("could not parse body: %w", err)
+-	}
+-
+ 	interactive := title == "" || body == ""
+ 
+ 	if interactive {
+@@ -370,7 +376,7 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 	if action == PreviewAction {
+ 		openURL := fmt.Sprintf(
+ 			"https://github.com/%s/issues/new/?title=%s&body=%s",
+-			ghrepo.FullName(*baseRepo),
++			ghrepo.FullName(baseRepo),
+ 			url.QueryEscape(title),
+ 			url.QueryEscape(body),
+ 		)
+diff --git a/command/pr.go b/command/pr.go
+index 9d3e2487e04..cd767f13d95 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -85,7 +85,7 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	prPayload, err := api.PullRequests(apiClient, *baseRepo, currentPRNumber, currentPRHeadRef, currentUser)
++	prPayload, err := api.PullRequests(apiClient, baseRepo, currentPRNumber, currentPRHeadRef, currentUser)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -93,7 +93,7 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 	out := colorableOut(cmd)
+ 
+ 	fmt.Fprintln(out, "")
+-	fmt.Fprintf(out, "Relevant pull requests in %s\n", ghrepo.FullName(*baseRepo))
++	fmt.Fprintf(out, "Relevant pull requests in %s\n", ghrepo.FullName(baseRepo))
+ 	fmt.Fprintln(out, "")
+ 
+ 	printHeader(out, "Current branch")
+@@ -136,7 +136,7 @@ func prList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	fmt.Fprintf(colorableErr(cmd), "\nPull requests for %s\n\n", ghrepo.FullName(*baseRepo))
++	fmt.Fprintf(colorableErr(cmd), "\nPull requests for %s\n\n", ghrepo.FullName(baseRepo))
+ 
+ 	limit, err := cmd.Flags().GetInt("limit")
+ 	if err != nil {
+@@ -174,8 +174,8 @@ func prList(cmd *cobra.Command, args []string) error {
+ 	}
+ 
+ 	params := map[string]interface{}{
+-		"owner": (*baseRepo).RepoOwner(),
+-		"repo":  (*baseRepo).RepoName(),
++		"owner": baseRepo.RepoOwner(),
++		"repo":  baseRepo.RepoName(),
+ 		"state": graphqlState,
+ 	}
+ 	if len(labels) > 0 {
+@@ -261,7 +261,7 @@ func prView(cmd *cobra.Command, args []string) error {
+ 	var openURL string
+ 	var pr *api.PullRequest
+ 	if len(args) > 0 {
+-		pr, err = prFromArg(apiClient, *baseRepo, args[0])
++		pr, err = prFromArg(apiClient, baseRepo, args[0])
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -273,15 +273,15 @@ func prView(cmd *cobra.Command, args []string) error {
+ 		}
+ 
+ 		if prNumber > 0 {
+-			openURL = fmt.Sprintf("https://github.com/%s/pull/%d", ghrepo.FullName(*baseRepo), prNumber)
++			openURL = fmt.Sprintf("https://github.com/%s/pull/%d", ghrepo.FullName(baseRepo), prNumber)
+ 			if preview {
+-				pr, err = api.PullRequestByNumber(apiClient, *baseRepo, prNumber)
++				pr, err = api.PullRequestByNumber(apiClient, baseRepo, prNumber)
+ 				if err != nil {
+ 					return err
+ 				}
+ 			}
+ 		} else {
+-			pr, err = api.PullRequestForBranch(apiClient, *baseRepo, branchWithOwner)
++			pr, err = api.PullRequestForBranch(apiClient, baseRepo, branchWithOwner)
+ 			if err != nil {
+ 				return err
+ 			}
+diff --git a/command/root.go b/command/root.go
+index 0257b6a48b0..5130f74c937 100644
+--- a/command/root.go
++++ b/command/root.go
+@@ -171,7 +171,7 @@ func changelogURL(version string) string {
+ 	return url
+ }
+ 
+-func determineBaseRepo(cmd *cobra.Command, ctx context.Context) (*ghrepo.Interface, error) {
++func determineBaseRepo(cmd *cobra.Command, ctx context.Context) (ghrepo.Interface, error) {
+ 	apiClient, err := apiClientForContext(ctx)
+ 	if err != nil {
+ 		return nil, err
+@@ -192,11 +192,10 @@ func determineBaseRepo(cmd *cobra.Command, ctx context.Context) (*ghrepo.Interfa
+ 		return nil, err
+ 	}
+ 
+-	var baseRepo ghrepo.Interface
+-	baseRepo, err = repoContext.BaseRepo()
++	baseRepo, err := repoContext.BaseRepo()
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 
+-	return &baseRepo, nil
++	return baseRepo, nil
+ }

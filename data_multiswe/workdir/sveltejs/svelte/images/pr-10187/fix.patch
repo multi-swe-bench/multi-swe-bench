@@ -1,0 +1,81 @@
+diff --git a/.changeset/big-cars-serve.md b/.changeset/big-cars-serve.md
+new file mode 100644
+index 000000000000..ada0f61ba939
+--- /dev/null
++++ b/.changeset/big-cars-serve.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: transform textarea and contenteditable binding expressions
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 6b07a5afd231..3e7cc21403e1 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -2595,16 +2595,14 @@ export const template_visitors = {
+ 			);
+ 		}
+ 
+-		const getter = b.thunk(
+-			/** @type {import('estree').Expression} */ (context.visit(node.expression))
+-		);
++		const getter = b.thunk(/** @type {import('estree').Expression} */ (visit(node.expression)));
+ 		const assignment = b.assignment('=', node.expression, b.id('$$value'));
+ 		const setter = b.arrow(
+ 			[b.id('$$value')],
+ 			serialize_set_binding(
+ 				assignment,
+ 				context,
+-				() => /** @type {import('estree').Expression} */ (context.visit(assignment)),
++				() => /** @type {import('estree').Expression} */ (visit(assignment)),
+ 				{
+ 					skip_proxy_and_freeze: true
+ 				}
+@@ -2767,9 +2765,7 @@ export const template_visitors = {
+ 							group_getter = b.thunk(
+ 								b.block([
+ 									b.stmt(serialize_attribute_value(value, context)[1]),
+-									b.return(
+-										/** @type {import('estree').Expression} */ (context.visit(node.expression))
+-									)
++									b.return(/** @type {import('estree').Expression} */ (visit(node.expression)))
+ 								])
+ 							);
+ 						}
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index e068802b7c11..49b92191ff1b 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -1452,9 +1452,6 @@ const template_visitors = {
+ 			context.state.init.push(b.stmt(b.call('$.add_snippet_symbol', node.expression)));
+ 		}
+ 	},
+-	BindDirective(node, context) {
+-		// TODO
+-	},
+ 	Component(node, context) {
+ 		const state = context.state;
+ 		const [dec, id] = serialize_anchor(state);
+@@ -1694,9 +1691,19 @@ function serialize_element_attributes(node, context) {
+ 			if (binding?.omit_in_ssr) continue;
+ 
+ 			if (ContentEditableBindings.includes(attribute.name)) {
+-				content = { escape: false, expression: attribute.expression };
++				content = {
++					escape: false,
++					expression: /** @type {import('estree').Expression} */ (
++						context.visit(attribute.expression)
++					)
++				};
+ 			} else if (attribute.name === 'value' && node.name === 'textarea') {
+-				content = { escape: true, expression: attribute.expression };
++				content = {
++					escape: true,
++					expression: /** @type {import('estree').Expression} */ (
++						context.visit(attribute.expression)
++					)
++				};
+ 			} else if (attribute.name === 'group') {
+ 				const value_attribute = /** @type {import('#compiler').Attribute | undefined} */ (
+ 					node.attributes.find((attr) => attr.type === 'Attribute' && attr.name === 'value')

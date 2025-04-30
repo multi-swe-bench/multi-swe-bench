@@ -1,0 +1,31 @@
+diff --git a/.changeset/large-waves-join.md b/.changeset/large-waves-join.md
+new file mode 100644
+index 000000000000..d032f6e86c45
+--- /dev/null
++++ b/.changeset/large-waves-join.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: handle `is` attribute on elements with spread
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 7a8f9660f4d2..b72b61cf7d23 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -278,6 +278,15 @@ function serialize_element_spread_attributes(
+ 			// TODO: handle contains_call_expression
+ 			const [, value] = serialize_attribute_value(attribute.value, context);
+ 
++			if (
++				name === 'is' &&
++				value.type === 'Literal' &&
++				context.state.metadata.namespace === 'html'
++			) {
++				context.state.template.push(` is="${escape_html(value.value, true)}"`);
++				continue;
++			}
++
+ 			if (
+ 				is_event_attribute(attribute) &&
+ 				(attribute.value[0].expression.type === 'ArrowFunctionExpression' ||

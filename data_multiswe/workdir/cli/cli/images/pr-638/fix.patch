@@ -1,0 +1,55 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 34884d16f7f..ee80c2f7fdf 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -10,7 +10,7 @@ import (
+ type PullRequestsPayload struct {
+ 	ViewerCreated   PullRequestAndTotalCount
+ 	ReviewRequested PullRequestAndTotalCount
+-	CurrentPRs      []PullRequest
++	CurrentPR       *PullRequest
+ }
+ 
+ type PullRequestAndTotalCount struct {
+@@ -262,13 +262,12 @@ func PullRequests(client *Client, repo ghrepo.Interface, currentPRNumber int, cu
+ 		reviewRequested = append(reviewRequested, edge.Node)
+ 	}
+ 
+-	var currentPRs []PullRequest
+-	if resp.Repository.PullRequest != nil {
+-		currentPRs = append(currentPRs, *resp.Repository.PullRequest)
+-	} else {
++	var currentPR = resp.Repository.PullRequest
++	if currentPR == nil {
+ 		for _, edge := range resp.Repository.PullRequests.Edges {
+ 			if edge.Node.HeadLabel() == currentPRHeadRef {
+-				currentPRs = append(currentPRs, edge.Node)
++				currentPR = &edge.Node
++				break // Take the most recent PR for the current branch
+ 			}
+ 		}
+ 	}
+@@ -282,7 +281,7 @@ func PullRequests(client *Client, repo ghrepo.Interface, currentPRNumber int, cu
+ 			PullRequests: reviewRequested,
+ 			TotalCount:   resp.ReviewRequested.TotalCount,
+ 		},
+-		CurrentPRs: currentPRs,
++		CurrentPR: currentPR,
+ 	}
+ 
+ 	return &payload, nil
+diff --git a/command/pr.go b/command/pr.go
+index 7a1b0004776..e1c8e796ba3 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -98,8 +98,8 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 	fmt.Fprintln(out, "")
+ 
+ 	printHeader(out, "Current branch")
+-	if prPayload.CurrentPRs != nil {
+-		printPrs(out, 0, prPayload.CurrentPRs...)
++	if prPayload.CurrentPR != nil {
++		printPrs(out, 0, *prPayload.CurrentPR)
+ 	} else {
+ 		message := fmt.Sprintf("  There is no pull request associated with %s", utils.Cyan("["+currentPRHeadRef+"]"))
+ 		printMessage(out, message)

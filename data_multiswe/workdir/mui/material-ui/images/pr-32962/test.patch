@@ -1,0 +1,102 @@
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test.js b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test.js
+index d432fafdb744da..12a4ce281419fd 100644
+--- a/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test.js
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test.js
+@@ -92,6 +92,19 @@ describe('@mui/codemod', () => {
+         const expected = read('./jss-to-tss-react.test/expected-from-mui-styles.js');
+         expect(actual).to.equal(expected, 'The transformed version should be correct');
+       });
++      it('transforms @mui/styles/makeStyles to use tss-react', () => {
++        const actual = transform(
++          {
++            source: read('./jss-to-tss-react.test/actual-from-mui-styles-makeStyles.js'),
++            path: require.resolve('./jss-to-tss-react.test/actual-from-mui-styles-makeStyles.js'),
++          },
++          { jscodeshift },
++          {},
++        );
++
++        const expected = read('./jss-to-tss-react.test/expected-from-mui-styles-makeStyles.js');
++        expect(actual).to.equal(expected, 'The transformed version should be correct');
++      });
+       it('transforms typescript makeStyles with nested selectors to use tss-react', () => {
+         const actual = transform(
+           {
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/actual-from-mui-styles-makeStyles.js b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/actual-from-mui-styles-makeStyles.js
+new file mode 100644
+index 00000000000000..a6d7970a3d6857
+--- /dev/null
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/actual-from-mui-styles-makeStyles.js
+@@ -0,0 +1,33 @@
++import React from "react";
++import makeStyles from "@mui/styles/makeStyles";
++
++const useStyles = makeStyles({
++  test: {
++    backgroundColor: "purple",
++    color: "white"
++  }
++});
++
++const useStyles2 = makeStyles({
++  test: {
++    backgroundColor: "purple",
++    color: "white",
++    "& $test2": {
++      backgroundColor: "lime",
++      color: "blue"
++    }
++  },
++  test2: {
++    backgroundColor: "blue",
++    color: "lime"
++  }
++});
++
++function InnerComponent() {
++  const classes = useStyles2();
++  return <div className={classes.test2}>Inner Test</div>;
++}
++export default function ComponentUsingStyles(props) {
++  const classes = useStyles();
++  return <div className={classes.test}>Test<InnerComponent/></div>;
++}
+diff --git a/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/expected-from-mui-styles-makeStyles.js b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/expected-from-mui-styles-makeStyles.js
+new file mode 100644
+index 00000000000000..1908a038c32952
+--- /dev/null
++++ b/packages/mui-codemod/src/v5.0.0/jss-to-tss-react.test/expected-from-mui-styles-makeStyles.js
+@@ -0,0 +1,33 @@
++import React from "react";
++import { makeStyles } from 'tss-react/mui';
++
++const useStyles = makeStyles()({
++  test: {
++    backgroundColor: "purple",
++    color: "white"
++  }
++});
++
++const useStyles2 = makeStyles()((_theme, _params, classes) => ({
++  test: {
++    backgroundColor: "purple",
++    color: "white",
++    [`& .${classes.test2}`]: {
++      backgroundColor: "lime",
++      color: "blue"
++    }
++  },
++  test2: {
++    backgroundColor: "blue",
++    color: "lime"
++  }
++}));
++
++function InnerComponent() {
++  const { classes } = useStyles2();
++  return <div className={classes.test2}>Inner Test</div>;
++}
++export default function ComponentUsingStyles(props) {
++  const { classes } = useStyles();
++  return <div className={classes.test}>Test<InnerComponent/></div>;
++}

@@ -1,0 +1,100 @@
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index 057db2ef339..e44b6807667 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -258,27 +258,6 @@ pub enum ErrorKind {
+     /// [`AppSettings::SubcommandRequired`]: ./enum.AppSettings.html#variant.SubcommandRequired
+     MissingSubcommand,
+ 
+-    /// Occurs when either an argument or [``] is required, as defined by
+-    /// [`AppSettings::ArgRequiredElseHelp`], but the user did not provide one.
+-    ///
+-    /// # Examples
+-    ///
+-    /// ```rust
+-    /// # use clap::{App, Arg, AppSettings, ErrorKind, };
+-    /// let result = App::new("prog")
+-    ///     .setting(AppSettings::ArgRequiredElseHelp)
+-    ///     .subcommand(App::new("config")
+-    ///         .about("Used for configuration")
+-    ///         .arg(Arg::new("config_file")
+-    ///             .about("The configuration file to use")))
+-    ///     .try_get_matches_from(vec!["prog"]);
+-    /// assert!(result.is_err());
+-    /// assert_eq!(result.unwrap_err().kind, ErrorKind::MissingArgumentOrSubcommand);
+-    /// ```
+-    /// [``]: ./struct..html
+-    /// [`AppSettings::ArgRequiredElseHelp`]: ./enum.AppSettings.html#variant.ArgRequiredElseHelp
+-    MissingArgumentOrSubcommand,
+-
+     /// Occurs when the user provides multiple values to an argument which doesn't allow that.
+     ///
+     /// # Examples
+@@ -340,6 +319,30 @@ pub enum ErrorKind {
+     /// ```
+     DisplayHelp,
+ 
++    /// Occurs when either an argument or a [`subcommand`] is required, as defined by
++    /// [`AppSettings::ArgRequiredElseHelp`] and
++    /// [`AppSettings::SubcommandRequiredElseHelp`], but the user did not provide
++    /// one.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg, AppSettings, ErrorKind, };
++    /// let result = App::new("prog")
++    ///     .setting(AppSettings::ArgRequiredElseHelp)
++    ///     .subcommand(App::new("config")
++    ///         .about("Used for configuration")
++    ///         .arg(Arg::new("config_file")
++    ///             .about("The configuration file to use")))
++    ///     .try_get_matches_from(vec!["prog"]);
++    /// assert!(result.is_err());
++    /// assert_eq!(result.unwrap_err().kind, ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand);
++    /// ```
++    /// [`AppSettings::ArgRequiredElseHelp`]: ./enum.AppSettings.html#variant.ArgRequiredElseHelp
++    /// [`AppSettings::SubcommandRequiredElseHelp`]: ./enum.AppSettings.html#variant.SubcommandRequiredElseHelp
++    /// [`subcommand`]: ./struct.App.html#method.subcommand
++    DisplayHelpOnMissingArgumentOrSubcommand,
++
+     /// Not a true "error" as it means `--version` or similar was used.
+     /// The message will be sent to `stdout`.
+     ///
+@@ -422,7 +425,9 @@ impl Error {
+     pub fn use_stderr(&self) -> bool {
+         !matches!(
+             self.kind,
+-            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
++            ErrorKind::DisplayHelp
++                | ErrorKind::DisplayVersion
++                | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+         )
+     }
+ 
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 661bb9865b8..50422eb74f3 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -750,7 +750,7 @@ impl<'help, 'app> Parser<'help, 'app> {
+                 let message = self.write_help_err()?;
+                 return Err(ClapError {
+                     message,
+-                    kind: ErrorKind::MissingArgumentOrSubcommand,
++                    kind: ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand,
+                     info: vec![],
+                 });
+             }
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index 3cde1894f74..8f63d525326 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -60,7 +60,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+             let message = self.p.write_help_err()?;
+             return Err(Error {
+                 message,
+-                kind: ErrorKind::MissingArgumentOrSubcommand,
++                kind: ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand,
+                 info: vec![],
+             });
+         }

@@ -1,0 +1,121 @@
+diff --git a/src/index.js b/src/index.js
+index 434f60362..71b76b8a3 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -38,7 +38,8 @@ const dayjs = (date, c, pl) => {
+   return new Dayjs(cfg) // eslint-disable-line no-use-before-define
+ }
+ 
+-const wrapper = (date, instance) => dayjs(date, { locale: instance.$L, utc: instance.$u })
++const wrapper = (date, instance) =>
++  dayjs(date, { locale: instance.$L, utc: instance.$u, $offset: instance.$offset })
+ 
+ const Utils = U // for plugin use
+ Utils.l = parseLocale
+@@ -263,7 +264,7 @@ class Dayjs {
+       [C.S]: C.MILLISECONDS_A_SECOND
+     }[unit] || 1 // ms
+ 
+-    const nextTimeStamp = this.valueOf() + (number * step)
++    const nextTimeStamp = this.$d.getTime() + (number * step)
+     return Utils.w(nextTimeStamp, this)
+   }
+ 
+@@ -366,11 +367,11 @@ class Dayjs {
+   }
+ 
+   clone() {
+-    return Utils.w(this.toDate(), this)
++    return Utils.w(this.$d, this)
+   }
+ 
+   toDate() {
+-    return new Date(this.$d)
++    return new Date(this.valueOf())
+   }
+ 
+   toJSON() {
+diff --git a/src/plugin/utc/index.js b/src/plugin/utc/index.js
+index d367c97be..40c6a4959 100644
+--- a/src/plugin/utc/index.js
++++ b/src/plugin/utc/index.js
+@@ -1,4 +1,7 @@
++import { MILLISECONDS_A_MINUTE, MIN } from '../../constant'
++
+ export default (option, Dayjs, dayjs) => {
++  const localOffset = (new Date()).getTimezoneOffset()
+   const proto = Dayjs.prototype
+   dayjs.utc = function (date, format) {
+     const cfg = { date, utc: true, format }
+@@ -18,6 +21,9 @@ export default (option, Dayjs, dayjs) => {
+     if (cfg.utc) {
+       this.$u = true
+     }
++    if (!this.$utils().u(cfg.$offset)) {
++      this.$offset = cfg.$offset
++    }
+     oldParse.call(this, cfg)
+   }
+ 
+@@ -39,11 +45,22 @@ export default (option, Dayjs, dayjs) => {
+   }
+ 
+   const oldUtcOffset = proto.utcOffset
+-  proto.utcOffset = function () {
+-    if (this.$u) {
+-      return 0
++  proto.utcOffset = function (input) {
++    const { u } = this.$utils()
++    if (u(input)) {
++      if (this.$u) {
++        return 0
++      }
++      if (!u(this.$offset)) {
++        return this.$offset
++      }
++      return oldUtcOffset.call(this)
+     }
+-    return oldUtcOffset.call(this)
++    const offset = Math.abs(input) <= 16 ? input * 60 : input
++    const newD = this.add(offset + (this.$u ? 0 : localOffset), MIN)
++    newD.$offset = offset
++    newD.$u = input === 0 // UTC mode
++    return newD
+   }
+ 
+   const oldFormat = proto.format
+@@ -53,7 +70,21 @@ export default (option, Dayjs, dayjs) => {
+     return oldFormat.call(this, str)
+   }
+ 
++  proto.valueOf = function () {
++    const addedOffset = !this.$utils().u(this.$offset)
++      ? this.$offset + localOffset : 0
++    return this.$d.valueOf() - (addedOffset * MILLISECONDS_A_MINUTE)
++  }
++
+   proto.isUTC = function () {
+     return !!this.$u
+   }
++
++  proto.toISOString = function () {
++    return this.toDate().toISOString()
++  }
++
++  proto.toString = function () {
++    return this.toDate().toUTCString()
++  }
+ }
+diff --git a/types/plugin/utc.d.ts b/types/plugin/utc.d.ts
+index 2f14efb22..d25e2e847 100644
+--- a/types/plugin/utc.d.ts
++++ b/types/plugin/utc.d.ts
+@@ -11,6 +11,8 @@ declare module 'dayjs' {
+     local(): Dayjs
+ 
+     isUTC(): boolean
++
++    utcOffset(offset: number): Dayjs
+   }
+ 
+   export function utc(config?: ConfigType, format?: string): Dayjs

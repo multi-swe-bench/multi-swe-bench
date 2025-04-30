@@ -1,0 +1,362 @@
+diff --git a/tests/fetchGist.test.js b/tests/fetchGist.test.js
+index 13c29a8d2fc39..7c1c209f5d654 100644
+--- a/tests/fetchGist.test.js
++++ b/tests/fetchGist.test.js
+@@ -78,7 +78,7 @@ describe("Test fetchGist", () => {
+   it("should fetch gist correctly", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, gist_data);
+ 
+-    let gist = await fetchGist("bbfce31e0217a3689c8d961a356cb10d");
++    let gist = await fetchGist(process.env, "bbfce31e0217a3689c8d961a356cb10d");
+ 
+     expect(gist).toStrictEqual({
+       name: "countries.json",
+@@ -96,21 +96,21 @@ describe("Test fetchGist", () => {
+       .onPost("https://api.github.com/graphql")
+       .reply(200, gist_not_found_data);
+ 
+-    await expect(fetchGist("bbfce31e0217a3689c8d961a356cb10d")).rejects.toThrow(
+-      "Gist not found",
+-    );
++    await expect(
++      fetchGist(process.env, "bbfce31e0217a3689c8d961a356cb10d"),
++    ).rejects.toThrow("Gist not found");
+   });
+ 
+   it("should throw error if reaponse contains them", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, gist_errors_data);
+ 
+-    await expect(fetchGist("bbfce31e0217a3689c8d961a356cb10d")).rejects.toThrow(
+-      "Some test GraphQL error",
+-    );
++    await expect(
++      fetchGist(process.env, "bbfce31e0217a3689c8d961a356cb10d"),
++    ).rejects.toThrow("Some test GraphQL error");
+   });
+ 
+   it("should throw error if id is not provided", async () => {
+-    await expect(fetchGist()).rejects.toThrow(
++    await expect(fetchGist(process.env)).rejects.toThrow(
+       'Missing params "id" make sure you pass the parameters in URL',
+     );
+   });
+diff --git a/tests/fetchRepo.test.js b/tests/fetchRepo.test.js
+index a980917f3d628..acd5680da5895 100644
+--- a/tests/fetchRepo.test.js
++++ b/tests/fetchRepo.test.js
+@@ -42,7 +42,7 @@ describe("Test fetchRepo", () => {
+   it("should fetch correct user repo", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_user);
+ 
+-    let repo = await fetchRepo("anuraghazra", "convoychat");
++    let repo = await fetchRepo(process.env, "anuraghazra", "convoychat");
+ 
+     expect(repo).toStrictEqual({
+       ...data_repo.repository,
+@@ -53,7 +53,7 @@ describe("Test fetchRepo", () => {
+   it("should fetch correct org repo", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_org);
+ 
+-    let repo = await fetchRepo("anuraghazra", "convoychat");
++    let repo = await fetchRepo(process.env, "anuraghazra", "convoychat");
+     expect(repo).toStrictEqual({
+       ...data_repo.repository,
+       starCount: data_repo.repository.stargazers.totalCount,
+@@ -65,9 +65,9 @@ describe("Test fetchRepo", () => {
+       .onPost("https://api.github.com/graphql")
+       .reply(200, { data: { user: { repository: null }, organization: null } });
+ 
+-    await expect(fetchRepo("anuraghazra", "convoychat")).rejects.toThrow(
+-      "User Repository Not found",
+-    );
++    await expect(
++      fetchRepo(process.env, "anuraghazra", "convoychat"),
++    ).rejects.toThrow("User Repository Not found");
+   });
+ 
+   it("should throw error if org is found but repo is null", async () => {
+@@ -75,9 +75,9 @@ describe("Test fetchRepo", () => {
+       .onPost("https://api.github.com/graphql")
+       .reply(200, { data: { user: null, organization: { repository: null } } });
+ 
+-    await expect(fetchRepo("anuraghazra", "convoychat")).rejects.toThrow(
+-      "Organization Repository Not found",
+-    );
++    await expect(
++      fetchRepo(process.env, "anuraghazra", "convoychat"),
++    ).rejects.toThrow("Organization Repository Not found");
+   });
+ 
+   it("should throw error if both user & org data not found", async () => {
+@@ -85,9 +85,9 @@ describe("Test fetchRepo", () => {
+       .onPost("https://api.github.com/graphql")
+       .reply(200, { data: { user: null, organization: null } });
+ 
+-    await expect(fetchRepo("anuraghazra", "convoychat")).rejects.toThrow(
+-      "Not found",
+-    );
++    await expect(
++      fetchRepo(process.env, "anuraghazra", "convoychat"),
++    ).rejects.toThrow("Not found");
+   });
+ 
+   it("should throw error if repository is private", async () => {
+@@ -98,8 +98,8 @@ describe("Test fetchRepo", () => {
+       },
+     });
+ 
+-    await expect(fetchRepo("anuraghazra", "convoychat")).rejects.toThrow(
+-      "User Repository Not found",
+-    );
++    await expect(
++      fetchRepo(process.env, "anuraghazra", "convoychat"),
++    ).rejects.toThrow("User Repository Not found");
+   });
+ });
+diff --git a/tests/fetchStats.test.js b/tests/fetchStats.test.js
+index ca8d7bc37062e..7206fca819cac 100644
+--- a/tests/fetchStats.test.js
++++ b/tests/fetchStats.test.js
+@@ -104,7 +104,7 @@ afterEach(() => {
+ 
+ describe("Test fetchStats", () => {
+   it("should fetch correct stats", async () => {
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -140,7 +140,7 @@ describe("Test fetchStats", () => {
+       .onPost("https://api.github.com/graphql")
+       .replyOnce(200, data_repo_zero_stars);
+ 
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -172,7 +172,7 @@ describe("Test fetchStats", () => {
+     mock.reset();
+     mock.onPost("https://api.github.com/graphql").reply(200, error);
+ 
+-    await expect(fetchStats("anuraghazra")).rejects.toThrow(
++    await expect(fetchStats(process.env, "anuraghazra")).rejects.toThrow(
+       "Could not resolve to a User with the login of 'noname'.",
+     );
+   });
+@@ -182,7 +182,7 @@ describe("Test fetchStats", () => {
+       .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
+       .reply(200, { total_count: 1000 });
+ 
+-    let stats = await fetchStats("anuraghazra", true);
++    let stats = await fetchStats(process.env, "anuraghazra", true);
+     const rank = calculateRank({
+       all_commits: true,
+       commits: 1000,
+@@ -211,7 +211,7 @@ describe("Test fetchStats", () => {
+   });
+ 
+   it("should throw specific error when include_all_commits true and invalid username", async () => {
+-    expect(fetchStats("asdf///---", true)).rejects.toThrow(
++    expect(fetchStats(process.env, "asdf///---", true)).rejects.toThrow(
+       new Error("Invalid username provided."),
+     );
+   });
+@@ -221,7 +221,7 @@ describe("Test fetchStats", () => {
+       .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
+       .reply(200, { error: "Some test error message" });
+ 
+-    expect(fetchStats("anuraghazra", true)).rejects.toThrow(
++    expect(fetchStats(process.env, "anuraghazra", true)).rejects.toThrow(
+       new Error("Could not fetch total commits."),
+     );
+   });
+@@ -231,7 +231,9 @@ describe("Test fetchStats", () => {
+       .onGet("https://api.github.com/search/commits?q=author:anuraghazra")
+       .reply(200, { total_count: 1000 });
+ 
+-    let stats = await fetchStats("anuraghazra", true, ["test-repo-1"]);
++    let stats = await fetchStats(process.env, "anuraghazra", true, [
++      "test-repo-1",
++    ]);
+     const rank = calculateRank({
+       all_commits: true,
+       commits: 1000,
+@@ -262,7 +264,7 @@ describe("Test fetchStats", () => {
+   it("should fetch two pages of stars if 'FETCH_MULTI_PAGE_STARS' env variable is set to `true`", async () => {
+     process.env.FETCH_MULTI_PAGE_STARS = true;
+ 
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -293,7 +295,7 @@ describe("Test fetchStats", () => {
+   it("should fetch one page of stars if 'FETCH_MULTI_PAGE_STARS' env variable is set to `false`", async () => {
+     process.env.FETCH_MULTI_PAGE_STARS = "false";
+ 
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -324,7 +326,7 @@ describe("Test fetchStats", () => {
+   it("should fetch one page of stars if 'FETCH_MULTI_PAGE_STARS' env variable is not set", async () => {
+     process.env.FETCH_MULTI_PAGE_STARS = undefined;
+ 
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -353,7 +355,7 @@ describe("Test fetchStats", () => {
+   });
+ 
+   it("should not fetch additional stats data when it not requested", async () => {
+-    let stats = await fetchStats("anuraghazra");
++    let stats = await fetchStats(process.env, "anuraghazra");
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+@@ -382,7 +384,15 @@ describe("Test fetchStats", () => {
+   });
+ 
+   it("should fetch additional stats when it requested", async () => {
+-    let stats = await fetchStats("anuraghazra", false, [], true, true, true);
++    let stats = await fetchStats(
++      process.env,
++      "anuraghazra",
++      false,
++      [],
++      true,
++      true,
++      true,
++    );
+     const rank = calculateRank({
+       all_commits: false,
+       commits: 100,
+diff --git a/tests/fetchTopLanguages.test.js b/tests/fetchTopLanguages.test.js
+index e7bd54ac87d34..cc88c939eb1d9 100644
+--- a/tests/fetchTopLanguages.test.js
++++ b/tests/fetchTopLanguages.test.js
+@@ -64,7 +64,13 @@ describe("FetchTopLanguages", () => {
+   it("should fetch correct language data while using the new calculation", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+ 
+-    let repo = await fetchTopLanguages("anuraghazra", [], 0.5, 0.5);
++    let repo = await fetchTopLanguages(
++      process.env,
++      "anuraghazra",
++      [],
++      0.5,
++      0.5,
++    );
+     expect(repo).toStrictEqual({
+       HTML: {
+         color: "#0f0",
+@@ -84,7 +90,9 @@ describe("FetchTopLanguages", () => {
+   it("should fetch correct language data while excluding the 'test-repo-1' repository", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+ 
+-    let repo = await fetchTopLanguages("anuraghazra", ["test-repo-1"]);
++    let repo = await fetchTopLanguages(process.env, "anuraghazra", [
++      "test-repo-1",
++    ]);
+     expect(repo).toStrictEqual({
+       HTML: {
+         color: "#0f0",
+@@ -104,7 +112,7 @@ describe("FetchTopLanguages", () => {
+   it("should fetch correct language data while using the old calculation", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+ 
+-    let repo = await fetchTopLanguages("anuraghazra", [], 1, 0);
++    let repo = await fetchTopLanguages(process.env, "anuraghazra", [], 1, 0);
+     expect(repo).toStrictEqual({
+       HTML: {
+         color: "#0f0",
+@@ -124,7 +132,7 @@ describe("FetchTopLanguages", () => {
+   it("should rank languages by the number of repositories they appear in", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, data_langs);
+ 
+-    let repo = await fetchTopLanguages("anuraghazra", [], 0, 1);
++    let repo = await fetchTopLanguages(process.env, "anuraghazra", [], 0, 1);
+     expect(repo).toStrictEqual({
+       HTML: {
+         color: "#0f0",
+@@ -144,7 +152,7 @@ describe("FetchTopLanguages", () => {
+   it("should throw specific error when user not found", async () => {
+     mock.onPost("https://api.github.com/graphql").reply(200, error);
+ 
+-    await expect(fetchTopLanguages("anuraghazra")).rejects.toThrow(
++    await expect(fetchTopLanguages(process.env, "anuraghazra")).rejects.toThrow(
+       "Could not resolve to a User with the login of 'noname'.",
+     );
+   });
+@@ -154,7 +162,7 @@ describe("FetchTopLanguages", () => {
+       errors: [{ message: "Some test GraphQL error" }],
+     });
+ 
+-    await expect(fetchTopLanguages("anuraghazra")).rejects.toThrow(
++    await expect(fetchTopLanguages(process.env, "anuraghazra")).rejects.toThrow(
+       "Some test GraphQL error",
+     );
+   });
+@@ -164,7 +172,7 @@ describe("FetchTopLanguages", () => {
+       errors: [{ type: "TEST" }],
+     });
+ 
+-    await expect(fetchTopLanguages("anuraghazra")).rejects.toThrow(
++    await expect(fetchTopLanguages(process.env, "anuraghazra")).rejects.toThrow(
+       "Something went wrong while trying to retrieve the language data using the GraphQL API.",
+     );
+   });
+diff --git a/tests/retryer.test.js b/tests/retryer.test.js
+index b0b4bd79df857..94a8322f96c0a 100644
+--- a/tests/retryer.test.js
++++ b/tests/retryer.test.js
+@@ -1,6 +1,6 @@
+ import { jest } from "@jest/globals";
+ import "@testing-library/jest-dom";
+-import { retryer, RETRIES } from "../src/common/retryer.js";
++import { retryer, getMaxRetries } from "../src/common/retryer.js";
+ import { logger } from "../src/common/utils.js";
+ import { expect, it, describe } from "@jest/globals";
+ 
+@@ -15,7 +15,7 @@ const fetcherFail = jest.fn(() => {
+   );
+ });
+ 
+-const fetcherFailOnSecondTry = jest.fn((_vars, _token, retries) => {
++const fetcherFailOnSecondTry = jest.fn((_vars, _token, _useFetch, retries) => {
+   return new Promise((res) => {
+     // faking rate limit
+     if (retries < 1) {
+@@ -27,14 +27,14 @@ const fetcherFailOnSecondTry = jest.fn((_vars, _token, retries) => {
+ 
+ describe("Test Retryer", () => {
+   it("retryer should return value and have zero retries on first try", async () => {
+-    let res = await retryer(fetcher, {});
++    let res = await retryer(fetcher, {}, process.env);
+ 
+     expect(fetcher).toBeCalledTimes(1);
+     expect(res).toStrictEqual({ data: "ok" });
+   });
+ 
+   it("retryer should return value and have 2 retries", async () => {
+-    let res = await retryer(fetcherFailOnSecondTry, {});
++    let res = await retryer(fetcherFailOnSecondTry, {}, process.env);
+ 
+     expect(fetcherFailOnSecondTry).toBeCalledTimes(2);
+     expect(res).toStrictEqual({ data: "ok" });
+@@ -42,9 +42,9 @@ describe("Test Retryer", () => {
+ 
+   it("retryer should throw specific error if maximum retries reached", async () => {
+     try {
+-      await retryer(fetcherFail, {});
++      await retryer(fetcherFail, {}, process.env);
+     } catch (err) {
+-      expect(fetcherFail).toBeCalledTimes(RETRIES + 1);
++      expect(fetcherFail).toBeCalledTimes(getMaxRetries(process.env) + 1);
+       expect(err.message).toBe("Downtime due to GitHub API rate limiting");
+     }
+   });

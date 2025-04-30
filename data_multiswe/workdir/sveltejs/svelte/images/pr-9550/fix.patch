@@ -1,0 +1,208 @@
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 615fafd88080..5d6d9a02b2d6 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -255,7 +255,7 @@ function setup_select_synchronization(value_binding, context) {
+  * 	value = $.spread_attributes(element, value, [...])
+  * });
+  * ```
+- * Returns the id of the spread_attribute varialbe if spread is deemed reactive, `null` otherwise.
++ * Returns the id of the spread_attribute variable if spread is deemed reactive, `null` otherwise.
+  * @param {Array<import('#compiler').Attribute | import('#compiler').SpreadAttribute>} attributes
+  * @param {import('../types.js').ComponentContext} context
+  * @param {import('estree').Identifier} element_id
+@@ -376,7 +376,7 @@ function serialize_dynamic_element_spread_attributes(attributes, context, elemen
+ }
+ 
+ /**
+- * Serializes an assigment to an element property by adding relevant statements to either only
++ * Serializes an assignment to an element property by adding relevant statements to either only
+  * the init or the the init and update arrays, depending on whether or not the value is dynamic.
+  * Resulting code for static looks something like this:
+  * ```js
+@@ -551,7 +551,7 @@ function serialize_custom_element_attribute_update_assignment(node_id, attribute
+ }
+ 
+ /**
+- * Serializes an assigment to the value property of a `<select>`, `<option>` or `<input>` element
++ * Serializes an assignment to the value property of a `<select>`, `<option>` or `<input>` element
+  * that needs the hidden `__value` property.
+  * Returns true if attribute is deemed reactive, false otherwise.
+  * @param {string} element
+@@ -567,13 +567,17 @@ function serialize_element_special_value_attribute(element, node_id, attribute,
+ 	const inner_assignment = b.assignment(
+ 		'=',
+ 		b.member(node_id, b.id('value')),
+-		b.assignment('=', b.member(node_id, b.id('__value')), value)
++		b.conditional(
++			b.binary('==', b.literal(null), b.assignment('=', b.member(node_id, b.id('__value')), value)),
++			b.literal(''), // render null/undefined values as empty string to support placeholder options
++			value
++		)
+ 	);
+ 	const is_reactive = attribute.metadata.dynamic;
+ 	const needs_selected_call =
+ 		element === 'option' && (is_reactive || collect_parent_each_blocks(context).length > 0);
+ 	const needs_option_call = element === 'select' && is_reactive;
+-	const assigment = b.stmt(
++	const assignment = b.stmt(
+ 		needs_selected_call
+ 			? b.sequence([
+ 					inner_assignment,
+@@ -582,9 +586,12 @@ function serialize_element_special_value_attribute(element, node_id, attribute,
+ 					b.call('$.selected', node_id)
+ 			  ])
+ 			: needs_option_call
+-			? // This ensures a one-way street to the DOM in case it's <select {value}>
+-			  // and not <select bind:value>
+-			  b.call('$.select_option', node_id, inner_assignment)
++			? b.sequence([
++					inner_assignment,
++					// This ensures a one-way street to the DOM in case it's <select {value}>
++					// and not <select bind:value>
++					b.call('$.select_option', node_id, value)
++			  ])
+ 			: inner_assignment
+ 	);
+ 
+@@ -595,12 +602,12 @@ function serialize_element_special_value_attribute(element, node_id, attribute,
+ 			id,
+ 			undefined,
+ 			value,
+-			{ grouped: assigment },
++			{ grouped: assignment },
+ 			contains_call_expression
+ 		);
+ 		return true;
+ 	} else {
+-		state.init.push(assigment);
++		state.init.push(assignment);
+ 		return false;
+ 	}
+ }
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index d992199d8d57..804840d6c9fc 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -444,20 +444,22 @@ export function class_toggle(dom, class_name, value) {
+  * @template V
+  * @param {HTMLSelectElement} select
+  * @param {V} value
++ * @param {boolean} [mounting]
+  */
+-export function select_option(select, value) {
++export function select_option(select, value, mounting) {
+ 	if (select.multiple) {
+ 		return select_options(select, value);
+ 	}
+-	for (let i = 0; i < select.options.length; i += 1) {
+-		const option = select.options[i];
++	for (const option of select.options) {
+ 		const option_value = get_option_value(option);
+ 		if (option_value === value) {
+ 			option.selected = true;
+ 			return;
+ 		}
+ 	}
+-	select.value = '';
++	if (!mounting || value !== undefined) {
++		select.selectedIndex = -1; // no option should be selected
++	}
+ }
+ 
+ /**
+@@ -466,8 +468,7 @@ export function select_option(select, value) {
+  * @param {V} value
+  */
+ function select_options(select, value) {
+-	for (let i = 0; i < select.options.length; i += 1) {
+-		const option = select.options[i];
++	for (const option of select.options) {
+ 		// @ts-ignore
+ 		option.selected = ~value.indexOf(get_option_value(option));
+ 	}
+@@ -897,20 +898,10 @@ export function selected(dom) {
+ 			}
+ 			select = select.parentNode;
+ 		}
+-		if (select != null) {
+-			// @ts-ignore
+-			const select_value = select.__value;
+-			// @ts-ignore
+-			const option_value = dom.__value;
+-			const selected = select_value === option_value;
+-			dom.selected = selected;
+-			dom.value = option_value;
+-			// Handle the edge case of new options being added to a select when its state is "nothing selected"
+-			// and keeping the selection state in sync (the DOM auto-selects the first option on insert)
+-			// @ts-ignore
+-			if (select.__value === null) {
+-				/** @type {HTMLSelectElement} */ (select).value = '';
+-			}
++		// @ts-ignore
++		if (select != null && dom.__value === select.__value) {
++			// never set to false, since this causes browser to select default option
++			dom.selected = true;
+ 		}
+ 	});
+ }
+@@ -949,7 +940,7 @@ export function bind_value(dom, get_value, update) {
+  * @returns {void}
+  */
+ export function bind_select_value(dom, get_value, update) {
+-	let mounted = false;
++	let mounting = true;
+ 	dom.addEventListener('change', () => {
+ 		/** @type {unknown} */
+ 		let value;
+@@ -964,40 +955,19 @@ export function bind_select_value(dom, get_value, update) {
+ 	});
+ 	// Needs to be an effect, not a render_effect, so that in case of each loops the logic runs after the each block has updated
+ 	effect(() => {
+-		const value = get_value();
+-		if (value == null && !mounted) {
++		let value = get_value();
++		select_option(dom, value, mounting);
++		if (mounting && value === undefined) {
+ 			/** @type {HTMLOptionElement | null} */
+-			let selected_option = value === undefined ? dom.querySelector(':checked') : null;
+-			if (selected_option === null) {
+-				dom.value = '';
+-				// @ts-ignore
+-				dom.__value = null;
++			let selected_option = dom.querySelector(':checked');
++			if (selected_option !== null) {
++				value = get_option_value(selected_option);
++				update(value);
+ 			}
+-			const options = dom.querySelectorAll('option');
+-			for (const option of options) {
+-				if (get_option_value(option) === value || option.hasAttribute('selected')) {
+-					if (option.disabled) {
+-						option.value = '';
+-					}
+-					option.selected = true;
+-					selected_option = option;
+-					break;
+-				}
+-			}
+-			if (selected_option != null) {
+-				const non_null_value = get_option_value(selected_option);
+-				update(non_null_value);
+-				if (selected_option.hasAttribute('selected')) {
+-					selected_option.removeAttribute('selected');
+-					selected_option.selected = true;
+-				}
+-			}
+-		} else {
+-			select_option(dom, value);
+-			// @ts-ignore
+-			dom.__value = value;
+ 		}
+-		mounted = true;
++		// @ts-ignore
++		dom.__value = value;
++		mounting = false;
+ 	});
+ }
+ 

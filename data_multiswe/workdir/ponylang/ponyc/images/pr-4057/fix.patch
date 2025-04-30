@@ -1,0 +1,29 @@
+diff --git a/.release-notes/3447.md b/.release-notes/3447.md
+new file mode 100644
+index 0000000000..1e810f4ec7
+--- /dev/null
++++ b/.release-notes/3447.md
+@@ -0,0 +1,3 @@
++## Fix compiler crash with exhaustive match in generics
++
++Previously, there was an interesting edge case in our handling of exhaustive match with generics that could result in a compiler crash. It's been fixed.
+diff --git a/src/libponyc/codegen/genmatch.c b/src/libponyc/codegen/genmatch.c
+index 45821bd970..7ded1ec0d4 100644
+--- a/src/libponyc/codegen/genmatch.c
++++ b/src/libponyc/codegen/genmatch.c
+@@ -821,8 +821,13 @@ LLVMValueRef gen_match(compile_t* c, ast_t* ast)
+ 
+     if(match != MATCHTYPE_ACCEPT)
+     {
+-      // If there's no possible match, jump directly to the next block.
+-      LLVMBuildBr(c->builder, next_block);
++      if (next_block != NULL)
++      {
++        // If there's no possible match, jump directly to the next block.
++        LLVMBuildBr(c->builder, next_block);
++      } else {
++        LLVMBuildUnreachable(c->builder);
++      }
+     } else {
+       // Check the pattern.
+       ok = static_match(c, match_value, match_type, pattern, next_block);

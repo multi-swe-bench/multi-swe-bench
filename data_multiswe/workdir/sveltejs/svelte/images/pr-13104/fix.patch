@@ -1,0 +1,66 @@
+diff --git a/.changeset/chilly-boats-pretend.md b/.changeset/chilly-boats-pretend.md
+new file mode 100644
+index 000000000000..5a97a351ef6b
+--- /dev/null
++++ b/.changeset/chilly-boats-pretend.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: false positive `non_reactive_update` when using `bind:this`
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 95a0989bde5e..587c014ffdcc 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -564,42 +564,26 @@ export function analyze_component(root, source, options) {
+ 
+ 		// warn on any nonstate declarations that are a) reassigned and b) referenced in the template
+ 		for (const scope of [module.scope, instance.scope]) {
+-			outer: for (const [name, binding] of scope.declarations) {
++			bindings: for (const [name, binding] of scope.declarations) {
+ 				if (binding.kind === 'normal' && binding.reassigned) {
+-					inner: for (const { path } of binding.references) {
++					references: for (const { path } of binding.references) {
+ 						if (path[0].type !== 'Fragment') continue;
+ 						for (let i = 1; i < path.length; i += 1) {
+ 							const type = path[i].type;
+ 							if (
+ 								type === 'FunctionDeclaration' ||
+ 								type === 'FunctionExpression' ||
+-								type === 'ArrowFunctionExpression'
++								type === 'ArrowFunctionExpression' ||
++								// bind:this is a write-only binding
++								(type === 'BindDirective' &&
++									/** @type {AST.BindDirective} */ (path[i]).name === 'this')
+ 							) {
+-								continue inner;
+-							}
+-							// bind:this doesn't need to be a state reference if it will never change
+-							if (
+-								type === 'BindDirective' &&
+-								/** @type {AST.BindDirective} */ (path[i]).name === 'this'
+-							) {
+-								for (let j = i - 1; j >= 0; j -= 1) {
+-									const type = path[j].type;
+-									if (
+-										type === 'IfBlock' ||
+-										type === 'EachBlock' ||
+-										type === 'AwaitBlock' ||
+-										type === 'KeyBlock'
+-									) {
+-										w.non_reactive_update(binding.node, name);
+-										continue outer;
+-									}
+-								}
+-								continue inner;
++								continue references;
+ 							}
+ 						}
+ 
+ 						w.non_reactive_update(binding.node, name);
+-						continue outer;
++						continue bindings;
+ 					}
+ 				}
+ 			}

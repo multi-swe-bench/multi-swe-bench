@@ -1,0 +1,59 @@
+diff --git a/cmd/gh/main.go b/cmd/gh/main.go
+index 15af9072197..bcce3b42763 100644
+--- a/cmd/gh/main.go
++++ b/cmd/gh/main.go
+@@ -34,10 +34,11 @@ var updaterEnabled = ""
+ type exitCode int
+ 
+ const (
+-	exitOK     exitCode = 0
+-	exitError  exitCode = 1
+-	exitCancel exitCode = 2
+-	exitAuth   exitCode = 4
++	exitOK      exitCode = 0
++	exitError   exitCode = 1
++	exitCancel  exitCode = 2
++	exitAuth    exitCode = 4
++	exitPending exitCode = 8
+ )
+ 
+ func main() {
+@@ -113,6 +114,8 @@ func mainRun() exitCode {
+ 		var authError *root.AuthError
+ 		if err == cmdutil.SilentError {
+ 			return exitError
++		} else if err == cmdutil.PendingError {
++			return exitPending
+ 		} else if cmdutil.IsUserCancellation(err) {
+ 			if errors.Is(err, terminal.InterruptErr) {
+ 				// ensure the next shell prompt will start on its own line
+diff --git a/pkg/cmd/pr/checks/checks.go b/pkg/cmd/pr/checks/checks.go
+index 6cd47cc9887..335226a9c74 100644
+--- a/pkg/cmd/pr/checks/checks.go
++++ b/pkg/cmd/pr/checks/checks.go
+@@ -216,8 +216,10 @@ func checksRun(opts *ChecksOptions) error {
+ 		}
+ 	}
+ 
+-	if counts.Failed+counts.Pending > 0 {
++	if counts.Failed > 0 {
+ 		return cmdutil.SilentError
++	} else if counts.Pending > 0 {
++		return cmdutil.PendingError
+ 	}
+ 
+ 	return nil
+diff --git a/pkg/cmdutil/errors.go b/pkg/cmdutil/errors.go
+index d9729bd83a3..26a059d251b 100644
+--- a/pkg/cmdutil/errors.go
++++ b/pkg/cmdutil/errors.go
+@@ -37,6 +37,9 @@ var SilentError = errors.New("SilentError")
+ // CancelError signals user-initiated cancellation
+ var CancelError = errors.New("CancelError")
+ 
++// PendingError signals nothing failed but something is pending
++var PendingError = errors.New("PendingError")
++
+ func IsUserCancellation(err error) bool {
+ 	return errors.Is(err, CancelError) || errors.Is(err, terminal.InterruptErr)
+ }

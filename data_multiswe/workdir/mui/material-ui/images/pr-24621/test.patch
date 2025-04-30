@@ -1,0 +1,55 @@
+diff --git a/packages/material-ui-lab/src/DayPicker/DayPicker.test.tsx b/packages/material-ui-lab/src/DayPicker/DayPicker.test.tsx
+index e2264df4d502f7..7e8b9e0d557df8 100644
+--- a/packages/material-ui-lab/src/DayPicker/DayPicker.test.tsx
++++ b/packages/material-ui-lab/src/DayPicker/DayPicker.test.tsx
+@@ -34,11 +34,15 @@ describe('<DayPicker />', () => {
+     expect(screen.getByText('January')).toBeVisible();
+     expect(screen.getByText('2019')).toBeVisible();
+     expect(getAllByMuiTest('day')).to.have.length(31);
++    // It should follow https://www.w3.org/TR/wai-aria-practices/examples/dialog-modal/datepicker-dialog.html
++    expect(
++      document.querySelector('[role="grid"] > [role="row"] > [role="cell"] > button'),
++    ).to.have.text('1');
+   });
+ 
+-  // TODO
++  // Flaky, it match 201 instead of 200 in the CI
+   // eslint-disable-next-line mocha/no-skipped-tests
+-  it.skip('renders year selection  standalone', () => {
++  it.skip('renders year selection standalone', () => {
+     render(
+       <DayPicker
+         date={adapterToUse.date('2019-01-01T00:00:00.000')}
+diff --git a/packages/material-ui-lab/src/StaticDateRangePicker/StaticDateRangePicker.test.tsx b/packages/material-ui-lab/src/StaticDateRangePicker/StaticDateRangePicker.test.tsx
+index 696b5ec4221861..815f5473e7fbeb 100644
+--- a/packages/material-ui-lab/src/StaticDateRangePicker/StaticDateRangePicker.test.tsx
++++ b/packages/material-ui-lab/src/StaticDateRangePicker/StaticDateRangePicker.test.tsx
+@@ -30,7 +30,27 @@ describe('<StaticDateRangePicker />', () => {
+     );
+ 
+     expect(
+-      getAllByMuiTest('DateRangeDay').filter((day) => day.getAttribute('disabled') !== undefined),
++      getAllByMuiTest('DateRangePickerDay').filter(
++        (day) => day.getAttribute('disabled') !== undefined,
++      ),
+     ).to.have.length(31);
+   });
++
++  it('should render the correct a11y tree structure', () => {
++    render(
++      <StaticDateRangePicker
++        renderInput={defaultRangeRenderInput}
++        onChange={() => {}}
++        value={[
++          adapterToUse.date('2018-01-01T00:00:00.000'),
++          adapterToUse.date('2018-01-31T00:00:00.000'),
++        ]}
++      />,
++    );
++
++    // It should follow https://www.w3.org/TR/wai-aria-practices/examples/dialog-modal/datepicker-dialog.html
++    expect(
++      document.querySelector('[role="grid"] > [role="row"] [role="cell"] > button'),
++    ).to.have.text('1');
++  });
+ });

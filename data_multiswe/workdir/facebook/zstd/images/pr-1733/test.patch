@@ -1,0 +1,67 @@
+diff --git a/tests/fuzz/zstd_helpers.c b/tests/fuzz/zstd_helpers.c
+index 9dff2895a9c..5ff057b8cdc 100644
+--- a/tests/fuzz/zstd_helpers.c
++++ b/tests/fuzz/zstd_helpers.c
+@@ -90,6 +90,9 @@ void FUZZ_setRandomParameters(ZSTD_CCtx *cctx, size_t srcSize, uint32_t *state)
+     setRand(cctx, ZSTD_c_forceMaxWindow, 0, 1, state);
+     setRand(cctx, ZSTD_c_literalCompressionMode, 0, 2, state);
+     setRand(cctx, ZSTD_c_forceAttachDict, 0, 2, state);
++    if (FUZZ_rand32(state, 0, 1) == 0) {
++      setRand(cctx, ZSTD_c_srcSizeHint, ZSTD_SRCSIZEHINT_MIN, 2 * srcSize, state);
++    }
+ }
+ 
+ FUZZ_dict_t FUZZ_train(void const* src, size_t srcSize, uint32_t *state)
+diff --git a/tests/playTests.sh b/tests/playTests.sh
+index b740767632e..ad096fdddbd 100755
+--- a/tests/playTests.sh
++++ b/tests/playTests.sh
+@@ -425,6 +425,36 @@ println "test : incorrect stream size"
+ cat tmp | $ZSTD -14 -f -o tmp.zst --stream-size=11001 && die "should fail with incorrect stream size"
+ 
+ 
++println "\n===>  size-hint mode"
++
++./datagen -g11000 > tmp
++./datagen -g11000 > tmp2
++./datagen > tmpDict
++println "test : basic file compression vs hinted streaming compression"
++file_size=$($ZSTD -14 -f tmp -o tmp.zst && wc -c < tmp.zst)
++stream_size=$(cat tmp | $ZSTD -14 --size-hint=11000 | wc -c)
++if [ "$stream_size" -ge "$file_size" ]; then
++  die "hinted compression larger than expected"
++fi
++println "test : hinted streaming compression and decompression"
++cat tmp | $ZSTD -14 -f -o tmp.zst --size-hint=11000
++$ZSTD -df tmp.zst -o tmp_decompress
++cmp tmp tmp_decompress || die "difference between original and decompressed file"
++println "test : hinted streaming compression with dictionary"
++cat tmp | $ZSTD -14 -f -D tmpDict --size-hint=11000 | $ZSTD -t -D tmpDict
++println "test : multiple file compression with hints and dictionary"
++$ZSTD -14 -f -D tmpDict --size-hint=11000 tmp tmp2
++$ZSTD -14 -f -o tmp1_.zst -D tmpDict --size-hint=11000 tmp
++$ZSTD -14 -f -o tmp2_.zst -D tmpDict --size-hint=11000 tmp2
++cmp tmp.zst tmp1_.zst || die "first file's output differs"
++cmp tmp2.zst tmp2_.zst || die "second file's output differs"
++println "test : incorrect hinted stream sizes"
++cat tmp | $ZSTD -14 -f --size-hint=11050 | $ZSTD -t  # slightly too high
++cat tmp | $ZSTD -14 -f --size-hint=10950 | $ZSTD -t  # slightly too low
++cat tmp | $ZSTD -14 -f --size-hint=22000 | $ZSTD -t  # considerably too high
++cat tmp | $ZSTD -14 -f --size-hint=5500  | $ZSTD -t  # considerably too low
++
++
+ println "\n===>  dictionary tests "
+ 
+ println "- test with raw dict (content only) "
+diff --git a/tests/zstreamtest.c b/tests/zstreamtest.c
+index 56f16766eb6..9af08ebe49b 100644
+--- a/tests/zstreamtest.c
++++ b/tests/zstreamtest.c
+@@ -2106,6 +2106,7 @@ static int fuzzerTests_newAPI(U32 seed, int nbTests, int startTest,
+                     if (FUZ_rand(&lseed) & 3) CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_c_ldmMinMatch, FUZ_randomClampedLength(&lseed, ZSTD_LDM_MINMATCH_MIN, ZSTD_LDM_MINMATCH_MAX), opaqueAPI) );
+                     if (FUZ_rand(&lseed) & 3) CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_c_ldmBucketSizeLog, FUZ_randomClampedLength(&lseed, ZSTD_LDM_BUCKETSIZELOG_MIN, ZSTD_LDM_BUCKETSIZELOG_MAX), opaqueAPI) );
+                     if (FUZ_rand(&lseed) & 3) CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_c_ldmHashRateLog, FUZ_randomClampedLength(&lseed, ZSTD_LDM_HASHRATELOG_MIN, ZSTD_LDM_HASHRATELOG_MAX), opaqueAPI) );
++                    if (FUZ_rand(&lseed) & 3) CHECK_Z( setCCtxParameter(zc, cctxParams, ZSTD_c_srcSizeHint, FUZ_randomClampedLength(&lseed, ZSTD_SRCSIZEHINT_MIN, ZSTD_SRCSIZEHINT_MAX), opaqueAPI) );
+                 }
+ 
+                 /* mess with frame parameters */

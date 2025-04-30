@@ -1,0 +1,128 @@
+diff --git a/tools/goctl/util/ctx/gomod.go b/tools/goctl/util/ctx/gomod.go
+index db9eeba86548..17b474c904bf 100644
+--- a/tools/goctl/util/ctx/gomod.go
++++ b/tools/goctl/util/ctx/gomod.go
+@@ -2,6 +2,7 @@ package ctx
+ 
+ import (
+ 	"errors"
++	"github.com/tal-tech/go-zero/tools/goctl/util"
+ 	"os"
+ 	"path/filepath"
+ 
+@@ -30,6 +31,11 @@ func projectFromGoMod(workDir string) (*ProjectContext, error) {
+ 		return nil, err
+ 	}
+ 
++	workDir, err := util.ReadLink(workDir)
++	if err != nil {
++		return nil, err
++	}
++
+ 	data, err := execx.Run("go list -json -m", workDir)
+ 	if err != nil {
+ 		return nil, err
+@@ -43,7 +49,12 @@ func projectFromGoMod(workDir string) (*ProjectContext, error) {
+ 	var ret ProjectContext
+ 	ret.WorkDir = workDir
+ 	ret.Name = filepath.Base(m.Dir)
+-	ret.Dir = m.Dir
++	dir, err := util.ReadLink(m.Dir)
++	if err != nil {
++		return nil, err
++	}
++
++	ret.Dir = dir
+ 	ret.Path = m.Path
+ 	return &ret, nil
+ }
+diff --git a/tools/goctl/util/ctx/gopath.go b/tools/goctl/util/ctx/gopath.go
+index bd94d7fa9b05..88959be44b36 100644
+--- a/tools/goctl/util/ctx/gopath.go
++++ b/tools/goctl/util/ctx/gopath.go
+@@ -21,8 +21,18 @@ func projectFromGoPath(workDir string) (*ProjectContext, error) {
+ 		return nil, err
+ 	}
+ 
++	workDir, err := util.ReadLink(workDir)
++	if err != nil {
++		return nil, err
++	}
++
+ 	buildContext := build.Default
+ 	goPath := buildContext.GOPATH
++	goPath, err = util.ReadLink(goPath)
++	if err != nil {
++		return nil, err
++	}
++
+ 	goSrc := filepath.Join(goPath, "src")
+ 	if !util.FileExists(goSrc) {
+ 		return nil, errModuleCheck
+diff --git a/tools/goctl/util/path.go b/tools/goctl/util/path.go
+index 4371c62e9965..0ac3b1cfed1b 100644
+--- a/tools/goctl/util/path.go
++++ b/tools/goctl/util/path.go
+@@ -2,6 +2,7 @@ package util
+ 
+ import (
+ 	"fmt"
++	"io/fs"
+ 	"os"
+ 	"path"
+ 	"path/filepath"
+@@ -112,3 +113,54 @@ func FindProjectPath(loc string) (string, bool) {
+ 
+ 	return "", false
+ }
++
++// ReadLink returns the destination of the named symbolic link recursively.
++func ReadLink(name string) (string, error) {
++	name, err := filepath.Abs(name)
++	if err != nil {
++		return "", err
++	}
++
++	if name == "/" {
++		return "/", nil
++	}
++
++	isLink, err := isLink(name)
++	if err != nil {
++		return "", err
++	}
++
++	if !isLink {
++		dir, base := filepath.Split(name)
++		dir = filepath.Clean(dir)
++		dir, err := ReadLink(dir)
++		if err != nil {
++			return "", err
++		}
++
++		return filepath.Join(dir, base), nil
++	}
++
++	link, err := os.Readlink(name)
++	if err != nil {
++		return "", err
++	}
++
++	dir, base := filepath.Split(link)
++	dir = filepath.Dir(dir)
++	dir, err = ReadLink(dir)
++	if err != nil {
++		return "", err
++	}
++
++	return filepath.Join(dir, base), nil
++}
++
++func isLink(name string) (bool, error) {
++	fi, err := os.Lstat(name)
++	if err != nil {
++		return false, err
++	}
++
++	return fi.Mode()&fs.ModeSymlink != 0, nil
++}

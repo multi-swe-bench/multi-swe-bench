@@ -1,0 +1,90 @@
+diff --git a/.changeset/eight-comics-tell.md b/.changeset/eight-comics-tell.md
+new file mode 100644
+index 000000000000..fa506aba4628
+--- /dev/null
++++ b/.changeset/eight-comics-tell.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: add support for `<svelte:options css="injected" />`
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index 4e24714647cd..7920329c8b95 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -324,7 +324,7 @@ HTML restricts where certain elements can appear. In case of a violation the bro
+ 
+ ## svelte_options_invalid_attribute_value
+ 
+-> Valid values are %list%
++> Value must be %list%, if specified
+ 
+ ## svelte_options_invalid_customelement
+ 
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 0b91336ee031..958c86a81759 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -1275,13 +1275,13 @@ export function svelte_options_invalid_attribute(node) {
+ }
+ 
+ /**
+- * Valid values are %list%
++ * Value must be %list%, if specified
+  * @param {null | number | NodeLike} node
+  * @param {string} list
+  * @returns {never}
+  */
+ export function svelte_options_invalid_attribute_value(node, list) {
+-	e(node, "svelte_options_invalid_attribute_value", `Valid values are ${list}`);
++	e(node, "svelte_options_invalid_attribute_value", `Value must be ${list}, if specified`);
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/options.js b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+index 27527dd162af..0ffd22fe752a 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/options.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/options.js
+@@ -175,6 +175,17 @@ export default function read_options(node) {
+ 
+ 				break;
+ 			}
++			case 'css': {
++				const value = get_static_value(attribute);
++
++				if (value === 'injected') {
++					component_options.css = value;
++				} else {
++					e.svelte_options_invalid_attribute_value(attribute, `"injected"`);
++				}
++
++				break;
++			}
+ 			case 'immutable': {
+ 				component_options.immutable = get_boolean_value(attribute);
+ 				break;
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index e5bc072c1ad8..596fc66175ce 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -75,6 +75,7 @@ export interface SvelteOptions {
+ 	accessors?: boolean;
+ 	preserveWhitespace?: boolean;
+ 	namespace?: Namespace;
++	css?: 'injected';
+ 	customElement?: {
+ 		tag: string;
+ 		shadow?: 'open' | 'none';
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index d9537235f60d..485a8d7252a5 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1527,6 +1527,7 @@ declare module 'svelte/compiler' {
+ 		accessors?: boolean;
+ 		preserveWhitespace?: boolean;
+ 		namespace?: Namespace;
++		css?: 'injected';
+ 		customElement?: {
+ 			tag: string;
+ 			shadow?: 'open' | 'none';

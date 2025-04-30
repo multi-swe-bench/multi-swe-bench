@@ -1,0 +1,188 @@
+diff --git a/command/issue.go b/command/issue.go
+index ce5c4bae858..5e1dacd861b 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -37,6 +37,7 @@ func init() {
+ 	issueCreateCmd.Flags().StringP("milestone", "m", "", "Add the issue to a milestone by `name`")
+ 
+ 	issueCmd.AddCommand(issueListCmd)
++	issueListCmd.Flags().BoolP("web", "w", false, "Open the browser to list the issue(s)")
+ 	issueListCmd.Flags().StringP("assignee", "a", "", "Filter by assignee")
+ 	issueListCmd.Flags().StringSliceP("label", "l", nil, "Filter by labels")
+ 	issueListCmd.Flags().StringP("state", "s", "open", "Filter by state: {open|closed|all}")
+@@ -86,6 +87,7 @@ var issueListCmd = &cobra.Command{
+ 	Example: heredoc.Doc(`
+ 	$ gh issue list -l "help wanted"
+ 	$ gh issue list -A monalisa
++	$ gh issue list --web
+ 	`),
+ 	Args: cmdutil.NoArgsQuoteReminder,
+ 	RunE: issueList,
+@@ -118,6 +120,57 @@ var issueReopenCmd = &cobra.Command{
+ 	RunE:  issueReopen,
+ }
+ 
++type filterOptions struct {
++	entity     string
++	state      string
++	assignee   string
++	labels     []string
++	author     string
++	baseBranch string
++	mention    string
++	milestone  string
++}
++
++func listURLWithQuery(listURL string, options filterOptions) (string, error) {
++	u, err := url.Parse(listURL)
++	if err != nil {
++		return "", err
++	}
++	query := fmt.Sprintf("is:%s ", options.entity)
++	if options.state != "all" {
++		query += fmt.Sprintf("is:%s ", options.state)
++	}
++	if options.assignee != "" {
++		query += fmt.Sprintf("assignee:%s ", options.assignee)
++	}
++	for _, label := range options.labels {
++		query += fmt.Sprintf("label:%s ", quoteValueForQuery(label))
++	}
++	if options.author != "" {
++		query += fmt.Sprintf("author:%s ", options.author)
++	}
++	if options.baseBranch != "" {
++		query += fmt.Sprintf("base:%s ", options.baseBranch)
++	}
++	if options.mention != "" {
++		query += fmt.Sprintf("mentions:%s ", options.mention)
++	}
++	if options.milestone != "" {
++		query += fmt.Sprintf("milestone:%s ", quoteValueForQuery(options.milestone))
++	}
++	q := u.Query()
++	q.Set("q", strings.TrimSuffix(query, " "))
++	u.RawQuery = q.Encode()
++	return u.String(), nil
++}
++
++func quoteValueForQuery(v string) string {
++	if strings.ContainsAny(v, " \"\t\r\n") {
++		return fmt.Sprintf("%q", v)
++	}
++	return v
++}
++
+ func issueList(cmd *cobra.Command, args []string) error {
+ 	ctx := contextForCommand(cmd)
+ 	apiClient, err := apiClientForContext(ctx)
+@@ -130,6 +183,11 @@ func issueList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
++	web, err := cmd.Flags().GetBool("web")
++	if err != nil {
++		return err
++	}
++
+ 	state, err := cmd.Flags().GetString("state")
+ 	if err != nil {
+ 		return err
+@@ -168,6 +226,24 @@ func issueList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
++	if web {
++		issueListURL := generateRepoURL(baseRepo, "issues")
++		openURL, err := listURLWithQuery(issueListURL, filterOptions{
++			entity:    "issue",
++			state:     state,
++			assignee:  assignee,
++			labels:    labels,
++			author:    author,
++			mention:   mention,
++			milestone: milestone,
++		})
++		if err != nil {
++			return err
++		}
++		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
++		return utils.OpenInBrowser(openURL)
++	}
++
+ 	listResult, err := api.IssueList(apiClient, baseRepo, state, labels, assignee, limit, author, mention, milestone)
+ 	if err != nil {
+ 		return err
+diff --git a/command/pr.go b/command/pr.go
+index e9427d1c4d9..91ceb11862b 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -39,10 +39,11 @@ func init() {
+ 	prCmd.AddCommand(prReadyCmd)
+ 
+ 	prCmd.AddCommand(prListCmd)
++	prListCmd.Flags().BoolP("web", "w", false, "Open the browser to list the pull request(s)")
+ 	prListCmd.Flags().IntP("limit", "L", 30, "Maximum number of items to fetch")
+ 	prListCmd.Flags().StringP("state", "s", "open", "Filter by state: {open|closed|merged|all}")
+ 	prListCmd.Flags().StringP("base", "B", "", "Filter by base branch")
+-	prListCmd.Flags().StringSliceP("label", "l", nil, "Filter by label")
++	prListCmd.Flags().StringSliceP("label", "l", nil, "Filter by labels")
+ 	prListCmd.Flags().StringP("assignee", "a", "", "Filter by assignee")
+ 
+ 	prCmd.AddCommand(prViewCmd)
+@@ -73,6 +74,7 @@ var prListCmd = &cobra.Command{
+ 	$ gh pr list --limit 999
+ 	$ gh pr list --state closed
+ 	$ gh pr list --label "priority 1" --label "bug"
++	$ gh pr list --web
+ 	`),
+ 	RunE: prList,
+ }
+@@ -202,6 +204,11 @@ func prList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
++	web, err := cmd.Flags().GetBool("web")
++	if err != nil {
++		return err
++	}
++
+ 	limit, err := cmd.Flags().GetInt("limit")
+ 	if err != nil {
+ 		return err
+@@ -227,6 +234,22 @@ func prList(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
++	if web {
++		prListURL := generateRepoURL(baseRepo, "pulls")
++		openURL, err := listURLWithQuery(prListURL, filterOptions{
++			entity:     "pr",
++			state:      state,
++			assignee:   assignee,
++			labels:     labels,
++			baseBranch: baseBranch,
++		})
++		if err != nil {
++			return err
++		}
++		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
++		return utils.OpenInBrowser(openURL)
++	}
++
+ 	var graphqlState []string
+ 	switch state {
+ 	case "open":
+diff --git a/command/pr_create.go b/command/pr_create.go
+index 450eb7a2ac1..15406a27c2e 100644
+--- a/command/pr_create.go
++++ b/command/pr_create.go
+@@ -411,7 +411,7 @@ func determineTrackingBranch(remotes context.Remotes, headBranch string) *git.Tr
+ func withPrAndIssueQueryParams(baseURL, title, body string, assignees, labels, projects []string, milestone string) (string, error) {
+ 	u, err := url.Parse(baseURL)
+ 	if err != nil {
+-		return "", nil
++		return "", err
+ 	}
+ 	q := u.Query()
+ 	if title != "" {

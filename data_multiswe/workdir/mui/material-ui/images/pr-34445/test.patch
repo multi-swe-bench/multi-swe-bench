@@ -1,0 +1,41 @@
+diff --git a/packages/mui-material/src/Popover/Popover.test.js b/packages/mui-material/src/Popover/Popover.test.js
+index e9e0d21116dde9..af9fc2b32f770c 100644
+--- a/packages/mui-material/src/Popover/Popover.test.js
++++ b/packages/mui-material/src/Popover/Popover.test.js
+@@ -7,6 +7,7 @@ import Grow from '@mui/material/Grow';
+ import Modal from '@mui/material/Modal';
+ import Paper from '@mui/material/Paper';
+ import Popover, { popoverClasses as classes } from '@mui/material/Popover';
++import { ThemeProvider, createTheme } from '@mui/material/styles';
+ import { getOffsetLeft, getOffsetTop } from './Popover';
+ import useForkRef from '../utils/useForkRef';
+ 
+@@ -877,4 +878,28 @@ describe('<Popover />', () => {
+       expect(screen.getByTestId('transition')).not.to.have.attribute('data-timeout');
+     });
+   });
++
++  it("should not throw if ownerState is used in slot's styleOverrides", () => {
++    expect(() =>
++      render(
++        <ThemeProvider
++          theme={createTheme({
++            components: {
++              MuiPopover: {
++                styleOverrides: {
++                  paper: ({ ownerState }) => ({
++                    marginTop: ownerState.transformOrigin?.vertical === 'top' ? '4px' : 0,
++                  }),
++                },
++              },
++            },
++          })}
++        >
++          <Popover anchorEl={document.createElement('div')} open>
++            <div />
++          </Popover>
++        </ThemeProvider>,
++      ),
++    ).not.to.throw();
++  });
+ });

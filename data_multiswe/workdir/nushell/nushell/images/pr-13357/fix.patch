@@ -1,0 +1,1188 @@
+diff --git a/crates/nu-cli/src/syntax_highlight.rs b/crates/nu-cli/src/syntax_highlight.rs
+index 08dcbb134663b..ebd83151901fd 100644
+--- a/crates/nu-cli/src/syntax_highlight.rs
++++ b/crates/nu-cli/src/syntax_highlight.rs
+@@ -429,6 +429,14 @@ fn find_matching_block_end_in_expr(
+                 )
+             }),
+ 
++            Expr::Collect(_, expr) => find_matching_block_end_in_expr(
++                line,
++                working_set,
++                expr,
++                global_span_offset,
++                global_cursor_offset,
++            ),
++
+             Expr::Block(block_id)
+             | Expr::Closure(block_id)
+             | Expr::RowCondition(block_id)
+diff --git a/crates/nu-cmd-lang/src/example_support.rs b/crates/nu-cmd-lang/src/example_support.rs
+index bb03bbaf8c014..72ea36972fb3b 100644
+--- a/crates/nu-cmd-lang/src/example_support.rs
++++ b/crates/nu-cmd-lang/src/example_support.rs
+@@ -4,7 +4,7 @@ use nu_protocol::{
+     ast::Block,
+     debugger::WithoutDebug,
+     engine::{StateDelta, StateWorkingSet},
+-    Range,
++    report_error_new, Range,
+ };
+ use std::{
+     sync::Arc,
+@@ -124,7 +124,10 @@ pub fn eval_block(
+ 
+     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
+         .and_then(|data| data.into_value(Span::test_data()))
+-        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", "TODO", err))
++        .unwrap_or_else(|err| {
++            report_error_new(engine_state, &err);
++            panic!("test eval error in `{}`: {:?}", "TODO", err)
++        })
+ }
+ 
+ pub fn check_example_evaluates_to_expected_output(
+diff --git a/crates/nu-engine/src/compile/builder.rs b/crates/nu-engine/src/compile/builder.rs
+index d77075cc3ffa0..4294b2bd618ce 100644
+--- a/crates/nu-engine/src/compile/builder.rs
++++ b/crates/nu-engine/src/compile/builder.rs
+@@ -204,6 +204,7 @@ impl BlockBuilder {
+             Instruction::Drain { src } => allocate(&[*src], &[]),
+             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
+             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
++            Instruction::DropVariable { var_id: _ } => Ok(()),
+             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
+             Instruction::LoadEnvOpt { dst, key: _ } => allocate(&[], &[*dst]),
+             Instruction::StoreEnv { key: _, src } => allocate(&[*src], &[]),
+diff --git a/crates/nu-engine/src/compile/expression.rs b/crates/nu-engine/src/compile/expression.rs
+index 38ee58ea26f08..948eb5c238d2a 100644
+--- a/crates/nu-engine/src/compile/expression.rs
++++ b/crates/nu-engine/src/compile/expression.rs
+@@ -171,6 +171,27 @@ pub(crate) fn compile_expression(
+                 Err(CompileError::UnsupportedOperatorExpression { span: op.span })
+             }
+         }
++        Expr::Collect(var_id, expr) => {
++            let store_reg = if let Some(in_reg) = in_reg {
++                // Collect, clone, store
++                builder.push(Instruction::Collect { src_dst: in_reg }.into_spanned(expr.span))?;
++                builder.clone_reg(in_reg, expr.span)?
++            } else {
++                // Just store nothing in the variable
++                builder.literal(Literal::Nothing.into_spanned(Span::unknown()))?
++            };
++            builder.push(
++                Instruction::StoreVariable {
++                    var_id: *var_id,
++                    src: store_reg,
++                }
++                .into_spanned(expr.span),
++            )?;
++            compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg)?;
++            // Clean it up afterward
++            builder.push(Instruction::DropVariable { var_id: *var_id }.into_spanned(expr.span))?;
++            Ok(())
++        }
+         Expr::Subexpression(block_id) => {
+             let block = working_set.get_block(*block_id);
+             compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)
+diff --git a/crates/nu-engine/src/eval.rs b/crates/nu-engine/src/eval.rs
+index 42d0aed288309..84fa700934b47 100644
+--- a/crates/nu-engine/src/eval.rs
++++ b/crates/nu-engine/src/eval.rs
+@@ -10,8 +10,8 @@ use nu_protocol::{
+     debugger::DebugContext,
+     engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
+     eval_base::Eval,
+-    ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
+-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
++    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
++    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+ };
+ use nu_utils::IgnoreCaseExt;
+ use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
+@@ -259,6 +259,10 @@ pub fn eval_expression_with_input<D: DebugContext>(
+             input = eval_external(engine_state, stack, head, args, input)?;
+         }
+ 
++        Expr::Collect(var_id, expr) => {
++            input = eval_collect::<D>(engine_state, stack, *var_id, expr, input)?;
++        }
++
+         Expr::Subexpression(block_id) => {
+             let block = engine_state.get_block(*block_id);
+             // FIXME: protect this collect with ctrl-c
+@@ -605,6 +609,44 @@ pub fn eval_block<D: DebugContext>(
+     Ok(input)
+ }
+ 
++pub fn eval_collect<D: DebugContext>(
++    engine_state: &EngineState,
++    stack: &mut Stack,
++    var_id: VarId,
++    expr: &Expression,
++    input: PipelineData,
++) -> Result<PipelineData, ShellError> {
++    // Evaluate the expression with the variable set to the collected input
++    let span = input.span().unwrap_or(Span::unknown());
++
++    let metadata = match input.metadata() {
++        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
++        // check where some input came from.
++        Some(PipelineMetadata {
++            data_source: DataSource::FilePath(_),
++            content_type: None,
++        }) => None,
++        other => other,
++    };
++
++    let input = input.into_value(span)?;
++
++    stack.add_var(var_id, input.clone());
++
++    let result = eval_expression_with_input::<D>(
++        engine_state,
++        stack,
++        expr,
++        // We still have to pass it as input
++        input.into_pipeline_data_with_metadata(metadata),
++    )
++    .map(|(result, _failed)| result);
++
++    stack.remove_var(var_id);
++
++    result
++}
++
+ pub fn eval_subexpression<D: DebugContext>(
+     engine_state: &EngineState,
+     stack: &mut Stack,
+@@ -729,6 +771,18 @@ impl Eval for EvalRuntime {
+         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+     }
+ 
++    fn eval_collect<D: DebugContext>(
++        engine_state: &EngineState,
++        stack: &mut Stack,
++        var_id: VarId,
++        expr: &Expression,
++    ) -> Result<Value, ShellError> {
++        // It's a little bizarre, but the expression can still have some kind of result even with
++        // nothing input
++        eval_collect::<D>(engine_state, stack, var_id, expr, PipelineData::empty())?
++            .into_value(expr.span)
++    }
++
+     fn eval_subexpression<D: DebugContext>(
+         engine_state: &EngineState,
+         stack: &mut Stack,
+diff --git a/crates/nu-engine/src/eval_ir.rs b/crates/nu-engine/src/eval_ir.rs
+index 29a677bd69e7b..8550cbab993dc 100644
+--- a/crates/nu-engine/src/eval_ir.rs
++++ b/crates/nu-engine/src/eval_ir.rs
+@@ -6,9 +6,9 @@ use nu_protocol::{
+     debugger::DebugContext,
+     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
+     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+-    record, ByteStreamSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+-    OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature,
+-    Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
++    record, ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned,
++    ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId,
++    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+ };
+ use nu_utils::IgnoreCaseExt;
+ 
+@@ -345,6 +345,10 @@ fn eval_instruction<D: DebugContext>(
+             ctx.stack.add_var(*var_id, value);
+             Ok(Continue)
+         }
++        Instruction::DropVariable { var_id } => {
++            ctx.stack.remove_var(*var_id);
++            Ok(Continue)
++        }
+         Instruction::LoadEnv { dst, key } => {
+             let key = ctx.get_str(*key, *span)?;
+             if let Some(value) = get_env_var_case_insensitive(ctx, key) {
+@@ -1341,9 +1345,19 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
+ }
+ 
+ /// Helper to collect values into [`PipelineData`], preserving original span and metadata
++///
++/// The metadata is removed if it is the file data source, as that's just meant to mark streams.
+ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
+     let span = data.span().unwrap_or(fallback_span);
+-    let metadata = data.metadata();
++    let metadata = match data.metadata() {
++        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
++        // check where some input came from.
++        Some(PipelineMetadata {
++            data_source: DataSource::FilePath(_),
++            content_type: None,
++        }) => None,
++        other => other,
++    };
+     let value = data.into_value(span)?;
+     Ok(PipelineData::Value(value, metadata))
+ }
+diff --git a/crates/nu-parser/src/flatten.rs b/crates/nu-parser/src/flatten.rs
+index 88638b24755e9..8a05edaef48b4 100644
+--- a/crates/nu-parser/src/flatten.rs
++++ b/crates/nu-parser/src/flatten.rs
+@@ -189,6 +189,9 @@ fn flatten_expression_into(
+             ));
+             flatten_expression_into(working_set, not, output);
+         }
++        Expr::Collect(_, expr) => {
++            flatten_expression_into(working_set, expr, output);
++        }
+         Expr::Closure(block_id) => {
+             let outer_span = expr.span;
+ 
+diff --git a/crates/nu-parser/src/lite_parser.rs b/crates/nu-parser/src/lite_parser.rs
+index f04b8befdc6e3..c9e9578698be9 100644
+--- a/crates/nu-parser/src/lite_parser.rs
++++ b/crates/nu-parser/src/lite_parser.rs
+@@ -2,6 +2,7 @@
+ //! can be parsed.
+ 
+ use crate::{Token, TokenContents};
++use itertools::{Either, Itertools};
+ use nu_protocol::{ast::RedirectionSource, ParseError, Span};
+ use std::mem;
+ 
+@@ -24,6 +25,15 @@ impl LiteRedirectionTarget {
+             | LiteRedirectionTarget::Pipe { connector } => *connector,
+         }
+     }
++
++    pub fn spans(&self) -> impl Iterator<Item = Span> {
++        match *self {
++            LiteRedirectionTarget::File {
++                connector, file, ..
++            } => Either::Left([connector, file].into_iter()),
++            LiteRedirectionTarget::Pipe { connector } => Either::Right(std::iter::once(connector)),
++        }
++    }
+ }
+ 
+ #[derive(Debug, Clone)]
+@@ -38,6 +48,17 @@ pub enum LiteRedirection {
+     },
+ }
+ 
++impl LiteRedirection {
++    pub fn spans(&self) -> impl Iterator<Item = Span> {
++        match self {
++            LiteRedirection::Single { target, .. } => Either::Left(target.spans()),
++            LiteRedirection::Separate { out, err } => {
++                Either::Right(out.spans().chain(err.spans()).sorted())
++            }
++        }
++    }
++}
++
+ #[derive(Debug, Clone, Default)]
+ pub struct LiteCommand {
+     pub pipe: Option<Span>,
+@@ -113,6 +134,14 @@ impl LiteCommand {
+ 
+         Ok(())
+     }
++
++    pub fn parts_including_redirection(&self) -> impl Iterator<Item = Span> + '_ {
++        self.parts.iter().copied().chain(
++            self.redirection
++                .iter()
++                .flat_map(|redirection| redirection.spans()),
++        )
++    }
+ }
+ 
+ #[derive(Debug, Clone, Default)]
+diff --git a/crates/nu-parser/src/parser.rs b/crates/nu-parser/src/parser.rs
+index fc2131aad77a3..bc48b9bd0ccfd 100644
+--- a/crates/nu-parser/src/parser.rs
++++ b/crates/nu-parser/src/parser.rs
+@@ -5299,6 +5299,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
+             let mut block = Block::default();
+             let ty = output.ty.clone();
+             block.pipelines = vec![Pipeline::from_vec(vec![output])];
++            block.span = Some(Span::concat(spans));
+ 
+             compile_block(working_set, &mut block);
+ 
+@@ -5393,9 +5394,19 @@ pub fn parse_builtin_commands(
+     match name {
+         b"def" => parse_def(working_set, lite_command, None).0,
+         b"extern" => parse_extern(working_set, lite_command, None),
+-        b"let" => parse_let(working_set, &lite_command.parts),
++        b"let" => parse_let(
++            working_set,
++            &lite_command
++                .parts_including_redirection()
++                .collect::<Vec<Span>>(),
++        ),
+         b"const" => parse_const(working_set, &lite_command.parts),
+-        b"mut" => parse_mut(working_set, &lite_command.parts),
++        b"mut" => parse_mut(
++            working_set,
++            &lite_command
++                .parts_including_redirection()
++                .collect::<Vec<Span>>(),
++        ),
+         b"for" => {
+             let expr = parse_for(working_set, lite_command);
+             Pipeline::from_vec(vec![expr])
+@@ -5647,169 +5658,73 @@ pub(crate) fn redirecting_builtin_error(
+     }
+ }
+ 
+-pub fn parse_pipeline(
+-    working_set: &mut StateWorkingSet,
+-    pipeline: &LitePipeline,
+-    is_subexpression: bool,
+-    pipeline_index: usize,
+-) -> Pipeline {
+-    if pipeline.commands.len() > 1 {
+-        // Special case: allow `let` and `mut` to consume the whole pipeline, eg) `let abc = "foo" | str length`
+-        if let Some(&first) = pipeline.commands[0].parts.first() {
+-            let first = working_set.get_span_contents(first);
+-            if first == b"let" || first == b"mut" {
+-                let name = if first == b"let" { "let" } else { "mut" };
+-                let mut new_command = LiteCommand {
+-                    comments: vec![],
+-                    parts: pipeline.commands[0].parts.clone(),
+-                    pipe: None,
+-                    redirection: None,
+-                };
++pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
++    let first_command = pipeline.commands.first();
++    let first_command_name = first_command
++        .and_then(|command| command.parts.first())
++        .map(|span| working_set.get_span_contents(*span));
+ 
+-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+-                    working_set.error(redirecting_builtin_error(name, redirection));
+-                }
++    if pipeline.commands.len() > 1 {
++        // Special case: allow "let" or "mut" to consume the whole pipeline, if this is a pipeline
++        // with multiple commands
++        if matches!(first_command_name, Some(b"let" | b"mut")) {
++            // Merge the pipeline into one command
++            let first_command = first_command.expect("must be Some");
++
++            let remainder_span = first_command
++                .parts_including_redirection()
++                .skip(3)
++                .chain(
++                    pipeline.commands[1..]
++                        .iter()
++                        .flat_map(|command| command.parts_including_redirection()),
++                )
++                .reduce(Span::append);
+ 
+-                for element in &pipeline.commands[1..] {
+-                    if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+-                        working_set.error(redirecting_builtin_error(name, redirection));
+-                    } else {
+-                        new_command.parts.push(element.pipe.expect("pipe span"));
+-                        new_command.comments.extend_from_slice(&element.comments);
+-                        new_command.parts.extend_from_slice(&element.parts);
+-                    }
+-                }
++            let parts = first_command
++                .parts
++                .iter()
++                .take(3) // the let/mut start itself
++                .copied()
++                .chain(remainder_span) // everything else
++                .collect();
+ 
+-                // if the 'let' is complete enough, use it, if not, fall through for now
+-                if new_command.parts.len() > 3 {
+-                    let rhs_span = Span::concat(&new_command.parts[3..]);
+-
+-                    new_command.parts.truncate(3);
+-                    new_command.parts.push(rhs_span);
+-
+-                    let mut pipeline = parse_builtin_commands(working_set, &new_command);
+-
+-                    if pipeline_index == 0 {
+-                        let let_decl_id = working_set.find_decl(b"let");
+-                        let mut_decl_id = working_set.find_decl(b"mut");
+-                        for element in pipeline.elements.iter_mut() {
+-                            if let Expr::Call(call) = &element.expr.expr {
+-                                if Some(call.decl_id) == let_decl_id
+-                                    || Some(call.decl_id) == mut_decl_id
+-                                {
+-                                    // Do an expansion
+-                                    if let Some(Expression {
+-                                        expr: Expr::Block(block_id),
+-                                        ..
+-                                    }) = call.positional_iter().nth(1)
+-                                    {
+-                                        let block = working_set.get_block(*block_id);
++            let comments = pipeline
++                .commands
++                .iter()
++                .flat_map(|command| command.comments.iter())
++                .copied()
++                .collect();
+ 
+-                                        if let Some(element) = block
+-                                            .pipelines
+-                                            .first()
+-                                            .and_then(|p| p.elements.first())
+-                                            .cloned()
+-                                        {
+-                                            if element.has_in_variable(working_set) {
+-                                                let element = wrap_element_with_collect(
+-                                                    working_set,
+-                                                    &element,
+-                                                );
+-                                                let block = working_set.get_block_mut(*block_id);
+-                                                block.pipelines[0].elements[0] = element;
+-                                            }
+-                                        }
+-                                    }
+-                                    continue;
+-                                } else if element.has_in_variable(working_set) && !is_subexpression
+-                                {
+-                                    *element = wrap_element_with_collect(working_set, element);
+-                                }
+-                            } else if element.has_in_variable(working_set) && !is_subexpression {
+-                                *element = wrap_element_with_collect(working_set, element);
+-                            }
+-                        }
++            let new_command = LiteCommand {
++                pipe: None,
++                comments,
++                parts,
++                redirection: None,
++            };
++            parse_builtin_commands(working_set, &new_command)
++        } else {
++            // Parse a normal multi command pipeline
++            let elements: Vec<_> = pipeline
++                .commands
++                .iter()
++                .enumerate()
++                .map(|(index, element)| {
++                    let element = parse_pipeline_element(working_set, element);
++                    // Handle $in for pipeline elements beyond the first one
++                    if index > 0 && element.has_in_variable(working_set) {
++                        wrap_element_with_collect(working_set, element.clone())
++                    } else {
++                        element
+                     }
++                })
++                .collect();
+ 
+-                    return pipeline;
+-                }
+-            }
+-        }
+-
+-        let mut elements = pipeline
+-            .commands
+-            .iter()
+-            .map(|element| parse_pipeline_element(working_set, element))
+-            .collect::<Vec<_>>();
+-
+-        if is_subexpression {
+-            for element in elements.iter_mut().skip(1) {
+-                if element.has_in_variable(working_set) {
+-                    *element = wrap_element_with_collect(working_set, element);
+-                }
+-            }
+-        } else {
+-            for element in elements.iter_mut() {
+-                if element.has_in_variable(working_set) {
+-                    *element = wrap_element_with_collect(working_set, element);
+-                }
+-            }
++            Pipeline { elements }
+         }
+-
+-        Pipeline { elements }
+     } else {
+-        if let Some(&first) = pipeline.commands[0].parts.first() {
+-            let first = working_set.get_span_contents(first);
+-            if first == b"let" || first == b"mut" {
+-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
+-                    let name = if first == b"let" { "let" } else { "mut" };
+-                    working_set.error(redirecting_builtin_error(name, redirection));
+-                }
+-            }
+-        }
+-
+-        let mut pipeline = parse_builtin_commands(working_set, &pipeline.commands[0]);
+-
+-        let let_decl_id = working_set.find_decl(b"let");
+-        let mut_decl_id = working_set.find_decl(b"mut");
+-
+-        if pipeline_index == 0 {
+-            for element in pipeline.elements.iter_mut() {
+-                if let Expr::Call(call) = &element.expr.expr {
+-                    if Some(call.decl_id) == let_decl_id || Some(call.decl_id) == mut_decl_id {
+-                        // Do an expansion
+-                        if let Some(Expression {
+-                            expr: Expr::Block(block_id),
+-                            ..
+-                        }) = call.positional_iter().nth(1)
+-                        {
+-                            let block = working_set.get_block(*block_id);
+-
+-                            if let Some(element) = block
+-                                .pipelines
+-                                .first()
+-                                .and_then(|p| p.elements.first())
+-                                .cloned()
+-                            {
+-                                if element.has_in_variable(working_set) {
+-                                    let element = wrap_element_with_collect(working_set, &element);
+-                                    let block = working_set.get_block_mut(*block_id);
+-                                    block.pipelines[0].elements[0] = element;
+-                                }
+-                            }
+-                        }
+-                        continue;
+-                    } else if element.has_in_variable(working_set) && !is_subexpression {
+-                        *element = wrap_element_with_collect(working_set, element);
+-                    }
+-                } else if element.has_in_variable(working_set) && !is_subexpression {
+-                    *element = wrap_element_with_collect(working_set, element);
+-                }
+-            }
+-        }
+-
+-        pipeline
++        // If there's only one command in the pipeline, this could be a builtin command
++        parse_builtin_commands(working_set, &pipeline.commands[0])
+     }
+ }
+ 
+@@ -5840,18 +5755,45 @@ pub fn parse_block(
+     }
+ 
+     let mut block = Block::new_with_capacity(lite_block.block.len());
++    block.span = Some(span);
+ 
+-    for (idx, lite_pipeline) in lite_block.block.iter().enumerate() {
+-        let pipeline = parse_pipeline(working_set, lite_pipeline, is_subexpression, idx);
++    for lite_pipeline in &lite_block.block {
++        let pipeline = parse_pipeline(working_set, lite_pipeline);
+         block.pipelines.push(pipeline);
+     }
+ 
++    // If this is not a subexpression and there are any pipelines where the first element has $in,
++    // we can wrap the whole block in collect so that they all reference the same $in
++    if !is_subexpression
++        && block
++            .pipelines
++            .iter()
++            .flat_map(|pipeline| pipeline.elements.first())
++            .any(|element| element.has_in_variable(working_set))
++    {
++        // Move the block out to prepare it to become a subexpression
++        let inner_block = std::mem::take(&mut block);
++        block.span = inner_block.span;
++        let ty = inner_block.output_type();
++        let block_id = working_set.add_block(Arc::new(inner_block));
++
++        // Now wrap it in a Collect expression, and put it in the block as the only pipeline
++        let subexpression = Expression::new(working_set, Expr::Subexpression(block_id), span, ty);
++        let collect = wrap_expr_with_collect(working_set, subexpression);
++
++        block.pipelines.push(Pipeline {
++            elements: vec![PipelineElement {
++                pipe: None,
++                expr: collect,
++                redirection: None,
++            }],
++        });
++    }
++
+     if scoped {
+         working_set.exit_scope();
+     }
+ 
+-    block.span = Some(span);
+-
+     let errors = type_check::check_block_input_output(working_set, &block);
+     if !errors.is_empty() {
+         working_set.parse_errors.extend_from_slice(&errors);
+@@ -6220,6 +6162,10 @@ pub fn discover_captures_in_expr(
+                 discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks, output)?;
+             }
+         }
++        Expr::Collect(var_id, expr) => {
++            seen.push(*var_id);
++            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?
++        }
+         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+             let block = working_set.get_block(*block_id);
+ 
+@@ -6270,28 +6216,28 @@ pub fn discover_captures_in_expr(
+ 
+ fn wrap_redirection_with_collect(
+     working_set: &mut StateWorkingSet,
+-    target: &RedirectionTarget,
++    target: RedirectionTarget,
+ ) -> RedirectionTarget {
+     match target {
+         RedirectionTarget::File { expr, append, span } => RedirectionTarget::File {
+             expr: wrap_expr_with_collect(working_set, expr),
+-            span: *span,
+-            append: *append,
++            span,
++            append,
+         },
+-        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span: *span },
++        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span },
+     }
+ }
+ 
+ fn wrap_element_with_collect(
+     working_set: &mut StateWorkingSet,
+-    element: &PipelineElement,
++    element: PipelineElement,
+ ) -> PipelineElement {
+     PipelineElement {
+         pipe: element.pipe,
+-        expr: wrap_expr_with_collect(working_set, &element.expr),
+-        redirection: element.redirection.as_ref().map(|r| match r {
++        expr: wrap_expr_with_collect(working_set, element.expr),
++        redirection: element.redirection.map(|r| match r {
+             PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
+-                source: *source,
++                source,
+                 target: wrap_redirection_with_collect(working_set, target),
+             },
+             PipelineRedirection::Separate { out, err } => PipelineRedirection::Separate {
+@@ -6302,65 +6248,24 @@ fn wrap_element_with_collect(
+     }
+ }
+ 
+-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
++fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -> Expression {
+     let span = expr.span;
+ 
+-    if let Some(decl_id) = working_set.find_decl(b"collect") {
+-        let mut output = vec![];
+-
+-        let var_id = IN_VARIABLE_ID;
+-        let mut signature = Signature::new("");
+-        signature.required_positional.push(PositionalArg {
+-            var_id: Some(var_id),
+-            name: "$in".into(),
+-            desc: String::new(),
+-            shape: SyntaxShape::Any,
+-            default_value: None,
+-        });
+-
+-        let mut block = Block {
+-            pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
+-            signature: Box::new(signature),
+-            ..Default::default()
+-        };
+-
+-        compile_block(working_set, &mut block);
+-
+-        let block_id = working_set.add_block(Arc::new(block));
+-
+-        output.push(Argument::Positional(Expression::new(
+-            working_set,
+-            Expr::Closure(block_id),
+-            span,
+-            Type::Any,
+-        )));
++    // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
++    // execute as a closure
++    let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
++    let mut expr = expr.clone();
++    expr.replace_in_variable(working_set, var_id);
+ 
+-        output.push(Argument::Named((
+-            Spanned {
+-                item: "keep-env".to_string(),
+-                span: Span::new(0, 0),
+-            },
+-            None,
+-            None,
+-        )));
+-
+-        // The containing, synthetic call to `collect`.
+-        // We don't want to have a real span as it will confuse flattening
+-        // The args are where we'll get the real info
+-        Expression::new(
+-            working_set,
+-            Expr::Call(Box::new(Call {
+-                head: Span::new(0, 0),
+-                arguments: output,
+-                decl_id,
+-                parser_info: HashMap::new(),
+-            })),
+-            span,
+-            Type::Any,
+-        )
+-    } else {
+-        Expression::garbage(working_set, span)
+-    }
++    // Bind the custom `$in` variable for that particular expression
++    let ty = expr.ty.clone();
++    Expression::new(
++        working_set,
++        Expr::Collect(var_id, Box::new(expr)),
++        span,
++        // We can expect it to have the same result type
++        ty,
++    )
+ }
+ 
+ // Parses a vector of u8 to create an AST Block. If a file name is given, then
+diff --git a/crates/nu-protocol/src/ast/block.rs b/crates/nu-protocol/src/ast/block.rs
+index 8f62ff99bac54..a6e640cc15855 100644
+--- a/crates/nu-protocol/src/ast/block.rs
++++ b/crates/nu-protocol/src/ast/block.rs
+@@ -78,6 +78,19 @@ impl Block {
+             Type::Nothing
+         }
+     }
++
++    /// Replace any `$in` variables in the initial element of pipelines within the block
++    pub fn replace_in_variable(
++        &mut self,
++        working_set: &mut StateWorkingSet<'_>,
++        new_var_id: VarId,
++    ) {
++        for pipeline in self.pipelines.iter_mut() {
++            if let Some(element) = pipeline.elements.first_mut() {
++                element.replace_in_variable(working_set, new_var_id);
++            }
++        }
++    }
+ }
+ 
+ impl<T> From<T> for Block
+diff --git a/crates/nu-protocol/src/ast/expr.rs b/crates/nu-protocol/src/ast/expr.rs
+index fadbffc51f1df..d6386f92dce05 100644
+--- a/crates/nu-protocol/src/ast/expr.rs
++++ b/crates/nu-protocol/src/ast/expr.rs
+@@ -25,6 +25,7 @@ pub enum Expr {
+     RowCondition(BlockId),
+     UnaryNot(Box<Expression>),
+     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
++    Collect(VarId, Box<Expression>),
+     Subexpression(BlockId),
+     Block(BlockId),
+     Closure(BlockId),
+@@ -65,11 +66,13 @@ impl Expr {
+         &self,
+         working_set: &StateWorkingSet,
+     ) -> (Option<OutDest>, Option<OutDest>) {
+-        // Usages of `$in` will be wrapped by a `collect` call by the parser,
+-        // so we do not have to worry about that when considering
+-        // which of the expressions below may consume pipeline output.
+         match self {
+             Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
++            Expr::Collect(_, _) => {
++                // A collect expression always has default redirection, it's just going to collect
++                // stdout unless another type of redirection is specified
++                (None, None)
++            },
+             Expr::Subexpression(block_id) | Expr::Block(block_id) => working_set
+                 .get_block(*block_id)
+                 .pipe_redirection(working_set),
+diff --git a/crates/nu-protocol/src/ast/expression.rs b/crates/nu-protocol/src/ast/expression.rs
+index dfd4187a90924..4818aa2db22ae 100644
+--- a/crates/nu-protocol/src/ast/expression.rs
++++ b/crates/nu-protocol/src/ast/expression.rs
+@@ -6,6 +6,8 @@ use crate::{
+ use serde::{Deserialize, Serialize};
+ use std::sync::Arc;
+ 
++use super::ListItem;
++
+ /// Wrapper around [`Expr`]
+ #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+ pub struct Expression {
+@@ -106,37 +108,14 @@ impl Expression {
+                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
+             }
+             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
+-            Expr::Block(block_id) => {
+-                let block = working_set.get_block(*block_id);
+-
+-                if block.captures.contains(&IN_VARIABLE_ID) {
+-                    return true;
+-                }
+-
+-                if let Some(pipeline) = block.pipelines.first() {
+-                    match pipeline.elements.first() {
+-                        Some(element) => element.has_in_variable(working_set),
+-                        None => false,
+-                    }
+-                } else {
+-                    false
+-                }
+-            }
+-            Expr::Closure(block_id) => {
++            Expr::Block(block_id) | Expr::Closure(block_id) => {
+                 let block = working_set.get_block(*block_id);
+-
+-                if block.captures.contains(&IN_VARIABLE_ID) {
+-                    return true;
+-                }
+-
+-                if let Some(pipeline) = block.pipelines.first() {
+-                    match pipeline.elements.first() {
+-                        Some(element) => element.has_in_variable(working_set),
+-                        None => false,
+-                    }
+-                } else {
+-                    false
+-                }
++                block.captures.contains(&IN_VARIABLE_ID)
++                    || block
++                        .pipelines
++                        .iter()
++                        .flat_map(|pipeline| pipeline.elements.first())
++                        .any(|element| element.has_in_variable(working_set))
+             }
+             Expr::Binary(_) => false,
+             Expr::Bool(_) => false,
+@@ -251,6 +230,9 @@ impl Expression {
+             Expr::Signature(_) => false,
+             Expr::String(_) => false,
+             Expr::RawString(_) => false,
++            // A `$in` variable found within a `Collect` is local, as it's already been wrapped
++            // This is probably unlikely to happen anyway - the expressions are wrapped depth-first
++            Expr::Collect(_, _) => false,
+             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+                 let block = working_set.get_block(*block_id);
+ 
+@@ -414,6 +396,7 @@ impl Expression {
+                     i.replace_span(working_set, replaced, new_span)
+                 }
+             }
++            Expr::Collect(_, expr) => expr.replace_span(working_set, replaced, new_span),
+             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+                 let mut block = (**working_set.get_block(*block_id)).clone();
+ 
+@@ -443,6 +426,129 @@ impl Expression {
+         }
+     }
+ 
++    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
++        match &mut self.expr {
++            Expr::Bool(_) => {}
++            Expr::Int(_) => {}
++            Expr::Float(_) => {}
++            Expr::Binary(_) => {}
++            Expr::Range(_) => {}
++            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
++                if *var_id == IN_VARIABLE_ID {
++                    *var_id = new_var_id;
++                }
++            }
++            Expr::Call(call) => {
++                for arg in call.arguments.iter_mut() {
++                    match arg {
++                        Argument::Positional(expr)
++                        | Argument::Unknown(expr)
++                        | Argument::Named((_, _, Some(expr)))
++                        | Argument::Spread(expr) => {
++                            expr.replace_in_variable(working_set, new_var_id)
++                        }
++                        Argument::Named((_, _, None)) => {}
++                    }
++                }
++                for expr in call.parser_info.values_mut() {
++                    expr.replace_in_variable(working_set, new_var_id)
++                }
++            }
++            Expr::ExternalCall(head, args) => {
++                head.replace_in_variable(working_set, new_var_id);
++                for arg in args.iter_mut() {
++                    match arg {
++                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
++                            expr.replace_in_variable(working_set, new_var_id)
++                        }
++                    }
++                }
++            }
++            Expr::Operator(_) => {}
++            // `$in` in `Collect` has already been handled, so we don't need to check further
++            Expr::Collect(_, _) => {}
++            Expr::Block(block_id)
++            | Expr::Closure(block_id)
++            | Expr::RowCondition(block_id)
++            | Expr::Subexpression(block_id) => {
++                let mut block = Block::clone(working_set.get_block(*block_id));
++                block.replace_in_variable(working_set, new_var_id);
++                *working_set.get_block_mut(*block_id) = block;
++            }
++            Expr::UnaryNot(expr) => {
++                expr.replace_in_variable(working_set, new_var_id);
++            }
++            Expr::BinaryOp(lhs, op, rhs) => {
++                for expr in [lhs, op, rhs] {
++                    expr.replace_in_variable(working_set, new_var_id);
++                }
++            }
++            Expr::MatchBlock(match_patterns) => {
++                for (_, expr) in match_patterns.iter_mut() {
++                    expr.replace_in_variable(working_set, new_var_id);
++                }
++            }
++            Expr::List(items) => {
++                for item in items.iter_mut() {
++                    match item {
++                        ListItem::Item(expr) | ListItem::Spread(_, expr) => {
++                            expr.replace_in_variable(working_set, new_var_id)
++                        }
++                    }
++                }
++            }
++            Expr::Table(table) => {
++                for col_expr in table.columns.iter_mut() {
++                    col_expr.replace_in_variable(working_set, new_var_id);
++                }
++                for row in table.rows.iter_mut() {
++                    for row_expr in row.iter_mut() {
++                        row_expr.replace_in_variable(working_set, new_var_id);
++                    }
++                }
++            }
++            Expr::Record(items) => {
++                for item in items.iter_mut() {
++                    match item {
++                        RecordItem::Pair(key, val) => {
++                            key.replace_in_variable(working_set, new_var_id);
++                            val.replace_in_variable(working_set, new_var_id);
++                        }
++                        RecordItem::Spread(_, expr) => {
++                            expr.replace_in_variable(working_set, new_var_id)
++                        }
++                    }
++                }
++            }
++            Expr::Keyword(kw) => kw.expr.replace_in_variable(working_set, new_var_id),
++            Expr::ValueWithUnit(value_with_unit) => value_with_unit
++                .expr
++                .replace_in_variable(working_set, new_var_id),
++            Expr::DateTime(_) => {}
++            Expr::Filepath(_, _) => {}
++            Expr::Directory(_, _) => {}
++            Expr::GlobPattern(_, _) => {}
++            Expr::String(_) => {}
++            Expr::RawString(_) => {}
++            Expr::CellPath(_) => {}
++            Expr::FullCellPath(full_cell_path) => {
++                full_cell_path
++                    .head
++                    .replace_in_variable(working_set, new_var_id);
++            }
++            Expr::ImportPattern(_) => {}
++            Expr::Overlay(_) => {}
++            Expr::Signature(_) => {}
++            Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
++                for expr in exprs.iter_mut() {
++                    expr.replace_in_variable(working_set, new_var_id);
++                }
++            }
++            Expr::Nothing => {}
++            Expr::Garbage => {}
++        }
++    }
++
+     pub fn new(working_set: &mut StateWorkingSet, expr: Expr, span: Span, ty: Type) -> Expression {
+         let span_id = working_set.add_span(span);
+         Expression {
+diff --git a/crates/nu-protocol/src/ast/pipeline.rs b/crates/nu-protocol/src/ast/pipeline.rs
+index 3f2a2164851d7..0ed02c700b212 100644
+--- a/crates/nu-protocol/src/ast/pipeline.rs
++++ b/crates/nu-protocol/src/ast/pipeline.rs
+@@ -1,4 +1,4 @@
+-use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span};
++use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span, VarId};
+ use serde::{Deserialize, Serialize};
+ use std::fmt::Display;
+ 
+@@ -62,6 +62,19 @@ impl RedirectionTarget {
+             RedirectionTarget::Pipe { .. } => {}
+         }
+     }
++
++    pub fn replace_in_variable(
++        &mut self,
++        working_set: &mut StateWorkingSet<'_>,
++        new_var_id: VarId,
++    ) {
++        match self {
++            RedirectionTarget::File { expr, .. } => {
++                expr.replace_in_variable(working_set, new_var_id)
++            }
++            RedirectionTarget::Pipe { .. } => {}
++        }
++    }
+ }
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+@@ -75,6 +88,23 @@ pub enum PipelineRedirection {
+         err: RedirectionTarget,
+     },
+ }
++impl PipelineRedirection {
++    pub fn replace_in_variable(
++        &mut self,
++        working_set: &mut StateWorkingSet<'_>,
++        new_var_id: VarId,
++    ) {
++        match self {
++            PipelineRedirection::Single { source: _, target } => {
++                target.replace_in_variable(working_set, new_var_id)
++            }
++            PipelineRedirection::Separate { out, err } => {
++                out.replace_in_variable(working_set, new_var_id);
++                err.replace_in_variable(working_set, new_var_id);
++            }
++        }
++    }
++}
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub struct PipelineElement {
+@@ -120,6 +150,17 @@ impl PipelineElement {
+     ) -> (Option<OutDest>, Option<OutDest>) {
+         self.expr.expr.pipe_redirection(working_set)
+     }
++
++    pub fn replace_in_variable(
++        &mut self,
++        working_set: &mut StateWorkingSet<'_>,
++        new_var_id: VarId,
++    ) {
++        self.expr.replace_in_variable(working_set, new_var_id);
++        if let Some(redirection) = &mut self.redirection {
++            redirection.replace_in_variable(working_set, new_var_id);
++        }
++    }
+ }
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+diff --git a/crates/nu-protocol/src/debugger/profiler.rs b/crates/nu-protocol/src/debugger/profiler.rs
+index c61ee04d12ced..ea81a1b81491c 100644
+--- a/crates/nu-protocol/src/debugger/profiler.rs
++++ b/crates/nu-protocol/src/debugger/profiler.rs
+@@ -343,6 +343,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
+         Expr::String(_) | Expr::RawString(_) => "string".to_string(),
+         Expr::StringInterpolation(_) => "string interpolation".to_string(),
+         Expr::GlobInterpolation(_, _) => "glob interpolation".to_string(),
++        Expr::Collect(_, _) => "collect".to_string(),
+         Expr::Subexpression(_) => "subexpression".to_string(),
+         Expr::Table(_) => "table".to_string(),
+         Expr::UnaryNot(_) => "unary not".to_string(),
+diff --git a/crates/nu-protocol/src/eval_base.rs b/crates/nu-protocol/src/eval_base.rs
+index f49d235482fd7..933342f577941 100644
+--- a/crates/nu-protocol/src/eval_base.rs
++++ b/crates/nu-protocol/src/eval_base.rs
+@@ -159,6 +159,9 @@ pub trait Eval {
+             Expr::ExternalCall(head, args) => {
+                 Self::eval_external_call(state, mut_state, head, args, expr_span)
+             }
++            Expr::Collect(var_id, expr) => {
++                Self::eval_collect::<D>(state, mut_state, *var_id, expr)
++            }
+             Expr::Subexpression(block_id) => {
+                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
+             }
+@@ -356,6 +359,13 @@ pub trait Eval {
+         span: Span,
+     ) -> Result<Value, ShellError>;
+ 
++    fn eval_collect<D: DebugContext>(
++        state: Self::State<'_>,
++        mut_state: &mut Self::MutState,
++        var_id: VarId,
++        expr: &Expression,
++    ) -> Result<Value, ShellError>;
++
+     fn eval_subexpression<D: DebugContext>(
+         state: Self::State<'_>,
+         mut_state: &mut Self::MutState,
+diff --git a/crates/nu-protocol/src/eval_const.rs b/crates/nu-protocol/src/eval_const.rs
+index cba2392338502..cd4780773f45f 100644
+--- a/crates/nu-protocol/src/eval_const.rs
++++ b/crates/nu-protocol/src/eval_const.rs
+@@ -422,6 +422,15 @@ impl Eval for EvalConst {
+         Err(ShellError::NotAConstant { span })
+     }
+ 
++    fn eval_collect<D: DebugContext>(
++        _: &StateWorkingSet,
++        _: &mut (),
++        _var_id: VarId,
++        expr: &Expression,
++    ) -> Result<Value, ShellError> {
++        Err(ShellError::NotAConstant { span: expr.span })
++    }
++
+     fn eval_subexpression<D: DebugContext>(
+         working_set: &StateWorkingSet,
+         _: &mut (),
+diff --git a/crates/nu-protocol/src/ir/display.rs b/crates/nu-protocol/src/ir/display.rs
+index c28323cca4798..0026e15eab9f9 100644
+--- a/crates/nu-protocol/src/ir/display.rs
++++ b/crates/nu-protocol/src/ir/display.rs
+@@ -102,6 +102,10 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
+                 let var = FmtVar::new(self.engine_state, *var_id);
+                 write!(f, "{:WIDTH$} {var}, {src}", "store-variable")
+             }
++            Instruction::DropVariable { var_id } => {
++                let var = FmtVar::new(self.engine_state, *var_id);
++                write!(f, "{:WIDTH$} {var}", "drop-variable")
++            }
+             Instruction::LoadEnv { dst, key } => {
+                 let key = FmtData(self.data, *key);
+                 write!(f, "{:WIDTH$} {dst}, {key}", "load-env")
+diff --git a/crates/nu-protocol/src/ir/mod.rs b/crates/nu-protocol/src/ir/mod.rs
+index aff5f42c8c1f5..bdded28c0efdc 100644
+--- a/crates/nu-protocol/src/ir/mod.rs
++++ b/crates/nu-protocol/src/ir/mod.rs
+@@ -127,6 +127,8 @@ pub enum Instruction {
+     LoadVariable { dst: RegId, var_id: VarId },
+     /// Store the value of a variable from the `src` register
+     StoreVariable { var_id: VarId, src: RegId },
++    /// Remove a variable from the stack, freeing up whatever resources were associated with it
++    DropVariable { var_id: VarId },
+     /// Load the value of an environment variable into the `dst` register
+     LoadEnv { dst: RegId, key: DataSlice },
+     /// Load the value of an environment variable into the `dst` register, or `Nothing` if it
+@@ -290,6 +292,7 @@ impl Instruction {
+             Instruction::Drain { .. } => None,
+             Instruction::LoadVariable { dst, .. } => Some(dst),
+             Instruction::StoreVariable { .. } => None,
++            Instruction::DropVariable { .. } => None,
+             Instruction::LoadEnv { dst, .. } => Some(dst),
+             Instruction::LoadEnvOpt { dst, .. } => Some(dst),
+             Instruction::StoreEnv { .. } => None,
+diff --git a/crates/nuon/src/from.rs b/crates/nuon/src/from.rs
+index 2cfeaebc61b9f..2138e50ac5428 100644
+--- a/crates/nuon/src/from.rs
++++ b/crates/nuon/src/from.rs
+@@ -329,6 +329,12 @@ fn convert_to_value(
+             msg: "glob interpolation not supported in nuon".into(),
+             span: expr.span,
+         }),
++        Expr::Collect(..) => Err(ShellError::OutsideSpannedLabeledError {
++            src: original_text.to_string(),
++            error: "Error when loading".into(),
++            msg: "`$in` not supported in nuon".into(),
++            span: expr.span,
++        }),
+         Expr::Subexpression(..) => Err(ShellError::OutsideSpannedLabeledError {
+             src: original_text.to_string(),
+             error: "Error when loading".into(),

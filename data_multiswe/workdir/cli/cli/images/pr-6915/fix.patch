@@ -1,0 +1,150 @@
+diff --git a/pkg/cmd/gpg-key/delete/delete.go b/pkg/cmd/gpg-key/delete/delete.go
+index bb5277a38ce..b8569f72d3e 100644
+--- a/pkg/cmd/gpg-key/delete/delete.go
++++ b/pkg/cmd/gpg-key/delete/delete.go
+@@ -38,7 +38,7 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ 			opts.KeyID = args[0]
+ 
+ 			if !opts.IO.CanPrompt() && !opts.Confirmed {
+-				return cmdutil.FlagErrorf("--confirm required when not running interactively")
++				return cmdutil.FlagErrorf("--yes required when not running interactively")
+ 			}
+ 
+ 			if runF != nil {
+@@ -48,7 +48,9 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ 		},
+ 	}
+ 
+-	cmd.Flags().BoolVarP(&opts.Confirmed, "confirm", "y", false, "Skip the confirmation prompt")
++	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "Skip the confirmation prompt")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVarP(&opts.Confirmed, "yes", "y", false, "Skip the confirmation prompt")
+ 	return cmd
+ }
+ 
+diff --git a/pkg/cmd/issue/delete/delete.go b/pkg/cmd/issue/delete/delete.go
+index e9297c65a7d..f0c68de4222 100644
+--- a/pkg/cmd/issue/delete/delete.go
++++ b/pkg/cmd/issue/delete/delete.go
+@@ -49,11 +49,14 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
++
+ 			return deleteRun(opts)
+ 		},
+ 	}
+ 
+ 	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "confirm deletion without prompting")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVar(&opts.Confirmed, "yes", false, "confirm deletion without prompting")
+ 	return cmd
+ }
+ 
+diff --git a/pkg/cmd/label/delete.go b/pkg/cmd/label/delete.go
+index 8788b7215e3..c9d8f4caea8 100644
+--- a/pkg/cmd/label/delete.go
++++ b/pkg/cmd/label/delete.go
+@@ -42,7 +42,7 @@ func newCmdDelete(f *cmdutil.Factory, runF func(*deleteOptions) error) *cobra.Co
+ 			opts.Name = args[0]
+ 
+ 			if !opts.IO.CanPrompt() && !opts.Confirmed {
+-				return cmdutil.FlagErrorf("--confirm required when not running interactively")
++				return cmdutil.FlagErrorf("--yes required when not running interactively")
+ 			}
+ 
+ 			if runF != nil {
+@@ -53,6 +53,8 @@ func newCmdDelete(f *cmdutil.Factory, runF func(*deleteOptions) error) *cobra.Co
+ 	}
+ 
+ 	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "Confirm deletion without prompting")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVar(&opts.Confirmed, "yes", false, "Confirm deletion without prompting")
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/repo/archive/archive.go b/pkg/cmd/repo/archive/archive.go
+index 9e18ea1c1e1..50b1e7908b3 100644
+--- a/pkg/cmd/repo/archive/archive.go
++++ b/pkg/cmd/repo/archive/archive.go
+@@ -47,16 +47,20 @@ With no argument, archives the current repository.`),
+ 			}
+ 
+ 			if !opts.Confirmed && !opts.IO.CanPrompt() {
+-				return cmdutil.FlagErrorf("--confirm required when not running interactively")
++				return cmdutil.FlagErrorf("--yes required when not running interactively")
+ 			}
++
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
++
+ 			return archiveRun(opts)
+ 		},
+ 	}
+ 
+-	cmd.Flags().BoolVarP(&opts.Confirmed, "confirm", "y", false, "Skip the confirmation prompt")
++	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "Skip the confirmation prompt")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVarP(&opts.Confirmed, "yes", "y", false, "Skip the confirmation prompt")
+ 	return cmd
+ }
+ 
+diff --git a/pkg/cmd/repo/rename/rename.go b/pkg/cmd/repo/rename/rename.go
+index 2d07cd8b06b..f979e810198 100644
+--- a/pkg/cmd/repo/rename/rename.go
++++ b/pkg/cmd/repo/rename/rename.go
+@@ -60,7 +60,7 @@ func NewCmdRename(f *cmdutil.Factory, runf func(*RenameOptions) error) *cobra.Co
+ 
+ 			if len(args) == 1 && !confirm && !opts.HasRepoOverride {
+ 				if !opts.IO.CanPrompt() {
+-					return cmdutil.FlagErrorf("--confirm required when passing a single argument")
++					return cmdutil.FlagErrorf("--yes required when passing a single argument")
+ 				}
+ 				opts.DoConfirm = true
+ 			}
+@@ -68,12 +68,15 @@ func NewCmdRename(f *cmdutil.Factory, runf func(*RenameOptions) error) *cobra.Co
+ 			if runf != nil {
+ 				return runf(opts)
+ 			}
++
+ 			return renameRun(opts)
+ 		},
+ 	}
+ 
+ 	cmdutil.EnableRepoOverride(cmd, f)
+-	cmd.Flags().BoolVarP(&confirm, "confirm", "y", false, "skip confirmation prompt")
++	cmd.Flags().BoolVar(&confirm, "confirm", false, "Skip confirmation prompt")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVarP(&confirm, "yes", "y", false, "Skip the confirmation prompt")
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/ssh-key/delete/delete.go b/pkg/cmd/ssh-key/delete/delete.go
+index a11cbd76928..de53f139112 100644
+--- a/pkg/cmd/ssh-key/delete/delete.go
++++ b/pkg/cmd/ssh-key/delete/delete.go
+@@ -37,17 +37,21 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ 			opts.KeyID = args[0]
+ 
+ 			if !opts.IO.CanPrompt() && !opts.Confirmed {
+-				return cmdutil.FlagErrorf("--confirm required when not running interactively")
++				return cmdutil.FlagErrorf("--yes required when not running interactively")
+ 			}
+ 
+ 			if runF != nil {
+ 				return runF(opts)
+ 			}
++
+ 			return deleteRun(opts)
+ 		},
+ 	}
+ 
+-	cmd.Flags().BoolVarP(&opts.Confirmed, "confirm", "y", false, "Skip the confirmation prompt")
++	cmd.Flags().BoolVar(&opts.Confirmed, "confirm", false, "Skip the confirmation prompt")
++	_ = cmd.Flags().MarkDeprecated("confirm", "use `--yes` instead")
++	cmd.Flags().BoolVarP(&opts.Confirmed, "yes", "y", false, "Skip the confirmation prompt")
++
+ 	return cmd
+ }
+ 

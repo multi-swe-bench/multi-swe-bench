@@ -1,0 +1,28 @@
+diff --git a/jib-maven-plugin/CHANGELOG.md b/jib-maven-plugin/CHANGELOG.md
+index d3c579ecb1..643bf3a30d 100644
+--- a/jib-maven-plugin/CHANGELOG.md
++++ b/jib-maven-plugin/CHANGELOG.md
+@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
+ 
+ ### Fixed
+ 
++- Fixed `NullPointerException` when the Spring Boot Maven plugin does not have a `<configuration>` block. ([#2687](https://github.com/GoogleContainerTools/jib/issues/2687))
++
+ ## 2.5.0
+ 
+ ### Added
+diff --git a/jib-maven-plugin/src/main/java/com/google/cloud/tools/jib/maven/MavenProjectProperties.java b/jib-maven-plugin/src/main/java/com/google/cloud/tools/jib/maven/MavenProjectProperties.java
+index e39a5a0e8d..cf5a9a207b 100644
+--- a/jib-maven-plugin/src/main/java/com/google/cloud/tools/jib/maven/MavenProjectProperties.java
++++ b/jib-maven-plugin/src/main/java/com/google/cloud/tools/jib/maven/MavenProjectProperties.java
+@@ -567,8 +567,8 @@ Optional<Xpp3Dom> getSpringBootRepackageConfiguration() {
+         if (execution.getGoals().contains("repackage")) {
+           Xpp3Dom configuration = (Xpp3Dom) execution.getConfiguration();
+ 
+-          boolean skip = Boolean.valueOf(getChildValue(configuration, "skip").orElse("false"));
+-          return skip ? Optional.empty() : Optional.of(configuration);
++          boolean skip = Boolean.parseBoolean(getChildValue(configuration, "skip").orElse("false"));
++          return skip ? Optional.empty() : Optional.ofNullable(configuration);
+         }
+       }
+     }

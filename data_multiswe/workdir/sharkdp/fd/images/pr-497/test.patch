@@ -1,0 +1,94 @@
+diff --git a/tests/testenv/mod.rs b/tests/testenv/mod.rs
+index df9f2b9f1..cf3e6c6dd 100644
+--- a/tests/testenv/mod.rs
++++ b/tests/testenv/mod.rs
+@@ -162,6 +162,25 @@ impl TestEnv {
+         }
+     }
+ 
++    /// Create a broken symlink at the given path in the temp_dir.
++    pub fn create_broken_symlink<P: AsRef<Path>>(
++        &mut self,
++        link_path: P,
++    ) -> Result<PathBuf, io::Error> {
++        let root = self.test_root();
++        let broken_symlink_link = root.join(link_path);
++        {
++            let temp_target_dir = TempDir::new("fd-tests-broken-symlink")?;
++            let broken_symlink_target = temp_target_dir.path().join("broken_symlink_target");
++            fs::File::create(&broken_symlink_target)?;
++            #[cfg(unix)]
++            unix::fs::symlink(&broken_symlink_target, &broken_symlink_link)?;
++            #[cfg(windows)]
++            windows::fs::symlink_file(&broken_symlink_target, &broken_symlink_link)?;
++        }
++        Ok(broken_symlink_link)
++    }
++
+     /// Get the root directory for the tests.
+     pub fn test_root(&self) -> PathBuf {
+         self.temp_dir.path().to_path_buf()
+diff --git a/tests/tests.rs b/tests/tests.rs
+index 95480826e..ad8a1e125 100644
+--- a/tests/tests.rs
++++ b/tests/tests.rs
+@@ -598,6 +598,32 @@ fn test_file_system_boundaries() {
+     );
+ }
+ 
++#[test]
++fn test_follow_broken_symlink() {
++    let mut te = TestEnv::new(DEFAULT_DIRS, DEFAULT_FILES);
++    te.create_broken_symlink("broken_symlink")
++        .expect("Failed to create broken symlink.");
++
++    te.assert_output(
++        &["symlink"],
++        "broken_symlink
++        symlink",
++    );
++    te.assert_output(
++        &["--type", "symlink", "symlink"],
++        "broken_symlink
++        symlink",
++    );
++
++    te.assert_output(&["--type", "file", "symlink"], "");
++
++    te.assert_output(
++        &["--follow", "--type", "symlink", "symlink"],
++        "broken_symlink",
++    );
++    te.assert_output(&["--follow", "--type", "file", "symlink"], "");
++}
++
+ /// Null separator (--print0)
+ #[test]
+ fn test_print0() {
+@@ -878,7 +904,9 @@ fn test_extension() {
+ /// Symlink as search directory
+ #[test]
+ fn test_symlink_as_root() {
+-    let te = TestEnv::new(DEFAULT_DIRS, DEFAULT_FILES);
++    let mut te = TestEnv::new(DEFAULT_DIRS, DEFAULT_FILES);
++    te.create_broken_symlink("broken_symlink")
++        .expect("Failed to create broken symlink.");
+ 
+     // From: http://pubs.opengroup.org/onlinepubs/9699919799/functions/getcwd.html
+     // The getcwd() function shall place an absolute pathname of the current working directory in
+@@ -899,6 +927,7 @@ fn test_symlink_as_root() {
+         &["", parent_parent],
+         &format!(
+             "{dir}/a.foo
++            {dir}/broken_symlink
+             {dir}/e1 e2
+             {dir}/one
+             {dir}/one/b.foo
+@@ -990,7 +1019,6 @@ fn test_symlink_and_full_path_abs_path() {
+         ),
+     );
+ }
+-
+ /// Exclude patterns (--exclude)
+ #[test]
+ fn test_excludes() {

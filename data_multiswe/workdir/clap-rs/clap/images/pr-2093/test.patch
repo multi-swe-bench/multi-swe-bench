@@ -1,0 +1,89 @@
+diff --git a/tests/help.rs b/tests/help.rs
+index ce2e3fe56f4..910a58761e3 100644
+--- a/tests/help.rs
++++ b/tests/help.rs
+@@ -1825,3 +1825,28 @@ fn after_help_no_args() {
+ 
+     assert_eq!(help, AFTER_HELP_NO_ARGS);
+ }
++
++const ISSUE_2080: &str = "myapp 1.0
++
++USAGE:
++    myapp
++
++FLAGS:
++    -h, --help       Overridden help flag text
++    -V, --version    Prints version information
++";
++
++#[test]
++fn override_help_about() {
++    let mut app = App::new("myapp")
++        .version("1.0")
++        .help_about("Overridden help flag text");
++
++    let help = {
++        let mut output = Vec::new();
++        app.write_help(&mut output).unwrap();
++        String::from_utf8(output).unwrap()
++    };
++
++    assert_eq!(help, ISSUE_2080);
++}
+diff --git a/tests/subcommands.rs b/tests/subcommands.rs
+index b42b474e342..805b1afae8b 100644
+--- a/tests/subcommands.rs
++++ b/tests/subcommands.rs
+@@ -93,6 +93,16 @@ USAGE:
+ 
+ For more information try --help";
+ 
++static OVERRIDE_HELP_SUBCOMMAND_ABOUT: &str = "myprog-subcommand 
++About this subcommand
++
++USAGE:
++    myprog subcommand
++
++FLAGS:
++    -h, --help       Some global help about
++    -V, --version    Prints version information";
++
+ #[test]
+ fn subcommand() {
+     let m = App::new("test")
+@@ -382,3 +392,18 @@ fn subcommand_placeholder_test() {
+         .unwrap()
+         .contains("TEST_HEADER:"));
+ }
++
++#[test]
++fn global_help_about() {
++    let app = App::new("myprog")
++        .help_about("Some global help about")
++        .subcommand(App::new("subcommand").about("About this subcommand"))
++        .global_help_about();
++
++    assert!(utils::compare_output(
++        app,
++        "myprog subcommand --help",
++        OVERRIDE_HELP_SUBCOMMAND_ABOUT,
++        false,
++    ));
++}
+diff --git a/tests/utils.rs b/tests/utils.rs
+index 3c6473124a4..a0d427a56f8 100644
+--- a/tests/utils.rs
++++ b/tests/utils.rs
+@@ -22,9 +22,9 @@ where
+     if !b {
+         println!();
+         println!("--> left");
+-        println!("{}", left);
++        println!("{:?}", left.as_bytes());
+         println!("--> right");
+-        println!("{}", right);
++        println!("{:?}", right.as_bytes());
+         println!("--")
+     }
+     b

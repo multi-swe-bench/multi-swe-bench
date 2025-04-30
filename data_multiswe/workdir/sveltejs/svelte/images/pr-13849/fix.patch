@@ -1,0 +1,53 @@
+diff --git a/.changeset/nine-pigs-approve.md b/.changeset/nine-pigs-approve.md
+new file mode 100644
+index 000000000000..b11daff5a3b2
+--- /dev/null
++++ b/.changeset/nine-pigs-approve.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: allow binding to const with spread in legacy mode
+diff --git a/packages/svelte/src/internal/client/reactivity/props.js b/packages/svelte/src/internal/client/reactivity/props.js
+index 32969139bf46..0a7ec14e3f72 100644
+--- a/packages/svelte/src/internal/client/reactivity/props.js
++++ b/packages/svelte/src/internal/client/reactivity/props.js
+@@ -177,6 +177,19 @@ const spread_props_handler = {
+ 			if (typeof p === 'object' && p !== null && key in p) return p[key];
+ 		}
+ 	},
++	set(target, key, value) {
++		let i = target.props.length;
++		while (i--) {
++			let p = target.props[i];
++			if (is_function(p)) p = p();
++			const desc = get_descriptor(p, key);
++			if (desc && desc.set) {
++				desc.set(value);
++				return true;
++			}
++		}
++		return false;
++	},
+ 	getOwnPropertyDescriptor(target, key) {
+ 		let i = target.props.length;
+ 		while (i--) {
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 9b5e4ac3e206..9a66095de482 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -270,7 +270,12 @@ export function spread_props(props) {
+ 	for (let i = 0; i < props.length; i++) {
+ 		const obj = props[i];
+ 		for (key in obj) {
+-			merged_props[key] = obj[key];
++			const desc = Object.getOwnPropertyDescriptor(obj, key);
++			if (desc) {
++				Object.defineProperty(merged_props, key, desc);
++			} else {
++				merged_props[key] = obj[key];
++			}
+ 		}
+ 	}
+ 	return merged_props;

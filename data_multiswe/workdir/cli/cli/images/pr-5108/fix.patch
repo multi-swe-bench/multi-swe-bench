@@ -1,0 +1,246 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index 2df2005acd0..7ac1cb2fa8d 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -32,6 +32,7 @@ import (
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"io"
+ 	"io/ioutil"
+ 	"net/http"
+ 	"net/url"
+@@ -477,6 +478,84 @@ func (a *API) GetCodespacesMachines(ctx context.Context, repoID int, branch, loc
+ 	return response.Machines, nil
+ }
+ 
++// RepoSearchParameters are the optional parameters for searching for repositories.
++type RepoSearchParameters struct {
++	// The maximum number of repos to return. At most 100 repos are returned even if this value is greater than 100.
++	MaxRepos int
++	// The sort order for returned repos. Possible values are 'stars', 'forks', 'help-wanted-issues', or 'updated'. If empty the API's default ordering is used.
++	Sort string
++}
++
++// GetCodespaceRepoSuggestions searches for and returns repo names based on the provided search text.
++func (a *API) GetCodespaceRepoSuggestions(ctx context.Context, partialSearch string, parameters RepoSearchParameters) ([]string, error) {
++	reqURL := fmt.Sprintf("%s/search/repositories", a.githubAPI)
++	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
++	if err != nil {
++		return nil, fmt.Errorf("error creating request: %w", err)
++	}
++
++	parts := strings.SplitN(partialSearch, "/", 2)
++
++	var nameSearch string
++	if len(parts) == 2 {
++		user := parts[0]
++		repo := parts[1]
++		nameSearch = fmt.Sprintf("%s user:%s", repo, user)
++	} else {
++		/*
++		 * This results in searching for the text within the owner or the name. It's possible to
++		 * do an owner search and then look up some repos for those owners, but that adds a
++		 * good amount of latency to the fetch which slows down showing the suggestions.
++		 */
++		nameSearch = partialSearch
++	}
++
++	queryStr := fmt.Sprintf("%s in:name", nameSearch)
++
++	q := req.URL.Query()
++	q.Add("q", queryStr)
++
++	if len(parameters.Sort) > 0 {
++		q.Add("sort", parameters.Sort)
++	}
++
++	if parameters.MaxRepos > 0 {
++		q.Add("per_page", strconv.Itoa(parameters.MaxRepos))
++	}
++
++	req.URL.RawQuery = q.Encode()
++
++	a.setHeaders(req)
++	resp, err := a.do(ctx, req, "/search/repositories/*")
++	if err != nil {
++		return nil, fmt.Errorf("error searching repositories: %w", err)
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		return nil, api.HandleHTTPError(resp)
++	}
++
++	b, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return nil, fmt.Errorf("error reading response body: %w", err)
++	}
++
++	var response struct {
++		Items []*Repository `json:"items"`
++	}
++	if err := json.Unmarshal(b, &response); err != nil {
++		return nil, fmt.Errorf("error unmarshaling response: %w", err)
++	}
++
++	repoNames := make([]string, len(response.Items))
++	for i, repo := range response.Items {
++		repoNames[i] = repo.FullName
++	}
++
++	return repoNames, nil
++}
++
+ // CreateCodespaceParams are the required parameters for provisioning a Codespace.
+ type CreateCodespaceParams struct {
+ 	RepositoryID       int
+diff --git a/pkg/cmd/codespace/common.go b/pkg/cmd/codespace/common.go
+index 1107ae6a53d..22753ff395a 100644
+--- a/pkg/cmd/codespace/common.go
++++ b/pkg/cmd/codespace/common.go
+@@ -67,6 +67,7 @@ type apiClient interface {
+ 	GetCodespaceRegionLocation(ctx context.Context) (string, error)
+ 	GetCodespacesMachines(ctx context.Context, repoID int, branch, location string) ([]*api.Machine, error)
+ 	GetCodespaceRepositoryContents(ctx context.Context, codespace *api.Codespace, path string) ([]byte, error)
++	GetCodespaceRepoSuggestions(ctx context.Context, partialSearch string, params api.RepoSearchParameters) ([]string, error)
+ }
+ 
+ var errNoCodespaces = errors.New("you have no codespaces")
+diff --git a/pkg/cmd/codespace/create.go b/pkg/cmd/codespace/create.go
+index ee9d81fe789..ab04c2bae4f 100644
+--- a/pkg/cmd/codespace/create.go
++++ b/pkg/cmd/codespace/create.go
+@@ -60,8 +60,14 @@ func (a *App) Create(ctx context.Context, opts createOptions) error {
+ 		}
+ 		questions := []*survey.Question{
+ 			{
+-				Name:     "repository",
+-				Prompt:   &survey.Input{Message: "Repository:"},
++				Name: "repository",
++				Prompt: &survey.Input{
++					Message: "Repository:",
++					Help:    "Search for repos by name. To search within an org or user, or to see private repos, enter at least ':user/'.",
++					Suggest: func(toComplete string) []string {
++						return getRepoSuggestions(ctx, a.apiClient, toComplete)
++					},
++				},
+ 				Validate: survey.Required,
+ 			},
+ 			{
+@@ -265,6 +271,21 @@ func getMachineName(ctx context.Context, apiClient apiClient, repoID int, machin
+ 	return selectedMachine.Name, nil
+ }
+ 
++func getRepoSuggestions(ctx context.Context, apiClient apiClient, partialSearch string) []string {
++	searchParams := api.RepoSearchParameters{
++		// The prompt shows 7 items so 7 effectively turns off scrolling which is similar behavior to other clients
++		MaxRepos: 7,
++		Sort:     "repo",
++	}
++
++	repos, err := apiClient.GetCodespaceRepoSuggestions(ctx, partialSearch, searchParams)
++	if err != nil {
++		return nil
++	}
++
++	return repos
++}
++
+ // buildDisplayName returns display name to be used in the machine survey prompt.
+ func buildDisplayName(displayName string, prebuildAvailability string) string {
+ 	prebuildText := ""
+diff --git a/pkg/cmd/codespace/mock_api.go b/pkg/cmd/codespace/mock_api.go
+index 8d40934dab2..fd275e802ff 100644
+--- a/pkg/cmd/codespace/mock_api.go
++++ b/pkg/cmd/codespace/mock_api.go
+@@ -31,6 +31,9 @@ import (
+ // 			GetCodespaceRegionLocationFunc: func(ctx context.Context) (string, error) {
+ // 				panic("mock out the GetCodespaceRegionLocation method")
+ // 			},
++// 			GetCodespaceRepoSuggestionsFunc: func(ctx context.Context, partialSearch string, params api.RepoSearchParameters) ([]string, error) {
++// 				panic("mock out the GetCodespaceRepoSuggestions method")
++// 			},
+ // 			GetCodespaceRepositoryContentsFunc: func(ctx context.Context, codespace *api.Codespace, path string) ([]byte, error) {
+ // 				panic("mock out the GetCodespaceRepositoryContents method")
+ // 			},
+@@ -74,6 +77,9 @@ type apiClientMock struct {
+ 	// GetCodespaceRegionLocationFunc mocks the GetCodespaceRegionLocation method.
+ 	GetCodespaceRegionLocationFunc func(ctx context.Context) (string, error)
+ 
++	// GetCodespaceRepoSuggestionsFunc mocks the GetCodespaceRepoSuggestions method.
++	GetCodespaceRepoSuggestionsFunc func(ctx context.Context, partialSearch string, params api.RepoSearchParameters) ([]string, error)
++
+ 	// GetCodespaceRepositoryContentsFunc mocks the GetCodespaceRepositoryContents method.
+ 	GetCodespaceRepositoryContentsFunc func(ctx context.Context, codespace *api.Codespace, path string) ([]byte, error)
+ 
+@@ -132,6 +138,15 @@ type apiClientMock struct {
+ 			// Ctx is the ctx argument value.
+ 			Ctx context.Context
+ 		}
++		// GetCodespaceRepoSuggestions holds details about calls to the GetCodespaceRepoSuggestions method.
++		GetCodespaceRepoSuggestions []struct {
++			// Ctx is the ctx argument value.
++			Ctx context.Context
++			// PartialSearch is the partialSearch argument value.
++			PartialSearch string
++			// Params is the params argument value.
++			Params api.RepoSearchParameters
++		}
+ 		// GetCodespaceRepositoryContents holds details about calls to the GetCodespaceRepositoryContents method.
+ 		GetCodespaceRepositoryContents []struct {
+ 			// Ctx is the ctx argument value.
+@@ -191,6 +206,7 @@ type apiClientMock struct {
+ 	lockDeleteCodespace                sync.RWMutex
+ 	lockGetCodespace                   sync.RWMutex
+ 	lockGetCodespaceRegionLocation     sync.RWMutex
++	lockGetCodespaceRepoSuggestions    sync.RWMutex
+ 	lockGetCodespaceRepositoryContents sync.RWMutex
+ 	lockGetCodespacesMachines          sync.RWMutex
+ 	lockGetRepository                  sync.RWMutex
+@@ -375,6 +391,45 @@ func (mock *apiClientMock) GetCodespaceRegionLocationCalls() []struct {
+ 	return calls
+ }
+ 
++// GetCodespaceRepoSuggestions calls GetCodespaceRepoSuggestionsFunc.
++func (mock *apiClientMock) GetCodespaceRepoSuggestions(ctx context.Context, partialSearch string, params api.RepoSearchParameters) ([]string, error) {
++	if mock.GetCodespaceRepoSuggestionsFunc == nil {
++		panic("apiClientMock.GetCodespaceRepoSuggestionsFunc: method is nil but apiClient.GetCodespaceRepoSuggestions was just called")
++	}
++	callInfo := struct {
++		Ctx           context.Context
++		PartialSearch string
++		Params        api.RepoSearchParameters
++	}{
++		Ctx:           ctx,
++		PartialSearch: partialSearch,
++		Params:        params,
++	}
++	mock.lockGetCodespaceRepoSuggestions.Lock()
++	mock.calls.GetCodespaceRepoSuggestions = append(mock.calls.GetCodespaceRepoSuggestions, callInfo)
++	mock.lockGetCodespaceRepoSuggestions.Unlock()
++	return mock.GetCodespaceRepoSuggestionsFunc(ctx, partialSearch, params)
++}
++
++// GetCodespaceRepoSuggestionsCalls gets all the calls that were made to GetCodespaceRepoSuggestions.
++// Check the length with:
++//     len(mockedapiClient.GetCodespaceRepoSuggestionsCalls())
++func (mock *apiClientMock) GetCodespaceRepoSuggestionsCalls() []struct {
++	Ctx           context.Context
++	PartialSearch string
++	Params        api.RepoSearchParameters
++} {
++	var calls []struct {
++		Ctx           context.Context
++		PartialSearch string
++		Params        api.RepoSearchParameters
++	}
++	mock.lockGetCodespaceRepoSuggestions.RLock()
++	calls = mock.calls.GetCodespaceRepoSuggestions
++	mock.lockGetCodespaceRepoSuggestions.RUnlock()
++	return calls
++}
++
+ // GetCodespaceRepositoryContents calls GetCodespaceRepositoryContentsFunc.
+ func (mock *apiClientMock) GetCodespaceRepositoryContents(ctx context.Context, codespace *api.Codespace, path string) ([]byte, error) {
+ 	if mock.GetCodespaceRepositoryContentsFunc == nil {

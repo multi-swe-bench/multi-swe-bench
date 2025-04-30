@@ -1,0 +1,41 @@
+diff --git a/.release-notes/3467.md b/.release-notes/3467.md
+new file mode 100644
+index 0000000000..0408998ef5
+--- /dev/null
++++ b/.release-notes/3467.md
+@@ -0,0 +1,20 @@
++## Fix function calls in consume expressions
++
++Function calls are not allowed in `consume` expressions. However, if the expression being `consume`d is a field access expression, whose LHS happens to be a function call,
++the compiler fails after hitting an assertion.
++
++For instance the following results in a compilation failure
++
++```pony
++    let a = "I am a string"
++    let x:C iso! = consume a.chop(1)
++```
++
++but the following results in a compiler crash with an assertion failure
++
++```pony
++    let a = "I am a string"
++    let x:C iso! = consume a.chop(1)._1
++```
++
++The fix ensures that both the scenarios are handled gracefully.
+diff --git a/src/libponyc/pass/refer.c b/src/libponyc/pass/refer.c
+index 50cff9824e..75ae6c64fc 100644
+--- a/src/libponyc/pass/refer.c
++++ b/src/libponyc/pass/refer.c
+@@ -1166,6 +1166,10 @@ static bool refer_consume(pass_opt_t* opt, ast_t* ast)
+             "can't consume a let or embed field");
+           return false;
+         }
++      } else if (ast_id(left) == TK_CALL) {
++        ast_error(opt->check.errors, ast,
++          "consume expressions must specify a single identifier");
++        return false;
+       }
+       else
+       {

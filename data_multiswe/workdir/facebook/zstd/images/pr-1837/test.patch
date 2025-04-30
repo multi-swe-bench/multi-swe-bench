@@ -1,0 +1,67 @@
+diff --git a/tests/fullbench.c b/tests/fullbench.c
+index f750ee0d78f..0e2761e111f 100644
+--- a/tests/fullbench.c
++++ b/tests/fullbench.c
+@@ -450,7 +450,7 @@ static int benchMem(unsigned benchNb,
+     case 31:  /* ZSTD_decodeLiteralsBlock : starts literals block in dstBuff2 */
+         {   size_t frameHeaderSize;
+             g_cSize = ZSTD_compress(dstBuff, dstBuffSize, src, srcSize, cLevel);
+-            frameHeaderSize = ZSTD_frameHeaderSize(dstBuff, ZSTD_FRAMEHEADERSIZE_PREFIX);
++            frameHeaderSize = ZSTD_frameHeaderSize(dstBuff, ZSTD_FRAMEHEADERSIZE_PREFIX(ZSTD_f_zstd1));
+             CONTROL(!ZSTD_isError(frameHeaderSize));
+             /* check block is compressible, hence contains a literals section */
+             {   blockProperties_t bp;
+@@ -471,10 +471,10 @@ static int benchMem(unsigned benchNb,
+             const BYTE* ip = dstBuff;
+             const BYTE* iend;
+             {   size_t const cSize = ZSTD_compress(dstBuff, dstBuffSize, src, srcSize, cLevel);
+-                CONTROL(cSize > ZSTD_FRAMEHEADERSIZE_PREFIX);
++                CONTROL(cSize > ZSTD_FRAMEHEADERSIZE_PREFIX(ZSTD_f_zstd1));
+             }
+             /* Skip frame Header */
+-            {   size_t const frameHeaderSize = ZSTD_frameHeaderSize(dstBuff, ZSTD_FRAMEHEADERSIZE_PREFIX);
++            {   size_t const frameHeaderSize = ZSTD_frameHeaderSize(dstBuff, ZSTD_FRAMEHEADERSIZE_PREFIX(ZSTD_f_zstd1));
+                 CONTROL(!ZSTD_isError(frameHeaderSize));
+                 ip += frameHeaderSize;
+             }
+diff --git a/tests/fuzzer.c b/tests/fuzzer.c
+index a109a440db8..88f3b83f834 100644
+--- a/tests/fuzzer.c
++++ b/tests/fuzzer.c
+@@ -1886,6 +1886,36 @@ static int basicUnitTests(U32 const seed, double compressibility)
+             DISPLAYLEVEL(3, "streaming OK : regenerated %u bytes \n", (unsigned)out.pos);
+         }
+ 
++        /* basic block compression */
++        DISPLAYLEVEL(3, "test%3i : empty magic-less format test : ", testNb++);
++        CHECK( ZSTD_CCtx_setParameter(cctx, ZSTD_c_format, ZSTD_f_zstd1_magicless) );
++        {   ZSTD_inBuffer in = { CNBuffer, 0, 0 };
++            ZSTD_outBuffer out = { compressedBuffer, ZSTD_compressBound(0), 0 };
++            size_t const result = ZSTD_compressStream2(cctx, &out, &in, ZSTD_e_end);
++            if (result != 0) goto _output_error;
++            if (in.pos != in.size) goto _output_error;
++            cSize = out.pos;
++        }
++        DISPLAYLEVEL(3, "OK (compress : %u -> %u bytes)\n", (unsigned)0, (unsigned)cSize);
++
++        DISPLAYLEVEL(3, "test%3i : decompress of empty magic-less frame : ", testNb++);
++        ZSTD_DCtx_reset(dctx, ZSTD_reset_session_and_parameters);
++        CHECK( ZSTD_DCtx_setParameter(dctx, ZSTD_d_format, ZSTD_f_zstd1_magicless) );
++        /* one shot */
++        {   size_t const result = ZSTD_decompressDCtx(dctx, decodedBuffer, CNBuffSize, compressedBuffer, cSize);
++            if (result != 0) goto _output_error;
++            DISPLAYLEVEL(3, "one-shot OK, ");
++        }
++        /* streaming */
++        {   ZSTD_inBuffer in = { compressedBuffer, cSize, 0 };
++            ZSTD_outBuffer out = { decodedBuffer, CNBuffSize, 0 };
++            size_t const result = ZSTD_decompressStream(dctx, &out, &in);
++            if (result != 0) goto _output_error;
++            if (in.pos != in.size) goto _output_error;
++            if (out.pos != 0) goto _output_error;
++            DISPLAYLEVEL(3, "streaming OK : regenerated %u bytes \n", (unsigned)out.pos);
++        }
++
+         ZSTD_freeCCtx(cctx);
+         ZSTD_freeDCtx(dctx);
+     }

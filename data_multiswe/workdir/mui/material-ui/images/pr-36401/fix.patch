@@ -1,0 +1,235 @@
+diff --git a/docs/data/material/components/grid2/NestedGridColumns.js b/docs/data/material/components/grid2/NestedGridColumns.js
+new file mode 100644
+index 00000000000000..1b9005f0620632
+--- /dev/null
++++ b/docs/data/material/components/grid2/NestedGridColumns.js
+@@ -0,0 +1,44 @@
++import * as React from 'react';
++import { styled } from '@mui/material/styles';
++import Box from '@mui/material/Box';
++import Paper from '@mui/material/Paper';
++import Grid from '@mui/material/Unstable_Grid2';
++
++const Item = styled(Paper)(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  ...theme.typography.body2,
++  padding: theme.spacing(1),
++  textAlign: 'center',
++  color: theme.palette.text.secondary,
++}));
++
++export default function NestedGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2} columns={24}>
++        <Grid xs={8}>
++          <Item>xs=8/24</Item>
++        </Grid>
++        <Grid container xs={16}>
++          <Grid xs={12}>
++            <Item>nested xs=12/24</Item>
++          </Grid>
++          <Grid xs={12}>
++            <Item>nested xs=12/24</Item>
++          </Grid>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8/24</Item>
++        </Grid>
++        <Grid container xs={16} columns={12}>
++          <Grid xs={6}>
++            <Item>nested xs=6/12</Item>
++          </Grid>
++          <Grid xs={6}>
++            <Item>nested xs=6/12</Item>
++          </Grid>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/material/components/grid2/NestedGridColumns.tsx b/docs/data/material/components/grid2/NestedGridColumns.tsx
+new file mode 100644
+index 00000000000000..1b9005f0620632
+--- /dev/null
++++ b/docs/data/material/components/grid2/NestedGridColumns.tsx
+@@ -0,0 +1,44 @@
++import * as React from 'react';
++import { styled } from '@mui/material/styles';
++import Box from '@mui/material/Box';
++import Paper from '@mui/material/Paper';
++import Grid from '@mui/material/Unstable_Grid2';
++
++const Item = styled(Paper)(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  ...theme.typography.body2,
++  padding: theme.spacing(1),
++  textAlign: 'center',
++  color: theme.palette.text.secondary,
++}));
++
++export default function NestedGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2} columns={24}>
++        <Grid xs={8}>
++          <Item>xs=8/24</Item>
++        </Grid>
++        <Grid container xs={16}>
++          <Grid xs={12}>
++            <Item>nested xs=12/24</Item>
++          </Grid>
++          <Grid xs={12}>
++            <Item>nested xs=12/24</Item>
++          </Grid>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8/24</Item>
++        </Grid>
++        <Grid container xs={16} columns={12}>
++          <Grid xs={6}>
++            <Item>nested xs=6/12</Item>
++          </Grid>
++          <Grid xs={6}>
++            <Item>nested xs=6/12</Item>
++          </Grid>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/material/components/grid2/grid2.md b/docs/data/material/components/grid2/grid2.md
+index d05ba9a3728bb1..e2c8e93fde8c47 100644
+--- a/docs/data/material/components/grid2/grid2.md
++++ b/docs/data/material/components/grid2/grid2.md
+@@ -133,7 +133,15 @@ The demo below shows how this works:
+ The grid container that renders inside another grid container is a nested grid that inherits its [`columns`](#columns) and [`spacing`](#spacing) from the top level.
+ It will also inherit the props of the top-level grid if it receives those props.
+ 
+-Check out the demo below to see what this looks like:
++### Inheriting columns
++
++A nested grid container will inherits the columns from its parent unless the `columns` prop is specified to the instance.
++
++{{"demo": "NestedGridColumns.js", "bg": true}}
++
++### Inheriting spacing
++
++A nested grid container will inherits the row and column spacing from its parent unless the `spacing` prop is specified to the instance.
+ 
+ {{"demo": "NestedGrid.js", "bg": true}}
+ 
+diff --git a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+index 34cc5e846dc128..f3b6b3f89d7dac 100644
+--- a/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
++++ b/packages/mui-system/src/Unstable_Grid/gridGenerator.ts
+@@ -12,13 +12,20 @@ interface Iterator<T> {
+   (appendStyle: (responsiveStyles: Record<string, any>, style: object) => void, value: T): void;
+ }
+ 
++function appendLevel(level: number | undefined) {
++  if (!level) {
++    return '';
++  }
++  return `Level${level}`;
++}
++
+ function isNestedContainer(ownerState: Props['ownerState']) {
+   return ownerState.level > 0 && ownerState.container;
+ }
+ 
+ function createGetSelfSpacing(ownerState: Props['ownerState']) {
+   return function getSelfSpacing(axis: 'row' | 'column') {
+-    return `var(--Grid-${axis}Spacing${ownerState.level || ''})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.level)})`;
+   };
+ }
+ 
+@@ -27,10 +34,17 @@ function createGetParentSpacing(ownerState: Props['ownerState']) {
+     if (ownerState.level === 0) {
+       return `var(--Grid-${axis}Spacing)`;
+     }
+-    return `var(--Grid-${axis}Spacing${ownerState.level - 1 || ''})`;
++    return `var(--Grid-${axis}Spacing${appendLevel(ownerState.level - 1)})`;
+   };
+ }
+ 
++function getParentColumns(ownerState: Props['ownerState']) {
++  if (ownerState.level === 0) {
++    return `var(--Grid-columns)`;
++  }
++  return `var(--Grid-columns${appendLevel(ownerState.level - 1)})`;
++}
++
+ export const filterBreakpointKeys = (breakpointsKeys: Breakpoint[], responsiveKeys: string[]) =>
+   breakpointsKeys.filter((key: string) => responsiveKeys.includes(key));
+ 
+@@ -112,7 +126,7 @@ export const generateGridSizeStyles = ({ theme, ownerState }: Props) => {
+         style = {
+           flexGrow: 0,
+           flexBasis: 'auto',
+-          width: `calc(100% * ${value} / var(--Grid-columns)${
++          width: `calc(100% * ${value} / ${getParentColumns(ownerState)}${
+             isNestedContainer(ownerState) ? ` + ${getSelfSpacing('column')}` : ''
+           })`,
+         };
+@@ -137,7 +151,8 @@ export const generateGridOffsetStyles = ({ theme, ownerState }: Props) => {
+       }
+       if (typeof value === 'number') {
+         style = {
+-          marginLeft: value === 0 ? '0px' : `calc(100% * ${value} / var(--Grid-columns))`,
++          marginLeft:
++            value === 0 ? '0px' : `calc(100% * ${value} / ${getParentColumns(ownerState)})`,
+         };
+       }
+       appendStyle(styles, style);
+@@ -150,9 +165,11 @@ export const generateGridColumnsStyles = ({ theme, ownerState }: Props) => {
+   if (!ownerState.container) {
+     return {};
+   }
+-  const styles = { '--Grid-columns': 12 };
++  const styles = isNestedContainer(ownerState)
++    ? { [`--Grid-columns${appendLevel(ownerState.level)}`]: getParentColumns(ownerState) }
++    : { '--Grid-columns': 12 };
+   traverseBreakpoints<number>(theme.breakpoints, ownerState.columns, (appendStyle, value) => {
+-    appendStyle(styles, { '--Grid-columns': value });
++    appendStyle(styles, { [`--Grid-columns${appendLevel(ownerState.level)}`]: value });
+   });
+   return styles;
+ };
+@@ -166,7 +183,7 @@ export const generateGridRowSpacingStyles = ({ theme, ownerState }: Props) => {
+     ? {
+         // Set the default spacing as its parent spacing.
+         // It will be overridden if spacing props are provided
+-        [`--Grid-rowSpacing${ownerState.level || ''}`]: getParentSpacing('row'),
++        [`--Grid-rowSpacing${appendLevel(ownerState.level)}`]: getParentSpacing('row'),
+       }
+     : {};
+   traverseBreakpoints<number | string>(
+@@ -174,7 +191,7 @@ export const generateGridRowSpacingStyles = ({ theme, ownerState }: Props) => {
+     ownerState.rowSpacing,
+     (appendStyle, value) => {
+       appendStyle(styles, {
+-        [`--Grid-rowSpacing${ownerState.level || ''}`]:
++        [`--Grid-rowSpacing${appendLevel(ownerState.level)}`]:
+           typeof value === 'string' ? value : theme.spacing?.(value),
+       });
+     },
+@@ -191,7 +208,7 @@ export const generateGridColumnSpacingStyles = ({ theme, ownerState }: Props) =>
+     ? {
+         // Set the default spacing as its parent spacing.
+         // It will be overridden if spacing props are provided
+-        [`--Grid-columnSpacing${ownerState.level || ''}`]: getParentSpacing('column'),
++        [`--Grid-columnSpacing${appendLevel(ownerState.level)}`]: getParentSpacing('column'),
+       }
+     : {};
+   traverseBreakpoints<number | string>(
+@@ -199,7 +216,7 @@ export const generateGridColumnSpacingStyles = ({ theme, ownerState }: Props) =>
+     ownerState.columnSpacing,
+     (appendStyle, value) => {
+       appendStyle(styles, {
+-        [`--Grid-columnSpacing${ownerState.level || ''}`]:
++        [`--Grid-columnSpacing${appendLevel(ownerState.level)}`]:
+           typeof value === 'string' ? value : theme.spacing?.(value),
+       });
+     },

@@ -1,0 +1,222 @@
+diff --git a/command/pr_checkout.go b/command/pr_checkout.go
+index d237aefbb0c..7da76f6ce0f 100644
+--- a/command/pr_checkout.go
++++ b/command/pr_checkout.go
+@@ -47,7 +47,7 @@ func prCheckout(cmd *cobra.Command, args []string) error {
+ 
+ 	baseRemote, _ := remotes.FindByRepo(baseRepo.RepoOwner(), baseRepo.RepoName())
+ 	// baseRemoteSpec is a repository URL or a remote name to be used in git fetch
+-	baseURLOrName := fmt.Sprintf("https://github.com/%s.git", ghrepo.FullName(baseRepo))
++	baseURLOrName := formatRemoteURL(cmd, ghrepo.FullName(baseRepo))
+ 	if baseRemote != nil {
+ 		baseURLOrName = baseRemote.Name
+ 	}
+@@ -97,7 +97,7 @@ func prCheckout(cmd *cobra.Command, args []string) error {
+ 		remote := baseURLOrName
+ 		mergeRef := ref
+ 		if pr.MaintainerCanModify {
+-			remote = fmt.Sprintf("https://github.com/%s/%s.git", pr.HeadRepositoryOwner.Login, pr.HeadRepository.Name)
++			remote = formatRemoteURL(cmd, fmt.Sprintf("%s/%s", pr.HeadRepositoryOwner.Login, pr.HeadRepository.Name))
+ 			mergeRef = fmt.Sprintf("refs/heads/%s", pr.HeadRefName)
+ 		}
+ 		if mc, err := git.Config(fmt.Sprintf("branch.%s.merge", newBranchName)); err != nil || mc == "" {
+diff --git a/command/pr_create.go b/command/pr_create.go
+index 96b3e27dfc6..2d029677a13 100644
+--- a/command/pr_create.go
++++ b/command/pr_create.go
+@@ -250,8 +250,8 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 	// In either case, we want to add the head repo as a new git remote so we
+ 	// can push to it.
+ 	if headRemote == nil {
+-		// TODO: support non-HTTPS git remote URLs
+-		headRepoURL := fmt.Sprintf("https://github.com/%s.git", ghrepo.FullName(headRepo))
++		headRepoURL := formatRemoteURL(cmd, ghrepo.FullName(headRepo))
++
+ 		// TODO: prevent clashes with another remote of a same name
+ 		gitRemote, err := git.AddRemote("fork", headRepoURL)
+ 		if err != nil {
+diff --git a/command/repo.go b/command/repo.go
+index c0f16b09c9f..5a278d61219 100644
+--- a/command/repo.go
++++ b/command/repo.go
+@@ -127,7 +127,7 @@ func runClone(cloneURL string, args []string) (target string, err error) {
+ func repoClone(cmd *cobra.Command, args []string) error {
+ 	cloneURL := args[0]
+ 	if !strings.Contains(cloneURL, ":") {
+-		cloneURL = fmt.Sprintf("https://github.com/%s.git", cloneURL)
++		cloneURL = formatRemoteURL(cmd, cloneURL)
+ 	}
+ 
+ 	var repo ghrepo.Interface
+@@ -158,7 +158,7 @@ func repoClone(cmd *cobra.Command, args []string) error {
+ 	}
+ 
+ 	if parentRepo != nil {
+-		err := addUpstreamRemote(parentRepo, cloneDir)
++		err := addUpstreamRemote(cmd, parentRepo, cloneDir)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -167,9 +167,8 @@ func repoClone(cmd *cobra.Command, args []string) error {
+ 	return nil
+ }
+ 
+-func addUpstreamRemote(parentRepo ghrepo.Interface, cloneDir string) error {
+-	// TODO: support SSH remote URLs
+-	upstreamURL := fmt.Sprintf("https://github.com/%s.git", ghrepo.FullName(parentRepo))
++func addUpstreamRemote(cmd *cobra.Command, parentRepo ghrepo.Interface, cloneDir string) error {
++	upstreamURL := formatRemoteURL(cmd, ghrepo.FullName(parentRepo))
+ 
+ 	cloneCmd := git.GitCommand("-C", cloneDir, "remote", "add", "-f", "upstream", upstreamURL)
+ 	cloneCmd.Stdout = os.Stdout
+@@ -267,14 +266,10 @@ func repoCreate(cmd *cobra.Command, args []string) error {
+ 		fmt.Fprintln(out, repo.URL)
+ 	}
+ 
+-	remoteURL := repo.URL + ".git"
++	remoteURL := formatRemoteURL(cmd, ghrepo.FullName(repo))
+ 
+ 	if projectDirErr == nil {
+-		// TODO: use git.AddRemote
+-		remoteAdd := git.GitCommand("remote", "add", "origin", remoteURL)
+-		remoteAdd.Stdout = os.Stdout
+-		remoteAdd.Stderr = os.Stderr
+-		err = run.PrepareCmd(remoteAdd).Run()
++		_, err = git.AddRemote("origin", remoteURL)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -338,7 +333,7 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 		return fmt.Errorf("unable to create client: %w", err)
+ 	}
+ 
+-	var toFork ghrepo.Interface
++	var repoToFork ghrepo.Interface
+ 	inParent := false // whether or not we're forking the repo we're currently "in"
+ 	if len(args) == 0 {
+ 		baseRepo, err := determineBaseRepo(cmd, ctx)
+@@ -346,7 +341,7 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 			return fmt.Errorf("unable to determine base repository: %w", err)
+ 		}
+ 		inParent = true
+-		toFork = baseRepo
++		repoToFork = baseRepo
+ 	} else {
+ 		repoArg := args[0]
+ 
+@@ -356,14 +351,23 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 				return fmt.Errorf("did not understand argument: %w", err)
+ 			}
+ 
+-			toFork, err = ghrepo.FromURL(parsedURL)
++			repoToFork, err = ghrepo.FromURL(parsedURL)
+ 			if err != nil {
+ 				return fmt.Errorf("did not understand argument: %w", err)
+ 			}
+ 
++		} else if strings.HasPrefix(repoArg, "git@") {
++			parsedURL, err := git.ParseURL(repoArg)
++			if err != nil {
++				return fmt.Errorf("did not understand argument: %w", err)
++			}
++			repoToFork, err = ghrepo.FromURL(parsedURL)
++			if err != nil {
++				return fmt.Errorf("did not understand argument: %w", err)
++			}
+ 		} else {
+-			toFork = ghrepo.FromFullName(repoArg)
+-			if toFork.RepoName() == "" || toFork.RepoOwner() == "" {
++			repoToFork = ghrepo.FromFullName(repoArg)
++			if repoToFork.RepoName() == "" || repoToFork.RepoOwner() == "" {
+ 				return fmt.Errorf("could not parse owner or repo name from %s", repoArg)
+ 			}
+ 		}
+@@ -372,12 +376,12 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 	greenCheck := utils.Green("✓")
+ 	out := colorableOut(cmd)
+ 	s := utils.Spinner(out)
+-	loading := utils.Gray("Forking ") + utils.Bold(utils.Gray(ghrepo.FullName(toFork))) + utils.Gray("...")
++	loading := utils.Gray("Forking ") + utils.Bold(utils.Gray(ghrepo.FullName(repoToFork))) + utils.Gray("...")
+ 	s.Suffix = " " + loading
+ 	s.FinalMSG = utils.Gray(fmt.Sprintf("- %s\n", loading))
+ 	s.Start()
+ 
+-	forkedRepo, err := api.ForkRepo(apiClient, toFork)
++	forkedRepo, err := api.ForkRepo(apiClient, repoToFork)
+ 	if err != nil {
+ 		s.Stop()
+ 		return fmt.Errorf("failed to fork: %w", err)
+@@ -437,7 +441,9 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 				fmt.Fprintf(out, "%s Renamed %s remote to %s\n", greenCheck, utils.Bold(remoteName), utils.Bold(renameTarget))
+ 			}
+ 
+-			_, err = git.AddRemote(remoteName, forkedRepo.CloneURL)
++			forkedRepoCloneURL := formatRemoteURL(cmd, ghrepo.FullName(forkedRepo))
++
++			_, err = git.AddRemote(remoteName, forkedRepoCloneURL)
+ 			if err != nil {
+ 				return fmt.Errorf("failed to add remote: %w", err)
+ 			}
+@@ -458,7 +464,7 @@ func repoFork(cmd *cobra.Command, args []string) error {
+ 				return fmt.Errorf("failed to clone fork: %w", err)
+ 			}
+ 
+-			err = addUpstreamRemote(toFork, cloneDir)
++			err = addUpstreamRemote(cmd, repoToFork, cloneDir)
+ 			if err != nil {
+ 				return err
+ 			}
+diff --git a/command/root.go b/command/root.go
+index 31a0ebca635..40be6a7e08b 100644
+--- a/command/root.go
++++ b/command/root.go
+@@ -222,3 +222,22 @@ func determineBaseRepo(cmd *cobra.Command, ctx context.Context) (ghrepo.Interfac
+ 
+ 	return baseRepo, nil
+ }
++
++func formatRemoteURL(cmd *cobra.Command, fullRepoName string) string {
++	ctx := contextForCommand(cmd)
++
++	protocol := "https"
++	cfg, err := ctx.Config()
++	if err != nil {
++		fmt.Fprintf(colorableErr(cmd), "%s failed to load config: %s. using defaults\n", utils.Yellow("!"), err)
++	} else {
++		cfgProtocol, _ := cfg.Get(defaultHostname, "git_protocol")
++		protocol = cfgProtocol
++	}
++
++	if protocol == "ssh" {
++		return fmt.Sprintf("git@%s:%s.git", defaultHostname, fullRepoName)
++	}
++
++	return fmt.Sprintf("https://%s/%s.git", defaultHostname, fullRepoName)
++}
+diff --git a/git/remote.go b/git/remote.go
+index 6c8608da923..ab6cdb9fb12 100644
+--- a/git/remote.go
++++ b/git/remote.go
+@@ -79,9 +79,19 @@ func AddRemote(name, u string) (*Remote, error) {
+ 		return nil, err
+ 	}
+ 
+-	urlParsed, err := url.Parse(u)
+-	if err != nil {
+-		return nil, err
++	var urlParsed *url.URL
++	if strings.HasPrefix(u, "https") {
++		urlParsed, err = url.Parse(u)
++		if err != nil {
++			return nil, err
++		}
++
++	} else {
++		urlParsed, err = ParseURL(u)
++		if err != nil {
++			return nil, err
++		}
++
+ 	}
+ 
+ 	return &Remote{

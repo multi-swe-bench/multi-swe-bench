@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+cd /home/jackson-databind
+git reset --hard
+bash /home/check_git_changes.sh
+git checkout 9684204f3073580e711320c3531a95bcaffa63ef
+bash /home/check_git_changes.sh
+
+file="/home/jackson-databind/pom.xml"
+old_version="2.16.0-SNAPSHOT"
+new_version="2.16.3-SNAPSHOT"
+sed -i "s/$old_version/$new_version/g" "$file"
+
+mvn clean test -Dmaven.test.skip=false -DfailIfNoTests=false || true

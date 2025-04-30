@@ -1,0 +1,179 @@
+diff --git a/core/logx/durationlogger_test.go b/core/logx/durationlogger_test.go
+index b916c2b5d2d6..96eba091e378 100644
+--- a/core/logx/durationlogger_test.go
++++ b/core/logx/durationlogger_test.go
+@@ -37,6 +37,19 @@ func TestWithDurationInfo(t *testing.T) {
+ 	assert.True(t, strings.Contains(builder.String(), "duration"), builder.String())
+ }
+ 
++func TestWithDurationInfoConsole(t *testing.T) {
++	old := encoding
++	encoding = plainEncodingType
++	defer func() {
++		encoding = old
++	}()
++
++	var builder strings.Builder
++	log.SetOutput(&builder)
++	WithDuration(time.Second).Info("foo")
++	assert.True(t, strings.Contains(builder.String(), "ms"), builder.String())
++}
++
+ func TestWithDurationInfof(t *testing.T) {
+ 	var builder strings.Builder
+ 	log.SetOutput(&builder)
+diff --git a/core/logx/logs_test.go b/core/logx/logs_test.go
+index 03c77fcc96b5..29d647c24782 100644
+--- a/core/logx/logs_test.go
++++ b/core/logx/logs_test.go
+@@ -141,6 +141,78 @@ func TestStructedLogInfov(t *testing.T) {
+ 	})
+ }
+ 
++func TestStructedLogInfoConsoleAny(t *testing.T) {
++	doTestStructedLogConsole(t, func(writer io.WriteCloser) {
++		infoLog = writer
++	}, func(v ...interface{}) {
++		old := encoding
++		encoding = plainEncodingType
++		defer func() {
++			encoding = old
++		}()
++
++		Infov(v)
++	})
++}
++
++func TestStructedLogInfoConsoleAnyString(t *testing.T) {
++	doTestStructedLogConsole(t, func(writer io.WriteCloser) {
++		infoLog = writer
++	}, func(v ...interface{}) {
++		old := encoding
++		encoding = plainEncodingType
++		defer func() {
++			encoding = old
++		}()
++
++		Infov(fmt.Sprint(v...))
++	})
++}
++
++func TestStructedLogInfoConsoleAnyError(t *testing.T) {
++	doTestStructedLogConsole(t, func(writer io.WriteCloser) {
++		infoLog = writer
++	}, func(v ...interface{}) {
++		old := encoding
++		encoding = plainEncodingType
++		defer func() {
++			encoding = old
++		}()
++
++		Infov(errors.New(fmt.Sprint(v...)))
++	})
++}
++
++func TestStructedLogInfoConsoleAnyStringer(t *testing.T) {
++	doTestStructedLogConsole(t, func(writer io.WriteCloser) {
++		infoLog = writer
++	}, func(v ...interface{}) {
++		old := encoding
++		encoding = plainEncodingType
++		defer func() {
++			encoding = old
++		}()
++
++		Infov(ValStringer{
++			val: fmt.Sprint(v...),
++		})
++	})
++}
++
++func TestStructedLogInfoConsoleText(t *testing.T) {
++	doTestStructedLogConsole(t, func(writer io.WriteCloser) {
++		infoLog = writer
++	}, func(v ...interface{}) {
++		old := encoding
++		encoding = plainEncodingType
++		defer func() {
++			encoding = old
++		}()
++
++		Info(fmt.Sprint(v...))
++	})
++}
++
+ func TestStructedLogSlow(t *testing.T) {
+ 	doTestStructedLog(t, levelSlow, func(writer io.WriteCloser) {
+ 		slowLog = writer
+@@ -432,6 +504,17 @@ func doTestStructedLog(t *testing.T, level string, setup func(writer io.WriteClo
+ 	assert.True(t, strings.Contains(val, message))
+ }
+ 
++func doTestStructedLogConsole(t *testing.T, setup func(writer io.WriteCloser),
++	write func(...interface{})) {
++	const message = "hello there"
++	writer := new(mockWriter)
++	setup(writer)
++	atomic.StoreUint32(&initialized, 1)
++	write(message)
++	println(writer.String())
++	assert.True(t, strings.Contains(writer.String(), message))
++}
++
+ func testSetLevelTwiceWithMode(t *testing.T, mode string) {
+ 	SetUp(LogConf{
+ 		Mode:  mode,
+@@ -456,3 +539,11 @@ func testSetLevelTwiceWithMode(t *testing.T, mode string) {
+ 	ErrorStackf(message)
+ 	assert.Equal(t, 0, writer.builder.Len())
+ }
++
++type ValStringer struct {
++	val string
++}
++
++func (v ValStringer) String() string {
++	return v.val
++}
+diff --git a/core/logx/tracelogger_test.go b/core/logx/tracelogger_test.go
+index 52363497cb05..7da8d0dd63e7 100644
+--- a/core/logx/tracelogger_test.go
++++ b/core/logx/tracelogger_test.go
+@@ -82,6 +82,37 @@ func TestTraceInfo(t *testing.T) {
+ 	assert.True(t, strings.Contains(buf.String(), spanKey))
+ }
+ 
++func TestTraceInfoConsole(t *testing.T) {
++	old := encoding
++	encoding = plainEncodingType
++	defer func() {
++		encoding = old
++	}()
++
++	var buf mockWriter
++	atomic.StoreUint32(&initialized, 1)
++	infoLog = newLogWriter(log.New(&buf, "", flags))
++	otp := otel.GetTracerProvider()
++	tp := sdktrace.NewTracerProvider(sdktrace.WithSampler(sdktrace.AlwaysSample()))
++	otel.SetTracerProvider(tp)
++	defer otel.SetTracerProvider(otp)
++
++	ctx, _ := tp.Tracer("foo").Start(context.Background(), "bar")
++	l := WithContext(ctx).(*traceLogger)
++	SetLevel(InfoLevel)
++	l.WithDuration(time.Second).Info(testlog)
++	assert.True(t, strings.Contains(buf.String(), traceIdFromContext(ctx)))
++	assert.True(t, strings.Contains(buf.String(), spanIdFromContext(ctx)))
++	buf.Reset()
++	l.WithDuration(time.Second).Infof(testlog)
++	assert.True(t, strings.Contains(buf.String(), traceIdFromContext(ctx)))
++	assert.True(t, strings.Contains(buf.String(), spanIdFromContext(ctx)))
++	buf.Reset()
++	l.WithDuration(time.Second).Infov(testlog)
++	assert.True(t, strings.Contains(buf.String(), traceIdFromContext(ctx)))
++	assert.True(t, strings.Contains(buf.String(), spanIdFromContext(ctx)))
++}
++
+ func TestTraceSlow(t *testing.T) {
+ 	var buf mockWriter
+ 	atomic.StoreUint32(&initialized, 1)

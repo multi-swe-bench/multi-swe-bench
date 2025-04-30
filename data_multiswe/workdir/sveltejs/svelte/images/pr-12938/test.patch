@@ -1,0 +1,131 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/_config.js
+new file mode 100644
+index 000000000000..bb56464ec1ed
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/_config.js
+@@ -0,0 +1,38 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>0</button><button>0</button><button>false</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>1</button><button>1</button><button>false</button>`
++		);
++
++		flushSync(() => btn2.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>1</button><button>2</button><button>false</button>`
++		);
++
++		flushSync(() => btn3.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>3</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		flushSync(() => btn3.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>4</button><button>4</button><button>false</button>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/main.svelte
+new file mode 100644
+index 000000000000..3b52359d05d4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback-condition/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	let a = $state(0);
++	let b = $state.link(a, (value) => {
++		if (c) return;
++		b = value;
++	});
++	let c = $state(false);
++</script>
++
++<button onclick={() => a++}>{a}</button>
++<button onclick={() => b++}>{b}</button>
++<button onclick={() => c = !c}>{c}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js
+index bb56464ec1ed..978fdb14d608 100644
+--- a/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js
+@@ -2,37 +2,21 @@ import { flushSync } from 'svelte';
+ import { test } from '../../test';
+ 
+ export default test({
+-	html: `<button>0</button><button>0</button><button>false</button>`,
++	html: `<button>0</button><button>0</button>`,
+ 
+-	test({ assert, target }) {
+-		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++	test({ assert, target, logs }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
+ 
+ 		flushSync(() => btn1.click());
+-		assert.htmlEqual(
+-			target.innerHTML,
+-			`<button>1</button><button>1</button><button>false</button>`
+-		);
++		assert.deepEqual(logs, ['in callback 1']);
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>1</button>`);
+ 
+ 		flushSync(() => btn2.click());
+-		assert.htmlEqual(
+-			target.innerHTML,
+-			`<button>1</button><button>2</button><button>false</button>`
+-		);
+-
+-		flushSync(() => btn3.click());
+-		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button><button>true</button>`);
+-
+-		flushSync(() => btn1.click());
+-		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button><button>true</button>`);
+-
+-		flushSync(() => btn1.click());
+-		assert.htmlEqual(target.innerHTML, `<button>3</button><button>2</button><button>true</button>`);
++		assert.deepEqual(logs, ['in callback 1']);
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button>`);
+ 
+ 		flushSync(() => btn1.click());
+-		flushSync(() => btn3.click());
+-		assert.htmlEqual(
+-			target.innerHTML,
+-			`<button>4</button><button>4</button><button>false</button>`
+-		);
++		assert.deepEqual(logs, ['in callback 1', 'in callback 2']);
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button>`);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte
+index 3b52359d05d4..8ef97c454fc5 100644
+--- a/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte
+@@ -1,12 +1,10 @@
+ <script>
+ 	let a = $state(0);
+ 	let b = $state.link(a, (value) => {
+-		if (c) return;
++		console.log(`in callback ${value}`);
+ 		b = value;
+ 	});
+-	let c = $state(false);
+ </script>
+ 
+ <button onclick={() => a++}>{a}</button>
+ <button onclick={() => b++}>{b}</button>
+-<button onclick={() => c = !c}>{c}</button>

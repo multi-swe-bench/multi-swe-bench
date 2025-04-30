@@ -1,0 +1,68 @@
+diff --git a/clap_derive/src/attrs.rs b/clap_derive/src/attrs.rs
+index 05c55c65aaa..971795ec299 100644
+--- a/clap_derive/src/attrs.rs
++++ b/clap_derive/src/attrs.rs
+@@ -791,6 +791,10 @@ impl Attrs {
+         self.name.clone().translate(*self.casing)
+     }
+ 
++    pub fn value_name(&self) -> TokenStream {
++        self.name.clone().translate(CasingStyle::ScreamingSnake)
++    }
++
+     pub fn parser(&self) -> &Sp<Parser> {
+         &self.parser
+     }
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index 768e0e348a4..1a02fd870f0 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -231,6 +231,8 @@ pub fn gen_augment(
+                     _ => quote!(),
+                 };
+ 
++                let value_name = attrs.value_name();
++
+                 let modifier = match **ty {
+                     Ty::Bool => quote!(),
+ 
+@@ -245,6 +247,7 @@ pub fn gen_augment(
+ 
+                         quote_spanned! { ty.span()=>
+                             .takes_value(true)
++                            .value_name(#value_name)
+                             #possible_values
+                             #validator
+                         }
+@@ -252,6 +255,7 @@ pub fn gen_augment(
+ 
+                     Ty::OptionOption => quote_spanned! { ty.span()=>
+                         .takes_value(true)
++                        .value_name(#value_name)
+                         .multiple_values(false)
+                         .min_values(0)
+                         .max_values(1)
+@@ -260,6 +264,7 @@ pub fn gen_augment(
+ 
+                     Ty::OptionVec => quote_spanned! { ty.span()=>
+                         .takes_value(true)
++                        .value_name(#value_name)
+                         .multiple_values(true)
+                         .min_values(0)
+                         #validator
+@@ -276,6 +281,7 @@ pub fn gen_augment(
+ 
+                         quote_spanned! { ty.span()=>
+                             .takes_value(true)
++                            .value_name(#value_name)
+                             .multiple_values(true)
+                             #possible_values
+                             #validator
+@@ -301,6 +307,7 @@ pub fn gen_augment(
+ 
+                         quote_spanned! { ty.span()=>
+                             .takes_value(true)
++                            .value_name(#value_name)
+                             .required(#required)
+                             #possible_values
+                             #validator

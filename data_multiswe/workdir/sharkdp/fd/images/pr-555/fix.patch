@@ -1,0 +1,120 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 84f272d03..ce9375723 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,10 @@
+ 
+ ## Features
+ 
++- Added `--max-results=<count>` option to limit the number of search results, see #472 and #476
++  This can be useful to speed up searches in cases where you know that there are only N results.
++  Using this option is also (slightly) faster than piping to `head -n <count>` where `fd` can only
++  exit when it finds the search results `<count> + 1`.
+ - Support additional ANSI font styles in `LS_COLORS`: faint, slow blink, rapid blink, dimmed, hidden and strikethrough.
+ 
+ ## Bugfixes
+diff --git a/doc/fd.1 b/doc/fd.1
+index 90614c696..8bb2effd7 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -80,6 +80,9 @@ is matched against the full path.
+ Separate search results by the null character (instead of newlines). Useful for piping results to
+ .IR xargs .
+ .TP
++.B \-\-max\-results count
++Limit the number of search results to 'count' and quit immediately.
++.TP
+ .B \-\-show-errors
+ Enable the display of filesystem errors for situations such as insufficient
+ permissions or dead symlinks.
+diff --git a/src/app.rs b/src/app.rs
+index a44b3ee6c..57156e151 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -251,6 +251,14 @@ pub fn build_app() -> App<'static, 'static> {
+                 .value_name("date|dur")
+                 .number_of_values(1),
+         )
++        .arg(
++            arg("max-results")
++                .long("max-results")
++                .takes_value(true)
++                .value_name("count")
++                .conflicts_with_all(&["exec", "exec-batch"])
++                .hidden_short_help(true),
++        )
+         .arg(
+             arg("show-errors")
+                 .long("show-errors")
+@@ -457,6 +465,9 @@ fn usage() -> HashMap<&'static str, Help> {
+            Examples:\n    \
+                --changed-before '2018-10-27 10:00:00'\n    \
+                --change-older-than 2weeks");
++    doc!(h, "max-results"
++        , "(hidden)"
++        , "Limit the number of search results to 'count' and quit immediately.");
+     doc!(h, "show-errors"
+         , "Enable display of filesystem errors"
+         , "Enable the display of filesystem errors for situations such as insufficient permissions \
+diff --git a/src/internal/opts.rs b/src/internal/opts.rs
+index b3feb1cbc..88ace4e4f 100644
+--- a/src/internal/opts.rs
++++ b/src/internal/opts.rs
+@@ -81,4 +81,7 @@ pub struct FdOptions {
+ 
+     /// The separator used to print file paths.
+     pub path_separator: Option<String>,
++
++    /// The maximum number of search results
++    pub max_results: Option<usize>,
+ }
+diff --git a/src/main.rs b/src/main.rs
+index a186ba861..f3750fe72 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -279,6 +279,10 @@ fn main() {
+         time_constraints,
+         show_filesystem_errors: matches.is_present("show-errors"),
+         path_separator,
++        max_results: matches
++            .value_of("max-results")
++            .and_then(|n| usize::from_str_radix(n, 10).ok())
++            .filter(|&n| n != 0),
+     };
+ 
+     match RegexBuilder::new(&pattern_regex)
+diff --git a/src/walk.rs b/src/walk.rs
+index 68595e8f1..fe09c3295 100644
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -199,6 +199,8 @@ fn spawn_receiver(
+             let stdout = io::stdout();
+             let mut stdout = stdout.lock();
+ 
++            let mut num_results = 0;
++
+             for worker_result in rx {
+                 match worker_result {
+                     WorkerResult::Entry(value) => {
+@@ -229,6 +231,8 @@ fn spawn_receiver(
+                                 output::print_entry(&mut stdout, &value, &config, &wants_to_quit);
+                             }
+                         }
++
++                        num_results += 1;
+                     }
+                     WorkerResult::Error(err) => {
+                         if show_filesystem_errors {
+@@ -236,6 +240,12 @@ fn spawn_receiver(
+                         }
+                     }
+                 }
++
++                if let Some(max_results) = config.max_results {
++                    if num_results >= max_results {
++                        break;
++                    }
++                }
+             }
+ 
+             // If we have finished fast enough (faster than max_buffer_time), we haven't streamed

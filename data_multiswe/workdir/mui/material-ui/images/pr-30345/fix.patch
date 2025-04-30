@@ -1,0 +1,197 @@
+diff --git a/docs/src/modules/components/AppSearch.js b/docs/src/modules/components/AppSearch.js
+index cfb02914a2f545..c84e7b114d6129 100644
+--- a/docs/src/modules/components/AppSearch.js
++++ b/docs/src/modules/components/AppSearch.js
+@@ -18,7 +18,7 @@ import Link from 'docs/src/modules/components/Link';
+ import { useTranslate, useUserLanguage } from 'docs/src/modules/utils/i18n';
+ import useLazyCSS from 'docs/src/modules/utils/useLazyCSS';
+ import { useRouter } from 'next/router';
+-import FEATURE_TOGGLE from 'docs/src/featureToggle';
++import replaceUrl from 'docs/src/modules/utils/replaceUrl';
+ 
+ const SearchButton = styled('button')(({ theme }) => {
+   return {
+@@ -296,25 +296,23 @@ export default function AppSearch() {
+                 // `url` contains the domain
+                 // but we want to link to the current domain e.g. deploy-preview-1--material-ui.netlify.app
+                 const parseUrl = document.createElement('a');
++                parseUrl.href = item.url;
++
++                let hash = parseUrl.hash;
++                let pathname = parseUrl.pathname;
++
+                 if (['lvl2', 'lvl3'].includes(item.type)) {
+                   // remove '#heading-' from `href` url so that the link targets <span class="anchor-link"> inside <h2> or <h3>
+                   // this will make the title appear under the Header
+-                  parseUrl.href = item.url.replace('#heading-', '#');
+-                } else {
+-                  parseUrl.href = item.url;
++                  hash = hash.replace('#heading-', '#');
+                 }
+ 
+                 // TODO: remove this logic once the migration to new structure is done.
+-                if (FEATURE_TOGGLE.enable_product_scope) {
+-                  parseUrl.href = parseUrl.href.replace(
+-                    /(?<!material\/)(getting-started|components|api|customization|guides|discover-more)(\/[^/]+\/)/,
+-                    `material/$1$2`,
+-                  );
+-                }
++                // This logic covers us during the ~60 minutes that it takes Algolia to run a crawl and update its index.
++                // It also allows us to have a search bar that works in dev mode while the new structure is not pushed to production.
++                pathname = replaceUrl(pathname, router.asPath);
+ 
+-                const { canonicalAs, canonicalPathname } = pathnameToLanguage(
+-                  `${parseUrl.pathname}${parseUrl.hash}`,
+-                );
++                const { canonicalAs, canonicalPathname } = pathnameToLanguage(`${pathname}${hash}`);
+ 
+                 return {
+                   ...item,
+diff --git a/docs/src/modules/utils/i18n.js b/docs/src/modules/utils/i18n.js
+index 1862c3b9c1fcfc..82111afa451430 100644
+--- a/docs/src/modules/utils/i18n.js
++++ b/docs/src/modules/utils/i18n.js
+@@ -1,6 +1,7 @@
+ import PropTypes from 'prop-types';
+ import * as React from 'react';
+-import FEATURE_TOGGLE from 'docs/src/featureToggle';
++import { useRouter } from 'next/router';
++import replaceMarkdownLinks from 'docs/src/modules/utils/replaceMarkdownLinks';
+ 
+ function mapTranslations(req) {
+   const translations = {};
+@@ -62,28 +63,16 @@ export function useSetUserLanguage() {
+ const warnedOnce = {};
+ 
+ export function useTranslate() {
++  const router = useRouter();
+   const userLanguage = useUserLanguage();
+ 
+   return React.useMemo(
+     () =>
+       function translate(key, options = {}) {
+-        function prefixMaterial(translation) {
+-          if (typeof translation === 'string' && FEATURE_TOGGLE.enable_product_scope) {
+-            let prefixed = translation;
+-            [
+-              '/getting-started',
+-              '/components',
+-              '/api-docs',
+-              '/customization',
+-              '/guides',
+-              '/discover-more',
+-            ].forEach((pathname) => {
+-              prefixed = prefixed.replace(
+-                new RegExp(`href="${pathname}`, 'g'),
+-                `href="/material${pathname}`,
+-              );
+-            });
+-            return prefixed;
++        // TODO: remove this logic once the migration to new structure is done.
++        function pointToNewHref(translation) {
++          if (typeof translation === 'string') {
++            return replaceMarkdownLinks(translation, router.asPath);
+           }
+           return translation;
+         }
+@@ -104,11 +93,11 @@ export function useTranslate() {
+             console.error(`Missing translation for ${fullKey}`);
+             warnedOnce[fullKey] = true;
+           }
+-          return prefixMaterial(getPath(translations.en, key));
++          return pointToNewHref(getPath(translations.en, key));
+         }
+ 
+-        return prefixMaterial(translation);
++        return pointToNewHref(translation);
+       },
+-    [userLanguage],
++    [userLanguage, router.asPath],
+   );
+ }
+diff --git a/docs/src/modules/utils/replaceMarkdownLinks.ts b/docs/src/modules/utils/replaceMarkdownLinks.ts
+new file mode 100644
+index 00000000000000..747b7413382ba4
+--- /dev/null
++++ b/docs/src/modules/utils/replaceMarkdownLinks.ts
+@@ -0,0 +1,33 @@
++export const replaceMaterialLinks = (markdown: string) => {
++  return markdown.replace(
++    /href=(\\*?)"\/(guides|customization|getting-started|discover-more)\/([^"]*)"/gm,
++    'href=$1"/material/$2/$3"',
++  );
++};
++
++export const replaceComponentLinks = (markdown: string) => {
++  return markdown
++    .replace(/href=(\\*?)"\/components\/data-grid([^"]*)"/gm, 'href=$1"/x/react-data-grid$2"')
++    .replace(/href=(\\*?)"\/components\/([^"]+)"/gm, 'href=$1"/material/react-$2"');
++};
++
++export const replaceAPILinks = (markdown: string) => {
++  return markdown
++    .replace(/href=(\\*?)"\/api\/data-grid([^"]*)"/gm, 'href=$1"/x/api/mui-data-grid$2"')
++    .replace(
++      /href=(\\*?)"\/api\/(loading-button|tab-list|tab-panel|date-picker|date-time-picker|time-picker|calendar-picker|calendar-picker-skeleton|desktop-picker|mobile-date-picker|month-picker|pickers-day|static-date-picker|year-picker|masonry|timeline|timeline-connector|timeline-content|timeline-dot|timeline-item|timeline-opposite-content|timeline-separator|unstable-trap-focus|tree-item|tree-view)([^"]*)"/gm,
++      'href=$1"/material/api/mui-lab/$2$3"',
++    )
++    .replace(
++      /href=(\\*?)"\/api\/([^"-]+-unstyled)([^"]*)"/gm,
++      'href=$1"/material/api/mui-base/$2$3"',
++    )
++    .replace(/href=(\\*?)"\/api\/([^"]*)"/gm, 'href=$1"/material/api/mui-material/$2"');
++};
++
++export default function replaceMarkdownLinks(markdown: string, asPath: string) {
++  if (asPath.startsWith('/material/') || asPath.startsWith('/x/')) {
++    return replaceMaterialLinks(replaceAPILinks(replaceComponentLinks(markdown)));
++  }
++  return markdown;
++}
+diff --git a/docs/src/modules/utils/replaceUrl.ts b/docs/src/modules/utils/replaceUrl.ts
+new file mode 100644
+index 00000000000000..ca6de245e2ea50
+--- /dev/null
++++ b/docs/src/modules/utils/replaceUrl.ts
+@@ -0,0 +1,41 @@
++export const replaceMaterialLinks = (url: string) => {
++  const routes = 'guides|customization|getting-started|discover-more';
++  if (url.startsWith('/material')) {
++    return url;
++  }
++  return url.replace(new RegExp(`(${routes})`), 'material/$1');
++};
++
++export const replaceComponentLinks = (url: string) => {
++  if (url.startsWith('/x') || url.startsWith('/material')) {
++    return url;
++  }
++  return url
++    .replace(/\/components\/data-grid/, '/x/react-data-grid')
++    .replace(/\/components\/(.*)/, '/material/react-$1');
++};
++
++export const replaceAPILinks = (url: string) => {
++  if (url.startsWith('/x') || url.startsWith('/material') || !url.startsWith('/api')) {
++    return url;
++  }
++  url = url
++    .replace(/\/api\/data-grid(.*)/, '/x/api/mui-data-grid$1')
++    .replace(
++      /\/api\/(loading-button|tab-list|tab-panel|date-picker|date-time-picker|time-picker|calendar-picker|calendar-picker-skeleton|desktop-picker|mobile-date-picker|month-picker|pickers-day|static-date-picker|year-picker|masonry|timeline|timeline-connector|timeline-content|timeline-dot|timeline-item|timeline-opposite-content|timeline-separator|unstable-trap-focus|tree-item|tree-view)(.*)/,
++      '/material/api/mui-lab/$1$2',
++    )
++    .replace(/\/api\/([^/]+-unstyled)(.*)/, '/material/api/mui-base/$1$2');
++
++  if (url.startsWith('/x') || url.startsWith('/material')) {
++    return url;
++  }
++  return url.replace(/\/api\/(.*)/, '/material/api/mui-material/$1');
++};
++
++export default function replaceUrl(url: string, asPath: string) {
++  if (asPath.startsWith('/material/') || asPath.startsWith('/x/')) {
++    return replaceMaterialLinks(replaceAPILinks(replaceComponentLinks(url)));
++  }
++  return url;
++}

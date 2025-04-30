@@ -1,0 +1,36 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/derived-cascade/_config.js b/packages/svelte/tests/runtime-runes/samples/derived-cascade/_config.js
+new file mode 100644
+index 000000000000..ddadfb64f7b3
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/derived-cascade/_config.js
+@@ -0,0 +1,12 @@
++import { test } from '../../test';
++
++export default test({
++	html: `<button>00</button>`,
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		await btn?.click();
++
++		assert.htmlEqual(target.innerHTML, `<button>01</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/derived-cascade/main.svelte b/packages/svelte/tests/runtime-runes/samples/derived-cascade/main.svelte
+new file mode 100644
+index 000000000000..c0d45c85322d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/derived-cascade/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	let shouldShow01 = $state(false);
++
++	let der1 = $derived(shouldShow01)
++	// der2 must depend on der1 and its output shouldn't change
++	let der2 = $derived(typeof der1 === "string");
++	let der3 = $derived(der2 ? "1" : "0");
++	// der3 must be read before der1
++	let der4 = $derived(der3 + (der1 ? "1" : "0"));
++</script>
++
++<button onclick={() => (shouldShow01 = true)}>{der4}</button>

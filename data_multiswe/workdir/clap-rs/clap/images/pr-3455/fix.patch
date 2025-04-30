@@ -1,0 +1,302 @@
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index 291b6287d24..2e8aa4e2983 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -168,9 +168,9 @@ pub fn gen_augment(
+                 quote!()
+             } else {
+                 quote_spanned! { kind.span()=>
+-                    let #app_var = #app_var.setting(
+-                        clap::AppSettings::SubcommandRequiredElseHelp
+-                    );
++                    let #app_var = #app_var
++                        .subcommand_required(true)
++                        .arg_required_else_help(true);
+                 }
+             };
+ 
+diff --git a/clap_derive/src/derives/into_app.rs b/clap_derive/src/derives/into_app.rs
+index a7842707a93..9573504c0c4 100644
+--- a/clap_derive/src/derives/into_app.rs
++++ b/clap_derive/src/derives/into_app.rs
+@@ -104,7 +104,8 @@ pub fn gen_for_enum(enum_name: &Ident, generics: &Generics, attrs: &[Attribute])
+         impl #impl_generics clap::IntoApp for #enum_name #ty_generics #where_clause {
+             fn into_app<'b>() -> clap::App<'b> {
+                 let #app_var = clap::App::new(#name)
+-                    .setting(clap::AppSettings::SubcommandRequiredElseHelp);
++                    .subcommand_required(true)
++                    .arg_required_else_help(true);
+                 <Self as clap::Subcommand>::augment_subcommands(#app_var)
+             }
+ 
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index 1e53375fb9a..3301bdda76f 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -248,7 +248,9 @@ fn gen_augment(
+                             let #subcommand_var = clap::App::new(#name);
+                             let #subcommand_var = #subcommand_var #initial_app_methods;
+                             let #subcommand_var = #arg_block;
+-                            let #subcommand_var = #subcommand_var.setting(clap::AppSettings::SubcommandRequiredElseHelp);
++                            let #subcommand_var = #subcommand_var
++                                .subcommand_required(true)
++                                .arg_required_else_help(true);
+                             #subcommand_var #final_from_attrs
+                         });
+                     };
+diff --git a/clap_mangen/src/render.rs b/clap_mangen/src/render.rs
+index ced17bcdeea..1515450ed1f 100644
+--- a/clap_mangen/src/render.rs
++++ b/clap_mangen/src/render.rs
+@@ -176,6 +176,7 @@ pub(crate) fn after_help(roff: &mut Roff, app: &clap::App) {
+ }
+ 
+ fn subcommand_markers(cmd: &clap::App) -> (&'static str, &'static str) {
++    #[allow(deprecated)]
+     markers(cmd.is_subcommand_required_set() || cmd.is_set(AppSettings::SubcommandRequiredElseHelp))
+ }
+ 
+diff --git a/examples/git.rs b/examples/git.rs
+index 8d7108cad67..cfb6848f4ab 100644
+--- a/examples/git.rs
++++ b/examples/git.rs
+@@ -2,12 +2,13 @@
+ 
+ use std::path::PathBuf;
+ 
+-use clap::{arg, App, AppSettings};
++use clap::{arg, App};
+ 
+ fn main() {
+     let matches = App::new("git")
+         .about("A fictional versioning CLI")
+-        .setting(AppSettings::SubcommandRequiredElseHelp)
++        .subcommand_required(true)
++        .arg_required_else_help(true)
+         .allow_external_subcommands(true)
+         .allow_invalid_utf8_for_external_subcommands(true)
+         .subcommand(
+diff --git a/examples/pacman.rs b/examples/pacman.rs
+index 5b42f0d5b23..155e31d6cb2 100644
+--- a/examples/pacman.rs
++++ b/examples/pacman.rs
+@@ -1,10 +1,11 @@
+-use clap::{App, AppSettings, Arg};
++use clap::{App, Arg};
+ 
+ fn main() {
+     let matches = App::new("pacman")
+         .about("package manager utility")
+         .version("5.2.1")
+-        .setting(AppSettings::SubcommandRequiredElseHelp)
++        .subcommand_required(true)
++        .arg_required_else_help(true)
+         .author("Pacman Development Team")
+         // Query subcommand
+         //
+diff --git a/examples/tutorial_builder/03_04_subcommands.rs b/examples/tutorial_builder/03_04_subcommands.rs
+index 98d35ef7b3f..d5900824ae6 100644
+--- a/examples/tutorial_builder/03_04_subcommands.rs
++++ b/examples/tutorial_builder/03_04_subcommands.rs
+@@ -1,9 +1,10 @@
+-use clap::{app_from_crate, arg, App, AppSettings};
++use clap::{app_from_crate, arg, App};
+ 
+ fn main() {
+     let matches = app_from_crate!()
+         .propagate_version(true)
+-        .setting(AppSettings::SubcommandRequiredElseHelp)
++        .subcommand_required(true)
++        .arg_required_else_help(true)
+         .subcommand(
+             App::new("add")
+                 .about("Adds files to myapp")
+@@ -16,8 +17,6 @@ fn main() {
+             "'myapp add' was used, name is: {:?}",
+             sub_matches.value_of("NAME")
+         ),
+-        _ => unreachable!(
+-            "Exhausted list of subcommands and SubcommandRequiredElseHelp prevents `None`"
+-        ),
++        _ => unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`"),
+     }
+ }
+diff --git a/examples/tutorial_builder/README.md b/examples/tutorial_builder/README.md
+index 0679f6ff946..b5ebc695de7 100644
+--- a/examples/tutorial_builder/README.md
++++ b/examples/tutorial_builder/README.md
+@@ -306,7 +306,7 @@ $ 03_04_subcommands add bob
+ 
+ ```
+ 
+-Because we set `AppSettings::SubcommandRequiredElseHelp`:
++Because we set `App::arg_required_else_help`:
+ ```console
+ $ 03_04_subcommands
+ ? failed
+diff --git a/src/build/app_settings.rs b/src/build/app_settings.rs
+index db3735da9fc..d8e8e0b30c0 100644
+--- a/src/build/app_settings.rs
++++ b/src/build/app_settings.rs
+@@ -132,25 +132,12 @@ pub enum AppSettings {
+     )]
+     SubcommandRequired,
+ 
+-    /// Display help if no [`subcommands`] are present at runtime and exit gracefully (i.e. an
+-    /// empty run such as `$ myprog`).
+-    ///
+-    /// **NOTE:** This should *not* be used with [`AppSettings::SubcommandRequired`] as they do
+-    /// nearly same thing; this prints the help text, and the other prints an error.
+-    ///
+-    /// **NOTE:** If the user specifies arguments at runtime, but no subcommand the help text will
+-    /// still be displayed and exit. If this is *not* the desired result, consider using
+-    /// [`AppSettings::ArgRequiredElseHelp`] instead.
+-    ///
+-    /// # Examples
+-    ///
+-    /// ```rust
+-    /// # use clap::{App, Arg, AppSettings};
+-    /// App::new("myprog")
+-    ///     .setting(AppSettings::SubcommandRequiredElseHelp);
+-    /// ```
+-    ///
+-    /// [`subcommands`]: crate::App::subcommand()
++    /// Deprecated, replaced with [`App::subcommand_required`] combined with
++    /// [`App::arg_required_else_help`].
++    #[deprecated(
++        since = "3.1.0",
++        note = "Replaced with `App::subcommand_required` combined with `App::arg_required_else_help`"
++    )]
+     SubcommandRequiredElseHelp,
+ 
+     /// Deprecated, replaced with [`App::allow_external_subcommands`] and
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index f8e1650e7e9..2da807c305c 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -123,6 +123,7 @@ impl<'help, 'app> Usage<'help, 'app> {
+             || self.app.is_allow_external_subcommands_set()
+         {
+             let placeholder = self.app.subcommand_value_name.unwrap_or("SUBCOMMAND");
++            #[allow(deprecated)]
+             if self.app.is_subcommand_negates_reqs_set()
+                 || self.app.is_args_conflicts_with_subcommands_set()
+             {
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 192f3658f6f..45775ec8f1b 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -468,12 +468,7 @@ impl<'help, 'app> Parser<'help, 'app> {
+                     matches: sc_m.into_inner(),
+                 });
+ 
+-                return Validator::new(self).validate(
+-                    parse_state,
+-                    subcmd_name.is_some(),
+-                    matcher,
+-                    trailing_values,
+-                );
++                return Validator::new(self).validate(parse_state, matcher, trailing_values);
+             } else {
+                 // Start error processing
+                 return Err(self.match_arg_error(&arg_os, valid_arg_found, trailing_values));
+@@ -488,20 +483,9 @@ impl<'help, 'app> Parser<'help, 'app> {
+                 .name
+                 .clone();
+             self.parse_subcommand(&sc_name, matcher, it, keep_state)?;
+-        } else if self.app.is_subcommand_required_set() {
+-            let bn = self.app.bin_name.as_ref().unwrap_or(&self.app.name);
+-            return Err(ClapError::missing_subcommand(
+-                self.app,
+-                bn.to_string(),
+-                Usage::new(self.app, &self.required).create_usage_with_title(&[]),
+-            ));
+-        } else if self.is_set(AS::SubcommandRequiredElseHelp) {
+-            debug!("Parser::get_matches_with: SubcommandRequiredElseHelp=true");
+-            let message = self.write_help_err()?;
+-            return Err(ClapError::display_help_error(self.app, message));
+         }
+ 
+-        Validator::new(self).validate(parse_state, subcmd_name.is_some(), matcher, trailing_values)
++        Validator::new(self).validate(parse_state, matcher, trailing_values)
+     }
+ 
+     fn match_arg_error(
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index 6417f910b0e..7035fa971ac 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -1,5 +1,5 @@
+ // Internal
+-use crate::build::{App, Arg, ArgPredicate, PossibleValue};
++use crate::build::{App, AppSettings, Arg, ArgPredicate, PossibleValue};
+ use crate::error::{Error, Result as ClapResult};
+ use crate::output::Usage;
+ use crate::parse::{ArgMatcher, MatchedArg, ParseState, Parser};
+@@ -18,12 +18,11 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+     pub(crate) fn validate(
+         &mut self,
+         parse_state: ParseState,
+-        is_subcmd: bool,
+         matcher: &mut ArgMatcher,
+         trailing_values: bool,
+     ) -> ClapResult<()> {
+         debug!("Validator::validate");
+-        let mut reqs_validated = false;
++        let has_subcmd = matcher.subcommand_name().is_some();
+ 
+         #[cfg(feature = "env")]
+         self.p.add_env(matcher, trailing_values)?;
+@@ -32,10 +31,8 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+ 
+         if let ParseState::Opt(a) = parse_state {
+             debug!("Validator::validate: needs_val_of={:?}", a);
+-            self.validate_required(matcher)?;
+ 
+             let o = &self.p.app[&a];
+-            reqs_validated = true;
+             let should_err = if let Some(v) = matcher.args.get(&o.id) {
+                 v.all_val_groups_empty() && !(o.min_vals.is_some() && o.min_vals.unwrap() == 0)
+             } else {
+@@ -54,19 +51,32 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+             }
+         }
+ 
+-        let num_user_values = matcher
+-            .arg_names()
+-            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
+-            .count();
+-        if num_user_values == 0
+-            && matcher.subcommand_name().is_none()
+-            && self.p.app.is_arg_required_else_help_set()
+-        {
++        if !has_subcmd && self.p.app.is_arg_required_else_help_set() {
++            let num_user_values = matcher
++                .arg_names()
++                .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
++                .count();
++            if num_user_values == 0 {
++                let message = self.p.write_help_err()?;
++                return Err(Error::display_help_error(self.p.app, message));
++            }
++        }
++        #[allow(deprecated)]
++        if !has_subcmd && self.p.app.is_subcommand_required_set() {
++            let bn = self.p.app.bin_name.as_ref().unwrap_or(&self.p.app.name);
++            return Err(Error::missing_subcommand(
++                self.p.app,
++                bn.to_string(),
++                Usage::new(self.p.app, &self.p.required).create_usage_with_title(&[]),
++            ));
++        } else if !has_subcmd && self.p.app.is_set(AppSettings::SubcommandRequiredElseHelp) {
++            debug!("Validator::new::get_matches_with: SubcommandRequiredElseHelp=true");
+             let message = self.p.write_help_err()?;
+             return Err(Error::display_help_error(self.p.app, message));
+         }
++
+         self.validate_conflicts(matcher)?;
+-        if !(self.p.app.is_subcommand_negates_reqs_set() && is_subcmd || reqs_validated) {
++        if !(self.p.app.is_subcommand_negates_reqs_set() && has_subcmd) {
+             self.validate_required(matcher)?;
+         }
+         self.validate_matched_args(matcher)?;

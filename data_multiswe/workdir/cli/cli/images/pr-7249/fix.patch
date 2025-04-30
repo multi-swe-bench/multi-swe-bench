@@ -1,0 +1,74 @@
+diff --git a/pkg/cmd/run/list/list.go b/pkg/cmd/run/list/list.go
+index 2b2b7810918..4b085a1a11d 100644
+--- a/pkg/cmd/run/list/list.go
++++ b/pkg/cmd/run/list/list.go
+@@ -31,6 +31,7 @@ type ListOptions struct {
+ 	WorkflowSelector string
+ 	Branch           string
+ 	Actor            string
++	Status           string
+ 
+ 	now time.Time
+ }
+@@ -67,6 +68,7 @@ func NewCmdList(f *cmdutil.Factory, runF func(*ListOptions) error) *cobra.Comman
+ 	cmd.Flags().StringVarP(&opts.WorkflowSelector, "workflow", "w", "", "Filter runs by workflow")
+ 	cmd.Flags().StringVarP(&opts.Branch, "branch", "b", "", "Filter runs by branch")
+ 	cmd.Flags().StringVarP(&opts.Actor, "user", "u", "", "Filter runs by user who triggered the run")
++	cmdutil.StringEnumFlag(cmd, &opts.Status, "status", "s", "", shared.AllStatuses, "Filter runs by status")
+ 	cmdutil.AddJSONFlags(cmd, &opts.Exporter, shared.RunFields)
+ 
+ 	_ = cmdutil.RegisterBranchCompletionFlags(f.GitClient, cmd, "branch")
+@@ -89,6 +91,7 @@ func listRun(opts *ListOptions) error {
+ 	filters := &shared.FilterOptions{
+ 		Branch: opts.Branch,
+ 		Actor:  opts.Actor,
++		Status: opts.Status,
+ 	}
+ 
+ 	opts.IO.StartProgressIndicator()
+diff --git a/pkg/cmd/run/shared/shared.go b/pkg/cmd/run/shared/shared.go
+index db347eee592..a165f94a396 100644
+--- a/pkg/cmd/run/shared/shared.go
++++ b/pkg/cmd/run/shared/shared.go
+@@ -44,6 +44,23 @@ type Status string
+ type Conclusion string
+ type Level string
+ 
++var AllStatuses = []string{
++	"queued",
++	"completed",
++	"in_progress",
++	"requested",
++	"waiting",
++	"action_required",
++	"cancelled",
++	"failure",
++	"neutral",
++	"skipped",
++	"stale",
++	"startup_failure",
++	"success",
++	"timed_out",
++}
++
+ var RunFields = []string{
+ 	"name",
+ 	"displayTitle",
+@@ -284,6 +301,7 @@ type FilterOptions struct {
+ 	WorkflowID int64
+ 	// avoid loading workflow name separately and use the provided one
+ 	WorkflowName string
++	Status       string
+ }
+ 
+ // GetRunsWithFilter fetches 50 runs from the API and filters them in-memory
+@@ -326,6 +344,9 @@ func GetRuns(client *api.Client, repo ghrepo.Interface, opts *FilterOptions, lim
+ 		if opts.Actor != "" {
+ 			path += fmt.Sprintf("&actor=%s", url.QueryEscape(opts.Actor))
+ 		}
++		if opts.Status != "" {
++			path += fmt.Sprintf("&status=%s", url.QueryEscape(opts.Status))
++		}
+ 	}
+ 
+ 	var result *RunsPayload

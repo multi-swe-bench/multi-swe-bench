@@ -1,0 +1,34 @@
+diff --git a/.changeset/brave-doors-compete.md b/.changeset/brave-doors-compete.md
+new file mode 100644
+index 000000000000..2e417df5f6ac
+--- /dev/null
++++ b/.changeset/brave-doors-compete.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: visit expression for `svelte:component` references
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 3a7cc6c94c3b..2f25cb251d63 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -305,6 +305,10 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 			default: context.state.scope.child()
+ 		};
+ 
++		if (node.type === 'SvelteComponent') {
++			context.visit(node.expression);
++		}
++
+ 		const default_state = determine_slot(node)
+ 			? context.state
+ 			: { scope: node.metadata.scopes.default };
+@@ -353,7 +357,6 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				references.push([state.scope, { node, path: path.slice() }]);
+ 			}
+ 		},
+-
+ 		LabeledStatement(node, { path, next }) {
+ 			if (path.length > 1 || !allow_reactive_declarations) return next();
+ 			if (node.label.name !== '$') return next();

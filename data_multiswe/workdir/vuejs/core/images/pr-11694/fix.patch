@@ -1,0 +1,36 @@
+diff --git a/packages/reactivity/src/baseHandlers.ts b/packages/reactivity/src/baseHandlers.ts
+index 8f21e354002..90f8dd1bc5a 100644
+--- a/packages/reactivity/src/baseHandlers.ts
++++ b/packages/reactivity/src/baseHandlers.ts
+@@ -82,6 +82,9 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
+       return
+     }
+ 
++    // only track its value if target is a ref
++    if (isRef(target) && key !== 'value') return (target as any)[key]
++
+     const targetIsArray = isArray(target)
+ 
+     if (!isReadonly) {
+diff --git a/packages/reactivity/src/dep.ts b/packages/reactivity/src/dep.ts
+index 4ce73ac9954..74e90b7ad6c 100644
+--- a/packages/reactivity/src/dep.ts
++++ b/packages/reactivity/src/dep.ts
+@@ -1,6 +1,6 @@
+ import { extend, isArray, isIntegerKey, isMap, isSymbol } from '@vue/shared'
+ import type { ComputedRefImpl } from './computed'
+-import { type TrackOpTypes, TriggerOpTypes } from './constants'
++import { ReactiveFlags, type TrackOpTypes, TriggerOpTypes } from './constants'
+ import {
+   type DebuggerEventExtraInfo,
+   EffectFlags,
+@@ -40,6 +40,9 @@ export class Dep {
+   subsHead?: Link
+ 
+   constructor(public computed?: ComputedRefImpl | undefined) {
++    // @ts-expect-error
++    this[ReactiveFlags.SKIP] = true
++
+     if (__DEV__) {
+       this.subsHead = undefined
+     }

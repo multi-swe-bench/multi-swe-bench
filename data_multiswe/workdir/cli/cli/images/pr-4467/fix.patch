@@ -1,0 +1,321 @@
+diff --git a/pkg/cmd/gist/edit/edit.go b/pkg/cmd/gist/edit/edit.go
+index 174b326cda7..74716f33479 100644
+--- a/pkg/cmd/gist/edit/edit.go
++++ b/pkg/cmd/gist/edit/edit.go
+@@ -44,7 +44,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 				editorCmd,
+ 				"*."+filename,
+ 				defaultContent,
+-				io.In, io.Out, io.ErrOut, nil)
++				io.In, io.Out, io.ErrOut)
+ 		},
+ 	}
+ 
+diff --git a/pkg/cmd/pr/merge/merge.go b/pkg/cmd/pr/merge/merge.go
+index 9e84f2863c7..b2185fab2f9 100644
+--- a/pkg/cmd/pr/merge/merge.go
++++ b/pkg/cmd/pr/merge/merge.go
+@@ -494,7 +494,7 @@ func (e *userEditor) Edit(filename, startingText string) (string, error) {
+ 		return "", err
+ 	}
+ 
+-	return surveyext.Edit(editorCommand, filename, startingText, e.io.In, e.io.Out, e.io.ErrOut, nil)
++	return surveyext.Edit(editorCommand, filename, startingText, e.io.In, e.io.Out, e.io.ErrOut)
+ }
+ 
+ // blockedReason translates various MergeStateStatus GraphQL values into human-readable reason
+diff --git a/pkg/cmd/pr/shared/commentable.go b/pkg/cmd/pr/shared/commentable.go
+index b3f1601d565..cff10284ad6 100644
+--- a/pkg/cmd/pr/shared/commentable.go
++++ b/pkg/cmd/pr/shared/commentable.go
+@@ -151,7 +151,7 @@ func CommentableInteractiveEditSurvey(cf func() (config.Config, error), io *iost
+ 		cs := io.ColorScheme()
+ 		fmt.Fprintf(io.Out, "- %s to draft your comment in %s... ", cs.Bold("Press Enter"), cs.Bold(editorCommand))
+ 		_ = waitForEnter(io.In)
+-		return surveyext.Edit(editorCommand, "*.md", "", io.In, io.Out, io.ErrOut, nil)
++		return surveyext.Edit(editorCommand, "*.md", "", io.In, io.Out, io.ErrOut)
+ 	}
+ }
+ 
+@@ -161,7 +161,7 @@ func CommentableEditSurvey(cf func() (config.Config, error), io *iostreams.IOStr
+ 		if err != nil {
+ 			return "", err
+ 		}
+-		return surveyext.Edit(editorCommand, "*.md", "", io.In, io.Out, io.ErrOut, nil)
++		return surveyext.Edit(editorCommand, "*.md", "", io.In, io.Out, io.ErrOut)
+ 	}
+ }
+ 
+diff --git a/pkg/cmd/release/create/create.go b/pkg/cmd/release/create/create.go
+index 0265229b50c..ff30ca902fc 100644
+--- a/pkg/cmd/release/create/create.go
++++ b/pkg/cmd/release/create/create.go
+@@ -4,8 +4,8 @@ import (
+ 	"bytes"
+ 	"errors"
+ 	"fmt"
++	"io"
+ 	"net/http"
+-	"os"
+ 	"strings"
+ 
+ 	"github.com/AlecAivazis/survey/v2"
+@@ -28,6 +28,7 @@ type CreateOptions struct {
+ 	Config     func() (config.Config, error)
+ 	HttpClient func() (*http.Client, error)
+ 	BaseRepo   func() (ghrepo.Interface, error)
++	Edit       func(string, string, string, io.Reader, io.Writer, io.Writer) (string, error)
+ 
+ 	TagName      string
+ 	Target       string
+@@ -43,14 +44,12 @@ type CreateOptions struct {
+ 	SubmitAction string
+ 	// for interactive flow
+ 	ReleaseNotesAction string
+-
+ 	// the value from the --repo flag
+ 	RepoOverride string
+-
+ 	// maximum number of simultaneous uploads
+-	Concurrency int
+-
++	Concurrency        int
+ 	DiscussionCategory string
++	GenerateNotes      bool
+ }
+ 
+ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Command {
+@@ -58,6 +57,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 		IO:         f.IOStreams,
+ 		HttpClient: f.HttpClient,
+ 		Config:     f.Config,
++		Edit:       surveyext.Edit,
+ 	}
+ 
+ 	var notesFile string
+@@ -79,6 +79,10 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ 			To create a release from an annotated git tag, first create one locally with
+ 			git, push the tag to GitHub, then run this command.
++
++			When using automatically generated release notes, a release title will also be automatically
++			generated unless a title was explicitly passed. Additional release notes can be prepended to
++			automatically generated notes by using the notes parameter.
+ 		`, "`"),
+ 		Example: heredoc.Doc(`
+ 			Interactively create a release
+@@ -87,6 +91,9 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 			Non-interactively create a release
+ 			$ gh release create v1.2.3 --notes "bugfix release"
+ 
++			Use automatically generated release notes
++			$ gh release create v1.2.3 --generate-notes
++
+ 			Use release notes from a file
+ 			$ gh release create v1.2.3 -F changelog.md
+ 
+@@ -119,7 +126,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ 			opts.Concurrency = 5
+ 
+-			opts.BodyProvided = cmd.Flags().Changed("notes")
++			opts.BodyProvided = cmd.Flags().Changed("notes") || opts.GenerateNotes
+ 			if notesFile != "" {
+ 				b, err := cmdutil.ReadFile(notesFile, opts.IO.In)
+ 				if err != nil {
+@@ -143,6 +150,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 	cmd.Flags().StringVarP(&opts.Body, "notes", "n", "", "Release notes")
+ 	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file` (use \"-\" to read from standard input)")
+ 	cmd.Flags().StringVarP(&opts.DiscussionCategory, "discussion-category", "", "", "Start a discussion of the specified category")
++	cmd.Flags().BoolVarP(&opts.GenerateNotes, "generate-notes", "", false, "Automatically generate title and notes for the release")
+ 
+ 	return cmd
+ }
+@@ -164,9 +172,22 @@ func createRun(opts *CreateOptions) error {
+ 			return err
+ 		}
+ 
++		var generatedNotes *ReleaseNotes
+ 		var tagDescription string
+ 		var generatedChangelog string
+-		if opts.RepoOverride == "" {
++
++		params := map[string]interface{}{
++			"tag_name": opts.TagName,
++		}
++		if opts.Target != "" {
++			params["target_commitish"] = opts.Target
++		}
++		generatedNotes, err = generateReleaseNotes(httpClient, baseRepo, params)
++		if err != nil && !errors.Is(err, notImplementedError) {
++			return err
++		}
++
++		if opts.RepoOverride == "" && generatedNotes == nil {
+ 			headRef := opts.TagName
+ 			tagDescription, _ = gitTagInfo(opts.TagName)
+ 			if tagDescription == "" {
+@@ -177,7 +198,6 @@ func createRun(opts *CreateOptions) error {
+ 					headRef = "HEAD"
+ 				}
+ 			}
+-
+ 			if prevTag, err := detectPreviousTag(headRef); err == nil {
+ 				commits, _ := changelogForRange(fmt.Sprintf("%s..%s", prevTag, headRef))
+ 				generatedChangelog = generateChangelog(commits)
+@@ -185,6 +205,9 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 
+ 		editorOptions := []string{"Write my own"}
++		if generatedNotes != nil {
++			editorOptions = append(editorOptions, "Write using generated notes as template")
++		}
+ 		if generatedChangelog != "" {
+ 			editorOptions = append(editorOptions, "Write using commit log as template")
+ 		}
+@@ -193,12 +216,16 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 		editorOptions = append(editorOptions, "Leave blank")
+ 
++		defaultName := opts.Name
++		if defaultName == "" && generatedNotes != nil {
++			defaultName = generatedNotes.Name
++		}
+ 		qs := []*survey.Question{
+ 			{
+ 				Name: "name",
+ 				Prompt: &survey.Input{
+ 					Message: "Title (optional)",
+-					Default: opts.Name,
++					Default: defaultName,
+ 				},
+ 			},
+ 			{
+@@ -220,6 +247,9 @@ func createRun(opts *CreateOptions) error {
+ 		switch opts.ReleaseNotesAction {
+ 		case "Write my own":
+ 			openEditor = true
++		case "Write using generated notes as template":
++			openEditor = true
++			editorContents = generatedNotes.Body
+ 		case "Write using commit log as template":
+ 			openEditor = true
+ 			editorContents = generatedChangelog
+@@ -233,8 +263,8 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 
+ 		if openEditor {
+-			// TODO: consider using iostreams here
+-			text, err := surveyext.Edit(editorCommand, "*.md", editorContents, os.Stdin, os.Stdout, os.Stderr, nil)
++			text, err := opts.Edit(editorCommand, "*.md", editorContents,
++				opts.IO.In, opts.IO.Out, opts.IO.ErrOut)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -298,8 +328,12 @@ func createRun(opts *CreateOptions) error {
+ 		"tag_name":   opts.TagName,
+ 		"draft":      opts.Draft,
+ 		"prerelease": opts.Prerelease,
+-		"name":       opts.Name,
+-		"body":       opts.Body,
++	}
++	if opts.Name != "" {
++		params["name"] = opts.Name
++	}
++	if opts.Body != "" {
++		params["body"] = opts.Body
+ 	}
+ 	if opts.Target != "" {
+ 		params["target_commitish"] = opts.Target
+@@ -307,6 +341,9 @@ func createRun(opts *CreateOptions) error {
+ 	if opts.DiscussionCategory != "" {
+ 		params["discussion_category_name"] = opts.DiscussionCategory
+ 	}
++	if opts.GenerateNotes {
++		params["generate_release_notes"] = true
++	}
+ 
+ 	hasAssets := len(opts.Assets) > 0
+ 
+diff --git a/pkg/cmd/release/create/http.go b/pkg/cmd/release/create/http.go
+index 78c9a0f23a0..c5575bcc827 100644
+--- a/pkg/cmd/release/create/http.go
++++ b/pkg/cmd/release/create/http.go
+@@ -3,6 +3,7 @@ package create
+ import (
+ 	"bytes"
+ 	"encoding/json"
++	"errors"
+ 	"fmt"
+ 	"io/ioutil"
+ 	"net/http"
+@@ -13,6 +14,54 @@ import (
+ 	"github.com/cli/cli/v2/pkg/cmd/release/shared"
+ )
+ 
++var notImplementedError = errors.New("not implemented")
++
++type ReleaseNotes struct {
++	Name string `json:"name"`
++	Body string `json:"body"`
++}
++
++func generateReleaseNotes(httpClient *http.Client, repo ghrepo.Interface, params map[string]interface{}) (*ReleaseNotes, error) {
++	bodyBytes, err := json.Marshal(params)
++	if err != nil {
++		return nil, err
++	}
++
++	path := fmt.Sprintf("repos/%s/%s/releases/generate-notes", repo.RepoOwner(), repo.RepoName())
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
++	if err != nil {
++		return nil, err
++	}
++
++	req.Header.Set("Accept", "application/vnd.github.v3+json")
++	req.Header.Set("Content-Type", "application/json; charset=utf-8")
++
++	resp, err := httpClient.Do(req)
++	if err != nil {
++		return nil, err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode == 404 {
++		return nil, notImplementedError
++	}
++
++	success := resp.StatusCode >= 200 && resp.StatusCode < 300
++	if !success {
++		return nil, api.HandleHTTPError(resp)
++	}
++
++	b, err := ioutil.ReadAll(resp.Body)
++	if err != nil {
++		return nil, err
++	}
++
++	var releaseNotes ReleaseNotes
++	err = json.Unmarshal(b, &releaseNotes)
++	return &releaseNotes, err
++}
++
+ func createRelease(httpClient *http.Client, repo ghrepo.Interface, params map[string]interface{}) (*shared.Release, error) {
+ 	bodyBytes, err := json.Marshal(params)
+ 	if err != nil {
+diff --git a/pkg/surveyext/editor_manual.go b/pkg/surveyext/editor_manual.go
+index 93572ba704e..e9703d5e0f1 100644
+--- a/pkg/surveyext/editor_manual.go
++++ b/pkg/surveyext/editor_manual.go
+@@ -15,8 +15,8 @@ type showable interface {
+ 	Show()
+ }
+ 
+-func Edit(editorCommand, fn, initialValue string, stdin io.Reader, stdout io.Writer, stderr io.Writer, cursor showable) (string, error) {
+-	return edit(editorCommand, fn, initialValue, stdin, stdout, stderr, cursor, defaultLookPath)
++func Edit(editorCommand, fn, initialValue string, stdin io.Reader, stdout io.Writer, stderr io.Writer) (string, error) {
++	return edit(editorCommand, fn, initialValue, stdin, stdout, stderr, nil, defaultLookPath)
+ }
+ 
+ func defaultLookPath(name string) ([]string, []string, error) {

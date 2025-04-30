@@ -1,0 +1,78 @@
+diff --git a/.changeset/polite-ravens-study.md b/.changeset/polite-ravens-study.md
+new file mode 100644
+index 000000000000..9f9c6f8717bc
+--- /dev/null
++++ b/.changeset/polite-ravens-study.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: disallow fallback values with bindings in runes mode
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/utils.js b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+index 0227313214dc..35e200b06e10 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/utils.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/utils.js
+@@ -1,7 +1,11 @@
+ import * as b from '../../../utils/builders.js';
+ import { extract_paths, is_simple_expression } from '../../../utils/ast.js';
+ import { error } from '../../../errors.js';
+-import { PROPS_CALL_DEFAULT_VALUE, PROPS_IS_IMMUTABLE } from '../../../../constants.js';
++import {
++	PROPS_CALL_DEFAULT_VALUE,
++	PROPS_IS_IMMUTABLE,
++	PROPS_IS_RUNES
++} from '../../../../constants.js';
+ 
+ /**
+  * @template {import('./types').ClientTransformState} State
+@@ -369,6 +373,10 @@ export function get_props_method(binding, state, name, default_value) {
+ 			flags |= PROPS_IS_IMMUTABLE;
+ 		}
+ 
++		if (state.analysis.runes) {
++			flags |= PROPS_IS_RUNES;
++		}
++
+ 		if (default_value) {
+ 			// To avoid eagerly evaluating the right-hand-side, we wrap it in a thunk if necessary
+ 			if (is_simple_expression(default_value)) {
+diff --git a/packages/svelte/src/constants.js b/packages/svelte/src/constants.js
+index d5daaf700b0e..f22a36f45f71 100644
+--- a/packages/svelte/src/constants.js
++++ b/packages/svelte/src/constants.js
+@@ -6,7 +6,8 @@ export const EACH_IS_ANIMATED = 1 << 4;
+ export const EACH_IS_IMMUTABLE = 1 << 6;
+ 
+ export const PROPS_IS_IMMUTABLE = 1;
+-export const PROPS_CALL_DEFAULT_VALUE = 1 << 1;
++export const PROPS_IS_RUNES = 1 << 1;
++export const PROPS_CALL_DEFAULT_VALUE = 1 << 2;
+ 
+ /** List of Element events that will be delegated */
+ export const DelegatedEvents = [
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 29f1b733dd2f..462372f83f97 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -2,7 +2,7 @@ import { DEV } from 'esm-env';
+ import { subscribe_to_store } from '../../store/utils.js';
+ import { EMPTY_FUNC, run_all } from '../common.js';
+ import { get_descriptor, get_descriptors, is_array } from './utils.js';
+-import { PROPS_CALL_DEFAULT_VALUE, PROPS_IS_IMMUTABLE } from '../../constants.js';
++import { PROPS_CALL_DEFAULT_VALUE, PROPS_IS_IMMUTABLE, PROPS_IS_RUNES } from '../../constants.js';
+ 
+ export const SOURCE = 1;
+ export const DERIVED = 1 << 1;
+@@ -1428,6 +1428,11 @@ export function prop_source(props_obj, key, flags, default_value) {
+ 	let value = props[key];
+ 	const should_set_default_value = value === undefined && default_value !== undefined;
+ 
++	if (update_bound_prop && default_value !== undefined && (flags & PROPS_IS_RUNES) !== 0) {
++		// TODO consolidate all these random runtime errors
++		throw new Error('Cannot use fallback values with bind:');
++	}
++
+ 	if (should_set_default_value) {
+ 		value =
+ 			// @ts-expect-error would need a cumbersome method overload to type this

@@ -1,0 +1,139 @@
+diff --git a/tests/testenv/mod.rs b/tests/testenv/mod.rs
+index ae3e08ef4..117bd642e 100644
+--- a/tests/testenv/mod.rs
++++ b/tests/testenv/mod.rs
+@@ -240,14 +240,28 @@ impl TestEnv {
+         }
+     }
+ 
++    /// Assert that calling *fd* with the specified arguments produces the expected error,
++    /// and does not succeed.
++    pub fn assert_failure_with_error(&self, args: &[&str], expected: &str) {
++        let status = self.assert_error_subdirectory(".", args, expected);
++        if status.success() {
++            panic!("error '{}' did not occur.", expected);
++        }
++    }
++
+     /// Assert that calling *fd* with the specified arguments produces the expected error.
+-    pub fn assert_error(&self, args: &[&str], expected: &str) {
++    pub fn assert_error(&self, args: &[&str], expected: &str) -> process::ExitStatus {
+         self.assert_error_subdirectory(".", args, expected)
+     }
+ 
+     /// Assert that calling *fd* in the specified path under the root working directory,
+     /// and with the specified arguments produces an error with the expected message.
+-    fn assert_error_subdirectory<P: AsRef<Path>>(&self, path: P, args: &[&str], expected: &str) {
++    fn assert_error_subdirectory<P: AsRef<Path>>(
++        &self,
++        path: P,
++        args: &[&str],
++        expected: &str,
++    ) -> process::ExitStatus {
+         // Setup *fd* command.
+         let mut cmd = process::Command::new(&self.fd_exe);
+         cmd.current_dir(self.temp_dir.path().join(path));
+@@ -256,15 +270,19 @@ impl TestEnv {
+         // Run *fd*.
+         let output = cmd.output().expect("fd output");
+ 
+-        // Check for exit status.
+-        if output.status.success() {
+-            panic!("error '{}' did not occur.", expected);
+-        }
++        // Normalize both expected and actual output.
++        let expected_error = normalize_output(expected, true, self.normalize_line);
++        let actual_err = normalize_output(
++            &String::from_utf8_lossy(&output.stderr),
++            false,
++            self.normalize_line,
++        );
+ 
+         // Compare actual output to expected output.
+-        let actual = String::from_utf8_lossy(&output.stderr);
+-        if !actual.starts_with(expected) {
+-            panic!(format_output_error(args, &expected, &actual));
++        if !actual_err.trim_start().starts_with(&expected_error) {
++            panic!(format_output_error(args, &expected_error, &actual_err));
+         }
++
++        return output.status;
+     }
+ }
+diff --git a/tests/tests.rs b/tests/tests.rs
+index 8dedd617e..79bfce60b 100644
+--- a/tests/tests.rs
++++ b/tests/tests.rs
+@@ -117,6 +117,45 @@ fn test_multi_file() {
+     te.assert_output(&["b.foo", "test1", "test2"], "test1/b.foo");
+ }
+ 
++/// Test search over multiple directory with missing
++#[test]
++fn test_multi_file_with_missing() {
++    let dirs = &["real"];
++    let files = &["real/a.foo", "real/b.foo"];
++    let te = TestEnv::new(dirs, files);
++    te.assert_output(&["a.foo", "real", "fake"], "real/a.foo");
++
++    te.assert_error(
++        &["a.foo", "real", "fake"],
++        "[fd error]: Search path 'fake' is not a directory.",
++    );
++
++    te.assert_output(
++        &["", "real", "fake"],
++        "real/a.foo
++        real/b.foo",
++    );
++
++    te.assert_output(
++        &["", "real", "fake1", "fake2"],
++        "real/a.foo
++        real/b.foo",
++    );
++
++    te.assert_error(
++        &["", "real", "fake1", "fake2"],
++        "[fd error]: Search path 'fake1' is not a directory.
++        [fd error]: Search path 'fake2' is not a directory.",
++    );
++
++    te.assert_failure_with_error(
++        &["", "fake1", "fake2"],
++        "[fd error]: Search path 'fake1' is not a directory.
++        [fd error]: Search path 'fake2' is not a directory.
++        [fd error]: No valid search paths given.",
++    );
++}
++
+ /// Explicit root path
+ #[test]
+ fn test_explicit_root_path() {
+@@ -1214,22 +1253,22 @@ fn test_exec_batch() {
+             "",
+         );
+ 
+-        te.assert_error(
++        te.assert_failure_with_error(
+             &["foo", "--exec-batch", "echo", "{}", "{}"],
+             "[fd error]: Only one placeholder allowed for batch commands",
+         );
+ 
+-        te.assert_error(
++        te.assert_failure_with_error(
+             &["foo", "--exec-batch", "echo", "{/}", ";", "-x", "echo"],
+             "error: The argument '--exec <cmd>' cannot be used with '--exec-batch <cmd>'",
+         );
+ 
+-        te.assert_error(
++        te.assert_failure_with_error(
+             &["foo", "--exec-batch"],
+             "error: The argument '--exec-batch <cmd>' requires a value but none was supplied",
+         );
+ 
+-        te.assert_error(
++        te.assert_failure_with_error(
+             &["foo", "--exec-batch", "echo {}"],
+             "[fd error]: First argument of exec-batch is expected to be a fixed executable",
+         );

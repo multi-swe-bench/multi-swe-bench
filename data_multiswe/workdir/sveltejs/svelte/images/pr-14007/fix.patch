@@ -1,0 +1,46 @@
+diff --git a/.changeset/wild-oranges-promise.md b/.changeset/wild-oranges-promise.md
+new file mode 100644
+index 000000000000..d79666c47e43
+--- /dev/null
++++ b/.changeset/wild-oranges-promise.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: properly migrate imports types prefixed with $
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
+index 266016fcc811..82356ea619c1 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
+@@ -220,7 +220,16 @@ export function validate_identifier_name(binding, function_depth) {
+ 
+ 		if (node.name === '$') {
+ 			e.dollar_binding_invalid(node);
+-		} else if (node.name.startsWith('$')) {
++		} else if (
++			node.name.startsWith('$') &&
++			// import type { $Type } from "" - these are normally already filtered out,
++			// but for the migration they aren't, and throwing here is preventing the migration to complete
++			// TODO -> once migration script is gone we can remove this check
++			!(
++				binding.initial?.type === 'ImportDeclaration' &&
++				/** @type {any} */ (binding.initial).importKind === 'type'
++			)
++		) {
+ 			e.dollar_prefix_invalid(node);
+ 		}
+ 	}
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 7a8afa532af9..0542a20708e9 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -348,7 +348,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				is_reference(node, /** @type {Node} */ (parent)) &&
+ 				// TSTypeAnnotation, TSInterfaceDeclaration etc - these are normally already filtered out,
+ 				// but for the migration they aren't, so we need to filter them out here
+-				// -> once migration script is gone we can remove this check
++				// TODO -> once migration script is gone we can remove this check
+ 				!parent.type.startsWith('TS')
+ 			) {
+ 				references.push([state.scope, { node, path: path.slice() }]);

@@ -1,0 +1,1581 @@
+diff --git a/clap_complete/tests/snapshots/basic.bash b/clap_complete/tests/snapshots/basic.bash
+index eabc9b504d0..65c66e2b5fc 100644
+--- a/clap_complete/tests/snapshots/basic.bash
++++ b/clap_complete/tests/snapshots/basic.bash
+@@ -39,7 +39,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__help)
+-            opts="-c [<SUBCOMMAND>...]"
++            opts="-c test help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -52,6 +52,34 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__help__help)
++            opts="-c -h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__test)
++            opts="-c"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+         my__app__test)
+             opts="-d -c -h --help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+diff --git a/clap_complete/tests/snapshots/basic.elvish b/clap_complete/tests/snapshots/basic.elvish
+index ca7c71fd263..47bd8cf5368 100644
+--- a/clap_complete/tests/snapshots/basic.elvish
++++ b/clap_complete/tests/snapshots/basic.elvish
+@@ -33,6 +33,16 @@ set edit:completion:arg-completer[my-app] = {|@words|
+         }
+         &'my-app;help'= {
+             cand -c 'c'
++            cand test 'Subcommand'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;help;test'= {
++            cand -c 'c'
++        }
++        &'my-app;help;help'= {
++            cand -c 'c'
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+     ]
+     $completions[$command]
+diff --git a/clap_complete/tests/snapshots/basic.fish b/clap_complete/tests/snapshots/basic.fish
+index e836a340ef0..24f3e9ba721 100644
+--- a/clap_complete/tests/snapshots/basic.fish
++++ b/clap_complete/tests/snapshots/basic.fish
+@@ -6,4 +6,9 @@ complete -c my-app -n "__fish_use_subcommand" -f -a "help" -d 'Print this messag
+ complete -c my-app -n "__fish_seen_subcommand_from test" -s d
+ complete -c my-app -n "__fish_seen_subcommand_from test" -s c
+ complete -c my-app -n "__fish_seen_subcommand_from test" -s h -l help -d 'Print help information'
+-complete -c my-app -n "__fish_seen_subcommand_from help" -s c
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from help" -s c
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from help" -f -a "test" -d 'Subcommand'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from test" -s c
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s c
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+diff --git a/clap_complete/tests/snapshots/basic.ps1 b/clap_complete/tests/snapshots/basic.ps1
+index 96af4b570ab..50541264830 100644
+--- a/clap_complete/tests/snapshots/basic.ps1
++++ b/clap_complete/tests/snapshots/basic.ps1
+@@ -38,6 +38,18 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+         }
+         'my-app;help' {
+             [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'c')
++            [CompletionResult]::new('test', 'test', [CompletionResultType]::ParameterValue, 'Subcommand')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;help;test' {
++            [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'c')
++            break
++        }
++        'my-app;help;help' {
++            [CompletionResult]::new('-c', 'c', [CompletionResultType]::ParameterName, 'c')
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+     })
+diff --git a/clap_complete/tests/snapshots/basic.zsh b/clap_complete/tests/snapshots/basic.zsh
+index c72bc6dc397..48e554142c0 100644
+--- a/clap_complete/tests/snapshots/basic.zsh
++++ b/clap_complete/tests/snapshots/basic.zsh
+@@ -39,12 +39,35 @@ _arguments "${_arguments_options[@]}" /
+ (help)
+ _arguments "${_arguments_options[@]}" /
+ '*-c[]' /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__help_commands" /
++"*::: :->help" /
++&& ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-help-command-$line[1]:"
++        case $line[1] in
++            (test)
++_arguments "${_arguments_options[@]}" /
++'*-c[]' /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-c[]' /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
+ && ret=0
+ ;;
+         esac
+     ;;
+ esac
++;;
++        esac
++    ;;
++esac
+ }
+ 
+ (( $+functions[_my-app_commands] )) ||
+@@ -57,9 +80,22 @@ _my-app_commands() {
+ }
+ (( $+functions[_my-app__help_commands] )) ||
+ _my-app__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'test:Subcommand' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app help commands' commands "$@"
+ }
++(( $+functions[_my-app__help__help_commands] )) ||
++_my-app__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help help commands' commands "$@"
++}
++(( $+functions[_my-app__help__test_commands] )) ||
++_my-app__help__test_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help test commands' commands "$@"
++}
+ (( $+functions[_my-app__test_commands] )) ||
+ _my-app__test_commands() {
+     local commands; commands=()
+diff --git a/clap_complete/tests/snapshots/feature_sample.bash b/clap_complete/tests/snapshots/feature_sample.bash
+index caebfbc56d0..859d9eac78f 100644
+--- a/clap_complete/tests/snapshots/feature_sample.bash
++++ b/clap_complete/tests/snapshots/feature_sample.bash
+@@ -39,7 +39,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__help)
+-            opts="[<SUBCOMMAND>...]"
++            opts="test help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -52,6 +52,34 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__help__help)
++            opts="-h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__test)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+         my__app__test)
+             opts="-h -V --case --help --version"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+diff --git a/clap_complete/tests/snapshots/feature_sample.elvish b/clap_complete/tests/snapshots/feature_sample.elvish
+index bc18cbdc69b..ab19724f046 100644
+--- a/clap_complete/tests/snapshots/feature_sample.elvish
++++ b/clap_complete/tests/snapshots/feature_sample.elvish
+@@ -37,6 +37,14 @@ set edit:completion:arg-completer[my-app] = {|@words|
+             cand --version 'Print version information'
+         }
+         &'my-app;help'= {
++            cand test 'tests things'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;help;test'= {
++        }
++        &'my-app;help;help'= {
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+     ]
+     $completions[$command]
+diff --git a/clap_complete/tests/snapshots/feature_sample.fish b/clap_complete/tests/snapshots/feature_sample.fish
+index aa9666dfeb6..80a7ed1aaf6 100644
+--- a/clap_complete/tests/snapshots/feature_sample.fish
++++ b/clap_complete/tests/snapshots/feature_sample.fish
+@@ -6,3 +6,6 @@ complete -c my-app -n "__fish_use_subcommand" -f -a "help" -d 'Print this messag
+ complete -c my-app -n "__fish_seen_subcommand_from test" -l case -d 'the case to test' -r
+ complete -c my-app -n "__fish_seen_subcommand_from test" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from test" -s V -l version -d 'Print version information'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from help" -f -a "test" -d 'tests things'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+diff --git a/clap_complete/tests/snapshots/feature_sample.ps1 b/clap_complete/tests/snapshots/feature_sample.ps1
+index bf1ec4d0f0e..7f5bbd9e7ff 100644
+--- a/clap_complete/tests/snapshots/feature_sample.ps1
++++ b/clap_complete/tests/snapshots/feature_sample.ps1
+@@ -42,6 +42,16 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+             break
+         }
+         'my-app;help' {
++            [CompletionResult]::new('test', 'test', [CompletionResultType]::ParameterValue, 'tests things')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;help;test' {
++            break
++        }
++        'my-app;help;help' {
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+     })
+diff --git a/clap_complete/tests/snapshots/feature_sample.zsh b/clap_complete/tests/snapshots/feature_sample.zsh
+index f8a675117ac..2c0c479832a 100644
+--- a/clap_complete/tests/snapshots/feature_sample.zsh
++++ b/clap_complete/tests/snapshots/feature_sample.zsh
+@@ -45,12 +45,33 @@ _arguments "${_arguments_options[@]}" /
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__help_commands" /
++"*::: :->help" /
++&& ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-help-command-$line[1]:"
++        case $line[1] in
++            (test)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
+ && ret=0
+ ;;
+         esac
+     ;;
+ esac
++;;
++        esac
++    ;;
++esac
+ }
+ 
+ (( $+functions[_my-app_commands] )) ||
+@@ -63,9 +84,22 @@ _my-app_commands() {
+ }
+ (( $+functions[_my-app__help_commands] )) ||
+ _my-app__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'test:tests things' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app help commands' commands "$@"
+ }
++(( $+functions[_my-app__help__help_commands] )) ||
++_my-app__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help help commands' commands "$@"
++}
++(( $+functions[_my-app__help__test_commands] )) ||
++_my-app__help__test_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help test commands' commands "$@"
++}
+ (( $+functions[_my-app__test_commands] )) ||
+ _my-app__test_commands() {
+     local commands; commands=()
+diff --git a/clap_complete/tests/snapshots/quoting.bash b/clap_complete/tests/snapshots/quoting.bash
+index 80d0c14ed49..03369599005 100644
+--- a/clap_complete/tests/snapshots/quoting.bash
++++ b/clap_complete/tests/snapshots/quoting.bash
+@@ -138,7 +138,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__help)
+-            opts="[<SUBCOMMAND>...]"
++            opts="cmd-single-quotes cmd-double-quotes cmd-backticks cmd-backslash cmd-brackets cmd-expansions help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -151,6 +151,104 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__help__cmd__backslash)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__cmd__backticks)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__cmd__brackets)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__cmd__double__quotes)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__cmd__expansions)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__cmd__single__quotes)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__help)
++            opts="-h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+     esac
+ }
+ 
+diff --git a/clap_complete/tests/snapshots/quoting.elvish b/clap_complete/tests/snapshots/quoting.elvish
+index 5c2c787be34..cc27121f13b 100644
+--- a/clap_complete/tests/snapshots/quoting.elvish
++++ b/clap_complete/tests/snapshots/quoting.elvish
+@@ -61,6 +61,29 @@ set edit:completion:arg-completer[my-app] = {|@words|
+             cand --help 'Print help information'
+         }
+         &'my-app;help'= {
++            cand cmd-single-quotes 'Can be ''always'', ''auto'', or ''never'''
++            cand cmd-double-quotes 'Can be "always", "auto", or "never"'
++            cand cmd-backticks 'For more information see `echo test`'
++            cand cmd-backslash 'Avoid ''/n'''
++            cand cmd-brackets 'List packages [filter]'
++            cand cmd-expansions 'Execute the shell command with $SHELL'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;help;cmd-single-quotes'= {
++        }
++        &'my-app;help;cmd-double-quotes'= {
++        }
++        &'my-app;help;cmd-backticks'= {
++        }
++        &'my-app;help;cmd-backslash'= {
++        }
++        &'my-app;help;cmd-brackets'= {
++        }
++        &'my-app;help;cmd-expansions'= {
++        }
++        &'my-app;help;help'= {
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+     ]
+     $completions[$command]
+diff --git a/clap_complete/tests/snapshots/quoting.fish b/clap_complete/tests/snapshots/quoting.fish
+index c9e24fb7ae2..e69c4adc808 100644
+--- a/clap_complete/tests/snapshots/quoting.fish
++++ b/clap_complete/tests/snapshots/quoting.fish
+@@ -19,3 +19,11 @@ complete -c my-app -n "__fish_seen_subcommand_from cmd-backticks" -s h -l help -
+ complete -c my-app -n "__fish_seen_subcommand_from cmd-backslash" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from cmd-brackets" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from cmd-expansions" -s h -l help -d 'Print help information'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-single-quotes" -d 'Can be /'always/', /'auto/', or /'never/''
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-double-quotes" -d 'Can be "always", "auto", or "never"'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-backticks" -d 'For more information see `echo test`'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-backslash" -d 'Avoid /'//n/''
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-brackets" -d 'List packages [filter]'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "cmd-expansions" -d 'Execute the shell command with $SHELL'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from cmd-single-quotes; and not __fish_seen_subcommand_from cmd-double-quotes; and not __fish_seen_subcommand_from cmd-backticks; and not __fish_seen_subcommand_from cmd-backslash; and not __fish_seen_subcommand_from cmd-brackets; and not __fish_seen_subcommand_from cmd-expansions; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+diff --git a/clap_complete/tests/snapshots/quoting.ps1 b/clap_complete/tests/snapshots/quoting.ps1
+index 78fa953f12f..34ad23b0d71 100644
+--- a/clap_complete/tests/snapshots/quoting.ps1
++++ b/clap_complete/tests/snapshots/quoting.ps1
+@@ -71,6 +71,36 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+             break
+         }
+         'my-app;help' {
++            [CompletionResult]::new('cmd-single-quotes', 'cmd-single-quotes', [CompletionResultType]::ParameterValue, 'Can be ''always'', ''auto'', or ''never''')
++            [CompletionResult]::new('cmd-double-quotes', 'cmd-double-quotes', [CompletionResultType]::ParameterValue, 'Can be "always", "auto", or "never"')
++            [CompletionResult]::new('cmd-backticks', 'cmd-backticks', [CompletionResultType]::ParameterValue, 'For more information see `echo test`')
++            [CompletionResult]::new('cmd-backslash', 'cmd-backslash', [CompletionResultType]::ParameterValue, 'Avoid ''/n''')
++            [CompletionResult]::new('cmd-brackets', 'cmd-brackets', [CompletionResultType]::ParameterValue, 'List packages [filter]')
++            [CompletionResult]::new('cmd-expansions', 'cmd-expansions', [CompletionResultType]::ParameterValue, 'Execute the shell command with $SHELL')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;help;cmd-single-quotes' {
++            break
++        }
++        'my-app;help;cmd-double-quotes' {
++            break
++        }
++        'my-app;help;cmd-backticks' {
++            break
++        }
++        'my-app;help;cmd-backslash' {
++            break
++        }
++        'my-app;help;cmd-brackets' {
++            break
++        }
++        'my-app;help;cmd-expansions' {
++            break
++        }
++        'my-app;help;help' {
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+     })
+diff --git a/clap_complete/tests/snapshots/quoting.zsh b/clap_complete/tests/snapshots/quoting.zsh
+index e1b09fc981e..fe156955fd9 100644
+--- a/clap_complete/tests/snapshots/quoting.zsh
++++ b/clap_complete/tests/snapshots/quoting.zsh
+@@ -72,8 +72,49 @@ _arguments "${_arguments_options[@]}" /
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__help_commands" /
++"*::: :->help" /
+ && ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-help-command-$line[1]:"
++        case $line[1] in
++            (cmd-single-quotes)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(cmd-double-quotes)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(cmd-backticks)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(cmd-backslash)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(cmd-brackets)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(cmd-expansions)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
++&& ret=0
++;;
++        esac
++    ;;
++esac
+ ;;
+         esac
+     ;;
+@@ -98,35 +139,78 @@ _my-app__cmd-backslash_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-backslash commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-backslash_commands] )) ||
++_my-app__help__cmd-backslash_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-backslash commands' commands "$@"
++}
+ (( $+functions[_my-app__cmd-backticks_commands] )) ||
+ _my-app__cmd-backticks_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-backticks commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-backticks_commands] )) ||
++_my-app__help__cmd-backticks_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-backticks commands' commands "$@"
++}
+ (( $+functions[_my-app__cmd-brackets_commands] )) ||
+ _my-app__cmd-brackets_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-brackets commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-brackets_commands] )) ||
++_my-app__help__cmd-brackets_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-brackets commands' commands "$@"
++}
+ (( $+functions[_my-app__cmd-double-quotes_commands] )) ||
+ _my-app__cmd-double-quotes_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-double-quotes commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-double-quotes_commands] )) ||
++_my-app__help__cmd-double-quotes_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-double-quotes commands' commands "$@"
++}
+ (( $+functions[_my-app__cmd-expansions_commands] )) ||
+ _my-app__cmd-expansions_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-expansions commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-expansions_commands] )) ||
++_my-app__help__cmd-expansions_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-expansions commands' commands "$@"
++}
+ (( $+functions[_my-app__cmd-single-quotes_commands] )) ||
+ _my-app__cmd-single-quotes_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app cmd-single-quotes commands' commands "$@"
+ }
++(( $+functions[_my-app__help__cmd-single-quotes_commands] )) ||
++_my-app__help__cmd-single-quotes_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help cmd-single-quotes commands' commands "$@"
++}
+ (( $+functions[_my-app__help_commands] )) ||
+ _my-app__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'cmd-single-quotes:Can be '/''always'/'', '/''auto'/'', or '/''never'/''' /
++'cmd-double-quotes:Can be "always", "auto", or "never"' /
++'cmd-backticks:For more information see `echo test`' /
++'cmd-backslash:Avoid '/''//n'/''' /
++'cmd-brackets:List packages /[filter/]' /
++'cmd-expansions:Execute the shell command with $SHELL' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app help commands' commands "$@"
+ }
++(( $+functions[_my-app__help__help_commands] )) ||
++_my-app__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help help commands' commands "$@"
++}
+ 
+ _my-app "$@"
+diff --git a/clap_complete/tests/snapshots/special_commands.bash b/clap_complete/tests/snapshots/special_commands.bash
+index ef81e2b6329..c9b090c80c3 100644
+--- a/clap_complete/tests/snapshots/special_commands.bash
++++ b/clap_complete/tests/snapshots/special_commands.bash
+@@ -48,7 +48,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__help)
+-            opts="[<SUBCOMMAND>...]"
++            opts="test some_cmd some-cmd-with-hyphens some-hidden-cmd help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -61,6 +61,76 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__help__help)
++            opts="-h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__some__cmd__with__hyphens)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__some__hidden__cmd)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__some_cmd)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__test)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+         my__app__some__cmd__with__hyphens)
+             opts="-h -V --help --version"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+diff --git a/clap_complete/tests/snapshots/special_commands.elvish b/clap_complete/tests/snapshots/special_commands.elvish
+index fec8ac8767c..cc856d19837 100644
+--- a/clap_complete/tests/snapshots/special_commands.elvish
++++ b/clap_complete/tests/snapshots/special_commands.elvish
+@@ -59,6 +59,23 @@ set edit:completion:arg-completer[my-app] = {|@words|
+             cand --version 'Print version information'
+         }
+         &'my-app;help'= {
++            cand test 'tests things'
++            cand some_cmd 'tests other things'
++            cand some-cmd-with-hyphens 'some-cmd-with-hyphens'
++            cand some-hidden-cmd 'some-hidden-cmd'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;help;test'= {
++        }
++        &'my-app;help;some_cmd'= {
++        }
++        &'my-app;help;some-cmd-with-hyphens'= {
++        }
++        &'my-app;help;some-hidden-cmd'= {
++        }
++        &'my-app;help;help'= {
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+     ]
+     $completions[$command]
+diff --git a/clap_complete/tests/snapshots/special_commands.fish b/clap_complete/tests/snapshots/special_commands.fish
+index d0359632cda..7b8fae3c30a 100644
+--- a/clap_complete/tests/snapshots/special_commands.fish
++++ b/clap_complete/tests/snapshots/special_commands.fish
+@@ -16,3 +16,9 @@ complete -c my-app -n "__fish_seen_subcommand_from some-cmd-with-hyphens" -s h -
+ complete -c my-app -n "__fish_seen_subcommand_from some-cmd-with-hyphens" -s V -l version -d 'Print version information'
+ complete -c my-app -n "__fish_seen_subcommand_from some-hidden-cmd" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from some-hidden-cmd" -s V -l version -d 'Print version information'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from some-cmd-with-hyphens; and not __fish_seen_subcommand_from some-hidden-cmd; and not __fish_seen_subcommand_from help" -f -a "test" -d 'tests things'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from some-cmd-with-hyphens; and not __fish_seen_subcommand_from some-hidden-cmd; and not __fish_seen_subcommand_from help" -f -a "some_cmd" -d 'tests other things'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from some-cmd-with-hyphens; and not __fish_seen_subcommand_from some-hidden-cmd; and not __fish_seen_subcommand_from help" -f -a "some-cmd-with-hyphens"
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from some-cmd-with-hyphens; and not __fish_seen_subcommand_from some-hidden-cmd; and not __fish_seen_subcommand_from help" -f -a "some-hidden-cmd"
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from some-cmd-with-hyphens; and not __fish_seen_subcommand_from some-hidden-cmd; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+diff --git a/clap_complete/tests/snapshots/special_commands.ps1 b/clap_complete/tests/snapshots/special_commands.ps1
+index 924328985e8..d1a46cfca3f 100644
+--- a/clap_complete/tests/snapshots/special_commands.ps1
++++ b/clap_complete/tests/snapshots/special_commands.ps1
+@@ -67,6 +67,28 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+             break
+         }
+         'my-app;help' {
++            [CompletionResult]::new('test', 'test', [CompletionResultType]::ParameterValue, 'tests things')
++            [CompletionResult]::new('some_cmd', 'some_cmd', [CompletionResultType]::ParameterValue, 'tests other things')
++            [CompletionResult]::new('some-cmd-with-hyphens', 'some-cmd-with-hyphens', [CompletionResultType]::ParameterValue, 'some-cmd-with-hyphens')
++            [CompletionResult]::new('some-hidden-cmd', 'some-hidden-cmd', [CompletionResultType]::ParameterValue, 'some-hidden-cmd')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;help;test' {
++            break
++        }
++        'my-app;help;some_cmd' {
++            break
++        }
++        'my-app;help;some-cmd-with-hyphens' {
++            break
++        }
++        'my-app;help;some-hidden-cmd' {
++            break
++        }
++        'my-app;help;help' {
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+     })
+diff --git a/clap_complete/tests/snapshots/special_commands.zsh b/clap_complete/tests/snapshots/special_commands.zsh
+index 7e57caf368a..27176028372 100644
+--- a/clap_complete/tests/snapshots/special_commands.zsh
++++ b/clap_complete/tests/snapshots/special_commands.zsh
+@@ -71,8 +71,41 @@ _arguments "${_arguments_options[@]}" /
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__help_commands" /
++"*::: :->help" /
+ && ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-help-command-$line[1]:"
++        case $line[1] in
++            (test)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(some_cmd)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(some-cmd-with-hyphens)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(some-hidden-cmd)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
++&& ret=0
++;;
++        esac
++    ;;
++esac
+ ;;
+         esac
+     ;;
+@@ -92,24 +125,55 @@ _my-app_commands() {
+ }
+ (( $+functions[_my-app__help_commands] )) ||
+ _my-app__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'test:tests things' /
++'some_cmd:tests other things' /
++'some-cmd-with-hyphens:' /
++'some-hidden-cmd:' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app help commands' commands "$@"
+ }
++(( $+functions[_my-app__help__help_commands] )) ||
++_my-app__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help help commands' commands "$@"
++}
++(( $+functions[_my-app__help__some-cmd-with-hyphens_commands] )) ||
++_my-app__help__some-cmd-with-hyphens_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help some-cmd-with-hyphens commands' commands "$@"
++}
+ (( $+functions[_my-app__some-cmd-with-hyphens_commands] )) ||
+ _my-app__some-cmd-with-hyphens_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app some-cmd-with-hyphens commands' commands "$@"
+ }
++(( $+functions[_my-app__help__some-hidden-cmd_commands] )) ||
++_my-app__help__some-hidden-cmd_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help some-hidden-cmd commands' commands "$@"
++}
+ (( $+functions[_my-app__some-hidden-cmd_commands] )) ||
+ _my-app__some-hidden-cmd_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app some-hidden-cmd commands' commands "$@"
+ }
++(( $+functions[_my-app__help__some_cmd_commands] )) ||
++_my-app__help__some_cmd_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help some_cmd commands' commands "$@"
++}
+ (( $+functions[_my-app__some_cmd_commands] )) ||
+ _my-app__some_cmd_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app some_cmd commands' commands "$@"
+ }
++(( $+functions[_my-app__help__test_commands] )) ||
++_my-app__help__test_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help test commands' commands "$@"
++}
+ (( $+functions[_my-app__test_commands] )) ||
+ _my-app__test_commands() {
+     local commands; commands=()
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.bash b/clap_complete/tests/snapshots/sub_subcommands.bash
+index be860b1da96..7b2f3243013 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.bash
++++ b/clap_complete/tests/snapshots/sub_subcommands.bash
+@@ -45,7 +45,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__help)
+-            opts="[<SUBCOMMAND>...]"
++            opts="test some_cmd help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -58,6 +58,48 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__help__help)
++            opts="-h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__some_cmd)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__help__test)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+         my__app__some_cmd)
+             opts="-h -V --help --version sub_cmd help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+@@ -73,7 +115,7 @@ _my-app() {
+             return 0
+             ;;
+         my__app__some_cmd__help)
+-            opts="[<SUBCOMMAND>...]"
++            opts="sub_cmd help"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                 return 0
+@@ -86,6 +128,34 @@ _my-app() {
+             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+             return 0
+             ;;
++        my__app__some_cmd__help__help)
++            opts="-h --help"
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
++        my__app__some_cmd__help__sub_cmd)
++            opts=""
++            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
++                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++                return 0
++            fi
++            case "${prev}" in
++                *)
++                    COMPREPLY=()
++                    ;;
++            esac
++            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
++            return 0
++            ;;
+         my__app__some_cmd__sub_cmd)
+             opts="-h -V --config --help --version"
+             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.elvish b/clap_complete/tests/snapshots/sub_subcommands.elvish
+index 58ba8e7c6db..371f26a3eed 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.elvish
++++ b/clap_complete/tests/snapshots/sub_subcommands.elvish
+@@ -53,8 +53,27 @@ set edit:completion:arg-completer[my-app] = {|@words|
+             cand --version 'Print version information'
+         }
+         &'my-app;some_cmd;help'= {
++            cand sub_cmd 'sub-subcommand'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;some_cmd;help;sub_cmd'= {
++        }
++        &'my-app;some_cmd;help;help'= {
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+         &'my-app;help'= {
++            cand test 'tests things'
++            cand some_cmd 'top level subcommand'
++            cand help 'Print this message or the help of the given subcommand(s)'
++        }
++        &'my-app;help;test'= {
++        }
++        &'my-app;help;some_cmd'= {
++        }
++        &'my-app;help;help'= {
++            cand -h 'Print help information'
++            cand --help 'Print help information'
+         }
+     ]
+     $completions[$command]
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.fish b/clap_complete/tests/snapshots/sub_subcommands.fish
+index 72805f911af..3bff09352f4 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.fish
++++ b/clap_complete/tests/snapshots/sub_subcommands.fish
+@@ -14,3 +14,10 @@ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and not __fish_seen
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -l config -d 'the other case to test' -r -f -a "{Lest quotes aren/'t escaped.	}"
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -s h -l help -d 'Print help information'
+ complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from sub_cmd" -s V -l version -d 'Print version information'
++complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from sub_cmd; and not __fish_seen_subcommand_from help" -f -a "sub_cmd" -d 'sub-subcommand'
++complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from help; and not __fish_seen_subcommand_from sub_cmd; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from some_cmd; and __fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from help" -f -a "test" -d 'tests things'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from help" -f -a "some_cmd" -d 'top level subcommand'
++complete -c my-app -n "__fish_seen_subcommand_from help; and not __fish_seen_subcommand_from test; and not __fish_seen_subcommand_from some_cmd; and not __fish_seen_subcommand_from help" -f -a "help" -d 'Print this message or the help of the given subcommand(s)'
++complete -c my-app -n "__fish_seen_subcommand_from help; and __fish_seen_subcommand_from help" -s h -l help -d 'Print help information'
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.ps1 b/clap_complete/tests/snapshots/sub_subcommands.ps1
+index fc0f051b7ff..688076ca1e4 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.ps1
++++ b/clap_complete/tests/snapshots/sub_subcommands.ps1
+@@ -60,9 +60,33 @@ Register-ArgumentCompleter -Native -CommandName 'my-app' -ScriptBlock {
+             break
+         }
+         'my-app;some_cmd;help' {
++            [CompletionResult]::new('sub_cmd', 'sub_cmd', [CompletionResultType]::ParameterValue, 'sub-subcommand')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;some_cmd;help;sub_cmd' {
++            break
++        }
++        'my-app;some_cmd;help;help' {
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+         'my-app;help' {
++            [CompletionResult]::new('test', 'test', [CompletionResultType]::ParameterValue, 'tests things')
++            [CompletionResult]::new('some_cmd', 'some_cmd', [CompletionResultType]::ParameterValue, 'top level subcommand')
++            [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
++            break
++        }
++        'my-app;help;test' {
++            break
++        }
++        'my-app;help;some_cmd' {
++            break
++        }
++        'my-app;help;help' {
++            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
++            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
+             break
+         }
+     })
+diff --git a/clap_complete/tests/snapshots/sub_subcommands.zsh b/clap_complete/tests/snapshots/sub_subcommands.zsh
+index c26b9ff9ec3..d996a721dde 100644
+--- a/clap_complete/tests/snapshots/sub_subcommands.zsh
++++ b/clap_complete/tests/snapshots/sub_subcommands.zsh
+@@ -70,21 +70,67 @@ _arguments "${_arguments_options[@]}" /
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__some_cmd__help_commands" /
++"*::: :->help" /
++&& ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-some_cmd-help-command-$line[1]:"
++        case $line[1] in
++            (sub_cmd)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
+ && ret=0
+ ;;
+         esac
+     ;;
+ esac
++;;
++        esac
++    ;;
++esac
+ ;;
+ (help)
+ _arguments "${_arguments_options[@]}" /
+-'*::subcommand -- The subcommand whose help message to display:' /
++":: :_my-app__help_commands" /
++"*::: :->help" /
++&& ret=0
++
++    case $state in
++    (help)
++        words=($line[1] "${words[@]}")
++        (( CURRENT += 1 ))
++        curcontext="${curcontext%:*:*}:my-app-help-command-$line[1]:"
++        case $line[1] in
++            (test)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(some_cmd)
++_arguments "${_arguments_options[@]}" /
++&& ret=0
++;;
++(help)
++_arguments "${_arguments_options[@]}" /
++'*-h[Print help information]' /
++'*--help[Print help information]' /
+ && ret=0
+ ;;
+         esac
+     ;;
+ esac
++;;
++        esac
++    ;;
++esac
+ }
+ 
+ (( $+functions[_my-app_commands] )) ||
+@@ -98,14 +144,36 @@ _my-app_commands() {
+ }
+ (( $+functions[_my-app__help_commands] )) ||
+ _my-app__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'test:tests things' /
++'some_cmd:top level subcommand' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app help commands' commands "$@"
+ }
++(( $+functions[_my-app__help__help_commands] )) ||
++_my-app__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help help commands' commands "$@"
++}
+ (( $+functions[_my-app__some_cmd__help_commands] )) ||
+ _my-app__some_cmd__help_commands() {
+-    local commands; commands=()
++    local commands; commands=(
++'sub_cmd:sub-subcommand' /
++'help:Print this message or the help of the given subcommand(s)' /
++    )
+     _describe -t commands 'my-app some_cmd help commands' commands "$@"
+ }
++(( $+functions[_my-app__some_cmd__help__help_commands] )) ||
++_my-app__some_cmd__help__help_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app some_cmd help help commands' commands "$@"
++}
++(( $+functions[_my-app__help__some_cmd_commands] )) ||
++_my-app__help__some_cmd_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help some_cmd commands' commands "$@"
++}
+ (( $+functions[_my-app__some_cmd_commands] )) ||
+ _my-app__some_cmd_commands() {
+     local commands; commands=(
+@@ -114,11 +182,21 @@ _my-app__some_cmd_commands() {
+     )
+     _describe -t commands 'my-app some_cmd commands' commands "$@"
+ }
++(( $+functions[_my-app__some_cmd__help__sub_cmd_commands] )) ||
++_my-app__some_cmd__help__sub_cmd_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app some_cmd help sub_cmd commands' commands "$@"
++}
+ (( $+functions[_my-app__some_cmd__sub_cmd_commands] )) ||
+ _my-app__some_cmd__sub_cmd_commands() {
+     local commands; commands=()
+     _describe -t commands 'my-app some_cmd sub_cmd commands' commands "$@"
+ }
++(( $+functions[_my-app__help__test_commands] )) ||
++_my-app__help__test_commands() {
++    local commands; commands=()
++    _describe -t commands 'my-app help test commands' commands "$@"
++}
+ (( $+functions[_my-app__test_commands] )) ||
+ _my-app__test_commands() {
+     local commands; commands=()
+diff --git a/clap_complete_fig/tests/snapshots/basic.fig.js b/clap_complete_fig/tests/snapshots/basic.fig.js
+index ba7a90145fe..4ecc6bcb9e1 100644
+--- a/clap_complete_fig/tests/snapshots/basic.fig.js
++++ b/clap_complete_fig/tests/snapshots/basic.fig.js
+@@ -22,16 +22,35 @@ const completion: Fig.Spec = {
+     {
+       name: "help",
+       description: "Print this message or the help of the given subcommand(s)",
++      subcommands: [
++        {
++          name: "test",
++          description: "Subcommand",
++          options: [
++            {
++              name: "-c",
++            },
++          ],
++        },
++        {
++          name: "help",
++          description: "Print this message or the help of the given subcommand(s)",
++          options: [
++            {
++              name: "-c",
++            },
++            {
++              name: ["-h", "--help"],
++              description: "Print help information",
++            },
++          ],
++        },
++      ],
+       options: [
+         {
+           name: "-c",
+         },
+       ],
+-      args: {
+-        name: "subcommand",
+-        isVariadic: true,
+-        isOptional: true,
+-      },
+     },
+   ],
+   options: [
+diff --git a/clap_complete_fig/tests/snapshots/feature_sample.fig.js b/clap_complete_fig/tests/snapshots/feature_sample.fig.js
+index f0799bc7c33..e786b617d08 100644
+--- a/clap_complete_fig/tests/snapshots/feature_sample.fig.js
++++ b/clap_complete_fig/tests/snapshots/feature_sample.fig.js
+@@ -28,11 +28,22 @@ const completion: Fig.Spec = {
+     {
+       name: "help",
+       description: "Print this message or the help of the given subcommand(s)",
+-      args: {
+-        name: "subcommand",
+-        isVariadic: true,
+-        isOptional: true,
+-      },
++      subcommands: [
++        {
++          name: "test",
++          description: "tests things",
++        },
++        {
++          name: "help",
++          description: "Print this message or the help of the given subcommand(s)",
++          options: [
++            {
++              name: ["-h", "--help"],
++              description: "Print help information",
++            },
++          ],
++        },
++      ],
+     },
+   ],
+   options: [
+diff --git a/clap_complete_fig/tests/snapshots/quoting.fig.js b/clap_complete_fig/tests/snapshots/quoting.fig.js
+index 0dc80bcad6a..85979a0432d 100644
+--- a/clap_complete_fig/tests/snapshots/quoting.fig.js
++++ b/clap_complete_fig/tests/snapshots/quoting.fig.js
+@@ -65,11 +65,42 @@ const completion: Fig.Spec = {
+     {
+       name: "help",
+       description: "Print this message or the help of the given subcommand(s)",
+-      args: {
+-        name: "subcommand",
+-        isVariadic: true,
+-        isOptional: true,
+-      },
++      subcommands: [
++        {
++          name: "cmd-single-quotes",
++          description: "Can be 'always', 'auto', or 'never'",
++        },
++        {
++          name: "cmd-double-quotes",
++          description: "Can be /"always/", /"auto/", or /"never/"",
++        },
++        {
++          name: "cmd-backticks",
++          description: "For more information see `echo test`",
++        },
++        {
++          name: "cmd-backslash",
++          description: "Avoid '//n'",
++        },
++        {
++          name: "cmd-brackets",
++          description: "List packages [filter]",
++        },
++        {
++          name: "cmd-expansions",
++          description: "Execute the shell command with $SHELL",
++        },
++        {
++          name: "help",
++          description: "Print this message or the help of the given subcommand(s)",
++          options: [
++            {
++              name: ["-h", "--help"],
++              description: "Print help information",
++            },
++          ],
++        },
++      ],
+     },
+   ],
+   options: [
+diff --git a/clap_complete_fig/tests/snapshots/special_commands.fig.js b/clap_complete_fig/tests/snapshots/special_commands.fig.js
+index ef1317c921e..85904ef4b4c 100644
+--- a/clap_complete_fig/tests/snapshots/special_commands.fig.js
++++ b/clap_complete_fig/tests/snapshots/special_commands.fig.js
+@@ -85,11 +85,32 @@ const completion: Fig.Spec = {
+     {
+       name: "help",
+       description: "Print this message or the help of the given subcommand(s)",
+-      args: {
+-        name: "subcommand",
+-        isVariadic: true,
+-        isOptional: true,
+-      },
++      subcommands: [
++        {
++          name: "test",
++          description: "tests things",
++        },
++        {
++          name: "some_cmd",
++          description: "tests other things",
++        },
++        {
++          name: "some-cmd-with-hyphens",
++        },
++        {
++          name: "some-hidden-cmd",
++        },
++        {
++          name: "help",
++          description: "Print this message or the help of the given subcommand(s)",
++          options: [
++            {
++              name: ["-h", "--help"],
++              description: "Print help information",
++            },
++          ],
++        },
++      ],
+     },
+   ],
+   options: [
+diff --git a/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js b/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
+index 4e8293cc050..1f89cc19fca 100644
+--- a/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
++++ b/clap_complete_fig/tests/snapshots/sub_subcommands.fig.js
+@@ -58,11 +58,22 @@ const completion: Fig.Spec = {
+         {
+           name: "help",
+           description: "Print this message or the help of the given subcommand(s)",
+-          args: {
+-            name: "subcommand",
+-            isVariadic: true,
+-            isOptional: true,
+-          },
++          subcommands: [
++            {
++              name: "sub_cmd",
++              description: "sub-subcommand",
++            },
++            {
++              name: "help",
++              description: "Print this message or the help of the given subcommand(s)",
++              options: [
++                {
++                  name: ["-h", "--help"],
++                  description: "Print help information",
++                },
++              ],
++            },
++          ],
+         },
+       ],
+       options: [
+@@ -79,11 +90,26 @@ const completion: Fig.Spec = {
+     {
+       name: "help",
+       description: "Print this message or the help of the given subcommand(s)",
+-      args: {
+-        name: "subcommand",
+-        isVariadic: true,
+-        isOptional: true,
+-      },
++      subcommands: [
++        {
++          name: "test",
++          description: "tests things",
++        },
++        {
++          name: "some_cmd",
++          description: "top level subcommand",
++        },
++        {
++          name: "help",
++          description: "Print this message or the help of the given subcommand(s)",
++          options: [
++            {
++              name: ["-h", "--help"],
++              description: "Print help information",
++            },
++          ],
++        },
++      ],
+     },
+   ],
+   options: [
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index f84a47839c8..d0e13f01d8f 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -2062,14 +2062,18 @@ fn help_subcmd_help() {
+ Print this message or the help of the given subcommand(s)
+ 
+ USAGE:
+-    myapp help [SUBCOMMAND]...
++    myapp help [SUBCOMMAND]
+ 
+-ARGS:
+-    <SUBCOMMAND>...    The subcommand whose help message to display
++SUBCOMMANDS:
++    subcmd    This is a subcommand
++    help      Print this message or the help of the given subcommand(s)
+ ";
+ 
+-    let cmd = Command::new("myapp")
+-        .subcommand(Command::new("subcmd").subcommand(Command::new("multi").version("1.0")));
++    let cmd = Command::new("myapp").subcommand(
++        Command::new("subcmd")
++            .about("This is a subcommand")
++            .subcommand(Command::new("multi").version("1.0")),
++    );
+ 
+     utils::assert_output(cmd.clone(), "myapp help help", HELP_SUBCMD_HELP, false);
+ }
+@@ -2080,10 +2084,11 @@ fn subcmd_help_subcmd_help() {
+ Print this message or the help of the given subcommand(s)
+ 
+ USAGE:
+-    myapp subcmd help [SUBCOMMAND]...
++    myapp subcmd help [SUBCOMMAND]
+ 
+-ARGS:
+-    <SUBCOMMAND>...    The subcommand whose help message to display
++SUBCOMMANDS:
++    multi\x20\x20\x20\x20
++    help     Print this message or the help of the given subcommand(s)
+ ";
+ 
+     let cmd = Command::new("myapp")
+@@ -2566,10 +2571,11 @@ fn subcommand_help_doesnt_have_useless_help_flag() {
+ Print this message or the help of the given subcommand(s)
+ 
+ USAGE:
+-    example help [SUBCOMMAND]...
++    example help [SUBCOMMAND]
+ 
+-ARGS:
+-    <SUBCOMMAND>...    The subcommand whose help message to display
++SUBCOMMANDS:
++    test    Subcommand
++    help    Print this message or the help of the given subcommand(s)
+ ",
+         false,
+     );
+@@ -2609,10 +2615,11 @@ fn dont_propagate_version_to_help_subcommand() {
+ Print this message or the help of the given subcommand(s)
+ 
+ USAGE:
+-    example help [SUBCOMMAND]...
++    example help [SUBCOMMAND]
+ 
+-ARGS:
+-    <SUBCOMMAND>...    The subcommand whose help message to display
++SUBCOMMANDS:
++    subcommand\x20\x20\x20\x20
++    help          Print this message or the help of the given subcommand(s)
+ ",
+         false,
+     );

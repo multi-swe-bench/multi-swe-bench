@@ -1,0 +1,412 @@
+diff --git a/pkg/cmd/secret/delete/delete_test.go b/pkg/cmd/secret/delete/delete_test.go
+index 9d2c078c7c3..bd5053f4d59 100644
+--- a/pkg/cmd/secret/delete/delete_test.go
++++ b/pkg/cmd/secret/delete/delete_test.go
+@@ -13,6 +13,7 @@ import (
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdDelete(t *testing.T) {
+@@ -121,9 +122,10 @@ func TestNewCmdDelete(t *testing.T) {
+ 
+ func Test_removeRun_repo(t *testing.T) {
+ 	tests := []struct {
+-		name     string
+-		opts     *DeleteOptions
+-		wantPath string
++		name      string
++		opts      *DeleteOptions
++		host      string
++		httpStubs func(*httpmock.Registry)
+ 	}{
+ 		{
+ 			name: "Actions",
+@@ -131,7 +133,21 @@ func Test_removeRun_repo(t *testing.T) {
+ 				Application: "actions",
+ 				SecretName:  "cool_secret",
+ 			},
+-			wantPath: "repos/owner/repo/actions/secrets/cool_secret",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/actions/secrets/cool_secret"), "api.github.com"), httpmock.StatusStringResponse(204, "No Content"))
++			},
++		},
++		{
++			name: "Actions GHES",
++			opts: &DeleteOptions{
++				Application: "actions",
++				SecretName:  "cool_secret",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "api/v3/repos/owner/repo/actions/secrets/cool_secret"), "example.com"), httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 		{
+ 			name: "Dependabot",
+@@ -139,23 +155,38 @@ func Test_removeRun_repo(t *testing.T) {
+ 				Application: "dependabot",
+ 				SecretName:  "cool_dependabot_secret",
+ 			},
+-			wantPath: "repos/owner/repo/dependabot/secrets/cool_dependabot_secret",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/dependabot/secrets/cool_dependabot_secret"), "api.github.com"), httpmock.StatusStringResponse(204, "No Content"))
++			},
++		},
++		{
++			name: "Dependabot GHES",
++			opts: &DeleteOptions{
++				Application: "dependabot",
++				SecretName:  "cool_dependabot_secret",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "api/v3/repos/owner/repo/dependabot/secrets/cool_dependabot_secret"), "example.com"), httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 		{
+ 			name: "defaults to Actions",
+ 			opts: &DeleteOptions{
+ 				SecretName: "cool_secret",
+ 			},
+-			wantPath: "repos/owner/repo/actions/secrets/cool_secret",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/actions/secrets/cool_secret"), "api.github.com"), httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 	}
+ 
+ 	for _, tt := range tests {
+ 		reg := &httpmock.Registry{}
+-
+-		reg.Register(
+-			httpmock.REST("DELETE", tt.wantPath),
+-			httpmock.StatusStringResponse(204, "No Content"))
++		tt.httpStubs(reg)
++		defer reg.Verify(t)
+ 
+ 		ios, _, _, _ := iostreams.Test()
+ 
+@@ -167,44 +198,70 @@ func Test_removeRun_repo(t *testing.T) {
+ 			return config.NewBlankConfig(), nil
+ 		}
+ 		tt.opts.BaseRepo = func() (ghrepo.Interface, error) {
+-			return ghrepo.FromFullName("owner/repo")
++			return ghrepo.FromFullNameWithHost("owner/repo", tt.host)
+ 		}
+ 
+ 		err := removeRun(tt.opts)
+ 		assert.NoError(t, err)
+-
+-		reg.Verify(t)
+ 	}
+ }
+ 
+ func Test_removeRun_env(t *testing.T) {
+-	reg := &httpmock.Registry{}
+-
+-	reg.Register(
+-		httpmock.REST("DELETE", "repos/owner/repo/environments/development/secrets/cool_secret"),
+-		httpmock.StatusStringResponse(204, "No Content"))
+-
+-	ios, _, _, _ := iostreams.Test()
+-
+-	opts := &DeleteOptions{
+-		IO: ios,
+-		HttpClient: func() (*http.Client, error) {
+-			return &http.Client{Transport: reg}, nil
+-		},
+-		Config: func() (gh.Config, error) {
+-			return config.NewBlankConfig(), nil
++	tests := []struct {
++		name      string
++		opts      *DeleteOptions
++		host      string
++		httpStubs func(*httpmock.Registry)
++	}{
++		{
++			name: "delete environment secret",
++			opts: &DeleteOptions{
++				SecretName: "cool_secret",
++				EnvName:    "development",
++			},
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/environments/development/secrets/cool_secret"), "api.github.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+-		BaseRepo: func() (ghrepo.Interface, error) {
+-			return ghrepo.FromFullName("owner/repo")
++		{
++			name: "delete environment secret GHES",
++			opts: &DeleteOptions{
++				SecretName: "cool_secret",
++				EnvName:    "development",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "api/v3/repos/owner/repo/environments/development/secrets/cool_secret"), "example.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+-		SecretName: "cool_secret",
+-		EnvName:    "development",
+ 	}
+ 
+-	err := removeRun(opts)
+-	assert.NoError(t, err)
++	for _, tt := range tests {
++		reg := &httpmock.Registry{}
++		tt.httpStubs(reg)
++		defer reg.Verify(t)
+ 
+-	reg.Verify(t)
++		ios, _, _, _ := iostreams.Test()
++		tt.opts.IO = ios
++		tt.opts.BaseRepo = func() (ghrepo.Interface, error) {
++			if tt.host != "" {
++				return ghrepo.FromFullNameWithHost("owner/repo", tt.host)
++			}
++			return ghrepo.FromFullName("owner/repo")
++		}
++		tt.opts.HttpClient = func() (*http.Client, error) {
++			return &http.Client{Transport: reg}, nil
++		}
++		tt.opts.Config = func() (gh.Config, error) {
++			return config.NewBlankConfig(), nil
++		}
++
++		err := removeRun(tt.opts)
++		require.NoError(t, err)
++	}
+ }
+ 
+ func Test_removeRun_org(t *testing.T) {
+diff --git a/pkg/cmd/variable/delete/delete_test.go b/pkg/cmd/variable/delete/delete_test.go
+index e659f96a6c9..d00bef8fb73 100644
+--- a/pkg/cmd/variable/delete/delete_test.go
++++ b/pkg/cmd/variable/delete/delete_test.go
+@@ -13,6 +13,7 @@ import (
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/google/shlex"
+ 	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestNewCmdDelete(t *testing.T) {
+@@ -87,16 +88,32 @@ func TestNewCmdDelete(t *testing.T) {
+ 
+ func TestRemoveRun(t *testing.T) {
+ 	tests := []struct {
+-		name     string
+-		opts     *DeleteOptions
+-		wantPath string
++		name      string
++		opts      *DeleteOptions
++		host      string
++		httpStubs func(*httpmock.Registry)
+ 	}{
+ 		{
+ 			name: "repo",
+ 			opts: &DeleteOptions{
+ 				VariableName: "cool_variable",
+ 			},
+-			wantPath: "repos/owner/repo/actions/variables/cool_variable",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/actions/variables/cool_variable"), "api.github.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
++		},
++		{
++			name: "repo GHES",
++			opts: &DeleteOptions{
++				VariableName: "cool_variable",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "api/v3/repos/owner/repo/actions/variables/cool_variable"), "example.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 		{
+ 			name: "env",
+@@ -104,7 +121,23 @@ func TestRemoveRun(t *testing.T) {
+ 				VariableName: "cool_variable",
+ 				EnvName:      "development",
+ 			},
+-			wantPath: "repos/owner/repo/environments/development/variables/cool_variable",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "repos/owner/repo/environments/development/variables/cool_variable"), "api.github.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
++		},
++		{
++			name: "env GHES",
++			opts: &DeleteOptions{
++				VariableName: "cool_variable",
++				EnvName:      "development",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "api/v3/repos/owner/repo/environments/development/variables/cool_variable"), "example.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 		{
+ 			name: "org",
+@@ -112,35 +145,34 @@ func TestRemoveRun(t *testing.T) {
+ 				VariableName: "cool_variable",
+ 				OrgName:      "UmbrellaCorporation",
+ 			},
+-			wantPath: "orgs/UmbrellaCorporation/actions/variables/cool_variable",
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("DELETE", "orgs/UmbrellaCorporation/actions/variables/cool_variable"), "api.github.com"),
++					httpmock.StatusStringResponse(204, "No Content"))
++			},
+ 		},
+ 	}
+ 
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			reg := &httpmock.Registry{}
++			tt.httpStubs(reg)
+ 			defer reg.Verify(t)
+ 
+-			reg.Register(httpmock.REST("DELETE", tt.wantPath),
+-				httpmock.StatusStringResponse(204, "No Content"))
+-
+ 			ios, _, _, _ := iostreams.Test()
+ 			tt.opts.IO = ios
+-
+ 			tt.opts.HttpClient = func() (*http.Client, error) {
+ 				return &http.Client{Transport: reg}, nil
+ 			}
+-
+ 			tt.opts.Config = func() (gh.Config, error) {
+ 				return config.NewBlankConfig(), nil
+ 			}
+-
+ 			tt.opts.BaseRepo = func() (ghrepo.Interface, error) {
+-				return ghrepo.FromFullName("owner/repo")
++				return ghrepo.FromFullNameWithHost("owner/repo", tt.host)
+ 			}
+ 
+ 			err := removeRun(tt.opts)
+-			assert.NoError(t, err)
++			require.NoError(t, err)
+ 		})
+ 	}
+ }
+diff --git a/pkg/cmd/variable/get/get_test.go b/pkg/cmd/variable/get/get_test.go
+index 4a03beb6a4e..82b602c9e30 100644
+--- a/pkg/cmd/variable/get/get_test.go
++++ b/pkg/cmd/variable/get/get_test.go
+@@ -110,6 +110,7 @@ func Test_getRun(t *testing.T) {
+ 	tests := []struct {
+ 		name       string
+ 		opts       *GetOptions
++		host       string
+ 		httpStubs  func(*httpmock.Registry)
+ 		jsonFields []string
+ 		wantOut    string
+@@ -120,8 +121,23 @@ func Test_getRun(t *testing.T) {
+ 			opts: &GetOptions{
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host: "github.com",
+ 			httpStubs: func(reg *httpmock.Registry) {
+-				reg.Register(httpmock.REST("GET", "repos/owner/repo/actions/variables/VARIABLE_ONE"),
++				reg.Register(httpmock.WithHost(httpmock.REST("GET", "repos/owner/repo/actions/variables/VARIABLE_ONE"), "api.github.com"),
++					httpmock.JSONResponse(shared.Variable{
++						Value: "repo_var",
++					}))
++			},
++			wantOut: "repo_var\n",
++		},
++		{
++			name: "getting GHES repo variable",
++			opts: &GetOptions{
++				VariableName: "VARIABLE_ONE",
++			},
++			host: "example.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("GET", "api/v3/repos/owner/repo/actions/variables/VARIABLE_ONE"), "example.com"),
+ 					httpmock.JSONResponse(shared.Variable{
+ 						Value: "repo_var",
+ 					}))
+@@ -134,6 +150,7 @@ func Test_getRun(t *testing.T) {
+ 				OrgName:      "TestOrg",
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host: "github.com",
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "orgs/TestOrg/actions/variables/VARIABLE_ONE"),
+ 					httpmock.JSONResponse(shared.Variable{
+@@ -148,8 +165,24 @@ func Test_getRun(t *testing.T) {
+ 				EnvName:      "Development",
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host: "github.com",
++			httpStubs: func(reg *httpmock.Registry) {
++				reg.Register(httpmock.WithHost(httpmock.REST("GET", "repos/owner/repo/environments/Development/variables/VARIABLE_ONE"), "api.github.com"),
++					httpmock.JSONResponse(shared.Variable{
++						Value: "env_var",
++					}))
++			},
++			wantOut: "env_var\n",
++		},
++		{
++			name: "getting GHES env variable",
++			opts: &GetOptions{
++				EnvName:      "Development",
++				VariableName: "VARIABLE_ONE",
++			},
++			host: "example.com",
+ 			httpStubs: func(reg *httpmock.Registry) {
+-				reg.Register(httpmock.REST("GET", "repos/owner/repo/environments/Development/variables/VARIABLE_ONE"),
++				reg.Register(httpmock.WithHost(httpmock.REST("GET", "api/v3/repos/owner/repo/environments/Development/variables/VARIABLE_ONE"), "example.com"),
+ 					httpmock.JSONResponse(shared.Variable{
+ 						Value: "env_var",
+ 					}))
+@@ -161,6 +194,7 @@ func Test_getRun(t *testing.T) {
+ 			opts: &GetOptions{
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host:       "github.com",
+ 			jsonFields: []string{"name", "value", "visibility", "updatedAt", "createdAt", "numSelectedRepos", "selectedReposURL"},
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "repos/owner/repo/actions/variables/VARIABLE_ONE"),
+@@ -193,6 +227,7 @@ func Test_getRun(t *testing.T) {
+ 			opts: &GetOptions{
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host: "github.com",
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "repos/owner/repo/actions/variables/VARIABLE_ONE"),
+ 					httpmock.StatusStringResponse(404, "not found"),
+@@ -205,6 +240,7 @@ func Test_getRun(t *testing.T) {
+ 			opts: &GetOptions{
+ 				VariableName: "VARIABLE_ONE",
+ 			},
++			host: "github.com",
+ 			httpStubs: func(reg *httpmock.Registry) {
+ 				reg.Register(httpmock.REST("GET", "repos/owner/repo/actions/variables/VARIABLE_ONE"),
+ 					httpmock.StatusStringResponse(400, "not found"),
+@@ -226,7 +262,7 @@ func Test_getRun(t *testing.T) {
+ 
+ 				tt.opts.IO = ios
+ 				tt.opts.BaseRepo = func() (ghrepo.Interface, error) {
+-					return ghrepo.FromFullName("owner/repo")
++					return ghrepo.FromFullNameWithHost("owner/repo", tt.host)
+ 				}
+ 				tt.opts.HttpClient = func() (*http.Client, error) {
+ 					return &http.Client{Transport: reg}, nil

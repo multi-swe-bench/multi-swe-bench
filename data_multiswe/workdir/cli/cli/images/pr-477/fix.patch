@@ -1,0 +1,41 @@
+diff --git a/command/pr.go b/command/pr.go
+index d1cb7e5be0d..ba19fe3b2d5 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -70,10 +70,17 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 		return err
+ 	}
+ 
+-	currentPRNumber, currentPRHeadRef, err := prSelectorForCurrentBranch(ctx)
++	baseOverride, err := cmd.Flags().GetString("repo")
+ 	if err != nil {
+ 		return err
+ 	}
++	hasBaseOverride := baseOverride != ""
++	currentPRNumber, currentPRHeadRef, err := prSelectorForCurrentBranch(ctx)
++	// Ignore error if has baseRepo is specified
++	// https://github.com/cli/cli/issues/339
++	if !hasBaseOverride && err != nil {
++		return err
++	}
+ 	currentUser, err := ctx.AuthLogin()
+ 	if err != nil {
+ 		return err
+diff --git a/command/root.go b/command/root.go
+index 0864bfca7c1..89dccdb3f02 100644
+--- a/command/root.go
++++ b/command/root.go
+@@ -163,9 +163,12 @@ func determineBaseRepo(cmd *cobra.Command, ctx context.Context) (*ghrepo.Interfa
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	hasBaseOverride := baseOverride != ""
+ 
+ 	remotes, err := ctx.Remotes()
+-	if err != nil {
++	// Ignore error for remotes if has baseRepo is specified
++	// https://github.com/cli/cli/issues/339
++	if !hasBaseOverride && err != nil {
+ 		return nil, err
+ 	}
+ 

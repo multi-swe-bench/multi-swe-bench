@@ -1,0 +1,51 @@
+diff --git a/pkg/cmd/auth/login/login_test.go b/pkg/cmd/auth/login/login_test.go
+index f6fbcabd543..1bc283327c3 100644
+--- a/pkg/cmd/auth/login/login_test.go
++++ b/pkg/cmd/auth/login/login_test.go
+@@ -50,13 +50,19 @@ func Test_NewCmdLogin(t *testing.T) {
+ 			name:     "nontty, hostname",
+ 			stdinTTY: false,
+ 			cli:      "--hostname claire.redfield",
+-			wantsErr: true,
++			wants: LoginOptions{
++				Hostname: "claire.redfield",
++				Token:    "",
++			},
+ 		},
+ 		{
+ 			name:     "nontty",
+ 			stdinTTY: false,
+ 			cli:      "",
+-			wantsErr: true,
++			wants: LoginOptions{
++				Hostname: "github.com",
++				Token:    "",
++			},
+ 		},
+ 		{
+ 			name:  "nontty, with-token, hostname",
+@@ -102,8 +108,9 @@ func Test_NewCmdLogin(t *testing.T) {
+ 			stdinTTY: true,
+ 			cli:      "--web",
+ 			wants: LoginOptions{
+-				Hostname: "github.com",
+-				Web:      true,
++				Hostname:    "github.com",
++				Web:         true,
++				Interactive: true,
+ 			},
+ 		},
+ 		{
+diff --git a/pkg/cmd/auth/refresh/refresh_test.go b/pkg/cmd/auth/refresh/refresh_test.go
+index dbdae26afb0..9b6f15ba8d6 100644
+--- a/pkg/cmd/auth/refresh/refresh_test.go
++++ b/pkg/cmd/auth/refresh/refresh_test.go
+@@ -233,7 +233,7 @@ func Test_refreshRun(t *testing.T) {
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			aa := authArgs{}
+-			tt.opts.AuthFlow = func(_ config.Config, _ *iostreams.IOStreams, hostname string, scopes []string) error {
++			tt.opts.AuthFlow = func(_ config.Config, _ *iostreams.IOStreams, hostname string, scopes []string, interactive bool) error {
+ 				aa.hostname = hostname
+ 				aa.scopes = scopes
+ 				return nil

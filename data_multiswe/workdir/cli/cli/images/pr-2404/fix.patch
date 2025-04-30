@@ -1,0 +1,33 @@
+diff --git a/pkg/cmd/repo/view/view.go b/pkg/cmd/repo/view/view.go
+index 94dc9a526d0..77a343f38d5 100644
+--- a/pkg/cmd/repo/view/view.go
++++ b/pkg/cmd/repo/view/view.go
+@@ -4,6 +4,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"net/http"
++	"net/url"
+ 	"strings"
+ 	"syscall"
+ 	"text/template"
+@@ -100,7 +101,7 @@ func viewRun(opts *ViewOptions) error {
+ 		return err
+ 	}
+ 
+-	openURL := ghrepo.GenerateRepoURL(toView, "")
++	openURL := generateBranchURL(toView, opts.Branch)
+ 	if opts.Web {
+ 		if opts.IO.IsStdoutTTY() {
+ 			fmt.Fprintf(opts.IO.ErrOut, "Opening %s in your browser.\n", utils.DisplayURL(openURL))
+@@ -201,3 +202,11 @@ func isMarkdownFile(filename string) bool {
+ 		strings.HasSuffix(filename, ".mdown") ||
+ 		strings.HasSuffix(filename, ".mkdown")
+ }
++
++func generateBranchURL(r ghrepo.Interface, branch string) string {
++	if branch == "" {
++		return ghrepo.GenerateRepoURL(r, "")
++	}
++
++	return ghrepo.GenerateRepoURL(r, "tree/%s", url.QueryEscape(branch))
++}

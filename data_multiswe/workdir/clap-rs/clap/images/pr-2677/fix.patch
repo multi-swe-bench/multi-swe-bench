@@ -1,0 +1,764 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 692fef3909a..c48b538a40d 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -40,6 +40,12 @@ Added `unicode_help`, `env` features.
+   * **ErrorKind**
+     * `ErrorKind::MissingArgumentOrSubcommand` => `ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand`
+ * **Changed**
++  * `AppSettings::StrictUtf8` is now default and it and `AppSettings::AllowInvalidUtf8` are replaced by
++    * `AppSettings::AllowInvalidUtf8ForExternalSubcommands`
++      * This only applies to the subcommand args.  Before we paniced if the
++        subcommand itself was invalid but now we will report an error up to the
++        user.
++    * `ArgSettings::AllowInvalidUtf8`
+   * Allowing empty values is the default again with `ArgSettings::AllowEmptyValues` changing to
+     `ArgSettings::ForbidEmptyValues`
+   * `AppSettings::GlobalVersion` renamed to `AppSettings::PropagateVersion` and it is not applied
+diff --git a/clap_derive/src/derives/args.rs b/clap_derive/src/derives/args.rs
+index b50422fe456..21314e2b386 100644
+--- a/clap_derive/src/derives/args.rs
++++ b/clap_derive/src/derives/args.rs
+@@ -228,7 +228,22 @@ pub fn gen_augment(
+                     ParserKind::TryFromOsStr => quote_spanned! { func.span()=>
+                         .validator_os(|s| #func(s).map(|_: #convert_type| ()))
+                     },
+-                    _ => quote!(),
++                    ParserKind::FromStr
++                    | ParserKind::FromOsStr
++                    | ParserKind::FromFlag
++                    | ParserKind::FromOccurrences => quote!(),
++                };
++                let allow_invalid_utf8 = match *parser.kind {
++                    _ if attrs.is_enum() => quote!(),
++                    ParserKind::FromOsStr | ParserKind::TryFromOsStr => {
++                        quote_spanned! { func.span()=>
++                            .allow_invalid_utf8(true)
++                        }
++                    }
++                    ParserKind::FromStr
++                    | ParserKind::TryFromStr
++                    | ParserKind::FromFlag
++                    | ParserKind::FromOccurrences => quote!(),
+                 };
+ 
+                 let value_name = attrs.value_name();
+@@ -250,6 +265,7 @@ pub fn gen_augment(
+                             .value_name(#value_name)
+                             #possible_values
+                             #validator
++                            #allow_invalid_utf8
+                         }
+                     }
+ 
+@@ -260,6 +276,7 @@ pub fn gen_augment(
+                         .max_values(1)
+                         .multiple_values(false)
+                         #validator
++                            #allow_invalid_utf8
+                     },
+ 
+                     Ty::OptionVec => quote_spanned! { ty.span()=>
+@@ -268,6 +285,7 @@ pub fn gen_augment(
+                         .multiple_values(true)
+                         .min_values(0)
+                         #validator
++                            #allow_invalid_utf8
+                     },
+ 
+                     Ty::Vec => {
+@@ -285,6 +303,7 @@ pub fn gen_augment(
+                             .multiple_values(true)
+                             #possible_values
+                             #validator
++                            #allow_invalid_utf8
+                         }
+                     }
+ 
+@@ -311,6 +330,7 @@ pub fn gen_augment(
+                             .required(#required)
+                             #possible_values
+                             #validator
++                            #allow_invalid_utf8
+                         }
+                     }
+                 };
+diff --git a/clap_derive/src/derives/subcommand.rs b/clap_derive/src/derives/subcommand.rs
+index fee4b0391a6..dd676baa450 100644
+--- a/clap_derive/src/derives/subcommand.rs
++++ b/clap_derive/src/derives/subcommand.rs
+@@ -131,8 +131,34 @@ fn gen_augment(
+ 
+             match &*kind {
+                 Kind::ExternalSubcommand => {
+-                    quote_spanned! { kind.span()=>
+-                        let app = app.setting(clap::AppSettings::AllowExternalSubcommands);
++                    let ty = match variant.fields {
++                        Unnamed(ref fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
++
++                        _ => abort!(
++                            variant,
++                            "The enum variant marked with `external_subcommand` must be \
++                             a single-typed tuple, and the type must be either `Vec<String>` \
++                             or `Vec<OsString>`."
++                        ),
++                    };
++                    match subty_if_name(ty, "Vec") {
++                        Some(subty) => {
++                            if is_simple_ty(subty, "OsString") {
++                                quote_spanned! { kind.span()=>
++                                    let app = app.setting(clap::AppSettings::AllowExternalSubcommands).setting(clap::AppSettings::AllowInvalidUtf8ForExternalSubcommands);
++                                }
++                            } else {
++                                quote_spanned! { kind.span()=>
++                                    let app = app.setting(clap::AppSettings::AllowExternalSubcommands);
++                                }
++                            }
++                        }
++
++                        None => abort!(
++                            ty.span(),
++                            "The type must be `Vec<_>` \
++                             to be used with `external_subcommand`."
++                        ),
+                     }
+                 }
+ 
+@@ -348,7 +374,7 @@ fn gen_from_arg_matches(
+ 
+                     _ => abort!(
+                         variant,
+-                        "The enum variant marked with `external_attribute` must be \
++                        "The enum variant marked with `external_subcommand` must be \
+                          a single-typed tuple, and the type must be either `Vec<String>` \
+                          or `Vec<OsString>`."
+                     ),
+diff --git a/src/build/app/debug_asserts.rs b/src/build/app/debug_asserts.rs
+index 2d2e32dce70..38ac11ea531 100644
+--- a/src/build/app/debug_asserts.rs
++++ b/src/build/app/debug_asserts.rs
+@@ -260,6 +260,7 @@ pub(crate) fn assert_app(app: &App) {
+     detect_duplicate_flags(&short_flags, "short");
+ 
+     app._panic_on_missing_help(app.g_settings.is_set(AppSettings::HelpRequired));
++    assert_app_flags(app);
+ }
+ 
+ fn detect_duplicate_flags(flags: &[Flag], short_or_long: &str) {
+@@ -301,3 +302,27 @@ fn find_duplicates<T: PartialEq>(slice: &[T]) -> impl Iterator<Item = (&T, &T)>
+         }
+     })
+ }
++
++fn assert_app_flags(app: &App) {
++    use AppSettings::*;
++
++    macro_rules! checker {
++        ($a:ident requires $($b:ident)|+) => {
++            if app.is_set($a) {
++                let mut s = String::new();
++
++                $(
++                    if !app.is_set($b) {
++                        s.push_str(&format!("\nAppSettings::{} is required when AppSettings::{} is set.\n", std::stringify!($b), std::stringify!($a)));
++                    }
++                )+
++
++                if !s.is_empty() {
++                    panic!("{}", s)
++                }
++            }
++        }
++    }
++
++    checker!(AllowInvalidUtf8ForExternalSubcommands requires AllowExternalSubcommands);
++}
+diff --git a/src/build/app/settings.rs b/src/build/app/settings.rs
+index 2a69e124fb0..ed7910152ae 100644
+--- a/src/build/app/settings.rs
++++ b/src/build/app/settings.rs
+@@ -21,36 +21,35 @@ bitflags! {
+         const TRAILING_VARARG                = 1 << 12;
+         const NO_BIN_NAME                    = 1 << 13;
+         const ALLOW_UNK_SC                   = 1 << 14;
+-        const UTF8_STRICT                    = 1 << 15;
+-        const UTF8_NONE                      = 1 << 16;
+-        const LEADING_HYPHEN                 = 1 << 17;
+-        const NO_POS_VALUES                  = 1 << 18;
+-        const NEXT_LINE_HELP                 = 1 << 19;
+-        const DERIVE_DISP_ORDER              = 1 << 20;
+-        const COLORED_HELP                   = 1 << 21;
+-        const COLOR_ALWAYS                   = 1 << 22;
+-        const COLOR_AUTO                     = 1 << 23;
+-        const COLOR_NEVER                    = 1 << 24;
+-        const DONT_DELIM_TRAIL               = 1 << 25;
+-        const ALLOW_NEG_NUMS                 = 1 << 26;
+-        const DISABLE_HELP_SC                = 1 << 28;
+-        const DONT_COLLAPSE_ARGS             = 1 << 29;
+-        const ARGS_NEGATE_SCS                = 1 << 30;
+-        const PROPAGATE_VALS_DOWN            = 1 << 31;
+-        const ALLOW_MISSING_POS              = 1 << 32;
+-        const TRAILING_VALUES                = 1 << 33;
+-        const BUILT                          = 1 << 34;
+-        const BIN_NAME_BUILT                 = 1 << 35;
+-        const VALID_ARG_FOUND                = 1 << 36;
+-        const INFER_SUBCOMMANDS              = 1 << 37;
+-        const CONTAINS_LAST                  = 1 << 38;
+-        const ARGS_OVERRIDE_SELF             = 1 << 39;
+-        const HELP_REQUIRED                  = 1 << 40;
+-        const SUBCOMMAND_PRECEDENCE_OVER_ARG = 1 << 41;
+-        const DISABLE_HELP_FLAG              = 1 << 42;
+-        const USE_LONG_FORMAT_FOR_HELP_SC    = 1 << 43;
+-        const INFER_LONG_ARGS                = 1 << 44;
+-        const IGNORE_ERRORS                  = 1 << 45;
++        const SC_UTF8_NONE                   = 1 << 15;
++        const LEADING_HYPHEN                 = 1 << 16;
++        const NO_POS_VALUES                  = 1 << 17;
++        const NEXT_LINE_HELP                 = 1 << 18;
++        const DERIVE_DISP_ORDER              = 1 << 19;
++        const COLORED_HELP                   = 1 << 20;
++        const COLOR_ALWAYS                   = 1 << 21;
++        const COLOR_AUTO                     = 1 << 22;
++        const COLOR_NEVER                    = 1 << 23;
++        const DONT_DELIM_TRAIL               = 1 << 24;
++        const ALLOW_NEG_NUMS                 = 1 << 25;
++        const DISABLE_HELP_SC                = 1 << 27;
++        const DONT_COLLAPSE_ARGS             = 1 << 28;
++        const ARGS_NEGATE_SCS                = 1 << 29;
++        const PROPAGATE_VALS_DOWN            = 1 << 30;
++        const ALLOW_MISSING_POS              = 1 << 31;
++        const TRAILING_VALUES                = 1 << 32;
++        const BUILT                          = 1 << 33;
++        const BIN_NAME_BUILT                 = 1 << 34;
++        const VALID_ARG_FOUND                = 1 << 35;
++        const INFER_SUBCOMMANDS              = 1 << 36;
++        const CONTAINS_LAST                  = 1 << 37;
++        const ARGS_OVERRIDE_SELF             = 1 << 38;
++        const HELP_REQUIRED                  = 1 << 39;
++        const SUBCOMMAND_PRECEDENCE_OVER_ARG = 1 << 40;
++        const DISABLE_HELP_FLAG              = 1 << 41;
++        const USE_LONG_FORMAT_FOR_HELP_SC    = 1 << 42;
++        const INFER_LONG_ARGS                = 1 << 43;
++        const IGNORE_ERRORS                  = 1 << 44;
+     }
+ }
+ 
+@@ -66,7 +65,7 @@ impl BitOr for AppFlags {
+ 
+ impl Default for AppFlags {
+     fn default() -> Self {
+-        AppFlags(Flags::UTF8_NONE | Flags::COLOR_AUTO)
++        AppFlags(Flags::COLOR_AUTO)
+     }
+ }
+ 
+@@ -79,8 +78,8 @@ impl_settings! { AppSettings, AppFlags,
+         => Flags::ARGS_NEGATE_SCS,
+     AllowExternalSubcommands("allowexternalsubcommands")
+         => Flags::ALLOW_UNK_SC,
+-    AllowInvalidUtf8("allowinvalidutf8")
+-        => Flags::UTF8_NONE,
++    AllowInvalidUtf8ForExternalSubcommands("allowinvalidutf8forexternalsubcommands")
++        => Flags::SC_UTF8_NONE,
+     AllowLeadingHyphen("allowleadinghyphen")
+         => Flags::LEADING_HYPHEN,
+     AllowNegativeNumbers("allownegativenumbers")
+@@ -121,8 +120,6 @@ impl_settings! { AppSettings, AppFlags,
+         => Flags::NO_AUTO_VERSION,
+     NoBinaryName("nobinaryname")
+         => Flags::NO_BIN_NAME,
+-    StrictUtf8("strictutf8")
+-        => Flags::UTF8_STRICT,
+     SubcommandsNegateReqs("subcommandsnegatereqs")
+         => Flags::SC_NEGATE_REQS,
+     SubcommandRequired("subcommandrequired")
+@@ -163,16 +160,13 @@ impl_settings! { AppSettings, AppFlags,
+ /// [`App`]: crate::App
+ #[derive(Debug, PartialEq, Copy, Clone)]
+ pub enum AppSettings {
+-    /// Specifies that any invalid UTF-8 code points should *not* be treated as an error.
+-    /// This is the default behavior of `clap`.
++    /// Specifies that external subcommands that are invalid UTF-8 should *not* be treated as an error.
+     ///
+-    /// **NOTE:** Using argument values with invalid UTF-8 code points requires using
+-    /// [`ArgMatches::value_of_os`], [`ArgMatches::values_of_os`], [`ArgMatches::value_of_lossy`],
+-    /// or [`ArgMatches::values_of_lossy`] for those particular arguments which may contain invalid
+-    /// UTF-8 values
++    /// **NOTE:** Using external subcommand argument values with invalid UTF-8 requires using
++    /// [`ArgMatches::values_of_os`] or [`ArgMatches::values_of_lossy`] for those particular
++    /// arguments which may contain invalid UTF-8 values
+     ///
+-    /// **NOTE:** This rule only applies to argument values. Flags, options, and
+-    /// [`subcommands`] themselves only allow valid UTF-8 code points.
++    /// **NOTE:** Setting this requires [`AppSettings::AllowExternalSubcommands`]
+     ///
+     /// # Platform Specific
+     ///
+@@ -183,29 +177,30 @@ pub enum AppSettings {
+     #[cfg_attr(not(unix), doc = " ```ignore")]
+     #[cfg_attr(unix, doc = " ```")]
+     /// # use clap::{App, AppSettings};
+-    /// use std::ffi::OsString;
+-    /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
+-    ///
+-    /// let r = App::new("myprog")
+-    ///   //.setting(AppSettings::AllowInvalidUtf8)
+-    ///     .arg("<arg> 'some positional arg'")
+-    ///     .try_get_matches_from(
+-    ///         vec![
+-    ///             OsString::from("myprog"),
+-    ///             OsString::from_vec(vec![0xe9])]);
+-    ///
+-    /// assert!(r.is_ok());
+-    /// let m = r.unwrap();
+-    /// assert_eq!(m.value_of_os("arg").unwrap().as_bytes(), &[0xe9]);
++    /// // Assume there is an external subcommand named "subcmd"
++    /// let m = App::new("myprog")
++    ///     .setting(AppSettings::AllowInvalidUtf8ForExternalSubcommands)
++    ///     .setting(AppSettings::AllowExternalSubcommands)
++    ///     .get_matches_from(vec![
++    ///         "myprog", "subcmd", "--option", "value", "-fff", "--flag"
++    ///     ]);
++    ///
++    /// // All trailing arguments will be stored under the subcommand's sub-matches using an empty
++    /// // string argument name
++    /// match m.subcommand() {
++    ///     Some((external, ext_m)) => {
++    ///          let ext_args: Vec<&std::ffi::OsStr> = ext_m.values_of_os("").unwrap().collect();
++    ///          assert_eq!(external, "subcmd");
++    ///          assert_eq!(ext_args, ["--option", "value", "-fff", "--flag"]);
++    ///     },
++    ///     _ => {},
++    /// }
+     /// ```
+     ///
+-    /// [`ArgMatches::value_of_os`]: crate::ArgMatches::value_of_os()
+     /// [`ArgMatches::values_of_os`]: crate::ArgMatches::values_of_os()
+-    /// [`ArgMatches::value_of_lossy`]: crate::ArgMatches::value_of_lossy()
+     /// [`ArgMatches::values_of_lossy`]: crate::ArgMatches::values_of_lossy()
+     /// [`subcommands`]: crate::App::subcommand()
+-    // TODO: Either this or StrictUtf8
+-    AllowInvalidUtf8,
++    AllowInvalidUtf8ForExternalSubcommands,
+ 
+     /// Specifies that leading hyphens are allowed in all argument *values*, such as negative numbers
+     /// like `-10`. (which would otherwise be parsed as another flag or option)
+@@ -968,40 +963,6 @@ pub enum AppSettings {
+     /// [long format]: crate::App::long_about
+     UseLongFormatForHelpSubcommand,
+ 
+-    /// Specifies that any invalid UTF-8 code points should be treated as an error and fail
+-    /// with a [`ErrorKind::InvalidUtf8`] error.
+-    ///
+-    /// **NOTE:** This rule only applies to argument values; Things such as flags, options, and
+-    /// [`subcommands`] themselves only allow valid UTF-8 code points.
+-    ///
+-    /// # Platform Specific
+-    ///
+-    /// Non Windows systems only
+-    ///
+-    /// # Examples
+-    ///
+-    #[cfg_attr(not(unix), doc = " ```ignore")]
+-    #[cfg_attr(unix, doc = " ```")]
+-    /// # use clap::{App, AppSettings, ErrorKind};
+-    /// use std::ffi::OsString;
+-    /// use std::os::unix::ffi::OsStringExt;
+-    ///
+-    /// let m = App::new("myprog")
+-    ///     .setting(AppSettings::StrictUtf8)
+-    ///     .arg("<arg> 'some positional arg'")
+-    ///     .try_get_matches_from(
+-    ///         vec![
+-    ///             OsString::from("myprog"),
+-    ///             OsString::from_vec(vec![0xe9])]);
+-    ///
+-    /// assert!(m.is_err());
+-    /// assert_eq!(m.unwrap_err().kind, ErrorKind::InvalidUtf8);
+-    /// ```
+-    ///
+-    /// [`subcommands`]: crate::App::subcommand()
+-    /// [`ErrorKind::InvalidUtf8`]: crate::ErrorKind::InvalidUtf8
+-    StrictUtf8,
+-
+     /// Allows specifying that if no [`subcommand`] is present at runtime,
+     /// error and exit gracefully.
+     ///
+@@ -1126,8 +1087,10 @@ mod test {
+             AppSettings::AllowExternalSubcommands
+         );
+         assert_eq!(
+-            "allowinvalidutf8".parse::<AppSettings>().unwrap(),
+-            AppSettings::AllowInvalidUtf8
++            "allowinvalidutf8forexternalsubcommands"
++                .parse::<AppSettings>()
++                .unwrap(),
++            AppSettings::AllowInvalidUtf8ForExternalSubcommands
+         );
+         assert_eq!(
+             "allowleadinghyphen".parse::<AppSettings>().unwrap(),
+@@ -1215,10 +1178,6 @@ mod test {
+                 .unwrap(),
+             AppSettings::UseLongFormatForHelpSubcommand
+         );
+-        assert_eq!(
+-            "strictutf8".parse::<AppSettings>().unwrap(),
+-            AppSettings::StrictUtf8
+-        );
+         assert_eq!(
+             "trailingvararg".parse::<AppSettings>().unwrap(),
+             AppSettings::TrailingVarArg
+diff --git a/src/build/arg/debug_asserts.rs b/src/build/arg/debug_asserts.rs
+index 30bb814c858..9ef5bc8123d 100644
+--- a/src/build/arg/debug_asserts.rs
++++ b/src/build/arg/debug_asserts.rs
+@@ -52,10 +52,10 @@ pub(crate) fn assert_arg(arg: &Arg) {
+         );
+     }
+ 
+-    assert_app_flags(arg);
++    assert_arg_flags(arg);
+ }
+ 
+-fn assert_app_flags(arg: &Arg) {
++fn assert_arg_flags(arg: &Arg) {
+     use ArgSettings::*;
+ 
+     macro_rules! checker {
+@@ -85,4 +85,5 @@ fn assert_app_flags(arg: &Arg) {
+     checker!(HideDefaultValue requires TakesValue);
+     checker!(MultipleValues requires TakesValue);
+     checker!(IgnoreCase requires TakesValue);
++    checker!(AllowInvalidUtf8 requires TakesValue);
+ }
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index 2608e52d538..d46ab28c9bb 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -2082,6 +2082,46 @@ impl<'help> Arg<'help> {
+         self.takes_value(true).multiple_values(true)
+     }
+ 
++    /// Specifies that option values that are invalid UTF-8 should *not* be treated as an error.
++    ///
++    /// **NOTE:** Using argument values with invalid UTF-8 code points requires using
++    /// [`ArgMatches::value_of_os`], [`ArgMatches::values_of_os`], [`ArgMatches::value_of_lossy`],
++    /// or [`ArgMatches::values_of_lossy`] for those particular arguments which may contain invalid
++    /// UTF-8 values.
++    ///
++    /// **NOTE:** Setting this requires [`ArgSettings::TakesValue`]
++    ///
++    /// # Examples
++    ///
++    #[cfg_attr(not(unix), doc = " ```ignore")]
++    #[cfg_attr(unix, doc = " ```rust")]
++    /// # use clap::{App, Arg};
++    /// use std::ffi::OsString;
++    /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
++    /// let r = App::new("myprog")
++    ///     .arg(Arg::new("arg").allow_invalid_utf8(true))
++    ///     .try_get_matches_from(vec![
++    ///         OsString::from("myprog"),
++    ///         OsString::from_vec(vec![0xe9])
++    ///     ]);
++    ///
++    /// assert!(r.is_ok());
++    /// let m = r.unwrap();
++    /// assert_eq!(m.value_of_os("arg").unwrap().as_bytes(), &[0xe9]);
++    /// ```
++    /// [`ArgMatches::value_of_os`]: crate::ArgMatches::value_of_os()
++    /// [`ArgMatches::values_of_os`]: crate::ArgMatches::values_of_os()
++    /// [`ArgMatches::value_of_lossy`]: crate::ArgMatches::value_of_lossy()
++    /// [`ArgMatches::values_of_lossy`]: crate::ArgMatches::values_of_lossy()
++    #[inline]
++    pub fn allow_invalid_utf8(self, tv: bool) -> Self {
++        if tv {
++            self.setting(ArgSettings::AllowInvalidUtf8)
++        } else {
++            self.unset_setting(ArgSettings::AllowInvalidUtf8)
++        }
++    }
++
+     /// Allows one to perform a custom validation on the argument value. You provide a closure
+     /// which accepts a [`String`] value, and return a [`Result`] where the [`Err(String)`] is a
+     /// message displayed to the user.
+diff --git a/src/build/arg/settings.rs b/src/build/arg/settings.rs
+index 0b3cd3b6c8f..5e50fa41ed2 100644
+--- a/src/build/arg/settings.rs
++++ b/src/build/arg/settings.rs
+@@ -30,6 +30,7 @@ bitflags! {
+         const MULTIPLE_VALS    = 1 << 20;
+         #[cfg(feature = "env")]
+         const HIDE_ENV         = 1 << 21;
++        const UTF8_NONE        = 1 << 22;
+     }
+ }
+ 
+@@ -59,7 +60,8 @@ impl_settings! { ArgSettings, ArgFlags,
+     HideEnvValues("hideenvvalues") => Flags::HIDE_ENV_VALS,
+     HideDefaultValue("hidedefaultvalue") => Flags::HIDE_DEFAULT_VAL,
+     HiddenShortHelp("hiddenshorthelp") => Flags::HIDDEN_SHORT_H,
+-    HiddenLongHelp("hiddenlonghelp") => Flags::HIDDEN_LONG_H
++    HiddenLongHelp("hiddenlonghelp") => Flags::HIDDEN_LONG_H,
++    AllowInvalidUtf8("allowinvalidutf8") => Flags::UTF8_NONE
+ }
+ 
+ impl Default for ArgFlags {
+@@ -121,6 +123,9 @@ pub enum ArgSettings {
+     HiddenShortHelp,
+     /// The argument should **not** be shown in long help text
+     HiddenLongHelp,
++    /// Specifies that option values that are invalid UTF-8 should *not* be treated as an error.
++    AllowInvalidUtf8,
++
+     #[doc(hidden)]
+     RequiredUnlessAll,
+ }
+@@ -202,6 +207,10 @@ mod test {
+             "hiddenlonghelp".parse::<ArgSettings>().unwrap(),
+             ArgSettings::HiddenLongHelp
+         );
++        assert_eq!(
++            "allowinvalidutf8".parse::<ArgSettings>().unwrap(),
++            ArgSettings::AllowInvalidUtf8
++        );
+         assert!("hahahaha".parse::<ArgSettings>().is_err());
+     }
+ }
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index da0c7d5f3aa..aaacee878fd 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -310,8 +310,12 @@ pub enum ErrorKind {
+     /// ```
+     UnexpectedMultipleUsage,
+ 
+-    /// Occurs when the user provides a value containing invalid UTF-8 for an argument and
+-    /// [`AppSettings::StrictUtf8`] is set.
++    /// Occurs when the user provides a value containing invalid UTF-8.
++    ///
++    /// To allow arbitrary data
++    /// - Set [`ArgSettings::AllowInvalidUtf8`] for argument values
++    /// - Set [`AppSettings::AllowInvalidUtf8ForExternalSubcommands`] for external-subcommand
++    ///   values
+     ///
+     /// # Platform Specific
+     ///
+@@ -325,7 +329,6 @@ pub enum ErrorKind {
+     /// # use std::os::unix::ffi::OsStringExt;
+     /// # use std::ffi::OsString;
+     /// let result = App::new("prog")
+-    ///     .setting(AppSettings::StrictUtf8)
+     ///     .arg(Arg::new("utf8")
+     ///         .short('u')
+     ///         .takes_value(true))
+@@ -336,7 +339,8 @@ pub enum ErrorKind {
+     /// assert_eq!(result.unwrap_err().kind, ErrorKind::InvalidUtf8);
+     /// ```
+     ///
+-    /// [`AppSettings::StrictUtf8`]: crate::AppSettings::StrictUtf8
++    /// [`ArgSettings::AllowInvalidUtf8`]: crate::ArgSettings::AllowInvalidUtf8
++    /// [`AppSettings::AllowInvalidUtf8ForExternalSubcommands`]: crate::AppSettings::AllowInvalidUtf8ForExternalSubcommands
+     InvalidUtf8,
+ 
+     /// Not a true "error" as it means `--help` or similar was used.
+diff --git a/src/parse/matches/arg_matches.rs b/src/parse/matches/arg_matches.rs
+index 1d0ef635517..a8f05df00c3 100644
+--- a/src/parse/matches/arg_matches.rs
++++ b/src/parse/matches/arg_matches.rs
+@@ -101,7 +101,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will [`panic!`] if the value contains invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -129,9 +130,11 @@ impl ArgMatches {
+     }
+ 
+     /// Gets the lossy value of a specific argument. If the argument wasn't present at runtime
+-    /// it returns `None`. A lossy value is one which contains invalid UTF-8 code points, those
++    /// it returns `None`. A lossy value is one which contains invalid UTF-8, those
+     /// invalid points will be replaced with `\u{FFFD}`
+     ///
++    /// *NOTE:* Recommend having set [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
++    ///
+     /// *NOTE:* If getting a value for an option or positional argument that allows multiples,
+     /// prefer [`Arg::values_of_lossy`] as `value_of_lossy()` will only return the *first* value.
+     ///
+@@ -147,7 +150,8 @@ impl ArgMatches {
+     /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
+     ///
+     /// let m = App::new("utf8")
+-    ///     .arg(Arg::from("<arg> 'some arg'"))
++    ///     .arg(Arg::from("<arg> 'some arg'")
++    ///         .allow_invalid_utf8(true))
+     ///     .get_matches_from(vec![OsString::from("myprog"),
+     ///                             // "Hi {0xe9}!"
+     ///                             OsString::from_vec(vec![b'H', b'i', b' ', 0xe9, b'!'])]);
+@@ -171,6 +175,8 @@ impl ArgMatches {
+     /// Rust are guaranteed to be valid UTF-8, a valid filename on a Unix system as an argument
+     /// value may contain invalid UTF-8 code points.
+     ///
++    /// *NOTE:* Recommend having set [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
++    ///
+     /// *NOTE:* If getting a value for an option or positional argument that allows multiples,
+     /// prefer [`ArgMatches::values_of_os`] as `Arg::value_of_os` will only return the *first*
+     /// value.
+@@ -187,7 +193,8 @@ impl ArgMatches {
+     /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
+     ///
+     /// let m = App::new("utf8")
+-    ///     .arg(Arg::from("<arg> 'some arg'"))
++    ///     .arg(Arg::from("<arg> 'some arg'")
++    ///         .allow_invalid_utf8(true))
+     ///     .get_matches_from(vec![OsString::from("myprog"),
+     ///                             // "Hi {0xe9}!"
+     ///                             OsString::from_vec(vec![b'H', b'i', b' ', 0xe9, b'!'])]);
+@@ -208,7 +215,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will panic if any of the values contain invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -260,6 +268,8 @@ impl ArgMatches {
+     /// it returns `None`. A lossy value is one where if it contains invalid UTF-8 code points,
+     /// those invalid points will be replaced with `\u{FFFD}`
+     ///
++    /// *NOTE:* Recommend having set [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
++    ///
+     /// # Examples
+     ///
+     #[cfg_attr(not(unix), doc = " ```ignore")]
+@@ -269,7 +279,8 @@ impl ArgMatches {
+     /// use std::os::unix::ffi::OsStringExt;
+     ///
+     /// let m = App::new("utf8")
+-    ///     .arg(Arg::from("<arg>... 'some arg'"))
++    ///     .arg(Arg::from("<arg>... 'some arg'")
++    ///         .allow_invalid_utf8(true))
+     ///     .get_matches_from(vec![OsString::from("myprog"),
+     ///                             // "Hi"
+     ///                             OsString::from_vec(vec![b'H', b'i']),
+@@ -294,6 +305,8 @@ impl ArgMatches {
+     /// valid UTF-8 code points. Since [`String`]s in Rust are guaranteed to be valid UTF-8, a valid
+     /// filename as an argument value on Linux (for example) may contain invalid UTF-8 code points.
+     ///
++    /// *NOTE:* Recommend having set [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
++    ///
+     /// # Examples
+     ///
+     #[cfg_attr(not(unix), doc = " ```ignore")]
+@@ -303,7 +316,8 @@ impl ArgMatches {
+     /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
+     ///
+     /// let m = App::new("utf8")
+-    ///     .arg(Arg::from("<arg>... 'some arg'"))
++    ///     .arg(Arg::from("<arg>... 'some arg'")
++    ///         .allow_invalid_utf8(true))
+     ///     .get_matches_from(vec![OsString::from("myprog"),
+     ///                                 // "Hi"
+     ///                                 OsString::from_vec(vec![b'H', b'i']),
+@@ -340,7 +354,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will [`panic!`] if the value contains invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -395,7 +410,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will [`panic!`] if the value contains invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -432,7 +448,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will [`panic!`] if any of the values contains invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -485,7 +502,8 @@ impl ArgMatches {
+     ///
+     /// # Panics
+     ///
+-    /// This method will [`panic!`] if any of the values contains invalid UTF-8 code points.
++    /// This method will [`panic!`] if the value is invalid UTF-8.  See
++    /// [`ArgSettings::AllowInvalidUtf8`][crate::ArgSettings::AllowInvalidUtf8].
+     ///
+     /// # Examples
+     ///
+@@ -1065,7 +1083,8 @@ impl<'a> Default for GroupedValues<'a> {
+ /// use std::os::unix::ffi::{OsStrExt,OsStringExt};
+ ///
+ /// let m = App::new("utf8")
+-///     .arg(Arg::from("<arg> 'some arg'"))
++///     .arg(Arg::from("<arg> 'some arg'")
++///         .allow_invalid_utf8(true))
+ ///     .get_matches_from(vec![OsString::from("myprog"),
+ ///                             // "Hi {0xe9}!"
+ ///                             OsString::from_vec(vec![b'H', b'i', b' ', 0xe9, b'!'])]);
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index 21f1f949330..19f69b61401 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -688,13 +688,10 @@ impl<'help, 'app> Parser<'help, 'app> {
+                 let sc_name = match arg_os.to_str() {
+                     Some(s) => s.to_string(),
+                     None => {
+-                        if self.is_set(AS::StrictUtf8) {
+-                            return Err(ClapError::invalid_utf8(
+-                                Usage::new(self).create_usage_with_title(&[]),
+-                                self.app.color(),
+-                            ));
+-                        }
+-                        arg_os.to_string_lossy().into_owned()
++                        return Err(ClapError::invalid_utf8(
++                            Usage::new(self).create_usage_with_title(&[]),
++                            self.app.color(),
++                        ));
+                     }
+                 };
+ 
+@@ -702,7 +699,9 @@ impl<'help, 'app> Parser<'help, 'app> {
+                 let mut sc_m = ArgMatcher::default();
+ 
+                 while let Some((v, _)) = it.next() {
+-                    if self.is_set(AS::StrictUtf8) && v.to_str().is_none() {
++                    if !self.is_set(AS::AllowInvalidUtf8ForExternalSubcommands)
++                        && v.to_str().is_none()
++                    {
+                         return Err(ClapError::invalid_utf8(
+                             Usage::new(self).create_usage_with_title(&[]),
+                             self.app.color(),
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index e58a7464785..7dac71dc91e 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -88,7 +88,7 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+     ) -> ClapResult<()> {
+         debug!("Validator::validate_arg_values: arg={:?}", arg.name);
+         for val in ma.vals_flatten() {
+-            if self.p.is_set(AS::StrictUtf8) && val.to_str().is_none() {
++            if !arg.is_set(ArgSettings::AllowInvalidUtf8) && val.to_str().is_none() {
+                 debug!(
+                     "Validator::validate_arg_values: invalid UTF-8 found in val {:?}",
+                     val

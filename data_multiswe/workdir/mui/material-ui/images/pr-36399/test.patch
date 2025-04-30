@@ -1,0 +1,219 @@
+diff --git a/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js b/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
+index f9d6d6f1a9589c..84f2dc7aeb2068 100644
+--- a/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
++++ b/packages/mui-system/src/Unstable_Grid/gridGenerator.test.js
+@@ -239,7 +239,7 @@ describe('grid generator', () => {
+ 
+   describe('generateGridStyles', () => {
+     it('root container', () => {
+-      const result = generateGridStyles({ ownerState: { container: true, level: 0 } });
++      const result = generateGridStyles({ ownerState: { container: true, unstable_level: 0 } });
+       expect(result).to.deep.equal({
+         minWidth: 0,
+         boxSizing: 'border-box',
+@@ -250,7 +250,7 @@ describe('grid generator', () => {
+     });
+ 
+     it('nested container level 1', () => {
+-      const result = generateGridStyles({ ownerState: { container: true, level: 1 } });
++      const result = generateGridStyles({ ownerState: { container: true, unstable_level: 1 } });
+       sinon.assert.match(result, {
+         margin: `calc(var(--Grid-rowSpacingLevel1) / -2) calc(var(--Grid-columnSpacingLevel1) / -2)`,
+         padding: `calc(var(--Grid-rowSpacing) / 2) calc(var(--Grid-columnSpacing) / 2)`,
+@@ -258,7 +258,7 @@ describe('grid generator', () => {
+     });
+ 
+     it('nested container level 2', () => {
+-      const result = generateGridStyles({ ownerState: { container: true, level: 2 } });
++      const result = generateGridStyles({ ownerState: { container: true, unstable_level: 2 } });
+       sinon.assert.match(result, {
+         margin: `calc(var(--Grid-rowSpacingLevel2) / -2) calc(var(--Grid-columnSpacingLevel2) / -2)`,
+         padding: `calc(var(--Grid-rowSpacingLevel1) / 2) calc(var(--Grid-columnSpacingLevel1) / 2)`,
+@@ -267,7 +267,7 @@ describe('grid generator', () => {
+ 
+     it('root container with disableEqualOverflow', () => {
+       const result = generateGridStyles({
+-        ownerState: { container: true, level: 1, disableEqualOverflow: true },
++        ownerState: { container: true, unstable_level: 1, disableEqualOverflow: true },
+       });
+       sinon.assert.match(result, {
+         margin: `calc(var(--Grid-rowSpacingLevel1) * -1) 0px 0px calc(var(--Grid-columnSpacingLevel1) * -1)`,
+@@ -279,7 +279,7 @@ describe('grid generator', () => {
+       const result = generateGridStyles({
+         ownerState: {
+           container: true,
+-          level: 1,
++          unstable_level: 1,
+           disableEqualOverflow: false,
+           parentDisableEqualOverflow: true,
+         },
+@@ -291,7 +291,7 @@ describe('grid generator', () => {
+     });
+ 
+     it('item', () => {
+-      const result = generateGridStyles({ ownerState: { container: false, level: 1 } });
++      const result = generateGridStyles({ ownerState: { container: false, unstable_level: 1 } });
+       expect(result).to.deep.equal({
+         minWidth: 0,
+         boxSizing: 'border-box',
+@@ -310,7 +310,7 @@ describe('grid generator', () => {
+ 
+     it('item level 2', () => {
+       const result = generateGridStyles({
+-        ownerState: { container: false, disableEqualOverflow: true, level: 2 },
++        ownerState: { container: false, disableEqualOverflow: true, unstable_level: 2 },
+       });
+       sinon.assert.match(result, {
+         padding: `var(--Grid-rowSpacingLevel1) 0px 0px var(--Grid-columnSpacingLevel1)`,
+@@ -473,7 +473,7 @@ describe('grid generator', () => {
+     it('nested item level 1 should have default spacing set to parent', () => {
+       const result = generateGridRowSpacingStyles({
+         theme: { breakpoints },
+-        ownerState: { container: true, level: 1 },
++        ownerState: { container: true, unstable_level: 1 },
+       });
+       expect(result['--Grid-rowSpacingLevel1']).to.equal('var(--Grid-rowSpacing)');
+     });
+@@ -537,7 +537,7 @@ describe('grid generator', () => {
+     it('nested item level 1 should have default spacing set to parent', () => {
+       const result = generateGridColumnSpacingStyles({
+         theme: { breakpoints },
+-        ownerState: { container: true, level: 1 },
++        ownerState: { container: true, unstable_level: 1 },
+       });
+       expect(result['--Grid-columnSpacingLevel1']).to.equal('var(--Grid-columnSpacing)');
+     });
+diff --git a/test/regressions/fixtures/Grid/StressNestedGrid2.js b/test/regressions/fixtures/Grid/StressNestedGrid2.js
+new file mode 100644
+index 00000000000000..f40b38d9f31d0e
+--- /dev/null
++++ b/test/regressions/fixtures/Grid/StressNestedGrid2.js
+@@ -0,0 +1,91 @@
++import * as React from 'react';
++import Paper from '@mui/material/Paper';
++import Box from '@mui/material/Box';
++import Grid from '@mui/material/Unstable_Grid2';
++
++export default function StressNestedGrid2() {
++  return (
++    <Box
++      sx={{
++        width: 600,
++        display: 'flex',
++        bgcolor: 'secondary.main',
++        '& .MuiPaper-root': {
++          p: 2,
++          textAlign: 'center',
++        },
++      }}
++    >
++      <Grid container spacing={1}>
++        <Grid xs={12}>
++          <Paper>xs=12</Paper>
++        </Grid>
++        <Grid xs={6}>
++          <Paper>xs=6</Paper>
++        </Grid>
++        <Grid xs={6}>
++          <Paper>xs=6</Paper>
++        </Grid>
++        <Box sx={{ p: 2, width: '100%' }}>
++          {/* This grid should start as a new root grid (doesn't inherit spacing from the top) */}
++          <Grid container spacing={3}>
++            <Grid xs={6}>
++              <Paper>xs=6</Paper>
++            </Grid>
++            <Grid container xs={6}>
++              {/* nested spacing can be override by the explicit `spacing` prop */}
++              <Grid container spacing={1} xs={6}>
++                <Grid xs={7}>
++                  <Paper>xs=7</Paper>
++                </Grid>
++                <Grid xs={5}>
++                  <Paper>xs=5</Paper>
++                </Grid>
++              </Grid>
++              <Grid xs={6}>
++                <Paper>xs=6</Paper>
++              </Grid>
++            </Grid>
++          </Grid>
++        </Box>
++        <Grid container xs={6} spacing={3}>
++          <Grid xs={6}>
++            <Paper>xs=6</Paper>
++          </Grid>
++          <Grid xs={6}>
++            <Paper>xs=6</Paper>
++          </Grid>
++        </Grid>
++        <Grid container xs={6} spacing={3}>
++          <Grid xs={8}>
++            <Paper>xs=8</Paper>
++          </Grid>
++          <Grid xs={4}>
++            <Paper>xs=4</Paper>
++          </Grid>
++        </Grid>
++
++        {/* The grids below should inherit spacing from the top */}
++        <Grid container xs={6}>
++          <Grid xs={4}>
++            <Paper>xs=4</Paper>
++          </Grid>
++          <Grid xs={4}>
++            <Paper>xs=4</Paper>
++          </Grid>
++          <Grid xs={4}>
++            <Paper>xs=4</Paper>
++          </Grid>
++        </Grid>
++        <Grid container xs={6}>
++          <Grid xs={6}>
++            <Paper>xs=6</Paper>
++          </Grid>
++          <Grid xs={6}>
++            <Paper>xs=6</Paper>
++          </Grid>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/test/regressions/fixtures/Grid/StyledGrid2.js b/test/regressions/fixtures/Grid/StyledGrid2.js
+new file mode 100644
+index 00000000000000..f744e6d7636e7c
+--- /dev/null
++++ b/test/regressions/fixtures/Grid/StyledGrid2.js
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import Paper from '@mui/material/Paper';
++import Box from '@mui/material/Box';
++import Grid from '@mui/material/Unstable_Grid2';
++import { styled } from '@mui/material/styles';
++
++// styled(Grid) should work with nested grids.
++const StyledGrid = styled(Grid)({});
++
++export default function StressNestedGrid2() {
++  return (
++    <Box sx={{ p: 3, width: 600 }}>
++      <Grid container spacing={4}>
++        <Grid xs={4}>
++          <Paper>Item 1</Paper>
++        </Grid>
++        <StyledGrid container xs={4}>
++          <StyledGrid xs={6}>
++            <Paper>Item 2.1</Paper>
++          </StyledGrid>
++          <Grid xs={6}>
++            <Paper>Item 2.2</Paper>
++          </Grid>
++        </StyledGrid>
++        <StyledGrid xs={4}>
++          <Paper>Item 3</Paper>
++        </StyledGrid>
++      </Grid>
++    </Box>
++  );
++}

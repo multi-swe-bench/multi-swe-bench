@@ -1,0 +1,145 @@
+diff --git a/.changeset/four-pugs-listen.md b/.changeset/four-pugs-listen.md
+new file mode 100644
+index 000000000000..67e8057932a2
+--- /dev/null
++++ b/.changeset/four-pugs-listen.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++breaking: warn on slots and event handlers in runes mode, error on `<slot>` + `{@render ...}` tag usage in same component
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index e342dc21b72b..ab0a17497e86 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -163,7 +163,9 @@ const special_elements = {
+ 	 * @param {string | null} match
+ 	 */
+ 	'invalid-svelte-tag': (tags, match) =>
+-		`Valid <svelte:...> tag names are ${list(tags)}${match ? ' (did you mean ' + match + '?)' : ''}`
++		`Valid <svelte:...> tag names are ${list(tags)}${match ? ' (did you mean ' + match + '?)' : ''}`,
++	'conflicting-slot-usage': () =>
++		`Cannot use <slot> syntax and {@render ...} tags in the same component. Migrate towards {@render ...} tags completely.`
+ };
+ 
+ /** @satisfies {Errors} */
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index c1ed378ca3da..457e4d1afa09 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -379,6 +379,7 @@ export function analyze_component(root, source, options) {
+ 		uses_rest_props: false,
+ 		uses_slots: false,
+ 		uses_component_bindings: false,
++		uses_render_tags: false,
+ 		custom_element: options.customElementOptions ?? options.customElement,
+ 		inject_styles: options.css === 'injected' || options.customElement,
+ 		accessors: options.customElement
+@@ -388,7 +389,7 @@ export function analyze_component(root, source, options) {
+ 				!!options.legacy?.componentApi,
+ 		reactive_statements: new Map(),
+ 		binding_groups: new Map(),
+-		slot_names: new Set(),
++		slot_names: new Map(),
+ 		warnings,
+ 		css: {
+ 			ast: root.css,
+@@ -502,6 +503,10 @@ export function analyze_component(root, source, options) {
+ 		analysis.reactive_statements = order_reactive_statements(analysis.reactive_statements);
+ 	}
+ 
++	if (analysis.uses_render_tags && (analysis.uses_slots || analysis.slot_names.size > 0)) {
++		error(analysis.slot_names.values().next().value, 'conflicting-slot-usage');
++	}
++
+ 	// warn on any nonstate declarations that are a) reassigned and b) referenced in the template
+ 	for (const scope of [module.scope, instance.scope]) {
+ 		outer: for (const [name, binding] of scope.declarations) {
+@@ -1087,7 +1092,7 @@ const common_visitors = {
+ 				break;
+ 			}
+ 		}
+-		context.state.analysis.slot_names.add(name);
++		context.state.analysis.slot_names.set(name, node);
+ 	},
+ 	StyleDirective(node, context) {
+ 		if (node.value === true) {
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 60e0ef46e99a..d86b1cb7fd5a 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -578,6 +578,8 @@ const validation = {
+ 		});
+ 	},
+ 	RenderTag(node, context) {
++		context.state.analysis.uses_render_tags = true;
++
+ 		const raw_args = unwrap_optional(node.expression).arguments;
+ 		for (const arg of raw_args) {
+ 			if (arg.type === 'SpreadElement') {
+@@ -1183,6 +1185,18 @@ export const validation_runes = merge(validation, a11y_validators, {
+ 			warn(state.analysis.warnings, node, path, 'invalid-bindable-declaration');
+ 		}
+ 	},
++	SlotElement(node, { state, path }) {
++		if (!state.analysis.custom_element) {
++			warn(state.analysis.warnings, node, path, 'deprecated-slot-element');
++		}
++	},
++	OnDirective(node, { state, path }) {
++		const parent_type = path.at(-1)?.type;
++		// Don't warn on component events; these might not be under the author's control so the warning would be unactionable
++		if (parent_type === 'RegularElement' || parent_type === 'SvelteElement') {
++			warn(state.analysis.warnings, node, path, 'deprecated-event-handler', node.name);
++		}
++	},
+ 	// TODO this is a code smell. need to refactor this stuff
+ 	ClassBody: validation_runes_js.ClassBody,
+ 	ClassDeclaration: validation_runes_js.ClassDeclaration,
+diff --git a/packages/svelte/src/compiler/phases/types.d.ts b/packages/svelte/src/compiler/phases/types.d.ts
+index 390ea49a4624..91fd68ca39a9 100644
+--- a/packages/svelte/src/compiler/phases/types.d.ts
++++ b/packages/svelte/src/compiler/phases/types.d.ts
+@@ -3,6 +3,7 @@ import type {
+ 	Css,
+ 	Fragment,
+ 	RegularElement,
++	SlotElement,
+ 	SvelteElement,
+ 	SvelteNode,
+ 	SvelteOptions
+@@ -61,13 +62,14 @@ export interface ComponentAnalysis extends Analysis {
+ 	/** Whether the component uses `$$slots` */
+ 	uses_slots: boolean;
+ 	uses_component_bindings: boolean;
++	uses_render_tags: boolean;
+ 	custom_element: boolean | SvelteOptions['customElement'];
+ 	/** If `true`, should append styles through JavaScript */
+ 	inject_styles: boolean;
+ 	reactive_statements: Map<LabeledStatement, ReactiveStatement>;
+ 	/** Identifiers that make up the `bind:group` expression -> internal group binding name */
+ 	binding_groups: Map<[key: string, bindings: Array<Binding | null>], Identifier>;
+-	slot_names: Set<string>;
++	slot_names: Map<string, SlotElement>;
+ 	css: {
+ 		ast: Css.StyleSheet | null;
+ 		hash: string;
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 3e36df1677ff..26bcf1ecdd6b 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -233,7 +233,12 @@ const legacy = {
+ 		'All dependencies of the reactive declaration are declared in a module script and will not be reactive',
+ 	/** @param {string} name */
+ 	'unused-export-let': (name) =>
+-		`Component has unused export property '${name}'. If it is for external reference only, please consider using \`export const ${name}\``
++		`Component has unused export property '${name}'. If it is for external reference only, please consider using \`export const ${name}\``,
++	'deprecated-slot-element': () =>
++		`Using <slot> to render parent content is deprecated. Use {@render ...} tags instead.`,
++	/** @param {string} name */
++	'deprecated-event-handler': (name) =>
++		`Using on:${name} to listen to the ${name} event is is deprecated. Use the event attribute on${name} instead.`
+ };
+ 
+ const block = {

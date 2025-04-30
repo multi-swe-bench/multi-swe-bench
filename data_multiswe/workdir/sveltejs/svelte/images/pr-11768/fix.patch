@@ -1,0 +1,26 @@
+diff --git a/.changeset/chilly-pans-raise.md b/.changeset/chilly-pans-raise.md
+new file mode 100644
+index 000000000000..02a162dfb8e0
+--- /dev/null
++++ b/.changeset/chilly-pans-raise.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: allow runelike writable as prop
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 798fdd065352..acd12efcc805 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -285,7 +285,9 @@ export function analyze_component(root, source, options) {
+ 			!Runes.includes(/** @type {any} */ (name)) ||
+ 			(declaration !== null &&
+ 				// const state = $state(0) is valid
+-				get_rune(declaration.initial, instance.scope) === null &&
++				(get_rune(declaration.initial, instance.scope) === null ||
++					// rune-line names received as props are valid too (but we have to protect against $props as store)
++					(store_name !== 'props' && get_rune(declaration.initial, instance.scope) === '$props')) &&
+ 				// allow `import { derived } from 'svelte/store'` in the same file as `const x = $derived(..)` because one is not a subscription to the other
+ 				!(
+ 					name === '$derived' &&

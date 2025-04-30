@@ -1,0 +1,52 @@
+diff --git a/pkg/cmd/issue/create/create.go b/pkg/cmd/issue/create/create.go
+index 82d4ab13307..f51cde4c908 100644
+--- a/pkg/cmd/issue/create/create.go
++++ b/pkg/cmd/issue/create/create.go
+@@ -222,7 +222,7 @@ func createRun(opts *CreateOptions) (err error) {
+ 		defer prShared.PreserveInput(opts.IO, &tb, &err)()
+ 
+ 		if opts.Title == "" {
+-			err = prShared.TitleSurvey(opts.Prompter, &tb)
++			err = prShared.TitleSurvey(opts.Prompter, opts.IO, &tb)
+ 			if err != nil {
+ 				return
+ 			}
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index 7e893395cb2..1242af2c5e8 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -379,7 +379,7 @@ func createRun(opts *CreateOptions) (err error) {
+ 	} else {
+ 
+ 		if !opts.TitleProvided {
+-			err = shared.TitleSurvey(opts.Prompter, state)
++			err = shared.TitleSurvey(opts.Prompter, opts.IO, state)
+ 			if err != nil {
+ 				return
+ 			}
+diff --git a/pkg/cmd/pr/shared/survey.go b/pkg/cmd/pr/shared/survey.go
+index 5b8bde0ebd0..ce38535d97b 100644
+--- a/pkg/cmd/pr/shared/survey.go
++++ b/pkg/cmd/pr/shared/survey.go
+@@ -110,10 +110,17 @@ func BodySurvey(p Prompt, state *IssueMetadataState, templateContent string) err
+ 	return nil
+ }
+ 
+-func TitleSurvey(p Prompt, state *IssueMetadataState) error {
+-	result, err := p.Input("Title", state.Title)
+-	if err != nil {
+-		return err
++func TitleSurvey(p Prompt, io *iostreams.IOStreams, state *IssueMetadataState) error {
++	var err error
++	result := ""
++	for result == "" {
++		result, err = p.Input("Title (required)", state.Title)
++		if err != nil {
++			return err
++		}
++		if result == "" {
++			fmt.Fprintf(io.ErrOut, "%s Title cannot be blank\n", io.ColorScheme().FailureIcon())
++		}
+ 	}
+ 
+ 	if result != state.Title {

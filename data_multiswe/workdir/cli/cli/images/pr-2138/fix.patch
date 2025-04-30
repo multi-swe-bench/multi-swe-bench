@@ -1,0 +1,81 @@
+diff --git a/internal/config/config_type.go b/internal/config/config_type.go
+index 0fd85d7f079..badf7ee0006 100644
+--- a/internal/config/config_type.go
++++ b/internal/config/config_type.go
+@@ -16,6 +16,10 @@ const (
+ 	PromptsEnabled     = "enabled"
+ )
+ 
++var configValues = map[string][]string{
++	"git_protocol": {"ssh", "https"},
++}
++
+ // This interface describes interacting with some persistent configuration for gh.
+ type Config interface {
+ 	Get(string, string) (string, error)
+@@ -271,7 +275,33 @@ func (c *fileConfig) GetWithSource(hostname, key string) (string, string, error)
+ 	return value, defaultSource, nil
+ }
+ 
++type InvalidValueError struct {
++	ValidValues []string
++}
++
++func (e InvalidValueError) Error() string {
++	return "invalid value"
++}
++
++func validateConfigEntry(key, value string) error {
++	validValues, found := configValues[key]
++	if !found {
++		return nil
++	}
++
++	for _, v := range validValues {
++		if v == value {
++			return nil
++		}
++	}
++
++	return &InvalidValueError{ValidValues: validValues}
++}
++
+ func (c *fileConfig) Set(hostname, key, value string) error {
++	if err := validateConfigEntry(key, value); err != nil {
++		return err
++	}
+ 	if hostname == "" {
+ 		return c.SetStringValue(key, value)
+ 	} else {
+diff --git a/pkg/cmd/config/config.go b/pkg/cmd/config/config.go
+index 408975629b2..0fb02eb9d7b 100644
+--- a/pkg/cmd/config/config.go
++++ b/pkg/cmd/config/config.go
+@@ -1,9 +1,12 @@
+ package config
+ 
+ import (
++	"errors"
+ 	"fmt"
++	"strings"
+ 
+ 	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/internal/config"
+ 	"github.com/cli/cli/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+ )
+@@ -87,6 +90,14 @@ func NewCmdConfigSet(f *cmdutil.Factory) *cobra.Command {
+ 			key, value := args[0], args[1]
+ 			err = cfg.Set(hostname, key, value)
+ 			if err != nil {
++				var invalidValue *config.InvalidValueError
++				if errors.As(err, &invalidValue) {
++					var values []string
++					for _, v := range invalidValue.ValidValues {
++						values = append(values, fmt.Sprintf("'%s'", v))
++					}
++					return fmt.Errorf("failed to set %q to %q: valid values are %v", key, value, strings.Join(values, ", "))
++				}
+ 				return fmt.Errorf("failed to set %q to %q: %w", key, value, err)
+ 			}
+ 

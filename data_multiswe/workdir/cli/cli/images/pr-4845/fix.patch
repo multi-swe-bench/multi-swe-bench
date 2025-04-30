@@ -1,0 +1,110 @@
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index c6159f2050b..9fbc26e316d 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -524,6 +524,26 @@ func ForkRepo(client *Client, repo ghrepo.Interface, org string) (*Repository, e
+ 	}, nil
+ }
+ 
++func LastCommit(client *Client, repo ghrepo.Interface) (*Commit, error) {
++	var responseData struct {
++		Repository struct {
++			DefaultBranchRef struct {
++				Target struct {
++					Commit `graphql:"... on Commit"`
++				}
++			}
++		} `graphql:"repository(owner: $owner, name: $repo)"`
++	}
++	variables := map[string]interface{}{
++		"owner": githubv4.String(repo.RepoOwner()), "repo": githubv4.String(repo.RepoName()),
++	}
++	gql := graphQLClient(client.http, repo.RepoHost())
++	if err := gql.QueryNamed(context.Background(), "LastCommit", &responseData, variables); err != nil {
++		return nil, err
++	}
++	return &responseData.Repository.DefaultBranchRef.Target.Commit, nil
++}
++
+ // RepoFindForks finds forks of the repo that are affiliated with the viewer
+ func RepoFindForks(client *Client, repo ghrepo.Interface, limit int) ([]*Repository, error) {
+ 	result := struct {
+diff --git a/pkg/cmd/browse/browse.go b/pkg/cmd/browse/browse.go
+index 228553b5aea..7d29f9723bc 100644
+--- a/pkg/cmd/browse/browse.go
++++ b/pkg/cmd/browse/browse.go
+@@ -29,6 +29,7 @@ type BrowseOptions struct {
+ 	HttpClient       func() (*http.Client, error)
+ 	IO               *iostreams.IOStreams
+ 	PathFromRepoRoot func() string
++	GitClient        gitClient
+ 
+ 	SelectorArg string
+ 
+@@ -46,6 +47,7 @@ func NewCmdBrowse(f *cmdutil.Factory, runF func(*BrowseOptions) error) *cobra.Co
+ 		HttpClient:       f.HttpClient,
+ 		IO:               f.IOStreams,
+ 		PathFromRepoRoot: git.PathFromRepoRoot,
++		GitClient:        &localGitClient{},
+ 	}
+ 
+ 	cmd := &cobra.Command{
+@@ -97,6 +99,9 @@ func NewCmdBrowse(f *cmdutil.Factory, runF func(*BrowseOptions) error) *cobra.Co
+ 			); err != nil {
+ 				return err
+ 			}
++			if cmd.Flags().Changed("repo") {
++				opts.GitClient = &remoteGitClient{opts.BaseRepo, opts.HttpClient}
++			}
+ 
+ 			if runF != nil {
+ 				return runF(opts)
+@@ -123,10 +128,11 @@ func runBrowse(opts *BrowseOptions) error {
+ 	}
+ 
+ 	if opts.CommitFlag {
+-		commit, err := git.LastCommit()
+-		if err == nil {
+-			opts.Branch = commit.Sha
++		commit, err := opts.GitClient.LastCommit()
++		if err != nil {
++			return err
+ 		}
++		opts.Branch = commit.Sha
+ 	}
+ 
+ 	section, err := parseSection(baseRepo, opts)
+@@ -245,3 +251,33 @@ func isNumber(arg string) bool {
+ 	_, err := strconv.Atoi(arg)
+ 	return err == nil
+ }
++
++// gitClient is used to implement functions that can be performed on both local and remote git repositories
++type gitClient interface {
++	LastCommit() (*git.Commit, error)
++}
++
++type localGitClient struct{}
++
++type remoteGitClient struct {
++	repo       func() (ghrepo.Interface, error)
++	httpClient func() (*http.Client, error)
++}
++
++func (gc *localGitClient) LastCommit() (*git.Commit, error) { return git.LastCommit() }
++
++func (gc *remoteGitClient) LastCommit() (*git.Commit, error) {
++	httpClient, err := gc.httpClient()
++	if err != nil {
++		return nil, err
++	}
++	repo, err := gc.repo()
++	if err != nil {
++		return nil, err
++	}
++	commit, err := api.LastCommit(api.NewClientFromHTTP(httpClient), repo)
++	if err != nil {
++		return nil, err
++	}
++	return &git.Commit{Sha: commit.OID}, nil
++}

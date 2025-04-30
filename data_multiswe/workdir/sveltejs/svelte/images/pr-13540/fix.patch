@@ -1,0 +1,42 @@
+diff --git a/.changeset/chilly-glasses-retire.md b/.changeset/chilly-glasses-retire.md
+new file mode 100644
+index 000000000000..d98cd25f3141
+--- /dev/null
++++ b/.changeset/chilly-glasses-retire.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: exclude custom elements from HTML tree validation
+diff --git a/packages/svelte/src/html-tree-validation.js b/packages/svelte/src/html-tree-validation.js
+index 9a191ba3f1f5..da5567f56ac4 100644
+--- a/packages/svelte/src/html-tree-validation.js
++++ b/packages/svelte/src/html-tree-validation.js
+@@ -142,12 +142,17 @@ const disallowed_children = {
+  * @returns {boolean}
+  */
+ export function is_tag_valid_with_ancestor(tag, ancestors) {
++	if (tag.includes('-')) return true; // custom elements can be anything
++
+ 	const target = ancestors[ancestors.length - 1];
+ 	const disallowed = disallowed_children[target];
+ 	if (!disallowed) return true;
+ 
+ 	if ('reset_by' in disallowed && disallowed.reset_by) {
+ 		for (let i = ancestors.length - 2; i >= 0; i--) {
++			const ancestor = ancestors[i];
++			if (ancestor.includes('-')) return true; // custom elements can be anything
++
+ 			// A reset means that forbidden descendants are allowed again
+ 			if (disallowed.reset_by.includes(ancestors[i])) {
+ 				return true;
+@@ -166,6 +171,8 @@ export function is_tag_valid_with_ancestor(tag, ancestors) {
+  * @returns {boolean}
+  */
+ export function is_tag_valid_with_parent(tag, parent_tag) {
++	if (tag.includes('-') || parent_tag?.includes('-')) return true; // custom elements can be anything
++
+ 	if (parent_tag !== null) {
+ 		const disallowed = disallowed_children[parent_tag];
+ 

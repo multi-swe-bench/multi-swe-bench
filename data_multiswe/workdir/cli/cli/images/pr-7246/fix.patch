@@ -1,0 +1,192 @@
+diff --git a/pkg/cmd/auth/shared/login_flow.go b/pkg/cmd/auth/shared/login_flow.go
+index 837ff0d64d4..7c2ff163912 100644
+--- a/pkg/cmd/auth/shared/login_flow.go
++++ b/pkg/cmd/auth/shared/login_flow.go
+@@ -200,11 +200,16 @@ func Login(opts *LoginOptions) error {
+ 	}
+ 
+ 	if keyToUpload != "" {
+-		err := sshKeyUpload(httpClient, hostname, keyToUpload, keyTitle)
++		uploaded, err := sshKeyUpload(httpClient, hostname, keyToUpload, keyTitle)
+ 		if err != nil {
+ 			return err
+ 		}
+-		fmt.Fprintf(opts.IO.ErrOut, "%s Uploaded the SSH key to your GitHub account: %s\n", cs.SuccessIcon(), cs.Bold(keyToUpload))
++
++		if uploaded {
++			fmt.Fprintf(opts.IO.ErrOut, "%s Uploaded the SSH key to your GitHub account: %s\n", cs.SuccessIcon(), cs.Bold(keyToUpload))
++		} else {
++			fmt.Fprintf(opts.IO.ErrOut, "%s SSH key already existed on your GitHub account: %s\n", cs.SuccessIcon(), cs.Bold(keyToUpload))
++		}
+ 	}
+ 
+ 	fmt.Fprintf(opts.IO.ErrOut, "%s Logged in as %s\n", cs.SuccessIcon(), cs.Bold(username))
+@@ -223,10 +228,10 @@ func scopesSentence(scopes []string, isEnterprise bool) string {
+ 	return strings.Join(quoted, ", ")
+ }
+ 
+-func sshKeyUpload(httpClient *http.Client, hostname, keyFile string, title string) error {
++func sshKeyUpload(httpClient *http.Client, hostname, keyFile string, title string) (bool, error) {
+ 	f, err := os.Open(keyFile)
+ 	if err != nil {
+-		return err
++		return false, err
+ 	}
+ 	defer f.Close()
+ 
+diff --git a/pkg/cmd/ssh-key/add/add.go b/pkg/cmd/ssh-key/add/add.go
+index e3f5088d261..84d39d1e781 100644
+--- a/pkg/cmd/ssh-key/add/add.go
++++ b/pkg/cmd/ssh-key/add/add.go
+@@ -79,14 +79,18 @@ func runAdd(opts *AddOptions) error {
+ 
+ 	hostname, _ := cfg.Authentication().DefaultHost()
+ 
+-	err = SSHKeyUpload(httpClient, hostname, keyReader, opts.Title)
++	uploaded, err := SSHKeyUpload(httpClient, hostname, keyReader, opts.Title)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	if opts.IO.IsStdoutTTY() {
+-		cs := opts.IO.ColorScheme()
++	cs := opts.IO.ColorScheme()
++
++	if uploaded {
+ 		fmt.Fprintf(opts.IO.ErrOut, "%s Public key added to your account\n", cs.SuccessIcon())
++	} else {
++		fmt.Fprintf(opts.IO.ErrOut, "%s Public key already exists on your account\n", cs.SuccessIcon())
+ 	}
++
+ 	return nil
+ }
+diff --git a/pkg/cmd/ssh-key/add/http.go b/pkg/cmd/ssh-key/add/http.go
+index 1b8b7b2456e..e716425e0ae 100644
+--- a/pkg/cmd/ssh-key/add/http.go
++++ b/pkg/cmd/ssh-key/add/http.go
+@@ -3,50 +3,73 @@ package add
+ import (
+ 	"bytes"
+ 	"encoding/json"
++	"errors"
+ 	"io"
+ 	"net/http"
++	"strings"
+ 
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/pkg/cmd/ssh-key/shared"
+ )
+ 
+-func SSHKeyUpload(httpClient *http.Client, hostname string, keyFile io.Reader, title string) error {
++// Uploads the provided SSH key. Returns true if the key was uploaded, false if it was not.
++func SSHKeyUpload(httpClient *http.Client, hostname string, keyFile io.Reader, title string) (bool, error) {
+ 	url := ghinstance.RESTPrefix(hostname) + "user/keys"
+ 
+ 	keyBytes, err := io.ReadAll(keyFile)
+ 	if err != nil {
+-		return err
++		return false, err
++	}
++
++	fullUserKey := string(keyBytes)
++	splitKey := strings.Fields(fullUserKey)
++	if len(splitKey) < 2 {
++		return false, errors.New("provided key is not in a valid format")
++	}
++
++	keyToCompare := splitKey[0] + " " + splitKey[1]
++
++	keys, err := shared.UserKeys(httpClient, hostname, "")
++	if err != nil {
++		return false, err
++	}
++
++	for _, k := range keys {
++		if k.Key == keyToCompare {
++			return false, nil
++		}
+ 	}
+ 
+ 	payload := map[string]string{
+ 		"title": title,
+-		"key":   string(keyBytes),
++		"key":   fullUserKey,
+ 	}
+ 
+ 	payloadBytes, err := json.Marshal(payload)
+ 	if err != nil {
+-		return err
++		return false, err
+ 	}
+ 
+ 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+ 	if err != nil {
+-		return err
++		return false, err
+ 	}
+ 
+ 	resp, err := httpClient.Do(req)
+ 	if err != nil {
+-		return err
++		return false, err
+ 	}
+ 	defer resp.Body.Close()
+ 
+ 	if resp.StatusCode > 299 {
+-		return api.HandleHTTPError(resp)
++		return false, api.HandleHTTPError(resp)
+ 	}
+ 
+ 	_, err = io.Copy(io.Discard, resp.Body)
+ 	if err != nil {
+-		return err
++		return false, err
+ 	}
+ 
+-	return nil
++	return true, nil
+ }
+diff --git a/pkg/cmd/ssh-key/list/list.go b/pkg/cmd/ssh-key/list/list.go
+index d057b198c52..0c0cbcd0b1d 100644
+--- a/pkg/cmd/ssh-key/list/list.go
++++ b/pkg/cmd/ssh-key/list/list.go
+@@ -7,6 +7,7 @@ import (
+ 
+ 	"github.com/cli/cli/v2/internal/config"
+ 	"github.com/cli/cli/v2/internal/text"
++	"github.com/cli/cli/v2/pkg/cmd/ssh-key/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/cli/cli/v2/utils"
+@@ -55,7 +56,7 @@ func listRun(opts *ListOptions) error {
+ 
+ 	host, _ := cfg.Authentication().DefaultHost()
+ 
+-	sshKeys, err := userKeys(apiClient, host, "")
++	sshKeys, err := shared.UserKeys(apiClient, host, "")
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/pkg/cmd/ssh-key/list/http.go b/pkg/cmd/ssh-key/shared/user_keys.go
+similarity index 91%
+rename from pkg/cmd/ssh-key/list/http.go
+rename to pkg/cmd/ssh-key/shared/user_keys.go
+index 7275615e0dd..57f309d1924 100644
+--- a/pkg/cmd/ssh-key/list/http.go
++++ b/pkg/cmd/ssh-key/shared/user_keys.go
+@@ -1,4 +1,4 @@
+-package list
++package shared
+ 
+ import (
+ 	"encoding/json"
+@@ -18,7 +18,7 @@ type sshKey struct {
+ 	CreatedAt time.Time `json:"created_at"`
+ }
+ 
+-func userKeys(httpClient *http.Client, host, userHandle string) ([]sshKey, error) {
++func UserKeys(httpClient *http.Client, host, userHandle string) ([]sshKey, error) {
+ 	resource := "user/keys"
+ 	if userHandle != "" {
+ 		resource = fmt.Sprintf("users/%s/keys", userHandle)

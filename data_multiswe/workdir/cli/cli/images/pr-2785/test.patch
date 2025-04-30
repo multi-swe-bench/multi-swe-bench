@@ -1,0 +1,22 @@
+diff --git a/pkg/cmd/auth/status/status_test.go b/pkg/cmd/auth/status/status_test.go
+index 4eb37bd3671..e917f621c0c 100644
+--- a/pkg/cmd/auth/status/status_test.go
++++ b/pkg/cmd/auth/status/status_test.go
+@@ -190,6 +190,17 @@ func Test_statusRun(t *testing.T) {
+ 					httpmock.StringResponse(`{"data":{"viewer":{"login":"tess"}}}`))
+ 			},
+ 			wantErrOut: regexp.MustCompile(`(?s)Token: xyz456.*Token: abc123`),
++		}, {
++			name: "missing hostname",
++			opts: &StatusOptions{
++				Hostname: "github.example.com",
++			},
++			cfg: func(c config.Config) {
++				_ = c.Set("github.com", "oauth_token", "abc123")
++			},
++			httpStubs:  func(reg *httpmock.Registry) {},
++			wantErrOut: regexp.MustCompile(`(?s)Hostname "github.example.com" not found among authenticated GitHub hosts`),
++			wantErr:    "SilentError",
+ 		},
+ 	}
+ 

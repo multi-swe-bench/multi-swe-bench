@@ -1,0 +1,58 @@
+diff --git a/.changeset/silent-tips-cover.md b/.changeset/silent-tips-cover.md
+new file mode 100644
+index 000000000000..1f51572cda24
+--- /dev/null
++++ b/.changeset/silent-tips-cover.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: make `defaultValue` work with spread
+diff --git a/packages/svelte/src/internal/client/dom/elements/attributes.js b/packages/svelte/src/internal/client/dom/elements/attributes.js
+index 0276069eee49..b283fca8cd7b 100644
+--- a/packages/svelte/src/internal/client/dom/elements/attributes.js
++++ b/packages/svelte/src/internal/client/dom/elements/attributes.js
+@@ -347,16 +347,39 @@ export function set_attributes(
+ 		} else if (key === '__value' || (key === 'value' && value != null)) {
+ 			// @ts-ignore
+ 			element.value = element[key] = element.__value = value;
++		} else if (key === 'selected' && is_option_element) {
++			set_selected(/** @type {HTMLOptionElement} */ (element), value);
+ 		} else {
+ 			var name = key;
+ 			if (!preserve_attribute_case) {
+ 				name = normalize_attribute(name);
+ 			}
+ 
+-			if (value == null && !is_custom_element) {
++			var is_default = name === 'defaultValue' || name === 'defaultChecked';
++
++			if (value == null && !is_custom_element && !is_default) {
+ 				attributes[key] = null;
+-				element.removeAttribute(key);
+-			} else if (setters.includes(name) && (is_custom_element || typeof value !== 'string')) {
++
++				if (name === 'value' || name === 'checked') {
++					// removing value/checked also removes defaultValue/defaultChecked — preserve
++					let input = /** @type {HTMLInputElement} */ (element);
++
++					if (name === 'value') {
++						let prev = input.defaultValue;
++						input.removeAttribute(name);
++						input.defaultValue = prev;
++					} else {
++						let prev = input.defaultChecked;
++						input.removeAttribute(name);
++						input.defaultChecked = prev;
++					}
++				} else {
++					element.removeAttribute(key);
++				}
++			} else if (
++				is_default ||
++				(setters.includes(name) && (is_custom_element || typeof value !== 'string'))
++			) {
+ 				// @ts-ignore
+ 				element[name] = value;
+ 			} else if (typeof value !== 'function') {

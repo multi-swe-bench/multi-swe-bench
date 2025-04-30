@@ -1,0 +1,72 @@
+diff --git a/.release-notes/4593.md b/.release-notes/4593.md
+new file mode 100644
+index 0000000000..44becdec2e
+--- /dev/null
++++ b/.release-notes/4593.md
+@@ -0,0 +1,3 @@
++## Apply default options for a CLI parent command when a sub command is parsed
++
++In the CLI package's parser, a default option for a parent command was ignored when a subcommand was present. This fix makes sure that parents' defaults are applied before handling the sub command.
+diff --git a/packages/cli/command_parser.pony b/packages/cli/command_parser.pony
+index a5acce8eab..41f4e17afc 100644
+--- a/packages/cli/command_parser.pony
++++ b/packages/cli/command_parser.pony
+@@ -98,6 +98,12 @@ class CommandParser
+           try
+             match _spec.commands()(token)?
+             | let cs: CommandSpec box =>
++              // check args and assign defaults
++              match _check_args(options, args, envsmap, arg_pos)
++              | let se: SyntaxError =>
++                return se
++              end
++
+               return CommandParser._sub(cs, this).
+                 _parse_command(tokens, options, args, envsmap, opt_stop)
+             end
+@@ -143,6 +149,29 @@ class CommandParser
+       return Help.general(_root_spec())
+     end
+ 
++    // check args and assign defaults
++    match _check_args(options, args, envsmap, arg_pos)
++    | let se: SyntaxError =>
++      return se
++    end
++
++    // Specifying only the parent and not a leaf command is an error.
++    if _spec.is_parent() then
++      return SyntaxError(_spec.name(), "missing subcommand")
++    end
++
++    // A successfully parsed and populated leaf Command.
++    Command._create(_spec, _fullname(), consume options, args)
++
++  fun _check_args(
++    options: Map[String,Option] ref,
++    args: Map[String,Arg] ref,
++    envsmap: Map[String, String] box,
++    arg_pos': USize)
++    : (SyntaxError | USize)
++  =>
++    var arg_pos = arg_pos'
++
+     // Fill in option values from env or from coded defaults.
+     for os in _spec.options().values() do
+       if not options.contains(os.name()) then
+@@ -190,14 +219,7 @@ class CommandParser
+       end
+       arg_pos = arg_pos + 1
+     end
+-
+-    // Specifying only the parent and not a leaf command is an error.
+-    if _spec.is_parent() then
+-      return SyntaxError(_spec.name(), "missing subcommand")
+-    end
+-
+-    // A successfully parsed and populated leaf Command.
+-    Command._create(_spec, _fullname(), consume options, args)
++    arg_pos
+ 
+   fun _parse_long_option(
+     token: String,

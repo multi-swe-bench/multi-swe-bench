@@ -1,0 +1,45 @@
+diff --git a/tests/Makefile b/tests/Makefile
+index 813380cc2e1..81e6857802d 100644
+--- a/tests/Makefile
++++ b/tests/Makefile
+@@ -27,6 +27,9 @@ DEBUGLEVEL ?= 1
+ DEBUGFLAGS  = -g -DDEBUGLEVEL=$(DEBUGLEVEL)
+ CPPFLAGS   += -I$(ZSTDDIR) -I$(ZSTDDIR)/common -I$(ZSTDDIR)/compress \
+               -I$(ZSTDDIR)/dictBuilder -I$(ZSTDDIR)/deprecated -I$(PRGDIR)
++ifeq ($(OS),Windows_NT)   # MinGW assumed
++CPPFLAGS   += -D__USE_MINGW_ANSI_STDIO   # compatibility with %zu formatting
++endif
+ CFLAGS     ?= -O3
+ CFLAGS     += -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow                 \
+               -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement \
+diff --git a/tests/fuzzer.c b/tests/fuzzer.c
+index 8856a504a22..6d57afa1621 100644
+--- a/tests/fuzzer.c
++++ b/tests/fuzzer.c
+@@ -412,6 +412,26 @@ static int basicUnitTests(U32 seed, double compressibility)
+     }
+     DISPLAYLEVEL(3, "OK \n");
+ 
++    DISPLAYLEVEL(3, "test%3d : re-using a CCtx should compress the same : ", testNb++);
++    {   int i;
++        for (i=0; i<20; i++)
++            ((char*)CNBuffer)[i] = (char)i;   /* ensure no match during initial section */
++        memcpy((char*)CNBuffer + 20, CNBuffer, 10);   /* create one match, starting from beginning of sample, which is the difficult case (see #1241) */
++        for (i=1; i<=19; i++) {
++            ZSTD_CCtx* const cctx = ZSTD_createCCtx();
++            size_t size1, size2;
++            DISPLAYLEVEL(5, "l%i ", i);
++            size1 = ZSTD_compressCCtx(cctx, compressedBuffer, compressedBufferSize, CNBuffer, 30, i);
++            CHECK_Z(size1);
++            size2 = ZSTD_compressCCtx(cctx, compressedBuffer, compressedBufferSize, CNBuffer, 30, i);
++            CHECK_Z(size2);
++            CHECK_EQ(size1, size2);
++
++            ZSTD_freeCCtx(cctx);
++        }
++    }
++    DISPLAYLEVEL(3, "OK \n");
++
+     DISPLAYLEVEL(3, "test%3d : ZSTD_CCtx_getParameter() : ", testNb++);
+     {   ZSTD_CCtx* const cctx = ZSTD_createCCtx();
+         ZSTD_outBuffer out = {NULL, 0, 0};

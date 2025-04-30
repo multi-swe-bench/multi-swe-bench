@@ -1,0 +1,95 @@
+diff --git a/docs/google-cloud-build.md b/docs/google-cloud-build.md
+index b2679ff5e2..71d779bdaa 100644
+--- a/docs/google-cloud-build.md
++++ b/docs/google-cloud-build.md
+@@ -13,7 +13,7 @@ Any Java container can be used for building, not only the `gcr.io/cloud-builders
+ 
+ ```yaml
+ steps:
+-  - name: 'docker.io/library/eclipse-temurin:17'
++  - name: 'docker.io/library/eclipse-temurin:21'
+     entrypoint: './gradlew'
+     args: ['--console=plain', '--no-daemon', ':server:jib', '-Djib.to.image=gcr.io/$PROJECT_ID/$REPO_NAME:$COMMIT_SHA']
+ ```
+diff --git a/jib-cli/src/main/java/com/google/cloud/tools/jib/cli/jar/JarFiles.java b/jib-cli/src/main/java/com/google/cloud/tools/jib/cli/jar/JarFiles.java
+index 7c59cf86da..ca06fdc273 100644
+--- a/jib-cli/src/main/java/com/google/cloud/tools/jib/cli/jar/JarFiles.java
++++ b/jib-cli/src/main/java/com/google/cloud/tools/jib/cli/jar/JarFiles.java
+@@ -89,6 +89,9 @@ private static String getDefaultBaseImage(ArtifactProcessor processor) {
+     if (processor.getJavaVersion() <= 11) {
+       return "eclipse-temurin:11-jre";
+     }
+-    return "eclipse-temurin:17-jre";
++    if (processor.getJavaVersion() <= 17) {
++      return "eclipse-temurin:17-jre";
++    }
++    return "eclipse-temurin:21-jre";
+   }
+ }
+diff --git a/jib-gradle-plugin/README.md b/jib-gradle-plugin/README.md
+index 99fd6af328..72f92b3d9e 100644
+--- a/jib-gradle-plugin/README.md
++++ b/jib-gradle-plugin/README.md
+@@ -212,7 +212,7 @@ Field | Type | Default | Description
+ 
+ Property | Type | Default | Description
+ --- | --- | --- | ---
+-`image` | `String` | `eclipse-temurin:{8,11,17}-jre` (or `jetty` for WAR) | The image reference for the base image. The source type can be specified using a [special type prefix](#setting-the-base-image).
++`image` | `String` | `eclipse-temurin:{8,11,17,21}-jre` (or `jetty` for WAR) | The image reference for the base image. The source type can be specified using a [special type prefix](#setting-the-base-image).
+ `auth` | [`auth`](#auth-closure) | *None* | Specifies credentials directly (alternative to `credHelper`).
+ `credHelper` | `String` | *None* | Specifies a credential helper that can authenticate pulling the base image. This parameter can either be configured as an absolute path to the credential helper executable or as a credential helper suffix (following `docker-credential-`).
+ `platforms` | [`platforms`](#platforms-closure) | See [`platforms`](#platforms-closure) | Configures platforms of base images to select from a manifest list.
+diff --git a/jib-maven-plugin/README.md b/jib-maven-plugin/README.md
+index a9f88516b8..37d347355a 100644
+--- a/jib-maven-plugin/README.md
++++ b/jib-maven-plugin/README.md
+@@ -261,7 +261,7 @@ Field | Type | Default | Description
+ 
+ Property | Type | Default | Description
+ --- | --- | --- | ---
+-`image` | string | `eclipse-temurin:{8,11,17}-jre` (or `jetty` for WAR) | The image reference for the base image. The source type can be specified using a [special type prefix](#setting-the-base-image).
++`image` | string | `eclipse-temurin:{8,11,17,21}-jre` (or `jetty` for WAR) | The image reference for the base image. The source type can be specified using a [special type prefix](#setting-the-base-image).
+ `auth` | [`auth`](#auth-object) | *None* | Specifies credentials directly (alternative to `credHelper`).
+ `credHelper` | string | *None* | Specifies a credential helper that can authenticate pulling the base image. This parameter can either be configured as an absolute path to the credential helper executable or as a credential helper suffix (following `docker-credential-`).
+ `platforms` | list | See [`platform`](#platform-object) | Configures platforms of base images to select from a manifest list.
+diff --git a/jib-plugins-common/src/main/java/com/google/cloud/tools/jib/plugins/common/PluginConfigurationProcessor.java b/jib-plugins-common/src/main/java/com/google/cloud/tools/jib/plugins/common/PluginConfigurationProcessor.java
+index 21b314dc29..f5b8f1f7d1 100644
+--- a/jib-plugins-common/src/main/java/com/google/cloud/tools/jib/plugins/common/PluginConfigurationProcessor.java
++++ b/jib-plugins-common/src/main/java/com/google/cloud/tools/jib/plugins/common/PluginConfigurationProcessor.java
+@@ -530,6 +530,9 @@ static JavaContainerBuilder getJavaContainerBuilderWithBaseImage(
+     if (isKnownJava17Image(prefixRemoved) && javaVersion > 17) {
+       throw new IncompatibleBaseImageJavaVersionException(17, javaVersion);
+     }
++    if (isKnownJava21Image(prefixRemoved) && javaVersion > 21) {
++      throw new IncompatibleBaseImageJavaVersionException(21, javaVersion);
++    }
+ 
+     ImageReference baseImageReference = ImageReference.parse(prefixRemoved);
+     if (baseImageConfig.startsWith(Jib.DOCKER_DAEMON_IMAGE_PREFIX)) {
+@@ -772,8 +775,10 @@ static String getDefaultBaseImage(ProjectProperties projectProperties)
+       return "eclipse-temurin:11-jre";
+     } else if (javaVersion <= 17) {
+       return "eclipse-temurin:17-jre";
++    } else if (javaVersion <= 21) {
++      return "eclipse-temurin:21-jre";
+     }
+-    throw new IncompatibleBaseImageJavaVersionException(17, javaVersion);
++    throw new IncompatibleBaseImageJavaVersionException(21, javaVersion);
+   }
+ 
+   /**
+@@ -1097,4 +1102,14 @@ private static boolean isKnownJava11Image(String imageReference) {
+   private static boolean isKnownJava17Image(String imageReference) {
+     return imageReference.startsWith("eclipse-temurin:17");
+   }
++
++  /**
++   * Checks if the given image is a known Java 21 image. May return false negative.
++   *
++   * @param imageReference the image reference
++   * @return {@code true} if the image is a known Java 21 image
++   */
++  private static boolean isKnownJava21Image(String imageReference) {
++    return imageReference.startsWith("eclipse-temurin:21");
++  }
+ }

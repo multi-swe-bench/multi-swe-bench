@@ -1,0 +1,80 @@
+diff --git a/docs/en/I18n.md b/docs/en/I18n.md
+index 0e04268b8..d931d32ed 100644
+--- a/docs/en/I18n.md
++++ b/docs/en/I18n.md
+@@ -81,6 +81,7 @@ const localeObject = {
+   weekdays: 'Domingo_Lunes ...'.split('_'), // weekdays Array
+   weekdaysShort: 'Sun_M'.split('_'), // OPTIONAL, short weekdays Array, use first three letters if not provided
+   weekdaysMin: 'Su_Mo'.split('_'), // OPTIONAL, min weekdays Array, use first two letters if not provided
++  weekStart: 1, // OPTIONAL, set the start of a week. If the value is 1, Monday will be the start of week instead of Sunday。
+   months: 'Enero_Febrero ... '.split('_'), // months Array
+   monthsShort: 'Jan_F'.split('_'), // OPTIONAL, short months Array, use first three letters if not provided
+   ordinal: n => `${n}º`, // ordinal Function (number) => return number + output
+diff --git a/docs/ja/I18n.md b/docs/ja/I18n.md
+index 4110f1f95..eb8f138f8 100644
+--- a/docs/ja/I18n.md
++++ b/docs/ja/I18n.md
+@@ -83,6 +83,7 @@ const localeObject = {
+   weekdays: 'Domingo_Lunes ...'.split('_'), // 曜日の配列
+   weekdaysShort: 'Sun_M'.split('_'), // OPTIONAL, short weekdays Array, use first three letters if not provided
+   weekdaysMin: 'Su_Mo'.split('_'), // OPTIONAL, min weekdays Array, use first two letters if not provided
++  weekStart: 1, // OPTIONAL, 最初の曜日を指定する。０は日曜日です。１は月曜日です。
+   months: 'Enero_Febrero ... '.split('_'), // 月の配列
+   monthsShort: 'Jan_F'.split('_'), // OPTIONAL, short months Array, use first three letters if not provided
+   ordinal: n => `${n}º`, // 序数 Function (number) => return number + output
+diff --git a/docs/ko/I18n.md b/docs/ko/I18n.md
+index 17cacfb46..6252a0d92 100644
+--- a/docs/ko/I18n.md
++++ b/docs/ko/I18n.md
+@@ -81,6 +81,7 @@ const localeObject = {
+   weekdays: 'Domingo_Lunes ...'.split('_'), // weekdays Array
+   weekdaysShort: 'Sun_M'.split('_'), // OPTIONAL, short weekdays Array, use first three letters if not provided
+   weekdaysMin: 'Su_Mo'.split('_'), // OPTIONAL, min weekdays Array, use first two letters if not provided
++  weekStart: 1, // OPTIONAL, set the start of a week. If the value is 1, Monday will be the start of week instead of Sunday。
+   months: 'Enero_Febrero ... '.split('_'), // months Array
+   monthsShort: 'Jan_F'.split('_'), // OPTIONAL, short months Array, use first three letters if not provided
+   ordinal: n => `${n}º`, // ordinal Function (number) => return number + output
+diff --git a/docs/pt-br/I18n.md b/docs/pt-br/I18n.md
+index b6c4f23fe..efdc8ec40 100644
+--- a/docs/pt-br/I18n.md
++++ b/docs/pt-br/I18n.md
+@@ -81,6 +81,7 @@ const objetoLocale = {
+   weekdays: 'Domingo_Lunes ...'.split('_'), // dias da semana: Array
+   weekdaysShort: 'Sun_M'.split('_'), // OPCIONAL, dias da semana com nome curto: Array, utiliza as três primeiras letras se nenhuma for especificada
+   weekdaysMin: 'Su_Mo'.split('_'), // OPCIONAL, dias da semana com nome mínimo: Array, utiliza as duas primeiras letras se nenhuma for especificada
++  weekStart: 1, // OPTIONAL, set the start of a week. If the value is 1, Monday will be the start of week instead of Sunday。
+   months: 'Enero_Febrero ... '.split('_'), // meses: Array
+   monthsShort: 'Jan_F'.split('_'), // OPCIONAL, meses com nome curto: Array, utiliza as três primeiras letras se nenhuma for especificada
+   ordinal: n => `${n}º`, // ordinal: Function (number) => retorna number + saída
+diff --git a/docs/zh-cn/I18n.md b/docs/zh-cn/I18n.md
+index e95566e37..82d92907f 100644
+--- a/docs/zh-cn/I18n.md
++++ b/docs/zh-cn/I18n.md
+@@ -81,6 +81,7 @@ const localeObject = {
+   weekdays: 'Domingo_Lunes ...'.split('_'), // 星期 Array
+   weekdaysShort: 'Sun_M'.split('_'), // 可选, 短的星期 Array, 如果没提供则使用前三个字符
+   weekdaysMin: 'Su_Mo'.split('_'), // 可选, 最短的星期 Array, 如果没提供则使用前两个字符
++  weekStart: 1, // 可选，指定一周的第一天。默认为0，即周日。如果为1，则周一为一周得第一天。
+   months: 'Enero_Febrero ... '.split('_'), // 月份 Array
+   monthsShort: 'Jan_F'.split('_'), // 可选, 短的月份 Array, 如果没提供则使用前三个字符
+   ordinal: n => `${n}º`, // 序号生成工厂函数 Function (number) => return number + output
+diff --git a/src/index.js b/src/index.js
+index 972e26120..d118279e4 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -171,9 +171,12 @@ class Dayjs {
+       case C.M:
+         return isStartOf ? instanceFactory(1, this.$M) :
+           instanceFactory(0, this.$M + 1)
+-      case C.W:
+-        return isStartOf ? instanceFactory(this.$D - this.$W, this.$M) :
+-          instanceFactory(this.$D + (6 - this.$W), this.$M)
++      case C.W: {
++        const l = this.$locale()
++        const weekStart = l && l.weekStart === 1 ? 1 : 0
++        return isStartOf ? instanceFactory(this.$D - (this.$W - weekStart), this.$M) :
++          instanceFactory(this.$D + (6 - (this.$W - weekStart)), this.$M)
++      }
+       case C.D:
+       case C.DATE:
+         return instanceFactorySet('setHours', 0)

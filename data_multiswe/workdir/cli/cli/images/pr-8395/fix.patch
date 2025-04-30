@@ -1,0 +1,188 @@
+diff --git a/internal/docs/man.go b/internal/docs/man.go
+index 4864140f172..1643fdd9846 100644
+--- a/internal/docs/man.go
++++ b/internal/docs/man.go
+@@ -149,10 +149,15 @@ func manPrintFlags(buf *bytes.Buffer, flags *pflag.FlagSet) {
+ 		} else {
+ 			buf.WriteString(fmt.Sprintf("`--%s`", flag.Name))
+ 		}
+-		if varname == "" {
++
++		defval := getDefaultValueDisplayString(flag)
++
++		if varname == "" && defval != "" {
++			buf.WriteString(fmt.Sprintf(" `%s`\n", strings.TrimSpace(defval)))
++		} else if varname == "" {
+ 			buf.WriteString("\n")
+ 		} else {
+-			buf.WriteString(fmt.Sprintf(" `<%s>`\n", varname))
++			buf.WriteString(fmt.Sprintf(" `<%s>%s`\n", varname, defval))
+ 		}
+ 		buf.WriteString(fmt.Sprintf(":   %s\n\n", usage))
+ 	})
+diff --git a/internal/docs/markdown.go b/internal/docs/markdown.go
+index 41fe3a1fd5b..8a193d0b6bb 100644
+--- a/internal/docs/markdown.go
++++ b/internal/docs/markdown.go
+@@ -46,17 +46,43 @@ func hasNonHelpFlags(fs *pflag.FlagSet) (found bool) {
+ 	return
+ }
+ 
++var hiddenFlagDefaults = map[string]bool{
++	"false": true,
++	"":      true,
++	"[]":    true,
++	"0s":    true,
++}
++
++var defaultValFormats = map[string]string{
++	"string":   " (default \"%s\")",
++	"duration": " (default \"%s\")",
++}
++
++func getDefaultValueDisplayString(f *pflag.Flag) string {
++
++	if hiddenFlagDefaults[f.DefValue] || hiddenFlagDefaults[f.Value.Type()] {
++		return ""
++	}
++
++	if dvf, found := defaultValFormats[f.Value.Type()]; found {
++		return fmt.Sprintf(dvf, f.Value)
++	}
++	return fmt.Sprintf(" (default %s)", f.Value)
++
++}
++
+ type flagView struct {
+ 	Name      string
+ 	Varname   string
+ 	Shorthand string
++	DefValue  string
+ 	Usage     string
+ }
+ 
+ var flagsTemplate = `
+ <dl class="flags">{{ range . }}
+-	<dt>{{ if .Shorthand }}<code>-{{.Shorthand}}</code>, {{ end -}}
+-		<code>--{{.Name}}{{ if .Varname }} &lt;{{.Varname}}&gt;{{ end }}</code></dt>
++	<dt>{{ if .Shorthand }}<code>-{{.Shorthand}}</code>, {{ end }}
++		<code>--{{.Name}}{{ if .Varname }} &lt;{{.Varname}}&gt;{{ end }}{{.DefValue}} </code></dt>
+ 	<dd>{{.Usage}}</dd>
+ {{ end }}</dl>
+ `
+@@ -70,10 +96,12 @@ func printFlagsHTML(w io.Writer, fs *pflag.FlagSet) error {
+ 			return
+ 		}
+ 		varname, usage := pflag.UnquoteUsage(f)
++
+ 		flags = append(flags, flagView{
+ 			Name:      f.Name,
+ 			Varname:   varname,
+ 			Shorthand: f.Shorthand,
++			DefValue:  getDefaultValueDisplayString(f),
+ 			Usage:     usage,
+ 		})
+ 	})
+diff --git a/pkg/cmd/config/config.go b/pkg/cmd/config/config.go
+index 4384baaf09a..20a66027966 100644
+--- a/pkg/cmd/config/config.go
++++ b/pkg/cmd/config/config.go
+@@ -19,8 +19,11 @@ func NewCmdConfig(f *cmdutil.Factory) *cobra.Command {
+ 	longDoc.WriteString("Current respected settings:\n")
+ 	for _, co := range config.ConfigOptions() {
+ 		longDoc.WriteString(fmt.Sprintf("- `%s`: %s", co.Key, co.Description))
++		if len(co.AllowedValues) > 0 {
++			longDoc.WriteString(fmt.Sprintf(" {%s}", strings.Join(co.AllowedValues, "|")))
++		}
+ 		if co.DefaultValue != "" {
+-			longDoc.WriteString(fmt.Sprintf(" (default: %q)", co.DefaultValue))
++			longDoc.WriteString(fmt.Sprintf(" (default %s)", co.DefaultValue))
+ 		}
+ 		longDoc.WriteRune('\n')
+ 	}
+diff --git a/pkg/cmd/gist/create/create.go b/pkg/cmd/gist/create/create.go
+index 5dec11cb7dc..ad293419f41 100644
+--- a/pkg/cmd/gist/create/create.go
++++ b/pkg/cmd/gist/create/create.go
+@@ -96,7 +96,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ 	cmd.Flags().StringVarP(&opts.Description, "desc", "d", "", "A description for this gist")
+ 	cmd.Flags().BoolVarP(&opts.WebMode, "web", "w", false, "Open the web browser with created gist")
+-	cmd.Flags().BoolVarP(&opts.Public, "public", "p", false, "List the gist publicly (default: secret)")
++	cmd.Flags().BoolVarP(&opts.Public, "public", "p", false, "List the gist publicly (default \"secret\")")
+ 	cmd.Flags().StringVarP(&opts.FilenameOverride, "filename", "f", "", "Provide a filename to be used when reading from standard input")
+ 	return cmd
+ }
+diff --git a/pkg/cmd/pr/checkout/checkout.go b/pkg/cmd/pr/checkout/checkout.go
+index 389d554be43..269c8aaab4e 100644
+--- a/pkg/cmd/pr/checkout/checkout.go
++++ b/pkg/cmd/pr/checkout/checkout.go
+@@ -65,7 +65,7 @@ func NewCmdCheckout(f *cmdutil.Factory, runF func(*CheckoutOptions) error) *cobr
+ 	cmd.Flags().BoolVarP(&opts.RecurseSubmodules, "recurse-submodules", "", false, "Update all submodules after checkout")
+ 	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Reset the existing local branch to the latest state of the pull request")
+ 	cmd.Flags().BoolVarP(&opts.Detach, "detach", "", false, "Checkout PR with a detached HEAD")
+-	cmd.Flags().StringVarP(&opts.BranchName, "branch", "b", "", "Local branch name to use (default: the name of the head branch)")
++	cmd.Flags().StringVarP(&opts.BranchName, "branch", "b", "", "Local branch name to use (default [the name of the head branch])")
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/pr/create/create.go b/pkg/cmd/pr/create/create.go
+index 4b37001bbe0..a1d6798694e 100644
+--- a/pkg/cmd/pr/create/create.go
++++ b/pkg/cmd/pr/create/create.go
+@@ -203,7 +203,7 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 	fl.StringVarP(&opts.Body, "body", "b", "", "Body for the pull request")
+ 	fl.StringVarP(&bodyFile, "body-file", "F", "", "Read body text from `file` (use \"-\" to read from standard input)")
+ 	fl.StringVarP(&opts.BaseBranch, "base", "B", "", "The `branch` into which you want your code merged")
+-	fl.StringVarP(&opts.HeadBranch, "head", "H", "", "The `branch` that contains commits for your pull request (default: current branch)")
++	fl.StringVarP(&opts.HeadBranch, "head", "H", "", "The `branch` that contains commits for your pull request (default [current branch])")
+ 	fl.BoolVarP(&opts.WebMode, "web", "w", false, "Open the web browser to create a pull request")
+ 	fl.BoolVarP(&opts.FillVerbose, "fill-verbose", "", false, "Use commits msg+body for description")
+ 	fl.BoolVarP(&opts.Autofill, "fill", "f", false, "Use commit info for title and body")
+diff --git a/pkg/cmd/release/create/create.go b/pkg/cmd/release/create/create.go
+index 8c8f58a61d2..f575a339a09 100644
+--- a/pkg/cmd/release/create/create.go
++++ b/pkg/cmd/release/create/create.go
+@@ -178,14 +178,14 @@ func NewCmdCreate(f *cmdutil.Factory, runF func(*CreateOptions) error) *cobra.Co
+ 
+ 	cmd.Flags().BoolVarP(&opts.Draft, "draft", "d", false, "Save the release as a draft instead of publishing it")
+ 	cmd.Flags().BoolVarP(&opts.Prerelease, "prerelease", "p", false, "Mark the release as a prerelease")
+-	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default: main branch)")
++	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default [main branch])")
+ 	cmd.Flags().StringVarP(&opts.Name, "title", "t", "", "Release title")
+ 	cmd.Flags().StringVarP(&opts.Body, "notes", "n", "", "Release notes")
+ 	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file` (use \"-\" to read from standard input)")
+ 	cmd.Flags().StringVarP(&opts.DiscussionCategory, "discussion-category", "", "", "Start a discussion in the specified category")
+ 	cmd.Flags().BoolVarP(&opts.GenerateNotes, "generate-notes", "", false, "Automatically generate title and notes for the release")
+ 	cmd.Flags().StringVar(&opts.NotesStartTag, "notes-start-tag", "", "Tag to use as the starting point for generating release notes")
+-	cmdutil.NilBoolFlag(cmd, &opts.IsLatest, "latest", "", "Mark this release as \"Latest\" (default: automatic based on date and version)")
++	cmdutil.NilBoolFlag(cmd, &opts.IsLatest, "latest", "", "Mark this release as \"Latest\" (default [automatic based on date and version])")
+ 	cmd.Flags().BoolVarP(&opts.VerifyTag, "verify-tag", "", false, "Abort in case the git tag doesn't already exist in the remote repository")
+ 	cmd.Flags().BoolVarP(&opts.NotesFromTag, "notes-from-tag", "", false, "Automatically generate notes from annotated tag")
+ 
+diff --git a/pkg/cmd/release/edit/edit.go b/pkg/cmd/release/edit/edit.go
+index 0360911bfd2..245041bae83 100644
+--- a/pkg/cmd/release/edit/edit.go
++++ b/pkg/cmd/release/edit/edit.go
+@@ -79,7 +79,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 	cmdutil.NilStringFlag(cmd, &opts.Body, "notes", "n", "Release notes")
+ 	cmdutil.NilStringFlag(cmd, &opts.Name, "title", "t", "Release title")
+ 	cmdutil.NilStringFlag(cmd, &opts.DiscussionCategory, "discussion-category", "", "Start a discussion in the specified category when publishing a draft")
+-	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default: main branch)")
++	cmd.Flags().StringVar(&opts.Target, "target", "", "Target `branch` or full commit SHA (default [main branch])")
+ 	cmd.Flags().StringVar(&opts.TagName, "tag", "", "The name of the tag")
+ 	cmd.Flags().StringVarP(&notesFile, "notes-file", "F", "", "Read release notes from `file` (use \"-\" to read from standard input)")
+ 	cmd.Flags().BoolVar(&opts.VerifyTag, "verify-tag", false, "Abort in case the git tag doesn't already exist in the remote repository")
+diff --git a/pkg/cmd/repo/sync/sync.go b/pkg/cmd/repo/sync/sync.go
+index 94be50bbf5d..87badc7a154 100644
+--- a/pkg/cmd/repo/sync/sync.go
++++ b/pkg/cmd/repo/sync/sync.go
+@@ -83,7 +83,7 @@ func NewCmdSync(f *cmdutil.Factory, runF func(*SyncOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd.Flags().StringVarP(&opts.SrcArg, "source", "s", "", "Source repository")
+-	cmd.Flags().StringVarP(&opts.Branch, "branch", "b", "", "Branch to sync (default: default branch)")
++	cmd.Flags().StringVarP(&opts.Branch, "branch", "b", "", "Branch to sync (default [default branch])")
+ 	cmd.Flags().BoolVarP(&opts.Force, "force", "", false, "Hard reset the branch of the destination repository to match the source repository")
+ 	return cmd
+ }

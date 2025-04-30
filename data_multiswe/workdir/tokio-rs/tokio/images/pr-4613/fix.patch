@@ -1,0 +1,256 @@
+diff --git a/tokio-macros/src/entry.rs b/tokio-macros/src/entry.rs
+index 5cb4a49b430..eba636baf48 100644
+--- a/tokio-macros/src/entry.rs
++++ b/tokio-macros/src/entry.rs
+@@ -1,5 +1,5 @@
+ use proc_macro::TokenStream;
+-use proc_macro2::Span;
++use proc_macro2::{Ident, Span};
+ use quote::{quote, quote_spanned, ToTokens};
+ use syn::parse::Parser;
+ 
+@@ -29,6 +29,7 @@ struct FinalConfig {
+     flavor: RuntimeFlavor,
+     worker_threads: Option<usize>,
+     start_paused: Option<bool>,
++    crate_name: Option<String>,
+ }
+ 
+ /// Config used in case of the attribute not being able to build a valid config
+@@ -36,6 +37,7 @@ const DEFAULT_ERROR_CONFIG: FinalConfig = FinalConfig {
+     flavor: RuntimeFlavor::CurrentThread,
+     worker_threads: None,
+     start_paused: None,
++    crate_name: None,
+ };
+ 
+ struct Configuration {
+@@ -45,6 +47,7 @@ struct Configuration {
+     worker_threads: Option<(usize, Span)>,
+     start_paused: Option<(bool, Span)>,
+     is_test: bool,
++    crate_name: Option<String>,
+ }
+ 
+ impl Configuration {
+@@ -59,6 +62,7 @@ impl Configuration {
+             worker_threads: None,
+             start_paused: None,
+             is_test,
++            crate_name: None,
+         }
+     }
+ 
+@@ -104,6 +108,15 @@ impl Configuration {
+         Ok(())
+     }
+ 
++    fn set_crate_name(&mut self, name: syn::Lit, span: Span) -> Result<(), syn::Error> {
++        if self.crate_name.is_some() {
++            return Err(syn::Error::new(span, "`crate` set multiple times."));
++        }
++        let name_ident = parse_ident(name, span, "crate")?;
++        self.crate_name = Some(name_ident.to_string());
++        Ok(())
++    }
++
+     fn macro_name(&self) -> &'static str {
+         if self.is_test {
+             "tokio::test"
+@@ -151,6 +164,7 @@ impl Configuration {
+         };
+ 
+         Ok(FinalConfig {
++            crate_name: self.crate_name.clone(),
+             flavor,
+             worker_threads,
+             start_paused,
+@@ -185,6 +199,27 @@ fn parse_string(int: syn::Lit, span: Span, field: &str) -> Result<String, syn::E
+     }
+ }
+ 
++fn parse_ident(lit: syn::Lit, span: Span, field: &str) -> Result<Ident, syn::Error> {
++    match lit {
++        syn::Lit::Str(s) => {
++            let err = syn::Error::new(
++                span,
++                format!(
++                    "Failed to parse value of `{}` as ident: \"{}\"",
++                    field,
++                    s.value()
++                ),
++            );
++            let path = s.parse::<syn::Path>().map_err(|_| err.clone())?;
++            path.get_ident().cloned().ok_or(err)
++        }
++        _ => Err(syn::Error::new(
++            span,
++            format!("Failed to parse value of `{}` as ident.", field),
++        )),
++    }
++}
++
+ fn parse_bool(bool: syn::Lit, span: Span, field: &str) -> Result<bool, syn::Error> {
+     match bool {
+         syn::Lit::Bool(b) => Ok(b.value),
+@@ -243,9 +278,15 @@ fn build_config(
+                         let msg = "Attribute `core_threads` is renamed to `worker_threads`";
+                         return Err(syn::Error::new_spanned(namevalue, msg));
+                     }
++                    "crate" => {
++                        config.set_crate_name(
++                            namevalue.lit.clone(),
++                            syn::spanned::Spanned::span(&namevalue.lit),
++                        )?;
++                    }
+                     name => {
+                         let msg = format!(
+-                            "Unknown attribute {} is specified; expected one of: `flavor`, `worker_threads`, `start_paused`",
++                            "Unknown attribute {} is specified; expected one of: `flavor`, `worker_threads`, `start_paused`, `crate`",
+                             name,
+                         );
+                         return Err(syn::Error::new_spanned(namevalue, msg));
+@@ -275,7 +316,7 @@ fn build_config(
+                         format!("The `{}` attribute requires an argument.", name)
+                     }
+                     name => {
+-                        format!("Unknown attribute {} is specified; expected one of: `flavor`, `worker_threads`, `start_paused`", name)
++                        format!("Unknown attribute {} is specified; expected one of: `flavor`, `worker_threads`, `start_paused`, `crate`", name)
+                     }
+                 };
+                 return Err(syn::Error::new_spanned(path, msg));
+@@ -313,12 +354,16 @@ fn parse_knobs(mut input: syn::ItemFn, is_test: bool, config: FinalConfig) -> To
+         (start, end)
+     };
+ 
++    let crate_name = config.crate_name.as_deref().unwrap_or("tokio");
++
++    let crate_ident = Ident::new(crate_name, last_stmt_start_span);
++
+     let mut rt = match config.flavor {
+         RuntimeFlavor::CurrentThread => quote_spanned! {last_stmt_start_span=>
+-            tokio::runtime::Builder::new_current_thread()
++            #crate_ident::runtime::Builder::new_current_thread()
+         },
+         RuntimeFlavor::Threaded => quote_spanned! {last_stmt_start_span=>
+-            tokio::runtime::Builder::new_multi_thread()
++            #crate_ident::runtime::Builder::new_multi_thread()
+         },
+     };
+     if let Some(v) = config.worker_threads {
+diff --git a/tokio-macros/src/lib.rs b/tokio-macros/src/lib.rs
+index 38638a1df8a..b15fd3b7017 100644
+--- a/tokio-macros/src/lib.rs
++++ b/tokio-macros/src/lib.rs
+@@ -168,12 +168,32 @@ use proc_macro::TokenStream;
+ ///
+ /// Note that `start_paused` requires the `test-util` feature to be enabled.
+ ///
+-/// ### NOTE:
++/// ### Rename package
+ ///
+-/// If you rename the Tokio crate in your dependencies this macro will not work.
+-/// If you must rename the current version of Tokio because you're also using an
+-/// older version of Tokio, you _must_ make the current version of Tokio
+-/// available as `tokio` in the module where this macro is expanded.
++/// ```rust
++/// use tokio as tokio1;
++///
++/// #[tokio1::main(crate = "tokio1")]
++/// async fn main() {
++///     println!("Hello world");
++/// }
++/// ```
++///
++/// Equivalent code not using `#[tokio::main]`
++///
++/// ```rust
++/// use tokio as tokio1;
++///
++/// fn main() {
++///     tokio1::runtime::Builder::new_multi_thread()
++///         .enable_all()
++///         .build()
++///         .unwrap()
++///         .block_on(async {
++///             println!("Hello world");
++///         })
++/// }
++/// ```
+ #[proc_macro_attribute]
+ #[cfg(not(test))] // Work around for rust-lang/rust#62127
+ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
+@@ -213,12 +233,32 @@ pub fn main(args: TokenStream, item: TokenStream) -> TokenStream {
+ /// }
+ /// ```
+ ///
+-/// ### NOTE:
++/// ### Rename package
++///
++/// ```rust
++/// use tokio as tokio1;
++///
++/// #[tokio1::main(crate = "tokio1")]
++/// async fn main() {
++///     println!("Hello world");
++/// }
++/// ```
++///
++/// Equivalent code not using `#[tokio::main]`
++///
++/// ```rust
++/// use tokio as tokio1;
+ ///
+-/// If you rename the Tokio crate in your dependencies this macro will not work.
+-/// If you must rename the current version of Tokio because you're also using an
+-/// older version of Tokio, you _must_ make the current version of Tokio
+-/// available as `tokio` in the module where this macro is expanded.
++/// fn main() {
++///     tokio1::runtime::Builder::new_multi_thread()
++///         .enable_all()
++///         .build()
++///         .unwrap()
++///         .block_on(async {
++///             println!("Hello world");
++///         })
++/// }
++/// ```
+ #[proc_macro_attribute]
+ #[cfg(not(test))] // Work around for rust-lang/rust#62127
+ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
+@@ -260,12 +300,16 @@ pub fn main_rt(args: TokenStream, item: TokenStream) -> TokenStream {
+ ///
+ /// Note that `start_paused` requires the `test-util` feature to be enabled.
+ ///
+-/// ### NOTE:
++/// ### Rename package
++///
++/// ```rust
++/// use tokio as tokio1;
+ ///
+-/// If you rename the Tokio crate in your dependencies this macro will not work.
+-/// If you must rename the current version of Tokio because you're also using an
+-/// older version of Tokio, you _must_ make the current version of Tokio
+-/// available as `tokio` in the module where this macro is expanded.
++/// #[tokio1::test(crate = "tokio1")]
++/// async fn my_test() {
++///     println!("Hello world");
++/// }
++/// ```
+ #[proc_macro_attribute]
+ pub fn test(args: TokenStream, item: TokenStream) -> TokenStream {
+     entry::test(args, item, true)
+@@ -281,13 +325,6 @@ pub fn test(args: TokenStream, item: TokenStream) -> TokenStream {
+ ///     assert!(true);
+ /// }
+ /// ```
+-///
+-/// ### NOTE:
+-///
+-/// If you rename the Tokio crate in your dependencies this macro will not work.
+-/// If you must rename the current version of Tokio because you're also using an
+-/// older version of Tokio, you _must_ make the current version of Tokio
+-/// available as `tokio` in the module where this macro is expanded.
+ #[proc_macro_attribute]
+ pub fn test_rt(args: TokenStream, item: TokenStream) -> TokenStream {
+     entry::test(args, item, false)

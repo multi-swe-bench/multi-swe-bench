@@ -1,0 +1,193 @@
+diff --git a/api/client_test.go b/api/client_test.go
+index 29da3363ae1..df0fdf8e2ee 100644
+--- a/api/client_test.go
++++ b/api/client_test.go
+@@ -80,6 +80,26 @@ func TestRESTGetDelete(t *testing.T) {
+ 	assert.NoError(t, err)
+ }
+ 
++func TestRESTWithFullURL(t *testing.T) {
++	http := &httpmock.Registry{}
++	client := NewClient(ReplaceTripper(http))
++
++	http.Register(
++		httpmock.REST("GET", "api/v3/user/repos"),
++		httpmock.StatusStringResponse(200, "{}"))
++	http.Register(
++		httpmock.REST("GET", "user/repos"),
++		httpmock.StatusStringResponse(200, "{}"))
++
++	err := client.REST("example.com", "GET", "user/repos", nil, nil)
++	assert.NoError(t, err)
++	err = client.REST("example.com", "GET", "https://another.net/user/repos", nil, nil)
++	assert.NoError(t, err)
++
++	assert.Equal(t, "example.com", http.Requests[0].URL.Hostname())
++	assert.Equal(t, "another.net", http.Requests[1].URL.Hostname())
++}
++
+ func TestRESTError(t *testing.T) {
+ 	fakehttp := &httpmock.Registry{}
+ 	client := NewClient(ReplaceTripper(fakehttp))
+diff --git a/pkg/cmd/run/shared/test.go b/pkg/cmd/run/shared/test.go
+index e0373d82860..b4eff848dd3 100644
+--- a/pkg/cmd/run/shared/test.go
++++ b/pkg/cmd/run/shared/test.go
+@@ -26,12 +26,12 @@ func TestRun(name string, id int, s Status, c Conclusion) Run {
+ 		Conclusion: c,
+ 		Event:      "push",
+ 		HeadBranch: "trunk",
+-		JobsURL:    fmt.Sprintf("/runs/%d/jobs", id),
++		JobsURL:    fmt.Sprintf("https://api.github.com/runs/%d/jobs", id),
+ 		HeadCommit: Commit{
+ 			Message: "cool commit",
+ 		},
+ 		HeadSha: "1234567890",
+-		URL:     fmt.Sprintf("runs/%d", id),
++		URL:     fmt.Sprintf("https://github.com/runs/%d", id),
+ 		HeadRepository: Repo{
+ 			Owner: struct{ Login string }{Login: "OWNER"},
+ 			Name:  "REPO",
+@@ -68,7 +68,7 @@ var SuccessfulJob Job = Job{
+ 	Name:        "cool job",
+ 	StartedAt:   created(),
+ 	CompletedAt: updated(),
+-	URL:         "jobs/10",
++	URL:         "https://github.com/jobs/10",
+ 	RunID:       3,
+ 	Steps: []Step{
+ 		{
+@@ -93,7 +93,7 @@ var FailedJob Job = Job{
+ 	Name:        "sad job",
+ 	StartedAt:   created(),
+ 	CompletedAt: updated(),
+-	URL:         "jobs/20",
++	URL:         "https://github.com/jobs/20",
+ 	RunID:       1234,
+ 	Steps: []Step{
+ 		{
+diff --git a/pkg/cmd/run/view/view_test.go b/pkg/cmd/run/view/view_test.go
+index 8ddde1cd025..807481ca3b7 100644
+--- a/pkg/cmd/run/view/view_test.go
++++ b/pkg/cmd/run/view/view_test.go
+@@ -207,7 +207,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/10/annotations"),
+ 					httpmock.JSONResponse([]shared.Annotation{}))
+ 			},
+-			wantOut: "\n✓ trunk successful #2898 · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful #2898 · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "exit status, failed run",
+@@ -236,7 +236,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/20/annotations"),
+ 					httpmock.JSONResponse(shared.FailedJobAnnotations))
+ 			},
+-			wantOut: "\nX trunk failed · 1234\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nTo see what failed, try: gh run view 1234 --log-failed\nView this run on GitHub: runs/1234\n",
++			wantOut: "\nX trunk failed · 1234\nTriggered via push about 59 minutes ago\n\nJOBS\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nTo see what failed, try: gh run view 1234 --log-failed\nView this run on GitHub: https://github.com/runs/1234\n",
+ 			wantErr: true,
+ 		},
+ 		{
+@@ -278,7 +278,7 @@ func TestViewRun(t *testing.T) {
+ 				artifact-3
+ 
+ 				For more information about a job, try: gh run view --job=<job-id>
+-				View this run on GitHub: runs/3
++				View this run on GitHub: https://github.com/runs/3
+ 			`),
+ 		},
+ 		{
+@@ -308,7 +308,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/10/annotations"),
+ 					httpmock.JSONResponse([]shared.Annotation{}))
+ 			},
+-			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "verbose",
+@@ -343,7 +343,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/20/annotations"),
+ 					httpmock.JSONResponse(shared.FailedJobAnnotations))
+ 			},
+-			wantOut: "\nX trunk failed · 1234\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nTo see what failed, try: gh run view 1234 --log-failed\nView this run on GitHub: runs/1234\n",
++			wantOut: "\nX trunk failed · 1234\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nTo see what failed, try: gh run view 1234 --log-failed\nView this run on GitHub: https://github.com/runs/1234\n",
+ 		},
+ 		{
+ 			name: "prompts for choice, one job",
+@@ -380,7 +380,7 @@ func TestViewRun(t *testing.T) {
+ 			opts: &ViewOptions{
+ 				Prompt: true,
+ 			},
+-			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "interactive with log",
+@@ -664,7 +664,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/check-runs/10/annotations"),
+ 					httpmock.JSONResponse([]shared.Annotation{}))
+ 			},
+-			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\nTo see the full job log, try: gh run view --log --job=10\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\nTo see the full job log, try: gh run view --log --job=10\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "interactive, multiple jobs, choose all jobs",
+@@ -703,7 +703,7 @@ func TestViewRun(t *testing.T) {
+ 				as.StubOne(2)
+ 				as.StubOne(0)
+ 			},
+-			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\nJOBS\n✓ cool job in 4m34s (ID 10)\nX sad job in 4m34s (ID 20)\n  ✓ barf the quux\n  X quux the barf\n\nANNOTATIONS\nX the job is sad\nsad job: blaze.py#420\n\n\nFor more information about a job, try: gh run view --job=<job-id>\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "interactive, multiple jobs, choose specific jobs",
+@@ -736,7 +736,7 @@ func TestViewRun(t *testing.T) {
+ 				as.StubOne(2)
+ 				as.StubOne(1)
+ 			},
+-			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\nTo see the full job log, try: gh run view --log --job=10\nView this run on GitHub: runs/3\n",
++			wantOut: "\n✓ trunk successful · 3\nTriggered via push about 59 minutes ago\n\n✓ cool job in 4m34s (ID 10)\n  ✓ fob the barz\n  ✓ barz the fob\n\nTo see the full job log, try: gh run view --log --job=10\nView this run on GitHub: https://github.com/runs/3\n",
+ 		},
+ 		{
+ 			name: "web run",
+@@ -750,8 +750,8 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3"),
+ 					httpmock.JSONResponse(shared.SuccessfulRun))
+ 			},
+-			browsedURL: "runs/3",
+-			wantOut:    "Opening runs/3 in your browser.\n",
++			browsedURL: "https://github.com/runs/3",
++			wantOut:    "Opening github.com/runs/3 in your browser.\n",
+ 		},
+ 		{
+ 			name: "web job",
+@@ -768,8 +768,8 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/3"),
+ 					httpmock.JSONResponse(shared.SuccessfulRun))
+ 			},
+-			browsedURL: "jobs/10?check_suite_focus=true",
+-			wantOut:    "Opening jobs/10 in your browser.\n",
++			browsedURL: "https://github.com/jobs/10?check_suite_focus=true",
++			wantOut:    "Opening github.com/jobs/10 in your browser.\n",
+ 		},
+ 		{
+ 			name: "hide job header, failure",
+@@ -788,7 +788,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/123/artifacts"),
+ 					httpmock.StringResponse(`{}`))
+ 			},
+-			wantOut: "\nX trunk failed no job · 123\nTriggered via push about 59 minutes ago\n\nX This run likely failed because of a workflow file issue.\n\nFor more information, see: runs/123\n",
++			wantOut: "\nX trunk failed no job · 123\nTriggered via push about 59 minutes ago\n\nX This run likely failed because of a workflow file issue.\n\nFor more information, see: https://github.com/runs/123\n",
+ 		},
+ 		{
+ 			name: "hide job header, startup_failure",
+@@ -807,7 +807,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.REST("GET", "repos/OWNER/REPO/actions/runs/123/artifacts"),
+ 					httpmock.StringResponse(`{}`))
+ 			},
+-			wantOut: "\nX trunk failed no job · 123\nTriggered via push about 59 minutes ago\n\nX This run likely failed because of a workflow file issue.\n\nFor more information, see: runs/123\n",
++			wantOut: "\nX trunk failed no job · 123\nTriggered via push about 59 minutes ago\n\nX This run likely failed because of a workflow file issue.\n\nFor more information, see: https://github.com/runs/123\n",
+ 		},
+ 	}
+ 

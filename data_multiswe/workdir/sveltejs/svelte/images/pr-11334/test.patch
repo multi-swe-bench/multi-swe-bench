@@ -1,0 +1,353 @@
+diff --git a/packages/svelte/tests/migrate/samples/derivations/input.svelte b/packages/svelte/tests/migrate/samples/derivations/input.svelte
+new file mode 100644
+index 000000000000..9fde4a4359f2
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/derivations/input.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let count = 0;
++	$: doubled = count * 2;
++	$: ({ quadrupled } = { quadrupled: count * 4 });
++</script>
++
++{count} / {doubled} / {quadrupled}
+diff --git a/packages/svelte/tests/migrate/samples/derivations/output.svelte b/packages/svelte/tests/migrate/samples/derivations/output.svelte
+new file mode 100644
+index 000000000000..f6af6dd45069
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/derivations/output.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let count = 0;
++	let doubled = $derived(count * 2);
++	let { quadrupled } = $derived({ quadrupled: count * 4 });
++</script>
++
++{count} / {doubled} / {quadrupled}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/effects/input.svelte b/packages/svelte/tests/migrate/samples/effects/input.svelte
+new file mode 100644
+index 000000000000..f7f1edfb97b3
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/effects/input.svelte
+@@ -0,0 +1,13 @@
++<script>
++	let count = 0;
++	$: console.log(count);
++	$: if (count > 10) {
++		alert('too high')
++	}
++	$: {
++		console.log('foo');
++		if (x) break $;
++		console.log('bar');
++	}
++	$: $count = 1;
++</script>
+diff --git a/packages/svelte/tests/migrate/samples/effects/output.svelte b/packages/svelte/tests/migrate/samples/effects/output.svelte
+new file mode 100644
+index 000000000000..006ce4b23db3
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/effects/output.svelte
+@@ -0,0 +1,21 @@
++<script>
++	import { run } from 'svelte/legacy';
++
++	let count = 0;
++	run(() => {
++		console.log(count);
++	});
++	run(() => {
++		if (count > 10) {
++			alert('too high')
++		}
++	});
++	run(() => {
++		console.log('foo');
++		if (x) return;
++		console.log('bar');
++	});
++	run(() => {
++		$count = 1;
++	});
++</script>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/event-handlers/input.svelte b/packages/svelte/tests/migrate/samples/event-handlers/input.svelte
+new file mode 100644
+index 000000000000..a3cbe7288977
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/event-handlers/input.svelte
+@@ -0,0 +1,17 @@
++<button on:click={() => console.log('hi')} on:click>click me</button>
++<button on:click={() => console.log('before')} on:click on:click={() => console.log('after')}>click me</button>
++<button on:click on:click={foo}>click me</button>
++<button on:click>click me</button>
++
++<button on:dblclick={() => console.log('hi')}>click me</button>
++<button on:toggle>click me</button>
++<button on:custom-event={() => 'hi'}>click me</button>
++<button on:custom-event-bubble>click me</button>
++
++<button on:click|preventDefault={() => ''}>click me</button>
++<button on:click|stopPropagation={() => {}}>click me</button>
++<button on:click|stopImmediatePropagation={() => ''}>click me</button>
++<button on:click|capture={() => ''}>click me</button>
++<button on:click|self={() => ''}>click me</button>
++
++<Button on:click={() => 'leave untouched'} on:click>click me</Button>
+diff --git a/packages/svelte/tests/migrate/samples/event-handlers/output.svelte b/packages/svelte/tests/migrate/samples/event-handlers/output.svelte
+new file mode 100644
+index 000000000000..94103938a2a2
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/event-handlers/output.svelte
+@@ -0,0 +1,47 @@
++<script>
++	/** @type {{onclick?: (event: any) => void, ontoggle?: (event: any) => void, 'oncustom-event-bubble'?: (event: any) => void}} */
++	let { onclick, ontoggle, 'oncustom-event-bubble': oncustom_event_bubble } = $props();
++</script>
++
++<button  onclick={(event) => {
++	console.log('hi')
++
++	onclick?.(event);
++}}>click me</button>
++<button   onclick={(event) => {
++	console.log('before')
++
++	onclick?.(event);
++	console.log('after')
++}}>click me</button>
++<button  onclick={(event) => {
++	onclick?.(event);
++
++	foo?.(event);
++}}>click me</button>
++<button {onclick}>click me</button>
++
++<button ondblclick={() => console.log('hi')}>click me</button>
++<button {ontoggle}>click me</button>
++<button oncustom-event={() => 'hi'}>click me</button>
++<button oncustom-event-bubble={oncustom_event_bubble}>click me</button>
++
++<button onclick={(event) => {
++	event.preventDefault();
++	''
++}}>click me</button>
++<button onclick={(event) => {
++	event.stopPropagation();
++	
++}}>click me</button>
++<button onclick={(event) => {
++	event.stopImmediatePropagation();
++	''
++}}>click me</button>
++<button onclickcapture={() => ''}>click me</button>
++<button onclick={(event) => {
++	// @migration-task: incorporate self modifier
++	''
++}}>click me</button>
++
++<Button on:click={() => 'leave untouched'} on:click>click me</Button>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/props-export-alias/input.svelte b/packages/svelte/tests/migrate/samples/props-export-alias/input.svelte
+new file mode 100644
+index 000000000000..1cb57ef5fd26
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-export-alias/input.svelte
+@@ -0,0 +1,6 @@
++<script lang="ts">
++	let klass = '';
++	export { klass as class }
++</script>
++
++{klass}
+diff --git a/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte b/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte
+new file mode 100644
+index 000000000000..76d25afb08bc
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-export-alias/output.svelte
+@@ -0,0 +1,8 @@
++<script lang="ts">
++	interface Props { class?: string }
++
++	let { class: klass = '' }: Props = $props();
++	
++</script>
++
++{klass}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/props-rest-props/input.svelte b/packages/svelte/tests/migrate/samples/props-rest-props/input.svelte
+new file mode 100644
+index 000000000000..2086c32c526a
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-rest-props/input.svelte
+@@ -0,0 +1,5 @@
++<script>
++    export let foo;
++</script>
++
++<button {foo} {...$$restProps}>click me</button>
+diff --git a/packages/svelte/tests/migrate/samples/props-rest-props/output.svelte b/packages/svelte/tests/migrate/samples/props-rest-props/output.svelte
+new file mode 100644
+index 000000000000..7272cd5db683
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-rest-props/output.svelte
+@@ -0,0 +1,6 @@
++<script>
++    /** @type {{Record<string, any>}} */
++    let { foo, ...rest } = $props();
++</script>
++
++<button {foo} {...rest}>click me</button>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/props-ts/input.svelte b/packages/svelte/tests/migrate/samples/props-ts/input.svelte
+new file mode 100644
+index 000000000000..373863064913
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-ts/input.svelte
+@@ -0,0 +1,11 @@
++<script lang="ts">
++    export let readonly: number;
++    export let optional = 'foo';
++    export let binding: string;
++    export let bindingOptional: string | undefined = 'bar';
++</script>
++
++{readonly}
++{optional}
++<input bind:value={binding} />
++<input bind:value={bindingOptional} />
+diff --git a/packages/svelte/tests/migrate/samples/props-ts/output.svelte b/packages/svelte/tests/migrate/samples/props-ts/output.svelte
+new file mode 100644
+index 000000000000..441d48b82359
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props-ts/output.svelte
+@@ -0,0 +1,20 @@
++<script lang="ts">
++    interface Props {
++        readonly: number,
++        optional?: string,
++        binding: string,
++        bindingOptional?: string | undefined
++    }
++
++    let {
++        readonly,
++        optional = 'foo',
++        binding = $bindable(),
++        bindingOptional = $bindable('bar')
++    }: Props = $props();
++</script>
++
++{readonly}
++{optional}
++<input bind:value={binding} />
++<input bind:value={bindingOptional} />
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/props/input.svelte b/packages/svelte/tests/migrate/samples/props/input.svelte
+new file mode 100644
+index 000000000000..b29e9be48022
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props/input.svelte
+@@ -0,0 +1,11 @@
++<script>
++    export let readonly;
++    export let optional = 'foo';
++    export let binding;
++    export let bindingOptional = 'bar';
++</script>
++
++{readonly}
++{optional}
++<input bind:value={binding} />
++<input bind:value={bindingOptional} />
+diff --git a/packages/svelte/tests/migrate/samples/props/output.svelte b/packages/svelte/tests/migrate/samples/props/output.svelte
+new file mode 100644
+index 000000000000..5dacd500b6df
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/props/output.svelte
+@@ -0,0 +1,14 @@
++<script>
++    /** @type {{readonly: any, optional?: string, binding: any, bindingOptional?: string}} */
++    let {
++        readonly,
++        optional = 'foo',
++        binding = $bindable(),
++        bindingOptional = $bindable('bar')
++    } = $props();
++</script>
++
++{readonly}
++{optional}
++<input bind:value={binding} />
++<input bind:value={bindingOptional} />
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/slots/input.svelte b/packages/svelte/tests/migrate/samples/slots/input.svelte
+new file mode 100644
+index 000000000000..e71004fcfed6
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots/input.svelte
+@@ -0,0 +1,7 @@
++<button><slot /></button>
++
++{#if foo}
++	<slot name="foo" {foo} />
++{/if}
++
++<slot name="dashed-name" />
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/slots/output.svelte b/packages/svelte/tests/migrate/samples/slots/output.svelte
+new file mode 100644
+index 000000000000..790be7e3a196
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/slots/output.svelte
+@@ -0,0 +1,12 @@
++<script>
++	/** @type {{children?: import('svelte').Snippet, foo_1?: import('svelte').Snippet<[any]>, dashed_name?: import('svelte').Snippet}} */
++	let { children, foo_1, dashed_name } = $props();
++</script>
++
++<button>{@render children?.()}</button>
++
++{#if foo}
++	{@render foo_1?.({ foo, })}
++{/if}
++
++{@render dashed_name?.()}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/test.ts b/packages/svelte/tests/migrate/test.ts
+new file mode 100644
+index 000000000000..a3c247245cf2
+--- /dev/null
++++ b/packages/svelte/tests/migrate/test.ts
+@@ -0,0 +1,30 @@
++import * as fs from 'node:fs';
++import { assert } from 'vitest';
++import { migrate } from 'svelte/compiler';
++import { try_read_file } from '../helpers.js';
++import { suite, type BaseTest } from '../suite.js';
++
++interface ParserTest extends BaseTest {}
++
++const { test, run } = suite<ParserTest>(async (config, cwd) => {
++	const input = fs
++		.readFileSync(`${cwd}/input.svelte`, 'utf-8')
++		.replace(/\s+$/, '')
++		.replace(/\r/g, '');
++
++	const actual = migrate(input).code;
++
++	// run `UPDATE_SNAPSHOTS=true pnpm test migrate` to update parser tests
++	if (process.env.UPDATE_SNAPSHOTS || !fs.existsSync(`${cwd}/output.svelte`)) {
++		fs.writeFileSync(`${cwd}/output.svelte`, actual);
++	} else {
++		fs.writeFileSync(`${cwd}/_actual.svelte`, actual);
++
++		const expected = try_read_file(`${cwd}/output.svelte`);
++		assert.deepEqual(actual, expected);
++	}
++});
++
++export { test };
++
++await run(__dirname);

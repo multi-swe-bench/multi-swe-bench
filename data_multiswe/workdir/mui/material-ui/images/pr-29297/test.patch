@@ -1,0 +1,122 @@
+diff --git a/packages/mui-system/src/styleFunctionSx/extendSxProp.test.js b/packages/mui-system/src/styleFunctionSx/extendSxProp.test.js
+index 78a4a2d0628ab0..eba7eb49310f45 100644
+--- a/packages/mui-system/src/styleFunctionSx/extendSxProp.test.js
++++ b/packages/mui-system/src/styleFunctionSx/extendSxProp.test.js
+@@ -30,4 +30,37 @@ describe('extendSxProp', () => {
+       ariaLabel: 'label',
+     });
+   });
++
++  it('should merge system props with the sx prop of function type', () => {
++    const { sx } = extendSxProp({ mb: 2, mt: [1, 2, 3], sx: () => ({ mr: 2, mb: 1 }) });
++    expect(sx()).to.deep.equal({
++      mb: 1,
++      mt: [1, 2, 3],
++      mr: 2,
++    });
++  });
++
++  it('should pass params to sx', () => {
++    const { sx } = extendSxProp({
++      sx: (props) => ({ width: props.theme.width }),
++    });
++    expect(sx({ theme: { width: 200 } })).to.deep.equal({
++      width: 200,
++    });
++  });
++
++  it('should not process non system props with the sx prop of function type', () => {
++    const { sx, ...rest } = extendSxProp({ 'aria-label': 'label', sx: () => ({ mr: 2, mb: 1 }) });
++    expect(rest).to.deep.equal({
++      'aria-label': 'label',
++    });
++  });
++
++  it('neglect sx result that is not plain object', () => {
++    const { sx } = extendSxProp({ mb: 2, mt: [1, 2, 3], sx: () => 'unknown' });
++    expect(sx()).to.deep.equal({
++      mb: 2,
++      mt: [1, 2, 3],
++    });
++  });
+ });
+diff --git a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
+index 10c059728f8bca..64eec7422127d9 100644
+--- a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
++++ b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
+@@ -309,4 +309,75 @@ describe('styleFunctionSx', () => {
+       });
+     });
+   });
++
++  describe('`sx` of array type', () => {
++    it('resolves system props', () => {
++      const result = styleFunctionSx({
++        theme,
++        sx: [
++          {
++            bgcolor: 'background.paper',
++            boxShadow: 1,
++            borderRadius: 1,
++            p: 2,
++            minWidth: 300,
++          },
++          {
++            bgcolor: 'primary.main',
++          },
++        ],
++      });
++      expect(result).to.deep.equal([
++        {
++          backgroundColor: 'background.paper',
++          borderRadius: 4,
++          boxShadow: 1,
++          minWidth: 300,
++          padding: '20px',
++        },
++        {
++          backgroundColor: 'rgb(0, 0, 255)',
++        },
++      ]);
++    });
++
++    it('works with function inside array', () => {
++      const result = styleFunctionSx({
++        theme,
++        sx: [
++          { bgcolor: 'primary.main' },
++          (t) => ({
++            borderRadius: t.spacing(1),
++          }),
++        ],
++      });
++
++      expect(result).to.deep.equal([
++        { backgroundColor: 'rgb(0, 0, 255)' },
++        { borderRadius: '10px' },
++      ]);
++    });
++
++    it('works with media query syntax', () => {
++      const result = styleFunctionSx({
++        theme,
++        sx: [{ border: [1, 2, 3, 4, 5] }, { m: [1, 2, 3], p: [5, 6, 7] }],
++      });
++
++      expect(result).to.deep.equal([
++        {
++          '@media (min-width:0px)': { border: '1px solid' },
++          '@media (min-width:600px)': { border: '2px solid' },
++          '@media (min-width:960px)': { border: '3px solid' },
++          '@media (min-width:1280px)': { border: '4px solid' },
++          '@media (min-width:1920px)': { border: '5px solid' },
++        },
++        {
++          '@media (min-width:0px)': { padding: '50px', margin: '10px' },
++          '@media (min-width:600px)': { padding: '60px', margin: '20px' },
++          '@media (min-width:960px)': { padding: '70px', margin: '30px' },
++        },
++      ]);
++    });
++  });
+ });

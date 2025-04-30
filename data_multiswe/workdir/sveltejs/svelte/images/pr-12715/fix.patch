@@ -1,0 +1,152 @@
+diff --git a/.changeset/chilly-carpets-switch.md b/.changeset/chilly-carpets-switch.md
+new file mode 100644
+index 000000000000..ca8660969a78
+--- /dev/null
++++ b/.changeset/chilly-carpets-switch.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: add css hash to custom element rendered with `svelte:element`
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+index b14c9bea9be9..13ebb41d5bd0 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+@@ -470,10 +470,8 @@ function build_element_spread_attributes(
+ 			attribute.type === 'SpreadAttribute' && attribute.metadata.expression.has_call;
+ 	}
+ 
+-	const lowercase_attributes =
+-		element.metadata.svg || element.metadata.mathml || is_custom_element_node(element)
+-			? b.false
+-			: b.true;
++	const preserve_attribute_case =
++		element.metadata.svg || element.metadata.mathml || is_custom_element_node(element);
+ 	const id = context.state.scope.generate('attributes');
+ 
+ 	const update = b.stmt(
+@@ -485,8 +483,8 @@ function build_element_spread_attributes(
+ 				element_id,
+ 				b.id(id),
+ 				b.object(values),
+-				lowercase_attributes,
+-				b.literal(context.state.analysis.css.hash),
++				context.state.analysis.css.hash !== '' && b.literal(context.state.analysis.css.hash),
++				preserve_attribute_case && b.true,
+ 				is_ignored(element, 'hydration_attribute_changed') && b.true
+ 			)
+ 		)
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+index 23f6ea5b6bb1..72174d1015db 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+@@ -200,7 +200,7 @@ function build_dynamic_element_attributes(attributes, context, element_id) {
+ 					element_id,
+ 					b.id(id),
+ 					b.object(values),
+-					b.literal(context.state.analysis.css.hash)
++					context.state.analysis.css.hash !== '' && b.literal(context.state.analysis.css.hash)
+ 				)
+ 			)
+ 		);
+@@ -221,7 +221,7 @@ function build_dynamic_element_attributes(attributes, context, element_id) {
+ 				element_id,
+ 				b.literal(null),
+ 				b.object(values),
+-				b.literal(context.state.analysis.css.hash)
++				context.state.analysis.css.hash !== '' && b.literal(context.state.analysis.css.hash)
+ 			)
+ 		)
+ 	);
+diff --git a/packages/svelte/src/internal/client/dom/elements/attributes.js b/packages/svelte/src/internal/client/dom/elements/attributes.js
+index d0e214593739..7e42efae1167 100644
+--- a/packages/svelte/src/internal/client/dom/elements/attributes.js
++++ b/packages/svelte/src/internal/client/dom/elements/attributes.js
+@@ -147,13 +147,19 @@ export function set_custom_element_data(node, prop, value) {
+  * @param {Element & ElementCSSInlineStyle} element
+  * @param {Record<string, any> | undefined} prev
+  * @param {Record<string, any>} next New attributes - this function mutates this object
+- * @param {boolean} lowercase_attributes
+- * @param {string} css_hash
++ * @param {string} [css_hash]
++ * @param {boolean} preserve_attribute_case
+  * @param {boolean} [skip_warning]
+  * @returns {Record<string, any>}
+  */
+-export function set_attributes(element, prev, next, lowercase_attributes, css_hash, skip_warning) {
+-	var has_hash = css_hash.length !== 0;
++export function set_attributes(
++	element,
++	prev,
++	next,
++	css_hash,
++	preserve_attribute_case = false,
++	skip_warning
++) {
+ 	var current = prev || {};
+ 	var is_option_element = element.tagName === 'OPTION';
+ 
+@@ -163,8 +169,8 @@ export function set_attributes(element, prev, next, lowercase_attributes, css_ha
+ 		}
+ 	}
+ 
+-	if (has_hash && !next.class) {
+-		next.class = '';
++	if (css_hash !== undefined) {
++		next.class = next.class ? next.class + ' ' + css_hash : css_hash;
+ 	}
+ 
+ 	var setters = setters_cache.get(element.nodeName);
+@@ -267,7 +273,7 @@ export function set_attributes(element, prev, next, lowercase_attributes, css_ha
+ 			element.value = element[key] = element.__value = value;
+ 		} else {
+ 			var name = key;
+-			if (lowercase_attributes) {
++			if (!preserve_attribute_case) {
+ 				name = normalize_attribute(name);
+ 			}
+ 
+@@ -279,11 +285,6 @@ export function set_attributes(element, prev, next, lowercase_attributes, css_ha
+ 					element[name] = value;
+ 				}
+ 			} else if (typeof value !== 'function') {
+-				if (has_hash && name === 'class') {
+-					if (value) value += ' ';
+-					value += css_hash;
+-				}
+-
+ 				set_attribute(element, name, value);
+ 			}
+ 		}
+@@ -309,7 +310,7 @@ export function set_attributes(element, prev, next, lowercase_attributes, css_ha
+  * @param {Element} node
+  * @param {Record<string, any> | undefined} prev
+  * @param {Record<string, any>} next The new attributes - this function mutates this object
+- * @param {string} css_hash
++ * @param {string} [css_hash]
+  */
+ export function set_dynamic_element_attributes(node, prev, next, css_hash) {
+ 	if (node.tagName.includes('-')) {
+@@ -319,6 +320,10 @@ export function set_dynamic_element_attributes(node, prev, next, css_hash) {
+ 			}
+ 		}
+ 
++		if (css_hash !== undefined) {
++			next.class = next.class ? next.class + ' ' + css_hash : css_hash;
++		}
++
+ 		for (key in next) {
+ 			set_custom_element_data(node, key, next[key]);
+ 		}
+@@ -330,8 +335,8 @@ export function set_dynamic_element_attributes(node, prev, next, css_hash) {
+ 		/** @type {Element & ElementCSSInlineStyle} */ (node),
+ 		prev,
+ 		next,
+-		node.namespaceURI !== NAMESPACE_SVG,
+-		css_hash
++		css_hash,
++		node.namespaceURI !== NAMESPACE_SVG
+ 	);
+ }
+ 

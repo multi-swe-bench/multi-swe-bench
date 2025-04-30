@@ -1,0 +1,78 @@
+diff --git a/src/parse/arg_matcher.rs b/src/parse/arg_matcher.rs
+index 9e5a59c0351..8c3bc51fe5e 100644
+--- a/src/parse/arg_matcher.rs
++++ b/src/parse/arg_matcher.rs
+@@ -135,7 +135,7 @@ impl ArgMatcher {
+         let id = &arg.id;
+         debug!("ArgMatcher::inc_occurrence_of_arg: id={:?}", id);
+         let ma = self.entry(id).or_insert(MatchedArg::new());
+-        ma.set_ty(ValueType::CommandLine);
++        ma.update_ty(ValueType::CommandLine);
+         ma.set_ignore_case(arg.is_set(ArgSettings::IgnoreCase));
+         ma.invalid_utf8_allowed(arg.is_set(ArgSettings::AllowInvalidUtf8));
+         ma.occurs += 1;
+@@ -144,7 +144,7 @@ impl ArgMatcher {
+     pub(crate) fn inc_occurrence_of_group(&mut self, id: &Id) {
+         debug!("ArgMatcher::inc_occurrence_of_group: id={:?}", id);
+         let ma = self.entry(id).or_insert(MatchedArg::new());
+-        ma.set_ty(ValueType::CommandLine);
++        ma.update_ty(ValueType::CommandLine);
+         ma.occurs += 1;
+     }
+ 
+@@ -161,13 +161,13 @@ impl ArgMatcher {
+         // specific circumstances, like only add one occurrence for flag
+         // when we met: `--flag=one,two`).
+         let ma = self.entry(arg).or_default();
+-        ma.set_ty(ty);
++        ma.update_ty(ty);
+         ma.push_val(val);
+     }
+ 
+     fn append_val_to(&mut self, arg: &Id, val: OsString, ty: ValueType) {
+         let ma = self.entry(arg).or_default();
+-        ma.set_ty(ty);
++        ma.update_ty(ty);
+         ma.append_val(val);
+     }
+ 
+@@ -178,7 +178,7 @@ impl ArgMatcher {
+ 
+     pub(crate) fn add_index_to(&mut self, arg: &Id, idx: usize, ty: ValueType) {
+         let ma = self.entry(arg).or_default();
+-        ma.set_ty(ty);
++        ma.update_ty(ty);
+         ma.push_index(idx);
+     }
+ 
+diff --git a/src/parse/matches/matched_arg.rs b/src/parse/matches/matched_arg.rs
+index e453b1e18ef..e85cefaf9f0 100644
+--- a/src/parse/matches/matched_arg.rs
++++ b/src/parse/matches/matched_arg.rs
+@@ -119,8 +119,8 @@ impl MatchedArg {
+         })
+     }
+ 
+-    pub(crate) fn set_ty(&mut self, ty: ValueType) {
+-        self.ty = ty;
++    pub(crate) fn update_ty(&mut self, ty: ValueType) {
++        self.ty = self.ty.max(ty);
+     }
+ 
+     pub(crate) fn set_ignore_case(&mut self, yes: bool) {
+@@ -142,13 +142,13 @@ impl Default for MatchedArg {
+     }
+ }
+ 
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+ pub(crate) enum ValueType {
+     Unknown,
++    DefaultValue,
+     #[cfg(feature = "env")]
+     EnvVariable,
+     CommandLine,
+-    DefaultValue,
+ }
+ 
+ #[cfg(test)]

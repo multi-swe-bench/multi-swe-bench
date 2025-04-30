@@ -1,0 +1,36 @@
+diff --git a/.changeset/thirty-pears-hug.md b/.changeset/thirty-pears-hug.md
+new file mode 100644
+index 000000000000..607005631e8c
+--- /dev/null
++++ b/.changeset/thirty-pears-hug.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: allow type selector in `:global()` when it's at a start of a compound selector
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+index 1236e8883b77..3e510349403f 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+@@ -181,9 +181,19 @@ export default class Selector {
+ 
+ 			for (let i = 0; i < block.selectors.length; i++) {
+ 				const selector = block.selectors[i];
++
+ 				if (selector.type === 'PseudoClassSelector' && selector.name === 'global') {
+ 					const child = selector.args?.children[0].children[0];
+-					if (child?.type === 'TypeSelector' && !/[.:#]/.test(child.name[0])) {
++					if (
++						child?.type === 'TypeSelector' &&
++						!/[.:#]/.test(child.name[0]) &&
++						(i !== 0 ||
++							block.selectors
++								.slice(1)
++								.some(
++									(s) => s.type !== 'PseudoElementSelector' && s.type !== 'PseudoClassSelector'
++								))
++					) {
+ 						error(selector, 'invalid-css-global-selector-list');
+ 					}
+ 				}

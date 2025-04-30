@@ -1,0 +1,74 @@
+diff --git a/.changeset/eight-carrots-hunt.md b/.changeset/eight-carrots-hunt.md
+new file mode 100644
+index 000000000000..a220e13080e7
+--- /dev/null
++++ b/.changeset/eight-carrots-hunt.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++feat: error on imports to `svelte/internal/*`
+diff --git a/packages/svelte/messages/compile-errors/script.md b/packages/svelte/messages/compile-errors/script.md
+index 861ac2f56d39..dbce3403d41a 100644
+--- a/packages/svelte/messages/compile-errors/script.md
++++ b/packages/svelte/messages/compile-errors/script.md
+@@ -46,6 +46,10 @@
+ 
+ > `$host()` can only be used inside custom element component instances
+ 
++## import_svelte_internal_forbidden
++
++> Imports of `svelte/internal/*` are forbidden. It contains private runtime code which is subject to change without notice. If you're importing from `svelte/internal/*` to work around a limitation of Svelte, please open an issue at https://github.com/sveltejs/svelte and explain your use case
++
+ ## legacy_export_invalid
+ 
+ > Cannot use `export let` in runes mode — use `$props()` instead
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index ab7197b06b8d..8a2832df1bd6 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -198,6 +198,15 @@ export function host_invalid_placement(node) {
+ 	e(node, "host_invalid_placement", "`$host()` can only be used inside custom element component instances");
+ }
+ 
++/**
++ * Imports of `svelte/internal/*` are forbidden. It contains private runtime code which is subject to change without notice. If you're importing from `svelte/internal/*` to work around a limitation of Svelte, please open an issue at https://github.com/sveltejs/svelte and explain your use case
++ * @param {null | number | NodeLike} node
++ * @returns {never}
++ */
++export function import_svelte_internal_forbidden(node) {
++	e(node, "import_svelte_internal_forbidden", "Imports of `svelte/internal/*` are forbidden. It contains private runtime code which is subject to change without notice. If you're importing from `svelte/internal/*` to work around a limitation of Svelte, please open an issue at https://github.com/sveltejs/svelte and explain your use case");
++}
++
+ /**
+  * Cannot use `export let` in runes mode — use `$props()` instead
+  * @param {null | number | NodeLike} node
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 2c0296d69b48..306a9d20e2a2 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -905,6 +905,11 @@ function ensure_no_module_import_conflict(node, state) {
+  * @type {import('zimmerframe').Visitors<import('#compiler').SvelteNode, import('./types.js').AnalysisState>}
+  */
+ export const validation_runes_js = {
++	ImportDeclaration(node) {
++		if (typeof node.source.value === 'string' && node.source.value.startsWith('svelte/internal')) {
++			e.import_svelte_internal_forbidden(node);
++		}
++	},
+ 	ExportSpecifier(node, { state }) {
+ 		validate_export(node, state.scope, node.local.name);
+ 	},
+@@ -1077,6 +1082,11 @@ function validate_assignment(node, argument, state) {
+ }
+ 
+ export const validation_runes = merge(validation, a11y_validators, {
++	ImportDeclaration(node) {
++		if (typeof node.source.value === 'string' && node.source.value.startsWith('svelte/internal')) {
++			e.import_svelte_internal_forbidden(node);
++		}
++	},
+ 	Identifier(node, { path, state }) {
+ 		let i = path.length;
+ 		let parent = /** @type {import('estree').Expression} */ (path[--i]);

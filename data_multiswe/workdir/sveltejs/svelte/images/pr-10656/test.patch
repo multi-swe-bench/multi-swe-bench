@@ -1,0 +1,194 @@
+diff --git a/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/_config.js b/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/_config.js
+new file mode 100644
+index 000000000000..47bd37699ca7
+--- /dev/null
++++ b/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/_config.js
+@@ -0,0 +1,8 @@
++import { test } from '../../test';
++
++export default test({
++	error: {
++		code: 'invalid-render-call',
++		message: 'Calling a snippet function using apply, bind or call is not allowed'
++	}
++});
+diff --git a/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/main.svelte b/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/main.svelte
+new file mode 100644
+index 000000000000..b299998eb84b
+--- /dev/null
++++ b/packages/svelte/tests/compiler-errors/samples/render-tag-invalid-call/main.svelte
+@@ -0,0 +1,1 @@
++{@render snippet.apply(null, [1, 2, 3])}
+\ No newline at end of file
+diff --git a/packages/svelte/tests/parser-modern/samples/snippets/output.json b/packages/svelte/tests/parser-modern/samples/snippets/output.json
+index c8f6b2bcda78..a1b96c588c07 100644
+--- a/packages/svelte/tests/parser-modern/samples/snippets/output.json
++++ b/packages/svelte/tests/parser-modern/samples/snippets/output.json
+@@ -131,9 +131,9 @@
+ 				"start": 83,
+ 				"end": 101,
+ 				"expression": {
+-					"type": "Identifier",
++					"type": "CallExpression",
+ 					"start": 92,
+-					"end": 95,
++					"end": 100,
+ 					"loc": {
+ 						"start": {
+ 							"line": 7,
+@@ -141,29 +141,45 @@
+ 						},
+ 						"end": {
+ 							"line": 7,
+-							"column": 12
++							"column": 17
+ 						}
+ 					},
+-					"name": "foo"
+-				},
+-				"arguments": [
+-					{
++					"callee": {
+ 						"type": "Identifier",
+-						"start": 96,
+-						"end": 99,
++						"start": 92,
++						"end": 95,
+ 						"loc": {
+ 							"start": {
+ 								"line": 7,
+-								"column": 13
++								"column": 9
+ 							},
+ 							"end": {
+ 								"line": 7,
+-								"column": 16
++								"column": 12
+ 							}
+ 						},
+-						"name": "msg"
+-					}
+-				]
++						"name": "foo"
++					},
++					"arguments": [
++						{
++							"type": "Identifier",
++							"start": 96,
++							"end": 99,
++							"loc": {
++								"start": {
++									"line": 7,
++									"column": 13
++								},
++								"end": {
++									"line": 7,
++									"column": 16
++								}
++							},
++							"name": "msg"
++						}
++					],
++					"optional": false
++				}
+ 			}
+ 		],
+ 		"transparent": false
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-expressions/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/_config.js
+new file mode 100644
+index 000000000000..3ae1bd835850
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/_config.js
+@@ -0,0 +1,42 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<p>foo</p>
++		<hr>
++		<p>foo</p>
++		<hr>
++		<p>foo</p>
++		<hr>
++		<p>foo</p>
++		<hr>
++		<p>bar</p>
++		<hr>
++		<hr>
++		<button>toggle</button>
++	`,
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++		await btn?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<p>bar</p>
++				<hr>
++				<p>bar</p>
++				<hr>
++				<p>foo</p>
++				<hr>
++				<p>foo</p>
++				<hr>
++				<p>foo</p>
++				<hr>
++				<p>foo</p>
++				<hr>
++				<p>foo</p>
++				<button>toggle</button>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-expressions/child.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/child.svelte
+new file mode 100644
+index 000000000000..2713f7d9897a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/child.svelte
+@@ -0,0 +1,21 @@
++<script>
++	let { snippets, snippet, optional } = $props();
++
++	function getOptional() {
++		return optional;
++	}
++</script>
++
++{@render snippets[snippet]()}
++<hr>
++{@render snippets?.[snippet]?.()}
++<hr>
++{@render snippets.foo()}
++<hr>
++{@render snippets.foo?.()}
++<hr>
++{@render (optional ?? snippets.bar)()}
++<hr>
++{@render optional?.()}
++<hr>
++{@render getOptional()?.()}
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-expressions/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/main.svelte
+new file mode 100644
+index 000000000000..a5e45d7b0e6e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-expressions/main.svelte
+@@ -0,0 +1,17 @@
++<script>
++	import Child from './child.svelte';
++	let snippet = $state('foo');
++	let show = $state(false);
++</script>
++
++{#snippet foo()}
++	<p>foo</p>
++{/snippet}
++
++{#snippet bar()}
++	<p>bar</p>
++{/snippet}
++
++<Child snippets={{foo, bar}} {snippet} optional={show ? foo : undefined} />
++
++<button on:click={() => { snippet = 'bar'; show = true; }}>toggle</button>

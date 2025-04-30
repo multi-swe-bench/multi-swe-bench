@@ -1,0 +1,374 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-array-each/_config.js b/packages/svelte/tests/runtime-runes/samples/props-array-each/_config.js
+new file mode 100644
+index 000000000000..b3d63d3732e3
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-array-each/_config.js
+@@ -0,0 +1,15 @@
++import { test } from '../../test';
++
++export default test({
++	html: `<button>add</button> <p>1</p><p>1</p><p>1</p>`,
++
++	async test({ assert, target }) {
++		const btn = target.querySelector('button');
++
++		await btn?.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>add</button> <p>1</p><p>2</p><p>1</p><p>2</p><p>1</p><p>2</p>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-array-each/child.svelte b/packages/svelte/tests/runtime-runes/samples/props-array-each/child.svelte
+new file mode 100644
+index 000000000000..9f5a561f522c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-array-each/child.svelte
+@@ -0,0 +1,15 @@
++<script>
++	let { array } = $props();
++</script>
++
++{#each array as number}
++	<p>{number.v}</p>
++{/each}
++
++{#each array as number (number)}
++	<p>{number.v}</p>
++{/each}
++
++{#each array as number (number.v)}
++	<p>{number.v}</p>
++{/each}
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-array-each/main.svelte b/packages/svelte/tests/runtime-runes/samples/props-array-each/main.svelte
+new file mode 100644
+index 000000000000..05e36da61645
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-array-each/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	import Child from './child.svelte';
++
++	let array = $state([{v: 1}]);
++
++	const addNew = () => {
++		array.push({v: 2})
++	}
++</script>
++
++<button onclick={addNew}>add</button>
++<Child {array} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-equality/_config.js b/packages/svelte/tests/runtime-runes/samples/props-equality/_config.js
+new file mode 100644
+index 000000000000..eda378947bdd
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-equality/_config.js
+@@ -0,0 +1,45 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<button>a true</button><button>b true</button>
++		<button>a true</button><button>b true</button>
++		<button>a true</button><button>b true</button>
++	`,
++
++	async test({ assert, target }) {
++		let [btn1, _btn2, btn3, _btn4, btn5] = target.querySelectorAll('button');
++
++		await btn1.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<button>a+ true</button><button>b true</button>
++			<button>a+ true</button><button>b true</button>
++			<button>a+ true</button><button>b true</button>
++		`
++		);
++
++		[btn1, _btn2, btn3, _btn4, btn5] = target.querySelectorAll('button');
++		await btn3.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<button>a++ true</button><button>b true</button>
++			<button>a++ true</button><button>b true</button>
++			<button>a++ true</button><button>b true</button>
++		`
++		);
++
++		[btn1, _btn2, btn3, _btn4, btn5] = target.querySelectorAll('button');
++		await btn5.click();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			<button>a+++ true</button><button>b true</button>
++			<button>a+++ true</button><button>b true</button>
++			<button>a+++ true</button><button>b true</button>
++		`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-equality/item.svelte b/packages/svelte/tests/runtime-runes/samples/props-equality/item.svelte
+new file mode 100644
+index 000000000000..c40c50d9ce0c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-equality/item.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let {item, items, onclick} = $props()
++</script>
++
++<button {onclick}>
++	{item.name} {items.includes(item)}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/props-equality/main.svelte b/packages/svelte/tests/runtime-runes/samples/props-equality/main.svelte
+new file mode 100644
+index 000000000000..7c7ee0c31efb
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/props-equality/main.svelte
+@@ -0,0 +1,19 @@
++<script>
++	import Item from './item.svelte'
++
++	let items = $state([{name: 'a'}, {name: 'b'}]);
++</script>
++
++<!-- test that each block doesn't mess with item identity -->
++
++{#each items as item (item)}
++	<Item {item} {items} onclick={() => item.name = item.name + '+'} />
++{/each}
++
++{#each items as item (item.name)}
++	<Item {item} {items} onclick={() => {console.log('hello'); item.name = item.name + '+'}} />
++{/each}
++
++{#each items as item}
++	<Item {item} {items} onclick={() => item.name = item.name + '+'} />
++{/each}
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/Counter.svelte
+deleted file mode 100644
+index 20f744f07d36..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/Counter.svelte
++++ /dev/null
+@@ -1,8 +0,0 @@
+-<script>
+-	/** @type {{ object: { count: number }}} */
+-	let { object } = $props();
+-</script>
+-
+-<button onclick={() => object = { count: object.count + 1 } }>
+-	clicks: {object.count}
+-</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/_config.js
+deleted file mode 100644
+index 8726eead09cc..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/_config.js
++++ /dev/null
+@@ -1,22 +0,0 @@
+-import { test } from '../../test';
+-
+-// Tests that readonly bails on setters/classes
+-export default test({
+-	html: `<button>clicks: 0</button><button>clicks: 0</button>`,
+-
+-	compileOptions: {
+-		dev: true
+-	},
+-
+-	async test({ assert, target }) {
+-		const [btn1, btn2] = target.querySelectorAll('button');
+-
+-		await btn1.click();
+-		await btn2.click();
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 1</button><button>clicks: 1</button>`);
+-
+-		await btn1.click();
+-		await btn2.click();
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 2</button><button>clicks: 2</button>`);
+-	}
+-});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/main.svelte
+deleted file mode 100644
+index 7ee12ca30613..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-bail/main.svelte
++++ /dev/null
+@@ -1,25 +0,0 @@
+-<script>
+-	import Counter from './Counter.svelte';
+-
+-	function createCounter() {
+-		let count = $state(0)
+-		return {
+-			get count() {
+-				return count;
+-			},
+-			set count(upd) {
+-				count = upd
+-			}
+-		}
+-	}
+-
+-	class CounterClass {
+-		count = $state(0);
+-	}
+-
+-	const counterSetter = createCounter();
+-	const counterClass = new CounterClass();
+-</script>
+-
+-<Counter object={counterSetter} />
+-<Counter object={counterClass} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte
+deleted file mode 100644
+index 1097b68f6f30..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/Counter.svelte
++++ /dev/null
+@@ -1,8 +0,0 @@
+-<script>
+-	/** @type {{ object?: { count: number }}} */
+-	let { object = { count: 0 } } = $props();
+-</script>
+-
+-<button onclick={() => object = { count: object.count + 1 } }>
+-	clicks: {object.count}
+-</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js
+deleted file mode 100644
+index 9787b1ca9271..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/_config.js
++++ /dev/null
+@@ -1,19 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	html: `<button>clicks: 0</button>`,
+-
+-	compileOptions: {
+-		dev: true
+-	},
+-
+-	async test({ assert, target }) {
+-		const btn = target.querySelector('button');
+-
+-		await btn?.click();
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 1</button>`);
+-
+-		await btn?.click();
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 2</button>`);
+-	}
+-});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte
+deleted file mode 100644
+index 391afc4b232e..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly-reassigned/main.svelte
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<script>
+-	import Counter from './Counter.svelte';
+-</script>
+-
+-<Counter />
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte
+deleted file mode 100644
+index 91ccc2af8188..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/Counter.svelte
++++ /dev/null
+@@ -1,8 +0,0 @@
+-<script>
+-	/** @type {{ object?: { count: number }}} */
+-	let { object = { count: 0 } } = $props();
+-</script>
+-
+-<button onclick={() => object.count += 1}>
+-	clicks: {object.count}
+-</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js
+deleted file mode 100644
+index d78db389d74e..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/_config.js
++++ /dev/null
+@@ -1,19 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	html: `<button>clicks: 0</button>`,
+-
+-	compileOptions: {
+-		dev: true
+-	},
+-
+-	async test({ assert, target }) {
+-		const btn = target.querySelector('button');
+-		await btn?.click();
+-
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 0</button>`);
+-	},
+-
+-	runtime_error:
+-		'Non-bound props cannot be mutated — to make the `count` settable, ensure the object it is used within is bound as a prop `bind:<prop>={...}`. Fallback values can never be mutated.'
+-});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte
+deleted file mode 100644
+index 391afc4b232e..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-default-readonly/main.svelte
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<script>
+-	import Counter from './Counter.svelte';
+-</script>
+-
+-<Counter />
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/Counter.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/Counter.svelte
+deleted file mode 100644
+index d1be32683013..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/Counter.svelte
++++ /dev/null
+@@ -1,8 +0,0 @@
+-<script>
+-	/** @type {{ object: { count: number }}} */
+-	let { object } = $props();
+-</script>
+-
+-<button onclick={() => object.count += 1}>
+-	clicks: {object.count}
+-</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js
+deleted file mode 100644
+index d78db389d74e..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/_config.js
++++ /dev/null
+@@ -1,19 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	html: `<button>clicks: 0</button>`,
+-
+-	compileOptions: {
+-		dev: true
+-	},
+-
+-	async test({ assert, target }) {
+-		const btn = target.querySelector('button');
+-		await btn?.click();
+-
+-		assert.htmlEqual(target.innerHTML, `<button>clicks: 0</button>`);
+-	},
+-
+-	runtime_error:
+-		'Non-bound props cannot be mutated — to make the `count` settable, ensure the object it is used within is bound as a prop `bind:<prop>={...}`. Fallback values can never be mutated.'
+-});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/main.svelte
+deleted file mode 100644
+index e9617af17d5c..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/proxy-prop-readonly/main.svelte
++++ /dev/null
+@@ -1,7 +0,0 @@
+-<script>
+-	import Counter from './Counter.svelte';
+-
+-	const object = $state({ count: 0 });
+-</script>
+-
+-<Counter {object} />

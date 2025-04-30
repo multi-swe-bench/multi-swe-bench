@@ -1,0 +1,97 @@
+diff --git a/pkg/cmd/repo/sync/git.go b/pkg/cmd/repo/sync/git.go
+index 48429f2bb2f..1f18d0fdb6b 100644
+--- a/pkg/cmd/repo/sync/git.go
++++ b/pkg/cmd/repo/sync/git.go
+@@ -3,13 +3,11 @@ package sync
+ import (
+ 	"context"
+ 	"fmt"
+-	"strings"
+ 
+ 	"github.com/cli/cli/v2/git"
+ )
+ 
+ type gitClient interface {
+-	BranchRemote(string) (string, error)
+ 	CurrentBranch() (string, error)
+ 	UpdateBranch(string, string) error
+ 	CreateBranch(string, string, string) error
+@@ -25,20 +23,6 @@ type gitExecuter struct {
+ 	client *git.Client
+ }
+ 
+-func (g *gitExecuter) BranchRemote(branch string) (string, error) {
+-	args := []string{"rev-parse", "--symbolic-full-name", "--abbrev-ref", fmt.Sprintf("%s@{u}", branch)}
+-	cmd, err := g.client.Command(context.Background(), args...)
+-	if err != nil {
+-		return "", err
+-	}
+-	out, err := cmd.Output()
+-	if err != nil {
+-		return "", err
+-	}
+-	parts := strings.SplitN(string(out), "/", 2)
+-	return parts[0], nil
+-}
+-
+ func (g *gitExecuter) UpdateBranch(branch, ref string) error {
+ 	cmd, err := g.client.Command(context.Background(), "update-ref", fmt.Sprintf("refs/heads/%s", branch), ref)
+ 	if err != nil {
+diff --git a/pkg/cmd/repo/sync/mocks.go b/pkg/cmd/repo/sync/mocks.go
+index 718a89054d8..c852e03f2dc 100644
+--- a/pkg/cmd/repo/sync/mocks.go
++++ b/pkg/cmd/repo/sync/mocks.go
+@@ -8,11 +8,6 @@ type mockGitClient struct {
+ 	mock.Mock
+ }
+ 
+-func (g *mockGitClient) BranchRemote(a string) (string, error) {
+-	args := g.Called(a)
+-	return args.String(0), args.Error(1)
+-}
+-
+ func (g *mockGitClient) UpdateBranch(b, r string) error {
+ 	args := g.Called(b, r)
+ 	return args.Error(0)
+diff --git a/pkg/cmd/repo/sync/sync.go b/pkg/cmd/repo/sync/sync.go
+index dd52868d1ff..3c0201e4340 100644
+--- a/pkg/cmd/repo/sync/sync.go
++++ b/pkg/cmd/repo/sync/sync.go
+@@ -151,9 +151,6 @@ func syncLocalRepo(opts *SyncOptions) error {
+ 		if errors.Is(err, divergingError) {
+ 			return fmt.Errorf("can't sync because there are diverging changes; use `--force` to overwrite the destination branch")
+ 		}
+-		if errors.Is(err, mismatchRemotesError) {
+-			return fmt.Errorf("can't sync because %s is not tracking %s", opts.Branch, ghrepo.FullName(srcRepo))
+-		}
+ 		return err
+ 	}
+ 
+@@ -220,7 +217,6 @@ func syncRemoteRepo(opts *SyncOptions) error {
+ }
+ 
+ var divergingError = errors.New("diverging changes")
+-var mismatchRemotesError = errors.New("branch remote does not match specified source")
+ 
+ func executeLocalRepoSync(srcRepo ghrepo.Interface, remote string, opts *SyncOptions) error {
+ 	git := opts.Git
+@@ -229,19 +225,10 @@ func executeLocalRepoSync(srcRepo ghrepo.Interface, remote string, opts *SyncOpt
+ 
+ 	hasLocalBranch := git.HasLocalBranch(branch)
+ 	if hasLocalBranch {
+-		branchRemote, err := git.BranchRemote(branch)
+-		if err != nil {
+-			return err
+-		}
+-		if branchRemote != remote {
+-			return mismatchRemotesError
+-		}
+-
+ 		fastForward, err := git.IsAncestor(branch, "FETCH_HEAD")
+ 		if err != nil {
+ 			return err
+ 		}
+-
+ 		if !fastForward && !useForce {
+ 			return divergingError
+ 		}

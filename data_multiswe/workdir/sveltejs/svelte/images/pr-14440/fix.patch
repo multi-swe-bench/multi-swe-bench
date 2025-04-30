@@ -1,0 +1,45 @@
+diff --git a/.changeset/breezy-insects-live.md b/.changeset/breezy-insects-live.md
+new file mode 100644
+index 000000000000..8b86fab6be88
+--- /dev/null
++++ b/.changeset/breezy-insects-live.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: show `:then` block for `null/undefined` value
+diff --git a/packages/svelte/src/internal/client/dom/blocks/await.js b/packages/svelte/src/internal/client/dom/blocks/await.js
+index 29ef15452fdf..62b2e4dd0cda 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/await.js
++++ b/packages/svelte/src/internal/client/dom/blocks/await.js
+@@ -14,6 +14,7 @@ import {
+ } from '../../runtime.js';
+ import { hydrate_next, hydrate_node, hydrating } from '../hydration.js';
+ import { queue_micro_task } from '../task.js';
++import { UNINITIALIZED } from '../../../../constants.js';
+ 
+ const PENDING = 0;
+ const THEN = 1;
+@@ -40,8 +41,8 @@ export function await_block(node, get_input, pending_fn, then_fn, catch_fn) {
+ 	/** @type {any} */
+ 	var component_function = DEV ? component_context?.function : null;
+ 
+-	/** @type {V | Promise<V> | null} */
+-	var input;
++	/** @type {V | Promise<V> | typeof UNINITIALIZED} */
++	var input = UNINITIALIZED;
+ 
+ 	/** @type {Effect | null} */
+ 	var pending_effect;
+@@ -156,8 +157,8 @@ export function await_block(node, get_input, pending_fn, then_fn, catch_fn) {
+ 			update(THEN, false);
+ 		}
+ 
+-		// Set the input to null, in order to disable the promise callbacks
+-		return () => (input = null);
++		// Set the input to something else, in order to disable the promise callbacks
++		return () => (input = UNINITIALIZED);
+ 	});
+ 
+ 	if (hydrating) {

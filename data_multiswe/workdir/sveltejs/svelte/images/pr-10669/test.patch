@@ -1,0 +1,55 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/action-component/_config.js b/packages/svelte/tests/runtime-legacy/samples/action-component/_config.js
+new file mode 100644
+index 000000000000..cd4774d4ded5
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/action-component/_config.js
+@@ -0,0 +1,14 @@
++import { tick } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	accessors: false,
++	async test({ assert, target }) {
++		assert.htmlEqual(target.innerHTML, '<button>foo / foo</button><div></div>');
++
++		const button = target.querySelector('button');
++		button?.click();
++		await tick();
++		assert.htmlEqual(target.innerHTML, '<button>bar / bar</button><div></div>');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/action-component/main.svelte b/packages/svelte/tests/runtime-legacy/samples/action-component/main.svelte
+new file mode 100644
+index 000000000000..54847ba8dc2f
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/action-component/main.svelte
+@@ -0,0 +1,17 @@
++<script>
++	import Component from "./sub.svelte"
++	let state = 'foo';
++	let param = '';
++
++	function action(node, _param) {
++		param = _param
++		return {
++			update(_param) {
++				param = _param;
++			}
++		};
++	}
++</script>
++
++<button on:click={() => state = 'bar'}>{state} / {param}</button>
++<Component {action} {state}></Component>
+diff --git a/packages/svelte/tests/runtime-legacy/samples/action-component/sub.svelte b/packages/svelte/tests/runtime-legacy/samples/action-component/sub.svelte
+new file mode 100644
+index 000000000000..53d2674ea635
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/action-component/sub.svelte
+@@ -0,0 +1,6 @@
++<script>
++	export let action;
++	export let state;
++</script>
++
++<div use:action={state}></div>

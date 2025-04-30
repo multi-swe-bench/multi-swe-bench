@@ -1,0 +1,187 @@
+diff --git a/tests/allparserscheckfile.cpp b/tests/allparserscheckfile.cpp
+index 4da5867920..e3940a4beb 100644
+--- a/tests/allparserscheckfile.cpp
++++ b/tests/allparserscheckfile.cpp
+@@ -1,6 +1,6 @@
+ #include <unistd.h>
+ 
+-#include "simdjson/jsonparser.h"
++#include "simdjson.h"
+ 
+ // #define RAPIDJSON_SSE2 // bad
+ // #define RAPIDJSON_SSE42 // bad
+diff --git a/tests/basictests.cpp b/tests/basictests.cpp
+index baa2d94c68..d2154884e2 100644
+--- a/tests/basictests.cpp
++++ b/tests/basictests.cpp
+@@ -10,9 +10,7 @@
+ #include <set>
+ #include <string_view>
+ 
+-#include "simdjson/jsonparser.h"
+-#include "simdjson/jsonstream.h"
+-#include "simdjson/document.h"
++#include "simdjson.h"
+ 
+ #ifndef JSON_TEST_PATH
+ #define JSON_TEST_PATH "jsonexamples/twitter.json"
+diff --git a/tests/integer_tests.cpp b/tests/integer_tests.cpp
+index be99c1443a..ca329fa4f4 100644
+--- a/tests/integer_tests.cpp
++++ b/tests/integer_tests.cpp
+@@ -3,8 +3,7 @@
+ #include <iostream>
+ #include <limits>
+ 
+-#include "simdjson/jsonparser.h"
+-#include "simdjson/document.h"
++#include "simdjson.h"
+ 
+ using namespace simdjson;
+ 
+diff --git a/tests/jsoncheck.cpp b/tests/jsoncheck.cpp
+index d7256d142f..c17135b28f 100644
+--- a/tests/jsoncheck.cpp
++++ b/tests/jsoncheck.cpp
+@@ -12,7 +12,7 @@
+ #include <cstdio>
+ #include <cstdlib>
+ 
+-#include "simdjson/jsonparser.h"
++#include "simdjson.h"
+ 
+ /**
+  * Does the file filename ends with the given extension.
+diff --git a/tests/jsonstream_test.cpp b/tests/jsonstream_test.cpp
+index b3a4891199..71c4e82bb9 100644
+--- a/tests/jsonstream_test.cpp
++++ b/tests/jsonstream_test.cpp
+@@ -11,9 +11,8 @@
+ 
+ #include <cstdio>
+ #include <cstdlib>
+-#include <simdjson/jsonstream.h>
+ 
+-#include "simdjson/jsonparser.h"
++#include "simdjson.h"
+ 
+ /**
+  * Does the file filename ends with the given extension.
+diff --git a/tests/numberparsingcheck.cpp b/tests/numberparsingcheck.cpp
+index 782f62dd68..4fb31b5425 100644
+--- a/tests/numberparsingcheck.cpp
++++ b/tests/numberparsingcheck.cpp
+@@ -11,7 +11,7 @@
+ #define JSON_TEST_NUMBERS
+ #endif
+ 
+-#include "simdjson/common_defs.h"
++#include "simdjson.h"
+ 
+ // ulp distance
+ // Marc B. Reynolds, 2016-2019
+@@ -132,8 +132,8 @@ void found_float(double result, const uint8_t *buf) {
+   }
+ }
+ 
+-#include "simdjson/jsonparser.h"
+-#include "src/stage2_build_tape.cpp"
++#include "simdjson.h"
++#include "simdjson.cpp"
+ 
+ /**
+  * Does the file filename ends with the given extension.
+diff --git a/tests/pointercheck.cpp b/tests/pointercheck.cpp
+index 764fecd9d9..6a6affbb81 100644
+--- a/tests/pointercheck.cpp
++++ b/tests/pointercheck.cpp
+@@ -1,7 +1,6 @@
+ #include <iostream>
+ 
+-#include "simdjson/jsonparser.h"
+-#include "simdjson/parsedjson.h"
++#include "simdjson.h"
+ 
+ int main() {
+   // {"/~01abc": [0, {"\\\" 0": ["value0", "value1"]}]}"
+diff --git a/tests/readme_examples.cpp b/tests/readme_examples.cpp
+index 422022b14c..c722e53f7b 100644
+--- a/tests/readme_examples.cpp
++++ b/tests/readme_examples.cpp
+@@ -1,6 +1,5 @@
+ #include <iostream>
+-#include "simdjson/document.h"
+-#include "simdjson/jsonioutil.h"
++#include "simdjson.h"
+ using namespace std;
+ using namespace simdjson;
+ 
+@@ -10,7 +9,7 @@ void document_parse_error_code() {
+   string json("[ 1, 2, 3 ]");
+   auto [doc, error] = document::parse(json);
+   if (error) { cerr << "Error: " << error_message(error) << endl; exit(1); }
+-  doc.print_json(cout);
++  if (!doc.print_json(cout)) { exit(1); }
+   cout << endl;
+ }
+ 
+@@ -19,7 +18,7 @@ void document_parse_exception() {
+ 
+   string json("[ 1, 2, 3 ]");
+   document doc = document::parse(json);
+-  doc.print_json(cout);
++  if (!doc.print_json(cout)) { exit(1); }
+   cout << endl;
+ }
+ 
+@@ -28,7 +27,7 @@ void document_parse_padded_string() {
+ 
+   padded_string json(string("[ 1, 2, 3 ]"));
+   document doc = document::parse(json);
+-  doc.print_json(cout);
++  if (!doc.print_json(cout)) { exit(1); }
+   cout << endl;
+ }
+ 
+@@ -37,7 +36,7 @@ void document_parse_get_corpus() {
+ 
+   padded_string json(get_corpus("jsonexamples/small/demo.json"));
+   document doc = document::parse(json);
+-  doc.print_json(cout);
++  if (!doc.print_json(cout)) { exit(1); }
+   cout << endl;
+ }
+ 
+@@ -53,7 +52,7 @@ void parser_parse() {
+     cout << "Parsing " << json.data() << " ..." << endl;
+     auto [doc, error] = parser.parse(json);
+     if (error) { cerr << "Error: " << error_message(error) << endl; exit(1); }
+-    doc.print_json(cout);
++    if (!doc.print_json(cout)) { exit(1); }
+     cout << endl;
+   }
+ }
+diff --git a/tests/stringparsingcheck.cpp b/tests/stringparsingcheck.cpp
+index 9424c4c275..ff247f4284 100644
+--- a/tests/stringparsingcheck.cpp
++++ b/tests/stringparsingcheck.cpp
+@@ -13,7 +13,7 @@
+ #define JSON_TEST_STRINGS
+ #endif
+ 
+-#include "simdjson/common_defs.h"
++#include "simdjson.h"
+ 
+ char *fullpath;
+ 
+@@ -289,8 +289,8 @@ void found_string(const uint8_t *buf, const uint8_t *parsed_begin,
+   }
+ }
+ 
+-#include "simdjson/jsonparser.h"
+-#include "src/stage2_build_tape.cpp"
++#include "simdjson.h"
++#include "simdjson.cpp"
+ 
+ /**
+  * Does the file filename ends with the given extension.

@@ -1,0 +1,109 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/pre-tag/_config.js b/packages/svelte/tests/runtime-legacy/samples/pre-tag/_config.js
+index b8119f3f2c18..d5a18488e236 100644
+--- a/packages/svelte/tests/runtime-legacy/samples/pre-tag/_config.js
++++ b/packages/svelte/tests/runtime-legacy/samples/pre-tag/_config.js
+@@ -20,7 +20,10 @@ function get_html(ssr) {
+   </span>
+   E
+   F
+-</pre> <div id="div">A B <span>C D</span> E F</div> <div id="div-with-pre"><pre>    A
++</pre> <div id="div">A
++  B <span>C
++    D</span> E
++  F</div> <div id="div-with-pre"><pre>    A
+     B
+     <span>
+       C
+diff --git a/packages/svelte/tests/runtime-legacy/shared.ts b/packages/svelte/tests/runtime-legacy/shared.ts
+index 02168c79f9dd..e8074b9e5b28 100644
+--- a/packages/svelte/tests/runtime-legacy/shared.ts
++++ b/packages/svelte/tests/runtime-legacy/shared.ts
+@@ -66,7 +66,7 @@ export interface RuntimeTest<Props extends Record<string, any> = Record<string,
+ 	runtime_error?: string;
+ 	warnings?: string[];
+ 	expect_unhandled_rejections?: boolean;
+-	withoutNormalizeHtml?: boolean;
++	withoutNormalizeHtml?: boolean | 'only-strip-comments';
+ 	recover?: boolean;
+ }
+ 
+@@ -213,13 +213,15 @@ async function run_test_variant(
+ 		if (variant === 'ssr') {
+ 			if (config.ssrHtml) {
+ 				assert_html_equal_with_options(target.innerHTML, config.ssrHtml, {
+-					preserveComments: config.compileOptions?.preserveComments,
+-					withoutNormalizeHtml: config.withoutNormalizeHtml
++					preserveComments:
++						config.withoutNormalizeHtml === 'only-strip-comments' ? false : undefined,
++					withoutNormalizeHtml: !!config.withoutNormalizeHtml
+ 				});
+ 			} else if (config.html) {
+ 				assert_html_equal_with_options(target.innerHTML, config.html, {
+-					preserveComments: config.compileOptions?.preserveComments,
+-					withoutNormalizeHtml: config.withoutNormalizeHtml
++					preserveComments:
++						config.withoutNormalizeHtml === 'only-strip-comments' ? false : undefined,
++					withoutNormalizeHtml: !!config.withoutNormalizeHtml
+ 				});
+ 			}
+ 
+@@ -283,7 +285,9 @@ async function run_test_variant(
+ 			if (config.html) {
+ 				$.flushSync();
+ 				assert_html_equal_with_options(target.innerHTML, config.html, {
+-					withoutNormalizeHtml: config.withoutNormalizeHtml
++					preserveComments:
++						config.withoutNormalizeHtml === 'only-strip-comments' ? false : undefined,
++					withoutNormalizeHtml: !!config.withoutNormalizeHtml
+ 				});
+ 			}
+ 
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/_config.js b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/_config.js
+index 6c130a0bfbe0..a84763260eb5 100644
+--- a/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/_config.js
+@@ -4,5 +4,11 @@ export default test({
+ 	compileOptions: {
+ 		dev: true // Render in dev mode to check that the validation error is not thrown
+ 	},
+-	html: `A\nB\nC\nD`
++	withoutNormalizeHtml: 'only-strip-comments',
++	html: `A B C D <pre>Testing
++123          ;
++    456</pre>`,
++	ssrHtml: `A B C D <pre>Testing
++123          ;
++    456</pre>`
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/main.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/main.svelte
+index a85a932602a5..35bbf4b310f9 100644
+--- a/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/main.svelte
+@@ -1,5 +1,15 @@
++<script>
++	import Pre from "./pre.svelte";
++
++</script>
+ A
+ {#snippet snip()}C{/snippet}
+ B
+ {@render snip()}
+ D
++
++<Pre>
++    Testing
++123          ;
++    456
++</Pre>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/pre.svelte b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/pre.svelte
+new file mode 100644
+index 000000000000..821b578fa94b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/snippet-whitespace/pre.svelte
+@@ -0,0 +1,5 @@
++<script>
++    let { children } = $props();
++</script>
++
++<pre>{@render children()}</pre>

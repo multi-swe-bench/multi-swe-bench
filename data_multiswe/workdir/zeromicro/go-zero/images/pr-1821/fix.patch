@@ -1,0 +1,108 @@
+diff --git a/rest/engine.go b/rest/engine.go
+index 0e238d11d176..60453c1b9281 100644
+--- a/rest/engine.go
++++ b/rest/engine.go
+@@ -28,6 +28,7 @@ type engine struct {
+ 	routes               []featuredRoutes
+ 	unauthorizedCallback handler.UnauthorizedCallback
+ 	unsignedCallback     handler.UnsignedCallback
++	recoverCallback      handler.RecoverCallback
+ 	middlewares          []Middleware
+ 	shedder              load.Shedder
+ 	priorityShedder      load.Shedder
+@@ -92,7 +93,7 @@ func (ng *engine) bindRoute(fr featuredRoutes, router httpx.Router, metrics *sta
+ 		handler.BreakerHandler(route.Method, route.Path, metrics),
+ 		handler.SheddingHandler(ng.getShedder(fr.priority), metrics),
+ 		handler.TimeoutHandler(ng.checkedTimeout(fr.timeout)),
+-		handler.RecoverHandler,
++		handler.RecoverHandler(ng.recoverCallback),
+ 		handler.MetricHandler(metrics),
+ 		handler.MaxBytesHandler(ng.checkedMaxBytes(fr.maxBytes)),
+ 		handler.GunzipHandler,
+@@ -196,6 +197,10 @@ func (ng *engine) setUnsignedCallback(callback handler.UnsignedCallback) {
+ 	ng.unsignedCallback = callback
+ }
+ 
++func (ng *engine) seRecoverCallback(callback handler.RecoverCallback) {
++	ng.recoverCallback = callback
++}
++
+ func (ng *engine) signatureVerifier(signature signatureSetting) (func(chain alice.Chain) alice.Chain, error) {
+ 	if !signature.enabled {
+ 		return func(chain alice.Chain) alice.Chain {
+diff --git a/rest/handler/recoverhandler.go b/rest/handler/recoverhandler.go
+index 830cea8f9fc0..3f88bdb41bdc 100644
+--- a/rest/handler/recoverhandler.go
++++ b/rest/handler/recoverhandler.go
+@@ -6,18 +6,42 @@ import (
+ 	"runtime/debug"
+ 
+ 	"github.com/zeromicro/go-zero/rest/internal"
++	"github.com/zeromicro/go-zero/rest/internal/response"
+ )
+ 
++// RecoverCallback defines the method of recover callback.
++type RecoverCallback func(w http.ResponseWriter, r *http.Request, recoverRes interface{})
++
+ // RecoverHandler returns a middleware that recovers if panic happens.
+-func RecoverHandler(next http.Handler) http.Handler {
+-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+-		defer func() {
+-			if result := recover(); result != nil {
+-				internal.Error(r, fmt.Sprintf("%v\n%s", result, debug.Stack()))
+-				w.WriteHeader(http.StatusInternalServerError)
+-			}
+-		}()
+-
+-		next.ServeHTTP(w, r)
+-	})
++func RecoverHandler(recoverCallback RecoverCallback) func(next http.Handler) http.Handler {
++	return func(next http.Handler) http.Handler {
++		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			defer func() {
++				if result := recover(); result != nil {
++					internal.Error(r, fmt.Sprintf("%v\n%s", result, debug.Stack()))
++
++					writer := response.NewHeaderOnceResponseWriter(w)
++					if recoverCallback != nil {
++						doRecoverCallback(
++							func() { recoverCallback(w, r, result) },
++							r,
++						)
++					}
++					writer.WriteHeader(http.StatusInternalServerError)
++				}
++			}()
++
++			next.ServeHTTP(w, r)
++		})
++	}
++}
++
++func doRecoverCallback(doRecoverCallbackFn func(), r *http.Request) {
++	defer func() {
++		if recoverCallbackRecover := recover(); recoverCallbackRecover != nil {
++			internal.Error(r, fmt.Sprintf("%v\n%s", recoverCallbackRecover, debug.Stack()))
++		}
++	}()
++
++	doRecoverCallbackFn()
+ }
+diff --git a/rest/server.go b/rest/server.go
+index 669f7084c514..66304e449585 100644
+--- a/rest/server.go
++++ b/rest/server.go
+@@ -251,6 +251,13 @@ func WithUnsignedCallback(callback handler.UnsignedCallback) RunOption {
+ 	}
+ }
+ 
++// WithRecoverCallback returns a RunOption that with given recover callback set.
++func WithRecoverCallback(callback handler.RecoverCallback) RunOption {
++	return func(svr *Server) {
++		svr.ngin.seRecoverCallback(callback)
++	}
++}
++
+ func handleError(err error) {
+ 	// ErrServerClosed means the server is closed manually
+ 	if err == nil || err == http.ErrServerClosed {

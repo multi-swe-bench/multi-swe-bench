@@ -1,0 +1,78 @@
+diff --git a/clap_derive/src/derives/clap.rs b/clap_derive/src/derives/clap.rs
+index 131fa587c45..bbf98329818 100644
+--- a/clap_derive/src/derives/clap.rs
++++ b/clap_derive/src/derives/clap.rs
+@@ -68,7 +68,7 @@ fn gen_for_struct(
+ }
+ 
+ fn gen_for_enum(name: &Ident, attrs: &[Attribute], e: &DataEnum) -> TokenStream {
+-    let into_app = into_app::gen_for_enum(name);
++    let into_app = into_app::gen_for_enum(name, attrs);
+     let from_arg_matches = from_arg_matches::gen_for_enum(name);
+     let subcommand = subcommand::gen_for_enum(name, attrs, e);
+     let arg_enum = arg_enum::gen_for_enum(name, attrs, e);
+diff --git a/clap_derive/src/derives/into_app.rs b/clap_derive/src/derives/into_app.rs
+index 14a546cd1d5..397c21b879e 100644
+--- a/clap_derive/src/derives/into_app.rs
++++ b/clap_derive/src/derives/into_app.rs
+@@ -42,7 +42,7 @@ pub fn derive_into_app(input: &DeriveInput) -> TokenStream {
+             fields: Fields::Unit,
+             ..
+         }) => gen_for_struct(ident, &Punctuated::<Field, Comma>::new(), &input.attrs).0,
+-        Data::Enum(_) => gen_for_enum(ident),
++        Data::Enum(_) => gen_for_enum(ident, &input.attrs),
+         _ => abort_call_site!("`#[derive(IntoApp)]` only supports non-tuple structs and enums"),
+     }
+ }
+@@ -77,9 +77,18 @@ pub fn gen_for_struct(
+     (tokens, attrs)
+ }
+ 
+-pub fn gen_for_enum(name: &Ident) -> TokenStream {
++pub fn gen_for_enum(enum_name: &Ident, attrs: &[Attribute]) -> TokenStream {
+     let app_name = env::var("CARGO_PKG_NAME").ok().unwrap_or_default();
+ 
++    let attrs = Attrs::from_struct(
++        Span::call_site(),
++        attrs,
++        Name::Assigned(quote!(#app_name)),
++        Sp::call_site(DEFAULT_CASING),
++        Sp::call_site(DEFAULT_ENV_CASING),
++    );
++    let name = attrs.cased_name();
++
+     quote! {
+         #[allow(dead_code, unreachable_code, unused_variables)]
+         #[allow(
+@@ -93,24 +102,24 @@ pub fn gen_for_enum(name: &Ident) -> TokenStream {
+             clippy::cargo
+         )]
+         #[deny(clippy::correctness)]
+-        impl clap::IntoApp for #name {
++        impl clap::IntoApp for #enum_name {
+             fn into_app<'b>() -> clap::App<'b> {
+-                let app = clap::App::new(#app_name)
++                let app = clap::App::new(#name)
+                     .setting(clap::AppSettings::SubcommandRequiredElseHelp);
+-                <#name as clap::IntoApp>::augment_clap(app)
++                <#enum_name as clap::IntoApp>::augment_clap(app)
+             }
+ 
+             fn augment_clap<'b>(app: clap::App<'b>) -> clap::App<'b> {
+-                <#name as clap::Subcommand>::augment_subcommands(app)
++                <#enum_name as clap::Subcommand>::augment_subcommands(app)
+             }
+ 
+             fn into_app_for_update<'b>() -> clap::App<'b> {
+-                let app = clap::App::new(#app_name);
+-                <#name as clap::IntoApp>::augment_clap_for_update(app)
++                let app = clap::App::new(#name);
++                <#enum_name as clap::IntoApp>::augment_clap_for_update(app)
+             }
+ 
+             fn augment_clap_for_update<'b>(app: clap::App<'b>) -> clap::App<'b> {
+-                <#name as clap::Subcommand>::augment_subcommands_for_update(app)
++                <#enum_name as clap::Subcommand>::augment_subcommands_for_update(app)
+             }
+         }
+     }

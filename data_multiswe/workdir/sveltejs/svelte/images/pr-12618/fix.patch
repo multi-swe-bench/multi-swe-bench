@@ -1,0 +1,734 @@
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index 9b43e99820ec..4e24714647cd 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -190,7 +190,13 @@
+ 
+ ## node_invalid_placement
+ 
+-> %thing% is invalid inside <%parent%>
++> %thing% is invalid inside `<%parent%>`
++
++HTML restricts where certain elements can appear. In case of a violation the browser will 'repair' the HTML in a way that breaks Svelte's assumptions about the structure of your components. Some examples:
++
++- `<p>hello <div>world</div></p>` will result in `<p>hello </p><div>world</div><p></p>` for example (the `<div>` autoclosed the `<p>` because `<p>` cannot contain block-level elements)
++- `<option><div>option a</div></option>` will result in `<option>option a</option>` (the `<div>` is removed)
++- `<table><tr><td>cell</td></tr></table>` will result in `<table><tbody><tr><td>cell</td></tr></tbody></table>` (a `<tbody>` is auto-inserted)
+ 
+ ## render_tag_invalid_call_expression
+ 
+diff --git a/packages/svelte/messages/compile-warnings/template.md b/packages/svelte/messages/compile-warnings/template.md
+index 3460e1098ee0..58a251c729f9 100644
+--- a/packages/svelte/messages/compile-warnings/template.md
++++ b/packages/svelte/messages/compile-warnings/template.md
+@@ -38,6 +38,18 @@
+ 
+ > Using `on:%name%` to listen to the %name% event is deprecated. Use the event attribute `on%name%` instead
+ 
++## node_invalid_placement_ssr
++
++> %thing% is invalid inside `<%parent%>`. When rendering this component on the server, the resulting HTML will be modified by the browser, likely resulting in a `hydration_mismatch` warning
++
++HTML restricts where certain elements can appear. In case of a violation the browser will 'repair' the HTML in a way that breaks Svelte's assumptions about the structure of your components. Some examples:
++
++- `<p>hello <div>world</div></p>` will result in `<p>hello </p><div>world</div><p></p>` for example (the `<div>` autoclosed the `<p>` because `<p>` cannot contain block-level elements)
++- `<option><div>option a</div></option>` will result in `<option>option a</option>` (the `<div>` is removed)
++- `<table><tr><td>cell</td></tr></table>` will result in `<table><tbody><tr><td>cell</td></tr></tbody></table>` (a `<tbody>` is auto-inserted)
++
++This code will work when the component is rendered on the client (which is why this is a warning rather than an error), but if you use server rendering it will cause hydration to fail.
++
+ ## slot_element_deprecated
+ 
+ > Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 040356df2592..e3e3eb76cd00 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -978,14 +978,14 @@ export function mixed_event_handler_syntaxes(node, name) {
+ }
+ 
+ /**
+- * %thing% is invalid inside <%parent%>
++ * %thing% is invalid inside `<%parent%>`
+  * @param {null | number | NodeLike} node
+  * @param {string} thing
+  * @param {string} parent
+  * @returns {never}
+  */
+ export function node_invalid_placement(node, thing, parent) {
+-	e(node, "node_invalid_placement", `${thing} is invalid inside <${parent}>`);
++	e(node, "node_invalid_placement", `${thing} is invalid inside \`<${parent}>\``);
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/element.js b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+index 88dc5eae561a..11a9de09511c 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/element.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+@@ -5,12 +5,13 @@ import { is_void } from '../../../../constants.js';
+ import read_expression from '../read/expression.js';
+ import { read_script } from '../read/script.js';
+ import read_style from '../read/style.js';
+-import { closing_tag_omitted, decode_character_references } from '../utils/html.js';
++import { decode_character_references } from '../utils/html.js';
+ import * as e from '../../../errors.js';
+ import * as w from '../../../warnings.js';
+ import { create_fragment } from '../utils/create.js';
+ import { create_attribute } from '../../nodes.js';
+ import { get_attribute_expression, is_expression_attribute } from '../../../utils/ast.js';
++import { closing_tag_omitted } from '../../../../html-tree-validation.js';
+ 
+ // eslint-disable-next-line no-useless-escape
+ const valid_tag_name = /^\!?[a-zA-Z]{1,}:?[a-zA-Z0-9\-]*/;
+diff --git a/packages/svelte/src/compiler/phases/1-parse/utils/html.js b/packages/svelte/src/compiler/phases/1-parse/utils/html.js
+index 3cc9a5a20724..a68acb996faf 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/utils/html.js
++++ b/packages/svelte/src/compiler/phases/1-parse/utils/html.js
+@@ -1,4 +1,3 @@
+-import { interactive_elements } from '../../../../constants.js';
+ import entities from './entities.js';
+ 
+ const windows_1252 = [
+@@ -119,48 +118,3 @@ function validate_code(code) {
+ 
+ 	return NUL;
+ }
+-
+-// based on http://developers.whatwg.org/syntax.html#syntax-tag-omission
+-
+-/** @type {Record<string, Set<string>>} */
+-const disallowed_contents = {
+-	li: new Set(['li']),
+-	dt: new Set(['dt', 'dd']),
+-	dd: new Set(['dt', 'dd']),
+-	p: new Set(
+-		'address article aside blockquote div dl fieldset footer form h1 h2 h3 h4 h5 h6 header hgroup hr main menu nav ol p pre section table ul'.split(
+-			' '
+-		)
+-	),
+-	rt: new Set(['rt', 'rp']),
+-	rp: new Set(['rt', 'rp']),
+-	optgroup: new Set(['optgroup']),
+-	option: new Set(['option', 'optgroup']),
+-	thead: new Set(['tbody', 'tfoot']),
+-	tbody: new Set(['tbody', 'tfoot']),
+-	tfoot: new Set(['tbody']),
+-	tr: new Set(['tr', 'tbody']),
+-	td: new Set(['td', 'th', 'tr']),
+-	th: new Set(['td', 'th', 'tr'])
+-};
+-
+-for (const interactive_element of interactive_elements) {
+-	disallowed_contents[interactive_element] = interactive_elements;
+-}
+-
+-// can this be a child of the parent element, or does it implicitly
+-// close it, like `<li>one<li>two`?
+-
+-/**
+- * @param {string} current
+- * @param {string} [next]
+- */
+-export function closing_tag_omitted(current, next) {
+-	if (disallowed_contents[current]) {
+-		if (!next || disallowed_contents[current].has(next)) {
+-			return true;
+-		}
+-	}
+-
+-	return false;
+-}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 129b7e280cf7..eda5ed42b060 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -3,11 +3,6 @@
+ /** @import { NodeLike } from '../../errors.js' */
+ /** @import { AnalysisState, Context, Visitors } from './types.js' */
+ import is_reference from 'is-reference';
+-import {
+-	disallowed_paragraph_contents,
+-	interactive_elements,
+-	is_tag_valid_with_parent
+-} from '../../../constants.js';
+ import * as e from '../../errors.js';
+ import {
+ 	extract_identifiers,
+@@ -37,6 +32,10 @@ import {
+ import { Scope, get_rune } from '../scope.js';
+ import { merge } from '../visitors.js';
+ import { a11y_validators } from './a11y.js';
++import {
++	is_tag_valid_with_ancestor,
++	is_tag_valid_with_parent
++} from '../../../html-tree-validation.js';
+ 
+ /**
+  * @param {Attribute} attribute
+@@ -602,40 +601,57 @@ const validation = {
+ 		validate_element(node, context);
+ 
+ 		if (context.state.parent_element) {
+-			if (!is_tag_valid_with_parent(node.name, context.state.parent_element)) {
+-				e.node_invalid_placement(node, `<${node.name}>`, context.state.parent_element);
+-			}
+-		}
++			let past_parent = false;
++			let only_warn = false;
+ 
+-		// can't add form to interactive elements because those are also used by the parser
+-		// to check for the last auto-closing parent.
+-		if (node.name === 'form') {
+-			const path = context.path;
+-			for (let parent of path) {
+-				if (parent.type === 'RegularElement' && parent.name === 'form') {
+-					e.node_invalid_placement(node, `<${node.name}>`, parent.name);
+-				}
+-			}
+-		}
++			for (let i = context.path.length - 1; i >= 0; i--) {
++				const ancestor = context.path[i];
+ 
+-		if (interactive_elements.has(node.name)) {
+-			const path = context.path;
+-			for (let parent of path) {
+ 				if (
+-					parent.type === 'RegularElement' &&
+-					parent.name === node.name &&
+-					interactive_elements.has(parent.name)
++					ancestor.type === 'IfBlock' ||
++					ancestor.type === 'EachBlock' ||
++					ancestor.type === 'AwaitBlock' ||
++					ancestor.type === 'KeyBlock'
+ 				) {
+-					e.node_invalid_placement(node, `<${node.name}>`, parent.name);
++					// We're creating a separate template string inside blocks, which means client-side this would work
++					only_warn = true;
+ 				}
+-			}
+-		}
+ 
+-		if (disallowed_paragraph_contents.includes(node.name)) {
+-			const path = context.path;
+-			for (let parent of path) {
+-				if (parent.type === 'RegularElement' && parent.name === 'p') {
+-					e.node_invalid_placement(node, `<${node.name}>`, parent.name);
++				if (!past_parent) {
++					if (
++						ancestor.type === 'RegularElement' &&
++						ancestor.name === context.state.parent_element
++					) {
++						if (!is_tag_valid_with_parent(node.name, context.state.parent_element)) {
++							if (only_warn) {
++								w.node_invalid_placement_ssr(
++									node,
++									`\`<${node.name}>\``,
++									context.state.parent_element
++								);
++							} else {
++								e.node_invalid_placement(node, `\`<${node.name}>\``, context.state.parent_element);
++							}
++						}
++
++						past_parent = true;
++					}
++				} else if (ancestor.type === 'RegularElement') {
++					if (!is_tag_valid_with_ancestor(node.name, ancestor.name)) {
++						if (only_warn) {
++							w.node_invalid_placement_ssr(node, `\`<${node.name}>\``, ancestor.name);
++						} else {
++							e.node_invalid_placement(node, `\`<${node.name}>\``, ancestor.name);
++						}
++					}
++				} else if (
++					ancestor.type === 'Component' ||
++					ancestor.type === 'SvelteComponent' ||
++					ancestor.type === 'SvelteElement' ||
++					ancestor.type === 'SvelteSelf' ||
++					ancestor.type === 'SnippetBlock'
++				) {
++					break;
+ 				}
+ 			}
+ 		}
+@@ -818,7 +834,7 @@ const validation = {
+ 		if (!node.parent) return;
+ 		if (context.state.parent_element) {
+ 			if (!is_tag_valid_with_parent('#text', context.state.parent_element)) {
+-				e.node_invalid_placement(node, '{expression}', context.state.parent_element);
++				e.node_invalid_placement(node, '`{expression}`', context.state.parent_element);
+ 			}
+ 		}
+ 	}
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index d9c197cf7522..ca3eaf13f613 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -114,6 +114,7 @@ export const codes = [
+ 	"component_name_lowercase",
+ 	"element_invalid_self_closing_tag",
+ 	"event_directive_deprecated",
++	"node_invalid_placement_ssr",
+ 	"slot_element_deprecated",
+ 	"svelte_element_invalid_this"
+ ];
+@@ -739,6 +740,16 @@ export function event_directive_deprecated(node, name) {
+ 	w(node, "event_directive_deprecated", `Using \`on:${name}\` to listen to the ${name} event is deprecated. Use the event attribute \`on${name}\` instead`);
+ }
+ 
++/**
++ * %thing% is invalid inside `<%parent%>`. When rendering this component on the server, the resulting HTML will be modified by the browser, likely resulting in a `hydration_mismatch` warning
++ * @param {null | NodeLike} node
++ * @param {string} thing
++ * @param {string} parent
++ */
++export function node_invalid_placement_ssr(node, thing, parent) {
++	w(node, "node_invalid_placement_ssr", `${thing} is invalid inside \`<${parent}>\`. When rendering this component on the server, the resulting HTML will be modified by the browser, likely resulting in a \`hydration_mismatch\` warning`);
++}
++
+ /**
+  * Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+  * @param {null | NodeLike} node
+diff --git a/packages/svelte/src/constants.js b/packages/svelte/src/constants.js
+index 061e6e2eb8c8..0cc2102925e2 100644
+--- a/packages/svelte/src/constants.js
++++ b/packages/svelte/src/constants.js
+@@ -116,175 +116,6 @@ export const DOMBooleanAttributes = [
+ export const namespace_svg = 'http://www.w3.org/2000/svg';
+ export const namespace_mathml = 'http://www.w3.org/1998/Math/MathML';
+ 
+-// while `input` is also an interactive element, it is never moved by the browser, so we don't need to check for it
+-export const interactive_elements = new Set([
+-	'a',
+-	'button',
+-	'iframe',
+-	'embed',
+-	'select',
+-	'textarea'
+-]);
+-
+-export const disallowed_paragraph_contents = [
+-	'address',
+-	'article',
+-	'aside',
+-	'blockquote',
+-	'details',
+-	'div',
+-	'dl',
+-	'fieldset',
+-	'figcapture',
+-	'figure',
+-	'footer',
+-	'form',
+-	'h1',
+-	'h2',
+-	'h3',
+-	'h4',
+-	'h5',
+-	'h6',
+-	'header',
+-	'hr',
+-	'menu',
+-	'nav',
+-	'ol',
+-	'pre',
+-	'section',
+-	'table',
+-	'ul',
+-	'p'
+-];
+-
+-// https://html.spec.whatwg.org/multipage/syntax.html#generate-implied-end-tags
+-const implied_end_tags = ['dd', 'dt', 'li', 'option', 'optgroup', 'p', 'rp', 'rt'];
+-
+-/**
+- * @param {string} tag
+- * @param {string} parent_tag
+- * @returns {boolean}
+- */
+-export function is_tag_valid_with_parent(tag, parent_tag) {
+-	// First, let's check if we're in an unusual parsing mode...
+-	switch (parent_tag) {
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-inselect
+-		case 'select':
+-			return (
+-				tag === 'option' ||
+-				tag === 'optgroup' ||
+-				tag === '#text' ||
+-				tag === 'hr' ||
+-				tag === 'script' ||
+-				tag === 'template'
+-			);
+-		case 'optgroup':
+-			return tag === 'option' || tag === '#text';
+-		// Strictly speaking, seeing an <option> doesn't mean we're in a <select>
+-		// but
+-		case 'option':
+-			return tag === '#text';
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intd
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-incaption
+-		// No special behavior since these rules fall back to "in body" mode for
+-		// all except special table nodes which cause bad parsing behavior anyway.
+-
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intr
+-		case 'tr':
+-			return (
+-				tag === 'th' || tag === 'td' || tag === 'style' || tag === 'script' || tag === 'template'
+-			);
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intbody
+-		case 'tbody':
+-		case 'thead':
+-		case 'tfoot':
+-			return tag === 'tr' || tag === 'style' || tag === 'script' || tag === 'template';
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-incolgroup
+-		case 'colgroup':
+-			return tag === 'col' || tag === 'template';
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intable
+-		case 'table':
+-			return (
+-				tag === 'caption' ||
+-				tag === 'colgroup' ||
+-				tag === 'tbody' ||
+-				tag === 'tfoot' ||
+-				tag === 'thead' ||
+-				tag === 'style' ||
+-				tag === 'script' ||
+-				tag === 'template'
+-			);
+-		// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-inhead
+-		case 'head':
+-			return (
+-				tag === 'base' ||
+-				tag === 'basefont' ||
+-				tag === 'bgsound' ||
+-				tag === 'link' ||
+-				tag === 'meta' ||
+-				tag === 'title' ||
+-				tag === 'noscript' ||
+-				tag === 'noframes' ||
+-				tag === 'style' ||
+-				tag === 'script' ||
+-				tag === 'template'
+-			);
+-		// https://html.spec.whatwg.org/multipage/semantics.html#the-html-element
+-		case 'html':
+-			return tag === 'head' || tag === 'body' || tag === 'frameset';
+-		case 'frameset':
+-			return tag === 'frame';
+-		case '#document':
+-			return tag === 'html';
+-	}
+-
+-	// Probably in the "in body" parsing mode, so we outlaw only tag combos
+-	// where the parsing rules cause implicit opens or closes to be added.
+-	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-inbody
+-	switch (tag) {
+-		case 'h1':
+-		case 'h2':
+-		case 'h3':
+-		case 'h4':
+-		case 'h5':
+-		case 'h6':
+-			return (
+-				parent_tag !== 'h1' &&
+-				parent_tag !== 'h2' &&
+-				parent_tag !== 'h3' &&
+-				parent_tag !== 'h4' &&
+-				parent_tag !== 'h5' &&
+-				parent_tag !== 'h6'
+-			);
+-
+-		case 'rp':
+-		case 'rt':
+-			return implied_end_tags.indexOf(parent_tag) === -1;
+-
+-		case 'body':
+-		case 'caption':
+-		case 'col':
+-		case 'colgroup':
+-		case 'frameset':
+-		case 'frame':
+-		case 'head':
+-		case 'html':
+-		case 'tbody':
+-		case 'td':
+-		case 'tfoot':
+-		case 'th':
+-		case 'thead':
+-		case 'tr':
+-			// These tags are only valid with a few parents that have special child
+-			// parsing rules -- if we're down here, then none of those matched and
+-			// so we allow it only if we don't know what the parent is, as all other
+-			// cases are invalid.
+-			return parent_tag == null;
+-	}
+-
+-	return true;
+-}
+-
+ /**
+  * @param {string} name
+  * @param {"include-on" | "exclude-on"} [mode] - wether if name starts with `on` or `on` is excluded at this point
+diff --git a/packages/svelte/src/html-tree-validation.js b/packages/svelte/src/html-tree-validation.js
+new file mode 100644
+index 000000000000..c7f25549661e
+--- /dev/null
++++ b/packages/svelte/src/html-tree-validation.js
+@@ -0,0 +1,193 @@
++/**
++ * Map of elements that have certain elements that are not allowed inside them, in the sense that they will auto-close the parent/ancestor element.
++ * Theoretically one could take advantage of it but most of the time it will just result in confusing behavior and break when SSR'd.
++ * There are more elements that are invalid inside other elements, but they're not auto-closed and so don't break SSR and are therefore not listed here.
++ * @type {Record<string, { direct: string[]} | { descendant: string[] }>}
++ */
++const autoclosing_children = {
++	// based on http://developers.whatwg.org/syntax.html#syntax-tag-omission
++	li: { direct: ['li'] },
++	dt: { descendant: ['dt', 'dd'] },
++	dd: { descendant: ['dt', 'dd'] },
++	p: {
++		descendant: [
++			'address',
++			'article',
++			'aside',
++			'blockquote',
++			'div',
++			'dl',
++			'fieldset',
++			'footer',
++			'form',
++			'h1',
++			'h2',
++			'h3',
++			'h4',
++			'h5',
++			'h6',
++			'header',
++			'hgroup',
++			'hr',
++			'main',
++			'menu',
++			'nav',
++			'ol',
++			'p',
++			'pre',
++			'section',
++			'table',
++			'ul'
++		]
++	},
++	rt: { descendant: ['rt', 'rp'] },
++	rp: { descendant: ['rt', 'rp'] },
++	optgroup: { descendant: ['optgroup'] },
++	option: { descendant: ['option', 'optgroup'] },
++	thead: { direct: ['tbody', 'tfoot'] },
++	tbody: { direct: ['tbody', 'tfoot'] },
++	tfoot: { direct: ['tbody'] },
++	tr: { direct: ['tr', 'tbody'] },
++	td: { direct: ['td', 'th', 'tr'] },
++	th: { direct: ['td', 'th', 'tr'] }
++};
++
++/**
++ * Returns true if the tag is either the last in the list of siblings and will be autoclosed,
++ * or not allowed inside the parent tag such that it will auto-close it. The latter results
++ * in the browser repairing the HTML, which will likely result in an error during hydration.
++ * @param {string} current
++ * @param {string} [next]
++ */
++export function closing_tag_omitted(current, next) {
++	const disallowed = autoclosing_children[current];
++	if (disallowed) {
++		if (
++			!next ||
++			('direct' in disallowed ? disallowed.direct : disallowed.descendant).includes(next)
++		) {
++			return true;
++		}
++	}
++	return false;
++}
++
++/**
++ * Map of elements that have certain elements that are not allowed inside them, in the sense that the browser will somehow repair the HTML.
++ * There are more elements that are invalid inside other elements, but they're not repaired and so don't break SSR and are therefore not listed here.
++ * @type {Record<string, { direct: string[]} | { descendant: string[]; only?: string[] } | { only: string[] }>}
++ */
++const disallowed_children = {
++	...autoclosing_children,
++	optgroup: { only: ['option', '#text'] },
++	// Strictly speaking, seeing an <option> doesn't mean we're in a <select>, but we assume it here
++	option: { only: ['#text'] },
++	form: { descendant: ['form'] },
++	a: { descendant: ['a'] },
++	button: { descendant: ['button'] },
++	h1: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	h2: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	h3: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	h4: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	h5: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	h6: { descendant: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] },
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-inselect
++	select: { only: ['option', 'optgroup', '#text', 'hr', 'script', 'template'] },
++
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intd
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-incaption
++	// No special behavior since these rules fall back to "in body" mode for
++	// all except special table nodes which cause bad parsing behavior anyway.
++
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intd
++	tr: { only: ['th', 'td', 'style', 'script', 'template'] },
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intbody
++	tbody: { only: ['tr', 'style', 'script', 'template'] },
++	thead: { only: ['tr', 'style', 'script', 'template'] },
++	tfoot: { only: ['tr', 'style', 'script', 'template'] },
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-incolgroup
++	colgroup: { only: ['col', 'template'] },
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-intable
++	table: {
++		only: ['caption', 'colgroup', 'tbody', 'thead', 'tfoot', 'style', 'script', 'template']
++	},
++	// https://html.spec.whatwg.org/multipage/syntax.html#parsing-main-inhead
++	head: {
++		only: [
++			'base',
++			'basefont',
++			'bgsound',
++			'link',
++			'meta',
++			'title',
++			'noscript',
++			'noframes',
++			'style',
++			'script',
++			'template'
++		]
++	},
++	// https://html.spec.whatwg.org/multipage/semantics.html#the-html-element
++	html: { only: ['head', 'body', 'frameset'] },
++	frameset: { only: ['frame'] },
++	'#document': { only: ['html'] }
++};
++
++/**
++ * Returns false if the tag is not allowed inside the ancestor tag (which is grandparent and above) such that it will result
++ * in the browser repairing the HTML, which will likely result in an error during hydration.
++ * @param {string} tag
++ * @param {string} ancestor Must not be the parent, but higher up the tree
++ * @returns {boolean}
++ */
++export function is_tag_valid_with_ancestor(tag, ancestor) {
++	const disallowed = disallowed_children[ancestor];
++	return !disallowed || ('descendant' in disallowed ? !disallowed.descendant.includes(tag) : true);
++}
++
++/**
++ * Returns false if the tag is not allowed inside the parent tag such that it will result
++ * in the browser repairing the HTML, which will likely result in an error during hydration.
++ * @param {string} tag
++ * @param {string} parent_tag
++ * @returns {boolean}
++ */
++export function is_tag_valid_with_parent(tag, parent_tag) {
++	const disallowed = disallowed_children[parent_tag];
++
++	if (disallowed) {
++		if ('direct' in disallowed && disallowed.direct.includes(tag)) {
++			return false;
++		}
++		if ('descendant' in disallowed && disallowed.descendant.includes(tag)) {
++			return false;
++		}
++		if ('only' in disallowed && disallowed.only) {
++			return disallowed.only.includes(tag);
++		}
++	}
++
++	switch (tag) {
++		case 'body':
++		case 'caption':
++		case 'col':
++		case 'colgroup':
++		case 'frameset':
++		case 'frame':
++		case 'head':
++		case 'html':
++		case 'tbody':
++		case 'td':
++		case 'tfoot':
++		case 'th':
++		case 'thead':
++		case 'tr':
++			// These tags are only valid with a few parents that have special child
++			// parsing rules - if we're down here, then none of those matched and
++			// so we allow it only if we don't know what the parent is, as all other
++			// cases are invalid (and we only get into this function if we know the parent).
++			return false;
++	}
++
++	return true;
++}
+diff --git a/packages/svelte/src/internal/server/dev.js b/packages/svelte/src/internal/server/dev.js
+index dfffa7175b54..1904995086f5 100644
+--- a/packages/svelte/src/internal/server/dev.js
++++ b/packages/svelte/src/internal/server/dev.js
+@@ -1,10 +1,9 @@
+ /** @import { Component, Payload } from '#server' */
++import { FILENAME } from '../../constants.js';
+ import {
+-	FILENAME,
+-	disallowed_paragraph_contents,
+-	interactive_elements,
++	is_tag_valid_with_ancestor,
+ 	is_tag_valid_with_parent
+-} from '../../constants.js';
++} from '../../html-tree-validation.js';
+ import { current_component } from './context.js';
+ 
+ /**
+@@ -40,7 +39,7 @@ function stringify(element) {
+  */
+ function print_error(payload, parent, child) {
+ 	var message =
+-		`${stringify(parent)} cannot contain ${stringify(child)}\n\n` +
++		`node_invalid_placement_ssr: ${stringify(parent)} cannot contain ${stringify(child)}\n\n` +
+ 		'This can cause content to shift around as the browser repairs the HTML, and will likely result in a `hydration_mismatch` warning.';
+ 
+ 	if ((seen ??= new Set()).has(message)) return;
+@@ -60,31 +59,17 @@ function print_error(payload, parent, child) {
+ export function push_element(payload, tag, line, column) {
+ 	var filename = /** @type {Component} */ (current_component).function[FILENAME];
+ 	var child = { tag, parent, filename, line, column };
++	var ancestor = parent?.parent;
+ 
+ 	if (parent !== null && !is_tag_valid_with_parent(tag, parent.tag)) {
+ 		print_error(payload, parent, child);
+ 	}
+ 
+-	if (interactive_elements.has(tag)) {
+-		let element = parent;
+-		while (element !== null) {
+-			if (interactive_elements.has(element.tag)) {
+-				print_error(payload, element, child);
+-				break;
+-			}
+-			element = element.parent;
+-		}
+-	}
+-
+-	if (disallowed_paragraph_contents.includes(tag)) {
+-		let element = parent;
+-		while (element !== null) {
+-			if (element.tag === 'p') {
+-				print_error(payload, element, child);
+-				break;
+-			}
+-			element = element.parent;
++	while (ancestor != null) {
++		if (!is_tag_valid_with_ancestor(tag, ancestor.tag)) {
++			print_error(payload, ancestor, child);
+ 		}
++		ancestor = ancestor.parent;
+ 	}
+ 
+ 	parent = child;

@@ -1,0 +1,392 @@
+diff --git a/internal/config/config_file_test.go b/internal/config/config_file_test.go
+index 2d7fd4b732c..1eb97ab10e1 100644
+--- a/internal/config/config_file_test.go
++++ b/internal/config/config_file_test.go
+@@ -110,7 +110,7 @@ github.com:
+ 	_, err := ParseConfig("config.yml")
+ 	assert.Nil(t, err)
+ 
+-	expectedMain := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor:\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
++	expectedMain := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor:\n# When to interactively prompt. This is a global config that cannot be overriden by hostname. Supported values: enabled, disabled\nprompt: enabled\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
+ 	expectedHosts := `github.com:
+     user: keiyuri
+     oauth_token: "123456"
+diff --git a/internal/config/config_type_test.go b/internal/config/config_type_test.go
+index df33effa3e8..6e561f634ba 100644
+--- a/internal/config/config_type_test.go
++++ b/internal/config/config_type_test.go
+@@ -19,7 +19,7 @@ func Test_fileConfig_Set(t *testing.T) {
+ 	assert.NoError(t, c.Set("github.com", "user", "hubot"))
+ 	assert.NoError(t, c.Write())
+ 
+-	expected := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor: nano\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
++	expected := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor: nano\n# When to interactively prompt. This is a global config that cannot be overriden by hostname. Supported values: enabled, disabled\nprompt: enabled\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
+ 	assert.Equal(t, expected, mainBuf.String())
+ 	assert.Equal(t, `github.com:
+     git_protocol: ssh
+@@ -37,7 +37,7 @@ func Test_defaultConfig(t *testing.T) {
+ 	cfg := NewBlankConfig()
+ 	assert.NoError(t, cfg.Write())
+ 
+-	expected := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor:\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
++	expected := "# What protocol to use when performing git operations. Supported values: ssh, https\ngit_protocol: https\n# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.\neditor:\n# When to interactively prompt. This is a global config that cannot be overriden by hostname. Supported values: enabled, disabled\nprompt: enabled\n# Aliases allow you to create nicknames for gh commands\naliases:\n    co: pr checkout\n"
+ 	assert.Equal(t, expected, mainBuf.String())
+ 	assert.Equal(t, "", hostsBuf.String())
+ 
+diff --git a/pkg/cmd/auth/login/login_test.go b/pkg/cmd/auth/login/login_test.go
+index d90a0a2d66e..5d0ba194217 100644
+--- a/pkg/cmd/auth/login/login_test.go
++++ b/pkg/cmd/auth/login/login_test.go
+@@ -49,19 +49,13 @@ func Test_NewCmdLogin(t *testing.T) {
+ 			name:     "nontty, hostname",
+ 			stdinTTY: false,
+ 			cli:      "--hostname claire.redfield",
+-			wants: LoginOptions{
+-				Hostname: "claire.redfield",
+-				Token:    "",
+-			},
++			wantsErr: true,
+ 		},
+ 		{
+ 			name:     "nontty",
+ 			stdinTTY: false,
+ 			cli:      "",
+-			wants: LoginOptions{
+-				Hostname: "",
+-				Token:    "",
+-			},
++			wantsErr: true,
+ 		},
+ 		{
+ 			name:  "nontty, with-token, hostname",
+@@ -109,6 +103,7 @@ func Test_NewCmdLogin(t *testing.T) {
+ 				IOStreams: io,
+ 			}
+ 
++			io.SetStdoutTTY(true)
+ 			io.SetStdinTTY(tt.stdinTTY)
+ 			if tt.stdin != "" {
+ 				stdin.WriteString(tt.stdin)
+diff --git a/pkg/cmd/auth/logout/logout_test.go b/pkg/cmd/auth/logout/logout_test.go
+index 7247057763d..a9d14cc91c6 100644
+--- a/pkg/cmd/auth/logout/logout_test.go
++++ b/pkg/cmd/auth/logout/logout_test.go
+@@ -17,24 +17,40 @@ import (
+ 
+ func Test_NewCmdLogout(t *testing.T) {
+ 	tests := []struct {
+-		name  string
+-		cli   string
+-		wants LogoutOptions
++		name     string
++		cli      string
++		wants    LogoutOptions
++		wantsErr bool
++		tty      bool
+ 	}{
+ 		{
+-			name: "with hostname",
++			name: "tty with hostname",
++			tty:  true,
+ 			cli:  "--hostname harry.mason",
+ 			wants: LogoutOptions{
+ 				Hostname: "harry.mason",
+ 			},
+ 		},
+ 		{
+-			name: "no arguments",
++			name: "tty no arguments",
++			tty:  true,
+ 			cli:  "",
+ 			wants: LogoutOptions{
+ 				Hostname: "",
+ 			},
+ 		},
++		{
++			name: "nontty with hostname",
++			cli:  "--hostname harry.mason",
++			wants: LogoutOptions{
++				Hostname: "harry.mason",
++			},
++		},
++		{
++			name:     "nontty no arguments",
++			cli:      "",
++			wantsErr: true,
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+@@ -42,6 +58,8 @@ func Test_NewCmdLogout(t *testing.T) {
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
++			io.SetStdinTTY(tt.tty)
++			io.SetStdoutTTY(tt.tty)
+ 
+ 			argv, err := shlex.Split(tt.cli)
+ 			assert.NoError(t, err)
+@@ -60,6 +78,10 @@ func Test_NewCmdLogout(t *testing.T) {
+ 			cmd.SetErr(&bytes.Buffer{})
+ 
+ 			_, err = cmd.ExecuteC()
++			if tt.wantsErr {
++				assert.Error(t, err)
++				return
++			}
+ 			assert.NoError(t, err)
+ 
+ 			assert.Equal(t, tt.wants.Hostname, gotOpts.Hostname)
+@@ -185,11 +207,6 @@ func Test_logoutRun_nontty(t *testing.T) {
+ 		wantErr   *regexp.Regexp
+ 		ghtoken   string
+ 	}{
+-		{
+-			name:    "no arguments",
+-			wantErr: regexp.MustCompile(`hostname required when not`),
+-			opts:    &LogoutOptions{},
+-		},
+ 		{
+ 			name: "hostname, one host",
+ 			opts: &LogoutOptions{
+diff --git a/pkg/cmd/auth/refresh/refresh_test.go b/pkg/cmd/auth/refresh/refresh_test.go
+index faacb0aa7d8..46db2af525b 100644
+--- a/pkg/cmd/auth/refresh/refresh_test.go
++++ b/pkg/cmd/auth/refresh/refresh_test.go
+@@ -14,34 +14,68 @@ import (
+ 	"github.com/stretchr/testify/assert"
+ )
+ 
++// TODO prompt cfg test
++
+ func Test_NewCmdRefresh(t *testing.T) {
+ 	tests := []struct {
+-		name  string
+-		cli   string
+-		wants RefreshOptions
++		name        string
++		cli         string
++		wants       RefreshOptions
++		wantsErr    bool
++		tty         bool
++		neverPrompt bool
+ 	}{
+ 		{
+-			name: "no arguments",
++			name: "tty no arguments",
++			tty:  true,
+ 			wants: RefreshOptions{
+ 				Hostname: "",
+ 			},
+ 		},
+ 		{
+-			name: "hostname",
++			name:     "nontty no arguments",
++			wantsErr: true,
++		},
++		{
++			name:     "nontty hostname",
++			cli:      "-h aline.cedrac",
++			wantsErr: true,
++		},
++		{
++			name: "tty hostname",
++			tty:  true,
+ 			cli:  "-h aline.cedrac",
+ 			wants: RefreshOptions{
+ 				Hostname: "aline.cedrac",
+ 			},
+ 		},
+ 		{
+-			name: "one scope",
++			name:        "prompts disabled, no args",
++			tty:         true,
++			cli:         "",
++			neverPrompt: true,
++			wantsErr:    true,
++		},
++		{
++			name:        "prompts disabled, hostname",
++			tty:         true,
++			cli:         "-h aline.cedrac",
++			neverPrompt: true,
++			wants: RefreshOptions{
++				Hostname: "aline.cedrac",
++			},
++		},
++		{
++			name: "tty one scope",
++			tty:  true,
+ 			cli:  "--scopes repo:invite",
+ 			wants: RefreshOptions{
+ 				Scopes: []string{"repo:invite"},
+ 			},
+ 		},
+ 		{
+-			name: "scopes",
++			name: "tty scopes",
++			tty:  true,
+ 			cli:  "--scopes repo:invite,read:public_key",
+ 			wants: RefreshOptions{
+ 				Scopes: []string{"repo:invite", "read:public_key"},
+@@ -55,6 +89,9 @@ func Test_NewCmdRefresh(t *testing.T) {
+ 			f := &cmdutil.Factory{
+ 				IOStreams: io,
+ 			}
++			io.SetStdinTTY(tt.tty)
++			io.SetStdoutTTY(tt.tty)
++			io.SetNeverPrompt(tt.neverPrompt)
+ 
+ 			argv, err := shlex.Split(tt.cli)
+ 			assert.NoError(t, err)
+@@ -73,11 +110,14 @@ func Test_NewCmdRefresh(t *testing.T) {
+ 			cmd.SetErr(&bytes.Buffer{})
+ 
+ 			_, err = cmd.ExecuteC()
++			if tt.wantsErr {
++				assert.Error(t, err)
++				return
++			}
+ 			assert.NoError(t, err)
+ 			assert.Equal(t, tt.wants.Hostname, gotOpts.Hostname)
+ 			assert.Equal(t, tt.wants.Scopes, gotOpts.Scopes)
+ 		})
+-
+ 	}
+ }
+ 
+@@ -96,12 +136,6 @@ func Test_refreshRun(t *testing.T) {
+ 		nontty       bool
+ 		wantAuthArgs authArgs
+ 	}{
+-		{
+-			name:    "non tty",
+-			opts:    &RefreshOptions{},
+-			nontty:  true,
+-			wantErr: regexp.MustCompile(`not attached to a terminal;`),
+-		},
+ 		{
+ 			name:    "no hosts configured",
+ 			opts:    &RefreshOptions{},
+diff --git a/pkg/cmd/issue/create/create_test.go b/pkg/cmd/issue/create/create_test.go
+index fb46e6e1e0f..ffa5d336577 100644
+--- a/pkg/cmd/issue/create/create_test.go
++++ b/pkg/cmd/issue/create/create_test.go
+@@ -78,20 +78,12 @@ func TestIssueCreate_nontty_error(t *testing.T) {
+ 	http := &httpmock.Registry{}
+ 	defer http.Verify(t)
+ 
+-	http.StubResponse(200, bytes.NewBufferString(`
+-		{ "data": { "repository": {
+-			"id": "REPOID",
+-			"hasIssuesEnabled": true
+-		} } }
+-	`))
+-
+ 	_, err := runCommand(http, false, `-t hello`)
+ 	if err == nil {
+ 		t.Fatal("expected error running command `issue create`")
+ 	}
+ 
+-	assert.Equal(t, "must provide --title and --body when not attached to a terminal", err.Error())
+-
++	assert.Equal(t, "must provide --title and --body when not running interactively", err.Error())
+ }
+ 
+ func TestIssueCreate(t *testing.T) {
+diff --git a/pkg/cmd/pr/create/create_test.go b/pkg/cmd/pr/create/create_test.go
+index f3426702f34..1eecab69b51 100644
+--- a/pkg/cmd/pr/create/create_test.go
++++ b/pkg/cmd/pr/create/create_test.go
+@@ -135,7 +135,7 @@ func TestPRCreate_nontty_insufficient_flags(t *testing.T) {
+ 		t.Fatal("expected error")
+ 	}
+ 
+-	assert.Equal(t, "--title or --fill required when not attached to a terminal", err.Error())
++	assert.Equal(t, "--title or --fill required when not running interactively", err.Error())
+ 
+ 	assert.Equal(t, "", output.String())
+ }
+diff --git a/pkg/cmd/pr/merge/merge_test.go b/pkg/cmd/pr/merge/merge_test.go
+index 6abea963cf3..c29b794ae6d 100644
+--- a/pkg/cmd/pr/merge/merge_test.go
++++ b/pkg/cmd/pr/merge/merge_test.go
+@@ -53,7 +53,7 @@ func Test_NewCmdMerge(t *testing.T) {
+ 			name:    "insufficient flags in non-interactive mode",
+ 			args:    "123",
+ 			isTTY:   false,
+-			wantErr: "--merge, --rebase, or --squash required when not attached to a terminal",
++			wantErr: "--merge, --rebase, or --squash required when not running interactively",
+ 		},
+ 		{
+ 			name:    "multiple merge methods",
+diff --git a/pkg/cmd/pr/review/review_test.go b/pkg/cmd/pr/review/review_test.go
+index 1dfe4a53d5b..b96ab8089c5 100644
+--- a/pkg/cmd/pr/review/review_test.go
++++ b/pkg/cmd/pr/review/review_test.go
+@@ -60,7 +60,7 @@ func Test_NewCmdReview(t *testing.T) {
+ 			name:    "no arguments in non-interactive mode",
+ 			args:    "",
+ 			isTTY:   false,
+-			wantErr: "--approve, --request-changes, or --comment required when not attached to a tty",
++			wantErr: "--approve, --request-changes, or --comment required when not running interactively",
+ 		},
+ 		{
+ 			name:    "mutually exclusive review types",
+diff --git a/pkg/cmd/repo/create/create_test.go b/pkg/cmd/repo/create/create_test.go
+index 8eb1a242334..1fd99c0358c 100644
+--- a/pkg/cmd/repo/create/create_test.go
++++ b/pkg/cmd/repo/create/create_test.go
+@@ -22,6 +22,8 @@ import (
+ 
+ func runCommand(httpClient *http.Client, cli string) (*test.CmdOut, error) {
+ 	io, _, stdout, stderr := iostreams.Test()
++	io.SetStdoutTTY(true)
++	io.SetStdinTTY(true)
+ 	fac := &cmdutil.Factory{
+ 		IOStreams: io,
+ 		HttpClient: func() (*http.Client, error) {
+@@ -109,8 +111,8 @@ func TestRepoCreate(t *testing.T) {
+ 		t.Errorf("error running command `repo create`: %v", err)
+ 	}
+ 
+-	assert.Equal(t, "https://github.com/OWNER/REPO\n", output.String())
+-	assert.Equal(t, "", output.Stderr())
++	assert.Equal(t, "", output.String())
++	assert.Equal(t, "✓ Created repository OWNER/REPO on GitHub\n✓ Added remote https://github.com/OWNER/REPO.git\n", output.Stderr())
+ 
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+@@ -191,8 +193,8 @@ func TestRepoCreate_org(t *testing.T) {
+ 		t.Errorf("error running command `repo create`: %v", err)
+ 	}
+ 
+-	assert.Equal(t, "https://github.com/ORG/REPO\n", output.String())
+-	assert.Equal(t, "", output.Stderr())
++	assert.Equal(t, "", output.String())
++	assert.Equal(t, "✓ Created repository ORG/REPO on GitHub\n✓ Added remote https://github.com/ORG/REPO.git\n", output.Stderr())
+ 
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+@@ -273,8 +275,8 @@ func TestRepoCreate_orgWithTeam(t *testing.T) {
+ 		t.Errorf("error running command `repo create`: %v", err)
+ 	}
+ 
+-	assert.Equal(t, "https://github.com/ORG/REPO\n", output.String())
+-	assert.Equal(t, "", output.Stderr())
++	assert.Equal(t, "", output.String())
++	assert.Equal(t, "✓ Created repository ORG/REPO on GitHub\n✓ Added remote https://github.com/ORG/REPO.git\n", output.Stderr())
+ 
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")
+@@ -363,8 +365,8 @@ func TestRepoCreate_template(t *testing.T) {
+ 		t.Errorf("error running command `repo create`: %v", err)
+ 	}
+ 
+-	assert.Equal(t, "https://github.com/OWNER/REPO\n", output.String())
+-	assert.Equal(t, "", output.Stderr())
++	assert.Equal(t, "", output.String())
++	assert.Equal(t, "✓ Created repository OWNER/REPO on GitHub\n✓ Added remote https://github.com/OWNER/REPO.git\n", output.Stderr())
+ 
+ 	if seenCmd == nil {
+ 		t.Fatal("expected a command to run")

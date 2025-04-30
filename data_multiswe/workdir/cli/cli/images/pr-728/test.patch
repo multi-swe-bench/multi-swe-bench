@@ -1,0 +1,1012 @@
+diff --git a/command/config_test.go b/command/config_test.go
+new file mode 100644
+index 00000000000..cdfeb743a41
+--- /dev/null
++++ b/command/config_test.go
+@@ -0,0 +1,191 @@
++package command
++
++import (
++	"bytes"
++	"testing"
++
++	"github.com/cli/cli/internal/config"
++)
++
++func TestConfigGet(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++editor: ed
++`
++	initBlankContext(cfg, "OWNER/REPO", "master")
++
++	output, err := RunCommand(configGetCmd, "config get editor")
++	if err != nil {
++		t.Fatalf("error running command `config get editor`: %v", err)
++	}
++
++	eq(t, output.String(), "ed\n")
++}
++
++func TestConfigGet_default(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "master")
++	output, err := RunCommand(configGetCmd, "config get git_protocol")
++	if err != nil {
++		t.Fatalf("error running command `config get git_protocol`: %v", err)
++	}
++
++	eq(t, output.String(), "https\n")
++}
++
++func TestConfigGet_not_found(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "master")
++
++	output, err := RunCommand(configGetCmd, "config get missing")
++	if err != nil {
++		t.Fatalf("error running command `config get missing`: %v", err)
++	}
++
++	eq(t, output.String(), "")
++}
++
++func TestConfigSet(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "master")
++
++	buf := bytes.NewBufferString("")
++	defer config.StubWriteConfig(buf)()
++	output, err := RunCommand(configSetCmd, "config set editor ed")
++	if err != nil {
++		t.Fatalf("error running command `config set editor ed`: %v", err)
++	}
++
++	eq(t, output.String(), "")
++
++	expected := `hosts:
++    github.com:
++        user: OWNER
++        oauth_token: 1234567890
++editor: ed
++`
++
++	eq(t, buf.String(), expected)
++}
++
++func TestConfigSet_update(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++editor: ed
++`
++
++	initBlankContext(cfg, "OWNER/REPO", "master")
++
++	buf := bytes.NewBufferString("")
++	defer config.StubWriteConfig(buf)()
++
++	output, err := RunCommand(configSetCmd, "config set editor vim")
++	if err != nil {
++		t.Fatalf("error running command `config get editor`: %v", err)
++	}
++
++	eq(t, output.String(), "")
++
++	expected := `hosts:
++    github.com:
++        user: OWNER
++        oauth_token: MUSTBEHIGHCUZIMATOKEN
++editor: vim
++`
++	eq(t, buf.String(), expected)
++}
++
++func TestConfigGetHost(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    git_protocol: ssh
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++editor: ed
++git_protocol: https
++`
++	initBlankContext(cfg, "OWNER/REPO", "master")
++
++	output, err := RunCommand(configGetCmd, "config get -hgithub.com git_protocol")
++	if err != nil {
++		t.Fatalf("error running command `config get editor`: %v", err)
++	}
++
++	eq(t, output.String(), "ssh\n")
++}
++
++func TestConfigGetHost_unset(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++
++editor: ed
++git_protocol: ssh
++`
++	initBlankContext(cfg, "OWNER/REPO", "master")
++
++	output, err := RunCommand(configGetCmd, "config get -hgithub.com git_protocol")
++	if err != nil {
++		t.Fatalf("error running command `config get -hgithub.com git_protocol`: %v", err)
++	}
++
++	eq(t, output.String(), "ssh\n")
++}
++
++func TestConfigSetHost(t *testing.T) {
++	initBlankContext("", "OWNER/REPO", "master")
++
++	buf := bytes.NewBufferString("")
++	defer config.StubWriteConfig(buf)()
++	output, err := RunCommand(configSetCmd, "config set -hgithub.com git_protocol ssh")
++	if err != nil {
++		t.Fatalf("error running command `config set editor ed`: %v", err)
++	}
++
++	eq(t, output.String(), "")
++
++	expected := `hosts:
++    github.com:
++        user: OWNER
++        oauth_token: 1234567890
++        git_protocol: ssh
++`
++
++	eq(t, buf.String(), expected)
++}
++
++func TestConfigSetHost_update(t *testing.T) {
++	cfg := `---
++hosts:
++  github.com:
++    git_protocol: ssh
++    user: OWNER
++    oauth_token: MUSTBEHIGHCUZIMATOKEN
++`
++
++	initBlankContext(cfg, "OWNER/REPO", "master")
++
++	buf := bytes.NewBufferString("")
++	defer config.StubWriteConfig(buf)()
++
++	output, err := RunCommand(configSetCmd, "config set -hgithub.com git_protocol https")
++	if err != nil {
++		t.Fatalf("error running command `config get editor`: %v", err)
++	}
++
++	eq(t, output.String(), "")
++
++	expected := `hosts:
++    github.com:
++        git_protocol: https
++        user: OWNER
++        oauth_token: MUSTBEHIGHCUZIMATOKEN
++`
++	eq(t, buf.String(), expected)
++}
+diff --git a/command/issue_test.go b/command/issue_test.go
+index 0f2befcb882..b7f91031d2c 100644
+--- a/command/issue_test.go
++++ b/command/issue_test.go
+@@ -16,7 +16,7 @@ import (
+ )
+ 
+ func TestIssueStatus(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -45,7 +45,7 @@ func TestIssueStatus(t *testing.T) {
+ }
+ 
+ func TestIssueStatus_blankSlate(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -82,7 +82,7 @@ Issues opened by you
+ }
+ 
+ func TestIssueStatus_disabledIssues(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -99,7 +99,7 @@ func TestIssueStatus_disabledIssues(t *testing.T) {
+ }
+ 
+ func TestIssueList(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -132,7 +132,7 @@ Showing 3 of 3 issues in OWNER/REPO
+ }
+ 
+ func TestIssueList_withFlags(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -172,7 +172,7 @@ No issues match your search in OWNER/REPO
+ }
+ 
+ func TestIssueList_nullAssigneeLabels(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -201,7 +201,7 @@ func TestIssueList_nullAssigneeLabels(t *testing.T) {
+ }
+ 
+ func TestIssueList_disabledIssues(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -218,7 +218,7 @@ func TestIssueList_disabledIssues(t *testing.T) {
+ }
+ 
+ func TestIssueView_web(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -252,7 +252,7 @@ func TestIssueView_web(t *testing.T) {
+ }
+ 
+ func TestIssueView_web_numberArgWithHash(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -342,7 +342,7 @@ func TestIssueView_Preview(t *testing.T) {
+ 	}
+ 	for name, tc := range tests {
+ 		t.Run(name, func(t *testing.T) {
+-			initBlankContext("OWNER/REPO", tc.ownerRepo)
++			initBlankContext("", "OWNER/REPO", tc.ownerRepo)
+ 			http := initFakeHTTP()
+ 			http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -363,7 +363,7 @@ func TestIssueView_Preview(t *testing.T) {
+ }
+ 
+ func TestIssueView_web_notFound(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -390,7 +390,7 @@ func TestIssueView_web_notFound(t *testing.T) {
+ }
+ 
+ func TestIssueView_disabledIssues(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -408,7 +408,7 @@ func TestIssueView_disabledIssues(t *testing.T) {
+ }
+ 
+ func TestIssueView_web_urlArg(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -441,7 +441,7 @@ func TestIssueView_web_urlArg(t *testing.T) {
+ }
+ 
+ func TestIssueCreate(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -482,7 +482,7 @@ func TestIssueCreate(t *testing.T) {
+ }
+ 
+ func TestIssueCreate_disabledIssues(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -500,7 +500,7 @@ func TestIssueCreate_disabledIssues(t *testing.T) {
+ }
+ 
+ func TestIssueCreate_web(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -526,7 +526,7 @@ func TestIssueCreate_web(t *testing.T) {
+ }
+ 
+ func TestIssueCreate_webTitleBody(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+diff --git a/command/pr_create_test.go b/command/pr_create_test.go
+index 9800f143312..f3a0954c876 100644
+--- a/command/pr_create_test.go
++++ b/command/pr_create_test.go
+@@ -13,7 +13,7 @@ import (
+ )
+ 
+ func TestPRCreate(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -66,7 +66,7 @@ func TestPRCreate(t *testing.T) {
+ }
+ 
+ func TestPRCreate_withForking(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponseWithPermission("OWNER", "REPO", "READ")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -109,7 +109,7 @@ func TestPRCreate_withForking(t *testing.T) {
+ }
+ 
+ func TestPRCreate_alreadyExists(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -142,7 +142,7 @@ func TestPRCreate_alreadyExists(t *testing.T) {
+ }
+ 
+ func TestPRCreate_alreadyExistsDifferentBase(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -174,7 +174,7 @@ func TestPRCreate_alreadyExistsDifferentBase(t *testing.T) {
+ }
+ 
+ func TestPRCreate_web(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -205,7 +205,7 @@ func TestPRCreate_web(t *testing.T) {
+ }
+ 
+ func TestPRCreate_ReportsUncommittedChanges(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 
+ 	http.StubRepoResponse("OWNER", "REPO")
+@@ -330,7 +330,7 @@ func TestPRCreate_cross_repo_same_branch(t *testing.T) {
+ }
+ 
+ func TestPRCreate_survey_defaults_multicommit(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "cool_bug-fixes")
++	initBlankContext("", "OWNER/REPO", "cool_bug-fixes")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -406,7 +406,7 @@ func TestPRCreate_survey_defaults_multicommit(t *testing.T) {
+ }
+ 
+ func TestPRCreate_survey_defaults_monocommit(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -483,7 +483,7 @@ func TestPRCreate_survey_defaults_monocommit(t *testing.T) {
+ }
+ 
+ func TestPRCreate_survey_autofill(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -541,7 +541,7 @@ func TestPRCreate_survey_autofill(t *testing.T) {
+ }
+ 
+ func TestPRCreate_defaults_error_autofill(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -559,7 +559,7 @@ func TestPRCreate_defaults_error_autofill(t *testing.T) {
+ }
+ 
+ func TestPRCreate_defaults_error_web(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -577,7 +577,7 @@ func TestPRCreate_defaults_error_web(t *testing.T) {
+ }
+ 
+ func TestPRCreate_defaults_error_interactive(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "feature")
++	initBlankContext("", "OWNER/REPO", "feature")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+diff --git a/command/pr_test.go b/command/pr_test.go
+index 00cabcbb95f..074420debae 100644
+--- a/command/pr_test.go
++++ b/command/pr_test.go
+@@ -74,7 +74,7 @@ func RunCommand(cmd *cobra.Command, args string) (*cmdOut, error) {
+ }
+ 
+ func TestPRStatus(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -102,7 +102,7 @@ func TestPRStatus(t *testing.T) {
+ }
+ 
+ func TestPRStatus_fork(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubForkedRepoResponse("OWNER/REPO", "PARENT/REPO")
+ 
+@@ -132,7 +132,7 @@ branch.blueberries.merge refs/heads/blueberries`)}
+ }
+ 
+ func TestPRStatus_reviewsAndChecks(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -159,7 +159,7 @@ func TestPRStatus_reviewsAndChecks(t *testing.T) {
+ }
+ 
+ func TestPRStatus_currentBranch_showTheMostRecentPR(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -191,7 +191,7 @@ func TestPRStatus_currentBranch_showTheMostRecentPR(t *testing.T) {
+ }
+ 
+ func TestPRStatus_currentBranch_Closed(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -212,7 +212,7 @@ func TestPRStatus_currentBranch_Closed(t *testing.T) {
+ }
+ 
+ func TestPRStatus_currentBranch_Merged(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -233,7 +233,7 @@ func TestPRStatus_currentBranch_Merged(t *testing.T) {
+ }
+ 
+ func TestPRStatus_blankSlate(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -265,7 +265,7 @@ Requesting a code review from you
+ }
+ 
+ func TestPRList(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -289,7 +289,7 @@ Showing 3 of 3 pull requests in OWNER/REPO
+ }
+ 
+ func TestPRList_filtering(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -321,7 +321,7 @@ No pull requests match your search in OWNER/REPO
+ }
+ 
+ func TestPRList_filteringRemoveDuplicate(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -341,7 +341,7 @@ func TestPRList_filteringRemoveDuplicate(t *testing.T) {
+ }
+ 
+ func TestPRList_filteringClosed(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -365,7 +365,7 @@ func TestPRList_filteringClosed(t *testing.T) {
+ }
+ 
+ func TestPRList_filteringAssignee(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -389,7 +389,7 @@ func TestPRList_filteringAssignee(t *testing.T) {
+ }
+ 
+ func TestPRList_filteringAssigneeLabels(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -519,7 +519,7 @@ func TestPRView_Preview(t *testing.T) {
+ 
+ 	for name, tc := range tests {
+ 		t.Run(name, func(t *testing.T) {
+-			initBlankContext("OWNER/REPO", tc.ownerRepo)
++			initBlankContext("", "OWNER/REPO", tc.ownerRepo)
+ 			http := initFakeHTTP()
+ 			http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -540,7 +540,7 @@ func TestPRView_Preview(t *testing.T) {
+ }
+ 
+ func TestPRView_web_currentBranch(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -578,7 +578,7 @@ func TestPRView_web_currentBranch(t *testing.T) {
+ }
+ 
+ func TestPRView_web_noResultsForBranch(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "blueberries")
++	initBlankContext("", "OWNER/REPO", "blueberries")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -609,7 +609,7 @@ func TestPRView_web_noResultsForBranch(t *testing.T) {
+ }
+ 
+ func TestPRView_web_numberArg(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -641,7 +641,7 @@ func TestPRView_web_numberArg(t *testing.T) {
+ }
+ 
+ func TestPRView_web_numberArgWithHash(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -673,7 +673,7 @@ func TestPRView_web_numberArgWithHash(t *testing.T) {
+ }
+ 
+ func TestPRView_web_urlArg(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -704,7 +704,7 @@ func TestPRView_web_urlArg(t *testing.T) {
+ }
+ 
+ func TestPRView_web_branchArg(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+@@ -738,7 +738,7 @@ func TestPRView_web_branchArg(t *testing.T) {
+ }
+ 
+ func TestPRView_web_branchWithOwnerArg(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 
+diff --git a/command/repo_test.go b/command/repo_test.go
+index cf3fe342375..bd10e4218a7 100644
+--- a/command/repo_test.go
++++ b/command/repo_test.go
+@@ -77,7 +77,7 @@ func stubSince(d time.Duration) func() {
+ }
+ 
+ func TestRepoFork_in_parent(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	defer stubSince(2 * time.Second)()
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+@@ -134,7 +134,7 @@ func TestRepoFork_outside(t *testing.T) {
+ }
+ 
+ func TestRepoFork_in_parent_yes(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	defer stubSince(2 * time.Second)()
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+@@ -261,7 +261,7 @@ func TestRepoFork_outside_survey_no(t *testing.T) {
+ }
+ 
+ func TestRepoFork_in_parent_survey_yes(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	defer stubSince(2 * time.Second)()
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+@@ -303,7 +303,7 @@ func TestRepoFork_in_parent_survey_yes(t *testing.T) {
+ }
+ 
+ func TestRepoFork_in_parent_survey_no(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	defer stubSince(2 * time.Second)()
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+@@ -678,7 +678,7 @@ func TestRepoCreate_orgWithTeam(t *testing.T) {
+ }
+ 
+ func TestRepoView_web(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -773,7 +773,7 @@ func TestRepoView_web_fullURL(t *testing.T) {
+ }
+ 
+ func TestRepoView(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -801,7 +801,7 @@ func TestRepoView(t *testing.T) {
+ }
+ 
+ func TestRepoView_nonmarkdown_readme(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString(`
+@@ -828,7 +828,7 @@ func TestRepoView_nonmarkdown_readme(t *testing.T) {
+ }
+ 
+ func TestRepoView_blanks(t *testing.T) {
+-	initBlankContext("OWNER/REPO", "master")
++	initBlankContext("", "OWNER/REPO", "master")
+ 	http := initFakeHTTP()
+ 	http.StubRepoResponse("OWNER", "REPO")
+ 	http.StubResponse(200, bytes.NewBufferString("{}"))
+diff --git a/command/testing.go b/command/testing.go
+index 11b99a99f8c..b9b0ba04a90 100644
+--- a/command/testing.go
++++ b/command/testing.go
+@@ -10,8 +10,15 @@ import (
+ 
+ 	"github.com/cli/cli/api"
+ 	"github.com/cli/cli/context"
++	"github.com/cli/cli/internal/config"
+ )
+ 
++const defaultTestConfig = `hosts:
++  github.com:
++    user: OWNER
++    oauth_token: 1234567890
++`
++
+ type askStubber struct {
+ 	Asks  [][]*survey.Question
+ 	Count int
+@@ -63,7 +70,7 @@ func (as *askStubber) Stub(stubbedQuestions []*QuestionStub) {
+ 	as.Stubs = append(as.Stubs, stubbedQuestions)
+ }
+ 
+-func initBlankContext(repo, branch string) {
++func initBlankContext(cfg, repo, branch string) {
+ 	initContext = func() context.Context {
+ 		ctx := context.NewBlank()
+ 		ctx.SetBaseRepo(repo)
+@@ -71,6 +78,15 @@ func initBlankContext(repo, branch string) {
+ 		ctx.SetRemotes(map[string]string{
+ 			"origin": "OWNER/REPO",
+ 		})
++
++		if cfg == "" {
++			cfg = defaultTestConfig
++		}
++
++		// NOTE we are not restoring the original readConfig; we never want to touch the config file on
++		// disk during tests.
++		config.StubConfig(cfg)
++
+ 		return ctx
+ 	}
+ }
+diff --git a/context/config_file_test.go b/context/config_file_test.go
+deleted file mode 100644
+index 5a915e78da6..00000000000
+--- a/context/config_file_test.go
++++ /dev/null
+@@ -1,55 +0,0 @@
+-package context
+-
+-import (
+-	"errors"
+-	"reflect"
+-	"strings"
+-	"testing"
+-)
+-
+-func eq(t *testing.T, got interface{}, expected interface{}) {
+-	t.Helper()
+-	if !reflect.DeepEqual(got, expected) {
+-		t.Errorf("expected: %v, got: %v", expected, got)
+-	}
+-}
+-
+-func Test_parseConfig(t *testing.T) {
+-	c := strings.NewReader(`---
+-github.com:
+-- user: monalisa
+-  oauth_token: OTOKEN
+-  protocol: https
+-- user: wronguser
+-  oauth_token: NOTTHIS
+-`)
+-	entry, err := parseConfig(c)
+-	eq(t, err, nil)
+-	eq(t, entry.User, "monalisa")
+-	eq(t, entry.Token, "OTOKEN")
+-}
+-
+-func Test_parseConfig_multipleHosts(t *testing.T) {
+-	c := strings.NewReader(`---
+-example.com:
+-- user: wronguser
+-  oauth_token: NOTTHIS
+-github.com:
+-- user: monalisa
+-  oauth_token: OTOKEN
+-`)
+-	entry, err := parseConfig(c)
+-	eq(t, err, nil)
+-	eq(t, entry.User, "monalisa")
+-	eq(t, entry.Token, "OTOKEN")
+-}
+-
+-func Test_parseConfig_notFound(t *testing.T) {
+-	c := strings.NewReader(`---
+-example.com:
+-- user: wronguser
+-  oauth_token: NOTTHIS
+-`)
+-	_, err := parseConfig(c)
+-	eq(t, err, errors.New(`could not find config entry for "github.com"`))
+-}
+diff --git a/context/remote_test.go b/context/remote_test.go
+index 5c3c46bc7a5..4b6838e233d 100644
+--- a/context/remote_test.go
++++ b/context/remote_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"bytes"
+ 	"errors"
+ 	"net/url"
++	"reflect"
+ 	"testing"
+ 
+ 	"github.com/cli/cli/api"
+@@ -11,6 +12,13 @@ import (
+ 	"github.com/cli/cli/internal/ghrepo"
+ )
+ 
++func eq(t *testing.T, got interface{}, expected interface{}) {
++	t.Helper()
++	if !reflect.DeepEqual(got, expected) {
++		t.Errorf("expected: %v, got: %v", expected, got)
++	}
++}
++
+ func Test_Remotes_FindByName(t *testing.T) {
+ 	list := Remotes{
+ 		&Remote{Remote: &git.Remote{Name: "mona"}, Owner: "monalisa", Repo: "myfork"},
+diff --git a/internal/config/config_file_test.go b/internal/config/config_file_test.go
+new file mode 100644
+index 00000000000..4ddd634350a
+--- /dev/null
++++ b/internal/config/config_file_test.go
+@@ -0,0 +1,96 @@
++package config
++
++import (
++	"bytes"
++	"errors"
++	"reflect"
++	"testing"
++
++	"gopkg.in/yaml.v3"
++)
++
++func eq(t *testing.T, got interface{}, expected interface{}) {
++	t.Helper()
++	if !reflect.DeepEqual(got, expected) {
++		t.Errorf("expected: %v, got: %v", expected, got)
++	}
++}
++
++func Test_parseConfig(t *testing.T) {
++	defer StubConfig(`---
++hosts:
++  github.com:
++    user: monalisa
++    oauth_token: OTOKEN
++`)()
++	config, err := ParseConfig("filename")
++	eq(t, err, nil)
++	user, err := config.Get("github.com", "user")
++	eq(t, err, nil)
++	eq(t, user, "monalisa")
++	token, err := config.Get("github.com", "oauth_token")
++	eq(t, err, nil)
++	eq(t, token, "OTOKEN")
++}
++
++func Test_parseConfig_multipleHosts(t *testing.T) {
++	defer StubConfig(`---
++hosts:
++  example.com:
++    user: wronguser
++    oauth_token: NOTTHIS
++  github.com:
++    user: monalisa
++    oauth_token: OTOKEN
++`)()
++	config, err := ParseConfig("filename")
++	eq(t, err, nil)
++	user, err := config.Get("github.com", "user")
++	eq(t, err, nil)
++	eq(t, user, "monalisa")
++	token, err := config.Get("github.com", "oauth_token")
++	eq(t, err, nil)
++	eq(t, token, "OTOKEN")
++}
++
++func Test_parseConfig_notFound(t *testing.T) {
++	defer StubConfig(`---
++hosts:
++  example.com:
++    user: wronguser
++    oauth_token: NOTTHIS
++`)()
++	config, err := ParseConfig("filename")
++	eq(t, err, nil)
++	_, err = config.Get("github.com", "user")
++	eq(t, err, errors.New(`could not find config entry for "github.com"`))
++}
++
++func Test_migrateConfig(t *testing.T) {
++	oldStyle := `---
++github.com:
++  - user: keiyuri
++    oauth_token: 123456`
++
++	var root yaml.Node
++	err := yaml.Unmarshal([]byte(oldStyle), &root)
++	if err != nil {
++		panic("failed to parse test yaml")
++	}
++
++	buf := bytes.NewBufferString("")
++	defer StubWriteConfig(buf)()
++
++	defer StubBackupConfig()()
++
++	err = migrateConfig("boom.txt", &root)
++	eq(t, err, nil)
++
++	expected := `hosts:
++    github.com:
++        oauth_token: "123456"
++        user: keiyuri
++`
++
++	eq(t, buf.String(), expected)
++}
+diff --git a/internal/config/testing.go b/internal/config/testing.go
+new file mode 100644
+index 00000000000..a91cedfaeb6
+--- /dev/null
++++ b/internal/config/testing.go
+@@ -0,0 +1,37 @@
++package config
++
++import (
++	"io"
++)
++
++func StubBackupConfig() func() {
++	orig := BackupConfigFile
++	BackupConfigFile = func(_ string) error {
++		return nil
++	}
++
++	return func() {
++		BackupConfigFile = orig
++	}
++}
++
++func StubWriteConfig(w io.Writer) func() {
++	orig := WriteConfigFile
++	WriteConfigFile = func(fn string, data []byte) error {
++		_, err := w.Write(data)
++		return err
++	}
++	return func() {
++		WriteConfigFile = orig
++	}
++}
++
++func StubConfig(content string) func() {
++	orig := ReadConfigFile
++	ReadConfigFile = func(fn string) ([]byte, error) {
++		return []byte(content), nil
++	}
++	return func() {
++		ReadConfigFile = orig
++	}
++}

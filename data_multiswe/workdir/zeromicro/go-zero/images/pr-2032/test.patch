@@ -1,0 +1,78 @@
+diff --git a/rest/engine_test.go b/rest/engine_test.go
+index b8633d88b9d8..cb6ff5ed5d35 100644
+--- a/rest/engine_test.go
++++ b/rest/engine_test.go
+@@ -190,7 +190,42 @@ func TestEngine_checkedTimeout(t *testing.T) {
+ 		Timeout: 1000,
+ 	})
+ 	for _, test := range tests {
+-		assert.Equal(t, test.expect, ng.checkedTimeout(test.timeout))
++		assert.Equal(t, test.expect, ng.checkedTimeout(test.timeout, false))
++	}
++}
++
++func TestEngine_checkedTimeout_ignoreTimeout(t *testing.T) {
++	tests := []struct {
++		name    string
++		timeout time.Duration
++		expect  time.Duration
++	}{
++		{
++			name:   "not set",
++			expect: 0,
++		},
++		{
++			name:    "less",
++			timeout: time.Millisecond * 500,
++			expect:  0,
++		},
++		{
++			name:    "equal",
++			timeout: time.Second,
++			expect:  0,
++		},
++		{
++			name:    "more",
++			timeout: time.Millisecond * 1500,
++			expect:  0,
++		},
++	}
++
++	ng := newEngine(RestConf{
++		Timeout: 1000,
++	})
++	for _, test := range tests {
++		assert.Equal(t, test.expect, ng.checkedTimeout(test.timeout, true))
+ 	}
+ }
+ 
+diff --git a/rest/server_test.go b/rest/server_test.go
+index 0f4af3f56888..67b3d303273e 100644
+--- a/rest/server_test.go
++++ b/rest/server_test.go
+@@ -116,6 +116,11 @@ func TestNewServerError(t *testing.T) {
+ 	})
+ 	assert.NotNil(t, err)
+ }
++func TestWithIgnoreTimeout(t *testing.T) {
++	var fr featuredRoutes
++	WithIgnoreTimeout()(&fr)
++	assert.True(t, fr.ignoreTimeout)
++}
+ 
+ func TestWithMaxBytes(t *testing.T) {
+ 	const maxBytes = 1000
+@@ -416,11 +421,11 @@ Port: 54321
+ 
+ 	go func() {
+ 		var buf strings.Builder
+-		io.Copy(&buf, r)
++		_, _ = io.Copy(&buf, r)
+ 		ch <- buf.String()
+ 	}()
+ 
+-	w.Close()
++	_ = w.Close()
+ 	out := <-ch
+ 	assert.Equal(t, expect, out)
+ }

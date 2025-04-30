@@ -1,0 +1,45 @@
+diff --git a/src/index.js b/src/index.js
+index 03359c2d9..434f60362 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -10,7 +10,7 @@ const isDayjs = d => d instanceof Dayjs // eslint-disable-line no-use-before-def
+ 
+ const parseLocale = (preset, object, isLocal) => {
+   let l
+-  if (!preset) return null
++  if (!preset) return L
+   if (typeof preset === 'string') {
+     if (Ls[preset]) {
+       l = preset
+@@ -66,7 +66,7 @@ const parseDate = (cfg) => {
+ 
+ class Dayjs {
+   constructor(cfg) {
+-    this.$L = this.$L || parseLocale(cfg.locale, null, true) || L
++    this.$L = this.$L || parseLocale(cfg.locale, null, true)
+     this.parse(cfg) // for plugin
+   }
+ 
+diff --git a/src/plugin/localeData/index.js b/src/plugin/localeData/index.js
+index b85a838a4..dae8f7b65 100644
+--- a/src/plugin/localeData/index.js
++++ b/src/plugin/localeData/index.js
+@@ -1,4 +1,4 @@
+-export default (o, c) => { // locale needed later
++export default (o, c, dayjs) => { // locale needed later
+   const proto = c.prototype
+   const localeData = function () {
+     return {
+@@ -12,5 +12,12 @@ export default (o, c) => { // locale needed later
+   proto.localeData = function () {
+     return localeData.bind(this)()
+   }
++
++  dayjs.localeData = () => {
++    const localeObject = dayjs.Ls[dayjs.locale()]
++    return {
++      firstDayOfWeek: () => localeObject.weekStart || 0
++    }
++  }
+ }
+ 

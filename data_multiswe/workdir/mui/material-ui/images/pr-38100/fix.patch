@@ -1,0 +1,123 @@
+diff --git a/docs/data/material/components/autocomplete/GloballyCustomizedOptions.js b/docs/data/material/components/autocomplete/GloballyCustomizedOptions.js
+index 7d97ff7f669909..00c7188b5822e7 100644
+--- a/docs/data/material/components/autocomplete/GloballyCustomizedOptions.js
++++ b/docs/data/material/components/autocomplete/GloballyCustomizedOptions.js
+@@ -26,7 +26,7 @@ const customTheme = (outerTheme) =>
+               component="li"
+               {...props}
+             >
+-              {ownerState.getOptionLabel?.(option)}
++              {ownerState.getOptionLabel(option)}
+             </Box>
+           ),
+         },
+diff --git a/docs/data/material/components/autocomplete/GloballyCustomizedOptions.tsx b/docs/data/material/components/autocomplete/GloballyCustomizedOptions.tsx
+index 7e7ef304818119..350cdf3416e763 100644
+--- a/docs/data/material/components/autocomplete/GloballyCustomizedOptions.tsx
++++ b/docs/data/material/components/autocomplete/GloballyCustomizedOptions.tsx
+@@ -26,7 +26,7 @@ const customTheme = (outerTheme: Theme) =>
+               component="li"
+               {...props}
+             >
+-              {ownerState.getOptionLabel?.(option)}
++              {ownerState.getOptionLabel(option)}
+             </Box>
+           ),
+         },
+diff --git a/packages/mui-joy/src/Autocomplete/Autocomplete.tsx b/packages/mui-joy/src/Autocomplete/Autocomplete.tsx
+index a8e6dd98a6d688..39795afd4052c3 100644
+--- a/packages/mui-joy/src/Autocomplete/Autocomplete.tsx
++++ b/packages/mui-joy/src/Autocomplete/Autocomplete.tsx
+@@ -394,11 +394,13 @@ const Autocomplete = React.forwardRef(function Autocomplete(
+   const hasClearIcon = !disableClearable && !disabled && dirty && !readOnly;
+   const hasPopupIcon = (!freeSolo || forcePopupIcon === true) && forcePopupIcon !== false;
+ 
++  // If you modify this, make sure to keep the `AutocompleteOwnerState` type in sync.
+   const ownerState = {
+     ...props,
+     value,
+     disabled,
+     focused,
++    getOptionLabel,
+     hasOptions: !!groupedOptions.length,
+     hasClearIcon,
+     hasPopupIcon,
+diff --git a/packages/mui-joy/src/Autocomplete/AutocompleteProps.ts b/packages/mui-joy/src/Autocomplete/AutocompleteProps.ts
+index d38bef1d2391b0..b9c370d4d31636 100644
+--- a/packages/mui-joy/src/Autocomplete/AutocompleteProps.ts
++++ b/packages/mui-joy/src/Autocomplete/AutocompleteProps.ts
+@@ -3,6 +3,7 @@ import {
+   AutocompleteChangeDetails,
+   AutocompleteChangeReason,
+   AutocompleteCloseReason,
++  AutocompleteFreeSoloValueMapping,
+   AutocompleteInputChangeReason,
+   AutocompleteValue,
+   UseAutocompleteProps,
+@@ -379,6 +380,7 @@ export interface AutocompleteOwnerState<
+   FreeSolo extends boolean | undefined,
+ > extends ApplyColorInversion<AutocompleteOwnProps<T, Multiple, DisableClearable, FreeSolo>> {
+   focused?: boolean;
++  getOptionLabel: (option: T | AutocompleteFreeSoloValueMapping<FreeSolo>) => string;
+   hasClearIcon?: boolean;
+   hasPopupIcon?: boolean;
+   hasOptions?: boolean;
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+index 6ff010dc60091a..36c81af7330e59 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.d.ts
+@@ -13,6 +13,7 @@ import {
+   AutocompleteInputChangeReason,
+   createFilterOptions,
+   UseAutocompleteProps,
++  AutocompleteFreeSoloValueMapping,
+ } from '@mui/base';
+ import { AutocompleteClasses } from './autocompleteClasses';
+ 
+@@ -35,6 +36,7 @@ export type AutocompleteOwnerState<
+   expanded: boolean;
+   focused: boolean;
+   fullWidth: boolean;
++  getOptionLabel: (option: Value | AutocompleteFreeSoloValueMapping<FreeSolo>) => string;
+   hasClearIcon: boolean;
+   hasPopupIcon: boolean;
+   inputFocused: boolean;
+diff --git a/packages/mui-material/src/Autocomplete/Autocomplete.js b/packages/mui-material/src/Autocomplete/Autocomplete.js
+index fd80bcb513213c..e92d7bccc3b0a4 100644
+--- a/packages/mui-material/src/Autocomplete/Autocomplete.js
++++ b/packages/mui-material/src/Autocomplete/Autocomplete.js
+@@ -382,6 +382,7 @@ export { createFilterOptions };
+ 
+ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+   const props = useThemeProps({ props: inProps, name: 'MuiAutocomplete' });
++
+   /* eslint-disable @typescript-eslint/no-unused-vars */
+   const {
+     autoComplete = false,
+@@ -410,7 +411,7 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+     fullWidth = false,
+     getLimitTagsText = (more) => `+${more}`,
+     getOptionDisabled,
+-    getOptionLabel = (option) => option.label ?? option,
++    getOptionLabel: getOptionLabelProp,
+     isOptionEqualToValue,
+     groupBy,
+     handleHomeEndKeys = !props.freeSolo,
+@@ -480,6 +481,9 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+ 
+   const combinedListboxRef = useForkRef(listboxRef, externalListboxRef);
+ 
++  const defaultGetOptionLabel = (option) => option.label ?? option;
++  const getOptionLabel = getOptionLabelProp || defaultGetOptionLabel;
++
+   // If you modify this, make sure to keep the `AutocompleteOwnerState` type in sync.
+   const ownerState = {
+     ...props,
+@@ -487,6 +491,7 @@ const Autocomplete = React.forwardRef(function Autocomplete(inProps, ref) {
+     expanded,
+     focused,
+     fullWidth,
++    getOptionLabel,
+     hasClearIcon,
+     hasPopupIcon,
+     inputFocused: focusedTag === -1,

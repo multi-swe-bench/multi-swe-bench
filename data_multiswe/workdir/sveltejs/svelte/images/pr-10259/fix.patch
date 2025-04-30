@@ -1,0 +1,92 @@
+diff --git a/.changeset/soft-months-grab.md b/.changeset/soft-months-grab.md
+new file mode 100644
+index 000000000000..6fc765eb1033
+--- /dev/null
++++ b/.changeset/soft-months-grab.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: hydrate controlled each blocks correctly
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index e3ed0c9e811a..19b9d3f24489 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -1554,8 +1554,6 @@ function process_children(nodes, parent, { visit, state }) {
+ 				// get hoisted inside clean_nodes?
+ 				visit(node, state);
+ 			} else {
+-				// Optimization path for each blocks. If the parent isn't a fragment and it only has
+-				// a single child, then we can classify the block as being "controlled".
+ 				if (
+ 					node.type === 'EachBlock' &&
+ 					nodes.length === 1 &&
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index 974cb1757193..76a579ae5a05 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -368,6 +368,11 @@ export interface EachBlock extends BaseNode {
+ 		item_name: string;
+ 		/** List of bindings that are referenced within the expression */
+ 		references: Binding[];
++		/**
++		 * Optimization path for each blocks: If the parent isn't a fragment and
++		 * it only has a single child, then we can classify the block as being "controlled".
++		 * This saves us from creating an extra comment and insertion being faster.
++		 */
+ 		is_controlled: boolean;
+ 	};
+ }
+diff --git a/packages/svelte/src/constants.js b/packages/svelte/src/constants.js
+index e1f211e90287..3da2f9e4f266 100644
+--- a/packages/svelte/src/constants.js
++++ b/packages/svelte/src/constants.js
+@@ -2,6 +2,7 @@ export const EACH_ITEM_REACTIVE = 1;
+ export const EACH_INDEX_REACTIVE = 1 << 1;
+ export const EACH_KEYED = 1 << 2;
+ export const EACH_PROXIED = 1 << 3;
++/** See EachBlock interface metadata.is_controlled for an explanation what this is */
+ export const EACH_IS_CONTROLLED = 1 << 3;
+ export const EACH_IS_ANIMATED = 1 << 4;
+ export const EACH_IS_IMMUTABLE = 1 << 6;
+diff --git a/packages/svelte/src/internal/client/each.js b/packages/svelte/src/internal/client/each.js
+index 4c0e5dec7e91..d098d9d38b31 100644
+--- a/packages/svelte/src/internal/client/each.js
++++ b/packages/svelte/src/internal/client/each.js
+@@ -104,8 +104,17 @@ function each(anchor_node, collection, flags, key_fn, render_fn, fallback_fn, re
+ 				let anchor = block.a;
+ 				const is_controlled = (block.f & EACH_IS_CONTROLLED) !== 0;
+ 				if (is_controlled) {
+-					anchor = empty();
+-					block.a.appendChild(anchor);
++					// If the each block is controlled, then the anchor node will be the surrounding
++					// element in which the each block is rendered, which requires certain handling
++					// depending on whether we're in hydration mode or not
++					if (current_hydration_fragment === null) {
++						// Create a new anchor on the fly because there's none due to the optimization
++						anchor = empty();
++						block.a.appendChild(anchor);
++					} else {
++						// In case of hydration the anchor will be the first child of the surrounding element
++						anchor = /** @type {Comment} */ (anchor.firstChild);
++					}
+ 				}
+ 				/** @type {(anchor: Node) => void} */ (fallback_fn)(anchor);
+ 				fallback.d = block.d;
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index db63cf9b3c71..6f3ea43a71de 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1402,6 +1402,11 @@ declare module 'svelte/compiler' {
+ 			item_name: string;
+ 			/** List of bindings that are referenced within the expression */
+ 			references: Binding[];
++			/**
++			 * Optimization path for each blocks: If the parent isn't a fragment and
++			 * it only has a single child, then we can classify the block as being "controlled".
++			 * This saves us from creating an extra comment and insertion being faster.
++			 */
+ 			is_controlled: boolean;
+ 		};
+ 	}

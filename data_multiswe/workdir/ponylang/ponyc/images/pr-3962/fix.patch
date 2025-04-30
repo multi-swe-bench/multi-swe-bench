@@ -1,0 +1,412 @@
+diff --git a/.release-notes/env-root-not-optional.md b/.release-notes/env-root-not-optional.md
+new file mode 100644
+index 0000000000..6f27e98df2
+--- /dev/null
++++ b/.release-notes/env-root-not-optional.md
+@@ -0,0 +1,21 @@
++## Change type of Env.root to AmbientAuth
++
++Previously, Env.root currently had the type (AmbientAuth | None) to allow for creation of artificial Env instances without AmbientAuth. Yet, there was no observable usage of this feature. It required extra work to make use of, as one always needs a pattern match or an as expression with a surrounding try. We've changed Env.root to only be AmbientAuth, no longer requiring a pattern match or a try.
++
++To adjust your code to take this breaking change into account, you'd do the following. Where you previously had code like:
++
++```pony
++    try
++      TCPListener(env.root as AmbientAuth, Listener(env.out))
++    else
++      env.out.print("unable to use the network")
++    end
++```
++
++You can now do:
++
++```pony
++    TCPListener(env.root, Listener(env.out))
++```
++
++The same change can be made if you were pattern matching on the type of env.root.
+diff --git a/examples/echo/echo.pony b/examples/echo/echo.pony
+index fbd03e15b8..65beea55a0 100644
+--- a/examples/echo/echo.pony
++++ b/examples/echo/echo.pony
+@@ -2,11 +2,7 @@ use "net"
+ 
+ actor Main
+   new create(env: Env) =>
+-    try
+-      TCPListener(env.root as AmbientAuth, Listener(env.out))
+-    else
+-      env.out.print("unable to use the network")
+-    end
++    TCPListener(env.root, Listener(env.out))
+ 
+ class Listener is TCPListenNotify
+   let _out: OutStream
+diff --git a/examples/files/files.pony b/examples/files/files.pony
+index 21ad10555b..eecc104420 100644
+--- a/examples/files/files.pony
++++ b/examples/files/files.pony
+@@ -6,7 +6,7 @@ actor Main
+ 
+     try
+       with file = OpenFile(
+-        FilePath(env.root as AmbientAuth, env.args(1)?, caps)) as File
++        FilePath(env.root, env.args(1)?, caps)) as File
+       do
+         env.out.print(file.path.path)
+         for line in file.lines() do
+diff --git a/examples/mandelbrot/mandelbrot.pony b/examples/mandelbrot/mandelbrot.pony
+index ed2f39936c..f22773d5fd 100644
+--- a/examples/mandelbrot/mandelbrot.pony
++++ b/examples/mandelbrot/mandelbrot.pony
+@@ -112,12 +112,7 @@ class val Config
+     limit = cmd.option("limit").f64().f32()
+     chunks = cmd.option("chunks").i64().usize()
+     width = cmd.option("width").i64().usize()
+-    outpath =
+-      try
+-        FilePath(env.root as AmbientAuth, cmd.option("output").string())
+-      else
+-        None
+-      end
++    outpath = FilePath(env.root, cmd.option("output").string())
+ 
+   new val none() =>
+     iterations = 0
+diff --git a/examples/net/listener.pony b/examples/net/listener.pony
+index b9afc63911..e3ae7a9f42 100644
+--- a/examples/net/listener.pony
++++ b/examples/net/listener.pony
+@@ -27,11 +27,9 @@ class Listener is TCPListenNotify
+     listen.close()
+ 
+   fun ref connected(listen: TCPListener ref): TCPConnectionNotify iso^ =>
+-    let env = _env
+-
+     _env.out.print("Server starting")
+ 
+-    let server = ServerSide(env)
++    let server = ServerSide(_env)
+ 
+     _spawn(listen)
+     server
+@@ -45,16 +43,9 @@ class Listener is TCPListenNotify
+     _count = _count + 1
+     _env.out.print("spawn " + _count.string())
+ 
+-    try
+-      let env = _env
+-
+-      _env.out.print("Client starting")
+-      TCPConnection(
+-        _env.root as AmbientAuth,
+-        ClientSide(env),
+-        _host,
+-        _service)
+-    else
+-      _env.out.print("couldn't create client side")
+-      listen.close()
+-    end
++    _env.out.print("Client starting")
++    TCPConnection(
++      _env.root,
++      ClientSide(_env),
++      _host,
++      _service)
+diff --git a/examples/net/net.pony b/examples/net/net.pony
+index 65ed4ff077..eacbb50101 100644
+--- a/examples/net/net.pony
++++ b/examples/net/net.pony
+@@ -8,10 +8,5 @@ actor Main
+       1
+     end
+ 
+-    try
+-      let auth = env.root as AmbientAuth
+-      TCPListener(auth, recover Listener(env, limit) end)
+-      UDPSocket(auth, recover Pong(env) end)
+-    else
+-      env.out.print("unable to use the network")
+-    end
++    TCPListener(env.root, recover Listener(env, limit) end)
++    UDPSocket(env.root, recover Pong(env) end)
+diff --git a/examples/net/pong.pony b/examples/net/pong.pony
+index 890efa27cd..3c058507ed 100644
+--- a/examples/net/pong.pony
++++ b/examples/net/pong.pony
+@@ -13,12 +13,11 @@ class Pong is UDPNotify
+       _env.out.print("Pong: listening on " + host + ":" + service)
+ 
+       let env = _env
+-      let auth = env.root as AmbientAuth
+ 
+       if ip.ip4() then
+-        UDPSocket.ip4(auth, recover Ping(env, ip) end)
++        UDPSocket.ip4(env.root, recover Ping(env, ip) end)
+       elseif ip.ip6() then
+-        UDPSocket.ip6(auth, recover Ping(env, ip) end)
++        UDPSocket.ip6(env.root, recover Ping(env, ip) end)
+       else
+         error
+       end
+diff --git a/examples/under_pressure/main.pony b/examples/under_pressure/main.pony
+index 019058f9e5..ab93138bcc 100644
+--- a/examples/under_pressure/main.pony
++++ b/examples/under_pressure/main.pony
+@@ -118,12 +118,9 @@ class Send is TimerNotify
+ 
+ actor Main
+   new create(env: Env) =>
+-    try
+-      let auth = env.root as AmbientAuth
+-      let socket = TCPConnection(auth, recover SlowDown(auth, env.out) end,
+-        "", "7669")
+-
+-      let timers = Timers
+-      let t = Timer(Send(socket), 0, 5_000_000)
+-      timers(consume t)
+-    end
++    let socket = TCPConnection(env.root, recover SlowDown(env.root, env.out) end,
++      "", "7669")
++
++    let timers = Timers
++    let t = Timer(Send(socket), 0, 5_000_000)
++    timers(consume t)
+diff --git a/minimal-cases/issue-629/629.pony b/minimal-cases/issue-629/629.pony
+index 8e7d557479..43c69214e8 100644
+--- a/minimal-cases/issue-629/629.pony
++++ b/minimal-cases/issue-629/629.pony
+@@ -19,19 +19,15 @@ actor Tester
+     connect()
+ 
+   be connect() =>
+-    try
+-      let ctx = SSLContext.set_client_verify(false)
+-      let ssl = ctx.client()
++    let ctx = SSLContext.set_client_verify(false)
++    let ssl = ctx.client()
+ 
+-      _conn = TCPConnection(_env.root as AmbientAuth,
+-        SSLConnection(ResponseBuilder(_env, this), consume ssl),
+-        "127.0.0.1", "8443".string())
++    _conn = TCPConnection(_env.root,
++      SSLConnection(ResponseBuilder(_env, this), consume ssl),
++      "127.0.0.1", "8443".string())
+ 
+-      (_conn as TCPConnection).write(
+-        "GET /index.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+-    else
+-      _env.out.print("failed to connect")
+-    end
++    (_conn as TCPConnection).write(
++      "GET /index.html HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+ 
+   be reconnect() =>
+     try
+diff --git a/packages/backpressure/backpressure.pony b/packages/backpressure/backpressure.pony
+index b2afb60433..44d3703d3d 100644
+--- a/packages/backpressure/backpressure.pony
++++ b/packages/backpressure/backpressure.pony
+@@ -69,11 +69,8 @@ class SlowDown is TCPConnectionNotify
+ 
+ actor Main
+   new create(env: Env) =>
+-    try
+-      let auth = env.root as AmbientAuth
+-      let socket = TCPConnection(auth, recover SlowDown(auth, env.out) end,
+-        "", "7669")
+-    end
++    let socket = TCPConnection(env.root,
++    recover SlowDown(env.root, env.out) end, "", "7669")
+ ```
+ 
+ ## Caveat
+diff --git a/packages/builtin/env.pony b/packages/builtin/env.pony
+index 12d5b4776e..16234b7252 100644
+--- a/packages/builtin/env.pony
++++ b/packages/builtin/env.pony
+@@ -6,11 +6,9 @@ class val Env
+   An environment holds the command line and other values injected into the
+   program by default by the runtime.
+   """
+-  let root: (AmbientAuth | None)
++  let root: AmbientAuth
+     """
+     The root capability.
+-
+-    Can be `None` for artificially constructed `Env` instances.
+     """
+ 
+   let input: InputStream
+@@ -58,14 +56,14 @@ class val Env
+     exitcode = {(code: I32) => @pony_exitcode(code) }
+ 
+   new val create(
+-    root': (AmbientAuth | None),
++    root': AmbientAuth,
+     input': InputStream, out': OutStream,
+     err': OutStream, args': Array[String] val,
+     vars': Array[String] val,
+     exitcode': {(I32)} val)
+   =>
+     """
+-    Build an artificial environment. A root capability may be supplied.
++    Build an artificial environment. A root capability must be supplied.
+     """
+     root = root'
+     input = input'
+diff --git a/packages/files/files.pony b/packages/files/files.pony
+index 32408cc5a1..c8a2164e97 100644
+--- a/packages/files/files.pony
++++ b/packages/files/files.pony
+@@ -32,7 +32,7 @@ actor Main
+   new create(env: Env) =>
+     try
+       for file_name in env.args.slice(1).values() do
+-        let path = FilePath(env.root as AmbientAuth, file_name)
++        let path = FilePath(env.root, file_name)
+         match OpenFile(path)
+         | let file: File =>
+           while file.errno() is FileOK do
+diff --git a/packages/ini/ini.pony b/packages/ini/ini.pony
+index 16868a4eb2..7f17d1a858 100644
+--- a/packages/ini/ini.pony
++++ b/packages/ini/ini.pony
+@@ -17,7 +17,7 @@ use "files"
+ actor Main
+   new create(env:Env) =>
+     try
+-      let ini_file = File(FilePath(env.root as AmbientAuth, "example.ini")?)
++      let ini_file = File(FilePath(env.root, "example.ini"))
+       let sections = IniParse(ini_file.lines())?
+       for section in sections.keys() do
+         env.out.print("Section name is: " + section)
+diff --git a/packages/net/proxy.pony b/packages/net/proxy.pony
+index 9b806566c9..5042ee5709 100644
+--- a/packages/net/proxy.pony
++++ b/packages/net/proxy.pony
+@@ -10,7 +10,7 @@ class val NoProxy is Proxy
+   actor MyClient
+     new create(host: String, service: String, proxy: Proxy = NoProxy) =>
+       let conn: TCPConnection = TCPConnection.create(
+-        env.root as AmbientAuth,
++        env.root,
+         proxy.apply(MyConnectionNotify.create()),
+         "localhost",
+         "80")
+diff --git a/packages/net/tcp_connection.pony b/packages/net/tcp_connection.pony
+index c1ec2a735d..8eaa1448d9 100644
+--- a/packages/net/tcp_connection.pony
++++ b/packages/net/tcp_connection.pony
+@@ -66,7 +66,7 @@ actor TCPConnection
+   actor Main
+     new create(env: Env) =>
+       try
+-        TCPConnection(env.root as AmbientAuth,
++        TCPConnection(env.root,
+           recover MyTCPConnectionNotify(env.out) end, "", "8989")
+       end
+   ```
+@@ -137,7 +137,7 @@ actor TCPConnection
+   actor Main
+     new create(env: Env) =>
+       try
+-        let auth = env.root as AmbientAuth
++        let auth = env.root
+         let socket = TCPConnection(auth, recover SlowDown(auth, env.out) end,
+           "", "7669")
+       end
+@@ -180,7 +180,7 @@ actor TCPConnection
+   actor Main
+     new create(env: Env) =>
+       try
+-        TCPConnection(env.root as AmbientAuth,
++        TCPConnection(env.root,
+           recover ThrowItAway end, "", "7669")
+       end
+   ```
+@@ -231,7 +231,7 @@ actor TCPConnection
+   actor MyClient
+     new create(host: String, service: String, proxy: Proxy = NoProxy) =>
+       let conn: TCPConnection = TCPConnection.create(
+-        env.root as AmbientAuth,
++        env.root,
+         proxy.apply(MyConnectionNotify.create()),
+         host,
+         service)
+diff --git a/packages/net/tcp_listener.pony b/packages/net/tcp_listener.pony
+index 4fb84278fd..578af3db95 100644
+--- a/packages/net/tcp_listener.pony
++++ b/packages/net/tcp_listener.pony
+@@ -41,7 +41,7 @@ actor TCPListener
+   actor Main
+     new create(env: Env) =>
+       try
+-        TCPListener(env.root as AmbientAuth,
++        TCPListener(env.root,
+           recover MyTCPListenNotify end, "", "8989")
+       end
+   ```
+diff --git a/packages/net/udp_socket.pony b/packages/net/udp_socket.pony
+index d7ac2ea007..f60bfc92ea 100644
+--- a/packages/net/udp_socket.pony
++++ b/packages/net/udp_socket.pony
+@@ -48,7 +48,7 @@ actor UDPSocket
+   actor Main
+     new create(env: Env) =>
+       try
+-        UDPSocket(env.root as AmbientAuth,
++        UDPSocket(env.root,
+           MyUDPNotify, "", "8989")
+       end
+   ```
+@@ -87,8 +87,8 @@ actor UDPSocket
+     new create(env: Env) =>
+       try
+         let destination =
+-          DNS.ip4(env.root as AmbientAuth, "localhost", "8989")(0)?
+-        UDPSocket(env.root as AmbientAuth,
++          DNS.ip4(env.root, "localhost", "8989")(0)?
++        UDPSocket(env.root,
+           recover MyUDPNotify(env.out, consume destination) end)
+       end
+   ```
+diff --git a/packages/process/process.pony b/packages/process/process.pony
+index 2ff7a7bfeb..443bf1bf98 100644
+--- a/packages/process/process.pony
++++ b/packages/process/process.pony
+@@ -23,22 +23,18 @@ actor Main
+     let client = ProcessClient(env)
+     let notifier: ProcessNotify iso = consume client
+     // define the binary to run
+-    try
+-      let path = FilePath(env.root as AmbientAuth, "/bin/cat")
+-      // define the arguments; first arg is always the binary name
+-      let args: Array[String] val = ["cat"]
+-      // define the environment variable for the execution
+-      let vars: Array[String] val = ["HOME=/"; "PATH=/bin"]
+-      // create a ProcessMonitor and spawn the child process
+-      let auth = env.root as AmbientAuth
+-      let pm: ProcessMonitor = ProcessMonitor(auth, auth, consume notifier,
+-      path, args, vars)
+-      // write to STDIN of the child process
+-      pm.write("one, two, three")
+-      pm.done_writing() // closing stdin allows cat to terminate
+-    else
+-      env.out.print("Could not create FilePath!")
+-    end
++    let path = FilePath(env.root, "/bin/cat")
++    // define the arguments; first arg is always the binary name
++    let args: Array[String] val = ["cat"]
++    // define the environment variable for the execution
++    let vars: Array[String] val = ["HOME=/"; "PATH=/bin"]
++    // create a ProcessMonitor and spawn the child process
++    let auth = env.root
++    let pm: ProcessMonitor = ProcessMonitor(auth, auth, consume notifier,
++    path, args, vars)
++    // write to STDIN of the child process
++    pm.write("one, two, three")
++    pm.done_writing() // closing stdin allows cat to terminate
+ 
+ // define a client that implements the ProcessNotify interface
+ class ProcessClient is ProcessNotify

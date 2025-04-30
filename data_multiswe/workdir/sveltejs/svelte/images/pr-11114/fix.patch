@@ -1,0 +1,78 @@
+diff --git a/.changeset/nine-cooks-join.md b/.changeset/nine-cooks-join.md
+new file mode 100644
+index 000000000000..c2cc16965a54
+--- /dev/null
++++ b/.changeset/nine-cooks-join.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++breaking: warn on self-closing non-void HTML tags
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index ed840f530315..c02e9adf2188 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -15,7 +15,12 @@ import {
+ import { warn } from '../../warnings.js';
+ import fuzzymatch from '../1-parse/utils/fuzzymatch.js';
+ import { binding_properties } from '../bindings.js';
+-import { ContentEditableBindings, EventModifiers, SVGElements } from '../constants.js';
++import {
++	ContentEditableBindings,
++	EventModifiers,
++	SVGElements,
++	VoidElements
++} from '../constants.js';
+ import { is_custom_element_node } from '../nodes.js';
+ import {
+ 	regex_illegal_attribute_character,
+@@ -565,6 +570,21 @@ const validation = {
+ 			}
+ 		}
+ 
++		if (
++			context.state.analysis.source[node.end - 2] === '/' &&
++			context.state.options.namespace !== 'foreign' &&
++			!VoidElements.includes(node.name) &&
++			!SVGElements.includes(node.name)
++		) {
++			warn(
++				context.state.analysis.warnings,
++				node,
++				context.path,
++				'invalid-self-closing-tag',
++				node.name
++			);
++		}
++
+ 		context.next({
+ 			...context.state,
+ 			parent_element: node.name
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 8f0e81d9c021..e8f48864b257 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -243,6 +243,12 @@ const options = {
+ 		"The 'customElement' option is used when generating a custom element. Did you forget the 'customElement: true' compile option?"
+ };
+ 
++const misc = {
++	/** @param {string} name */
++	'invalid-self-closing-tag': (name) =>
++		`Self-closing HTML tags for non-void elements are ambiguous — use <${name} ...></${name}> rather than <${name} ... />`
++};
++
+ /** @satisfies {Warnings} */
+ const warnings = {
+ 	...css,
+@@ -254,7 +260,8 @@ const warnings = {
+ 	...components,
+ 	...legacy,
+ 	...block,
+-	...options
++	...options,
++	...misc
+ };
+ 
+ /** @typedef {typeof warnings} AllWarnings */

@@ -1,0 +1,269 @@
+diff --git a/docs/pages/api-docs/slider-unstyled.json b/docs/pages/api-docs/slider-unstyled.json
+index d7983999ba287c..b0aed9fd57d67f 100644
+--- a/docs/pages/api-docs/slider-unstyled.json
++++ b/docs/pages/api-docs/slider-unstyled.json
+@@ -8,7 +8,7 @@
+     "components": {
+       "type": {
+         "name": "shape",
+-        "description": "{ Mark?: elementType, MarkLabel?: elementType, Rail?: elementType, Root?: elementType, Thumb?: elementType, Track?: elementType, ValueLabel?: elementType }"
++        "description": "{ Mark?: elementType, MarkLabel?: elementType, Rail?: elementType, Root?: elementType, Thumb?: elementType, ThumbPositioner?: elementType, Track?: elementType, TrackPositioner?: elementType, ValueLabel?: elementType }"
+       },
+       "default": "{}"
+     },
+diff --git a/docs/pages/api-docs/slider.json b/docs/pages/api-docs/slider.json
+index 008b9e499e4711..574b9786d28b9a 100644
+--- a/docs/pages/api-docs/slider.json
++++ b/docs/pages/api-docs/slider.json
+@@ -12,7 +12,7 @@
+     "components": {
+       "type": {
+         "name": "shape",
+-        "description": "{ Mark?: elementType, MarkLabel?: elementType, Rail?: elementType, Root?: elementType, Thumb?: elementType, Track?: elementType, ValueLabel?: elementType }"
++        "description": "{ Mark?: elementType, MarkLabel?: elementType, Rail?: elementType, Root?: elementType, Thumb?: elementType, ThumbPositioner?: elementType, Track?: elementType, TrackPositioner?: elementType, ValueLabel?: elementType }"
+       },
+       "default": "{}"
+     },
+diff --git a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
+index 97dfb86e28dd1a..0581a8ba2ae8f4 100644
+--- a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
++++ b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.d.ts
+@@ -78,8 +78,10 @@ export interface SliderUnstyledTypeMap<P = {}, D extends React.ElementType = 'sp
+     components?: {
+       Root?: React.ElementType;
+       Track?: React.ElementType;
++      TrackPositioner?: React.ElementType;
+       Rail?: React.ElementType;
+       Thumb?: React.ElementType;
++      ThumbPositioner?: React.ElementType;
+       Mark?: React.ElementType;
+       MarkLabel?: React.ElementType;
+       ValueLabel?: React.ElementType;
+@@ -97,6 +99,10 @@ export interface SliderUnstyledTypeMap<P = {}, D extends React.ElementType = 'sp
+         as?: React.ElementType;
+         styleProps?: Omit<SliderUnstyledTypeMap<P, D>['props'], 'components' | 'componentsProps'>;
+       };
++      trackPositioner?: {
++        as?: React.ElementType;
++        styleProps?: Omit<SliderUnstyledTypeMap<P, D>['props'], 'components' | 'componentsProps'>;
++      };
+       rail?: {
+         as?: React.ElementType;
+         styleProps?: Omit<SliderUnstyledTypeMap<P, D>['props'], 'components' | 'componentsProps'>;
+@@ -105,6 +111,10 @@ export interface SliderUnstyledTypeMap<P = {}, D extends React.ElementType = 'sp
+         as?: React.ElementType;
+         styleProps?: Omit<SliderUnstyledTypeMap<P, D>['props'], 'components' | 'componentsProps'>;
+       };
++      thumbPositioner?: {
++        as?: React.ElementType;
++        styleProps?: Omit<SliderUnstyledTypeMap<P, D>['props'], 'components' | 'componentsProps'>;
++      };
+       mark?: {
+         as?: React.ElementType;
+         styleProps?: Omit<
+diff --git a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
+index c2f3e72f2e0daa..9f14bd083329ca 100644
+--- a/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
++++ b/packages/material-ui-unstyled/src/SliderUnstyled/SliderUnstyled.js
+@@ -115,7 +115,7 @@ function focusThumb({ sliderRef, activeIndex, setActive }) {
+   }
+ }
+ 
+-const axisProps = {
++const markAxisProps = {
+   horizontal: {
+     offset: (percent) => ({ left: `${percent}%` }),
+     leap: (percent) => ({ width: `${percent}%` }),
+@@ -130,6 +130,50 @@ const axisProps = {
+   },
+ };
+ 
++const axisProps = {
++  horizontal: {
++    offset: (percent) => ({
++      position: 'absolute',
++      width: '100%',
++      transform: `translateX(${percent}%)`,
++    }),
++    track: (percent, offset) => ({
++      position: 'absolute',
++      width: '100%',
++      transformOrigin: 'left',
++      transform: `translateX(${offset}%) scaleX(${percent / 100})`,
++    }),
++  },
++  'horizontal-reverse': {
++    offset: (percent) => ({
++      position: 'absolute',
++      width: '100%',
++      transform: `translateX(${100 - percent}%)`,
++      right: 0,
++    }),
++    track: (percent, offset) => ({
++      position: 'absolute',
++      width: '100%',
++      transformOrigin: 'right',
++      transform: `translateX(-${offset}%) scaleX(${percent / 100})`,
++    }),
++  },
++  vertical: {
++    offset: (percent) => ({
++      position: 'absolute',
++      height: '100%',
++      transform: `translateY(${100 - percent}%)`,
++      bottom: 0,
++    }),
++    track: (percent, offset) => ({
++      position: 'absolute',
++      height: '100%',
++      transformOrigin: 'bottom',
++      transform: `translateY(-${offset}%) scaleY(${percent / 100})`,
++    }),
++  },
++};
++
+ const Identity = (x) => x;
+ 
+ // TODO: remove support for Safari < 13.
+@@ -164,12 +208,14 @@ const useUtilityClasses = (styleProps) => {
+     ],
+     rail: ['rail'],
+     track: ['track'],
++    trackPositioner: ['trackPositioner'],
+     mark: ['mark'],
+     markActive: ['markActive'],
+     markLabel: ['markLabel'],
+     markLabelActive: ['markLabelActive'],
+     valueLabel: ['valueLabel'],
+     thumb: ['thumb', disabled && 'disabled'],
++    thumbPositioner: ['thumbPositioner'],
+     active: ['active'],
+     disabled: ['disabled'],
+     focusVisible: ['focusVisible'],
+@@ -545,9 +591,10 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+ 
+   const trackOffset = valueToPercent(range ? values[0] : min, min, max);
+   const trackLeap = valueToPercent(values[values.length - 1], min, max) - trackOffset;
+-  const trackStyle = {
+-    ...axisProps[axis].offset(trackOffset),
+-    ...axisProps[axis].leap(trackLeap),
++
++  const trackContainerStyle = axisProps[axis].track(trackLeap, trackOffset);
++  const baseTrackStyle = {
++    [orientation === 'vertical' ? 'height' : 'width']: '100%',
+   };
+ 
+   const Root = components.Root || component;
+@@ -559,9 +606,15 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+   const Track = components.Track || 'span';
+   const trackProps = componentsProps.track || {};
+ 
++  const TrackPositioner = components.TrackPositioner || 'span';
++  const trackPositionerProps = componentsProps.trackPositioner || {};
++
+   const Thumb = components.Thumb || 'span';
+   const thumbProps = componentsProps.thumb || {};
+ 
++  const ThumbPositioner = components.ThumbPositioner || 'span';
++  const thumbPositionerProps = componentsProps.thumbPositioner || {};
++
+   const ValueLabel = components.ValueLabel || SliderValueLabelUnstyled;
+   const valueLabelProps = componentsProps.valueLabel || {};
+ 
+@@ -612,18 +665,24 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+         })}
+         className={clsx(utilityClasses.rail, railProps.className)}
+       />
+-      <Track
+-        {...trackProps}
+-        {...(!isHostComponent(Track) && {
+-          styleProps: { ...styleProps, ...trackProps.styleProps },
+-          theme,
+-        })}
+-        className={clsx(utilityClasses.track, trackProps.className)}
+-        style={{ ...trackStyle, ...trackProps.style }}
+-      />
++      <TrackPositioner
++        {...trackPositionerProps}
++        className={clsx(utilityClasses.trackPositioner, trackPositionerProps.className)}
++        style={trackContainerStyle}
++      >
++        <Track
++          {...trackProps}
++          {...(!isHostComponent(Track) && {
++            styleProps: { ...styleProps, ...trackProps.styleProps },
++            theme,
++          })}
++          className={clsx(utilityClasses.track, trackProps.className)}
++          style={{ ...baseTrackStyle, ...trackProps.style }}
++        />
++      </TrackPositioner>
+       {marks.map((mark, index) => {
+         const percent = valueToPercent(mark.value, min, max);
+-        const style = axisProps[axis].offset(percent);
++        const style = markAxisProps[axis].offset(percent);
+ 
+         let markActive;
+         if (track === false) {
+@@ -680,12 +739,17 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+       })}
+       {values.map((value, index) => {
+         const percent = valueToPercent(value, min, max);
+-        const style = axisProps[axis].offset(percent);
++        const containerStyle = axisProps[axis].offset(percent);
+ 
+         const ValueLabelComponent = valueLabelDisplay === 'off' ? Forward : ValueLabel;
+ 
+         return (
+-          <React.Fragment key={index}>
++          <ThumbPositioner
++            {...thumbPositionerProps}
++            className={clsx(utilityClasses.thumbPositioner, thumbPositionerProps.className)}
++            key={index}
++            style={containerStyle}
++          >
+             <ValueLabelComponent
+               valueLabelFormat={valueLabelFormat}
+               valueLabelDisplay={valueLabelDisplay}
+@@ -717,7 +781,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+                   styleProps: { ...styleProps, ...thumbProps.styleProps },
+                   theme,
+                 })}
+-                style={{ ...style, ...thumbProps.style }}
++                style={thumbProps.style}
+               >
+                 <input
+                   data-index={index}
+@@ -750,7 +814,7 @@ const SliderUnstyled = React.forwardRef(function SliderUnstyled(props, ref) {
+                 />
+               </Thumb>
+             </ValueLabelComponent>
+-          </React.Fragment>
++          </ThumbPositioner>
+         );
+       })}
+     </Root>
+@@ -823,7 +887,9 @@ SliderUnstyled.propTypes = {
+     Rail: PropTypes.elementType,
+     Root: PropTypes.elementType,
+     Thumb: PropTypes.elementType,
++    ThumbPositioner: PropTypes.elementType,
+     Track: PropTypes.elementType,
++    TrackPositioner: PropTypes.elementType,
+     ValueLabel: PropTypes.elementType,
+   }),
+   /**
+diff --git a/packages/material-ui/src/Slider/Slider.js b/packages/material-ui/src/Slider/Slider.js
+index 2422e637cc939c..e5bcf0c50b9621 100644
+--- a/packages/material-ui/src/Slider/Slider.js
++++ b/packages/material-ui/src/Slider/Slider.js
+@@ -477,7 +477,9 @@ Slider.propTypes = {
+     Rail: PropTypes.elementType,
+     Root: PropTypes.elementType,
+     Thumb: PropTypes.elementType,
++    ThumbPositioner: PropTypes.elementType,
+     Track: PropTypes.elementType,
++    TrackPositioner: PropTypes.elementType,
+     ValueLabel: PropTypes.elementType,
+   }),
+   /**

@@ -1,0 +1,32 @@
+diff --git a/src/parse/arg_matcher.rs b/src/parse/arg_matcher.rs
+index f454b931c0a..22e1d314ac1 100644
+--- a/src/parse/arg_matcher.rs
++++ b/src/parse/arg_matcher.rs
+@@ -101,10 +101,6 @@ impl ArgMatcher {
+         self.0.args.contains_key(arg)
+     }
+ 
+-    pub(crate) fn is_empty(&self) -> bool {
+-        self.0.args.is_empty()
+-    }
+-
+     pub(crate) fn arg_names(&self) -> indexmap::map::Keys<Id, MatchedArg> {
+         self.0.args.keys()
+     }
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index c0763bea7c1..244620e7f83 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -54,7 +54,11 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+             }
+         }
+ 
+-        if matcher.is_empty()
++        let num_user_values = matcher
++            .arg_names()
++            .filter(|arg_id| matcher.check_explicit(arg_id, ArgPredicate::IsPresent))
++            .count();
++        if num_user_values == 0
+             && matcher.subcommand_name().is_none()
+             && self.p.is_set(AS::ArgRequiredElseHelp)
+         {

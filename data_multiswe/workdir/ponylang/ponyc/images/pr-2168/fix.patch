@@ -1,0 +1,2430 @@
+diff --git a/packages/builtin/array.pony b/packages/builtin/array.pony
+index 4026e2e8f3..2bfa72c72f 100644
+--- a/packages/builtin/array.pony
++++ b/packages/builtin/array.pony
+@@ -357,8 +357,7 @@ class Array[A] is Seq[A]
+     value: A!,
+     offset: USize = 0,
+     nth: USize = 0,
+-    predicate: {(box->A!, box->A!): Bool} val =
+-      {(l: box->A!, r: box->A!): Bool => l is r })
++    predicate: {(box->A!, box->A!): Bool} val = {(l, r) => l is r })
+     : USize ?
+   =>
+     """
+diff --git a/packages/cli/command_parser.pony b/packages/cli/command_parser.pony
+index 6350f5c47e..ff01659105 100644
+--- a/packages/cli/command_parser.pony
++++ b/packages/cli/command_parser.pony
+@@ -72,8 +72,7 @@ class CommandParser
+         | let o: Option =>
+           if o.spec()._typ_p().is_seq() then
+             try
+-              options.upsert(o.spec().name(), o,
+-                {(x: Option, n: Option): Option^ => x._append(n) })?
++              options.upsert(o.spec().name(), o, {(x, n) => x._append(n) })?
+             end
+           else
+             options.update(o.spec().name(), o)
+@@ -88,8 +87,7 @@ class CommandParser
+           for o in os.values() do
+             if o.spec()._typ_p().is_seq() then
+               try
+-                options.upsert(o.spec().name(), o,
+-                  {(x: Option, n: Option): Option^ => x._append(n) })?
++                options.upsert(o.spec().name(), o, {(x, n) => x._append(n) })?
+               end
+             else
+               options.update(o.spec().name(), o)
+@@ -115,8 +113,7 @@ class CommandParser
+           | let a: Arg =>
+             if a.spec()._typ_p().is_seq() then
+               try
+-                args.upsert(a.spec().name(), a,
+-                  {(x: Arg, n: Arg): Arg^ => x._append(n) })?
++                args.upsert(a.spec().name(), a, {(x, n) => x._append(n) })?
+               end
+             else
+               args.update(a.spec().name(), a)
+diff --git a/packages/collections/map.pony b/packages/collections/map.pony
+index 516e557645..499a7d6053 100644
+--- a/packages/collections/map.pony
++++ b/packages/collections/map.pony
+@@ -90,13 +90,13 @@ class HashMap[K, V, H: HashFunction[K] val]
+     add 4 to the current value for key "test", which let's say is currently 2.
+     We call
+ 
+-    m.upsert("test", 4, {(x: I64, y: I64): I64 => x - y })
++    m.upsert("test", 4, {(x, y) => x - y })
+ 
+     This changes the value associated with "test" to -2.
+ 
+     If we have not yet added the key "new-key" to the map and we call
+ 
+-    m.upsert("new-key", 4, {(x: I64, y: I64): I64 => x - y })
++    m.upsert("new-key", 4, {(x, y) => x - y })
+ 
+     then "new-key" is added to the map with a value of -4.
+ 
+diff --git a/packages/collections/persistent/benchmarks/main.pony b/packages/collections/persistent/benchmarks/main.pony
+index d3699bd9fe..4c28f647ec 100644
+--- a/packages/collections/persistent/benchmarks/main.pony
++++ b/packages/collections/persistent/benchmarks/main.pony
+@@ -8,47 +8,27 @@ actor Main
+     var map = Map[U64, U64]
+     map = map.update(0, 0)
+ 
+-    bench[Map[U64, U64]](
+-      "insert level 0",
+-      {(): Map[U64, U64] => map.update(1, 1) } val)
++    bench[Map[U64, U64]]("insert level 0", {() => map.update(1, 1) })
+ 
+-    bench[U64](
+-      "get level 0",
+-      {(): U64 ? => map(0) } val)
++    bench[U64]("get level 0", {() => map(0) })
+ 
+-    bench[Map[U64, U64]](
+-      "update level 0",
+-      {(): Map[U64, U64] => map.update(0, 1) } val)
++    bench[Map[U64, U64]]("update level 0", {() => map.update(0, 1) })
+ 
+-    bench[Map[U64, U64]](
+-      "delete level 0",
+-      {(): Map[U64, U64] ? => map.remove(0) } val)
++    bench[Map[U64, U64]]("delete level 0", {() => map.remove(0) })
+ 
+-    bench[Map[U64, U64]](
+-      "create sub-node",
+-      {(): Map[U64, U64] => map.update(32, 32) } val)
++    bench[Map[U64, U64]]("create sub-node", {() => map.update(32, 32) })
+ 
+     // expand index 0 into 2 sub-nodes
+     map = map.update(32, 32)
+ 
+-    bench[Map[U64, U64]](
+-      "remove sub-node",
+-      {(): Map[U64, U64] ? => map.remove(32) } val)
++    bench[Map[U64, U64]]("remove sub-node", {() ? => map.remove(32) })
+ 
+-    bench[Map[U64, U64]](
+-      "insert level 1",
+-      {(): Map[U64, U64] => map.update(1, 1) } val)
++    bench[Map[U64, U64]]("insert level 1", {() => map.update(1, 1) })
+ 
+-    bench[U64](
+-      "get level 1",
+-      {(): U64 ? => map(0) } val)
++    bench[U64]("get level 1", {() => map(0) })
+ 
+-    bench[Map[U64, U64]](
+-      "update level 1",
+-      {(): Map[U64, U64] => map.update(0, 1) } val)
++    bench[Map[U64, U64]]("update level 1", {() => map.update(0, 1) })
+ 
+     map = map.update(1, 1)
+ 
+-    bench[Map[U64, U64]](
+-      "delete level 1",
+-      {(): Map[U64, U64] ? => map.remove(1) } val)
++    bench[Map[U64, U64]]("delete level 1", {() => map.remove(1) })
+diff --git a/packages/collections/persistent/list.pony b/packages/collections/persistent/list.pony
+index bfd75dc123..9fd8b318ea 100644
+--- a/packages/collections/persistent/list.pony
++++ b/packages/collections/persistent/list.pony
+@@ -26,7 +26,7 @@ actor Main
+       Lists[U32].eq(l4, Lists[U32]([1; 2; 3]))?
+       Lists[U32].eq(l4_tail, Lists[U32]([2; 3]))?
+ 
+-      let doubled = l4.map[U32]({(x: U32): U32 => x * 2 })
++      let doubled = l4.map[U32]({(x) => x * 2 })
+ 
+       Lists[U32].eq(doubled, Lists[U32]([2; 4; 6]))?
+     end
+diff --git a/packages/collections/persistent/map.pony b/packages/collections/persistent/map.pony
+index 9c025ba562..3086e17a65 100644
+--- a/packages/collections/persistent/map.pony
++++ b/packages/collections/persistent/map.pony
+@@ -31,7 +31,7 @@ class val HashMap[K: Any #share, V: Any #share, H: mut.HashFunction[K] val]
+         let m3 = m2("b") = 10 // {a: 5, b: 10}
+         let m4 = m3.remove("a")? // {b: 10}
+         // You can create a new map from key value pairs.
+-        let m5 = Map[String, U32].concat([as (String, U32): ("a", 2); ("b", 3)].values()) // {a: 2, b: 3}
++        let m5 = Map[String, U32].concat([("a", 2); ("b", 3)].values()) // {a: 2, b: 3}
+       end
+   ```
+   """
+diff --git a/packages/glob/glob.pony b/packages/glob/glob.pony
+index cf27bd1d1d..c349e8f6b9 100644
+--- a/packages/glob/glob.pony
++++ b/packages/glob/glob.pony
+@@ -148,10 +148,7 @@ primitive Glob
+     on `Glob` for details.
+     """
+     let res = Array[FilePath]
+-    iglob(
+-      root_path,
+-      pattern,
+-      {ref(path: FilePath, match_groups: Array[String]) => res.push(path)})
++    iglob(root_path, pattern, {(path, _) => res.push(path)})
+     res
+ 
+   fun _apply_glob_to_walk(
+diff --git a/packages/itertools/iter.pony b/packages/itertools/iter.pony
+index b637d936ae..334c64caa3 100644
+--- a/packages/itertools/iter.pony
++++ b/packages/itertools/iter.pony
+@@ -212,14 +212,14 @@ class Iter[A] is Iterator[A]
+     ## Examples
+ 
+     ```pony
+-    Iter[I64]([as I64: 2; 4; 6].values())
+-      .all({(x: I64): Bool => (x % 2) == 0 })
++    Iter[I64]([2; 4; 6].values())
++      .all({(x) => (x % 2) == 0 })
+     ```
+     `true`
+ 
+     ```pony
+-    Iter[I64]([as I64: 2; 3; 4].values())
+-      .all({(x: I64): Bool => (x % 2) == 0 })
++    Iter[I64]([2; 3; 4].values())
++      .all({(x) => (x % 2) == 0 })
+     ```
+     `false`
+     """
+@@ -239,14 +239,14 @@ class Iter[A] is Iterator[A]
+     ## Examples
+ 
+     ```pony
+-    Iter[I64]([as I64: 2; 4; 6].values())
+-      .any({(x: I64): Bool => (x % 2) == 1 })
++    Iter[I64]([2; 4; 6].values())
++      .any({(I64) => (x % 2) == 1 })
+     ```
+     `false`
+ 
+     ```pony
+-    Iter[I64]([as I64: 2; 3; 4].values())
+-      .any({(x: I64): Bool => (x % 2) == 1 })
++    Iter[I64]([2; 3; 4].values())
++      .any({(I64) => (x % 2) == 1 })
+     ```
+     `true`
+     """
+@@ -264,7 +264,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .collect(Array[I64](3))
+     ```
+     `[1, 2, 3]`
+@@ -281,7 +281,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .count()
+     ```
+     `3`
+@@ -302,7 +302,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .cycle()
+     ```
+     `1 2 3 1 2 3 1 2 3 ...`
+@@ -357,7 +357,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .enum()
+     ```
+     `(0, 1) (1, 2) (2, 3)`
+@@ -379,8 +379,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4; 5; 6].values())
+-      .filter({(x: I64): Bool => (x % 2) == 0 })
++    Iter[I64]([1; 2; 3; 4; 5; 6].values())
++      .filter({(x) => (x % 2) == 0 })
+     ```
+     `2 4 6`
+     """
+@@ -393,14 +393,14 @@ class Iter[A] is Iterator[A]
+     ## Examples
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
+-      .find({(x: I64): Bool => (x % 2) == 0 })
++    Iter[I64]([1; 2; 3].values())
++      .find({(x) => (x % 2) == 0 })
+     ```
+     `2`
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4].values())
+-      .find({(x: I64): Bool => (x % 2) == 0 }, 2)
++    Iter[I64]([1; 2; 3; 4].values())
++      .find({(x) => (x % 2) == 0 }, 2)
+     ```
+     `4`
+     """
+@@ -478,8 +478,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
+-      .fold[I64]({(sum: I64, x: I64): I64 => sum + x }, 0)
++    Iter[I64]([1; 2; 3].values())
++      .fold[I64]({(sum, x) => sum + x }, 0)
+     ```
+     `6`
+     """
+@@ -549,7 +549,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .last()
+     ```
+     `3`
+@@ -566,8 +566,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
+-      .map[I64]({(x: I64): I64 => x * x })
++    Iter[I64]([1; 2; 3].values())
++      .map[I64]({(x) => x * x })
+     ```
+     `1 4 9`
+     """
+@@ -580,7 +580,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
++    Iter[I64]([1; 2; 3].values())
+       .nth(2)
+     ```
+     `2`
+@@ -601,8 +601,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3].values())
+-      .map[None]({(x: I64) => env.out.print(x.string()) })
++    Iter[I64]([1; 2; 3].values())
++      .map[None]({(x) => env.out.print(x.string()) })
+       .run()
+     ```
+     ```
+@@ -626,7 +626,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4; 5; 6].values())
++    Iter[I64]([1; 2; 3; 4; 5; 6].values())
+       .skip(3)
+     ```
+     `4 5 6`
+@@ -647,8 +647,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4; 5; 6].values())
+-      .skip_while({(x: I64): Bool => x < 4 })
++    Iter[I64]([1; 2; 3; 4; 5; 6].values())
++      .skip_while({(x) => x < 4 })
+     ```
+     `4 5 6`
+     """
+@@ -673,7 +673,7 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4; 5; 6].values())
++    Iter[I64]([1; 2; 3; 4; 5; 6].values())
+       .take(3)
+     ```
+     `1 2 3`
+@@ -702,8 +702,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2; 3; 4; 5; 6].values())
+-      .take_while({(x: I64): Bool => x < 4 })
++    Iter[I64]([1; 2; 3; 4; 5; 6].values())
++      .take_while({(x) => x < 4 })
+     ```
+     `1 2 3`
+     """
+@@ -747,8 +747,8 @@ class Iter[A] is Iterator[A]
+     ## Example
+ 
+     ```pony
+-    Iter[I64]([as I64: 1; 2].values())
+-      .zip[I64]([as I64: 3; 4].values())
++    Iter[I64]([1; 2].values())
++      .zip[I64]([3; 4].values())
+     ```
+     `(1, 3) (2, 4)`
+     """
+diff --git a/packages/itertools/itertools.pony b/packages/itertools/itertools.pony
+index 960fb9fb09..4ba89b26ac 100644
+--- a/packages/itertools/itertools.pony
++++ b/packages/itertools/itertools.pony
+@@ -18,10 +18,10 @@ containing the numbers 1 through 5, increments each number by one, filters out
+ any odd numbers, and prints the rest.
+ 
+ ```pony
+-let xs = Iter[I64]([as I64: 1; 2; 3; 4; 5].values())
+-  .map[I64]({(x: I64): I64 => x + 1 })
+-  .filter({(x: I64): Bool => (x % 2) == 0 })
+-  .map[None]({(x: I64) => env.out.print(x.string()) })
++let xs = Iter[I64]([1; 2; 3; 4; 5].values())
++  .map[I64]({(x) => x + 1 })
++  .filter({(x) => (x % 2) == 0 })
++  .map[None]({(x) => env.out.print(x.string()) })
+ ```
+ 
+ This will result in an iterator that prints the numbers 2, 4, and 6. However,
+@@ -40,10 +40,10 @@ where the `run` method comes in handy by doing the iteration without the need
+ for a loop. So the final code would be as follows:
+ 
+ ```pony
+-Iter[I64]([as I64: 1; 2; 3; 4; 5].values())
+-  .map[I64]({(x: I64): I64 => x + 1 })
+-  .filter({(x: I64): Bool => (x % 2) == 0 })
+-  .map[None]({(x: I64) => env.out.print(x.string()) })
++Iter[I64]([1; 2; 3; 4; 5].values())
++  .map[I64]({(x) => x + 1 })
++  .filter({(x) => (x % 2) == 0 })
++  .map[None]({(x) => env.out.print(x.string()) })
+   .run()
+ ```
+ 
+diff --git a/packages/logger/logger.pony b/packages/logger/logger.pony
+index 3b2563ea00..c08df715b1 100644
+--- a/packages/logger/logger.pony
++++ b/packages/logger/logger.pony
+@@ -65,9 +65,7 @@ use "logger"
+ 
+ actor Main
+   new create(env: Env) =>
+-    let logger = Logger[U64](Fine,
+-    env.out,
+-    {(a: U64): String => a.string() })
++    let logger = Logger[U64](Fine, env.out, {(a) => a.string() })
+ 
+     logger(Error) and logger.log(U64(42))
+ ```
+diff --git a/packages/ponybench/_bench_async.pony b/packages/ponybench/_bench_async.pony
+index 69cd66fcc8..1f50d41ac0 100644
+--- a/packages/ponybench/_bench_async.pony
++++ b/packages/ponybench/_bench_async.pony
+@@ -44,7 +44,7 @@ actor _BenchAsync[A: Any #share] is _Benchmark
+     else
+       try
+         let n: _BenchAsync[A] tag = this
+-        _f()?.next[None]({(a: A) => n._run(i + 1)} iso)
++        _f()?.next[None]({(_) => n._run(i + 1)})
+       else
+         _notify._failure(_name, false)
+       end
+diff --git a/packages/ponybench/pony_bench.pony b/packages/ponybench/pony_bench.pony
+index e8496dfa3c..a6a0ddec27 100644
+--- a/packages/ponybench/pony_bench.pony
++++ b/packages/ponybench/pony_bench.pony
+@@ -16,28 +16,23 @@ actor Main
+     let bench = PonyBench(env)
+ 
+     // benchmark Fib with different inputs
+-    bench[USize]("fib 5", {(): USize => Fib(5) })
+-    bench[USize]("fib 10", {(): USize => Fib(10) })
+-    bench[USize]("fib 20", {(): USize => Fib(20) })
+-    bench[USize]("fib 40", {(): USize => Fib(40) })
++    bench[USize]("fib 5", {() => Fib(5) })
++    bench[USize]("fib 10", {() => Fib(10) })
++    bench[USize]("fib 20", {() => Fib(20) })
++    bench[USize]("fib 40", {() => Fib(40) })
+ 
+     // show what happens when a benchmark fails
+     bench[String]("fail", {(): String ? => error })
+ 
+     // async benchmark
+-    bench.async[USize](
+-      "async",
+-      {(): Promise[USize] => Promise[USize] .> apply(0) } iso)
++    bench.async[USize]("async", {() => Promise[USize] .> apply(0) })
+ 
+     // async benchmark timeout
+-    bench.async[USize](
+-      "timeout",
+-      {(): Promise[USize] => Promise[USize] } iso,
+-      1_000_000)
++    bench.async[USize]("timeout", {() => Promise[USize] }, 1_000_000)
+ 
+     // benchmarks with set ops
+-    bench[USize]("add", {(): USize => 1 + 2 }, 10_000_000)
+-    bench[USize]("sub", {(): USize => 2 - 1 }, 10_000_000)
++    bench[USize]("add", {() => 1 + 2 }, 10_000_000)
++    bench[USize]("sub", {() => 2 - 1 }, 10_000_000)
+ 
+ primitive Fib
+   fun apply(n: USize): USize =>
+diff --git a/packages/promises/promise.pony b/packages/promises/promise.pony
+index cf9a695365..7510309c28 100644
+--- a/packages/promises/promise.pony
++++ b/packages/promises/promise.pony
+@@ -187,14 +187,12 @@ actor Promise[A: Any #share]
+       end
+ 
+     next[None](
+-      {(a: A) => c.fulfill_a(a) } iso,
+-      {() => p'.reject() } iso)
++      {(a) => c.fulfill_a(a) },
++      {() => p'.reject() })
+ 
+     p.next[None](
+-      object iso is Fulfill[B, None]
+-        fun ref apply(b: B) => c.fulfill_b(b)
+-      end,
+-      {() => p'.reject() } iso)
++      {(b) => c.fulfill_b(b) },
++      {() => p'.reject() })
+ 
+     p'
+ 
+@@ -228,8 +226,8 @@ actor Promise[A: Any #share]
+           end
+       end
+ 
+-    next[None]({(a: A) => s(a, p) } iso)
+-    p.next[None]({(a: A)(p = this) => s(a, p) } iso)
++    next[None]({(a) => s(a, p) })
++    p.next[None]({(a)(p = this) => s(a, p) })
+     
+     p'
+ 
+@@ -279,7 +277,7 @@ primitive Promises[A: Any #share]
+ 
+     let j = _Join[A](p', ps'.size())
+     for p in ps'.values() do
+-      p.next[None]({(a: A)(j) => j(a)} iso)
++      p.next[None]({(a)(j) => j(a)})
+     end
+ 
+     p'
+diff --git a/pony.g b/pony.g
+index 231ae36470..944645211c 100644
+--- a/pony.g
++++ b/pony.g
+@@ -206,7 +206,7 @@ nextatom
+   | 'this'
+   | literal
+   | LPAREN_NEW rawseq tuple? ')'
+-  | LSQUARE_NEW ('as' type ':')? rawseq ']'
++  | LSQUARE_NEW ('as' type ':')? rawseq? ']'
+   | 'object' ('\\' ID (',' ID)* '\\')? cap? ('is' type)? members 'end'
+   | '{' ('\\' ID (',' ID)* '\\')? cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+   | '@{' ('\\' ID (',' ID)* '\\')? cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+@@ -219,7 +219,7 @@ atom
+   | 'this'
+   | literal
+   | ('(' | LPAREN_NEW) rawseq tuple? ')'
+-  | ('[' | LSQUARE_NEW) ('as' type ':')? rawseq ']'
++  | ('[' | LSQUARE_NEW) ('as' type ':')? rawseq? ']'
+   | 'object' ('\\' ID (',' ID)* '\\')? cap? ('is' type)? members 'end'
+   | '{' ('\\' ID (',' ID)* '\\')? cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+   | '@{' ('\\' ID (',' ID)* '\\')? cap? ID? typeparams? ('(' | LPAREN_NEW) params? ')' lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+diff --git a/src/libponyc/ast/parser.c b/src/libponyc/ast/parser.c
+index 60f28a2540..11490a11c9 100644
+--- a/src/libponyc/ast/parser.c
++++ b/src/libponyc/ast/parser.c
+@@ -421,23 +421,23 @@ DEF(arraytype);
+   SKIP(NULL, TK_COLON);
+   DONE();
+ 
+-// (LSQUARE | LSQUARE_NEW) rawseq {COMMA rawseq} RSQUARE
++// (LSQUARE | LSQUARE_NEW) [rawseq] RSQUARE
+ DEF(array);
+   PRINT_INLINE();
+   AST_NODE(TK_ARRAY);
+   SKIP(NULL, TK_LSQUARE, TK_LSQUARE_NEW);
+   OPT RULE("element type", arraytype);
+-  RULE("array elements", rawseq);
++  OPT RULE("array elements", rawseq);
+   TERMINATE("array literal", TK_RSQUARE);
+   DONE();
+ 
+-// LSQUARE_NEW rawseq {COMMA rawseq} RSQUARE
++// LSQUARE_NEW rawseq [rawseq] RSQUARE
+ DEF(nextarray);
+   PRINT_INLINE();
+   AST_NODE(TK_ARRAY);
+   SKIP(NULL, TK_LSQUARE_NEW);
+   OPT RULE("element type", arraytype);
+-  RULE("array elements", rawseq);
++  OPT RULE("array elements", rawseq);
+   TERMINATE("array literal", TK_RSQUARE);
+   DONE();
+ 
+@@ -547,7 +547,7 @@ DEF(qualify);
+ 
+ // LPAREN [positional] [named] RPAREN [QUESTION]
+ DEF(call);
+-  INFIX_REVERSE();
++  INFIX_BUILD();
+   AST_NODE(TK_CALL);
+   SKIP(NULL, TK_LPAREN);
+   OPT RULE("argument", positional);
+@@ -1025,7 +1025,7 @@ DEF(nextinfix);
+ // ASSIGNOP assignment
+ DEF(assignop);
+   PRINT_INLINE();
+-  INFIX_REVERSE();
++  INFIX_BUILD();
+   TOKEN("assign operator", TK_ASSIGN);
+   RULE("assign rhs", assignment);
+   DONE();
+diff --git a/src/libponyc/ast/treecheckdef.h b/src/libponyc/ast/treecheckdef.h
+index 0e61860d86..287dec8e6b 100644
+--- a/src/libponyc/ast/treecheckdef.h
++++ b/src/libponyc/ast/treecheckdef.h
+@@ -172,7 +172,7 @@ RULE(isop,
+ 
+ RULE(assignop,
+   HAS_TYPE(type)
+-  CHILD(expr) // RHS first to handle init tracking
++  CHILD(expr)
+   CHILD(expr),
+   TK_ASSIGN);
+ 
+@@ -223,10 +223,10 @@ RULE(qualify,
+ 
+ RULE(call,
+   HAS_TYPE(type)
++  CHILD(expr) // receiver
+   CHILD(positional_args, none)
+   CHILD(named_args, none)
+-  CHILD(question, none)
+-  CHILD(expr),  // Note that receiver comes last
++  CHILD(question, none),
+   TK_CALL);
+ 
+ RULE(ffi_call,
+@@ -365,7 +365,7 @@ RULE(lambda_capture,
+ 
+ RULE(array_literal,
+   CHILD(type, none)
+-  ONE_OR_MORE(rawseq),
++  CHILD(rawseq, none),
+   TK_ARRAY);
+ 
+ RULE(object_literal,
+diff --git a/src/libponyc/codegen/gencall.c b/src/libponyc/codegen/gencall.c
+index bc216a2d0d..d29fbe3841 100644
+--- a/src/libponyc/codegen/gencall.c
++++ b/src/libponyc/codegen/gencall.c
+@@ -101,7 +101,7 @@ static LLVMValueRef invoke_fun(compile_t* c, LLVMValueRef fun,
+ static bool special_case_operator(compile_t* c, ast_t* ast,
+   LLVMValueRef *value, bool short_circuit, bool native128)
+ {
+-  AST_GET_CHILDREN(ast, positional, named, question, postfix);
++  AST_GET_CHILDREN(ast, postfix, positional, named, question);
+   AST_GET_CHILDREN(postfix, left, method);
+ 
+   ast_t* right = ast_child(positional);
+@@ -188,7 +188,7 @@ static bool special_case_operator(compile_t* c, ast_t* ast,
+ 
+ static LLVMValueRef special_case_platform(compile_t* c, ast_t* ast)
+ {
+-  AST_GET_CHILDREN(ast, positional, named, question, postfix);
++  AST_GET_CHILDREN(ast, postfix, positional, named, question);
+   AST_GET_CHILDREN(postfix, receiver, method);
+ 
+   const char* method_name = ast_name(method);
+@@ -203,7 +203,7 @@ static LLVMValueRef special_case_platform(compile_t* c, ast_t* ast)
+ 
+ static bool special_case_call(compile_t* c, ast_t* ast, LLVMValueRef* value)
+ {
+-  AST_GET_CHILDREN(ast, positional, named, question, postfix);
++  AST_GET_CHILDREN(ast, postfix, positional, named, question);
+ 
+   if((ast_id(postfix) != TK_FUNREF) || (ast_id(named) != TK_NONE))
+     return false;
+@@ -376,7 +376,7 @@ static ast_t* find_embed_constructor_receiver(ast_t* call)
+   {
+     // Traverse the LHS of the assignment looking for what our constructor call
+     // is assigned to.
+-    ast_t* current = ast_childidx(parent, 1);
++    ast_t* current = ast_child(parent);
+     while((ast_id(current) == TK_TUPLE) || (ast_id(current) == TK_SEQ))
+     {
+       parent = current;
+@@ -717,7 +717,7 @@ LLVMValueRef gen_call(compile_t* c, ast_t* ast)
+   if(special_case_call(c, ast, &special))
+     return special;
+ 
+-  AST_GET_CHILDREN(ast, positional, named, question, postfix);
++  AST_GET_CHILDREN(ast, postfix, positional, named, question);
+   AST_GET_CHILDREN(postfix, receiver, method);
+   ast_t* typeargs = NULL;
+ 
+diff --git a/src/libponyc/codegen/genoperator.c b/src/libponyc/codegen/genoperator.c
+index bfbb631b26..9ff2a44dd7 100644
+--- a/src/libponyc/codegen/genoperator.c
++++ b/src/libponyc/codegen/genoperator.c
+@@ -885,9 +885,8 @@ LLVMValueRef gen_gt(compile_t* c, ast_t* left, ast_t* right, bool safe)
+ 
+ LLVMValueRef gen_assign(compile_t* c, ast_t* ast)
+ {
+-  // Must generate the right hand side before the left hand side. Left and
+-  // right are swapped for type checking, so we fetch them in reverse order.
+-  AST_GET_CHILDREN(ast, right, left);
++  // Must generate the right hand side before the left hand side.
++  AST_GET_CHILDREN(ast, left, right);
+   LLVMValueRef r_value = gen_expr(c, right);
+ 
+   if(r_value == NULL)
+diff --git a/src/libponyc/expr/array.c b/src/libponyc/expr/array.c
+index 9063340a74..74d6a81032 100644
+--- a/src/libponyc/expr/array.c
++++ b/src/libponyc/expr/array.c
+@@ -10,7 +10,382 @@
+ #include "../pass/refer.h"
+ #include "../type/alias.h"
+ #include "../type/assemble.h"
++#include "../type/reify.h"
+ #include "../type/subtype.h"
++#include "../type/lookup.h"
++#include "ponyassert.h"
++
++static ast_t* build_array_type(pass_opt_t* opt, ast_t* scope, ast_t* elem_type,
++  token_id cap)
++{
++  elem_type = ast_dup(elem_type);
++
++  BUILD(typeargs, elem_type,
++    NODE(TK_TYPEARGS, TREE(elem_type)));
++
++  ast_t* array_type = type_builtin_args(opt, scope, "Array", typeargs);
++  ast_setid(ast_childidx(array_type, 3), cap);
++
++  return array_type;
++}
++
++static ast_t* detect_apply_element_type(pass_opt_t* opt, ast_t* ast, ast_t* def)
++{
++  // The interface must have an apply method for us to find it.
++  ast_t* apply = ast_get(def, stringtab("apply"), NULL);
++  if((apply == NULL) || (ast_id(apply) != TK_FUN))
++    return NULL;
++
++  // The apply method must match the signature we're expecting.
++  AST_GET_CHILDREN(apply, receiver_cap, apply_name, type_params, params,
++    ret_type, question);
++  if((ast_id(receiver_cap) != TK_BOX) ||
++    (ast_id(type_params) != TK_NONE) ||
++    (ast_childcount(params) != 1) ||
++    (ast_id(question) != TK_QUESTION))
++    return NULL;
++
++  ast_t* param = ast_child(params);
++  ast_t* param_type = ast_childidx(param, 1);
++  if(ast_name(ast_childidx(param_type, 1)) != stringtab("USize"))
++    return NULL;
++
++  // Based on the return type we try to figure out the element type.
++  ast_t* elem_type = ret_type;
++
++  ast_t* typeparams = ast_childidx(def, 1);
++  ast_t* typeargs = ast_childidx(ast, 2);
++  if(ast_id(typeparams) == TK_TYPEPARAMS)
++    elem_type = reify(elem_type, typeparams, typeargs, opt, true);
++
++  if((ast_id(elem_type) == TK_ARROW) &&
++    (ast_id(ast_child(elem_type)) == TK_THISTYPE))
++    elem_type = ast_childidx(elem_type, 1);
++
++  return elem_type;
++}
++
++static ast_t* detect_values_element_type(pass_opt_t* opt, ast_t* ast,
++  ast_t* def)
++{
++  // The interface must have an apply method for us to find it.
++  ast_t* values = ast_get(def, stringtab("values"), NULL);
++  if((values == NULL) || (ast_id(values) != TK_FUN))
++    return NULL;
++
++  // The values method must match the signature we're expecting.
++  AST_GET_CHILDREN(values, receiver_cap, apply_name, type_params, params,
++    ret_type, question);
++  if((ast_id(receiver_cap) != TK_BOX) ||
++    (ast_id(type_params) != TK_NONE) ||
++    (ast_childcount(params) != 0) ||
++    (ast_id(question) != TK_NONE))
++    return NULL;
++
++  if((ast_id(ret_type) != TK_NOMINAL) ||
++    (ast_name(ast_childidx(ret_type, 1)) != stringtab("Iterator")) ||
++    (ast_childcount(ast_childidx(ret_type, 2)) != 1))
++    return NULL;
++
++  // Based on the return type we try to figure out the element type.
++  ast_t* elem_type = ast_child(ast_childidx(ret_type, 2));
++
++  ast_t* typeparams = ast_childidx(def, 1);
++  ast_t* typeargs = ast_childidx(ast, 2);
++  if(ast_id(typeparams) == TK_TYPEPARAMS)
++    elem_type = reify(elem_type, typeparams, typeargs, opt, true);
++
++  if((ast_id(elem_type) == TK_ARROW) &&
++    (ast_id(ast_child(elem_type)) == TK_THISTYPE))
++    elem_type = ast_childidx(elem_type, 1);
++
++  return elem_type;
++}
++
++static void find_possible_element_types(pass_opt_t* opt, ast_t* ast,
++  astlist_t** list)
++{
++  switch(ast_id(ast))
++  {
++    case TK_NOMINAL:
++    {
++      AST_GET_CHILDREN(ast, package, name, typeargs, cap, eph);
++
++      // If it's an actual Array type, note it as a possibility and move on.
++      if(stringtab("Array") == ast_name(name))
++      {
++        *list = astlist_push(*list, ast_child(typeargs));
++        return;
++      }
++
++      // Otherwise, an Array-matching type must be an interface.
++      ast_t* def = (ast_t*)ast_data(ast);
++      if((def == NULL) || (ast_id(def) != TK_INTERFACE))
++        return;
++
++      // Try to find an element type by looking for an apply method.
++      ast_t* elem_type = detect_apply_element_type(opt, ast, def);
++
++      // Otherwise, try to find an element type by looking for a values method.
++      if(elem_type == NULL)
++        elem_type = detect_values_element_type(opt, ast, def);
++
++      // If we haven't found an element type by now, give up.
++      if(elem_type == NULL)
++        return;
++
++      // Construct a guess of the corresponding Array type.
++      // Use iso^ so that the object cap isn't a concern for subtype checking.
++      ast_t* array_type = build_array_type(opt, ast, elem_type, TK_ISO);
++
++      // The guess type must be a subtype of the interface type.
++      if(!is_subtype(array_type, ast, NULL, opt))
++      {
++        ast_free_unattached(array_type);
++        return;
++      }
++
++      ast_free_unattached(array_type);
++
++      // Note this as a possible element type and move on.
++      *list = astlist_push(*list, elem_type);
++    }
++
++    case TK_ARROW:
++      find_possible_element_types(opt, ast_childidx(ast, 1), list);
++      return;
++
++    case TK_TYPEPARAMREF:
++    {
++      ast_t* def = (ast_t*)ast_data(ast);
++      pony_assert(ast_id(def) == TK_TYPEPARAM);
++      find_possible_element_types(opt, ast_childidx(def, 1), list);
++      return;
++    }
++
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++    {
++      for(ast_t* c = ast_child(ast); c != NULL; c = ast_sibling(c))
++        find_possible_element_types(opt, c, list);
++      return;
++    }
++
++    default:
++      break;
++  }
++}
++
++static void find_possible_iterator_element_types(pass_opt_t* opt, ast_t* ast,
++  astlist_t** list)
++{
++  switch(ast_id(ast))
++  {
++    case TK_NOMINAL:
++    {
++      AST_GET_CHILDREN(ast, package, name, typeargs, cap, eph);
++
++      if(stringtab("Iterator") == ast_name(name))
++      {
++        *list = astlist_push(*list, ast_child(typeargs));
++        return;
++      }
++    }
++
++    case TK_ARROW:
++      find_possible_iterator_element_types(opt, ast_childidx(ast, 1), list);
++      return;
++
++    case TK_TYPEPARAMREF:
++    {
++      ast_t* def = (ast_t*)ast_data(ast);
++      pony_assert(ast_id(def) == TK_TYPEPARAM);
++      find_possible_iterator_element_types(opt, ast_childidx(def, 1), list);
++      return;
++    }
++
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++    {
++      for(ast_t* c = ast_child(ast); c != NULL; c = ast_sibling(c))
++        find_possible_iterator_element_types(opt, c, list);
++    }
++
++    default:
++      break;
++  }
++}
++
++static bool infer_element_type(pass_opt_t* opt, ast_t* ast,
++  ast_t** type_spec_p, ast_t* antecedent_type)
++{
++  astlist_t* possible_element_types = NULL;
++
++  if(antecedent_type != NULL)
++  {
++    // List the element types of all array-matching types in the antecedent.
++    find_possible_element_types(opt, antecedent_type, &possible_element_types);
++  } else {
++    // If the ast parent is a call to values() and the antecedent of that call
++    // is an Iterator, then we can get possible element types that way.
++    if((ast_id(ast_parent(ast)) == TK_DOT) &&
++      (ast_name(ast_sibling(ast)) == stringtab("values")))
++    {
++      ast_t* dot = ast_parent(ast);
++      antecedent_type = find_antecedent_type(opt, dot, NULL);
++      find_possible_iterator_element_types(opt, antecedent_type,
++        &possible_element_types);
++    }
++  }
++
++  // If there's more than one possible element type, remove equivalent types.
++  if(astlist_length(possible_element_types) > 1)
++  {
++    astlist_t* new_list = NULL;
++
++    astlist_t* left_cursor = possible_element_types;
++    for(; left_cursor != NULL; left_cursor = astlist_next(left_cursor))
++    {
++      bool eqtype_of_any_remaining = false;
++
++      astlist_t* right_cursor = astlist_next(left_cursor);
++      for(; right_cursor != NULL; right_cursor = astlist_next(right_cursor))
++      {
++        ast_t* left = astlist_data(left_cursor);
++        ast_t* right = astlist_data(right_cursor);
++        if((right_cursor == left_cursor) || is_eqtype(right, left, NULL, opt))
++          eqtype_of_any_remaining = true;
++      }
++
++      if(!eqtype_of_any_remaining)
++        new_list = astlist_push(new_list, astlist_data(left_cursor));
++    }
++
++    astlist_free(possible_element_types);
++    possible_element_types = new_list;
++  }
++
++  // If there's still more than one possible element type, choose the most
++  // specific type (removing types that are supertypes of one or more others).
++  if(astlist_length(possible_element_types) > 1)
++  {
++    astlist_t* new_list = NULL;
++
++    astlist_t* super_cursor = possible_element_types;
++    for(; super_cursor != NULL; super_cursor = astlist_next(super_cursor))
++    {
++      bool supertype_of_any = false;
++
++      astlist_t* sub_cursor = possible_element_types;
++      for(; sub_cursor != NULL; sub_cursor = astlist_next(sub_cursor))
++      {
++        if((sub_cursor != super_cursor) && is_subtype(astlist_data(sub_cursor),
++          astlist_data(super_cursor), NULL, opt))
++          supertype_of_any = true;
++      }
++
++      if(!supertype_of_any)
++        new_list = astlist_push(new_list, astlist_data(super_cursor));
++    }
++
++    astlist_free(possible_element_types);
++    possible_element_types = new_list;
++  }
++
++  // If there's still more than one possible type, test against the elements,
++  // creating a new list containing only the possibilities that are supertypes.
++  if(astlist_length(possible_element_types) > 1)
++  {
++    astlist_t* new_list = NULL;
++
++    astlist_t* cursor = possible_element_types;
++    for(; cursor != NULL; cursor = astlist_next(cursor))
++    {
++      bool supertype_of_all = true;
++      ast_t* elem = ast_child(ast_childidx(ast, 1));
++      for(; elem != NULL; elem = ast_sibling(elem))
++      {
++        // Catch up the elem to the expr pass, so we can get its type.
++        if(ast_visit(&elem, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
++          return false;
++
++        ast_t* elem_type = ast_type(elem);
++        if(is_typecheck_error(elem_type) || ast_id(elem_type) == TK_LITERAL)
++          break;
++
++        ast_t* a_type = alias(elem_type);
++
++        if(!is_subtype(a_type, astlist_data(cursor), NULL, opt))
++          supertype_of_all = false;
++
++        ast_free_unattached(a_type);
++      }
++
++      if(supertype_of_all)
++        new_list = astlist_push(new_list, astlist_data(cursor));
++    }
++
++    astlist_free(possible_element_types);
++    possible_element_types = new_list;
++  }
++
++  // If there's exactly one possible element type remaining, use it.
++  if(astlist_length(possible_element_types) == 1)
++    ast_replace(type_spec_p, astlist_data(possible_element_types));
++
++  return true;
++}
++
++ast_result_t expr_pre_array(pass_opt_t* opt, ast_t** astp)
++{
++  ast_t* ast = *astp;
++
++  pony_assert(ast_id(ast) == TK_ARRAY);
++  AST_GET_CHILDREN(ast, type_spec, elements);
++
++  // Try to find an antecedent type, or bail out if none was found.
++  bool is_recovered = false;
++  ast_t* antecedent_type = find_antecedent_type(opt, ast, &is_recovered);
++
++  // If we don't have an explicit element type, try to infer it.
++  if(ast_id(type_spec) == TK_NONE)
++  {
++    if(!infer_element_type(opt, ast, &type_spec, antecedent_type))
++      return AST_ERROR;
++  }
++
++  // If we still don't have an element type, bail out.
++  if(ast_id(type_spec) == TK_NONE)
++    return AST_OK;
++
++  // If there is no recover statement between the antecedent type and here,
++  // and if the array literal is not a subtype of the antecedent type,
++  // but would be if the object cap were ignored, then recover it.
++  ast_t* array_type = build_array_type(opt, ast, type_spec, TK_REF);
++  if((antecedent_type != NULL) && !is_recovered &&
++    !is_subtype(array_type, antecedent_type, NULL, opt) &&
++    is_subtype_ignore_cap(array_type, antecedent_type, NULL, opt))
++  {
++    ast_free_unattached(array_type);
++
++    BUILD(recover, ast,
++      NODE(TK_RECOVER,
++        NODE(TK_ISO)
++        NODE(TK_SEQ, TREE(ast))));
++
++    ast_replace(astp, recover);
++
++    // Run the expr pass on this recover block.
++    if(ast_visit(astp, pass_pre_expr, pass_expr, opt, PASS_EXPR) != AST_OK)
++      return AST_ERROR;
++
++    // We've already processed the expr pass for the array, so ignore it now.
++    return AST_IGNORE;
++  }
++
++  ast_free_unattached(array_type);
++  return AST_OK;
++}
+ 
+ bool expr_array(pass_opt_t* opt, ast_t** astp)
+ {
+@@ -18,6 +393,7 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
+   ast_t* type = NULL;
+   bool told_type = false;
+ 
++  pony_assert(ast_id(ast) == TK_ARRAY);
+   AST_GET_CHILDREN(ast, type_spec, elements);
+   size_t size = ast_childcount(elements);
+ 
+@@ -27,6 +403,13 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
+     told_type = true;
+   }
+ 
++  if(!told_type && (size == 0))
++  {
++    ast_error(opt->check.errors, ast, "an empty array literal must specify "
++      "the element type or it must be inferable from context");
++    return false;
++  }
++
+   for(ast_t* ele = ast_child(elements); ele != NULL; ele = ast_sibling(ele))
+   {
+     if(ast_checkflag(ele, AST_FLAG_JUMPS_AWAY))
+@@ -102,10 +485,10 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
+ 
+   BUILD(call, ast,
+     NODE(TK_CALL,
++      TREE(dot)
+       NODE(TK_POSITIONALARGS, TREE(size_arg_seq))
+       NONE
+-      NONE
+-      TREE(dot)));
++      NONE));
+ 
+   if(!refer_reference(opt, &ref) ||
+     !refer_qualify(opt, qualify) ||
+@@ -126,10 +509,10 @@ bool expr_array(pass_opt_t* opt, ast_t** astp)
+ 
+     BUILD(append, ast,
+       NODE(TK_CALL,
++        TREE(append_chain)
+         NODE(TK_POSITIONALARGS, TREE(ele))
+         NONE
+-        NONE
+-        TREE(append_chain)));
++        NONE));
+ 
+     ast_replace(astp, append);
+ 
+diff --git a/src/libponyc/expr/array.h b/src/libponyc/expr/array.h
+index 31d127ddaf..bd8bef8dc6 100644
+--- a/src/libponyc/expr/array.h
++++ b/src/libponyc/expr/array.h
+@@ -7,6 +7,8 @@
+ 
+ PONY_EXTERN_C_BEGIN
+ 
++ast_result_t expr_pre_array(pass_opt_t* opt, ast_t** astp);
++
+ bool expr_array(pass_opt_t* opt, ast_t** astp);
+ 
+ PONY_EXTERN_C_END
+diff --git a/src/libponyc/expr/call.c b/src/libponyc/expr/call.c
+index d8a9c83eca..bca2973620 100644
+--- a/src/libponyc/expr/call.c
++++ b/src/libponyc/expr/call.c
+@@ -21,7 +21,7 @@ static bool insert_apply(pass_opt_t* opt, ast_t** astp)
+ {
+   // Sugar .apply()
+   ast_t* ast = *astp;
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   ast_t* dot = ast_from(ast, TK_DOT);
+   ast_add(dot, ast_from_string(ast, "apply"));
+@@ -332,7 +332,7 @@ static ast_t* method_receiver_type(ast_t* method)
+ 
+ static bool check_receiver_cap(pass_opt_t* opt, ast_t* ast, bool* recovered)
+ {
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   ast_t* type = ast_type(lhs);
+ 
+@@ -458,7 +458,7 @@ static bool check_nonsendable_recover(pass_opt_t* opt, ast_t* ast)
+ {
+   if(opt->check.frame->recover != NULL)
+   {
+-    AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++    AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+     ast_t* type = ast_type(lhs);
+ 
+@@ -509,7 +509,7 @@ static bool check_nonsendable_recover(pass_opt_t* opt, ast_t* ast)
+ 
+ static bool method_application(pass_opt_t* opt, ast_t* ast, bool partial)
+ {
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   if(!method_check_type_params(opt, &lhs))
+     return false;
+@@ -571,7 +571,7 @@ static bool method_call(pass_opt_t* opt, ast_t* ast)
+   if(!method_application(opt, ast, false))
+     return false;
+ 
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+   ast_t* type = ast_type(lhs);
+ 
+   if(is_typecheck_error(type))
+@@ -652,7 +652,7 @@ static bool partial_application(pass_opt_t* opt, ast_t** astp)
+   if(!method_application(opt, ast, true))
+     return false;
+ 
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   // LHS must be an application, possibly wrapped in another application
+   // if the method had type parameters for qualification.
+@@ -861,10 +861,10 @@ static bool partial_application(pass_opt_t* opt, ast_t** astp)
+       NODE(can_error)
+       NODE(TK_SEQ,
+         NODE(TK_CALL,
++          TREE(call_receiver)
+           TREE(lambda_call_args)
+           NONE  // Named args.
+-          NODE(can_error)
+-          TREE(call_receiver)))
++          NODE(can_error)))
+       NONE)); // Lambda reference capability.
+ 
+   // Need to preserve various lambda children.
+@@ -882,7 +882,7 @@ static bool method_chain(pass_opt_t* opt, ast_t* ast)
+   if(!method_application(opt, ast, false))
+     return false;
+ 
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   ast_t* type = ast_type(lhs);
+   if(ast_id(ast_child(type)) == TK_AT)
+@@ -929,7 +929,7 @@ bool expr_call(pass_opt_t* opt, ast_t** astp)
+   if((type != NULL) && (ast_id(type) != TK_INFERTYPE))
+     return true;
+ 
+-  AST_GET_CHILDREN(ast, positional, namedargs, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, namedargs, question);
+ 
+   switch(ast_id(lhs))
+   {
+diff --git a/src/libponyc/expr/lambda.c b/src/libponyc/expr/lambda.c
+index 193d0e4980..701a566c6c 100644
+--- a/src/libponyc/expr/lambda.c
++++ b/src/libponyc/expr/lambda.c
+@@ -10,6 +10,8 @@
+ #include "../pass/syntax.h"
+ #include "../type/alias.h"
+ #include "../type/assemble.h"
++#include "../type/cap.h"
++#include "../type/reify.h"
+ #include "../type/sanitise.h"
+ #include "../type/subtype.h"
+ #include "../pkg/package.h"
+@@ -136,6 +138,67 @@ static bool make_capture_field(pass_opt_t* opt, ast_t* capture,
+ }
+ 
+ 
++static void find_possible_fun_defs(pass_opt_t* opt, ast_t* ast,
++  astlist_t** fun_defs, astlist_t** obj_caps)
++{
++  switch(ast_id(ast))
++  {
++    case TK_NOMINAL:
++    {
++      // A lambda type definition must be an interface.
++      ast_t* def = (ast_t*)ast_data(ast);
++      if(ast_id(def) != TK_INTERFACE)
++        return;
++
++      // The interface must specify just one method in its members.
++      ast_t* members = ast_childidx(def, 4);
++      pony_assert(ast_id(members) == TK_MEMBERS);
++      if(ast_childcount(members) != 1)
++        return;
++
++      // That one method is the fun def that we're looking for.
++      ast_t* fun_def = ast_child(members);
++
++      // If the interface type has type parameters, we need to reify.
++      ast_t* typeargs = ast_childidx(ast, 2);
++      ast_t* typeparams = ast_childidx(def, 1);
++      if((ast_id(typeargs) == TK_TYPEARGS) &&
++        (ast_id(typeparams) == TK_TYPEPARAMS)
++        )
++        fun_def = reify_method_def(fun_def, typeparams, typeargs, opt);
++
++      // Return the object cap and the method definition.
++      *obj_caps = astlist_push(*obj_caps, ast_childidx(ast, 3));
++      *fun_defs = astlist_push(*fun_defs, fun_def);
++      break;
++    }
++
++    case TK_ARROW:
++      find_possible_fun_defs(opt, ast_childidx(ast, 1), fun_defs, obj_caps);
++      break;
++
++    case TK_TYPEPARAMREF:
++    {
++      ast_t* def = (ast_t*)ast_data(ast);
++      pony_assert(ast_id(def) == TK_TYPEPARAM);
++      find_possible_fun_defs(opt, ast_childidx(def, 1), fun_defs, obj_caps);
++      break;
++    }
++
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++    {
++      for(ast_t* c = ast_child(ast); c != NULL; c = ast_sibling(c))
++        find_possible_fun_defs(opt, c, fun_defs, obj_caps);
++      break;
++    }
++
++    default:
++      break;
++  }
++}
++
++
+ bool expr_lambda(pass_opt_t* opt, ast_t** astp)
+ {
+   pony_assert(astp != NULL);
+@@ -143,9 +206,141 @@ bool expr_lambda(pass_opt_t* opt, ast_t** astp)
+   pony_assert(ast != NULL);
+ 
+   AST_GET_CHILDREN(ast, receiver_cap, name, t_params, params, captures,
+-    ret_type, raises, body, reference_cap);
++    ret_type, raises, body, obj_cap);
+   ast_t* annotation = ast_consumeannotation(ast);
+ 
++  // Try to find an antecedent type, and find possible lambda interfaces in it.
++  ast_t* antecedent_type = find_antecedent_type(opt, ast, NULL);
++  astlist_t* possible_fun_defs = NULL;
++  astlist_t* possible_obj_caps = NULL;
++  if(!is_typecheck_error(antecedent_type))
++    find_possible_fun_defs(opt, antecedent_type, &possible_fun_defs,
++      &possible_obj_caps);
++
++  // If there's more than one possible fun defs, rule out impossible ones by
++  // comparing each fun def by some basic criteria against the lambda,
++  // creating a new list containing only the remaining possibilities.
++  if(astlist_length(possible_fun_defs) > 1)
++  {
++    astlist_t* new_fun_defs = NULL;
++    astlist_t* new_obj_caps = NULL;
++
++    astlist_t* fun_def_cursor = possible_fun_defs;
++    astlist_t* obj_cap_cursor = possible_obj_caps;
++    for(; (fun_def_cursor != NULL) && (obj_cap_cursor != NULL);
++      fun_def_cursor = astlist_next(fun_def_cursor),
++      obj_cap_cursor = astlist_next(obj_cap_cursor))
++    {
++      ast_t* fun_def = astlist_data(fun_def_cursor);
++      ast_t* def_obj_cap = astlist_data(obj_cap_cursor);
++
++      if(is_typecheck_error(fun_def))
++        continue;
++
++      AST_GET_CHILDREN(fun_def, def_receiver_cap, def_name, def_t_params,
++        def_params, def_ret_type, def_raises);
++
++      // Must have the same number of parameters.
++      if(ast_childcount(params) != ast_childcount(def_params))
++        continue;
++
++      // Must have a supercap of the def's receiver cap (if present).
++      if((ast_id(receiver_cap) != TK_NONE) && !is_cap_sub_cap(
++        ast_id(def_receiver_cap), TK_NONE, ast_id(receiver_cap), TK_NONE)
++        )
++        continue;
++
++      // Must have a supercap of the def's object cap (if present).
++      if((ast_id(obj_cap) != TK_NONE) &&
++        !is_cap_sub_cap(ast_id(obj_cap), TK_NONE, ast_id(def_obj_cap), TK_NONE))
++        continue;
++
++      // TODO: This logic could potentially be expanded to do deeper
++      // compatibility checks, but checks involving subtyping here would be
++      // difficult, because the lambda's AST is not caught up yet in the passes.
++
++      new_fun_defs = astlist_push(new_fun_defs, fun_def);
++      new_obj_caps = astlist_push(new_obj_caps, def_obj_cap);
++    }
++
++    astlist_free(possible_fun_defs);
++    astlist_free(possible_obj_caps);
++    possible_fun_defs = new_fun_defs;
++    possible_obj_caps = new_obj_caps;
++  }
++
++  if(astlist_length(possible_fun_defs) == 1)
++  {
++    ast_t* fun_def = astlist_data(possible_fun_defs);
++    ast_t* def_obj_cap = astlist_data(possible_obj_caps);
++
++    // Try to complete the lambda's type info by inferring from the lambda type.
++    if(!is_typecheck_error(fun_def))
++    {
++      // Infer the object cap, receiver cap, and return type if unspecified.
++      if(ast_id(obj_cap) == TK_NONE)
++        ast_replace(&obj_cap, def_obj_cap);
++      if(ast_id(receiver_cap) == TK_NONE)
++        ast_replace(&receiver_cap, ast_child(fun_def));
++      if(ast_id(ret_type) == TK_NONE)
++        ast_replace(&ret_type, ast_childidx(fun_def, 4));
++
++      // Infer the type of any parameters that were left unspecified.
++      ast_t* param = ast_child(params);
++      ast_t* def_param = ast_child(ast_childidx(fun_def, 3));
++      while((param != NULL) && (def_param != NULL))
++      {
++        ast_t* param_id = ast_child(param);
++        ast_t* param_type = ast_sibling(param_id);
++
++        // Convert a "_" parameter to whatever the expected parameter is.
++        if((ast_id(param_id) == TK_REFERENCE) &&
++          is_name_dontcare(ast_name(ast_child(param_id))))
++        {
++          ast_replace(&param_id, ast_child(def_param));
++          ast_replace(&param_type, ast_childidx(def_param, 1));
++        }
++        // Give a type-unspecified parameter the type of the expected parameter.
++        else if(ast_id(param_type) == TK_NONE)
++        {
++          ast_replace(&param_id, ast_child(param_id)); // unwrap reference's id
++          ast_replace(&param_type, ast_childidx(def_param, 1));
++        }
++
++        param = ast_sibling(param);
++        def_param = ast_sibling(def_param);
++      }
++    }
++
++    ast_free_unattached(fun_def);
++  }
++
++
++  // If any parameters still have no type specified, it's an error.
++  ast_t* param = ast_child(params);
++  while(param != NULL)
++  {
++    if(ast_id(ast_childidx(param, 1)) == TK_NONE)
++    {
++      ast_error(opt->check.errors, param,
++        "a lambda parameter must specify a type or be inferable from context");
++
++      if(astlist_length(possible_fun_defs) > 1)
++      {
++        for(astlist_t* fun_def_cursor = possible_fun_defs;
++          fun_def_cursor != NULL;
++          fun_def_cursor = astlist_next(fun_def_cursor))
++        {
++          ast_error_continue(opt->check.errors, astlist_data(fun_def_cursor),
++            "this lambda interface is inferred, but it's not the only one");
++        }
++      }
++
++      return false;
++    }
++    param = ast_sibling(param);
++  }
++
+   bool bare = ast_id(ast) == TK_BARELAMBDA;
+   ast_t* members = ast_from(ast, TK_MEMBERS);
+   ast_t* last_member = NULL;
+@@ -228,7 +423,7 @@ bool expr_lambda(pass_opt_t* opt, ast_t** astp)
+   // Replace lambda with object literal
+   REPLACE(astp,
+     NODE(TK_OBJECT, DATA(stringtab(buf->m))
+-      TREE(reference_cap)
++      TREE(obj_cap)
+       NONE  // Provides list
+       TREE(members)));
+ 
+@@ -410,8 +605,8 @@ static void add_field_to_object(pass_opt_t* opt, ast_t* field,
+   // The body of create contains: id = consume $0
+   BUILD(assign, init,
+     NODE(TK_ASSIGN,
+-      NODE(TK_CONSUME, NODE(TK_NONE) NODE(TK_REFERENCE, TREE(p_id)))
+-      NODE(TK_REFERENCE, TREE(id))));
++      NODE(TK_REFERENCE, TREE(id))
++      NODE(TK_CONSUME, NODE(TK_NONE) NODE(TK_REFERENCE, TREE(p_id)))));
+ 
+   // Remove the initialiser from the field
+   ast_replace(&init, ast_from(init, TK_NONE));
+@@ -511,16 +706,16 @@ bool expr_object(pass_opt_t* opt, ast_t** astp)
+   // We will replace object..end with $0.create(...)
+   BUILD(call, ast,
+     NODE(TK_CALL,
+-      NODE(TK_POSITIONALARGS)
+-      NONE
+-      NONE
+       NODE(TK_DOT,
+         TREE(type_ref)
+-        ID("create"))));
++        ID("create"))
++      NODE(TK_POSITIONALARGS)
++      NONE
++      NONE));
+ 
+   ast_t* create_params = ast_childidx(create, 3);
+   ast_t* create_body = ast_childidx(create, 6);
+-  ast_t* call_args = ast_child(call);
++  ast_t* call_args = ast_childidx(call, 1);
+   ast_t* class_members = ast_childidx(def, 4);
+   ast_t* member = ast_child(members);
+ 
+diff --git a/src/libponyc/expr/literal.c b/src/libponyc/expr/literal.c
+index b3c8c74a21..17bb188e50 100644
+--- a/src/libponyc/expr/literal.c
++++ b/src/libponyc/expr/literal.c
+@@ -773,7 +773,7 @@ static bool coerce_literal_to_type(ast_t** astp, ast_t* target_type,
+ 
+     case TK_CALL:
+     {
+-      AST_GET_CHILDREN(literal_expr, positional, named, question, receiver);
++      AST_GET_CHILDREN(literal_expr, receiver, positional, named, question);
+       ast_t* arg = ast_child(positional);
+ 
+       if(!coerce_literal_to_type(&receiver, target_type, chain, opt,
+@@ -921,7 +921,7 @@ bool literal_call(ast_t* ast, pass_opt_t* opt)
+   pony_assert(ast != NULL);
+   pony_assert(ast_id(ast) == TK_CALL);
+ 
+-  AST_GET_CHILDREN(ast, positional_args, named_args, question, receiver);
++  AST_GET_CHILDREN(ast, receiver, positional_args, named_args, question);
+ 
+   ast_t* recv_type = ast_type(receiver);
+ 
+diff --git a/src/libponyc/expr/operator.c b/src/libponyc/expr/operator.c
+index 2d5f5694b5..c6bf4ea28c 100644
+--- a/src/libponyc/expr/operator.c
++++ b/src/libponyc/expr/operator.c
+@@ -214,7 +214,7 @@ static bool is_expr_constructor(ast_t* ast)
+   switch(ast_id(ast))
+   {
+     case TK_CALL:
+-      return ast_id(ast_childidx(ast, 3)) == TK_NEWREF;
++      return ast_id(ast_child(ast)) == TK_NEWREF;
+     case TK_SEQ:
+       return is_expr_constructor(ast_childlast(ast));
+     case TK_IF:
+@@ -317,7 +317,7 @@ bool expr_assign(pass_opt_t* opt, ast_t* ast)
+   // Left and right are swapped in the AST to make sure we type check the
+   // right side before the left. Fetch them in the opposite order.
+   pony_assert(ast_id(ast) == TK_ASSIGN);
+-  AST_GET_CHILDREN(ast, right, left);
++  AST_GET_CHILDREN(ast, left, right);
+   ast_t* l_type = ast_type(left);
+ 
+   if(l_type == NULL)
+diff --git a/src/libponyc/expr/postfix.c b/src/libponyc/expr/postfix.c
+index 57266b528b..fbdda65349 100644
+--- a/src/libponyc/expr/postfix.c
++++ b/src/libponyc/expr/postfix.c
+@@ -225,10 +225,10 @@ static bool type_access(pass_opt_t* opt, ast_t** astp)
+ 
+       ast_t* call = ast_from(ast, TK_CALL);
+       ast_swap(dot, call);
+-      ast_add(call, dot); // the LHS goes at the end, not the beginning
+       ast_add(call, ast_from(ast, TK_NONE)); // question
+       ast_add(call, ast_from(ast, TK_NONE)); // named
+       ast_add(call, ast_from(ast, TK_NONE)); // positional
++      ast_add(call, dot);
+ 
+       if(!expr_dot(opt, &dot))
+         return false;
+diff --git a/src/libponyc/expr/reference.c b/src/libponyc/expr/reference.c
+index b2e2aed7aa..ef2af3b497 100644
+--- a/src/libponyc/expr/reference.c
++++ b/src/libponyc/expr/reference.c
+@@ -65,7 +65,7 @@ static bool is_legal_dontcare_read(ast_t* ast)
+   {
+     case TK_ASSIGN:
+     {
+-      AST_GET_CHILDREN(parent, right, left);
++      AST_GET_CHILDREN(parent, left, right);
+       if(ast == left)
+         return true;
+       return false;
+@@ -86,7 +86,7 @@ static bool is_legal_dontcare_read(ast_t* ast)
+       {
+         case TK_ASSIGN:
+         {
+-          AST_GET_CHILDREN(grandparent, right, left);
++          AST_GET_CHILDREN(grandparent, left, right);
+ 
+           if(parent == left)
+             return true;
+@@ -240,7 +240,7 @@ bool expr_fieldref(pass_opt_t* opt, ast_t* ast, ast_t* find, token_id tid)
+         current = parent;
+         parent = ast_parent(parent);
+       }
+-      if(ast_id(parent) == TK_ASSIGN && ast_child(parent) != current)
++      if(ast_id(parent) == TK_ASSIGN && ast_childidx(parent, 1) != current)
+       {
+         errorframe_t frame = NULL;
+         ast_error_frame(&frame, ast, "can't access field of non-sendable "
+@@ -291,6 +291,10 @@ bool expr_typeref(pass_opt_t* opt, ast_t** astp)
+     }
+   }
+ 
++  // Handle cases where we just want to transform a typeref for type purposes.
++  if(ast_parent(ast) == NULL)
++    return true;
++
+   switch(ast_id(ast_parent(ast)))
+   {
+     case TK_QUALIFY:
+@@ -337,7 +341,8 @@ bool expr_typeref(pass_opt_t* opt, ast_t** astp)
+           ast_add(call, ast_from(call, TK_NONE)); // Named
+           ast_add(call, ast_from(call, TK_NONE)); // Positional
+           ast_swap(ast, call);
+-          ast_append(call, ast);
++          *astp = call;
++          ast_add(call, ast);
+ 
+           if(!expr_call(opt, &call))
+           {
+@@ -350,6 +355,7 @@ bool expr_typeref(pass_opt_t* opt, ast_t** astp)
+           ast_t* apply = ast_from(call, TK_DOT);
+           ast_add(apply, ast_from_string(call, "apply"));
+           ast_swap(call, apply);
++          *astp = apply;
+           ast_add(apply, call);
+ 
+           if(!expr_dot(opt, &apply))
+@@ -375,10 +381,10 @@ bool expr_typeref(pass_opt_t* opt, ast_t** astp)
+       // Call the default constructor with no arguments.
+       ast_t* call = ast_from(ast, TK_CALL);
+       ast_swap(dot, call);
+-      ast_add(call, dot); // Receiver comes last.
+       ast_add(call, ast_from(ast, TK_NONE)); // Call partiality.
+       ast_add(call, ast_from(ast, TK_NONE)); // Named args.
+       ast_add(call, ast_from(ast, TK_NONE)); // Positional args.
++      ast_add(call, dot);
+ 
+       *astp = call;
+ 
+@@ -468,7 +474,7 @@ bool expr_localref(pass_opt_t* opt, ast_t* ast)
+             current = parent;
+             parent = ast_parent(parent);
+           }
+-          if(ast_id(parent) == TK_ASSIGN && ast_child(parent) != current)
++          if(ast_id(parent) == TK_ASSIGN && ast_childidx(parent, 1) != current)
+           {
+             ast_error(opt->check.errors, ast, "can't access a non-sendable "
+               "local defined outside of a recover expression from within "
+diff --git a/src/libponyc/pass/casemethod.c b/src/libponyc/pass/casemethod.c
+index ab494cd418..5d92a8f445 100644
+--- a/src/libponyc/pass/casemethod.c
++++ b/src/libponyc/pass/casemethod.c
+@@ -794,10 +794,10 @@ static bool sugar_case_method(ast_t* first_case_method, ast_t* members,
+     ast_free(call_t_args);
+     BUILD(tmp, wrapper_body,
+       NODE(TK_CALL,
++        NODE(TK_REFERENCE, ID(worker_name))
+         TREE(call_args)
+         NONE
+-        TREE(wrapper_question)
+-        NODE(TK_REFERENCE, ID(worker_name))));
++        TREE(wrapper_question)));
+ 
+     wrapper_call = tmp;
+   }
+@@ -806,12 +806,12 @@ static bool sugar_case_method(ast_t* first_case_method, ast_t* members,
+     // Type args needed on call.
+     BUILD(tmp, wrapper_body,
+       NODE(TK_CALL,
+-        TREE(call_args)
+-        NONE
+-        TREE(wrapper_question)
+         NODE(TK_QUALIFY,
+           NODE(TK_REFERENCE, ID(worker_name))
+-          TREE(call_t_args))));
++          TREE(call_t_args))
++        TREE(call_args)
++        NONE
++        TREE(wrapper_question)));
+ 
+     wrapper_call = tmp;
+   }
+diff --git a/src/libponyc/pass/expr.c b/src/libponyc/pass/expr.c
+index 32474616b2..eedb2cf2e5 100644
+--- a/src/libponyc/pass/expr.c
++++ b/src/libponyc/pass/expr.c
+@@ -201,13 +201,272 @@ bool is_typecheck_error(ast_t* type)
+   return false;
+ }
+ 
++static ast_t* find_tuple_type(pass_opt_t* opt, ast_t* ast, size_t child_count)
++{
++  if((ast_id(ast) == TK_TUPLETYPE) && (ast_childcount(ast) == child_count))
++    return ast;
++
++  switch(ast_id(ast))
++  {
++    // For a union or intersection type, go for the first member in the
++    // type that is a tupletype with the right number of elements.
++    // We won't handle cases where there are multiple options with the
++    // right number of elements and one of the later options is correct.
++    // TODO: handle this using astlist_t.
++    case TK_UNIONTYPE:
++    case TK_ISECTTYPE:
++    {
++      ast_t* member_type = ast_child(ast);
++      while(member_type != NULL)
++      {
++        ast_t* member_tuple_type =
++          find_tuple_type(opt, member_type, child_count);
++
++        if(member_tuple_type != NULL)
++          return member_tuple_type;
++
++        member_type = ast_sibling(member_type);
++      }
++      break;
++    }
++
++    // For an arrow type, just dig into the RHS.
++    case TK_ARROW:
++      return find_tuple_type(opt, ast_childlast(ast), child_count);
++
++    case TK_TYPEPARAMREF: break; // TODO
++
++    default:
++      break;
++  }
++
++  return NULL;
++}
++
++ast_t* find_antecedent_type(pass_opt_t* opt, ast_t* ast, bool* is_recovered)
++{
++  ast_t* parent = ast_parent(ast);
++
++  switch(ast_id(parent))
++  {
++    // For the right side of an assignment, find the type of the left side.
++    case TK_ASSIGN:
++    {
++      AST_GET_CHILDREN(parent, lhs, rhs);
++      if(rhs != ast)
++        return NULL;
++
++      return ast_type(lhs);
++    }
++
++    // For a parameter default value expression, use the type of the parameter.
++    case TK_PARAM:
++    case TK_LAMBDACAPTURE:
++    {
++      AST_GET_CHILDREN(parent, id, type, deflt);
++      pony_assert(ast == deflt);
++      return type;
++    }
++
++    // For an array literal expression, use the element type if specified.
++    case TK_ARRAY:
++    {
++      AST_GET_CHILDREN(parent, type, seq);
++      pony_assert(ast == seq);
++
++      if(ast_id(type) == TK_NONE)
++        return NULL;
++
++      return type;
++    }
++      break;
++
++    // For an argument, find the type of the corresponding parameter.
++    case TK_POSITIONALARGS:
++    {
++      // Get the type signature of the function call.
++      ast_t* receiver = ast_child(ast_parent(parent));
++      ast_t* funtype = ast_type(receiver);
++      if(is_typecheck_error(funtype))
++        return funtype;
++
++      // If this is a call to a callable object instead of a function reference,
++      // we need to use the funtype of the apply method of the object.
++      if(ast_id(funtype) != TK_FUNTYPE)
++      {
++        ast_t* dot = ast_from(ast, TK_DOT);
++        ast_add(dot, ast_from_string(ast, "apply"));
++        ast_swap(receiver, dot);
++        ast_add(dot, receiver);
++
++        bool r = expr_dot(opt, &dot);
++        funtype = ast_type(dot);
++
++        ast_swap(receiver, dot); // put the original receiver back
++
++        if(!r || (ast_id(funtype) != TK_FUNTYPE))
++          return NULL;
++      }
++
++      AST_GET_CHILDREN(funtype, cap, t_params, params, ret_type);
++
++      // Find the parameter type corresponding to this specific argument.
++      ast_t* arg = ast_child(parent);
++      ast_t* param = ast_child(params);
++      while((arg != NULL) && (param != NULL))
++      {
++        if(arg == ast)
++          return ast_childidx(param, 1);
++
++        arg = ast_sibling(arg);
++        param = ast_sibling(param);
++      }
++
++      // We didn't find a match.
++      return NULL;
++    }
++
++    // For an argument, find the type of the corresponding parameter.
++    case TK_NAMEDARG:
++    case TK_UPDATEARG:
++    {
++      // Get the type signature of the function call.
++      ast_t* receiver = ast_child(ast_parent(ast_parent(parent)));
++      ast_t* funtype = ast_type(receiver);
++      if(is_typecheck_error(funtype))
++        return funtype;
++      pony_assert(ast_id(funtype) == TK_FUNTYPE);
++      AST_GET_CHILDREN(funtype, cap, t_params, params, ret_type);
++
++      // Find the parameter type corresponding to this named argument.
++      const char* name = ast_name(ast_child(parent));
++      ast_t* param = ast_child(params);
++      while(param != NULL)
++      {
++        if(ast_name(ast_child(param)) == name)
++          return ast_childidx(param, 1);
++
++        param = ast_sibling(param);
++      }
++
++      // We didn't find a match.
++      return NULL;
++    }
++
++    // For a function body, use the declared return type of the function.
++    case TK_FUN:
++    {
++      ast_t* body = ast_childidx(parent, 6);
++      pony_assert(ast == body);
++
++      ast_t* ret_type = ast_childidx(parent, 4);
++      if(ast_id(ret_type) == TK_NONE)
++        return NULL;
++
++      return ret_type;
++    }
++
++    // For the last expression in a sequence, recurse to the parent.
++    // If the given expression is not the last one, it is uninferable.
++    case TK_SEQ:
++    {
++      if(ast_childlast(parent) == ast)
++        return find_antecedent_type(opt, parent, is_recovered);
++
++      // If this sequence is an array literal, every child uses the LHS type.
++      if(ast_id(ast_parent(parent)) == TK_ARRAY)
++        return find_antecedent_type(opt, parent, is_recovered);
++
++      return NULL;
++    }
++
++    // For a tuple expression, take the nth element of the upper LHS type.
++    case TK_TUPLE:
++    {
++      ast_t* antecedent = find_antecedent_type(opt, parent, is_recovered);
++      if(antecedent == NULL)
++        return NULL;
++
++      // Dig through the LHS type until we find a tuple type.
++      antecedent = find_tuple_type(opt, antecedent, ast_childcount(parent));
++      if(antecedent == NULL)
++        return NULL;
++      pony_assert(ast_id(antecedent) == TK_TUPLETYPE);
++
++      // Find the element of the LHS type that corresponds to our element.
++      ast_t* elem = ast_child(parent);
++      ast_t* type_elem = ast_child(antecedent);
++      while((elem != NULL) && (type_elem != NULL))
++      {
++        if(elem == ast)
++          return type_elem;
++
++        elem = ast_sibling(elem);
++        type_elem = ast_sibling(type_elem);
++      }
++
++      break;
++    }
++
++    // For a return statement, recurse to the method body that contains it.
++    case TK_RETURN:
++    {
++      ast_t* body = opt->check.frame->method_body;
++      if(body == NULL)
++        return NULL;
++
++      return find_antecedent_type(opt, body, is_recovered);
++    }
++
++    // For a break statement, recurse to the loop body that contains it.
++    case TK_BREAK:
++    {
++      ast_t* body = opt->check.frame->loop_body;
++      if(body == NULL)
++        return NULL;
++
++      return find_antecedent_type(opt, body, is_recovered);
++    }
++
++    // For a recover block, note the recovery and move on to the parent.
++    case TK_RECOVER:
++    {
++      if(is_recovered != NULL)
++        *is_recovered = true;
++
++      return find_antecedent_type(opt, parent, is_recovered);
++    }
++
++    case TK_IF:
++    case TK_IFDEF:
++    case TK_IFTYPE:
++    case TK_IFTYPE_SET:
++    case TK_THEN:
++    case TK_ELSE:
++    case TK_WHILE:
++    case TK_REPEAT:
++    case TK_MATCH:
++    case TK_CASES:
++    case TK_CASE:
++    case TK_TRY:
++    case TK_TRY_NO_CHECK:
++    case TK_CALL:
++      return find_antecedent_type(opt, parent, is_recovered);
++
++    default:
++      break;
++  }
++
++  return NULL;
++}
++
+ ast_result_t pass_pre_expr(ast_t** astp, pass_opt_t* options)
+ {
+-  (void)options;
+   ast_t* ast = *astp;
+ 
+   switch(ast_id(ast))
+   {
++    case TK_ARRAY: return expr_pre_array(options, astp);
+     case TK_USE:
+       // Don't look in use commands to avoid false type errors from the guard
+       return AST_IGNORE;
+diff --git a/src/libponyc/pass/expr.h b/src/libponyc/pass/expr.h
+index 5242eee32b..9ee54450e9 100644
+--- a/src/libponyc/pass/expr.h
++++ b/src/libponyc/pass/expr.h
+@@ -15,6 +15,8 @@ bool is_method_return(typecheck_t* t, ast_t* ast);
+ 
+ bool is_typecheck_error(ast_t* type);
+ 
++ast_t* find_antecedent_type(pass_opt_t* opt, ast_t* ast, bool* is_recovered);
++
+ ast_result_t pass_pre_expr(ast_t** astp, pass_opt_t* options);
+ 
+ ast_result_t pass_expr(ast_t** astp, pass_opt_t* options);
+diff --git a/src/libponyc/pass/finalisers.c b/src/libponyc/pass/finalisers.c
+index 9a3e380919..2f681fa73e 100644
+--- a/src/libponyc/pass/finalisers.c
++++ b/src/libponyc/pass/finalisers.c
+@@ -94,7 +94,7 @@ static ast_t* receiver_def(ast_t* type)
+ 
+ static int check_call_send(ast_t* ast, bool in_final)
+ {
+-  AST_GET_CHILDREN(ast, positional, named, question, lhs);
++  AST_GET_CHILDREN(ast, lhs, positional, named, question);
+   AST_GET_CHILDREN(lhs, receiver, method);
+ 
+   switch(ast_id(receiver))
+diff --git a/src/libponyc/pass/flatten.c b/src/libponyc/pass/flatten.c
+index 4cc267a46b..6dd8722e2c 100644
+--- a/src/libponyc/pass/flatten.c
++++ b/src/libponyc/pass/flatten.c
+@@ -77,16 +77,21 @@ static ast_result_t flatten_isect(pass_opt_t* opt, ast_t* ast)
+ 
+ ast_result_t flatten_typeparamref(pass_opt_t* opt, ast_t* ast)
+ {
+-  AST_GET_CHILDREN(ast, id, cap, eph);
++  ast_t* cap = ast_childidx(ast, 1);
+ 
+-  if(ast_id(cap) != TK_NONE)
++  typeparam_set_cap(ast);
++
++  ast_t* set_cap = ast_childidx(ast, 1);
++
++  if((ast_id(cap) != TK_NONE) && (ast_id(cap) != ast_id(set_cap)))
+   {
+-    ast_error(opt->check.errors, cap,
+-      "can't specify a capability on a type parameter");
++    ast_error(opt->check.errors, cap, "can't specify a capability on a type "
++      "parameter that differs from the constraint");
++    ast_error_continue(opt->check.errors, set_cap,
++      "constraint capability is here");
+     return AST_ERROR;
+   }
+ 
+-  typeparam_set_cap(ast);
+   return AST_OK;
+ }
+ 
+diff --git a/src/libponyc/pass/refer.c b/src/libponyc/pass/refer.c
+index cc27903402..98cf4def2a 100644
+--- a/src/libponyc/pass/refer.c
++++ b/src/libponyc/pass/refer.c
+@@ -76,9 +76,8 @@ static bool is_assigned_to(ast_t* ast, bool check_result_needed)
+     {
+       case TK_ASSIGN:
+       {
+-        // Has to be the left hand side of an assignment. Left and right sides
+-        // are swapped, so we must be the second child.
+-        if(ast_childidx(parent, 1) != ast)
++        // Has to be the left hand side of an assignment (the first child).
++        if(ast_child(parent) != ast)
+           return false;
+ 
+         if(!check_result_needed)
+@@ -683,10 +682,37 @@ static bool is_lvalue(pass_opt_t* opt, ast_t* ast, bool need_value)
+   return false;
+ }
+ 
++static bool refer_pre_call(pass_opt_t* opt, ast_t* ast)
++{
++  pony_assert(ast_id(ast) == TK_CALL);
++  AST_GET_CHILDREN(ast, lhs, positional, named, question);
++
++  // Run the args before the receiver, so that symbol status tracking
++  // will see things like consumes in the args first.
++  if(!ast_passes_subtree(&positional, opt, PASS_REFER) ||
++    !ast_passes_subtree(&named, opt, PASS_REFER))
++    return false;
++
++  return true;
++}
++
++static bool refer_pre_assign(pass_opt_t* opt, ast_t* ast)
++{
++  pony_assert(ast_id(ast) == TK_ASSIGN);
++  AST_GET_CHILDREN(ast, left, right);
++
++  // Run the right side before the left side, so that symbol status tracking
++  // will see things like consumes in the right side first.
++  if(!ast_passes_subtree(&right, opt, PASS_REFER))
++    return false;
++
++  return true;
++}
++
+ static bool refer_assign(pass_opt_t* opt, ast_t* ast)
+ {
+   pony_assert(ast_id(ast) == TK_ASSIGN);
+-  AST_GET_CHILDREN(ast, right, left);
++  AST_GET_CHILDREN(ast, left, right);
+ 
+   if(!is_lvalue(opt, left, is_result_needed(ast)))
+   {
+@@ -1255,7 +1281,9 @@ ast_result_t pass_pre_refer(ast_t** astp, pass_opt_t* options)
+ 
+   switch(ast_id(ast))
+   {
+-    case TK_NEW: r = refer_pre_new(options, ast); break;
++    case TK_NEW:    r = refer_pre_new(options, ast); break;
++    case TK_CALL:   r = refer_pre_call(options, ast); break;
++    case TK_ASSIGN: r = refer_pre_assign(options, ast); break;
+ 
+     default: {}
+   }
+diff --git a/src/libponyc/pass/scope.c b/src/libponyc/pass/scope.c
+index bd6e6d8382..0f2354d92d 100644
+--- a/src/libponyc/pass/scope.c
++++ b/src/libponyc/pass/scope.c
+@@ -288,6 +288,33 @@ static ast_result_t scope_iftype(pass_opt_t* opt, ast_t* ast)
+   return AST_OK;
+ }
+ 
++static bool scope_call(pass_opt_t* opt, ast_t* ast)
++{
++  pony_assert(ast_id(ast) == TK_CALL);
++  AST_GET_CHILDREN(ast, lhs, positional, named, question);
++
++  // Run the args before the receiver, so that symbol status tracking
++  // will have their scope names defined in the args first.
++  if(!ast_passes_subtree(&positional, opt, PASS_SCOPE) ||
++    !ast_passes_subtree(&named, opt, PASS_SCOPE))
++    return false;
++
++  return true;
++}
++
++static bool scope_assign(pass_opt_t* opt, ast_t* ast)
++{
++  pony_assert(ast_id(ast) == TK_ASSIGN);
++  AST_GET_CHILDREN(ast, left, right);
++
++  // Run the right side before the left side, so that symbol status tracking
++  // will have their scope names defined in the right side first.
++  if(!ast_passes_subtree(&right, opt, PASS_SCOPE))
++    return false;
++
++  return true;
++}
++
+ ast_result_t pass_scope(ast_t** astp, pass_opt_t* options)
+ {
+   ast_t* ast = *astp;
+@@ -320,12 +347,23 @@ ast_result_t pass_scope(ast_t** astp, pass_opt_t* options)
+ 
+       // Store the original definition of the typeparam in the data field here.
+       // It will be retained later if the typeparam def is copied via ast_dup.
+-      ast_setdata(ast, ast);
++      if(ast_data(ast) == NULL)
++        ast_setdata(ast, ast);
+       break;
+ 
+     case TK_IFTYPE:
+       return scope_iftype(options, ast);
+ 
++    case TK_CALL:
++      if(!scope_call(options, ast))
++        return AST_ERROR;
++      break;
++
++    case TK_ASSIGN:
++      if(!scope_assign(options, ast))
++        return AST_ERROR;
++      break;
++
+     default: {}
+   }
+ 
+diff --git a/src/libponyc/pass/sugar.c b/src/libponyc/pass/sugar.c
+index 76cb6c6d55..b35b0d3a53 100644
+--- a/src/libponyc/pass/sugar.c
++++ b/src/libponyc/pass/sugar.c
+@@ -186,8 +186,8 @@ static ast_result_t sugar_entity(pass_opt_t* opt, ast_t* ast, bool add_create,
+           // id = init
+           BUILD(init, member,
+             NODE(TK_ASSIGN,
+-            TREE(f_init)
+-            NODE(TK_REFERENCE, TREE(f_id))));
++              NODE(TK_REFERENCE, TREE(f_id))
++              TREE(f_init)));
+ 
+           ast_add(init_seq, init);
+         }
+@@ -495,10 +495,10 @@ static ast_result_t sugar_for(pass_opt_t* opt, ast_t** astp)
+     NODE(TK_TRY_NO_CHECK,
+       NODE(TK_SEQ, AST_SCOPE
+         NODE(TK_CALL,
++          NODE(TK_DOT, NODE(TK_REFERENCE, ID(iter_name)) ID("next"))
+           NONE
+           NONE
+-          NODE(TK_QUESTION)
+-          NODE(TK_DOT, NODE(TK_REFERENCE, ID(iter_name)) ID("next"))))
++          NODE(TK_QUESTION)))
+       NODE(TK_SEQ, AST_SCOPE
+         NODE(TK_BREAK, NONE))
+       NONE));
+@@ -508,20 +508,20 @@ static ast_result_t sugar_for(pass_opt_t* opt, ast_t** astp)
+   REPLACE(astp,
+     NODE(TK_SEQ,
+       NODE(TK_ASSIGN,
+-        TREE(for_iter)
+-        NODE(TK_LET, NICE_ID(iter_name, "for loop iterator") NONE))
++        NODE(TK_LET, NICE_ID(iter_name, "for loop iterator") NONE)
++        TREE(for_iter))
+       NODE(TK_WHILE, AST_SCOPE
+         ANNOTATE(annotation)
+         NODE(TK_SEQ,
+           NODE_ERROR_AT(TK_CALL, for_iter,
++            NODE(TK_DOT, NODE(TK_REFERENCE, ID(iter_name)) ID("has_next"))
+             NONE
+             NONE
+-            NONE
+-            NODE(TK_DOT, NODE(TK_REFERENCE, ID(iter_name)) ID("has_next"))))
++            NONE))
+         NODE(TK_SEQ, AST_SCOPE
+           NODE_ERROR_AT(TK_ASSIGN, for_idseq,
+-            TREE(try_next)
+-            TREE(for_idseq))
++            TREE(for_idseq)
++            TREE(try_next))
+           TREE(for_body))
+         TREE(for_else))));
+ 
+@@ -546,10 +546,10 @@ static void build_with_dispose(ast_t* dispose_clause, ast_t* idseq)
+ 
+     BUILD(dispose, idseq,
+       NODE(TK_CALL,
++        NODE(TK_DOT, NODE(TK_REFERENCE, TREE(id)) ID("dispose"))
+         NONE
+         NONE
+-        NONE
+-        NODE(TK_DOT, NODE(TK_REFERENCE, TREE(id)) ID("dispose"))));
++        NONE));
+ 
+     ast_add(dispose_clause, dispose);
+     return;
+@@ -601,13 +601,13 @@ static ast_result_t sugar_with(pass_opt_t* opt, ast_t** astp)
+ 
+     BUILD(assign, idseq,
+       NODE(TK_ASSIGN,
+-        TREE(init)
+-        NODE(TK_LET, ID(init_name) NONE)));
++        NODE(TK_LET, ID(init_name) NONE)
++        TREE(init)));
+ 
+     BUILD(local, idseq,
+       NODE(TK_ASSIGN,
+-        NODE(TK_REFERENCE, ID(init_name))
+-        TREE(idseq)));
++        TREE(idseq)
++        NODE(TK_REFERENCE, ID(init_name))));
+ 
+     ast_add(replace, assign);
+     ast_add(try_body, local);
+@@ -722,14 +722,14 @@ static ast_result_t sugar_update(ast_t** astp)
+   ast_t* ast = *astp;
+   pony_assert(ast_id(ast) == TK_ASSIGN);
+ 
+-  AST_GET_CHILDREN(ast, value, call);
++  AST_GET_CHILDREN(ast, call, value);
+ 
+   if(ast_id(call) != TK_CALL)
+     return AST_OK;
+ 
+   // We are of the form:  x(y) = z
+   // Replace us with:     x.update(y where value = z)
+-  AST_EXTRACT_CHILDREN(call, positional, named, question, expr);
++  AST_EXTRACT_CHILDREN(call, expr, positional, named, question);
+ 
+   // If there are no named arguments yet, named will be a TK_NONE.
+   ast_setid(named, TK_NAMEDARGS);
+@@ -746,10 +746,10 @@ static ast_result_t sugar_update(ast_t** astp)
+   // Replace with the update call.
+   REPLACE(astp,
+     NODE(TK_CALL,
++      NODE(TK_DOT, TREE(expr) ID("update"))
+       TREE(positional)
+       TREE(named)
+-      TREE(question)
+-      NODE(TK_DOT, TREE(expr) ID("update"))));
++      TREE(question)));
+ 
+   return AST_OK;
+ }
+@@ -809,11 +809,10 @@ static ast_result_t sugar_binop(ast_t** astp, const char* fn_name)
+ 
+   REPLACE(astp,
+     NODE(TK_CALL,
++      NODE(TK_DOT, TREE(left) ID(fn_name))
+       TREE(positional)
+       NONE
+-      TREE(question)
+-      NODE(TK_DOT, TREE(left) ID(fn_name))
+-      ));
++      TREE(question)));
+ 
+   return AST_OK;
+ }
+@@ -825,11 +824,10 @@ static ast_result_t sugar_unop(ast_t** astp, const char* fn_name)
+ 
+   REPLACE(astp,
+     NODE(TK_CALL,
++      NODE(TK_DOT, TREE(expr) ID(fn_name))
+       NONE
+       NONE
+-      NONE
+-      NODE(TK_DOT, TREE(expr) ID(fn_name))
+-      ));
++      NONE));
+ 
+   return AST_OK;
+ }
+diff --git a/src/libponyc/pass/syntax.c b/src/libponyc/pass/syntax.c
+index 0ecedf1c72..cb4f13c96e 100644
+--- a/src/libponyc/pass/syntax.c
++++ b/src/libponyc/pass/syntax.c
+@@ -1124,18 +1124,6 @@ static ast_result_t syntax_lambda(pass_opt_t* opt, ast_t* ast)
+     }
+   }
+ 
+-  ast_t* param = ast_child(params);
+-  while(param != NULL)
+-  {
+-    if(ast_id(ast_childidx(param, 1)) == TK_NONE)
+-    {
+-      ast_error(opt->check.errors, param,
+-        "a lambda parameter must specify a type");
+-      r = false;
+-    }
+-    param = ast_sibling(param);
+-  }
+-
+   ast_t* capture = ast_child(captures);
+   while(capture != NULL)
+   {
+diff --git a/src/libponyc/pass/verify.c b/src/libponyc/pass/verify.c
+index c11c107c46..ec1e6b918a 100644
+--- a/src/libponyc/pass/verify.c
++++ b/src/libponyc/pass/verify.c
+@@ -93,7 +93,7 @@ static bool verify_assign_lvalue(pass_opt_t* opt, ast_t* ast)
+ static bool verify_assign(pass_opt_t* opt, ast_t* ast)
+ {
+   pony_assert(ast_id(ast) == TK_ASSIGN);
+-  AST_GET_CHILDREN(ast, right, left);
++  AST_GET_CHILDREN(ast, left, right);
+ 
+   if(!verify_assign_lvalue(opt, left))
+     return false;
+diff --git a/src/libponyc/reach/reach.c b/src/libponyc/reach/reach.c
+index 17cd5435d8..0bdb0f6993 100644
+--- a/src/libponyc/reach/reach.c
++++ b/src/libponyc/reach/reach.c
+@@ -1035,7 +1035,7 @@ static void reachable_addressof(reach_t* r, ast_t* ast, pass_opt_t* opt)
+ 
+ static void reachable_call(reach_t* r, ast_t* ast, pass_opt_t* opt)
+ {
+-  AST_GET_CHILDREN(ast, positional, named, question, postfix);
++  AST_GET_CHILDREN(ast, postfix, positional, named, question);
+   reachable_fun(r, postfix, opt);
+ }
+ 
+diff --git a/src/libponyc/type/lookup.c b/src/libponyc/type/lookup.c
+index 45129a8e54..00e7c6a754 100644
+--- a/src/libponyc/type/lookup.c
++++ b/src/libponyc/type/lookup.c
+@@ -68,7 +68,7 @@ static ast_t* lookup_nominal(pass_opt_t* opt, ast_t* from, ast_t* orig,
+             {
+               ast_settype(def_arg, ast_from(def_arg, TK_INFERTYPE));
+ 
+-              if(ast_visit_scope(&param, NULL, pass_expr, opt,
++              if(ast_visit_scope(&param, pass_pre_expr, pass_expr, opt,
+                 PASS_EXPR) != AST_OK)
+                 return false;
+ 
+@@ -192,7 +192,7 @@ static bool param_names_match(ast_t* from, ast_t* prev_fun, ast_t* cur_fun,
+   ast_t* parent = from != NULL ? ast_parent(from) : NULL;
+   if(parent != NULL && ast_id(parent) == TK_CALL)
+   {
+-    AST_GET_CHILDREN(parent, positional, namedargs);
++    AST_GET_CHILDREN(parent, receiver, positional, namedargs);
+     if(namedargs != NULL && ast_id(namedargs) == TK_NAMEDARGS)
+     {
+       AST_GET_CHILDREN(prev_fun, prev_cap, prev_name, prev_tparams,
+diff --git a/src/libponyc/type/sanitise.c b/src/libponyc/type/sanitise.c
+index 7c96448b52..5ef91fd7f9 100644
+--- a/src/libponyc/type/sanitise.c
++++ b/src/libponyc/type/sanitise.c
+@@ -24,6 +24,10 @@ static void collect_type_param(ast_t* orig_param, ast_t* params, ast_t* args)
+         TREE(constraint)
+         NONE));
+ 
++    // The new type param is directly bound to the original, so store the
++    // original in the data field for use in subtyping checks.
++    ast_setdata(new_param, orig_param);
++
+     ast_append(params, new_param);
+     ast_setid(params, TK_TYPEPARAMS);
+   }
+diff --git a/src/libponyc/type/subtype.c b/src/libponyc/type/subtype.c
+index 4aeec72db2..9b6cb4d6d3 100644
+--- a/src/libponyc/type/subtype.c
++++ b/src/libponyc/type/subtype.c
+@@ -1301,6 +1301,13 @@ static bool is_typeparam_sub_typeparam(ast_t* sub, ast_t* super,
+   if(check_cap == CHECK_CAP_SUB)
+     check_cap = CHECK_CAP_BOUND;
+ 
++  // Dig through defs if there are multiple layers of directly-bound
++  // type params (created through the collect_type_params function).
++  while((ast_data(sub_def) != NULL) && (sub_def != ast_data(sub_def)))
++    sub_def = (ast_t*)ast_data(sub_def);
++  while((ast_data(super_def) != NULL) && (super_def != ast_data(super_def)))
++    super_def = (ast_t*)ast_data(super_def);
++
+   if(sub_def == super_def)
+     return is_sub_cap_and_eph(sub, super, check_cap, errorf, opt);
+ 
+@@ -1679,6 +1686,12 @@ bool is_subtype_constraint(ast_t* sub, ast_t* super, errorframe_t* errorf,
+   return is_x_sub_x(sub, super, CHECK_CAP_EQ, errorf, opt);
+ }
+ 
++bool is_subtype_ignore_cap(ast_t* sub, ast_t* super, errorframe_t* errorf,
++  pass_opt_t* opt)
++{
++  return is_x_sub_x(sub, super, CHECK_CAP_IGNORE, errorf, opt);
++}
++
+ bool is_subtype_fun(ast_t* sub, ast_t* super, errorframe_t* errorf,
+   pass_opt_t* opt)
+ {
+diff --git a/src/libponyc/type/subtype.h b/src/libponyc/type/subtype.h
+index f8a7478520..91f06fd9da 100644
+--- a/src/libponyc/type/subtype.h
++++ b/src/libponyc/type/subtype.h
+@@ -18,6 +18,9 @@ bool is_subtype(ast_t* sub, ast_t* super, errorframe_t* errorf,
+ bool is_subtype_constraint(ast_t* sub, ast_t* super, errorframe_t* errorf,
+   pass_opt_t* opt);
+ 
++bool is_subtype_ignore_cap(ast_t* sub, ast_t* super, errorframe_t* errorf,
++  pass_opt_t* opt);
++
+ bool is_subtype_fun(ast_t* sub, ast_t* super, errorframe_t* errorf,
+   pass_opt_t* opt);
+ 
+diff --git a/src/libponyc/verify/call.c b/src/libponyc/verify/call.c
+index cfcc173d62..0f17568a99 100644
+--- a/src/libponyc/verify/call.c
++++ b/src/libponyc/verify/call.c
+@@ -23,7 +23,7 @@ static bool check_partial_function_call(pass_opt_t* opt, ast_t* ast)
+   if(ast_id(call) != TK_CALL)
+     call = ast_parent(call);
+   pony_assert(ast_id(call) == TK_CALL);
+-  ast_t* call_error = ast_childidx(call, 2);
++  ast_t* call_error = ast_childidx(call, 3);
+   pony_assert(ast_id(call_error) == TK_QUESTION ||
+     ast_id(call_error) == TK_NONE || ast_id(call_error) == TK_DONTCARE);
+ 

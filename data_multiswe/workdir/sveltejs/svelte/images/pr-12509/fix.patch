@@ -1,0 +1,523 @@
+diff --git a/.changeset/tricky-balloons-care.md b/.changeset/tricky-balloons-care.md
+new file mode 100644
+index 000000000000..936f3ecddf7a
+--- /dev/null
++++ b/.changeset/tricky-balloons-care.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: allow `:global` in more places
+diff --git a/documentation/docs/02-template-syntax/05-styles-and-classes.md b/documentation/docs/02-template-syntax/05-styles-and-classes.md
+index 48cdeabce57e..4a20be5eba69 100644
+--- a/documentation/docs/02-template-syntax/05-styles-and-classes.md
++++ b/documentation/docs/02-template-syntax/05-styles-and-classes.md
+@@ -25,7 +25,7 @@ This works by adding a class to affected elements, which is based on a hash of t
+ </style>
+ ```
+ 
+-## :global
++## :global(...)
+ 
+ To apply styles to a selector globally, use the `:global(...)` modifier.
+ 
+@@ -66,6 +66,34 @@ The `-global-` part will be removed when compiled, and the keyframe will then be
+ </style>
+ ```
+ 
++## :global
++
++To apply all styles after a certain point to a selector globally, use the `:global` modifier.
++
++```svelte
++<style>
++	:global {
++		div {
++			/* this will apply to every <div> in your application */
++			margin: 0;
++		}
++		p {
++			/* this will apply to every <p> in your application */
++			color: blue;
++		}
++	}
++
++	div :global strong {
++		/* this will apply to all <strong> elements, in any
++			component, that are inside <div> elements belonging
++			to this component */
++		color: goldenrod;
++	}
++</style>
++```
++
++The difference between `:global` and `:global(...)` is that `:global(...)` only makes all styles within its braces global, whereas `:global` makes all styles coming after it global, including those in nested CSS.
++
+ ## Nested style tags
+ 
+ There should only be 1 top-level `<style>` tag per component.
+diff --git a/packages/svelte/messages/compile-errors/style.md b/packages/svelte/messages/compile-errors/style.md
+index 49a0d5a08d0a..5fd8daec3bf0 100644
+--- a/packages/svelte/messages/compile-errors/style.md
++++ b/packages/svelte/messages/compile-errors/style.md
+@@ -18,13 +18,9 @@
+ 
+ > A :global {...} block cannot be part of a selector list with more than one item
+ 
+-## css_global_block_invalid_modifier
+-
+-> A :global {...} block cannot modify an existing selector
+-
+ ## css_global_block_invalid_placement
+ 
+-> A :global {...} block can only appear at the end of a selector sequence (did you mean to use :global(...) instead?)
++> :global cannot be at the end of a selector with children starting with a `&` (aka nesting) selector. Either remove those nested child selectors, or append the :global selector to the end of the previous selector (e.g. `div:global` instead of `div :global`)
+ 
+ ## css_global_invalid_placement
+ 
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 040356df2592..18d175a52faa 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -462,21 +462,12 @@ export function css_global_block_invalid_list(node) {
+ }
+ 
+ /**
+- * A :global {...} block cannot modify an existing selector
+- * @param {null | number | NodeLike} node
+- * @returns {never}
+- */
+-export function css_global_block_invalid_modifier(node) {
+-	e(node, "css_global_block_invalid_modifier", "A :global {...} block cannot modify an existing selector");
+-}
+-
+-/**
+- * A :global {...} block can only appear at the end of a selector sequence (did you mean to use :global(...) instead?)
++ * :global cannot be at the end of a selector with children starting with a `&` (aka nesting) selector. Either remove those nested child selectors, or append the :global selector to the end of the previous selector (e.g. `div:global` instead of `div :global`)
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function css_global_block_invalid_placement(node) {
+-	e(node, "css_global_block_invalid_placement", "A :global {...} block can only appear at the end of a selector sequence (did you mean to use :global(...) instead?)");
++	e(node, "css_global_block_invalid_placement", ":global cannot be at the end of a selector with children starting with a `&` (aka nesting) selector. Either remove those nested child selectors, or append the :global selector to the end of the previous selector (e.g. `div:global` instead of `div :global`)");
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js b/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
+index e8b570b92d75..c08534980563 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/css-analyze.js
+@@ -27,10 +27,25 @@ function is_global(relative_selector) {
+ 	return (
+ 		first.type === 'PseudoClassSelector' &&
+ 		first.name === 'global' &&
+-		relative_selector.selectors.every(
+-			(selector) =>
+-				selector.type === 'PseudoClassSelector' || selector.type === 'PseudoElementSelector'
+-		)
++		(first.args === null ||
++			// Only these two selector types keep the whole selector global, because e.g.
++			// :global(button).x means that the selector is still scoped because of the .x
++			relative_selector.selectors.every(
++				(selector) =>
++					selector.type === 'PseudoClassSelector' || selector.type === 'PseudoElementSelector'
++			))
++	);
++}
++
++/**
++ * True if is `:global`
++ * @param {Css.SimpleSelector} simple_selector
++ */
++function is_global_block_selector(simple_selector) {
++	return (
++		simple_selector.type === 'PseudoClassSelector' &&
++		simple_selector.name === 'global' &&
++		simple_selector.args === null
+ 	);
+ }
+ 
+@@ -48,19 +63,12 @@ const analysis_visitors = {
+ 
+ 		node.metadata.rule = context.state.rule;
+ 
+-		node.metadata.used = node.children.every(
++		node.metadata.used ||= node.children.every(
+ 			({ metadata }) => metadata.is_global || metadata.is_global_like
+ 		);
+ 	},
+ 	RelativeSelector(node, context) {
+-		node.metadata.is_global =
+-			node.selectors.length >= 1 &&
+-			node.selectors[0].type === 'PseudoClassSelector' &&
+-			node.selectors[0].name === 'global' &&
+-			node.selectors.every(
+-				(selector) =>
+-					selector.type === 'PseudoClassSelector' || selector.type === 'PseudoElementSelector'
+-			);
++		node.metadata.is_global = node.selectors.length >= 1 && is_global(node);
+ 
+ 		if (node.selectors.length === 1) {
+ 			const first = node.selectors[0];
+@@ -85,15 +93,30 @@ const analysis_visitors = {
+ 	Rule(node, context) {
+ 		node.metadata.parent_rule = context.state.rule;
+ 
+-		// `:global {...}` or `div :global {...}`
+ 		node.metadata.is_global_block = node.prelude.children.some((selector) => {
+-			const last = selector.children[selector.children.length - 1];
++			let is_global_block = false;
+ 
+-			const s = last.selectors[last.selectors.length - 1];
++			for (const child of selector.children) {
++				const idx = child.selectors.findIndex(is_global_block_selector);
+ 
+-			if (s.type === 'PseudoClassSelector' && s.name === 'global' && s.args === null) {
+-				return true;
++				if (is_global_block) {
++					// All selectors after :global are unscoped
++					child.metadata.is_global_like = true;
++				}
++
++				if (idx !== -1) {
++					is_global_block = true;
++					for (let i = idx + 1; i < child.selectors.length; i++) {
++						walk(/** @type {Css.Node} */ (child.selectors[i]), null, {
++							ComplexSelector(node) {
++								node.metadata.used = true;
++							}
++						});
++					}
++				}
+ 			}
++
++			return is_global_block;
+ 		});
+ 
+ 		context.next({
+@@ -118,21 +141,37 @@ const validation_visitors = {
+ 			}
+ 
+ 			const complex_selector = node.prelude.children[0];
+-			const relative_selector = complex_selector.children[complex_selector.children.length - 1];
++			const global_selector = complex_selector.children.find((r) => {
++				return r.selectors.some(is_global_block_selector);
++			});
+ 
+-			if (relative_selector.selectors.length > 1) {
+-				e.css_global_block_invalid_modifier(
+-					relative_selector.selectors[relative_selector.selectors.length - 1]
+-				);
++			if (!global_selector) {
++				throw new Error('Internal error: global block without :global selector');
+ 			}
+ 
+-			if (relative_selector.combinator && relative_selector.combinator.name !== ' ') {
+-				e.css_global_block_invalid_combinator(relative_selector, relative_selector.combinator.name);
++			if (
++				global_selector.combinator &&
++				// p :global {...} or p > :global.x {...} is valid
++				global_selector.combinator.name !== ' ' &&
++				global_selector.selectors.length === 1
++			) {
++				const next =
++					complex_selector.children[complex_selector.children.indexOf(global_selector) + 1];
++				// p > :global div {...} is valid, but p > :global > div {...} or p > :global {...} is not
++				if (!next || next.combinator?.name !== ' ') {
++					e.css_global_block_invalid_combinator(global_selector, global_selector.combinator.name);
++				}
+ 			}
+ 
+ 			const declaration = node.block.children.find((child) => child.type === 'Declaration');
+ 
+-			if (declaration) {
++			if (
++				declaration &&
++				// :global { color: red; } is invalid, but foo :global { color: red; } is valid
++				node.prelude.children.length === 1 &&
++				node.prelude.children[0].children.length === 1 &&
++				node.prelude.children[0].children[0].selectors.length === 1
++			) {
+ 				e.css_global_block_invalid_declaration(declaration);
+ 			}
+ 		}
+@@ -146,14 +185,7 @@ const validation_visitors = {
+ 			if (global) {
+ 				const idx = node.children.indexOf(global);
+ 
+-				if (global.selectors[0].args === null && idx !== node.children.length - 1) {
+-					// ensure `:global` is only at the end of a selector
+-					e.css_global_block_invalid_placement(global.selectors[0]);
+-				} else if (
+-					global.selectors[0].args !== null &&
+-					idx !== 0 &&
+-					idx !== node.children.length - 1
+-				) {
++				if (global.selectors[0].args !== null && idx !== 0 && idx !== node.children.length - 1) {
+ 					// ensure `:global(...)` is not used in the middle of a selector (but multiple `global(...)` in sequence are ok)
+ 					for (let i = idx + 1; i < node.children.length; i++) {
+ 						if (!is_global(node.children[i])) {
+@@ -196,9 +228,22 @@ const validation_visitors = {
+ 	},
+ 	NestingSelector(node, context) {
+ 		const rule = /** @type {Css.Rule} */ (context.state.rule);
++
+ 		if (!rule.metadata.parent_rule) {
+ 			e.css_nesting_selector_invalid_placement(node);
+ 		}
++
++		if (rule.metadata.parent_rule.metadata.is_global_block) {
++			const last = rule.metadata.parent_rule.prelude.children[0].children.at(-1);
++			if (
++				last &&
++				is_global(last) &&
++				last.selectors[0].args === null &&
++				last.selectors.length === 1
++			) {
++				e.css_global_block_invalid_placement(last);
++			}
++		}
+ 	}
+ };
+ 
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js b/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
+index f238e3e07521..95195d2608dc 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/css-prune.js
+@@ -295,12 +295,19 @@ function relative_selector_might_apply_to_node(relative_selector, rule, element,
+ 					return false;
+ 				}
+ 
+-				if (name === 'global' && relative_selector.selectors.length === 1) {
+-					const args = /** @type {Compiler.Css.SelectorList} */ (selector.args);
++				if (
++					name === 'global' &&
++					selector.args !== null &&
++					relative_selector.selectors.length === 1
++				) {
++					const args = selector.args;
+ 					const complex_selector = args.children[0];
+ 					return apply_selector(complex_selector.children, rule, element, stylesheet);
+ 				}
+ 
++				// We came across a :global, everything beyond it is global and therefore a potential match
++				if (name === 'global' && selector.args === null) return true;
++
+ 				if ((name === 'is' || name === 'where') && selector.args) {
+ 					let matched = false;
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/css/index.js b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+index bc3952eacc15..99f56191ec95 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/css/index.js
++++ b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+@@ -92,7 +92,7 @@ const visitors = {
+ 
+ 		next();
+ 	},
+-	Declaration(node, { state, next }) {
++	Declaration(node, { state }) {
+ 		const property = node.property && remove_css_prefix(node.property.toLowerCase());
+ 		if (property === 'animation' || property === 'animation-name') {
+ 			let index = node.start + node.property.length + 1;
+@@ -140,7 +140,7 @@ const visitors = {
+ 		if (node.metadata.is_global_block) {
+ 			const selector = node.prelude.children[0];
+ 
+-			if (selector.children.length === 1) {
++			if (selector.children.length === 1 && selector.children[0].selectors.length === 1) {
+ 				// `:global {...}`
+ 				state.code.prependRight(node.start, '/* ');
+ 				state.code.appendLeft(node.block.start + 1, '*/');
+@@ -216,16 +216,22 @@ const visitors = {
+ 	ComplexSelector(node, context) {
+ 		const before_bumped = context.state.specificity.bumped;
+ 
+-		/** @param {Css.SimpleSelector} selector */
++		/** @param {Css.PseudoClassSelector} selector */
+ 		function remove_global_pseudo_class(selector) {
+-			context.state.code
+-				.remove(selector.start, selector.start + ':global('.length)
+-				.remove(selector.end - 1, selector.end);
++			if (selector.args === null) {
++				context.state.code.remove(selector.start, selector.start + ':global'.length);
++			} else {
++				context.state.code
++					.remove(selector.start, selector.start + ':global('.length)
++					.remove(selector.end - 1, selector.end);
++			}
+ 		}
+ 
+ 		for (const relative_selector of node.children) {
+ 			if (relative_selector.metadata.is_global) {
+-				remove_global_pseudo_class(relative_selector.selectors[0]);
++				remove_global_pseudo_class(
++					/** @type {Css.PseudoClassSelector} */ (relative_selector.selectors[0])
++				);
+ 				continue;
+ 			}
+ 
+@@ -241,7 +247,7 @@ const visitors = {
+ 					}
+ 				}
+ 
+-				// for any :global() at the middle of compound selector
++				// for any :global() or :global at the middle of compound selector
+ 				for (const selector of relative_selector.selectors) {
+ 					if (selector.type === 'PseudoClassSelector' && selector.name === 'global') {
+ 						remove_global_pseudo_class(selector);
+diff --git a/packages/svelte/src/compiler/types/css.d.ts b/packages/svelte/src/compiler/types/css.d.ts
+index 89a739713a14..2771efd49335 100644
+--- a/packages/svelte/src/compiler/types/css.d.ts
++++ b/packages/svelte/src/compiler/types/css.d.ts
+@@ -33,17 +33,32 @@ export namespace Css {
+ 		metadata: {
+ 			parent_rule: null | Rule;
+ 			has_local_selectors: boolean;
++			/**
++			 * `true` if the rule contains a `:global` selector, and therefore everything inside should be unscoped
++			 */
+ 			is_global_block: boolean;
+ 		};
+ 	}
+ 
++	/**
++	 * A list of selectors, e.g. `a, b, c {}`
++	 */
+ 	export interface SelectorList extends BaseNode {
+ 		type: 'SelectorList';
++		/**
++		 * The `a`, `b` and `c` in `a, b, c {}`
++		 */
+ 		children: ComplexSelector[];
+ 	}
+ 
++	/**
++	 * A complex selector, e.g. `a b c {}`
++	 */
+ 	export interface ComplexSelector extends BaseNode {
+ 		type: 'ComplexSelector';
++		/**
++		 * The `a`, `b` and `c` in `a b c {}`
++		 */
+ 		children: RelativeSelector[];
+ 		metadata: {
+ 			rule: null | Rule;
+@@ -51,14 +66,26 @@ export namespace Css {
+ 		};
+ 	}
+ 
++	/**
++	 * A relative selector, e.g the `a` and `> b` in `a > b {}`
++	 */
+ 	export interface RelativeSelector extends BaseNode {
+ 		type: 'RelativeSelector';
++		/**
++		 * In `a > b`, `> b` forms one relative selector, and `>` is the combinator. `null` for the first selector.
++		 */
+ 		combinator: null | Combinator;
++		/**
++		 * The `b:is(...)` in `> b:is(...)`
++		 */
+ 		selectors: SimpleSelector[];
+ 		metadata: {
+-			/** :global(..) */
++			/**
++			 * `true` if the whole selector is unscoped, e.g. `:global(...)` or `:global` or `:global.x`.
++			 * Selectors like `:global(...).x` or `div:global` are not considered global, because they still need scoping.
++			 */
+ 			is_global: boolean;
+-			/** :root, :host, ::view-transition */
++			/** `:root`, `:host`, `::view-transition`, or selectors after a `:global` */
+ 			is_global_like: boolean;
+ 			scoped: boolean;
+ 		};
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 86f33588a67b..40d932d72c3f 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1315,17 +1315,32 @@ declare module 'svelte/compiler' {
+ 			metadata: {
+ 				parent_rule: null | Rule;
+ 				has_local_selectors: boolean;
++				/**
++				 * `true` if the rule contains a `:global` selector, and therefore everything inside should be unscoped
++				 */
+ 				is_global_block: boolean;
+ 			};
+ 		}
+ 
++		/**
++		 * A list of selectors, e.g. `a, b, c {}`
++		 */
+ 		export interface SelectorList extends BaseNode {
+ 			type: 'SelectorList';
++			/**
++			 * The `a`, `b` and `c` in `a, b, c {}`
++			 */
+ 			children: ComplexSelector[];
+ 		}
+ 
++		/**
++		 * A complex selector, e.g. `a b c {}`
++		 */
+ 		export interface ComplexSelector extends BaseNode {
+ 			type: 'ComplexSelector';
++			/**
++			 * The `a`, `b` and `c` in `a b c {}`
++			 */
+ 			children: RelativeSelector[];
+ 			metadata: {
+ 				rule: null | Rule;
+@@ -1333,14 +1348,26 @@ declare module 'svelte/compiler' {
+ 			};
+ 		}
+ 
++		/**
++		 * A relative selector, e.g the `a` and `> b` in `a > b {}`
++		 */
+ 		export interface RelativeSelector extends BaseNode {
+ 			type: 'RelativeSelector';
++			/**
++			 * In `a > b`, `> b` forms one relative selector, and `>` is the combinator. `null` for the first selector.
++			 */
+ 			combinator: null | Combinator;
++			/**
++			 * The `b:is(...)` in `> b:is(...)`
++			 */
+ 			selectors: SimpleSelector[];
+ 			metadata: {
+-				/** :global(..) */
++				/**
++				 * `true` if the whole selector is unscoped, e.g. `:global(...)` or `:global` or `:global.x`.
++				 * Selectors like `:global(...).x` or `div:global` are not considered global, because they still need scoping.
++				 */
+ 				is_global: boolean;
+-				/** :root, :host, ::view-transition */
++				/** `:root`, `:host`, `::view-transition`, or selectors after a `:global` */
+ 				is_global_like: boolean;
+ 				scoped: boolean;
+ 			};
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 004fe10f7cf6..78d352521d39 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -202,9 +202,16 @@ This is because the Svelte compiler treated the assignment to `foo.value` as an
+ 
+ Assignments to destructured parts of a `@const` declaration are no longer allowed. It was an oversight that this was ever allowed.
+ 
+-### Stricter CSS `:global` selector validation
++### :is(...) and :where(...) are scoped
+ 
+-Previously, a compound selector starting with a global modifier which has universal or type selectors (like `:global(span).foo`) was valid. In Svelte 5, this is a validation error instead. The reason is that in this selector the resulting CSS would be equivalent to one without `:global` - in other words, `:global` is ignored in this case.
++Previously, Svelte left `:is(...)` and `:where(...)` selectors untouched - it simply didn't know what to do with them. Svelte 5 takes them into account when applying the scoping mechanism and "is this selector used" checks. As such, some rules may no longer work because they now appear unused. To fix this, apply the `:global(...)` selector within the `:is(...)/:where(...)` selectors. In the case of Tailwind and `@apply` rules using class variants (like `dark:bg-blue`) use the new `:global` pseudo class like this (this tells Svelte to not scope anything after the `main` selector):
++
++```diff
++- main {
+++ main:global {
++	@apply bg-blue-100 dark:bg-blue-900
++}
++```
+ 
+ ### CSS hash position no longer deterministic
+ 

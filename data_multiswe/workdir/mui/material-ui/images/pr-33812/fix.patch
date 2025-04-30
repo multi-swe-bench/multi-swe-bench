@@ -1,0 +1,234 @@
+diff --git a/docs/pages/material-ui/api/breadcrumbs.json b/docs/pages/material-ui/api/breadcrumbs.json
+index 5d1f9387e3cd92..5bf4f7a93303db 100644
+--- a/docs/pages/material-ui/api/breadcrumbs.json
++++ b/docs/pages/material-ui/api/breadcrumbs.json
+@@ -14,6 +14,14 @@
+     },
+     "maxItems": { "type": { "name": "custom", "description": "integer" }, "default": "8" },
+     "separator": { "type": { "name": "node" }, "default": "'/'" },
++    "slotProps": {
++      "type": { "name": "shape", "description": "{ collapsedIcon?: func<br>&#124;&nbsp;object }" },
++      "default": "{}"
++    },
++    "slots": {
++      "type": { "name": "shape", "description": "{ CollapsedIcon?: elementType }" },
++      "default": "{}"
++    },
+     "sx": {
+       "type": {
+         "name": "union",
+diff --git a/docs/translations/api-docs/breadcrumbs/breadcrumbs.json b/docs/translations/api-docs/breadcrumbs/breadcrumbs.json
+index e332d268f64179..5ec041c625611f 100644
+--- a/docs/translations/api-docs/breadcrumbs/breadcrumbs.json
++++ b/docs/translations/api-docs/breadcrumbs/breadcrumbs.json
+@@ -9,6 +9,8 @@
+     "itemsBeforeCollapse": "If max items is exceeded, the number of items to show before the ellipsis.",
+     "maxItems": "Specifies the maximum number of breadcrumbs to display. When there are more than the maximum number, only the first <code>itemsBeforeCollapse</code> and last <code>itemsAfterCollapse</code> will be shown, with an ellipsis in between.",
+     "separator": "Custom separator node.",
++    "slotProps": "The props used for each slot inside the Breadcumb.",
++    "slots": "The components used for each slot inside the Breadcumb. Either a string to use a HTML element or a component.",
+     "sx": "The system prop that allows defining system overrides as well as additional CSS styles. See the <a href=\"/system/getting-started/the-sx-prop/\">`sx` page</a> for more details."
+   },
+   "classDescriptions": {
+diff --git a/packages/mui-material/src/Breadcrumbs/BreadcrumbCollapsed.js b/packages/mui-material/src/Breadcrumbs/BreadcrumbCollapsed.js
+index 188b33c0d4be56..de9040d347001b 100644
+--- a/packages/mui-material/src/Breadcrumbs/BreadcrumbCollapsed.js
++++ b/packages/mui-material/src/Breadcrumbs/BreadcrumbCollapsed.js
+@@ -35,18 +35,38 @@ const BreadcrumbCollapsedIcon = styled(MoreHorizIcon)({
+  * @ignore - internal component.
+  */
+ function BreadcrumbCollapsed(props) {
++  const { slots = {}, slotProps = {}, ...otherProps } = props;
+   const ownerState = props;
+ 
+   return (
+     <li>
+-      <BreadcrumbCollapsedButton focusRipple {...props} ownerState={ownerState}>
+-        <BreadcrumbCollapsedIcon ownerState={ownerState} />
++      <BreadcrumbCollapsedButton focusRipple {...otherProps} ownerState={ownerState}>
++        <BreadcrumbCollapsedIcon
++          as={slots.CollapsedIcon}
++          ownerState={ownerState}
++          {...slotProps.collapsedIcon}
++        />
+       </BreadcrumbCollapsedButton>
+     </li>
+   );
+ }
+ 
+ BreadcrumbCollapsed.propTypes = {
++  /**
++   * The props used for the CollapsedIcon slot.
++   * @default {}
++   */
++  slotProps: PropTypes.shape({
++    collapsedIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++  }),
++  /**
++   * The components used for each slot inside the BreadcumbCollapsed.
++   * Either a string to use a HTML element or a component.
++   * @default {}
++   */
++  slots: PropTypes.shape({
++    CollapsedIcon: PropTypes.elementType,
++  }),
+   /**
+    * The system prop that allows defining system overrides as well as additional CSS styles.
+    */
+diff --git a/packages/mui-material/src/Breadcrumbs/Breadcrumbs.d.ts b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.d.ts
+index 7baac7359119f3..b3a1348b0e5a0a 100644
+--- a/packages/mui-material/src/Breadcrumbs/Breadcrumbs.d.ts
++++ b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.d.ts
+@@ -1,8 +1,16 @@
+ import * as React from 'react';
+ import { SxProps } from '@mui/system';
++import { SlotComponentProps } from '@mui/base';
+ import { Theme } from '../styles';
+ import { OverridableComponent, OverrideProps } from '../OverridableComponent';
+ import { BreadcrumbsClasses } from './breadcrumbsClasses';
++import SvgIcon from '../SvgIcon';
++
++export interface BreadcrumbsCollapsedIconSlotPropsOverrides {}
++
++export interface BreadcrumbsOwnerState extends BreadcrumbsProps {
++  expanded: boolean;
++}
+ 
+ export interface BreadcrumbsTypeMap<P = {}, D extends React.ElementType = 'nav'> {
+   props: P & {
+@@ -14,6 +22,29 @@ export interface BreadcrumbsTypeMap<P = {}, D extends React.ElementType = 'nav'>
+      * Override or extend the styles applied to the component.
+      */
+     classes?: Partial<BreadcrumbsClasses>;
++    /**
++     * The components used for each slot inside the Breadcumb.
++     * Either a string to use a HTML element or a component.
++     * @default {}
++     */
++    slots?: {
++      CollapsedIcon?: React.ElementType;
++    };
++    /**
++     * The props used for each slot inside the Breadcumb.
++     * @default {}
++     */
++    slotProps?: {
++      /**
++       * Props applied to the CollapsedIcon slot.
++       * @default {}
++       */
++      collapsedIcon?: SlotComponentProps<
++        typeof SvgIcon,
++        BreadcrumbsCollapsedIconSlotPropsOverrides,
++        BreadcrumbsOwnerState
++      >;
++    };
+     /**
+      * Override the default label for the expand button.
+      *
+diff --git a/packages/mui-material/src/Breadcrumbs/Breadcrumbs.js b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.js
+index cf34132017dbf4..126bf7c1ad0d6e 100644
+--- a/packages/mui-material/src/Breadcrumbs/Breadcrumbs.js
++++ b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.js
+@@ -3,7 +3,7 @@ import { isFragment } from 'react-is';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+ import { integerPropType } from '@mui/utils';
+-import { unstable_composeClasses as composeClasses } from '@mui/base';
++import { unstable_composeClasses as composeClasses, useSlotProps } from '@mui/base';
+ import styled from '../styles/styled';
+ import useThemeProps from '../styles/useThemeProps';
+ import Typography from '../Typography';
+@@ -83,6 +83,8 @@ const Breadcrumbs = React.forwardRef(function Breadcrumbs(inProps, ref) {
+     children,
+     className,
+     component = 'nav',
++    slots = {},
++    slotProps = {},
+     expandText = 'Show path',
+     itemsAfterCollapse = 1,
+     itemsBeforeCollapse = 1,
+@@ -106,6 +108,12 @@ const Breadcrumbs = React.forwardRef(function Breadcrumbs(inProps, ref) {
+ 
+   const classes = useUtilityClasses(ownerState);
+ 
++  const collapsedIconSlotProps = useSlotProps({
++    elementType: slots.CollapsedIcon,
++    externalSlotProps: slotProps.collapsedIcon,
++    ownerState,
++  });
++
+   const listRef = React.useRef(null);
+   const renderItemsBeforeAndAfter = (allItems) => {
+     const handleClickExpand = () => {
+@@ -137,7 +145,13 @@ const Breadcrumbs = React.forwardRef(function Breadcrumbs(inProps, ref) {
+ 
+     return [
+       ...allItems.slice(0, itemsBeforeCollapse),
+-      <BreadcrumbCollapsed aria-label={expandText} key="ellipsis" onClick={handleClickExpand} />,
++      <BreadcrumbCollapsed
++        aria-label={expandText}
++        key="ellipsis"
++        slots={{ CollapsedIcon: slots.CollapsedIcon }}
++        slotProps={{ collapsedIcon: collapsedIconSlotProps }}
++        onClick={handleClickExpand}
++      />,
+       ...allItems.slice(allItems.length - itemsAfterCollapse, allItems.length),
+     ];
+   };
+@@ -237,6 +251,21 @@ Breadcrumbs.propTypes /* remove-proptypes */ = {
+    * @default '/'
+    */
+   separator: PropTypes.node,
++  /**
++   * The props used for each slot inside the Breadcumb.
++   * @default {}
++   */
++  slotProps: PropTypes.shape({
++    collapsedIcon: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
++  }),
++  /**
++   * The components used for each slot inside the Breadcumb.
++   * Either a string to use a HTML element or a component.
++   * @default {}
++   */
++  slots: PropTypes.shape({
++    CollapsedIcon: PropTypes.elementType,
++  }),
+   /**
+    * The system prop that allows defining system overrides as well as additional CSS styles.
+    */
+diff --git a/packages/mui-material/src/Breadcrumbs/Breadcrumbs.spec.tsx b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.spec.tsx
+new file mode 100644
+index 00000000000000..0d0e4711d8c756
+--- /dev/null
++++ b/packages/mui-material/src/Breadcrumbs/Breadcrumbs.spec.tsx
+@@ -0,0 +1,28 @@
++import * as React from 'react';
++import Breadcrumbs from '@mui/material/Breadcrumbs';
++import SvgIcon from '@mui/material/SvgIcon';
++
++function SampleIcon() {
++  return (
++    <SvgIcon>
++      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
++    </SvgIcon>
++  );
++}
++
++// test for slots and slotProps
++<Breadcrumbs
++  slots={{
++    CollapsedIcon: SampleIcon,
++  }}
++  slotProps={{
++    collapsedIcon(ownerState) {
++      return { color: ownerState.maxItems! > 7 ? 'primary' : 'secondary' };
++    },
++  }}
++  maxItems={2}
++>
++  <span>first</span>
++  <span>second</span>
++  <span>third</span>
++</Breadcrumbs>;

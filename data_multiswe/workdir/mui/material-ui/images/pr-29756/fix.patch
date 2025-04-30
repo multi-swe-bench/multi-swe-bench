@@ -1,0 +1,66 @@
+diff --git a/packages/mui-system/src/breakpoints.js b/packages/mui-system/src/breakpoints.js
+index 85e259674a3780..21f09e24848d66 100644
+--- a/packages/mui-system/src/breakpoints.js
++++ b/packages/mui-system/src/breakpoints.js
+@@ -96,7 +96,7 @@ export function createEmptyBreakpointObject(breakpointsInput = {}) {
+ export function removeUnusedBreakpoints(breakpointKeys, style) {
+   return breakpointKeys.reduce((acc, key) => {
+     const breakpointOutput = acc[key];
+-    const isBreakpointUnused = Object.keys(breakpointOutput).length === 0;
++    const isBreakpointUnused = !breakpointOutput || Object.keys(breakpointOutput).length === 0;
+     if (isBreakpointUnused) {
+       delete acc[key];
+     }
+diff --git a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
+index 07f77b0cee6ee6..c81e29e6ad83b3 100644
+--- a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
++++ b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
+@@ -42,22 +42,24 @@ function styleFunctionSx(props) {
+ 
+     Object.keys(sxObject).forEach((styleKey) => {
+       const value = callIfFn(sxObject[styleKey], theme);
+-      if (typeof value === 'object') {
+-        if (propToStyleFunction[styleKey]) {
+-          css = merge(css, getThemeValue(styleKey, value, theme));
+-        } else {
+-          const breakpointsValues = handleBreakpoints({ theme }, value, (x) => ({
+-            [styleKey]: x,
+-          }));
+-
+-          if (objectsHaveSameKeys(breakpointsValues, value)) {
+-            css[styleKey] = styleFunctionSx({ sx: value, theme });
++      if (value !== null && value !== undefined) {
++        if (typeof value === 'object') {
++          if (propToStyleFunction[styleKey]) {
++            css = merge(css, getThemeValue(styleKey, value, theme));
+           } else {
+-            css = merge(css, breakpointsValues);
++            const breakpointsValues = handleBreakpoints({ theme }, value, (x) => ({
++              [styleKey]: x,
++            }));
++
++            if (objectsHaveSameKeys(breakpointsValues, value)) {
++              css[styleKey] = styleFunctionSx({ sx: value, theme });
++            } else {
++              css = merge(css, breakpointsValues);
++            }
+           }
++        } else {
++          css = merge(css, getThemeValue(styleKey, value, theme));
+         }
+-      } else {
+-        css = merge(css, getThemeValue(styleKey, value, theme));
+       }
+     });
+ 
+diff --git a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.spec.tsx b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.spec.tsx
+index e03a82e91265c9..34433f750dfd80 100644
+--- a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.spec.tsx
++++ b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.spec.tsx
+@@ -15,3 +15,6 @@ const Text = (props: { sx?: SxProps<Theme> }) => null;
+ 
+ // array
+ <Text sx={[(theme) => ({ color: theme.color }), { m: 2 }]} />;
++
++// null
++<Text sx={{ m: null, transform: null, typography: undefined }} />;

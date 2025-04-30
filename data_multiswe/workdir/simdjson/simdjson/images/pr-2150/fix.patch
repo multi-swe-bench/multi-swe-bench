@@ -1,0 +1,54 @@
+diff --git a/include/simdjson/generic/ondemand/field-inl.h b/include/simdjson/generic/ondemand/field-inl.h
+index 25021e0b2e..41e7dc54d8 100644
+--- a/include/simdjson/generic/ondemand/field-inl.h
++++ b/include/simdjson/generic/ondemand/field-inl.h
+@@ -49,6 +49,13 @@ simdjson_inline std::string_view field::key_raw_json_token() const noexcept {
+   return std::string_view(reinterpret_cast<const char*>(first.buf-1), second.iter._json_iter->token.peek(-1) - first.buf + 1);
+ }
+ 
++simdjson_inline std::string_view field::escaped_key() const noexcept {
++  SIMDJSON_ASSUME(first.buf != nullptr); // We would like to call .alive() by Visual Studio won't let us.
++  auto end_quote = second.iter._json_iter->token.peek(-1);
++  while(*end_quote != '"') end_quote--;
++  return std::string_view(reinterpret_cast<const char*>(first.buf), end_quote - first.buf);
++}
++
+ simdjson_inline value &field::value() & noexcept {
+   return second;
+ }
+@@ -88,6 +95,11 @@ simdjson_inline simdjson_result<std::string_view> simdjson_result<SIMDJSON_IMPLE
+   return first.key_raw_json_token();
+ }
+ 
++simdjson_inline simdjson_result<std::string_view> simdjson_result<SIMDJSON_IMPLEMENTATION::ondemand::field>::escaped_key() noexcept {
++  if (error()) { return error(); }
++  return first.escaped_key();
++}
++
+ simdjson_inline simdjson_result<std::string_view> simdjson_result<SIMDJSON_IMPLEMENTATION::ondemand::field>::unescaped_key(bool allow_replacement) noexcept {
+   if (error()) { return error(); }
+   return first.unescaped_key(allow_replacement);
+diff --git a/include/simdjson/generic/ondemand/field.h b/include/simdjson/generic/ondemand/field.h
+index 082f401bb2..dbd6764403 100644
+--- a/include/simdjson/generic/ondemand/field.h
++++ b/include/simdjson/generic/ondemand/field.h
+@@ -47,6 +47,11 @@ class field : public std::pair<raw_json_string, value> {
+    * some spaces after the last quote.
+    */
+   simdjson_inline std::string_view key_raw_json_token() const noexcept;
++  /**
++   * Get the key as a string_view. This does not include the quotes and
++   * the string is escaped as a unprocessed key.
++   */
++  simdjson_inline std::string_view escaped_key() const noexcept;
+   /**
+    * Get the field value.
+    */
+@@ -80,6 +85,7 @@ struct simdjson_result<SIMDJSON_IMPLEMENTATION::ondemand::field> : public SIMDJS
+   simdjson_inline simdjson_result<std::string_view> unescaped_key(bool allow_replacement = false) noexcept;
+   simdjson_inline simdjson_result<SIMDJSON_IMPLEMENTATION::ondemand::raw_json_string> key() noexcept;
+   simdjson_inline simdjson_result<std::string_view> key_raw_json_token() noexcept;
++  simdjson_inline simdjson_result<std::string_view> escaped_key() noexcept;
+   simdjson_inline simdjson_result<SIMDJSON_IMPLEMENTATION::ondemand::value> value() noexcept;
+ };
+ 

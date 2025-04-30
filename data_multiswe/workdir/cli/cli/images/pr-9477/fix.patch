@@ -1,0 +1,27 @@
+diff --git a/api/queries_branch_issue_reference.go b/api/queries_branch_issue_reference.go
+index 16e36831ba4..54a9144b0ee 100644
+--- a/api/queries_branch_issue_reference.go
++++ b/api/queries_branch_issue_reference.go
+@@ -138,6 +138,9 @@ func FindRepoBranchID(client *Client, repo ghrepo.Interface, ref string) (string
+ 
+ 	branchID := query.Repository.Ref.Target.Oid
+ 	if branchID == "" {
++		if ref != "" {
++			return "", "", fmt.Errorf("could not find branch %q in %s", ref, ghrepo.FullName(repo))
++		}
+ 		branchID = query.Repository.DefaultBranchRef.Target.Oid
+ 	}
+ 
+diff --git a/pkg/cmd/issue/develop/develop.go b/pkg/cmd/issue/develop/develop.go
+index 32423af3546..fa01a3dacbf 100644
+--- a/pkg/cmd/issue/develop/develop.go
++++ b/pkg/cmd/issue/develop/develop.go
+@@ -106,7 +106,7 @@ func NewCmdDevelop(f *cmdutil.Factory, runF func(*DevelopOptions) error) *cobra.
+ 
+ 	fl := cmd.Flags()
+ 	fl.StringVar(&opts.BranchRepo, "branch-repo", "", "Name or URL of the repository where you want to create your new branch")
+-	fl.StringVarP(&opts.BaseBranch, "base", "b", "", "Name of the base branch you want to make your new branch from")
++	fl.StringVarP(&opts.BaseBranch, "base", "b", "", "Name of the remote branch you want to make your new branch from")
+ 	fl.BoolVarP(&opts.Checkout, "checkout", "c", false, "Checkout the branch after creating it")
+ 	fl.BoolVarP(&opts.List, "list", "l", false, "List linked branches for the issue")
+ 	fl.StringVarP(&opts.Name, "name", "n", "", "Name of the branch to create")

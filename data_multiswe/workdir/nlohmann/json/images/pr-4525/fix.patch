@@ -1,0 +1,116 @@
+diff --git a/docs/mkdocs/docs/api/basic_json/get_ptr.md b/docs/mkdocs/docs/api/basic_json/get_ptr.md
+index 2441e1156e..b1ecf44d82 100644
+--- a/docs/mkdocs/docs/api/basic_json/get_ptr.md
++++ b/docs/mkdocs/docs/api/basic_json/get_ptr.md
+@@ -35,7 +35,35 @@ Constant.
+ 
+ !!! danger "Undefined behavior"
+ 
+-    Writing data to the pointee of the result yields an undefined state.
++    The pointer becomes invalid if the underlying JSON object changes.
++
++    Consider the following example code where the pointer `ptr` changes after the array is resized. As a result, reading or writing to `ptr` after the array change would be undefined behavior. The address of the first array element changes, because the underlying `std::vector` is resized after adding a fifth element.
++
++    ```cpp
++    #include <iostream>
++    #include <nlohmann/json.hpp>
++    
++    using json = nlohmann::json;
++    
++    int main()
++    {
++        json j = {1, 2, 3, 4};
++        auto* ptr = j[0].get_ptr<std::int64_t*>();
++        std::cout << "value at " << ptr << " is " << *ptr << std::endl;
++    
++        j.push_back(5);
++    
++        ptr = j[0].get_ptr<std::int64_t*>();
++        std::cout << "value at " << ptr << " is " << *ptr << std::endl;
++    }
++    ```
++
++    Output:
++
++    ```
++    value at 0x6000012fc1c8 is 1
++    value at 0x6000029fc088 is 1
++    ```
+ 
+ ## Examples
+ 
+@@ -54,6 +82,10 @@ Constant.
+     --8<-- "examples/get_ptr.output"
+     ```
+ 
++## See also
++
++- [get_ref()](get_ref.md) get a reference value
++
+ ## Version history
+ 
+ - Added in version 1.0.0.
+diff --git a/docs/mkdocs/docs/api/basic_json/get_ref.md b/docs/mkdocs/docs/api/basic_json/get_ref.md
+index b1219742ca..73b20b0e08 100644
+--- a/docs/mkdocs/docs/api/basic_json/get_ref.md
++++ b/docs/mkdocs/docs/api/basic_json/get_ref.md
+@@ -40,7 +40,7 @@ Constant.
+ 
+ !!! danger "Undefined behavior"
+ 
+-    Writing data to the referee of the result yields an undefined state.
++    The reference becomes invalid if the underlying JSON object changes.
+ 
+ ## Examples
+ 
+@@ -58,6 +58,10 @@ Constant.
+     --8<-- "examples/get_ref.output"
+     ```
+ 
++## See also
++
++- [get_ptr()](get_ptr.md) get a pointer value
++
+ ## Version history
+ 
+ - Added in version 1.1.0.
+diff --git a/include/nlohmann/json.hpp b/include/nlohmann/json.hpp
+index e004e83082..763fd95783 100644
+--- a/include/nlohmann/json.hpp
++++ b/include/nlohmann/json.hpp
+@@ -1463,13 +1463,13 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+     /// get a pointer to the value (integer number)
+     number_integer_t* get_impl_ptr(number_integer_t* /*unused*/) noexcept
+     {
+-        return is_number_integer() ? &m_data.m_value.number_integer : nullptr;
++        return m_data.m_type == value_t::number_integer ? &m_data.m_value.number_integer : nullptr;
+     }
+ 
+     /// get a pointer to the value (integer number)
+     constexpr const number_integer_t* get_impl_ptr(const number_integer_t* /*unused*/) const noexcept
+     {
+-        return is_number_integer() ? &m_data.m_value.number_integer : nullptr;
++        return m_data.m_type == value_t::number_integer ? &m_data.m_value.number_integer : nullptr;
+     }
+ 
+     /// get a pointer to the value (unsigned number)
+diff --git a/single_include/nlohmann/json.hpp b/single_include/nlohmann/json.hpp
+index 02441416bf..86d1cd3e88 100644
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -20962,13 +20962,13 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
+     /// get a pointer to the value (integer number)
+     number_integer_t* get_impl_ptr(number_integer_t* /*unused*/) noexcept
+     {
+-        return is_number_integer() ? &m_data.m_value.number_integer : nullptr;
++        return m_data.m_type == value_t::number_integer ? &m_data.m_value.number_integer : nullptr;
+     }
+ 
+     /// get a pointer to the value (integer number)
+     constexpr const number_integer_t* get_impl_ptr(const number_integer_t* /*unused*/) const noexcept
+     {
+-        return is_number_integer() ? &m_data.m_value.number_integer : nullptr;
++        return m_data.m_type == value_t::number_integer ? &m_data.m_value.number_integer : nullptr;
+     }
+ 
+     /// get a pointer to the value (unsigned number)

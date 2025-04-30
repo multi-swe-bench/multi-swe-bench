@@ -1,0 +1,95 @@
+diff --git a/pkg/cmd/gist/delete/delete.go b/pkg/cmd/gist/delete/delete.go
+index b9e3c20cfb8..54f74503002 100644
+--- a/pkg/cmd/gist/delete/delete.go
++++ b/pkg/cmd/gist/delete/delete.go
+@@ -27,7 +27,7 @@ func NewCmdDelete(f *cmdutil.Factory, runF func(*DeleteOptions) error) *cobra.Co
+ 	}
+ 
+ 	cmd := &cobra.Command{
+-		Use:   "delete {<gist ID> | <gist URL>}",
++		Use:   "delete {<id> | <url>}",
+ 		Short: "Delete a gist",
+ 		Args:  cmdutil.MinimumArgs(1, "cannot delete: gist argument required"),
+ 		RunE: func(c *cobra.Command, args []string) error {
+diff --git a/pkg/cmd/gist/edit/edit.go b/pkg/cmd/gist/edit/edit.go
+index 5188fe7bef2..7cba1480023 100644
+--- a/pkg/cmd/gist/edit/edit.go
++++ b/pkg/cmd/gist/edit/edit.go
+@@ -47,7 +47,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd := &cobra.Command{
+-		Use:   "edit {<gist ID> | <gist URL>}",
++		Use:   "edit {<id> | <url>}",
+ 		Short: "Edit one of your gists",
+ 		Args:  cmdutil.MinimumArgs(1, "cannot edit: gist argument required"),
+ 		RunE: func(c *cobra.Command, args []string) error {
+@@ -60,7 +60,7 @@ func NewCmdEdit(f *cmdutil.Factory, runF func(*EditOptions) error) *cobra.Comman
+ 			return editRun(&opts)
+ 		},
+ 	}
+-	cmd.Flags().StringVarP(&opts.Filename, "filename", "f", "", "a specific file to edit")
++	cmd.Flags().StringVarP(&opts.Filename, "filename", "f", "", "Select a file to edit")
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/gist/view/view.go b/pkg/cmd/gist/view/view.go
+index e81bbeba6a0..70bb0a2385c 100644
+--- a/pkg/cmd/gist/view/view.go
++++ b/pkg/cmd/gist/view/view.go
+@@ -19,10 +19,11 @@ type ViewOptions struct {
+ 	IO         *iostreams.IOStreams
+ 	HttpClient func() (*http.Client, error)
+ 
+-	Selector string
+-	Filename string
+-	Raw      bool
+-	Web      bool
++	Selector  string
++	Filename  string
++	Raw       bool
++	Web       bool
++	ListFiles bool
+ }
+ 
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+@@ -32,7 +33,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd := &cobra.Command{
+-		Use:   "view {<gist id> | <gist url>}",
++		Use:   "view {<id> | <url>}",
+ 		Short: "View a gist",
+ 		Args:  cmdutil.MinimumArgs(1, "cannot view: gist argument required"),
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+@@ -51,6 +52,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ 
+ 	cmd.Flags().BoolVarP(&opts.Raw, "raw", "r", false, "Print raw instead of rendered gist contents")
+ 	cmd.Flags().BoolVarP(&opts.Web, "web", "w", false, "Open gist in the browser")
++	cmd.Flags().BoolVarP(&opts.ListFiles, "files", "", false, "List file names from the gist")
+ 	cmd.Flags().StringVarP(&opts.Filename, "filename", "f", "", "Display a single file from the gist")
+ 
+ 	return cmd
+@@ -126,7 +128,7 @@ func viewRun(opts *ViewOptions) error {
+ 
+ 	cs := opts.IO.ColorScheme()
+ 
+-	if gist.Description != "" {
++	if gist.Description != "" && !opts.ListFiles {
+ 		fmt.Fprintf(opts.IO.Out, "%s\n\n", cs.Bold(gist.Description))
+ 	}
+ 
+@@ -137,6 +139,13 @@ func viewRun(opts *ViewOptions) error {
+ 	}
+ 	sort.Strings(filenames)
+ 
++	if opts.ListFiles {
++		for _, fn := range filenames {
++			fmt.Fprintln(opts.IO.Out, fn)
++		}
++		return nil
++	}
++
+ 	for i, fn := range filenames {
+ 		if showFilenames {
+ 			fmt.Fprintf(opts.IO.Out, "%s\n\n", cs.Gray(fn))

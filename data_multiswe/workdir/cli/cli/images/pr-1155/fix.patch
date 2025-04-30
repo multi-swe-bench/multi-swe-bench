@@ -1,0 +1,49 @@
+diff --git a/command/pr.go b/command/pr.go
+index e92fa7cf014..10a41246d96 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -116,7 +116,7 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 	repoOverride, _ := cmd.Flags().GetString("repo")
+ 	currentPRNumber, currentPRHeadRef, err := prSelectorForCurrentBranch(ctx, baseRepo)
+ 
+-	if err != nil && repoOverride == "" && err.Error() != "git: not on any branch" {
++	if err != nil && repoOverride == "" && !errors.Is(err, git.ErrNotOnAnyBranch) {
+ 		return fmt.Errorf("could not query for pull request for current branch: %w", err)
+ 	}
+ 
+diff --git a/context/blank_context.go b/context/blank_context.go
+index 3ea657abe42..80a2cd29858 100644
+--- a/context/blank_context.go
++++ b/context/blank_context.go
+@@ -40,7 +40,7 @@ func (c *blankContext) SetAuthToken(t string) {
+ 
+ func (c *blankContext) Branch() (string, error) {
+ 	if c.branch == "" {
+-		return "", fmt.Errorf("branch was not initialized")
++		return "", fmt.Errorf("branch was not initialized: %w", git.ErrNotOnAnyBranch)
+ 	}
+ 	return c.branch, nil
+ }
+diff --git a/git/git.go b/git/git.go
+index 355f905f092..ff40adde305 100644
+--- a/git/git.go
++++ b/git/git.go
+@@ -13,6 +13,9 @@ import (
+ 	"github.com/cli/cli/internal/run"
+ )
+ 
++// ErrNotOnAnyBranch indicates that the users is in detached HEAD state
++var ErrNotOnAnyBranch = errors.New("git: not on any branch")
++
+ // Ref represents a git commit reference
+ type Ref struct {
+ 	Hash string
+@@ -64,7 +67,7 @@ func CurrentBranch() (string, error) {
+ 	if errors.As(err, &cmdErr) {
+ 		if cmdErr.Stderr.Len() == 0 {
+ 			// Detached head
+-			return "", errors.New("git: not on any branch")
++			return "", ErrNotOnAnyBranch
+ 		}
+ 	}
+ 

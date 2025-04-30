@@ -1,0 +1,307 @@
+diff --git a/include/nlohmann/detail/conversions/from_json.hpp b/include/nlohmann/detail/conversions/from_json.hpp
+index c7bd018e34..71e32aaf71 100644
+--- a/include/nlohmann/detail/conversions/from_json.hpp
++++ b/include/nlohmann/detail/conversions/from_json.hpp
+@@ -19,6 +19,10 @@
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
++#ifdef JSON_HAS_CPP_17
++    #include <filesystem>
++#endif
++
+ namespace nlohmann
+ {
+ namespace detail
+@@ -169,7 +173,7 @@ void from_json(const BasicJsonType& j, std::valarray<T>& l)
+ }
+ 
+ template<typename BasicJsonType, typename T, std::size_t N>
+-auto from_json(const BasicJsonType& j, T (&arr)[N]) // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
++auto from_json(const BasicJsonType& j, T (&arr)[N])  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+ -> decltype(j.template get<T>(), void())
+ {
+     for (std::size_t i = 0; i < N; ++i)
+@@ -444,6 +448,18 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
+     }
+ }
+ 
++#ifdef JSON_HAS_CPP_17
++template<typename BasicJsonType>
++void from_json(const BasicJsonType& j, std::filesystem::path& p)
++{
++    if (JSON_HEDLEY_UNLIKELY(!j.is_string()))
++    {
++        JSON_THROW(type_error::create(302, "type must be string, but is " + std::string(j.type_name()), j));
++    }
++    p = *j.template get_ptr<const typename BasicJsonType::string_t*>();
++}
++#endif
++
+ struct from_json_fn
+ {
+     template<typename BasicJsonType, typename T>
+diff --git a/include/nlohmann/detail/conversions/to_json.hpp b/include/nlohmann/detail/conversions/to_json.hpp
+index 06323a2729..79fdb3233f 100644
+--- a/include/nlohmann/detail/conversions/to_json.hpp
++++ b/include/nlohmann/detail/conversions/to_json.hpp
+@@ -9,11 +9,16 @@
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
++#include <nlohmann/detail/macro_scope.hpp>
+ #include <nlohmann/detail/iterators/iteration_proxy.hpp>
+ #include <nlohmann/detail/meta/cpp_future.hpp>
+ #include <nlohmann/detail/meta/type_traits.hpp>
+ #include <nlohmann/detail/value_t.hpp>
+ 
++#ifdef JSON_HAS_CPP_17
++    #include <filesystem>
++#endif
++
+ namespace nlohmann
+ {
+ namespace detail
+@@ -386,6 +391,14 @@ void to_json(BasicJsonType& j, const T& t)
+     to_json_tuple_impl(j, t, make_index_sequence<std::tuple_size<T>::value> {});
+ }
+ 
++#ifdef JSON_HAS_CPP_17
++template<typename BasicJsonType>
++void to_json(BasicJsonType& j, const std::filesystem::path& p)
++{
++    j = p.string();
++}
++#endif
++
+ struct to_json_fn
+ {
+     template<typename BasicJsonType, typename T>
+diff --git a/include/nlohmann/detail/meta/type_traits.hpp b/include/nlohmann/detail/meta/type_traits.hpp
+index ca6051e7cd..984ca19319 100644
+--- a/include/nlohmann/detail/meta/type_traits.hpp
++++ b/include/nlohmann/detail/meta/type_traits.hpp
+@@ -309,44 +309,21 @@ struct is_constructible_object_type
+     : is_constructible_object_type_impl<BasicJsonType,
+       ConstructibleObjectType> {};
+ 
+-template<typename BasicJsonType, typename CompatibleStringType,
+-         typename = void>
+-struct is_compatible_string_type_impl : std::false_type {};
+-
+ template<typename BasicJsonType, typename CompatibleStringType>
+-struct is_compatible_string_type_impl <
+-    BasicJsonType, CompatibleStringType,
+-    enable_if_t<is_detected_convertible<typename BasicJsonType::string_t::value_type,
+-    range_value_t,
+-    CompatibleStringType>::value >>
++struct is_compatible_string_type
+ {
+     static constexpr auto value =
+         is_constructible<typename BasicJsonType::string_t, CompatibleStringType>::value;
+ };
+ 
+ template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_compatible_string_type
+-    : is_compatible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
+-
+-template<typename BasicJsonType, typename ConstructibleStringType,
+-         typename = void>
+-struct is_constructible_string_type_impl : std::false_type {};
+-
+-template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_constructible_string_type_impl <
+-    BasicJsonType, ConstructibleStringType,
+-    enable_if_t<is_detected_exact<typename BasicJsonType::string_t::value_type,
+-    value_type_t, ConstructibleStringType>::value >>
++struct is_constructible_string_type
+ {
+     static constexpr auto value =
+         is_constructible<ConstructibleStringType,
+         typename BasicJsonType::string_t>::value;
+ };
+ 
+-template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_constructible_string_type
+-    : is_constructible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
+-
+ template<typename BasicJsonType, typename CompatibleArrayType, typename = void>
+ struct is_compatible_array_type_impl : std::false_type {};
+ 
+@@ -355,7 +332,10 @@ struct is_compatible_array_type_impl <
+     BasicJsonType, CompatibleArrayType,
+     enable_if_t <
+     is_detected<iterator_t, CompatibleArrayType>::value&&
+-    is_iterator_traits<iterator_traits<detected_t<iterator_t, CompatibleArrayType>>>::value >>
++    is_iterator_traits<iterator_traits<detected_t<iterator_t, CompatibleArrayType>>>::value&&
++// special case for types like std::filesystem::path whose iterator's value_type are themselves
++// c.f. https://github.com/nlohmann/json/pull/3073
++    !std::is_same<CompatibleArrayType, detected_t<range_value_t, CompatibleArrayType>>::value >>
+ {
+     static constexpr bool value =
+         is_constructible<BasicJsonType,
+@@ -388,8 +368,11 @@ struct is_constructible_array_type_impl <
+ is_detected<iterator_t, ConstructibleArrayType>::value&&
+ is_iterator_traits<iterator_traits<detected_t<iterator_t, ConstructibleArrayType>>>::value&&
+ is_detected<range_value_t, ConstructibleArrayType>::value&&
+-is_complete_type <
+-detected_t<range_value_t, ConstructibleArrayType >>::value >>
++// special case for types like std::filesystem::path whose iterator's value_type are themselves
++// c.f. https://github.com/nlohmann/json/pull/3073
++!std::is_same<ConstructibleArrayType, detected_t<range_value_t, ConstructibleArrayType>>::value&&
++        is_complete_type <
++        detected_t<range_value_t, ConstructibleArrayType >>::value >>
+ {
+     using value_type = range_value_t<ConstructibleArrayType>;
+ 
+diff --git a/single_include/nlohmann/json.hpp b/single_include/nlohmann/json.hpp
+index 25c6983b04..3f68f33f70 100644
+--- a/single_include/nlohmann/json.hpp
++++ b/single_include/nlohmann/json.hpp
+@@ -3783,44 +3783,21 @@ struct is_constructible_object_type
+     : is_constructible_object_type_impl<BasicJsonType,
+       ConstructibleObjectType> {};
+ 
+-template<typename BasicJsonType, typename CompatibleStringType,
+-         typename = void>
+-struct is_compatible_string_type_impl : std::false_type {};
+-
+ template<typename BasicJsonType, typename CompatibleStringType>
+-struct is_compatible_string_type_impl <
+-    BasicJsonType, CompatibleStringType,
+-    enable_if_t<is_detected_convertible<typename BasicJsonType::string_t::value_type,
+-    range_value_t,
+-    CompatibleStringType>::value >>
++struct is_compatible_string_type
+ {
+     static constexpr auto value =
+         is_constructible<typename BasicJsonType::string_t, CompatibleStringType>::value;
+ };
+ 
+ template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_compatible_string_type
+-    : is_compatible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
+-
+-template<typename BasicJsonType, typename ConstructibleStringType,
+-         typename = void>
+-struct is_constructible_string_type_impl : std::false_type {};
+-
+-template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_constructible_string_type_impl <
+-    BasicJsonType, ConstructibleStringType,
+-    enable_if_t<is_detected_exact<typename BasicJsonType::string_t::value_type,
+-    value_type_t, ConstructibleStringType>::value >>
++struct is_constructible_string_type
+ {
+     static constexpr auto value =
+         is_constructible<ConstructibleStringType,
+         typename BasicJsonType::string_t>::value;
+ };
+ 
+-template<typename BasicJsonType, typename ConstructibleStringType>
+-struct is_constructible_string_type
+-    : is_constructible_string_type_impl<BasicJsonType, ConstructibleStringType> {};
+-
+ template<typename BasicJsonType, typename CompatibleArrayType, typename = void>
+ struct is_compatible_array_type_impl : std::false_type {};
+ 
+@@ -3829,7 +3806,10 @@ struct is_compatible_array_type_impl <
+     BasicJsonType, CompatibleArrayType,
+     enable_if_t <
+     is_detected<iterator_t, CompatibleArrayType>::value&&
+-    is_iterator_traits<iterator_traits<detected_t<iterator_t, CompatibleArrayType>>>::value >>
++    is_iterator_traits<iterator_traits<detected_t<iterator_t, CompatibleArrayType>>>::value&&
++// special case for types like std::filesystem::path whose iterator's value_type are themselves
++// c.f. https://github.com/nlohmann/json/pull/3073
++    !std::is_same<CompatibleArrayType, detected_t<range_value_t, CompatibleArrayType>>::value >>
+ {
+     static constexpr bool value =
+         is_constructible<BasicJsonType,
+@@ -3862,8 +3842,11 @@ struct is_constructible_array_type_impl <
+ is_detected<iterator_t, ConstructibleArrayType>::value&&
+ is_iterator_traits<iterator_traits<detected_t<iterator_t, ConstructibleArrayType>>>::value&&
+ is_detected<range_value_t, ConstructibleArrayType>::value&&
+-is_complete_type <
+-detected_t<range_value_t, ConstructibleArrayType >>::value >>
++// special case for types like std::filesystem::path whose iterator's value_type are themselves
++// c.f. https://github.com/nlohmann/json/pull/3073
++!std::is_same<ConstructibleArrayType, detected_t<range_value_t, ConstructibleArrayType>>::value&&
++        is_complete_type <
++        detected_t<range_value_t, ConstructibleArrayType >>::value >>
+ {
+     using value_type = range_value_t<ConstructibleArrayType>;
+ 
+@@ -3967,6 +3950,10 @@ T conditional_static_cast(U value)
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
++#ifdef JSON_HAS_CPP_17
++    #include <filesystem>
++#endif
++
+ namespace nlohmann
+ {
+ namespace detail
+@@ -4117,7 +4104,7 @@ void from_json(const BasicJsonType& j, std::valarray<T>& l)
+ }
+ 
+ template<typename BasicJsonType, typename T, std::size_t N>
+-auto from_json(const BasicJsonType& j, T (&arr)[N]) // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
++auto from_json(const BasicJsonType& j, T (&arr)[N])  // NOLINT(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+ -> decltype(j.template get<T>(), void())
+ {
+     for (std::size_t i = 0; i < N; ++i)
+@@ -4392,6 +4379,18 @@ void from_json(const BasicJsonType& j, std::unordered_map<Key, Value, Hash, KeyE
+     }
+ }
+ 
++#ifdef JSON_HAS_CPP_17
++template<typename BasicJsonType>
++void from_json(const BasicJsonType& j, std::filesystem::path& p)
++{
++    if (JSON_HEDLEY_UNLIKELY(!j.is_string()))
++    {
++        JSON_THROW(type_error::create(302, "type must be string, but is " + std::string(j.type_name()), j));
++    }
++    p = *j.template get_ptr<const typename BasicJsonType::string_t*>();
++}
++#endif
++
+ struct from_json_fn
+ {
+     template<typename BasicJsonType, typename T>
+@@ -4425,6 +4424,8 @@ constexpr const auto& from_json = detail::static_const<detail::from_json_fn>::va
+ #include <valarray> // valarray
+ #include <vector> // vector
+ 
++// #include <nlohmann/detail/macro_scope.hpp>
++
+ // #include <nlohmann/detail/iterators/iteration_proxy.hpp>
+ 
+ 
+@@ -4625,6 +4626,10 @@ class tuple_element<N, ::nlohmann::detail::iteration_proxy_value<IteratorType >>
+ // #include <nlohmann/detail/value_t.hpp>
+ 
+ 
++#ifdef JSON_HAS_CPP_17
++    #include <filesystem>
++#endif
++
+ namespace nlohmann
+ {
+ namespace detail
+@@ -4997,6 +5002,14 @@ void to_json(BasicJsonType& j, const T& t)
+     to_json_tuple_impl(j, t, make_index_sequence<std::tuple_size<T>::value> {});
+ }
+ 
++#ifdef JSON_HAS_CPP_17
++template<typename BasicJsonType>
++void to_json(BasicJsonType& j, const std::filesystem::path& p)
++{
++    j = p.string();
++}
++#endif
++
+ struct to_json_fn
+ {
+     template<typename BasicJsonType, typename T>

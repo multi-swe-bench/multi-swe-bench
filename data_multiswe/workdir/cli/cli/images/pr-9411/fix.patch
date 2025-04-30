@@ -1,0 +1,134 @@
+diff --git a/pkg/cmd/secret/delete/delete.go b/pkg/cmd/secret/delete/delete.go
+index 9a299ce4fa1..564e8633fa8 100644
+--- a/pkg/cmd/secret/delete/delete.go
++++ b/pkg/cmd/secret/delete/delete.go
+@@ -105,25 +105,28 @@ func removeRun(opts *DeleteOptions) error {
+ 		}
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
+ 	var path string
++	var host string
+ 	switch secretEntity {
+ 	case shared.Organization:
+ 		path = fmt.Sprintf("orgs/%s/%s/secrets/%s", orgName, secretApp, opts.SecretName)
++		host, _ = cfg.Authentication().DefaultHost()
+ 	case shared.Environment:
+ 		path = fmt.Sprintf("repos/%s/environments/%s/secrets/%s", ghrepo.FullName(baseRepo), envName, opts.SecretName)
++		host = baseRepo.RepoHost()
+ 	case shared.User:
+ 		path = fmt.Sprintf("user/codespaces/secrets/%s", opts.SecretName)
++		host, _ = cfg.Authentication().DefaultHost()
+ 	case shared.Repository:
+ 		path = fmt.Sprintf("repos/%s/%s/secrets/%s", ghrepo.FullName(baseRepo), secretApp, opts.SecretName)
++		host = baseRepo.RepoHost()
+ 	}
+ 
+-	cfg, err := opts.Config()
+-	if err != nil {
+-		return err
+-	}
+-
+-	host, _ := cfg.Authentication().DefaultHost()
+-
+ 	err = client.REST(host, "DELETE", path, nil, nil)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to delete secret %s: %w", opts.SecretName, err)
+diff --git a/pkg/cmd/variable/delete/delete.go b/pkg/cmd/variable/delete/delete.go
+index 3617f318802..d5132016751 100644
+--- a/pkg/cmd/variable/delete/delete.go
++++ b/pkg/cmd/variable/delete/delete.go
+@@ -91,23 +91,25 @@ func removeRun(opts *DeleteOptions) error {
+ 		}
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
+ 	var path string
++	var host string
+ 	switch variableEntity {
+ 	case shared.Organization:
+ 		path = fmt.Sprintf("orgs/%s/actions/variables/%s", orgName, opts.VariableName)
++		host, _ = cfg.Authentication().DefaultHost()
+ 	case shared.Environment:
+ 		path = fmt.Sprintf("repos/%s/environments/%s/variables/%s", ghrepo.FullName(baseRepo), envName, opts.VariableName)
++		host = baseRepo.RepoHost()
+ 	case shared.Repository:
+ 		path = fmt.Sprintf("repos/%s/actions/variables/%s", ghrepo.FullName(baseRepo), opts.VariableName)
++		host = baseRepo.RepoHost()
+ 	}
+ 
+-	cfg, err := opts.Config()
+-	if err != nil {
+-		return err
+-	}
+-
+-	host, _ := cfg.Authentication().DefaultHost()
+-
+ 	err = client.REST(host, "DELETE", path, nil, nil)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to delete variable %s: %w", opts.VariableName, err)
+diff --git a/pkg/cmd/variable/get/get.go b/pkg/cmd/variable/get/get.go
+index 32b4c5e6271..e4def5a03b2 100644
+--- a/pkg/cmd/variable/get/get.go
++++ b/pkg/cmd/variable/get/get.go
+@@ -92,23 +92,25 @@ func getRun(opts *GetOptions) error {
+ 		}
+ 	}
+ 
++	cfg, err := opts.Config()
++	if err != nil {
++		return err
++	}
++
+ 	var path string
++	var host string
+ 	switch variableEntity {
+ 	case shared.Organization:
+ 		path = fmt.Sprintf("orgs/%s/actions/variables/%s", orgName, opts.VariableName)
++		host, _ = cfg.Authentication().DefaultHost()
+ 	case shared.Environment:
+ 		path = fmt.Sprintf("repos/%s/environments/%s/variables/%s", ghrepo.FullName(baseRepo), envName, opts.VariableName)
++		host = baseRepo.RepoHost()
+ 	case shared.Repository:
+ 		path = fmt.Sprintf("repos/%s/actions/variables/%s", ghrepo.FullName(baseRepo), opts.VariableName)
++		host = baseRepo.RepoHost()
+ 	}
+ 
+-	cfg, err := opts.Config()
+-	if err != nil {
+-		return err
+-	}
+-
+-	host, _ := cfg.Authentication().DefaultHost()
+-
+ 	var variable shared.Variable
+ 	if err = client.REST(host, "GET", path, nil, &variable); err != nil {
+ 		var httpErr api.HTTPError
+diff --git a/pkg/httpmock/stub.go b/pkg/httpmock/stub.go
+index 147d36fc826..e7534d7f807 100644
+--- a/pkg/httpmock/stub.go
++++ b/pkg/httpmock/stub.go
+@@ -123,6 +123,15 @@ func StringResponse(body string) Responder {
+ 	}
+ }
+ 
++func WithHost(matcher Matcher, host string) Matcher {
++	return func(req *http.Request) bool {
++		if !strings.EqualFold(req.Host, host) {
++			return false
++		}
++		return matcher(req)
++	}
++}
++
+ func WithHeader(responder Responder, header string, value string) Responder {
+ 	return func(req *http.Request) (*http.Response, error) {
+ 		resp, _ := responder(req)

@@ -1,0 +1,187 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js
+new file mode 100644
+index 000000000000..bb56464ec1ed
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback/_config.js
+@@ -0,0 +1,38 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>0</button><button>0</button><button>false</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>1</button><button>1</button><button>false</button>`
++		);
++
++		flushSync(() => btn2.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>1</button><button>2</button><button>false</button>`
++		);
++
++		flushSync(() => btn3.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>3</button><button>2</button><button>true</button>`);
++
++		flushSync(() => btn1.click());
++		flushSync(() => btn3.click());
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>4</button><button>4</button><button>false</button>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte
+new file mode 100644
+index 000000000000..3b52359d05d4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-callback/main.svelte
+@@ -0,0 +1,12 @@
++<script>
++	let a = $state(0);
++	let b = $state.link(a, (value) => {
++		if (c) return;
++		b = value;
++	});
++	let c = $state(false);
++</script>
++
++<button onclick={() => a++}>{a}</button>
++<button onclick={() => b++}>{b}</button>
++<button onclick={() => c = !c}>{c}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-class/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link-class/_config.js
+new file mode 100644
+index 000000000000..4628d4f5b406
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-class/_config.js
+@@ -0,0 +1,19 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>0</button><button>0</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>1</button>`);
++
++		flushSync(() => btn2.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-class/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link-class/main.svelte
+new file mode 100644
+index 000000000000..30d8968f8c6b
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-class/main.svelte
+@@ -0,0 +1,11 @@
++<script>
++	class Instance {
++		a = $state(0);
++		b = $state.link(this.a);
++	}
++
++	const instance = new Instance();
++</script>
++
++<button onclick={() => instance.a++}>{instance.a}</button>
++<button onclick={() => instance.b++}>{instance.b}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-object/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link-object/_config.js
+new file mode 100644
+index 000000000000..a0cf4b3c3f24
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-object/_config.js
+@@ -0,0 +1,24 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>0</button><button>0</button><button>0</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2, btn3] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>1</button><button>1</button>`);
++
++		// mutate the original object, via the link
++		flushSync(() => btn2.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button><button>2</button>`);
++
++		// mutate the copy
++		flushSync(() => btn3.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button><button>3</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>3</button><button>3</button><button>3</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link-object/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link-object/main.svelte
+new file mode 100644
+index 000000000000..ec7dec450725
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link-object/main.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let a = $state({ value: 0 });
++	let b = $state.link(a);
++	let c = $state.link({ ...a });
++</script>
++
++<button onclick={() => a.value++}>{a.value}</button>
++<button onclick={() => b.value++}>{b.value}</button>
++<button onclick={() => c.value++}>{c.value}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link/_config.js b/packages/svelte/tests/runtime-runes/samples/state-link/_config.js
+new file mode 100644
+index 000000000000..4628d4f5b406
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link/_config.js
+@@ -0,0 +1,19 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>0</button><button>0</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>1</button>`);
++
++		flushSync(() => btn2.click());
++		assert.htmlEqual(target.innerHTML, `<button>1</button><button>2</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>2</button><button>2</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/state-link/main.svelte b/packages/svelte/tests/runtime-runes/samples/state-link/main.svelte
+new file mode 100644
+index 000000000000..aaa8d4ecafd6
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/state-link/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let a = $state(0);
++	let b = $state.link(a);
++</script>
++
++<button onclick={() => a++}>{a}</button>
++<button onclick={() => b++}>{b}</button>

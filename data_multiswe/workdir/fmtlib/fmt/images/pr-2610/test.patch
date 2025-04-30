@@ -1,0 +1,35 @@
+diff --git a/test/compile-error-test/CMakeLists.txt b/test/compile-error-test/CMakeLists.txt
+index 8202f279434e..44bbb1aba020 100644
+--- a/test/compile-error-test/CMakeLists.txt
++++ b/test/compile-error-test/CMakeLists.txt
+@@ -67,6 +67,12 @@ expect_compile_error("
+   fmt::format(\"{}\", S());
+ ")
+ 
++# Formatting a function
++expect_compile_error("
++  void (*f)();
++  fmt::format(\"{}\", f);
++")
++
+ # Make sure that compiler features detected in the header
+ # match the features detected in CMake.
+ if (SUPPORTS_USER_DEFINED_LITERALS)
+diff --git a/test/core-test.cc b/test/core-test.cc
+index da3bc0f96cd1..4f39c7ab5c77 100644
+--- a/test/core-test.cc
++++ b/test/core-test.cc
+@@ -770,6 +770,13 @@ TEST(core_test, is_formattable) {
+   static_assert(!fmt::is_formattable<unsigned char*, wchar_t>::value, "");
+   static_assert(!fmt::is_formattable<const signed char*, wchar_t>::value, "");
+   static_assert(!fmt::is_formattable<const unsigned char*, wchar_t>::value, "");
++
++  static_assert(!fmt::is_formattable<void (*)()>::value, "");
++
++  struct s;
++
++  static_assert(!fmt::is_formattable<int(s::*)>::value, "");
++  static_assert(!fmt::is_formattable<int (s::*)()>::value, "");
+ }
+ 
+ TEST(core_test, format) { EXPECT_EQ(fmt::format("{}", 42), "42"); }

@@ -1,0 +1,428 @@
+diff --git a/.changeset/curvy-buses-laugh.md b/.changeset/curvy-buses-laugh.md
+new file mode 100644
+index 000000000000..a32df2803940
+--- /dev/null
++++ b/.changeset/curvy-buses-laugh.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: better ownership mutation validation
+diff --git a/packages/svelte/src/internal/client/dev/ownership.js b/packages/svelte/src/internal/client/dev/ownership.js
+index f57c8dce5d37..da5d2fac5b52 100644
+--- a/packages/svelte/src/internal/client/dev/ownership.js
++++ b/packages/svelte/src/internal/client/dev/ownership.js
+@@ -34,13 +34,24 @@ export function get_stack() {
+  * Determines which `.svelte` component is responsible for a given state change
+  * @returns {Function | null}
+  */
+-export function get_component() {
+-	const stack = get_stack();
++function get_component() {
++	// first 4 lines are svelte internals; adjust this number if we change the internal call stack
++	const stack = get_stack()?.slice(4);
+ 	if (!stack) return null;
+ 
+-	for (const entry of stack) {
++	for (let i = 0; i < stack.length; i++) {
++		const entry = stack[i];
+ 		const modules = boundaries[entry.file];
+-		if (!modules) continue;
++		if (!modules) {
++			// If the first entry is not a component, that means the modification very likely happened
++			// within a .svelte.js file, possibly triggered by a component. Since these files are not part
++			// of the bondaries/component context heuristic, we need to bail in this case, else we would
++			// have false positives when the .svelte.ts file provides a state creator function, encapsulating
++			// the state and its mutations, and is being called from a component other than the one who
++			// called the state creator function.
++			if (i === 0) return null;
++			continue;
++		}
+ 
+ 		for (const module of modules) {
+ 			if (module.start.line < entry.line && module.end.line > entry.line) {
+diff --git a/packages/svelte/src/internal/client/proxy.js b/packages/svelte/src/internal/client/proxy.js
+index 8365fbbeb87c..290dc187ffa8 100644
+--- a/packages/svelte/src/internal/client/proxy.js
++++ b/packages/svelte/src/internal/client/proxy.js
+@@ -27,7 +27,7 @@ import { STATE_SYMBOL, UNINITIALIZED } from './constants.js';
+  * @template T
+  * @param {T} value
+  * @param {boolean} [immutable]
+- * @param {Function[]} [owners]
++ * @param {Set<Function> | null} [owners]
+  * @returns {import('./types.js').ProxyStateObject<T> | T}
+  */
+ export function proxy(value, immutable = true, owners) {
+@@ -162,6 +162,7 @@ function update_version(signal, d = 1) {
+ const state_proxy_handler = {
+ 	defineProperty(target, prop, descriptor) {
+ 		if (descriptor.value) {
++			/** @type {import('./types.js').ProxyMetadata} */
+ 			const metadata = target[STATE_SYMBOL];
+ 
+ 			const s = metadata.s.get(prop);
+@@ -172,6 +173,7 @@ const state_proxy_handler = {
+ 	},
+ 
+ 	deleteProperty(target, prop) {
++		/** @type {import('./types.js').ProxyMetadata} */
+ 		const metadata = target[STATE_SYMBOL];
+ 		const s = metadata.s.get(prop);
+ 		const is_array = metadata.a;
+@@ -204,6 +206,7 @@ const state_proxy_handler = {
+ 			return Reflect.get(target, STATE_SYMBOL);
+ 		}
+ 
++		/** @type {import('./types.js').ProxyMetadata} */
+ 		const metadata = target[STATE_SYMBOL];
+ 		let s = metadata.s.get(prop);
+ 
+@@ -234,6 +237,7 @@ const state_proxy_handler = {
+ 	getOwnPropertyDescriptor(target, prop) {
+ 		const descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
+ 		if (descriptor && 'value' in descriptor) {
++			/** @type {import('./types.js').ProxyMetadata} */
+ 			const metadata = target[STATE_SYMBOL];
+ 			const s = metadata.s.get(prop);
+ 
+@@ -249,6 +253,7 @@ const state_proxy_handler = {
+ 		if (prop === STATE_SYMBOL) {
+ 			return true;
+ 		}
++		/** @type {import('./types.js').ProxyMetadata} */
+ 		const metadata = target[STATE_SYMBOL];
+ 		const has = Reflect.has(target, prop);
+ 
+@@ -269,6 +274,7 @@ const state_proxy_handler = {
+ 	},
+ 
+ 	set(target, prop, value, receiver) {
++		/** @type {import('./types.js').ProxyMetadata} */
+ 		const metadata = target[STATE_SYMBOL];
+ 		let s = metadata.s.get(prop);
+ 		// If we haven't yet created a source for this property, we need to ensure
+@@ -286,8 +292,18 @@ const state_proxy_handler = {
+ 		const is_array = metadata.a;
+ 		const not_has = !(prop in target);
+ 
+-		if (DEV && metadata.o) {
+-			check_ownership(metadata.o);
++		if (DEV) {
++			// First check ownership of the object that is assigned to.
++			// Then, if the new object has owners, widen them with the ones from the current object.
++			// If it doesn't have owners that means it's ownerless, and so the assigned object should be, too.
++			if (metadata.o) {
++				check_ownership(metadata.o);
++				for (const owner in metadata.o) {
++					add_owner(value, owner);
++				}
++			} else {
++				strip_owner(value);
++			}
+ 		}
+ 
+ 		// variable.length = value -> clear all signals with index >= value
+@@ -321,6 +337,7 @@ const state_proxy_handler = {
+ 	},
+ 
+ 	ownKeys(target) {
++		/** @type {import('./types.js').ProxyMetadata} */
+ 		const metadata = target[STATE_SYMBOL];
+ 
+ 		get(metadata.v);
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 1aa116076b8a..6190d169874a 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -30,6 +30,7 @@ import {
+ 	STATE_SYMBOL
+ } from './constants.js';
+ import { flush_tasks } from './dom/task.js';
++import { add_owner } from './dev/ownership.js';
+ 
+ const IS_EFFECT = EFFECT | PRE_EFFECT | RENDER_EFFECT;
+ 
+@@ -1087,8 +1088,89 @@ export function is_signal(val) {
+ 	);
+ }
+ 
++/**
++ * Retrieves the context that belongs to the closest parent component with the specified `key`.
++ * Must be called during component initialisation.
++ *
++ * https://svelte.dev/docs/svelte#getcontext
++ * @template T
++ * @param {any} key
++ * @returns {T}
++ */
++export function getContext(key) {
++	const context_map = get_or_init_context_map();
++	const result = /** @type {T} */ (context_map.get(key));
++
++	if (DEV) {
++		// @ts-expect-error
++		const fn = current_component_context?.function;
++		if (fn) {
++			add_owner(result, fn);
++		}
++	}
++
++	return result;
++}
++
++/**
++ * Associates an arbitrary `context` object with the current component and the specified `key`
++ * and returns that object. The context is then available to children of the component
++ * (including slotted content) with `getContext`.
++ *
++ * Like lifecycle functions, this must be called during component initialisation.
++ *
++ * https://svelte.dev/docs/svelte#setcontext
++ * @template T
++ * @param {any} key
++ * @param {T} context
++ * @returns {T}
++ */
++export function setContext(key, context) {
++	const context_map = get_or_init_context_map();
++	context_map.set(key, context);
++	return context;
++}
++
++/**
++ * Checks whether a given `key` has been set in the context of a parent component.
++ * Must be called during component initialisation.
++ *
++ * https://svelte.dev/docs/svelte#hascontext
++ * @param {any} key
++ * @returns {boolean}
++ */
++export function hasContext(key) {
++	const context_map = get_or_init_context_map();
++	return context_map.has(key);
++}
++
++/**
++ * Retrieves the whole context map that belongs to the closest parent component.
++ * Must be called during component initialisation. Useful, for example, if you
++ * programmatically create a component and want to pass the existing context to it.
++ *
++ * https://svelte.dev/docs/svelte#getallcontexts
++ * @template {Map<any, any>} [T=Map<any, any>]
++ * @returns {T}
++ */
++export function getAllContexts() {
++	const context_map = get_or_init_context_map();
++
++	if (DEV) {
++		// @ts-expect-error
++		const fn = current_component_context?.function;
++		if (fn) {
++			for (const value of context_map.values()) {
++				add_owner(value, fn);
++			}
++		}
++	}
++
++	return /** @type {T} */ (context_map);
++}
++
+ /** @returns {Map<unknown, unknown>} */
+-export function get_or_init_context_map() {
++function get_or_init_context_map() {
+ 	const component_context = current_component_context;
+ 	if (component_context === null) {
+ 		throw new Error(
+diff --git a/packages/svelte/src/internal/index.js b/packages/svelte/src/internal/index.js
+index 1c232cf3f26c..cb57244def37 100644
+--- a/packages/svelte/src/internal/index.js
++++ b/packages/svelte/src/internal/index.js
+@@ -19,7 +19,11 @@ export {
+ 	unwrap,
+ 	freeze,
+ 	deep_read,
+-	deep_read_state
++	deep_read_state,
++	getAllContexts,
++	getContext,
++	setContext,
++	hasContext
+ } from './client/runtime.js';
+ export * from './client/dev/ownership.js';
+ export { await_block as await } from './client/dom/blocks/await.js';
+diff --git a/packages/svelte/src/main/main-client.js b/packages/svelte/src/main/main-client.js
+index 690f6946a2bc..58461692b63f 100644
+--- a/packages/svelte/src/main/main-client.js
++++ b/packages/svelte/src/main/main-client.js
+@@ -1,8 +1,4 @@
+-import {
+-	current_component_context,
+-	get_or_init_context_map,
+-	untrack
+-} from '../internal/client/runtime.js';
++import { current_component_context, untrack } from '../internal/client/runtime.js';
+ import { is_array } from '../internal/client/utils.js';
+ import { user_effect } from '../internal/index.js';
+ 
+@@ -53,66 +49,6 @@ export function onDestroy(fn) {
+ 	onMount(() => () => untrack(fn));
+ }
+ 
+-/**
+- * Retrieves the context that belongs to the closest parent component with the specified `key`.
+- * Must be called during component initialisation.
+- *
+- * https://svelte.dev/docs/svelte#getcontext
+- * @template T
+- * @param {any} key
+- * @returns {T}
+- */
+-export function getContext(key) {
+-	const context_map = get_or_init_context_map();
+-	return /** @type {T} */ (context_map.get(key));
+-}
+-
+-/**
+- * Associates an arbitrary `context` object with the current component and the specified `key`
+- * and returns that object. The context is then available to children of the component
+- * (including slotted content) with `getContext`.
+- *
+- * Like lifecycle functions, this must be called during component initialisation.
+- *
+- * https://svelte.dev/docs/svelte#setcontext
+- * @template T
+- * @param {any} key
+- * @param {T} context
+- * @returns {T}
+- */
+-export function setContext(key, context) {
+-	const context_map = get_or_init_context_map();
+-	context_map.set(key, context);
+-	return context;
+-}
+-
+-/**
+- * Checks whether a given `key` has been set in the context of a parent component.
+- * Must be called during component initialisation.
+- *
+- * https://svelte.dev/docs/svelte#hascontext
+- * @param {any} key
+- * @returns {boolean}
+- */
+-export function hasContext(key) {
+-	const context_map = get_or_init_context_map();
+-	return context_map.has(key);
+-}
+-
+-/**
+- * Retrieves the whole context map that belongs to the closest parent component.
+- * Must be called during component initialisation. Useful, for example, if you
+- * programmatically create a component and want to pass the existing context to it.
+- *
+- * https://svelte.dev/docs/svelte#getallcontexts
+- * @template {Map<any, any>} [T=Map<any, any>]
+- * @returns {T}
+- */
+-export function getAllContexts() {
+-	const context_map = get_or_init_context_map();
+-	return /** @type {T} */ (context_map);
+-}
+-
+ /**
+  * @template [T=any]
+  * @param {string} type
+@@ -241,5 +177,9 @@ export {
+ 	unmount,
+ 	untrack,
+ 	unstate,
+-	createRoot
++	createRoot,
++	hasContext,
++	getContext,
++	getAllContexts,
++	setContext
+ } from '../internal/index.js';
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 3a1c3da78607..aa0156846303 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -243,38 +243,6 @@ declare module 'svelte' {
+ 	 * https://svelte.dev/docs/svelte#ondestroy
+ 	 * */
+ 	export function onDestroy(fn: () => any): void;
+-	/**
+-	 * Retrieves the context that belongs to the closest parent component with the specified `key`.
+-	 * Must be called during component initialisation.
+-	 *
+-	 * https://svelte.dev/docs/svelte#getcontext
+-	 * */
+-	export function getContext<T>(key: any): T;
+-	/**
+-	 * Associates an arbitrary `context` object with the current component and the specified `key`
+-	 * and returns that object. The context is then available to children of the component
+-	 * (including slotted content) with `getContext`.
+-	 *
+-	 * Like lifecycle functions, this must be called during component initialisation.
+-	 *
+-	 * https://svelte.dev/docs/svelte#setcontext
+-	 * */
+-	export function setContext<T>(key: any, context: T): T;
+-	/**
+-	 * Checks whether a given `key` has been set in the context of a parent component.
+-	 * Must be called during component initialisation.
+-	 *
+-	 * https://svelte.dev/docs/svelte#hascontext
+-	 * */
+-	export function hasContext(key: any): boolean;
+-	/**
+-	 * Retrieves the whole context map that belongs to the closest parent component.
+-	 * Must be called during component initialisation. Useful, for example, if you
+-	 * programmatically create a component and want to pass the existing context to it.
+-	 *
+-	 * https://svelte.dev/docs/svelte#getallcontexts
+-	 * */
+-	export function getAllContexts<T extends Map<any, any> = Map<any, any>>(): T;
+ 	/**
+ 	 * Creates an event dispatcher that can be used to dispatch [component events](https://svelte.dev/docs#template-syntax-component-directives-on-eventname).
+ 	 * Event dispatchers are functions that can take two arguments: `name` and `detail`.
+@@ -368,6 +336,38 @@ declare module 'svelte' {
+ 	 * https://svelte-5-preview.vercel.app/docs/functions#untrack
+ 	 * */
+ 	export function untrack<T>(fn: () => T): T;
++	/**
++	 * Retrieves the context that belongs to the closest parent component with the specified `key`.
++	 * Must be called during component initialisation.
++	 *
++	 * https://svelte.dev/docs/svelte#getcontext
++	 * */
++	export function getContext<T>(key: any): T;
++	/**
++	 * Associates an arbitrary `context` object with the current component and the specified `key`
++	 * and returns that object. The context is then available to children of the component
++	 * (including slotted content) with `getContext`.
++	 *
++	 * Like lifecycle functions, this must be called during component initialisation.
++	 *
++	 * https://svelte.dev/docs/svelte#setcontext
++	 * */
++	export function setContext<T>(key: any, context: T): T;
++	/**
++	 * Checks whether a given `key` has been set in the context of a parent component.
++	 * Must be called during component initialisation.
++	 *
++	 * https://svelte.dev/docs/svelte#hascontext
++	 * */
++	export function hasContext(key: any): boolean;
++	/**
++	 * Retrieves the whole context map that belongs to the closest parent component.
++	 * Must be called during component initialisation. Useful, for example, if you
++	 * programmatically create a component and want to pass the existing context to it.
++	 *
++	 * https://svelte.dev/docs/svelte#getallcontexts
++	 * */
++	export function getAllContexts<T extends Map<any, any> = Map<any, any>>(): T;
+ 	export function unstate<T>(value: T): T;
+ }
+ 

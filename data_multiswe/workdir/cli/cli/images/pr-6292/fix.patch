@@ -1,0 +1,499 @@
+diff --git a/api/queries_pr.go b/api/queries_pr.go
+index 1774b579ca7..efcbd13d297 100644
+--- a/api/queries_pr.go
++++ b/api/queries_pr.go
+@@ -269,6 +269,7 @@ func (pr *PullRequest) ChecksStatus() (summary PullRequestChecksStatus) {
+ 		}
+ 		summary.Total++
+ 	}
++
+ 	return
+ }
+ 
+diff --git a/pkg/cmd/pr/shared/display.go b/pkg/cmd/pr/shared/display.go
+index e31c86d2a4b..7bd306104c0 100644
+--- a/pkg/cmd/pr/shared/display.go
++++ b/pkg/cmd/pr/shared/display.go
+@@ -73,3 +73,21 @@ func ListHeader(repoName string, itemName string, matchCount int, totalMatchCoun
+ 
+ 	return fmt.Sprintf("Showing %d of %s in %s", matchCount, text.Pluralize(totalMatchCount, fmt.Sprintf("open %s", itemName)), repoName)
+ }
++
++func PrCheckStatusSummaryWithColor(cs *iostreams.ColorScheme, checks api.PullRequestChecksStatus) string {
++	var summary = cs.Gray("No checks")
++	if checks.Total > 0 {
++		if checks.Failing > 0 {
++			if checks.Failing == checks.Total {
++				summary = cs.Red("× All checks failing")
++			} else {
++				summary = cs.Redf("× %d/%d checks failing", checks.Failing, checks.Total)
++			}
++		} else if checks.Pending > 0 {
++			summary = cs.Yellow("- Checks pending")
++		} else if checks.Passing == checks.Total {
++			summary = cs.Green("✓ Checks passing")
++		}
++	}
++	return summary
++}
+diff --git a/pkg/cmd/pr/status/status.go b/pkg/cmd/pr/status/status.go
+index e3fc92f5e7f..63a19d35fc3 100644
+--- a/pkg/cmd/pr/status/status.go
++++ b/pkg/cmd/pr/status/status.go
+@@ -230,18 +230,7 @@ func printPrs(io *iostreams.IOStreams, totalCount int, prs ...api.PullRequest) {
+ 			}
+ 
+ 			if checks.Total > 0 {
+-				var summary string
+-				if checks.Failing > 0 {
+-					if checks.Failing == checks.Total {
+-						summary = cs.Red("× All checks failing")
+-					} else {
+-						summary = cs.Redf("× %d/%d checks failing", checks.Failing, checks.Total)
+-					}
+-				} else if checks.Pending > 0 {
+-					summary = cs.Yellow("- Checks pending")
+-				} else if checks.Passing == checks.Total {
+-					summary = cs.Green("✓ Checks passing")
+-				}
++				summary := shared.PrCheckStatusSummaryWithColor(cs, checks)
+ 				fmt.Fprint(w, summary)
+ 			}
+ 
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksFailing.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksFailing.json
+new file mode 100644
+index 00000000000..59c4acd8a23
+--- /dev/null
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksFailing.json
+@@ -0,0 +1,74 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "additions": 100,
++        "deletions": 10,
++        "assignees": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "labels": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "projectcards": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "milestone": {
++          "title": ""
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": false,
++        "statusCheckRollup": {
++          "nodes": [
++            {
++              "commit": {
++                "oid": "abc",
++                "statusCheckRollup": {
++                  "contexts": {
++                    "nodes": [
++                      {
++                        "conclusion": "FAILURE",
++                        "status": "COMPLETED",
++                        "name": "cool tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      },
++                      {
++                        "conclusion": "FAILURE",
++                        "status": "COMPLETED",
++                        "name": "sad tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      }
++                    ]
++                  }
++                }
++              }
++            }
++          ]
++        }
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksPassing.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksPassing.json
+new file mode 100644
+index 00000000000..d55e460b383
+--- /dev/null
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithAllChecksPassing.json
+@@ -0,0 +1,82 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "additions": 100,
++        "deletions": 10,
++        "assignees": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "labels": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "projectcards": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "milestone": {
++          "title": ""
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": false,
++        "statusCheckRollup": {
++          "nodes": [
++            {
++              "commit": {
++                "oid": "abc",
++                "statusCheckRollup": {
++                  "contexts": {
++                    "nodes": [
++                      {
++                        "conclusion": "SUCCESS",
++                        "status": "COMPLETED",
++                        "name": "cool tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      },
++                      {
++                        "conclusion": "SUCCESS",
++                        "status": "COMPLETED",
++                        "name": "rad tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      },
++                      {
++                        "conclusion": "SUCCESS",
++                        "status": "COMPLETED",
++                        "name": "awesome tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      }
++                    ]
++                  }
++                }
++              }
++            }
++          ]
++        }
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithNoChecks.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithNoChecks.json
+new file mode 100644
+index 00000000000..563aa6c6b62
+--- /dev/null
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithNoChecks.json
+@@ -0,0 +1,58 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "additions": 100,
++        "deletions": 10,
++        "assignees": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "labels": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "projectcards": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "milestone": {
++          "title": ""
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": false,
++        "statusCheckRollup": {
++          "nodes": [
++            {
++              "commit": {
++                "oid": "abc",
++                "statusCheckRollup": {
++                  "contexts": {
++                    "nodes": [
++                    ]
++                  }
++                }
++              }
++            }
++          ]
++        }
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksFailing.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksFailing.json
+new file mode 100644
+index 00000000000..d817a5da02b
+--- /dev/null
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksFailing.json
+@@ -0,0 +1,74 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "additions": 100,
++        "deletions": 10,
++        "assignees": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "labels": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "projectcards": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "milestone": {
++          "title": ""
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": false,
++        "statusCheckRollup": {
++          "nodes": [
++            {
++              "commit": {
++                "oid": "abc",
++                "statusCheckRollup": {
++                  "contexts": {
++                    "nodes": [
++                      {
++                        "conclusion": "SUCCESS",
++                        "status": "COMPLETED",
++                        "name": "cool tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      },
++                      {
++                        "conclusion": "FAILURE",
++                        "status": "COMPLETED",
++                        "name": "sad tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      }
++                    ]
++                  }
++                }
++              }
++            }
++          ]
++        }
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksPending.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksPending.json
+new file mode 100644
+index 00000000000..019186783fb
+--- /dev/null
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithSomeChecksPending.json
+@@ -0,0 +1,74 @@
++{
++  "data": {
++    "repository": {
++      "pullRequest": {
++        "number": 12,
++        "title": "Blueberries are from a fork",
++        "state": "OPEN",
++        "body": "**blueberries taste good**",
++        "url": "https://github.com/OWNER/REPO/pull/12",
++        "author": {
++          "login": "nobody"
++        },
++        "additions": 100,
++        "deletions": 10,
++        "assignees": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "labels": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "projectcards": {
++          "nodes": [],
++          "totalcount": 0
++        },
++        "milestone": {
++          "title": ""
++        },
++        "commits": {
++          "totalCount": 12
++        },
++        "baseRefName": "master",
++        "headRefName": "blueberries",
++        "headRepositoryOwner": {
++          "login": "hubot"
++        },
++        "isCrossRepository": true,
++        "isDraft": false,
++        "statusCheckRollup": {
++          "nodes": [
++            {
++              "commit": {
++                "oid": "abc",
++                "statusCheckRollup": {
++                  "contexts": {
++                    "nodes": [
++                      {
++                        "conclusion": "",
++                        "status": "WAITING",
++                        "name": "cool tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      },
++                      {
++                        "conclusion": "SUCCESS",
++                        "status": "COMPLETED",
++                        "name": "sad tests",
++                        "completedAt": "2020-08-27T19:00:12Z",
++                        "startedAt": "2020-08-27T18:58:46Z",
++                        "detailsUrl": "sweet link"
++                      }
++                    ]
++                  }
++                }
++              }
++            }
++          ]
++        }
++      }
++    }
++  }
++}
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index a055922a855..10300a23c76 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -81,7 +81,7 @@ var defaultFields = []string{
+ 	"isDraft", "maintainerCanModify", "mergeable", "additions", "deletions", "commitsCount",
+ 	"baseRefName", "headRefName", "headRepositoryOwner", "headRepository", "isCrossRepository",
+ 	"reviewRequests", "reviews", "assignees", "labels", "projectCards", "milestone",
+-	"comments", "reactionGroups", "createdAt",
++	"comments", "reactionGroups", "createdAt", "statusCheckRollup",
+ }
+ 
+ func viewRun(opts *ViewOptions) error {
+@@ -171,17 +171,30 @@ func printHumanPrPreview(opts *ViewOptions, pr *api.PullRequest) error {
+ 	// Header (Title and State)
+ 	fmt.Fprintf(out, "%s #%d\n", cs.Bold(pr.Title), pr.Number)
+ 	fmt.Fprintf(out,
+-		"%s • %s wants to merge %s into %s from %s • %s • %s %s \n",
++		"%s • %s wants to merge %s into %s from %s • %s\n",
+ 		shared.StateTitleWithColor(cs, *pr),
+ 		pr.Author.Login,
+ 		text.Pluralize(pr.Commits.TotalCount, "commit"),
+ 		pr.BaseRefName,
+ 		pr.HeadRefName,
+ 		text.FuzzyAgo(opts.Now(), pr.CreatedAt),
++	)
++
++	// added/removed
++	fmt.Fprintf(out,
++		"%s %s",
+ 		cs.Green("+"+strconv.Itoa(pr.Additions)),
+ 		cs.Red("-"+strconv.Itoa(pr.Deletions)),
+ 	)
+ 
++	// checks
++	checks := pr.ChecksStatus()
++	if summary := shared.PrCheckStatusSummaryWithColor(cs, checks); summary != "" {
++		fmt.Fprintf(out, " • %s\n", summary)
++	} else {
++		fmt.Fprintln(out)
++	}
++
+ 	// Reactions
+ 	if reactions := shared.ReactionGroupList(pr.ReactionGroups); reactions != "" {
+ 		fmt.Fprint(out, reactions)

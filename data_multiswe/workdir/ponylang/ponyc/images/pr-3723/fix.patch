@@ -1,0 +1,31 @@
+diff --git a/.release-notes/3723.md b/.release-notes/3723.md
+new file mode 100644
+index 0000000000..00380897f5
+--- /dev/null
++++ b/.release-notes/3723.md
+@@ -0,0 +1,3 @@
++## Fix tuple related compiler segfaults
++
++Andreas Stührk indentified and fixed the source of two different open issues with tuple handling that caused the pony compiler to crash.
+diff --git a/src/libponyc/codegen/genfun.c b/src/libponyc/codegen/genfun.c
+index ed6276f656..359cc4e1fa 100644
+--- a/src/libponyc/codegen/genfun.c
++++ b/src/libponyc/codegen/genfun.c
+@@ -468,17 +468,7 @@ static bool genfun_fun(compile_t* c, reach_type_t* t, reach_method_t* m)
+       LLVMTypeRef f_type = LLVMGetElementType(LLVMTypeOf(c_m->func));
+       LLVMTypeRef r_type = LLVMGetReturnType(f_type);
+ 
+-      // If the result type is known to be a tuple, do the correct assignment
+-      // cast even if the body type is not a tuple.
+       ast_t* body_type = deferred_reify(m->fun, ast_type(body), c->opt);
+-
+-      if((ast_id(result) == TK_TUPLETYPE) && (ast_id(body_type) != TK_TUPLETYPE))
+-      {
+-        ast_free_unattached(body_type);
+-        body_type = r_result;
+-        r_result = NULL;
+-      }
+-
+       LLVMValueRef ret = gen_assign_cast(c, r_type, value, body_type);
+ 
+       ast_free_unattached(body_type);

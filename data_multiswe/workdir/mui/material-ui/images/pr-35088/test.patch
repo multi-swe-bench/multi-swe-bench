@@ -1,0 +1,86 @@
+diff --git a/packages/mui-material/src/Accordion/Accordion.test.js b/packages/mui-material/src/Accordion/Accordion.test.js
+index ac7b9507bedd24..30aeb330806ce0 100644
+--- a/packages/mui-material/src/Accordion/Accordion.test.js
++++ b/packages/mui-material/src/Accordion/Accordion.test.js
+@@ -4,8 +4,10 @@ import { expect } from 'chai';
+ import { spy } from 'sinon';
+ import { describeConformance, createRenderer, fireEvent } from 'test/utils';
+ import Accordion, { accordionClasses as classes } from '@mui/material/Accordion';
++import { createTheme, ThemeProvider } from '@mui/material/styles';
+ import Paper from '@mui/material/Paper';
+ import AccordionSummary from '@mui/material/AccordionSummary';
++import AccordionDetails from '@mui/material/AccordionDetails';
+ 
+ function NoTransition(props) {
+   const { children, in: inProp } = props;
+@@ -210,4 +212,42 @@ describe('<Accordion />', () => {
+       'MUI: A component is changing the uncontrolled expanded state of Accordion to be controlled.',
+     );
+   });
++
++  it('should merge the TransitionsProps with default theme TransitionProps props', () => {
++    function MockTransition(props) {
++      return (
++        <div>
++          <div>{props.onEnter()}</div>
++          <div>{props.onExit()}</div>
++        </div>
++      );
++    }
++
++    const onEnter = () => 'ON ENTER OK';
++    const onExit = () => 'ON EXIT OK';
++
++    const theme = createTheme({
++      components: {
++        MuiAccordion: {
++          defaultProps: {
++            TransitionProps: {
++              onExit,
++            },
++          },
++        },
++      },
++    });
++
++    const { getByText } = render(
++      <ThemeProvider theme={theme}>
++        <Accordion TransitionComponent={MockTransition} TransitionProps={{ onEnter }}>
++          <AccordionSummary>Accordion</AccordionSummary>
++          <AccordionDetails>Text</AccordionDetails>
++        </Accordion>
++      </ThemeProvider>,
++    );
++
++    expect(getByText('ON ENTER OK')).toBeVisible();
++    expect(getByText('ON EXIT OK')).toBeVisible();
++  });
+ });
+diff --git a/packages/mui-utils/src/resolveProps.test.ts b/packages/mui-utils/src/resolveProps.test.ts
+index 491428ffc22a3a..18292b55175517 100644
+--- a/packages/mui-utils/src/resolveProps.test.ts
++++ b/packages/mui-utils/src/resolveProps.test.ts
+@@ -91,4 +91,23 @@ describe('resolveProps', () => {
+       notTheSlotProps: { className: 'input' },
+     });
+   });
++
++  it('should merge prop objects if passing a whitelist', () => {
++    const defaultProps = { a: { b: 1, c: 3 } };
++    const props = { a: { b: 0 } };
++    expect(resolveProps(defaultProps, props, ['a'])).to.deep.equal({
++      a: {
++        b: 0,
++        c: 3,
++      },
++    });
++  });
++
++  it('should not merge prop objects if not passing a whitelist', () => {
++    const defaultProps = { a: { b: 1, c: 3 } };
++    const props = { a: { b: 0 } };
++    expect(resolveProps(defaultProps, props)).to.deep.equal({
++      a: { b: 0 },
++    });
++  });
+ });

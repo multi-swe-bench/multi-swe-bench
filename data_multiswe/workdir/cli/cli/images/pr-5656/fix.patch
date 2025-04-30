@@ -1,0 +1,21 @@
+diff --git a/pkg/export/template.go b/pkg/export/template.go
+index 57004da7358..bc0986d78dd 100644
+--- a/pkg/export/template.go
++++ b/pkg/export/template.go
+@@ -56,7 +56,15 @@ func (t *Template) parseTemplate(tpl string) (*template.Template, error) {
+ 		"join":        templateJoin,
+ 		"tablerow":    t.tableRow,
+ 		"tablerender": t.tableRender,
+-		"truncate":    text.Truncate,
++		"truncate": func(maxWidth int, v interface{}) (string, error) {
++			if v == nil {
++				return "", nil
++			}
++			if s, ok := v.(string); ok {
++				return text.Truncate(maxWidth, s), nil
++			}
++			return "", fmt.Errorf("invalid value; expected string, got %T", v)
++		},
+ 	}
+ 
+ 	if !t.io.ColorEnabled() {

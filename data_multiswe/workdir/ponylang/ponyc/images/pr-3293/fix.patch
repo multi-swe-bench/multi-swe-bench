@@ -1,0 +1,449 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d8038c4753..1b1eb20887 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -12,6 +12,7 @@ All notable changes to the Pony compiler and standard library will be documented
+ 
+ ### Changed
+ 
++- Rename MaybePointer to NullablePointer ([PR #3293](https://github.com/ponylang/ponyc/pull/3293))
+ 
+ ## [0.31.0] - 2019-08-31
+ 
+diff --git a/packages/builtin/maybe_pointer.pony b/packages/builtin/nullable_pointer.pony
+similarity index 64%
+rename from packages/builtin/maybe_pointer.pony
+rename to packages/builtin/nullable_pointer.pony
+index 8e7f52d7a5..d58ee23f14 100644
+--- a/packages/builtin/maybe_pointer.pony
++++ b/packages/builtin/nullable_pointer.pony
+@@ -1,6 +1,6 @@
+-struct MaybePointer[A]
++struct NullablePointer[A]
+   """
+-  A MaybePointer[A] is used to encode a possibly-null type. It should
++  A NullablePointer[A] is used to encode a possibly-null type. It should
+   _only_ be used for structs that need to be passed to and from the C FFI.
+ 
+   An optional type for anything that isn't a struct should be encoded as a
+@@ -8,21 +8,21 @@ struct MaybePointer[A]
+   """
+   new create(that: A) =>
+     """
+-    This re-encodes the type of `that` from A to MaybePointer[A], allowing
+-    `that` to be assigned to a field or variable of type MaybePointer[A]. It
++    This re-encodes the type of `that` from A to NullablePointer[A], allowing
++    `that` to be assigned to a field or variable of type NullablePointer[A]. It
+     doesn't allocate a wrapper object: there is no containing object for `that`.
+     """
+     compile_intrinsic
+ 
+   new none() =>
+     """
+-    This returns a null pointer typed as a MaybePointer[A].
++    This returns a null pointer typed as a NullablePointer[A].
+     """
+     compile_intrinsic
+ 
+   fun apply(): this->A ? =>
+     """
+-    This re-encodes the type of `this` from MaybePointer[A] to A, allowing
++    This re-encodes the type of `this` from NullablePointer[A] to A, allowing
+     `this` to be assigned to a field of variable of type A. If `this` is a null
+     pointer, an error is raised.
+     """
+diff --git a/src/libponyc/codegen/codegen.c b/src/libponyc/codegen/codegen.c
+index 259c22caa3..a79f6c8558 100644
+--- a/src/libponyc/codegen/codegen.c
++++ b/src/libponyc/codegen/codegen.c
+@@ -120,7 +120,7 @@ static void init_runtime(compile_t* c)
+   c->str_F32 = stringtab("F32");
+   c->str_F64 = stringtab("F64");
+   c->str_Pointer = stringtab("Pointer");
+-  c->str_Maybe = stringtab("MaybePointer");
++  c->str_NullablePointer = stringtab("NullablePointer");
+   c->str_DoNotOptimise = stringtab("DoNotOptimise");
+   c->str_Array = stringtab("Array");
+   c->str_String = stringtab("String");
+diff --git a/src/libponyc/codegen/codegen.h b/src/libponyc/codegen/codegen.h
+index e50b37564b..186424aa5e 100644
+--- a/src/libponyc/codegen/codegen.h
++++ b/src/libponyc/codegen/codegen.h
+@@ -113,7 +113,7 @@ typedef struct compile_t
+   const char* str_F32;
+   const char* str_F64;
+   const char* str_Pointer;
+-  const char* str_Maybe;
++  const char* str_NullablePointer;
+   const char* str_DoNotOptimise;
+   const char* str_Array;
+   const char* str_String;
+diff --git a/src/libponyc/codegen/gencall.c b/src/libponyc/codegen/gencall.c
+index 53c68081c2..19d44868e4 100644
+--- a/src/libponyc/codegen/gencall.c
++++ b/src/libponyc/codegen/gencall.c
+@@ -321,8 +321,8 @@ static bool call_needs_receiver(ast_t* postfix, reach_type_t* t)
+       if(((compile_type_t*)t->c_type)->primitive != NULL)
+         return false;
+ 
+-      // No receiver if a new Pointer or Maybe.
+-      if(is_pointer(t->ast) || is_maybe(t->ast))
++      // No receiver if a new Pointer or NullablePointer.
++      if(is_pointer(t->ast) || is_nullable_pointer(t->ast))
+         return false;
+ 
+       return true;
+@@ -1330,8 +1330,8 @@ LLVMValueRef gencall_alloc(compile_t* c, reach_type_t* t)
+   if(c_t->primitive != NULL)
+     return NULL;
+ 
+-  // Do nothing for Pointer and Maybe.
+-  if(is_pointer(t->ast) || is_maybe(t->ast))
++  // Do nothing for Pointer and NullablePointer.
++  if(is_pointer(t->ast) || is_nullable_pointer(t->ast))
+     return NULL;
+ 
+   // Use the global instance if we have one.
+diff --git a/src/libponyc/codegen/genfun.c b/src/libponyc/codegen/genfun.c
+index 9ec5dda96c..69b995d8e9 100644
+--- a/src/libponyc/codegen/genfun.c
++++ b/src/libponyc/codegen/genfun.c
+@@ -686,7 +686,7 @@ static bool genfun_allocator(compile_t* c, reach_type_t* t)
+   compile_type_t* c_t = (compile_type_t*)t->c_type;
+ 
+   // No allocator for machine word types or pointers.
+-  if((c_t->primitive != NULL) || is_pointer(t->ast) || is_maybe(t->ast))
++  if((c_t->primitive != NULL) || is_pointer(t->ast) || is_nullable_pointer(t->ast))
+     return true;
+ 
+   const char* funname = genname_alloc(t->name);
+diff --git a/src/libponyc/codegen/genheader.c b/src/libponyc/codegen/genheader.c
+index 58bd6f654a..0a287f82a7 100644
+--- a/src/libponyc/codegen/genheader.c
++++ b/src/libponyc/codegen/genheader.c
+@@ -70,7 +70,7 @@ static int print_pointer_type(compile_t* c, printbuf_t* buf, ast_t* type)
+   ast_t* typeargs = ast_childidx(type, 2);
+   ast_t* elem = ast_child(typeargs);
+ 
+-  if(is_pointer(elem) || is_maybe(elem))
++  if(is_pointer(elem) || is_nullable_pointer(elem))
+     return print_pointer_type(c, buf, elem) + 1;
+ 
+   print_base_type(c, buf, elem);
+@@ -79,7 +79,7 @@ static int print_pointer_type(compile_t* c, printbuf_t* buf, ast_t* type)
+ 
+ static void print_type_name(compile_t* c, printbuf_t* buf, ast_t* type)
+ {
+-  if(is_pointer(type) || is_maybe(type))
++  if(is_pointer(type) || is_nullable_pointer(type))
+   {
+     int depth = print_pointer_type(c, buf, type);
+ 
+@@ -235,7 +235,7 @@ static void print_types(compile_t* c, FILE* fp, printbuf_t* buf)
+         fprintf(fp, "/*\n%s*/\n", ast_name(docstring));
+     }
+ 
+-    if(!is_pointer(t->ast) && !is_maybe(t->ast) && !is_machine_word(t->ast))
++    if(!is_pointer(t->ast) && !is_nullable_pointer(t->ast) && !is_machine_word(t->ast))
+     {
+       // Forward declare an opaque type.
+       fprintf(fp, "typedef struct %s %s;\n\n", t->name, t->name);
+diff --git a/src/libponyc/codegen/genprim.c b/src/libponyc/codegen/genprim.c
+index edcce2fa82..c8025f5852 100644
+--- a/src/libponyc/codegen/genprim.c
++++ b/src/libponyc/codegen/genprim.c
+@@ -485,7 +485,7 @@ void genprim_pointer_methods(compile_t* c, reach_type_t* t)
+   pointer_lt(c, t);
+ }
+ 
+-static void maybe_create(compile_t* c, reach_type_t* t, compile_type_t* t_elem)
++static void nullable_pointer_create(compile_t* c, reach_type_t* t, compile_type_t* t_elem)
+ {
+   FIND_METHOD("create", TK_NONE);
+ 
+@@ -500,7 +500,7 @@ static void maybe_create(compile_t* c, reach_type_t* t, compile_type_t* t_elem)
+   codegen_finishfun(c);
+ }
+ 
+-static void maybe_none(compile_t* c, reach_type_t* t)
++static void nullable_pointer_none(compile_t* c, reach_type_t* t)
+ {
+   FIND_METHOD("none", TK_NONE);
+   start_function(c, t, m, c_t->use_type, &c_t->use_type, 1);
+@@ -509,7 +509,7 @@ static void maybe_none(compile_t* c, reach_type_t* t)
+   codegen_finishfun(c);
+ }
+ 
+-static void maybe_apply(compile_t* c, void* data, token_id cap)
++static void nullable_pointer_apply(compile_t* c, void* data, token_id cap)
+ {
+   // Returns the receiver if it isn't null.
+   reach_type_t* t = ((reach_type_t**)data)[0];
+@@ -536,7 +536,7 @@ static void maybe_apply(compile_t* c, void* data, token_id cap)
+   codegen_finishfun(c);
+ }
+ 
+-static void maybe_is_none(compile_t* c, reach_type_t* t, token_id cap)
++static void nullable_pointer_is_none(compile_t* c, reach_type_t* t, token_id cap)
+ {
+   // Returns true if the receiver is null.
+   FIND_METHOD("is_none", cap);
+@@ -549,7 +549,7 @@ static void maybe_is_none(compile_t* c, reach_type_t* t, token_id cap)
+   codegen_finishfun(c);
+ }
+ 
+-void genprim_maybe_methods(compile_t* c, reach_type_t* t)
++void genprim_nullable_pointer_methods(compile_t* c, reach_type_t* t)
+ {
+   ast_t* typeargs = ast_childidx(t->ast, 2);
+   ast_t* typearg = ast_child(typeargs);
+@@ -560,10 +560,10 @@ void genprim_maybe_methods(compile_t* c, reach_type_t* t)
+   box_args[0] = t;
+   box_args[1] = t_elem;
+ 
+-  maybe_create(c, t, t_elem);
+-  maybe_none(c, t);
+-  BOX_FUNCTION(maybe_apply, box_args);
+-  BOX_FUNCTION(maybe_is_none, t);
++  nullable_pointer_create(c, t, t_elem);
++  nullable_pointer_none(c, t);
++  BOX_FUNCTION(nullable_pointer_apply, box_args);
++  BOX_FUNCTION(nullable_pointer_is_none, t);
+ }
+ 
+ static void donotoptimise_apply(compile_t* c, reach_type_t* t,
+diff --git a/src/libponyc/codegen/genprim.h b/src/libponyc/codegen/genprim.h
+index 35af3efaec..7eb4c18257 100644
+--- a/src/libponyc/codegen/genprim.h
++++ b/src/libponyc/codegen/genprim.h
+@@ -9,7 +9,7 @@ PONY_EXTERN_C_BEGIN
+ 
+ void genprim_pointer_methods(compile_t* c, reach_type_t* t);
+ 
+-void genprim_maybe_methods(compile_t* c, reach_type_t* t);
++void genprim_nullable_pointer_methods(compile_t* c, reach_type_t* t);
+ 
+ void genprim_donotoptimise_methods(compile_t* c, reach_type_t* t);
+ 
+diff --git a/src/libponyc/codegen/genserialise.c b/src/libponyc/codegen/genserialise.c
+index e150ada7c2..a5f72d424b 100644
+--- a/src/libponyc/codegen/genserialise.c
++++ b/src/libponyc/codegen/genserialise.c
+@@ -400,8 +400,8 @@ bool genserialise(compile_t* c, reach_type_t* t)
+ 
+       if(package == c->str_builtin)
+       {
+-        // Don't serialise MaybePointer[A]
+-        if(name == c->str_Maybe)
++        // Don't serialise NullablePointer[A]
++        if(name == c->str_NullablePointer)
+           return true;
+ 
+         // Don't serialise Pointer[A]
+diff --git a/src/libponyc/codegen/gentrace.c b/src/libponyc/codegen/gentrace.c
+index 9dd163552f..253874373d 100644
+--- a/src/libponyc/codegen/gentrace.c
++++ b/src/libponyc/codegen/gentrace.c
+@@ -13,7 +13,7 @@
+ typedef enum
+ {
+   TRACE_NONE,
+-  TRACE_MAYBE,
++  TRACE_NULLABLE_POINTER,
+   TRACE_MACHINE_WORD,
+   TRACE_PRIMITIVE,
+   TRACE_VAL_KNOWN,
+@@ -194,7 +194,7 @@ static trace_t trace_type_union(ast_t* type)
+         trace = t;
+         break;
+ 
+-      case TRACE_MAYBE:
++      case TRACE_NULLABLE_POINTER:
+         // Can't be in a union.
+         pony_assert(0);
+         return TRACE_NONE;
+@@ -249,7 +249,7 @@ static trace_t trace_type_isect(ast_t* type)
+     switch(t)
+     {
+       case TRACE_NONE:
+-      case TRACE_MAYBE:
++      case TRACE_NULLABLE_POINTER:
+         // Can't be in an isect.
+         pony_assert(0);
+         return TRACE_NONE;
+@@ -322,8 +322,8 @@ static trace_t trace_type_nominal(ast_t* type)
+ 
+     case TK_STRUCT:
+     case TK_CLASS:
+-      if(is_maybe(type))
+-        return TRACE_MAYBE;
++      if(is_nullable_pointer(type))
++        return TRACE_NULLABLE_POINTER;
+ 
+       switch(cap_single(type))
+       {
+@@ -379,7 +379,7 @@ static trace_t trace_type_dst_cap(trace_t src_trace, trace_t dst_trace,
+   {
+     case TRACE_NONE:
+     case TRACE_MACHINE_WORD:
+-    case TRACE_MAYBE:
++    case TRACE_NULLABLE_POINTER:
+     case TRACE_PRIMITIVE:
+     case TRACE_DYNAMIC:
+     case TRACE_TAG_KNOWN:
+@@ -467,8 +467,8 @@ static trace_t trace_type_dst_cap(trace_t src_trace, trace_t dst_trace,
+   }
+ }
+ 
+-static void trace_maybe(compile_t* c, LLVMValueRef ctx, LLVMValueRef object,
+-  ast_t* type)
++static void trace_nullable_pointer(compile_t* c, LLVMValueRef ctx, 
++  LLVMValueRef object, ast_t* type)
+ {
+   // Only trace the element if it isn't NULL.
+   ast_t* type_args = ast_childidx(type, 2);
+@@ -983,8 +983,8 @@ void gentrace(compile_t* c, LLVMValueRef ctx, LLVMValueRef src_value,
+     case TRACE_PRIMITIVE:
+       return;
+ 
+-    case TRACE_MAYBE:
+-      trace_maybe(c, ctx, dst_value, src_type);
++    case TRACE_NULLABLE_POINTER:
++      trace_nullable_pointer(c, ctx, dst_value, src_type);
+       return;
+ 
+     case TRACE_VAL_KNOWN:
+diff --git a/src/libponyc/codegen/gentype.c b/src/libponyc/codegen/gentype.c
+index 0a64b7007a..53c721abbe 100644
+--- a/src/libponyc/codegen/gentype.c
++++ b/src/libponyc/codegen/gentype.c
+@@ -156,7 +156,7 @@ static bool make_opaque_struct(compile_t* c, reach_type_t* t)
+           c_t->mem_type = c->void_ptr;
+           return true;
+         }
+-        else if(name == c->str_Maybe)
++        else if(name == c->str_NullablePointer)
+         {
+           c_t->use_type = c->void_ptr;
+           c_t->mem_type = c->void_ptr;
+@@ -426,7 +426,7 @@ static bool make_struct(compile_t* c, reach_type_t* t)
+ 
+     case TK_STRUCT:
+     {
+-      // Pointer and Maybe will have no structure.
++      // Pointer and NullablePointer will have no structure.
+       if(c_t->structure == NULL)
+         return true;
+ 
+@@ -678,8 +678,8 @@ static void make_intrinsic_methods(compile_t* c, reach_type_t* t)
+   {
+     if(name == c->str_Pointer)
+       genprim_pointer_methods(c, t);
+-    else if(name == c->str_Maybe)
+-      genprim_maybe_methods(c, t);
++    else if(name == c->str_NullablePointer)
++      genprim_nullable_pointer_methods(c, t);
+     else if(name == c->str_DoNotOptimise)
+       genprim_donotoptimise_methods(c, t);
+     else if(name == c->str_Platform)
+diff --git a/src/libponyc/expr/ffi.c b/src/libponyc/expr/ffi.c
+index f381d2145a..d6333409c9 100644
+--- a/src/libponyc/expr/ffi.c
++++ b/src/libponyc/expr/ffi.c
+@@ -21,12 +21,12 @@ static bool void_star_param(ast_t* param_type, ast_t* arg_type)
+     return false;
+ 
+   // Parameter type is Pointer[None]
+-  // If the argument is Pointer[A], MaybePointer[A] or USize, allow it
++  // If the argument is Pointer[A], NullablePointer[A] or USize, allow it
+   while(ast_id(arg_type) == TK_ARROW)
+     arg_type = ast_childidx(arg_type, 1);
+ 
+   if(is_pointer(arg_type) ||
+-    is_maybe(arg_type) ||
++    is_nullable_pointer(arg_type) ||
+     is_literal(arg_type, "USize"))
+     return true;
+ 
+diff --git a/src/libponyc/expr/reference.c b/src/libponyc/expr/reference.c
+index 2b11d13445..4f7906558b 100644
+--- a/src/libponyc/expr/reference.c
++++ b/src/libponyc/expr/reference.c
+@@ -910,9 +910,9 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
+   if(!reify_defaults(typeparams, typeargs, true, opt))
+     return false;
+ 
+-  if(is_maybe(ast))
++  if(is_nullable_pointer(ast))
+   {
+-    // MaybePointer[A] must be bound to a struct.
++    // NullablePointer[A] must be bound to a struct.
+     pony_assert(ast_childcount(typeargs) == 1);
+     ast_t* typeparam = ast_child(typeparams);
+     ast_t* typearg = ast_child(typeargs);
+@@ -945,7 +945,7 @@ bool expr_nominal(pass_opt_t* opt, ast_t** astp)
+     {
+       ast_error(opt->check.errors, ast,
+         "%s is not allowed: "
+-        "the type argument to MaybePointer must be a struct",
++        "the type argument to NullablePointer must be a struct",
+         ast_print_type(ast));
+ 
+       return false;
+diff --git a/src/libponyc/pass/flatten.c b/src/libponyc/pass/flatten.c
+index 83d802bba9..8d2c1c9970 100644
+--- a/src/libponyc/pass/flatten.c
++++ b/src/libponyc/pass/flatten.c
+@@ -308,7 +308,7 @@ ast_result_t pass_flatten(ast_t** astp, pass_opt_t* options)
+       AST_GET_CHILDREN(ast, id, type, init);
+       bool ok = true;
+ 
+-      if(ast_id(type) != TK_NOMINAL || is_pointer(type) || is_maybe(type))
++      if(ast_id(type) != TK_NOMINAL || is_pointer(type) || is_nullable_pointer(type))
+         ok = false;
+ 
+       ast_t* def = (ast_t*)ast_data(type);
+diff --git a/src/libponyc/type/subtype.c b/src/libponyc/type/subtype.c
+index cd43487ca8..c1e590ee68 100644
+--- a/src/libponyc/type/subtype.c
++++ b/src/libponyc/type/subtype.c
+@@ -1742,9 +1742,9 @@ bool is_pointer(ast_t* type)
+   return is_literal(type, "Pointer");
+ }
+ 
+-bool is_maybe(ast_t* type)
++bool is_nullable_pointer(ast_t* type)
+ {
+-  return is_literal(type, "MaybePointer");
++  return is_literal(type, "NullablePointer");
+ }
+ 
+ bool is_none(ast_t* type)
+diff --git a/src/libponyc/type/subtype.h b/src/libponyc/type/subtype.h
+index 927a3efddd..77fb80fddc 100644
+--- a/src/libponyc/type/subtype.h
++++ b/src/libponyc/type/subtype.h
+@@ -31,7 +31,7 @@ bool is_sub_provides(ast_t* type, ast_t* provides, errorframe_t* errorf,
+ 
+ bool is_pointer(ast_t* type);
+ 
+-bool is_maybe(ast_t* type);
++bool is_nullable_pointer(ast_t* type);
+ 
+ bool is_none(ast_t* type);
+ 
+diff --git a/src/libponyrt/gc/serialise.c b/src/libponyrt/gc/serialise.c
+index d40464105e..624e1309e3 100644
+--- a/src/libponyrt/gc/serialise.c
++++ b/src/libponyrt/gc/serialise.c
+@@ -236,8 +236,8 @@ PONY_API void pony_serialise(pony_ctx_t* ctx, void* p, pony_type_t* t,
+ PONY_API void* pony_deserialise_offset(pony_ctx_t* ctx, pony_type_t* t,
+   uintptr_t offset)
+ {
+-  // if all the bits of the offset are set, it is either a Pointer[A] a or a
+-  // MaybePointer[A].
++  // if all the bits of the offset are set, it is either a Pointer[A] or a
++  // NullablePointer[A].
+   if(offset == ALL_BITS)
+     return NULL;
+ 

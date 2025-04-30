@@ -1,0 +1,51 @@
+diff --git a/api/queries_repo.go b/api/queries_repo.go
+index 1d6b795b2e8..ba94edef146 100644
+--- a/api/queries_repo.go
++++ b/api/queries_repo.go
+@@ -1370,3 +1370,21 @@ func GetRepoIDs(client *Client, host string, repositories []ghrepo.Interface) ([
+ 	}
+ 	return result, nil
+ }
++
++func RepoExists(client *Client, repo ghrepo.Interface) (bool, error) {
++	path := fmt.Sprintf("%srepos/%s/%s", ghinstance.RESTPrefix(repo.RepoHost()), repo.RepoOwner(), repo.RepoName())
++
++	resp, err := client.HTTP().Head(path)
++	if err != nil {
++		return false, err
++	}
++
++	switch resp.StatusCode {
++	case 200:
++		return true, nil
++	case 404:
++		return false, nil
++	default:
++		return false, ghAPI.HandleHTTPError(resp)
++	}
++}
+diff --git a/pkg/cmd/browse/browse.go b/pkg/cmd/browse/browse.go
+index e4240a5b5da..b89434555ae 100644
+--- a/pkg/cmd/browse/browse.go
++++ b/pkg/cmd/browse/browse.go
+@@ -178,7 +178,19 @@ func runBrowse(opts *BrowseOptions) error {
+ 	url := ghrepo.GenerateRepoURL(baseRepo, "%s", section)
+ 
+ 	if opts.NoBrowserFlag {
+-		_, err := fmt.Fprintln(opts.IO.Out, url)
++		client, err := opts.HttpClient()
++		if err != nil {
++			return err
++		}
++
++		exist, err := api.RepoExists(api.NewClientFromHTTP(client), baseRepo)
++		if err != nil {
++			return err
++		}
++		if !exist {
++			return fmt.Errorf("%s doesn't exist", text.DisplayURL(url))
++		}
++		_, err = fmt.Fprintln(opts.IO.Out, url)
+ 		return err
+ 	}
+ 

@@ -1,0 +1,111 @@
+diff --git a/tests/builder/subcommands.rs b/tests/builder/subcommands.rs
+index 836102eeb2d..8e047de642a 100644
+--- a/tests/builder/subcommands.rs
++++ b/tests/builder/subcommands.rs
+@@ -494,7 +494,6 @@ For more information try --help
+     );
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn busybox_like_multicall() {
+     fn applet_commands() -> [Command<'static>; 2] {
+@@ -520,7 +519,6 @@ fn busybox_like_multicall() {
+     assert_eq!(m.unwrap_err().kind(), ErrorKind::UnrecognizedSubcommand);
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn hostname_like_multicall() {
+     let mut cmd = Command::new("hostname")
+@@ -550,7 +548,6 @@ fn hostname_like_multicall() {
+     assert_eq!(m.unwrap_err().kind(), ErrorKind::UnknownArgument);
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn bad_multicall_command_error() {
+     let cmd = Command::new("repl")
+@@ -572,9 +569,11 @@ For more information try help
+ ";
+     utils::assert_eq(HELLO_EXPECTED, err.to_string());
+ 
+-    let err = cmd.clone().try_get_matches_from(&["baz"]).unwrap_err();
+-    assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
+-    static BAZ_EXPECTED: &str = "\
++    #[cfg(feature = "suggestions")]
++    {
++        let err = cmd.clone().try_get_matches_from(&["baz"]).unwrap_err();
++        assert_eq!(err.kind(), ErrorKind::InvalidSubcommand);
++        static BAZ_EXPECTED: &str = "\
+ error: The subcommand 'baz' wasn't recognized
+ 
+ \tDid you mean 'bar'?
+@@ -586,7 +585,8 @@ USAGE:
+ 
+ For more information try help
+ ";
+-    utils::assert_eq(BAZ_EXPECTED, err.to_string());
++        utils::assert_eq(BAZ_EXPECTED, err.to_string());
++    }
+ 
+     // Verify whatever we did to get the above to work didn't disable `--help` and `--version`.
+ 
+@@ -603,7 +603,6 @@ For more information try help
+     assert_eq!(err.kind(), ErrorKind::DisplayVersion);
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ #[should_panic = "Command repl: Arguments like oh-no cannot be set on a multicall command"]
+ fn cant_have_args_with_multicall() {
+@@ -617,7 +616,6 @@ fn cant_have_args_with_multicall() {
+     cmd.build();
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn multicall_help_flag() {
+     static EXPECTED: &str = "\
+@@ -641,7 +639,6 @@ OPTIONS:
+     utils::assert_output(cmd, "foo bar --help", EXPECTED, false);
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn multicall_help_subcommand() {
+     static EXPECTED: &str = "\
+@@ -665,7 +662,6 @@ OPTIONS:
+     utils::assert_output(cmd, "help foo bar", EXPECTED, false);
+ }
+ 
+-#[cfg(feature = "unstable-multicall")]
+ #[test]
+ fn multicall_render_help() {
+     static EXPECTED: &str = "\
+diff --git a/tests/examples.rs b/tests/examples.rs
+index 4f0f1e946d2..b3fb1d15bb1 100644
+--- a/tests/examples.rs
++++ b/tests/examples.rs
+@@ -22,8 +22,6 @@ fn example_tests() {
+         "wrap_help",
+         #[cfg(feature = "unstable-replace")]
+         "unstable-replace",
+-        #[cfg(feature = "unstable-multicall")]
+-        "unstable-multicall",
+         #[cfg(feature = "unstable-grouped")]
+         "unstable-grouped",
+     ]
+diff --git a/tests/ui.rs b/tests/ui.rs
+index c7cab689f01..77bcac71c5c 100644
+--- a/tests/ui.rs
++++ b/tests/ui.rs
+@@ -22,8 +22,6 @@ fn ui_tests() {
+         "wrap_help",
+         #[cfg(feature = "unstable-replace")]
+         "unstable-replace",
+-        #[cfg(feature = "unstable-multicall")]
+-        "unstable-multicall",
+         #[cfg(feature = "unstable-grouped")]
+         "unstable-grouped",
+     ]

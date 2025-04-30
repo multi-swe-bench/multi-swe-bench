@@ -1,0 +1,170 @@
+diff --git a/command/config.go b/command/config.go
+index 0350e528b8d..103c4765a55 100644
+--- a/command/config.go
++++ b/command/config.go
+@@ -2,6 +2,7 @@ package command
+ 
+ import (
+ 	"fmt"
++
+ 	"github.com/spf13/cobra"
+ )
+ 
+@@ -10,9 +11,13 @@ func init() {
+ 	configCmd.AddCommand(configGetCmd)
+ 	configCmd.AddCommand(configSetCmd)
+ 
++	configCmd.Flags().BoolP("list", "l", false, "List config settings")
++	configCmd.Flags().StringP("host", "h", "", "Get per-host setting")
+ 	configGetCmd.Flags().StringP("host", "h", "", "Get per-host setting")
+ 	configSetCmd.Flags().StringP("host", "h", "", "Set per-host setting")
+ 
++	// TODO reveal and add usage once we properly support multiple hosts
++	_ = configCmd.Flags().MarkHidden("host")
+ 	// TODO reveal and add usage once we properly support multiple hosts
+ 	_ = configGetCmd.Flags().MarkHidden("host")
+ 	// TODO reveal and add usage once we properly support multiple hosts
+@@ -28,6 +33,7 @@ Current respected settings:
+ - git_protocol: https or ssh. Default is https.
+ - editor: if unset, defaults to environment variables.
+ `,
++	RunE: configList,
+ }
+ 
+ var configGetCmd = &cobra.Command{
+@@ -55,6 +61,36 @@ Examples:
+ 	RunE: configSet,
+ }
+ 
++func configList(cmd *cobra.Command, args []string) error {
++	showList, err := cmd.Flags().GetBool("list")
++	if !showList {
++		return cmd.Usage()
++	}
++
++	hostname, err := cmd.Flags().GetString("host")
++	if err != nil {
++		return err
++	}
++
++	ctx := contextForCommand(cmd)
++
++	cfg, err := ctx.Config()
++	if err != nil {
++		return err
++	}
++
++	entries, err := cfg.List(hostname)
++	if err != nil {
++		return err
++	}
++
++	for _, e := range entries {
++		fmt.Printf("%s\n", e)
++	}
++
++	return nil
++}
++
+ func configGet(cmd *cobra.Command, args []string) error {
+ 	key := args[0]
+ 	hostname, err := cmd.Flags().GetString("host")
+diff --git a/internal/config/config_type.go b/internal/config/config_type.go
+index e37c3e8845f..5fe2d878c3a 100644
+--- a/internal/config/config_type.go
++++ b/internal/config/config_type.go
+@@ -4,6 +4,7 @@ import (
+ 	"errors"
+ 	"fmt"
+ 
++	"github.com/cli/cli/utils"
+ 	"gopkg.in/yaml.v3"
+ )
+ 
+@@ -15,6 +16,7 @@ type Config interface {
+ 	Hosts() ([]*HostConfig, error)
+ 	Get(string, string) (string, error)
+ 	Set(string, string, string) error
++	List(string) ([]string, error)
+ 	Write() error
+ }
+ 
+@@ -144,6 +146,27 @@ func (c *fileConfig) Set(hostname, key, value string) error {
+ 	}
+ }
+ 
++func (c *fileConfig) List(hostname string) ([]string, error) {
++	var root *yaml.Node
++	if hostname != "" {
++		hostCfg, err := c.configForHost(hostname)
++		if err != nil {
++			return nil, err
++		}
++		root = hostCfg.Root
++	} else {
++		root = c.ConfigMap.Root
++	}
++
++	entries := utils.FlattenYamlNode(root)
++	list := make([]string, 0)
++	for _, e := range entries {
++		list = append(list, fmt.Sprintf("%s=%s", e.Key, e.Value))
++	}
++
++	return list, nil
++}
++
+ func (c *fileConfig) configForHost(hostname string) (*HostConfig, error) {
+ 	hosts, err := c.Hosts()
+ 	if err != nil {
+diff --git a/utils/yaml.go b/utils/yaml.go
+new file mode 100644
+index 00000000000..a3b80ddb585
+--- /dev/null
++++ b/utils/yaml.go
+@@ -0,0 +1,45 @@
++package utils
++
++import (
++	"fmt"
++
++	"gopkg.in/yaml.v3"
++)
++
++// FlatYamlEntry represents a flattened yaml entry
++type FlatYamlEntry struct {
++	Key   string // e.g. topkey.childkey1.childkey2
++	Value string
++}
++
++// FlattenYamlNode flattens nested yaml.Node
++func FlattenYamlNode(node *yaml.Node) []*FlatYamlEntry {
++	if node == nil || node.Kind != yaml.MappingNode {
++		return make([]*FlatYamlEntry, 0)
++	}
++
++	entries := make([]*FlatYamlEntry, 0)
++	nodes := node.Content
++
++	for i := 0; i < len(nodes)-1; i += 2 {
++		key := nodes[i]
++		value := nodes[i+1]
++		if value.Kind == yaml.MappingNode {
++			keyStr := key.Value
++			children := FlattenYamlNode(value)
++			for _, c := range children {
++				c.Key = fmt.Sprintf("%s.%s", keyStr, c.Key)
++			}
++			entries = append(entries, children...)
++		} else if value.Kind == yaml.ScalarNode {
++			keyStr := key.Value
++			valueStr := value.Value
++			entries = append(entries, &FlatYamlEntry{
++				Key:   keyStr,
++				Value: valueStr,
++			})
++		}
++	}
++
++	return entries
++}

@@ -1,0 +1,130 @@
+diff --git a/packages/mui-base/src/ClassNameConfigurator/ClassNameConfigurator.tsx b/packages/mui-base/src/ClassNameConfigurator/ClassNameConfigurator.tsx
+new file mode 100644
+index 00000000000000..100be89e69f7d3
+--- /dev/null
++++ b/packages/mui-base/src/ClassNameConfigurator/ClassNameConfigurator.tsx
+@@ -0,0 +1,58 @@
++import * as React from 'react';
++import { unstable_generateUtilityClass as generalGenerateUtilityClass } from '@mui/utils';
++import baseGenerateUtilityClass from '../generateUtilityClass';
++
++type Product = 'Material UI' | 'Joy UI' | 'MUI Base';
++
++export type ClassNameGenerator = (
++  componentName: string,
++  className: string,
++  product: Product,
++) => string;
++
++const ClassNameConfiguratorContext = React.createContext<ClassNameGenerator | undefined>(undefined);
++
++type ClassNameConfiguratorProps =
++  | {
++      children?: React.ReactNode;
++      disableClasses?: undefined | false;
++      generator: ClassNameGenerator;
++    }
++  | {
++      children?: React.ReactNode;
++      disableClasses: true;
++      generator?: undefined;
++    };
++
++function defaultClassNameGenerator(componentName: string, className: string, product: Product) {
++  if (product === 'MUI Base') {
++    return baseGenerateUtilityClass(`Mui${componentName}`, className);
++  }
++
++  return generalGenerateUtilityClass(`Mui${componentName}`, className);
++}
++
++function voidClassNameGenerator() {
++  return '';
++}
++
++export function useClassNameGenerator() {
++  const customGenerator = React.useContext(ClassNameConfiguratorContext);
++  if (customGenerator === undefined) {
++    return defaultClassNameGenerator;
++  }
++
++  return customGenerator;
++}
++
++export default function ClassNameConfigurator(props: ClassNameConfiguratorProps) {
++  const { generator, disableClasses, children } = props;
++
++  return (
++    <ClassNameConfiguratorContext.Provider
++      value={disableClasses ? voidClassNameGenerator : generator}
++    >
++      {children}
++    </ClassNameConfiguratorContext.Provider>
++  );
++}
+diff --git a/packages/mui-base/src/ClassNameConfigurator/index.ts b/packages/mui-base/src/ClassNameConfigurator/index.ts
+new file mode 100644
+index 00000000000000..d70813982a67c0
+--- /dev/null
++++ b/packages/mui-base/src/ClassNameConfigurator/index.ts
+@@ -0,0 +1,2 @@
++export { default } from './ClassNameConfigurator';
++export * from './ClassNameConfigurator';
+diff --git a/packages/mui-base/src/SwitchUnstyled/SwitchUnstyled.tsx b/packages/mui-base/src/SwitchUnstyled/SwitchUnstyled.tsx
+index c5e7315359ae5c..53267ea65952a7 100644
+--- a/packages/mui-base/src/SwitchUnstyled/SwitchUnstyled.tsx
++++ b/packages/mui-base/src/SwitchUnstyled/SwitchUnstyled.tsx
+@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
+ import { OverridableComponent } from '@mui/types';
+ import composeClasses from '../composeClasses';
+ import useSwitch from './useSwitch';
+-import { getSwitchUnstyledUtilityClass } from './switchUnstyledClasses';
+ import {
+   SwitchUnstyledProps,
+   SwitchUnstyledOwnerState,
+@@ -14,9 +13,11 @@ import {
+   SwitchUnstyledTypeMap,
+ } from './SwitchUnstyled.types';
+ import { useSlotProps, WithOptionalOwnerState } from '../utils';
++import { useClassNameGenerator } from '../ClassNameConfigurator';
+ 
+ const useUtilityClasses = (ownerState: SwitchUnstyledOwnerState) => {
+   const { checked, disabled, focusVisible, readOnly } = ownerState;
++  const generateClassName = useClassNameGenerator();
+ 
+   const slots = {
+     root: [
+@@ -31,7 +32,7 @@ const useUtilityClasses = (ownerState: SwitchUnstyledOwnerState) => {
+     track: ['track'],
+   };
+ 
+-  return composeClasses(slots, getSwitchUnstyledUtilityClass, {});
++  return composeClasses(slots, (slot: string) => generateClassName('Switch', slot, 'MUI Base'));
+ };
+ 
+ /**
+diff --git a/packages/mui-utils/src/composeClasses/composeClasses.ts b/packages/mui-utils/src/composeClasses/composeClasses.ts
+index 5b4726e208699a..cf049e73c5d15f 100644
+--- a/packages/mui-utils/src/composeClasses/composeClasses.ts
++++ b/packages/mui-utils/src/composeClasses/composeClasses.ts
+@@ -1,7 +1,7 @@
+ export default function composeClasses<ClassKey extends string>(
+   slots: Record<ClassKey, ReadonlyArray<string | false | undefined | null>>,
+   getUtilityClass: (slot: string) => string,
+-  classes: Record<string, string> | undefined,
++  classes: Record<string, string> | undefined = undefined,
+ ): Record<ClassKey, string> {
+   const output: Record<ClassKey, string> = {} as any;
+ 
+@@ -12,7 +12,10 @@ export default function composeClasses<ClassKey extends string>(
+       output[slot] = slots[slot]
+         .reduce((acc, key) => {
+           if (key) {
+-            acc.push(getUtilityClass(key));
++            const utilityClass = getUtilityClass(key);
++            if (utilityClass !== '') {
++              acc.push(utilityClass);
++            }
+             if (classes && classes[key]) {
+               acc.push(classes[key]);
+             }

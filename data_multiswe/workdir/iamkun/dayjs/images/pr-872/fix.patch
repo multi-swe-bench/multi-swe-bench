@@ -1,0 +1,30 @@
+diff --git a/src/index.js b/src/index.js
+index 8d0863559..f71f97f79 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -172,7 +172,7 @@ class Dayjs {
+       const argumentStart = [0, 0, 0, 0]
+       const argumentEnd = [23, 59, 59, 999]
+       return Utils.w(this.toDate()[method].apply( // eslint-disable-line prefer-spread
+-        this.toDate(),
++        this.toDate('s'),
+         (isStartOf ? argumentStart : argumentEnd).slice(slice)
+       ), this)
+     }
+diff --git a/src/plugin/utc/index.js b/src/plugin/utc/index.js
+index 70223ce21..606a831a2 100644
+--- a/src/plugin/utc/index.js
++++ b/src/plugin/utc/index.js
+@@ -91,4 +91,12 @@ export default (option, Dayjs, dayjs) => {
+   proto.toString = function () {
+     return this.toDate().toUTCString()
+   }
++
++  const oldToDate = proto.toDate
++  proto.toDate = function (type) {
++    if (type === 's' && this.$offset) {
++      return dayjs(this.format('YYYY-MM-DD HH:mm:ss:SSS')).toDate()
++    }
++    return oldToDate.call(this)
++  }
+ }

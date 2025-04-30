@@ -1,0 +1,411 @@
+diff --git a/.changeset/tidy-zebras-begin.md b/.changeset/tidy-zebras-begin.md
+new file mode 100644
+index 000000000000..cefbf2acfde1
+--- /dev/null
++++ b/.changeset/tidy-zebras-begin.md
+@@ -0,0 +1,5 @@
++---
++'svelte': minor
++---
++
++feat: support `defaultValue/defaultChecked` for inputs
+diff --git a/documentation/docs/03-template-syntax/11-bind.md b/documentation/docs/03-template-syntax/11-bind.md
+index 7dd03a6b04d7..975135f82441 100644
+--- a/documentation/docs/03-template-syntax/11-bind.md
++++ b/documentation/docs/03-template-syntax/11-bind.md
+@@ -53,6 +53,22 @@ In the case of a numeric input (`type="number"` or `type="range"`), the value wi
+ 
+ If the input is empty or invalid (in the case of `type="number"`), the value is `undefined`.
+ 
++If an `<input>` has a `defaultValue` and is part of a form, it will revert to that value instead of the empty string when the form is reset. Note that for the initial render the value of the binding takes precedence unless it is `null` or `undefined`.
++
++```svelte
++<script>
++	let value = $state('');
++</script>
++
++<form>
++	<input bind:value defaultValue="not the empty string">
++	<input type="reset" value="Reset">
++</form>
++```
++
++> [!NOTE]
++> Use reset buttons sparingly, and ensure that users won't accidentally click them while trying to submit the form.
++
+ ## `<input bind:checked>`
+ 
+ Checkbox and radio inputs can be bound with `bind:checked`:
+@@ -64,16 +80,29 @@ Checkbox and radio inputs can be bound with `bind:checked`:
+ </label>
+ ```
+ 
++If an `<input>` has a `defaultChecked` attribute and is part of a form, it will revert to that value instead of `false` when the form is reset. Note that for the initial render the value of the binding takes precedence unless it is `null` or `undefined`.
++
++```svelte
++<script>
++	let checked = $state(true);
++</script>
++
++<form>
++	<input type="checkbox" bind:checked defaultChecked={true}>
++	<input type="reset" value="Reset">
++</form>
++```
++
+ ## `<input bind:group>`
+ 
+ Inputs that work together can use `bind:group`.
+ 
+ ```svelte
+ <script>
+-	let tortilla = 'Plain';
++	let tortilla = $state('Plain');
+ 
+ 	/** @type {Array<string>} */
+-	let fillings = [];
++	let fillings = $state([]);
+ </script>
+ 
+ <!-- grouped radio inputs are mutually exclusive -->
+@@ -146,6 +175,16 @@ When the value of an `<option>` matches its text content, the attribute can be o
+ </select>
+ ```
+ 
++You can give the `<select>` a default value by adding a `selected` attribute to the`<option>` (or options, in the case of `<select multiple>`) that should be initially selected. If the `<select>` is part of a form, it will revert to that selection when the form is reset. Note that for the initial render the value of the binding takes precedence if it's not `undefined`.
++
++```svelte
++<select bind:value={selected}>
++	<option value={a}>a</option>
++	<option value={b} selected>b</option>
++	<option value={c}>c</option>
++</select>
++```
++
+ ## `<audio>`
+ 
+ `<audio>` elements have their own set of bindings — five two-way ones...
+diff --git a/packages/svelte/elements.d.ts b/packages/svelte/elements.d.ts
+index 035fa49c31a7..8800b65172dc 100644
+--- a/packages/svelte/elements.d.ts
++++ b/packages/svelte/elements.d.ts
+@@ -1103,6 +1103,11 @@ export interface HTMLInputAttributes extends HTMLAttributes<HTMLInputElement> {
+ 	step?: number | string | undefined | null;
+ 	type?: HTMLInputTypeAttribute | undefined | null;
+ 	value?: any;
++	// needs both casing variants because language tools does lowercase names of non-shorthand attributes
++	defaultValue?: any;
++	defaultvalue?: any;
++	defaultChecked?: any;
++	defaultchecked?: any;
+ 	width?: number | string | undefined | null;
+ 	webkitdirectory?: boolean | undefined | null;
+ 
+@@ -1384,6 +1389,9 @@ export interface HTMLTextareaAttributes extends HTMLAttributes<HTMLTextAreaEleme
+ 	required?: boolean | undefined | null;
+ 	rows?: number | undefined | null;
+ 	value?: string | string[] | number | undefined | null;
++	// needs both casing variants because language tools does lowercase names of non-shorthand attributes
++	defaultValue?: string | string[] | number | undefined | null;
++	defaultvalue?: string | string[] | number | undefined | null;
+ 	wrap?: 'hard' | 'soft' | undefined | null;
+ 
+ 	'on:change'?: ChangeEventHandler<HTMLTextAreaElement> | undefined | null;
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+index 85df92e8bfd0..56f7b6d6f0cd 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+@@ -172,20 +172,28 @@ export function RegularElement(node, context) {
+ 		}
+ 	}
+ 
+-	if (
+-		node.name === 'input' &&
+-		(has_spread ||
+-			bindings.has('value') ||
+-			bindings.has('checked') ||
+-			bindings.has('group') ||
+-			attributes.some(
+-				(attribute) =>
+-					attribute.type === 'Attribute' &&
+-					(attribute.name === 'value' || attribute.name === 'checked') &&
+-					!is_text_attribute(attribute)
+-			))
+-	) {
+-		context.state.init.push(b.stmt(b.call('$.remove_input_defaults', context.state.node)));
++	if (node.name === 'input') {
++		const has_value_attribute = attributes.some(
++			(attribute) =>
++				attribute.type === 'Attribute' &&
++				(attribute.name === 'value' || attribute.name === 'checked') &&
++				!is_text_attribute(attribute)
++		);
++		const has_default_value_attribute = attributes.some(
++			(attribute) =>
++				attribute.type === 'Attribute' &&
++				(attribute.name === 'defaultValue' || attribute.name === 'defaultChecked')
++		);
++		if (
++			!has_default_value_attribute &&
++			(has_spread ||
++				bindings.has('value') ||
++				bindings.has('checked') ||
++				bindings.has('group') ||
++				(!bindings.has('group') && has_value_attribute))
++		) {
++			context.state.init.push(b.stmt(b.call('$.remove_input_defaults', context.state.node)));
++		}
+ 	}
+ 
+ 	if (node.name === 'textarea') {
+@@ -555,6 +563,8 @@ function build_element_attribute_update_assignment(element, node_id, attribute,
+ 		update = b.stmt(b.call('$.set_value', node_id, value));
+ 	} else if (name === 'checked') {
+ 		update = b.stmt(b.call('$.set_checked', node_id, value));
++	} else if (name === 'selected') {
++		update = b.stmt(b.call('$.set_selected', node_id, value));
+ 	} else if (is_dom_property(name)) {
+ 		update = b.stmt(b.assignment('=', b.member(node_id, name), value));
+ 	} else {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
+index 2ab5d9b9fdfa..434447727b33 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/visitors/shared/element.js
+@@ -82,7 +82,8 @@ export function build_element_attributes(node, context) {
+ 				) {
+ 					events_to_capture.add(attribute.name);
+ 				}
+-			} else {
++				// the defaultValue/defaultChecked properties don't exist as attributes
++			} else if (attribute.name !== 'defaultValue' && attribute.name !== 'defaultChecked') {
+ 				if (attribute.name === 'class') {
+ 					class_index = attributes.length;
+ 				} else if (attribute.name === 'style') {
+diff --git a/packages/svelte/src/internal/client/dom/elements/attributes.js b/packages/svelte/src/internal/client/dom/elements/attributes.js
+index d927af543ff2..dfb3266d88a4 100644
+--- a/packages/svelte/src/internal/client/dom/elements/attributes.js
++++ b/packages/svelte/src/internal/client/dom/elements/attributes.js
+@@ -84,6 +84,25 @@ export function set_checked(element, checked) {
+ 	element.checked = checked;
+ }
+ 
++/**
++ * Sets the `selected` attribute on an `option` element.
++ * Not set through the property because that doesn't reflect to the DOM,
++ * which means it wouldn't be taken into account when a form is reset.
++ * @param {HTMLOptionElement} element
++ * @param {boolean} selected
++ */
++export function set_selected(element, selected) {
++	if (selected) {
++		// The selected option could've changed via user selection, and
++		// setting the value without this check would set it back.
++		if (!element.hasAttribute('selected')) {
++			element.setAttribute('selected', '');
++		}
++	} else {
++		element.removeAttribute('selected');
++	}
++}
++
+ /**
+  * @param {Element} element
+  * @param {string} attribute
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/input.js b/packages/svelte/src/internal/client/dom/elements/bindings/input.js
+index aec6f815a012..810dcb08629d 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/input.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/input.js
+@@ -1,11 +1,11 @@
+ import { DEV } from 'esm-env';
+ import { render_effect, teardown } from '../../../reactivity/effects.js';
+-import { listen_to_event_and_reset_event, without_reactive_context } from './shared.js';
++import { listen_to_event_and_reset_event } from './shared.js';
+ import * as e from '../../../errors.js';
+ import { is } from '../../../proxy.js';
+ import { queue_micro_task } from '../../task.js';
+ import { hydrating } from '../../hydration.js';
+-import { is_runes } from '../../../runtime.js';
++import { is_runes, untrack } from '../../../runtime.js';
+ 
+ /**
+  * @param {HTMLInputElement} input
+@@ -16,24 +16,36 @@ import { is_runes } from '../../../runtime.js';
+ export function bind_value(input, get, set = get) {
+ 	var runes = is_runes();
+ 
+-	listen_to_event_and_reset_event(input, 'input', () => {
++	listen_to_event_and_reset_event(input, 'input', (is_reset) => {
+ 		if (DEV && input.type === 'checkbox') {
+ 			// TODO should this happen in prod too?
+ 			e.bind_invalid_checkbox_value();
+ 		}
+ 
+-		/** @type {unknown} */
+-		var value = is_numberlike_input(input) ? to_number(input.value) : input.value;
++		/** @type {any} */
++		var value = is_reset ? input.defaultValue : input.value;
++		value = is_numberlike_input(input) ? to_number(value) : value;
+ 		set(value);
+ 
+ 		// In runes mode, respect any validation in accessors (doesn't apply in legacy mode,
+ 		// because we use mutable state which ensures the render effect always runs)
+ 		if (runes && value !== (value = get())) {
+-			// @ts-expect-error the value is coerced on assignment
++			// the value is coerced on assignment
+ 			input.value = value ?? '';
+ 		}
+ 	});
+ 
++	if (
++		// If we are hydrating and the value has since changed,
++		// then use the updated value from the input instead.
++		(hydrating && input.defaultValue !== input.value) ||
++		// If defaultValue is set, then value == defaultValue
++		// TODO Svelte 6: remove input.value check and set to empty string?
++		(untrack(get) == null && input.value)
++	) {
++		set(is_numberlike_input(input) ? to_number(input.value) : input.value);
++	}
++
+ 	render_effect(() => {
+ 		if (DEV && input.type === 'checkbox') {
+ 			// TODO should this happen in prod too?
+@@ -42,13 +54,6 @@ export function bind_value(input, get, set = get) {
+ 
+ 		var value = get();
+ 
+-		// If we are hydrating and the value has since changed, then use the update value
+-		// from the input instead.
+-		if (hydrating && input.defaultValue !== input.value) {
+-			set(is_numberlike_input(input) ? to_number(input.value) : input.value);
+-			return;
+-		}
+-
+ 		if (is_numberlike_input(input) && value === to_number(input.value)) {
+ 			// handles 0 vs 00 case (see https://github.com/sveltejs/svelte/issues/9959)
+ 			return;
+@@ -175,13 +180,19 @@ export function bind_group(inputs, group_index, input, get, set = get) {
+  * @returns {void}
+  */
+ export function bind_checked(input, get, set = get) {
+-	listen_to_event_and_reset_event(input, 'change', () => {
+-		var value = input.checked;
++	listen_to_event_and_reset_event(input, 'change', (is_reset) => {
++		var value = is_reset ? input.defaultChecked : input.checked;
+ 		set(value);
+ 	});
+ 
+-	if (get() == undefined) {
+-		set(false);
++	if (
++		// If we are hydrating and the value has since changed,
++		// then use the update value from the input instead.
++		(hydrating && input.defaultChecked !== input.checked) ||
++		// If defaultChecked is set, then checked == defaultChecked
++		untrack(get) == null
++	) {
++		set(input.checked);
+ 	}
+ 
+ 	render_effect(() => {
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/select.js b/packages/svelte/src/internal/client/dom/elements/bindings/select.js
+index 4d3dbff81249..32cd160de21e 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/select.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/select.js
+@@ -80,15 +80,19 @@ export function init_select(select, get_value) {
+ export function bind_select_value(select, get, set = get) {
+ 	var mounting = true;
+ 
+-	listen_to_event_and_reset_event(select, 'change', () => {
++	listen_to_event_and_reset_event(select, 'change', (is_reset) => {
++		var query = is_reset ? '[selected]' : ':checked';
+ 		/** @type {unknown} */
+ 		var value;
+ 
+ 		if (select.multiple) {
+-			value = [].map.call(select.querySelectorAll(':checked'), get_option_value);
++			value = [].map.call(select.querySelectorAll(query), get_option_value);
+ 		} else {
+ 			/** @type {HTMLOptionElement | null} */
+-			var selected_option = select.querySelector(':checked');
++			var selected_option =
++				select.querySelector(query) ??
++				// will fall back to first non-disabled option if no option is selected
++				select.querySelector('option:not([disabled])');
+ 			value = selected_option && get_option_value(selected_option);
+ 		}
+ 
+diff --git a/packages/svelte/src/internal/client/dom/elements/bindings/shared.js b/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
+index 832b7f45e5d2..aa083776a5bc 100644
+--- a/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
++++ b/packages/svelte/src/internal/client/dom/elements/bindings/shared.js
+@@ -53,8 +53,8 @@ export function without_reactive_context(fn) {
+  * to notify all bindings when the form is reset
+  * @param {HTMLElement} element
+  * @param {string} event
+- * @param {() => void} handler
+- * @param {() => void} [on_reset]
++ * @param {(is_reset?: true) => void} handler
++ * @param {(is_reset?: true) => void} [on_reset]
+  */
+ export function listen_to_event_and_reset_event(element, event, handler, on_reset = handler) {
+ 	element.addEventListener(event, () => without_reactive_context(handler));
+@@ -65,11 +65,11 @@ export function listen_to_event_and_reset_event(element, event, handler, on_rese
+ 		// @ts-expect-error
+ 		element.__on_r = () => {
+ 			prev();
+-			on_reset();
++			on_reset(true);
+ 		};
+ 	} else {
+ 		// @ts-expect-error
+-		element.__on_r = on_reset;
++		element.__on_r = () => on_reset(true);
+ 	}
+ 
+ 	add_form_reset_listener();
+diff --git a/packages/svelte/src/internal/client/index.js b/packages/svelte/src/internal/client/index.js
+index e8cbefb090c0..411f32c0604d 100644
+--- a/packages/svelte/src/internal/client/index.js
++++ b/packages/svelte/src/internal/client/index.js
+@@ -33,7 +33,8 @@ export {
+ 	set_xlink_attribute,
+ 	handle_lazy_img,
+ 	set_value,
+-	set_checked
++	set_checked,
++	set_selected
+ } from './dom/elements/attributes.js';
+ export { set_class, set_svg_class, set_mathml_class, toggle_class } from './dom/elements/class.js';
+ export { apply, event, delegate, replay_events } from './dom/elements/events.js';
+diff --git a/packages/svelte/src/utils.js b/packages/svelte/src/utils.js
+index 919660fd6a0a..75171c17865a 100644
+--- a/packages/svelte/src/utils.js
++++ b/packages/svelte/src/utils.js
+@@ -193,6 +193,8 @@ const ATTRIBUTE_ALIASES = {
+ 	nomodule: 'noModule',
+ 	playsinline: 'playsInline',
+ 	readonly: 'readOnly',
++	defaultvalue: 'defaultValue',
++	defaultchecked: 'defaultChecked',
+ 	srcobject: 'srcObject'
+ };
+ 
+@@ -214,6 +216,8 @@ const DOM_PROPERTIES = [
+ 	'value',
+ 	'inert',
+ 	'volume',
++	'defaultValue',
++	'defaultChecked',
+ 	'srcObject'
+ ];
+ 
+@@ -224,7 +228,7 @@ export function is_dom_property(name) {
+ 	return DOM_PROPERTIES.includes(name);
+ }
+ 
+-const NON_STATIC_PROPERTIES = ['autofocus', 'muted'];
++const NON_STATIC_PROPERTIES = ['autofocus', 'muted', 'defaultValue', 'defaultChecked'];
+ 
+ /**
+  * Returns `true` if the given attribute cannot be set through the template

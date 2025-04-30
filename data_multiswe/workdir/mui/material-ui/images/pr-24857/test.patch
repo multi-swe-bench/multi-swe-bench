@@ -1,0 +1,149 @@
+diff --git a/packages/material-ui/src/Modal/ModalManager.test.js b/packages/material-ui-unstyled/src/ModalUnstyled/ModalManager.test.js
+similarity index 99%
+rename from packages/material-ui/src/Modal/ModalManager.test.js
+rename to packages/material-ui-unstyled/src/ModalUnstyled/ModalManager.test.js
+index 3d523cad4a13e0..8591bea78170db 100644
+--- a/packages/material-ui/src/Modal/ModalManager.test.js
++++ b/packages/material-ui-unstyled/src/ModalUnstyled/ModalManager.test.js
+@@ -1,5 +1,5 @@
+ import { expect } from 'chai';
+-import getScrollbarSize from '../utils/getScrollbarSize';
++import { unstable_getScrollbarSize as getScrollbarSize } from '@material-ui/utils';
+ import ModalManager from './ModalManager';
+ 
+ describe('ModalManager', () => {
+diff --git a/packages/material-ui-unstyled/src/ModalUnstyled/ModalUnstyled.test.js b/packages/material-ui-unstyled/src/ModalUnstyled/ModalUnstyled.test.js
+new file mode 100644
+index 00000000000000..071cb48b22428f
+--- /dev/null
++++ b/packages/material-ui-unstyled/src/ModalUnstyled/ModalUnstyled.test.js
+@@ -0,0 +1,75 @@
++import * as React from 'react';
++import { expect } from 'chai';
++import { createMount, createClientRender, describeConformance } from 'test/utils';
++import ModalUnstyled, {
++  modalUnstyledClasses as classes,
++} from '@material-ui/unstyled/ModalUnstyled';
++
++describe('<ModalUnstyled />', () => {
++  const mount = createMount();
++  const render = createClientRender();
++  let savedBodyStyle;
++
++  before(() => {
++    savedBodyStyle = document.body.style;
++  });
++
++  beforeEach(() => {
++    document.body.setAttribute('style', savedBodyStyle);
++  });
++
++  describeConformance(
++    <ModalUnstyled open>
++      <div />
++    </ModalUnstyled>,
++    () => ({
++      classes,
++      inheritComponent: 'div',
++      mount,
++      refInstanceof: window.HTMLDivElement,
++      testComponentPropWith: 'div',
++      skip: ['reactTestRenderer'],
++    }),
++  );
++
++  it('forwards style props on the Root component', () => {
++    let styleProps = null;
++    let theme = null;
++
++    const Root = React.forwardRef(
++      ({ styleProps: stylePropsProp, theme: themeProp, ...rest }, ref) => {
++        styleProps = stylePropsProp;
++        theme = themeProp;
++        return <span ref={ref} {...rest} />;
++      },
++    );
++
++    render(
++      <ModalUnstyled open components={{ Root }}>
++        <div />
++      </ModalUnstyled>,
++    );
++
++    expect(styleProps).not.to.equal(null);
++    expect(theme).not.to.equal(null);
++  });
++
++  it('does not forward style props as DOM attributes if component slot is primitive', () => {
++    const elementRef = React.createRef();
++    render(
++      <ModalUnstyled
++        open
++        components={{
++          Root: 'span',
++        }}
++        ref={elementRef}
++      >
++        <div />
++      </ModalUnstyled>,
++    );
++
++    const { current: element } = elementRef;
++    expect(element.getAttribute('styleProps')).to.equal(null);
++    expect(element.getAttribute('theme')).to.equal(null);
++  });
++});
+diff --git a/packages/material-ui/src/Modal/Modal.test.js b/packages/material-ui/src/Modal/Modal.test.js
+index 0cd3d1b50dcfbd..643560aa239f69 100644
+--- a/packages/material-ui/src/Modal/Modal.test.js
++++ b/packages/material-ui/src/Modal/Modal.test.js
+@@ -9,17 +9,17 @@ import {
+   fireEvent,
+   within,
+   createMount,
+-  describeConformance,
++  describeConformanceV5,
+ } from 'test/utils';
+ import { createMuiTheme } from '@material-ui/core/styles';
+ import { ThemeProvider } from '@material-ui/styles';
+-import Fade from '../Fade';
+-import Backdrop from '../Backdrop';
+-import Modal from './Modal';
++import Fade from '@material-ui/core/Fade';
++import Backdrop from '@material-ui/core/Backdrop';
++import Modal, { modalClasses as classes } from '@material-ui/core/Modal';
+ 
+ describe('<Modal />', () => {
+-  const mount = createMount({ strict: true });
+   const render = createClientRender();
++  const mount = createMount({ strict: true });
+   let savedBodyStyle;
+ 
+   before(() => {
+@@ -30,17 +30,25 @@ describe('<Modal />', () => {
+     document.body.setAttribute('style', savedBodyStyle);
+   });
+ 
+-  describeConformance(
++  describeConformanceV5(
+     <Modal open>
+       <div />
+     </Modal>,
+     () => ({
++      classes,
+       inheritComponent: 'div',
++      render,
+       mount,
++      muiName: 'MuiModal',
+       refInstanceof: window.HTMLDivElement,
++      testVariantProps: { hideBackdrop: true },
+       skip: [
+         'rootClass',
+         'componentProp',
++        'componentsProp',
++        // Can not test this because everything is applied to second element
++        'themeDefaultProps',
++        'themeStyleOverrides',
+         // https://github.com/facebook/react/issues/11565
+         'reactTestRenderer',
+       ],

@@ -1,0 +1,52 @@
+diff --git a/packages/compiler-sfc/src/script/defineEmits.ts b/packages/compiler-sfc/src/script/defineEmits.ts
+index 8bd4cdfe543..44a3f2c8df3 100644
+--- a/packages/compiler-sfc/src/script/defineEmits.ts
++++ b/packages/compiler-sfc/src/script/defineEmits.ts
+@@ -58,7 +58,9 @@ export function genRuntimeEmits(ctx: ScriptCompileContext): string | undefined {
+       .map(n => JSON.stringify(`update:${n}`))
+       .join(', ')}]`
+     emitsDecl = emitsDecl
+-      ? `${ctx.helper('mergeModels')}(${emitsDecl}, ${modelEmitsDecl})`
++      ? `/*#__PURE__*/${ctx.helper(
++          'mergeModels'
++        )}(${emitsDecl}, ${modelEmitsDecl})`
+       : modelEmitsDecl
+   }
+   return emitsDecl
+diff --git a/packages/compiler-sfc/src/script/defineProps.ts b/packages/compiler-sfc/src/script/defineProps.ts
+index 5004e314da1..18cc490b287 100644
+--- a/packages/compiler-sfc/src/script/defineProps.ts
++++ b/packages/compiler-sfc/src/script/defineProps.ts
+@@ -144,7 +144,7 @@ export function genRuntimeProps(ctx: ScriptCompileContext): string | undefined {
+           )
+       }
+       if (defaults.length) {
+-        propsDecls = `${ctx.helper(
++        propsDecls = `/*#__PURE__*/${ctx.helper(
+           `mergeDefaults`
+         )}(${propsDecls}, {\n  ${defaults.join(',\n  ')}\n})`
+       }
+@@ -156,7 +156,9 @@ export function genRuntimeProps(ctx: ScriptCompileContext): string | undefined {
+   const modelsDecls = genModelProps(ctx)
+ 
+   if (propsDecls && modelsDecls) {
+-    return `${ctx.helper('mergeModels')}(${propsDecls}, ${modelsDecls})`
++    return `/*#__PURE__*/${ctx.helper(
++      'mergeModels'
++    )}(${propsDecls}, ${modelsDecls})`
+   } else {
+     return modelsDecls || propsDecls
+   }
+@@ -184,9 +186,9 @@ function genRuntimePropsFromTypes(ctx: ScriptCompileContext) {
+     ${propStrings.join(',\n    ')}\n  }`
+ 
+   if (ctx.propsRuntimeDefaults && !hasStaticDefaults) {
+-    propsDecls = `${ctx.helper('mergeDefaults')}(${propsDecls}, ${ctx.getString(
+-      ctx.propsRuntimeDefaults
+-    )})`
++    propsDecls = `/*#__PURE__*/${ctx.helper(
++      'mergeDefaults'
++    )}(${propsDecls}, ${ctx.getString(ctx.propsRuntimeDefaults)})`
+   }
+ 
+   return propsDecls

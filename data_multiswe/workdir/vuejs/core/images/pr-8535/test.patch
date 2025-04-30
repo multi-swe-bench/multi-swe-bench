@@ -1,0 +1,712 @@
+diff --git a/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap b/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
+index 18b5d90eaf6..9c9b6baa5e1 100644
+--- a/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
++++ b/packages/compiler-sfc/__tests__/__snapshots__/compileScript.spec.ts.snap
+@@ -62,6 +62,24 @@ return { fn }
+ })"
+ `;
+ 
++exports[`SFC compile <script setup> > <script> and <script setup> co-usage > keep original semi style 1`] = `
++"export default {
++  props: ['item'],
++  emits: ['change'],
++  setup(__props, { expose: __expose, emit: __emit }) {
++  __expose();
++
++        console.log('test')
++        const props = __props;
++        const emit = __emit;
++        (function () {})()
++        
++return { props, emit }
++}
++
++}"
++`;
++
+ exports[`SFC compile <script setup> > <script> and <script setup> co-usage > script first 1`] = `
+ "import { x } from './x'
+       
+@@ -612,75 +630,6 @@ return { foo, bar, baz, y, z }
+ }"
+ `;
+ 
+-exports[`SFC compile <script setup> > defineProps/defineEmits in multi-variable declaration (full removal) 1`] = `
+-"export default {
+-  props: ['item'],
+-  emits: ['a'],
+-  setup(__props, { expose: __expose, emit }) {
+-  __expose();
+-
+-const props = __props;
+-
+-    
+-    
+-return { props, emit }
+-}
+-
+-}"
+-`;
+-
+-exports[`SFC compile <script setup> > defineProps/defineEmits in multi-variable declaration 1`] = `
+-"export default {
+-  props: ['item'],
+-  emits: ['a'],
+-  setup(__props, { expose: __expose, emit }) {
+-  __expose();
+-
+-const props = __props;
+-
+-    const a = 1;
+-    
+-return { props, a, emit }
+-}
+-
+-}"
+-`;
+-
+-exports[`SFC compile <script setup> > defineProps/defineEmits in multi-variable declaration fix #6757  1`] = `
+-"export default {
+-  props: ['item'],
+-  emits: ['a'],
+-  setup(__props, { expose: __expose, emit }) {
+-  __expose();
+-
+-const props = __props;
+-
+-    const a = 1;
+-    
+-return { a, props, emit }
+-}
+-
+-}"
+-`;
+-
+-exports[`SFC compile <script setup> > defineProps/defineEmits in multi-variable declaration fix #7422 1`] = `
+-"export default {
+-  props: ['item'],
+-  emits: ['foo'],
+-  setup(__props, { expose: __expose, emit: emits }) {
+-  __expose();
+-
+-const props = __props;
+-
+-    const a = 0,
+-          b = 0;
+-    
+-return { props, emits, a, b }
+-}
+-
+-}"
+-`;
+-
+ exports[`SFC compile <script setup> > dev mode import usage check > TS annotations 1`] = `
+ "import { defineComponent as _defineComponent } from 'vue'
+ import { Foo, Bar, Baz, Qux, Fred } from './x'
+diff --git a/packages/compiler-sfc/__tests__/compileScript.spec.ts b/packages/compiler-sfc/__tests__/compileScript.spec.ts
+index 6da274dd8a5..290e4df9f5d 100644
+--- a/packages/compiler-sfc/__tests__/compileScript.spec.ts
++++ b/packages/compiler-sfc/__tests__/compileScript.spec.ts
+@@ -68,64 +68,6 @@ describe('SFC compile <script setup>', () => {
+     assertCode(content)
+   })
+ 
+-  test('defineProps/defineEmits in multi-variable declaration', () => {
+-    const { content } = compile(`
+-    <script setup>
+-    const props = defineProps(['item']),
+-      a = 1,
+-      emit = defineEmits(['a']);
+-    </script>
+-  `)
+-    assertCode(content)
+-    expect(content).toMatch(`const a = 1;`) // test correct removal
+-    expect(content).toMatch(`props: ['item'],`)
+-    expect(content).toMatch(`emits: ['a'],`)
+-  })
+-
+-  // #6757
+-  test('defineProps/defineEmits in multi-variable declaration fix #6757 ', () => {
+-    const { content } = compile(`
+-    <script setup>
+-    const a = 1,
+-          props = defineProps(['item']),
+-          emit = defineEmits(['a']);
+-    </script>
+-  `)
+-    assertCode(content)
+-    expect(content).toMatch(`const a = 1;`) // test correct removal
+-    expect(content).toMatch(`props: ['item'],`)
+-    expect(content).toMatch(`emits: ['a'],`)
+-  })
+-
+-  // #7422
+-  test('defineProps/defineEmits in multi-variable declaration fix #7422', () => {
+-    const { content } = compile(`
+-    <script setup>
+-    const props = defineProps(['item']),
+-          emits = defineEmits(['foo']),
+-          a = 0,
+-          b = 0;
+-    </script>
+-  `)
+-    assertCode(content)
+-    expect(content).toMatch(`props: ['item'],`)
+-    expect(content).toMatch(`emits: ['foo'],`)
+-    expect(content).toMatch(`const a = 0,`)
+-    expect(content).toMatch(`b = 0;`)
+-  })
+-
+-  test('defineProps/defineEmits in multi-variable declaration (full removal)', () => {
+-    const { content } = compile(`
+-    <script setup>
+-    const props = defineProps(['item']),
+-          emit = defineEmits(['a']);
+-    </script>
+-  `)
+-    assertCode(content)
+-    expect(content).toMatch(`props: ['item'],`)
+-    expect(content).toMatch(`emits: ['a'],`)
+-  })
+-
+   describe('<script> and <script setup> co-usage', () => {
+     test('script first', () => {
+       const { content } = compile(`
+@@ -156,6 +98,24 @@ describe('SFC compile <script setup>', () => {
+       assertCode(content)
+     })
+ 
++    // #7805
++    test('keep original semi style', () => {
++      const { content } = compile(`
++        <script setup>
++        console.log('test')
++        const props = defineProps(['item']);
++        const emit = defineEmits(['change']);
++        (function () {})()
++        </script>
++      `)
++      assertCode(content)
++
++      expect(content).toMatch(`console.log('test')`)
++      expect(content).toMatch(`const props = __props;`)
++      expect(content).toMatch(`const emit = __emit;`)
++      expect(content).toMatch(`(function () {})()`)
++    })
++
+     test('script setup first, named default export', () => {
+       const { content } = compile(`
+       <script setup>
+diff --git a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineEmits.spec.ts.snap b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineEmits.spec.ts.snap
+index a8bd930fbbc..1e851cbf4df 100644
+--- a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineEmits.spec.ts.snap
++++ b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineEmits.spec.ts.snap
+@@ -3,10 +3,10 @@
+ exports[`defineEmits > basic usage 1`] = `
+ "export default {
+   emits: ['foo', 'bar'],
+-  setup(__props, { expose: __expose, emit: myEmit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-
++const myEmit = __emit
+ 
+ return { myEmit }
+ }
+@@ -19,10 +19,10 @@ exports[`defineEmits > w/ runtime options 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: ['a', 'b'],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-
++const emit = __emit
+ 
+ return { emit }
+ }
+@@ -36,10 +36,10 @@ export interface Emits { (e: 'foo' | 'bar'): void }
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -53,10 +53,10 @@ export type Emits = { (e: 'foo' | 'bar'): void }
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -70,10 +70,10 @@ interface Emits { (e: 'foo'): void }
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: ['foo'],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit: Emits = __emit
+     
+ return { emit }
+ }
+@@ -87,10 +87,10 @@ interface Emits { (e: 'foo' | 'bar'): void }
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -103,10 +103,10 @@ exports[`defineEmits > w/ type (property syntax string literal) 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo:bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -119,10 +119,10 @@ exports[`defineEmits > w/ type (property syntax) 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -136,10 +136,10 @@ export type Emits = (e: 'foo' | 'bar') => void
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -153,10 +153,10 @@ type Emits = (e: 'foo' | 'bar') => void
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -170,10 +170,10 @@ type Emits = { (e: 'foo' | 'bar'): void }
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -186,10 +186,10 @@ exports[`defineEmits > w/ type (type literal w/ call signatures) 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\", \\"baz\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -204,10 +204,10 @@ type BaseEmit = \\"change\\"
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"some\\", \\"emit\\", \\"change\\", \\"another\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit;
+     
+ return { emit }
+ }
+@@ -220,10 +220,10 @@ exports[`defineEmits > w/ type (union) 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\", \\"baz\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -236,10 +236,10 @@ exports[`defineEmits > w/ type 1`] = `
+ 
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+@@ -254,10 +254,10 @@ exports[`defineEmits > w/ type from normal script 1`] = `
+     
+ export default /*#__PURE__*/_defineComponent({
+   emits: [\\"foo\\", \\"bar\\"],
+-  setup(__props, { expose: __expose, emit }) {
++  setup(__props, { expose: __expose, emit: __emit }) {
+   __expose();
+ 
+-    
++    const emit = __emit
+     
+ return { emit }
+ }
+diff --git a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineProps.spec.ts.snap b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineProps.spec.ts.snap
+index 62d9bef5d27..30e00e518b2 100644
+--- a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineProps.spec.ts.snap
++++ b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/defineProps.spec.ts.snap
+@@ -10,9 +10,7 @@ export default {
+   setup(__props, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-
++const props = __props
+ 
+ return { props, bar }
+ }
+@@ -28,9 +26,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-
++const props = __props
+ 
+ return { props }
+ }
+@@ -48,9 +44,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const { foo } = __props;
+-
+-      
++      const { foo } = __props
+       
+ return {  }
+ }
+@@ -167,9 +161,7 @@ export default {
+   setup(__props, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props, get propsModel() { return propsModel } }
+ }
+@@ -203,9 +195,7 @@ export default {
+   props: {},
+   setup(__props, { expose: __expose }) {
+   __expose();
+-
+-const props = __props;
+-
++const props = __props
+     
+ return { props, get x() { return x } }
+ }
+@@ -304,9 +294,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props, get defaults() { return defaults } }
+ }
+@@ -328,9 +316,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props, get defaults() { return defaults } }
+ }
+@@ -351,9 +337,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props, get defaults() { return defaults } }
+ }
+@@ -375,9 +359,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-      
++      const props = __props;
+     
+ return { props }
+ }
+@@ -401,9 +383,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props }
+ }
+@@ -424,9 +404,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props }
+ }
+@@ -446,9 +424,7 @@ export default /*#__PURE__*/_defineComponent({
+   setup(__props: any, { expose: __expose }) {
+   __expose();
+ 
+-const props = __props;
+-
+-    
++    const props = __props
+     
+ return { props }
+ }
+diff --git a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/definePropsDestructure.spec.ts.snap b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/definePropsDestructure.spec.ts.snap
+index 721ef7eaa54..c31005c40c0 100644
+--- a/packages/compiler-sfc/__tests__/compileScript/__snapshots__/definePropsDestructure.spec.ts.snap
++++ b/packages/compiler-sfc/__tests__/compileScript/__snapshots__/definePropsDestructure.spec.ts.snap
+@@ -176,6 +176,61 @@ return () => {}
+ })"
+ `;
+ 
++exports[`sfc reactive props destructure > defineProps/defineEmits in multi-variable declaration (full removal) 1`] = `
++"export default {
++  props: ['item'],
++  emits: ['a'],
++  setup(__props, { emit: __emit }) {
++
++    const props = __props,
++          emit = __emit;
++    
++return () => {}
++}
++
++}"
++`;
++
++exports[`sfc reactive props destructure > multi-variable declaration 1`] = `
++"export default {
++  props: ['item'],
++  setup(__props) {
++
++    const a = 1;
++    
++return () => {}
++}
++
++}"
++`;
++
++exports[`sfc reactive props destructure > multi-variable declaration fix #6757  1`] = `
++"export default {
++  props: ['item'],
++  setup(__props) {
++
++    const a = 1;
++    
++return () => {}
++}
++
++}"
++`;
++
++exports[`sfc reactive props destructure > multi-variable declaration fix #7422 1`] = `
++"export default {
++  props: ['item'],
++  setup(__props) {
++
++    const a = 0,
++          b = 0;
++    
++return () => {}
++}
++
++}"
++`;
++
+ exports[`sfc reactive props destructure > multiple variable declarations 1`] = `
+ "import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from \\"vue\\"
+ 
+@@ -237,9 +292,7 @@ export default {
+   props: ['foo', 'bar', 'baz'],
+   setup(__props) {
+ 
+-const rest = _createPropsRestProxy(__props, [\\"foo\\",\\"bar\\"]);
+-
+-      
++      const rest = _createPropsRestProxy(__props, [\\"foo\\",\\"bar\\"])
+       
+ return () => {}
+ }
+diff --git a/packages/compiler-sfc/__tests__/compileScript/defineEmits.spec.ts b/packages/compiler-sfc/__tests__/compileScript/defineEmits.spec.ts
+index c5d2900a4e7..13b981db3d7 100644
+--- a/packages/compiler-sfc/__tests__/compileScript/defineEmits.spec.ts
++++ b/packages/compiler-sfc/__tests__/compileScript/defineEmits.spec.ts
+@@ -16,8 +16,9 @@ const myEmit = defineEmits(['foo', 'bar'])
+     expect(content).not.toMatch('defineEmits')
+     // should generate correct setup signature
+     expect(content).toMatch(
+-      `setup(__props, { expose: __expose, emit: myEmit }) {`
++      `setup(__props, { expose: __expose, emit: __emit }) {`
+     )
++    expect(content).toMatch('const myEmit = __emit')
+     // should include context options in default export
+     expect(content).toMatch(`export default {
+   emits: ['foo', 'bar'],`)
+@@ -32,7 +33,8 @@ const emit = defineEmits(['a', 'b'])
+     assertCode(content)
+     expect(content).toMatch(`export default /*#__PURE__*/_defineComponent({
+   emits: ['a', 'b'],
+-  setup(__props, { expose: __expose, emit }) {`)
++  setup(__props, { expose: __expose, emit: __emit }) {`)
++    expect(content).toMatch('const emit = __emit')
+   })
+ 
+   test('w/ type', () => {
+diff --git a/packages/compiler-sfc/__tests__/compileScript/definePropsDestructure.spec.ts b/packages/compiler-sfc/__tests__/compileScript/definePropsDestructure.spec.ts
+index a2941872fd2..a41f3131bef 100644
+--- a/packages/compiler-sfc/__tests__/compileScript/definePropsDestructure.spec.ts
++++ b/packages/compiler-sfc/__tests__/compileScript/definePropsDestructure.spec.ts
+@@ -282,6 +282,58 @@ describe('sfc reactive props destructure', () => {
+     })
+   })
+ 
++  test('multi-variable declaration', () => {
++    const { content } = compile(`
++    <script setup>
++    const { item } = defineProps(['item']),
++      a = 1;
++    </script>
++  `)
++    assertCode(content)
++    expect(content).toMatch(`const a = 1;`)
++    expect(content).toMatch(`props: ['item'],`)
++  })
++
++  // #6757
++  test('multi-variable declaration fix #6757 ', () => {
++    const { content } = compile(`
++    <script setup>
++    const a = 1,
++      { item } = defineProps(['item']);
++    </script>
++  `)
++    assertCode(content)
++    expect(content).toMatch(`const a = 1;`)
++    expect(content).toMatch(`props: ['item'],`)
++  })
++
++  // #7422
++  test('multi-variable declaration fix #7422', () => {
++    const { content } = compile(`
++    <script setup>
++    const { item } = defineProps(['item']),
++          a = 0,
++          b = 0;
++    </script>
++  `)
++    assertCode(content)
++    expect(content).toMatch(`const a = 0,`)
++    expect(content).toMatch(`b = 0;`)
++    expect(content).toMatch(`props: ['item'],`)
++  })
++
++  test('defineProps/defineEmits in multi-variable declaration (full removal)', () => {
++    const { content } = compile(`
++    <script setup>
++    const props = defineProps(['item']),
++          emit = defineEmits(['a']);
++    </script>
++  `)
++    assertCode(content)
++    expect(content).toMatch(`props: ['item'],`)
++    expect(content).toMatch(`emits: ['a'],`)
++  })
++
+   describe('errors', () => {
+     test('should error on deep destructure', () => {
+       expect(() =>

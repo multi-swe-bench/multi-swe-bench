@@ -1,0 +1,56 @@
+diff --git a/packages/svelte/tests/runtime-browser/test-ssr.ts b/packages/svelte/tests/runtime-browser/test-ssr.ts
+index 698ae382abe0..6a92373c936a 100644
+--- a/packages/svelte/tests/runtime-browser/test-ssr.ts
++++ b/packages/svelte/tests/runtime-browser/test-ssr.ts
+@@ -17,10 +17,7 @@ export async function run_ssr_test(
+ 	test_dir: string
+ ) {
+ 	try {
+-		await compile_directory(test_dir, 'server', {
+-			...config.compileOptions,
+-			runes: test_dir.includes('runtime-runes')
+-		});
++		await compile_directory(test_dir, 'server', config.compileOptions);
+ 
+ 		const Component = (await import(`${test_dir}/_output/server/main.svelte.js`)).default;
+ 		const { html } = render(Component, { props: config.props || {} });
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/_config.js b/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/_config.js
+new file mode 100644
+index 000000000000..c3ed351465bb
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/_config.js
+@@ -0,0 +1,13 @@
++import { test } from '../../test';
++
++export default test({
++	async test({ target, assert }) {
++		const div = target.querySelector('div');
++		const btn = target.querySelector('button');
++
++		assert.equal(div?.hidden, true);
++
++		await btn?.click();
++		assert.equal(div?.hidden, false);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/main.svelte b/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/main.svelte
+new file mode 100644
+index 000000000000..10bec8b6f5a7
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-hidden/main.svelte
+@@ -0,0 +1,15 @@
++<script>
++	let hidden = $state(true);
++
++	const restProps = {
++		id: '123'
++	}
++</script>
++
++<button onclick={() => hidden = !hidden}>
++	toggle hidden
++</button>
++
++<div {...restProps} hidden={hidden}>
++	hello world (with spread attrs)
++</div>

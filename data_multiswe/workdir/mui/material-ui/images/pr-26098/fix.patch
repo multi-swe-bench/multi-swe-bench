@@ -1,0 +1,119 @@
+diff --git a/packages/material-ui-styled-engine-sc/package.json b/packages/material-ui-styled-engine-sc/package.json
+index 191f7a4ccdb605..4f3dda28942f2d 100644
+--- a/packages/material-ui-styled-engine-sc/package.json
++++ b/packages/material-ui-styled-engine-sc/package.json
+@@ -34,7 +34,7 @@
+     "build:copy-files": "node ../../scripts/copy-files.js",
+     "prebuild": "rimraf build",
+     "release": "yarn build && npm publish build --tag next",
+-    "test": "cd ../../ && cross-env NODE_ENV=test mocha 'packages/material-ui-styles/**/*.test.{js,ts,tsx}'",
++    "test": "cd ../../ && cross-env NODE_ENV=test mocha 'packages/material-ui-styled-engine-sc/**/*.test.{js,ts,tsx}'",
+     "typescript": "tslint -p tsconfig.json \"{src,test}/**/*.{spec,d}.{ts,tsx}\" && tsc -p tsconfig.json"
+   },
+   "dependencies": {
+diff --git a/packages/material-ui-styled-engine-sc/src/index.js b/packages/material-ui-styled-engine-sc/src/index.js
+index 1be660b2a0ca08..871b5318d652c0 100644
+--- a/packages/material-ui-styled-engine-sc/src/index.js
++++ b/packages/material-ui-styled-engine-sc/src/index.js
+@@ -1,14 +1,37 @@
+ import scStyled from 'styled-components';
+ 
+ export default function styled(tag, options) {
++  let stylesFactory;
++
+   if (options) {
+-    return scStyled(tag).withConfig({
++    stylesFactory = scStyled(tag).withConfig({
+       displayName: options.label,
+       shouldForwardProp: options.shouldForwardProp,
+     });
+   }
+ 
+-  return scStyled(tag);
++  stylesFactory = scStyled(tag);
++
++  if (process.env.NODE_ENV !== 'production') {
++    return (...styles) => {
++      const component = typeof tag === 'string' ? `"${tag}"` : 'component';
++      if (styles.length === 0) {
++        console.error(
++          [
++            `Material-UI: Seems like you called \`styled(${component})()\` without a \`style\` argument.`,
++            'You must provide a `styles` argument: `styled("div")(styleYouForgotToPass)`.',
++          ].join('\n'),
++        );
++      } else if (styles.some((style) => style === undefined)) {
++        console.error(
++          `Material-UI: the styled(${component})(...args) API requires all its args to be defined.`,
++        );
++      }
++      return stylesFactory(...styles);
++    };
++  }
++
++  return stylesFactory;
+ }
+ 
+ export { ThemeContext, keyframes, css } from 'styled-components';
+diff --git a/packages/material-ui-styled-engine/src/index.js b/packages/material-ui-styled-engine/src/index.js
+index b139672254d403..70db88460e6780 100644
+--- a/packages/material-ui-styled-engine/src/index.js
++++ b/packages/material-ui-styled-engine/src/index.js
+@@ -1,4 +1,30 @@
+-export { default } from '@emotion/styled';
++import emStyled from '@emotion/styled';
++
++export default function styled(tag, options) {
++  const stylesFactory = emStyled(tag, options);
++
++  if (process.env.NODE_ENV !== 'production') {
++    return (...styles) => {
++      const component = typeof tag === 'string' ? `"${tag}"` : 'component';
++      if (styles.length === 0) {
++        console.error(
++          [
++            `Material-UI: Seems like you called \`styled(${component})()\` without a \`style\` argument.`,
++            'You must provide a `styles` argument: `styled("div")(styleYouForgotToPass)`.',
++          ].join('\n'),
++        );
++      } else if (styles.some((style) => style === undefined)) {
++        console.error(
++          `Material-UI: the styled(${component})(...args) API requires all its args to be defined.`,
++        );
++      }
++      return stylesFactory(...styles);
++    };
++  }
++
++  return stylesFactory;
++}
++
+ export { ThemeContext, keyframes, css } from '@emotion/react';
+ export { default as StyledEngineProvider } from './StyledEngineProvider';
+ export { default as GlobalStyles } from './GlobalStyles';
+diff --git a/packages/material-ui/src/StepContent/StepContent.js b/packages/material-ui/src/StepContent/StepContent.js
+index 1d6aabb9ccbd43..48eaa60ab796da 100644
+--- a/packages/material-ui/src/StepContent/StepContent.js
++++ b/packages/material-ui/src/StepContent/StepContent.js
+@@ -55,7 +55,7 @@ const StepContentTransition = experimentalStyled(
+     slot: 'Transition',
+     overridesResolver: (props, styles) => styles.transition,
+   },
+-)();
++)({});
+ 
+ const StepContent = React.forwardRef(function StepContent(inProps, ref) {
+   const props = useThemeProps({ props: inProps, name: 'MuiStepContent' });
+diff --git a/packages/material-ui/src/TablePagination/TablePagination.js b/packages/material-ui/src/TablePagination/TablePagination.js
+index 92e6f047a11904..83c7f582876936 100644
+--- a/packages/material-ui/src/TablePagination/TablePagination.js
++++ b/packages/material-ui/src/TablePagination/TablePagination.js
+@@ -119,7 +119,7 @@ const TablePaginationMenuItem = experimentalStyled(
+     slot: 'MenuItem',
+     overridesResolver: (props, styles) => styles.menuItem,
+   },
+-)();
++)({});
+ 
+ const TablePaginationDisplayedRows = experimentalStyled(
+   'p',

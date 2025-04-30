@@ -1,0 +1,98 @@
+diff --git a/pkg/cmd/issue/view/fixtures/issueView_previewWithMetadata.json b/pkg/cmd/issue/view/fixtures/issueView_previewWithMetadata.json
+index 9bce5f7454a..186fa1bab93 100644
+--- a/pkg/cmd/issue/view/fixtures/issueView_previewWithMetadata.json
++++ b/pkg/cmd/issue/view/fixtures/issueView_previewWithMetadata.json
+@@ -25,19 +25,19 @@
+         "labels": {
+           "nodes": [
+             {
+-              "name": "one"
++              "name": "Closed: Won't Fix"
+             },
+             {
+-              "name": "two"
++              "name": "Status: In Progress"
+             },
+             {
+-              "name": "three"
++              "name": "Type: Bug"
+             },
+             {
+-              "name": "four"
++              "name": "help wanted"
+             },
+             {
+-              "name": "five"
++              "name": "Closed: Duplicate"
+             }
+           ],
+           "totalCount": 5
+diff --git a/pkg/cmd/issue/view/view.go b/pkg/cmd/issue/view/view.go
+index b721451fae6..83132291f33 100644
+--- a/pkg/cmd/issue/view/view.go
++++ b/pkg/cmd/issue/view/view.go
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"net/http"
++	"sort"
+ 	"strings"
+ 	"time"
+ 
+@@ -306,6 +307,11 @@ func issueLabelList(issue *api.Issue, cs *iostreams.ColorScheme) string {
+ 		return ""
+ 	}
+ 
++	// ignore case sort
++	sort.SliceStable(issue.Labels.Nodes, func(i, j int) bool {
++		return strings.ToLower(issue.Labels.Nodes[i].Name) < strings.ToLower(issue.Labels.Nodes[j].Name)
++	})
++
+ 	labelNames := make([]string, len(issue.Labels.Nodes))
+ 	for i, label := range issue.Labels.Nodes {
+ 		if cs == nil {
+diff --git a/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByNumber.json b/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByNumber.json
+index 00f768f1734..be4a7713dbb 100644
+--- a/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByNumber.json
++++ b/pkg/cmd/pr/view/fixtures/prViewPreviewWithMetadataByNumber.json
+@@ -37,19 +37,19 @@
+         "labels": {
+           "nodes": [
+             {
+-              "name": "one"
++              "name": "Closed: Won't Fix"
+             },
+             {
+-              "name": "two"
++              "name": "Status: In Progress"
+             },
+             {
+-              "name": "three"
++              "name": "Type: Bug"
+             },
+             {
+-              "name": "four"
++              "name": "help wanted"
+             },
+             {
+-              "name": "five"
++              "name": "Closed: Duplicate"
+             }
+           ],
+           "totalcount": 5
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index 71bda064941..4a69de2f4bd 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -415,6 +415,11 @@ func prLabelList(pr api.PullRequest, cs *iostreams.ColorScheme) string {
+ 		return ""
+ 	}
+ 
++	// ignore case sort
++	sort.SliceStable(pr.Labels.Nodes, func(i, j int) bool {
++		return strings.ToLower(pr.Labels.Nodes[i].Name) < strings.ToLower(pr.Labels.Nodes[j].Name)
++	})
++
+ 	labelNames := make([]string, 0, len(pr.Labels.Nodes))
+ 	for _, label := range pr.Labels.Nodes {
+ 		labelNames = append(labelNames, cs.HexToRGB(label.Color, label.Name))

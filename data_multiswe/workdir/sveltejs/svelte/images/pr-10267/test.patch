@@ -1,0 +1,60 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-new-property/_config.js b/packages/svelte/tests/runtime-runes/samples/inspect-new-property/_config.js
+new file mode 100644
+index 000000000000..5e5150bf0d15
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-new-property/_config.js
+@@ -0,0 +1,33 @@
++import { test } from '../../test';
++
++/**
++ * @type {any[]}
++ */
++let log;
++/**
++ * @type {typeof console.log}}
++ */
++let original_log;
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++	before_test() {
++		log = [];
++		original_log = console.log;
++		console.log = (...v) => {
++			log.push(...v);
++		};
++	},
++	after_test() {
++		console.log = original_log;
++	},
++	async test({ assert, target }) {
++		const [btn] = target.querySelectorAll('button');
++		btn.click();
++		await Promise.resolve();
++
++		assert.deepEqual(log, ['init', {}, 'init', [], 'update', { x: 'hello' }, 'update', ['hello']]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/inspect-new-property/main.svelte b/packages/svelte/tests/runtime-runes/samples/inspect-new-property/main.svelte
+new file mode 100644
+index 000000000000..251a9ead8c7c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/inspect-new-property/main.svelte
+@@ -0,0 +1,15 @@
++<script>
++	let obj = $state({});
++	let array = $state([]);
++
++	$inspect(obj);
++	$inspect(array);
++</script>
++
++<button
++	onclick={() => {
++		obj.x = "hello";
++		array[0] = "hello";
++	}}>
++	add prop
++</button>

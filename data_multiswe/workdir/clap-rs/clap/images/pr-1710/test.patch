@@ -1,0 +1,43 @@
+diff --git a/tests/subcommands.rs b/tests/subcommands.rs
+index fb455dd933e..823a361eb6e 100644
+--- a/tests/subcommands.rs
++++ b/tests/subcommands.rs
+@@ -39,6 +39,17 @@ USAGE:
+ 
+ For more information try --help";
+ 
++#[cfg(feature = "suggestions")]
++static DYM_SUBCMD_AMBIGUOUS: &str = "error: The subcommand 'te' wasn't recognized
++	Did you mean 'test' or 'temp'?
++
++If you believe you received this message in error, try re-running with 'dym -- te'
++
++USAGE:
++    dym [SUBCOMMAND]
++
++For more information try --help";
++
+ #[cfg(feature = "suggestions")]
+ static DYM_ARG: &str =
+     "error: Found argument '--subcm' which wasn't expected, or isn't valid in this context
+@@ -136,6 +147,20 @@ fn subcmd_did_you_mean_output() {
+     assert!(utils::compare_output(app, "dym subcm", DYM_SUBCMD, true));
+ }
+ 
++#[test]
++#[cfg(feature = "suggestions")]
++fn subcmd_did_you_mean_output_ambiguous() {
++    let app = App::new("dym")
++        .subcommand(App::new("test"))
++        .subcommand(App::new("temp"));
++    assert!(utils::compare_output(
++        app,
++        "dym te",
++        DYM_SUBCMD_AMBIGUOUS,
++        true
++    ));
++}
++
+ #[test]
+ #[cfg(feature = "suggestions")]
+ fn subcmd_did_you_mean_output_arg() {

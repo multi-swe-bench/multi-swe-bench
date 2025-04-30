@@ -1,0 +1,697 @@
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java
+index e41f11b1e..bd0e6bba9 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactory.java
+@@ -65,6 +65,8 @@ public class XmlFactory extends JsonFactory
+     protected transient XMLOutputFactory _xmlOutputFactory;
+ 
+     protected String _cfgNameForTextElement;
++
++    protected XmlTagProcessor _tagProcessor;
+     
+     /*
+     /**********************************************************
+@@ -102,11 +104,18 @@ public XmlFactory(ObjectCodec oc, XMLInputFactory xmlIn, XMLOutputFactory xmlOut
+                 xmlIn, xmlOut, null);
+     }
+ 
++    public XmlFactory(ObjectCodec oc, int xpFeatures, int xgFeatures,
++                         XMLInputFactory xmlIn, XMLOutputFactory xmlOut,
++                         String nameForTextElem) {
++        this(oc, xpFeatures, xgFeatures, xmlIn, xmlOut, nameForTextElem, XmlTagProcessors.newPassthroughProcessor());
++    }
++
+     protected XmlFactory(ObjectCodec oc, int xpFeatures, int xgFeatures,
+             XMLInputFactory xmlIn, XMLOutputFactory xmlOut,
+-            String nameForTextElem)
++            String nameForTextElem, XmlTagProcessor tagProcessor)
+     {
+         super(oc);
++        _tagProcessor = tagProcessor;
+         _xmlParserFeatures = xpFeatures;
+         _xmlGeneratorFeatures = xgFeatures;
+         _cfgNameForTextElement = nameForTextElem;
+@@ -140,6 +149,7 @@ protected XmlFactory(XmlFactory src, ObjectCodec oc)
+         _cfgNameForTextElement = src._cfgNameForTextElement;
+         _xmlInputFactory = src._xmlInputFactory;
+         _xmlOutputFactory = src._xmlOutputFactory;
++        _tagProcessor = src._tagProcessor;
+     }
+ 
+     /**
+@@ -155,6 +165,7 @@ protected XmlFactory(XmlFactoryBuilder b)
+         _cfgNameForTextElement = b.nameForTextElement();
+         _xmlInputFactory = b.xmlInputFactory();
+         _xmlOutputFactory = b.xmlOutputFactory();
++        _tagProcessor = b.xmlTagProcessor();
+         _initFactories(_xmlInputFactory, _xmlOutputFactory);
+     }
+ 
+@@ -325,6 +336,14 @@ public int getFormatGeneratorFeatures() {
+         return _xmlGeneratorFeatures;
+     }
+ 
++    public XmlTagProcessor getXmlTagProcessor() {
++        return _tagProcessor;
++    }
++
++    public void setXmlTagProcessor(XmlTagProcessor _tagProcessor) {
++        this._tagProcessor = _tagProcessor;
++    }
++
+     /*
+     /******************************************************
+     /* Configuration, XML, generator settings
+@@ -498,7 +517,7 @@ public ToXmlGenerator createGenerator(OutputStream out, JsonEncoding enc) throws
+         ctxt.setEncoding(enc);
+         return new ToXmlGenerator(ctxt,
+                 _generatorFeatures, _xmlGeneratorFeatures,
+-                _objectCodec, _createXmlWriter(ctxt, out));
++                _objectCodec, _createXmlWriter(ctxt, out), _tagProcessor);
+     }
+     
+     @Override
+@@ -507,7 +526,7 @@ public ToXmlGenerator createGenerator(Writer out) throws IOException
+         final IOContext ctxt = _createContext(_createContentReference(out), false);
+         return new ToXmlGenerator(ctxt,
+                 _generatorFeatures, _xmlGeneratorFeatures,
+-                _objectCodec, _createXmlWriter(ctxt, out));
++                _objectCodec, _createXmlWriter(ctxt, out), _tagProcessor);
+     }
+ 
+     @SuppressWarnings("resource")
+@@ -519,7 +538,7 @@ public ToXmlGenerator createGenerator(File f, JsonEncoding enc) throws IOExcepti
+         final IOContext ctxt = _createContext(_createContentReference(out), true);
+         ctxt.setEncoding(enc);
+         return new ToXmlGenerator(ctxt, _generatorFeatures, _xmlGeneratorFeatures,
+-                _objectCodec, _createXmlWriter(ctxt, out));
++                _objectCodec, _createXmlWriter(ctxt, out), _tagProcessor);
+     }
+ 
+     /*
+@@ -543,7 +562,7 @@ public FromXmlParser createParser(XMLStreamReader sr) throws IOException
+ 
+         // false -> not managed
+         FromXmlParser xp = new FromXmlParser(_createContext(_createContentReference(sr), false),
+-                _parserFeatures, _xmlParserFeatures, _objectCodec, sr);
++                _parserFeatures, _xmlParserFeatures, _objectCodec, sr, _tagProcessor);
+         if (_cfgNameForTextElement != null) {
+             xp.setXMLTextElementName(_cfgNameForTextElement);
+         }
+@@ -562,7 +581,7 @@ public ToXmlGenerator createGenerator(XMLStreamWriter sw) throws IOException
+         sw = _initializeXmlWriter(sw);
+         IOContext ctxt = _createContext(_createContentReference(sw), false);
+         return new ToXmlGenerator(ctxt, _generatorFeatures, _xmlGeneratorFeatures,
+-                _objectCodec, sw);
++                _objectCodec, sw, _tagProcessor);
+     }
+ 
+     /*
+@@ -582,7 +601,7 @@ protected FromXmlParser _createParser(InputStream in, IOContext ctxt) throws IOE
+         }
+         sr = _initializeXmlReader(sr);
+         FromXmlParser xp = new FromXmlParser(ctxt, _parserFeatures, _xmlParserFeatures,
+-                _objectCodec, sr);
++                _objectCodec, sr, _tagProcessor);
+         if (_cfgNameForTextElement != null) {
+             xp.setXMLTextElementName(_cfgNameForTextElement);
+         }
+@@ -600,7 +619,7 @@ protected FromXmlParser _createParser(Reader r, IOContext ctxt) throws IOExcepti
+         }
+         sr = _initializeXmlReader(sr);
+         FromXmlParser xp = new FromXmlParser(ctxt, _parserFeatures, _xmlParserFeatures,
+-                _objectCodec, sr);
++                _objectCodec, sr, _tagProcessor);
+         if (_cfgNameForTextElement != null) {
+             xp.setXMLTextElementName(_cfgNameForTextElement);
+         }
+@@ -627,7 +646,7 @@ protected FromXmlParser _createParser(char[] data, int offset, int len, IOContex
+         }
+         sr = _initializeXmlReader(sr);
+         FromXmlParser xp = new FromXmlParser(ctxt, _parserFeatures, _xmlParserFeatures,
+-                _objectCodec, sr);
++                _objectCodec, sr, _tagProcessor);
+         if (_cfgNameForTextElement != null) {
+             xp.setXMLTextElementName(_cfgNameForTextElement);
+         }
+@@ -651,7 +670,7 @@ protected FromXmlParser _createParser(byte[] data, int offset, int len, IOContex
+         }
+         sr = _initializeXmlReader(sr);
+         FromXmlParser xp = new FromXmlParser(ctxt, _parserFeatures, _xmlParserFeatures,
+-                _objectCodec, sr);
++                _objectCodec, sr, _tagProcessor);
+         if (_cfgNameForTextElement != null) {
+             xp.setXMLTextElementName(_cfgNameForTextElement);
+         }
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactoryBuilder.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactoryBuilder.java
+index 2c83ddd96..7771fa6ff 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactoryBuilder.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlFactoryBuilder.java
+@@ -63,6 +63,13 @@ public class XmlFactoryBuilder extends TSFBuilder<XmlFactory, XmlFactoryBuilder>
+      */
+     protected ClassLoader _classLoaderForStax;
+ 
++    /**
++     * See {@link XmlTagProcessor} and {@link XmlTagProcessors}
++     *
++     * @since 2.14
++     */
++    protected XmlTagProcessor _tagProcessor;
++
+     /*
+     /**********************************************************
+     /* Life cycle
+@@ -73,6 +80,7 @@ protected XmlFactoryBuilder() {
+         _formatParserFeatures = XmlFactory.DEFAULT_XML_PARSER_FEATURE_FLAGS;
+         _formatGeneratorFeatures = XmlFactory.DEFAULT_XML_GENERATOR_FEATURE_FLAGS;
+         _classLoaderForStax = null;
++        _tagProcessor = XmlTagProcessors.newPassthroughProcessor();
+     }
+ 
+     public XmlFactoryBuilder(XmlFactory base) {
+@@ -82,6 +90,7 @@ public XmlFactoryBuilder(XmlFactory base) {
+         _xmlInputFactory = base._xmlInputFactory;
+         _xmlOutputFactory = base._xmlOutputFactory;
+         _nameForTextElement = base._cfgNameForTextElement;
++        _tagProcessor = base._tagProcessor;
+         _classLoaderForStax = null;
+     }
+ 
+@@ -133,6 +142,10 @@ protected ClassLoader staxClassLoader() {
+                 getClass().getClassLoader() : _classLoaderForStax;
+     }
+ 
++    public XmlTagProcessor xmlTagProcessor() {
++        return _tagProcessor;
++    }
++
+     // // // Parser features
+ 
+     public XmlFactoryBuilder enable(FromXmlParser.Feature f) {
+@@ -253,6 +266,14 @@ public XmlFactoryBuilder staxClassLoader(ClassLoader cl) {
+         _classLoaderForStax = cl;
+         return _this();
+     }
++
++    /**
++     * @since 2.14
++     */
++    public XmlFactoryBuilder xmlTagProcessor(XmlTagProcessor tagProcessor) {
++        _tagProcessor = tagProcessor;
++        return _this();
++    }
+     
+     // // // Actual construction
+ 
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlMapper.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlMapper.java
+index c8650f308..44b5a2301 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlMapper.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlMapper.java
+@@ -108,6 +108,14 @@ public Builder defaultUseWrapper(boolean state) {
+             _mapper.setDefaultUseWrapper(state);
+             return this;
+         }
++
++        /**
++         * @since 2.14
++         */
++        public Builder xmlTagProcessor(XmlTagProcessor tagProcessor) {
++            _mapper.setXmlTagProcessor(tagProcessor);
++            return this;
++        }
+     }
+ 
+     protected final static JacksonXmlModule DEFAULT_XML_MODULE = new JacksonXmlModule();
+@@ -280,6 +288,20 @@ public XmlMapper setDefaultUseWrapper(boolean state) {
+         return this;
+     }
+ 
++    /**
++     * @since 2.14
++     */
++    public void setXmlTagProcessor(XmlTagProcessor tagProcessor) {
++        ((XmlFactory)_jsonFactory).setXmlTagProcessor(tagProcessor);
++    }
++
++    /**
++     * @since 2.14
++     */
++    public XmlTagProcessor getXmlTagProcessor() {
++        return ((XmlFactory)_jsonFactory).getXmlTagProcessor();
++    }
++
+     /*
+     /**********************************************************
+     /* Access to configuration settings
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessor.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessor.java
+new file mode 100644
+index 000000000..a27d9311a
+--- /dev/null
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessor.java
+@@ -0,0 +1,60 @@
++package com.fasterxml.jackson.dataformat.xml;
++
++import java.io.Serializable;
++
++/**
++ * XML tag name processor primarily used for dealing with tag names
++ * containing invalid characters. Invalid characters in tags can,
++ * for instance, easily appear in map keys.
++ * <p>
++ * Processors should be set in the {@link XmlMapper#setXmlTagProcessor(XmlTagProcessor)}
++ * and/or the {@link XmlMapper.Builder#xmlTagProcessor(XmlTagProcessor)} methods.
++ * <p>
++ * See {@link XmlTagProcessors} for default processors.
++ *
++ * @since 2.14
++ */
++public interface XmlTagProcessor extends Serializable {
++
++    /**
++     * Representation of an XML tag name
++     */
++    class XmlTagName {
++        public final String namespace;
++        public final String localPart;
++
++        public XmlTagName(String namespace, String localPart) {
++            this.namespace = namespace;
++            this.localPart = localPart;
++        }
++    }
++
++
++    /**
++     * Used during XML serialization.
++     * <p>
++     * This method should process the provided {@link XmlTagName} and
++     * escape / encode invalid XML characters.
++     *
++     * @param tag The tag to encode
++     * @return The encoded tag name
++     */
++    XmlTagName encodeTag(XmlTagName tag);
++
++
++    /**
++     * Used during XML deserialization.
++     * <p>
++     * This method should process the provided {@link XmlTagName} and
++     * revert the encoding done in the {@link #encodeTag(XmlTagName)}
++     * method.
++     * <p>
++     * Note: Depending on the use case, it is not always required (or
++     * even possible) to reverse an encoding with 100% accuracy.
++     *
++     * @param tag The tag to encode
++     * @return The encoded tag name
++     */
++    XmlTagName decodeTag(XmlTagName tag);
++
++}
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessors.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessors.java
+new file mode 100644
+index 000000000..715636524
+--- /dev/null
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/XmlTagProcessors.java
+@@ -0,0 +1,212 @@
++package com.fasterxml.jackson.dataformat.xml;
++
++import java.util.Base64;
++import java.util.regex.Pattern;
++
++import static java.nio.charset.StandardCharsets.UTF_8;
++
++/**
++ * Contains default XML tag name processors.
++ * <p>
++ * Processors should be set in the {@link XmlMapper#setXmlTagProcessor(XmlTagProcessor)}
++ * and/or the {@link XmlMapper.Builder#xmlTagProcessor(XmlTagProcessor)} methods.
++ *
++ * @since 2.14
++ */
++public final class XmlTagProcessors {
++
++    /**
++     * Generates a new tag processor that does nothing and just passes through the
++     * tag names. Using this processor may generate invalid XML.
++     * <p>
++     * With this processor set, a map with the keys {@code "123"} and
++     * {@code "$ I am <fancy>! &;"} will be written as:
++     *
++     * <pre>{@code
++     * <DTO>
++     *     <badMap>
++     *         <$ I am <fancy>! &;>xyz</$ I am <fancy>! &;>
++     *         <123>bar</123>
++     *     </badMap>
++     * </DTO>
++     * }</pre>
++     * <p>
++     * This is the default behavior for backwards compatibility.
++     *
++     * @since 2.14
++     */
++    public static XmlTagProcessor newPassthroughProcessor() {
++        return new PassthroughTagProcessor();
++    }
++
++    /**
++     * Generates a new tag processor that replaces all invalid characters in an
++     * XML tag name with a replacement string. This is a one-way processor, since
++     * there is no way to reverse this replacement step.
++     * <p>
++     * With this processor set (and {@code "_"} as the replacement string), a map
++     * with the keys {@code "123"} and {@code "$ I am <fancy>! &;"} will be written as:
++     *
++     * <pre>{@code
++     * <DTO>
++     *     <badMap>
++     *         <__I_am__fancy_____>xyz</__I_am__fancy_____>
++     *         <_23>bar</_23>
++     *     </badMap>
++     * </DTO>
++     * }</pre>
++     *
++     * @param replacement The replacement string to replace invalid characters with
++     *
++     * @since 2.14
++     */
++    public static XmlTagProcessor newReplacementProcessor(String replacement) {
++        return new ReplaceTagProcessor(replacement);
++    }
++
++    /**
++     * Equivalent to calling {@link #newReplacementProcessor(String)} with {@code "_"}
++     *
++     * @since 2.14
++     */
++    public static XmlTagProcessor newReplacementProcessor() {
++        return newReplacementProcessor("_");
++    }
++
++    /**
++     * Generates a new tag processor that escapes all tag names containing invalid
++     * characters with base64. Here the
++     * <a href="https://datatracker.ietf.org/doc/html/rfc4648#section-5">base64url</a>
++     * encoder and decoders are used. The {@code =} padding characters are
++     * always omitted.
++     * <p>
++     * With this processor set, a map with the keys {@code "123"} and
++     * {@code "$ I am <fancy>! &;"} will be written as:
++     *
++     * <pre>{@code
++     * <DTO>
++     *     <badMap>
++     *         <base64_tag_JCBJIGFtIDxmYW5jeT4hICY7>xyz</base64_tag_JCBJIGFtIDxmYW5jeT4hICY7>
++     *         <base64_tag_MTIz>bar</base64_tag_MTIz>
++     *     </badMap>
++     * </DTO>
++     * }</pre>
++     *
++     * @param prefix The prefix to use for tags that are escaped
++     *
++     * @since 2.14
++     */
++    public static XmlTagProcessor newBase64Processor(String prefix) {
++        return new Base64TagProcessor(prefix);
++    }
++
++    /**
++     * Equivalent to calling {@link #newBase64Processor(String)} with {@code "base64_tag_"}
++     *
++     * @since 2.14
++     */
++    public static XmlTagProcessor newBase64Processor() {
++        return newBase64Processor("base64_tag_");
++    }
++
++    /**
++     * Similar to {@link #newBase64Processor(String)}, however, tag names will
++     * <b>always</b> be escaped with base64. No magic prefix is required
++     * for this case, since adding one would be redundant because all tags will
++     * be base64 encoded.
++     */
++    public static XmlTagProcessor newAlwaysOnBase64Processor() {
++        return new AlwaysOnBase64TagProcessor();
++    }
++
++
++
++    private static class PassthroughTagProcessor implements XmlTagProcessor {
++        @Override
++        public XmlTagName encodeTag(XmlTagName tag) {
++            return tag;
++        }
++
++        @Override
++        public XmlTagName decodeTag(XmlTagName tag) {
++            return tag;
++        }
++    }
++
++    private static class ReplaceTagProcessor implements XmlTagProcessor {
++        private static final Pattern BEGIN_MATCHER = Pattern.compile("^[^a-zA-Z_:]");
++        private static final Pattern MAIN_MATCHER = Pattern.compile("[^a-zA-Z0-9_:-]");
++
++        private final String _replacement;
++
++        private ReplaceTagProcessor(String replacement) {
++            _replacement = replacement;
++        }
++
++        @Override
++        public XmlTagName encodeTag(XmlTagName tag) {
++            String newLocalPart = tag.localPart;
++            newLocalPart = BEGIN_MATCHER.matcher(newLocalPart).replaceAll(_replacement);
++            newLocalPart = MAIN_MATCHER.matcher(newLocalPart).replaceAll(_replacement);
++
++            return new XmlTagName(tag.namespace, newLocalPart);
++        }
++
++        @Override
++        public XmlTagName decodeTag(XmlTagName tag) {
++            return tag;
++        }
++    }
++
++    private static class Base64TagProcessor implements XmlTagProcessor {
++        private static final Base64.Decoder BASE64_DECODER = Base64.getUrlDecoder();
++        private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
++        private static final Pattern VALID_XML_TAG = Pattern.compile("[a-zA-Z_:]([a-zA-Z0-9_:.-])*");
++
++        private final String _prefix;
++
++        private Base64TagProcessor(String prefix) {
++            _prefix = prefix;
++        }
++
++        @Override
++        public XmlTagName encodeTag(XmlTagName tag) {
++            if (VALID_XML_TAG.matcher(tag.localPart).matches()) {
++                return tag;
++            }
++            final String encoded = new String(BASE64_ENCODER.encode(tag.localPart.getBytes(UTF_8)), UTF_8);
++            return new XmlTagName(tag.namespace, _prefix + encoded);
++        }
++
++        @Override
++        public XmlTagName decodeTag(XmlTagName tag) {
++            if (!tag.localPart.startsWith(_prefix)) {
++                return tag;
++            }
++            String localName = tag.localPart;
++            localName = localName.substring(_prefix.length());
++            localName = new String(BASE64_DECODER.decode(localName), UTF_8);
++            return new XmlTagName(tag.namespace, localName);
++        }
++    }
++
++    private static class AlwaysOnBase64TagProcessor implements XmlTagProcessor {
++        private static final Base64.Decoder BASE64_DECODER = Base64.getUrlDecoder();
++        private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
++
++        @Override
++        public XmlTagName encodeTag(XmlTagName tag) {
++            return new XmlTagName(tag.namespace, new String(BASE64_ENCODER.encode(tag.localPart.getBytes(UTF_8)), UTF_8));
++        }
++
++        @Override
++        public XmlTagName decodeTag(XmlTagName tag) {
++            return new XmlTagName(tag.namespace, new String(BASE64_DECODER.decode(tag.localPart), UTF_8));
++        }
++    }
++
++
++    private XmlTagProcessors() {
++        // Nothing to do here
++    }
++}
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/FromXmlParser.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/FromXmlParser.java
+index 41156fde2..ab4d744b1 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/FromXmlParser.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/FromXmlParser.java
+@@ -19,6 +19,8 @@
+ 
+ import com.fasterxml.jackson.dataformat.xml.PackageVersion;
+ import com.fasterxml.jackson.dataformat.xml.XmlMapper;
++import com.fasterxml.jackson.dataformat.xml.XmlTagProcessor;
++import com.fasterxml.jackson.dataformat.xml.XmlTagProcessors;
+ import com.fasterxml.jackson.dataformat.xml.util.CaseInsensitiveNameSet;
+ import com.fasterxml.jackson.dataformat.xml.util.StaxUtil;
+ 
+@@ -252,7 +254,7 @@ private Feature(boolean defaultState) {
+      */
+ 
+     public FromXmlParser(IOContext ctxt, int genericParserFeatures, int xmlFeatures,
+-            ObjectCodec codec, XMLStreamReader xmlReader)
++             ObjectCodec codec, XMLStreamReader xmlReader, XmlTagProcessor tagProcessor)
+         throws IOException
+     {
+         super(genericParserFeatures);
+@@ -261,7 +263,7 @@ public FromXmlParser(IOContext ctxt, int genericParserFeatures, int xmlFeatures,
+         _objectCodec = codec;
+         _parsingContext = XmlReadContext.createRootContext(-1, -1);
+         _xmlTokens = new XmlTokenStream(xmlReader, ctxt.contentReference(),
+-                    _formatFeatures);
++                    _formatFeatures, tagProcessor);
+ 
+         final int firstToken;
+         try {
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/XmlTokenStream.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/XmlTokenStream.java
+index d72051736..11ac6204d 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/XmlTokenStream.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/deser/XmlTokenStream.java
+@@ -5,6 +5,7 @@
+ import javax.xml.XMLConstants;
+ import javax.xml.stream.*;
+ 
++import com.fasterxml.jackson.dataformat.xml.XmlTagProcessor;
+ import org.codehaus.stax2.XMLStreamLocation2;
+ import org.codehaus.stax2.XMLStreamReader2;
+ import org.codehaus.stax2.ri.Stax2ReaderAdapter;
+@@ -73,6 +74,8 @@ public class XmlTokenStream
+ 
+     protected boolean _cfgProcessXsiNil;
+ 
++    protected XmlTagProcessor _tagProcessor;
++
+     /*
+     /**********************************************************************
+     /* Parsing state
+@@ -153,12 +156,13 @@ public class XmlTokenStream
+      */
+ 
+     public XmlTokenStream(XMLStreamReader xmlReader, ContentReference sourceRef,
+-            int formatFeatures)
++            int formatFeatures, XmlTagProcessor tagProcessor)
+     {
+         _sourceReference = sourceRef;
+         _formatFeatures = formatFeatures;
+         _cfgProcessXsiNil = FromXmlParser.Feature.PROCESS_XSI_NIL.enabledIn(_formatFeatures);
+         _xmlReader = Stax2ReaderAdapter.wrapIfNecessary(xmlReader);
++        _tagProcessor = tagProcessor;
+     }
+ 
+     /**
+@@ -177,6 +181,7 @@ public int initialize() throws XMLStreamException
+         _namespaceURI = _xmlReader.getNamespaceURI();
+ 
+         _checkXsiAttributes(); // sets _attributeCount, _nextAttributeIndex
++        _decodeXmlTagName();
+ 
+         // 02-Jul-2020, tatu: Two choices: if child elements OR attributes, expose
+         //    as Object value; otherwise expose as Text
+@@ -646,6 +651,7 @@ private final int _initStartElement() throws XMLStreamException
+         }
+         _localName = localName;
+         _namespaceURI = ns;
++        _decodeXmlTagName();
+         return (_currentState = XML_START_ELEMENT);
+     }
+ 
+@@ -675,6 +681,15 @@ private final void _checkXsiAttributes() {
+         _xsiNilFound = false;
+     }
+ 
++    /**
++     * @since 2.14
++     */
++    protected void _decodeXmlTagName() {
++        XmlTagProcessor.XmlTagName tagName = _tagProcessor.decodeTag(new XmlTagProcessor.XmlTagName(_namespaceURI, _localName));
++        _namespaceURI = tagName.namespace;
++        _localName = tagName.localPart;
++    }
++
+     /**
+      * Method called to handle details of repeating "virtual"
+      * start/end elements, needed for handling 'unwrapped' lists.
+@@ -695,6 +710,7 @@ protected int _handleRepeatElement() throws XMLStreamException
+ //System.out.println(" XMLTokenStream._handleRepeatElement() for END_ELEMENT: "+_localName+" ("+_xmlReader.getLocalName()+")");
+             _localName = _xmlReader.getLocalName();
+             _namespaceURI = _xmlReader.getNamespaceURI();
++            _decodeXmlTagName();
+             if (_currentWrapper != null) {
+                 _currentWrapper = _currentWrapper.getParent();
+             }
+@@ -708,6 +724,7 @@ protected int _handleRepeatElement() throws XMLStreamException
+             _namespaceURI = _nextNamespaceURI;
+             _nextLocalName = null;
+             _nextNamespaceURI = null;
++            _decodeXmlTagName();
+ 
+ //System.out.println(" XMLTokenStream._handleRepeatElement() for START_DELAYED: "+_localName+" ("+_xmlReader.getLocalName()+")");
+ 
+diff --git a/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/ToXmlGenerator.java b/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/ToXmlGenerator.java
+index 00f051d68..90b898ba4 100644
+--- a/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/ToXmlGenerator.java
++++ b/src/main/java/com/fasterxml/jackson/dataformat/xml/ser/ToXmlGenerator.java
+@@ -10,6 +10,7 @@
+ import javax.xml.stream.XMLStreamException;
+ import javax.xml.stream.XMLStreamWriter;
+ 
++import com.fasterxml.jackson.dataformat.xml.XmlTagProcessor;
+ import org.codehaus.stax2.XMLStreamWriter2;
+ import org.codehaus.stax2.ri.Stax2WriterAdapter;
+ 
+@@ -152,6 +153,13 @@ private Feature(boolean defaultState) {
+      */
+     protected XmlPrettyPrinter _xmlPrettyPrinter;
+ 
++    /**
++     * Escapes tag names with invalid XML characters
++     *
++     * @since 2.14
++     */
++    protected XmlTagProcessor _tagProcessor;
++
+     /*
+     /**********************************************************
+     /* XML Output state
+@@ -205,7 +213,7 @@ private Feature(boolean defaultState) {
+      */
+ 
+     public ToXmlGenerator(IOContext ctxt, int stdFeatures, int xmlFeatures,
+-            ObjectCodec codec, XMLStreamWriter sw)
++            ObjectCodec codec, XMLStreamWriter sw, XmlTagProcessor tagProcessor)
+     {
+         super(stdFeatures, codec);
+         _formatFeatures = xmlFeatures;
+@@ -213,6 +221,7 @@ public ToXmlGenerator(IOContext ctxt, int stdFeatures, int xmlFeatures,
+         _originalXmlWriter = sw;
+         _xmlWriter = Stax2WriterAdapter.wrapIfNecessary(sw);
+         _stax2Emulation = (_xmlWriter != sw);
++        _tagProcessor = tagProcessor;
+         _xmlPrettyPrinter = (_cfgPrettyPrinter instanceof XmlPrettyPrinter) ?
+         		(XmlPrettyPrinter) _cfgPrettyPrinter : null;
+     }
+@@ -476,7 +485,8 @@ public final void writeFieldName(String name) throws IOException
+         }
+         // Should this ever get called?
+         String ns = (_nextName == null) ? "" : _nextName.getNamespaceURI();
+-        setNextName(new QName(ns, name));
++        XmlTagProcessor.XmlTagName tagName = _tagProcessor.encodeTag(new XmlTagProcessor.XmlTagName(ns, name));
++        setNextName(new QName(tagName.namespace, tagName.localPart));
+     }
+     
+     @Override

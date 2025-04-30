@@ -1,0 +1,57 @@
+diff --git a/index.d.ts b/index.d.ts
+index 806e32284e..c193d1d664 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -39,7 +39,7 @@ export class AxiosHeaders {
+ 
+   normalize(format: boolean): AxiosHeaders;
+ 
+-  toJSON(): RawAxiosHeaders;
++  toJSON(asStrings?: boolean): RawAxiosHeaders;
+ 
+   static from(thing?: AxiosHeaders | RawAxiosHeaders | string): AxiosHeaders;
+ 
+diff --git a/lib/core/AxiosHeaders.js b/lib/core/AxiosHeaders.js
+index 9d5653860f..68e098a0f7 100644
+--- a/lib/core/AxiosHeaders.js
++++ b/lib/core/AxiosHeaders.js
+@@ -15,7 +15,7 @@ function normalizeValue(value) {
+     return value;
+   }
+ 
+-  return String(value);
++  return utils.isArray(value) ? value.map(normalizeValue) : String(value);
+ }
+ 
+ function parseTokens(str) {
+@@ -102,13 +102,7 @@ Object.assign(AxiosHeaders.prototype, {
+         return;
+       }
+ 
+-      if (utils.isArray(_value)) {
+-        _value = _value.map(normalizeValue);
+-      } else {
+-        _value = normalizeValue(_value);
+-      }
+-
+-      self[key || _header] = _value;
++      self[key || _header] = normalizeValue(_value);
+     }
+ 
+     if (utils.isPlainObject(header)) {
+@@ -222,13 +216,13 @@ Object.assign(AxiosHeaders.prototype, {
+     return this;
+   },
+ 
+-  toJSON: function() {
++  toJSON: function(asStrings) {
+     const obj = Object.create(null);
+ 
+     utils.forEach(Object.assign({}, this[$defaults] || null, this),
+       (value, header) => {
+         if (value == null || value === false) return;
+-        obj[header] = utils.isArray(value) ? value.join(', ') : value;
++        obj[header] = asStrings && utils.isArray(value) ? value.join(', ') : value;
+       });
+ 
+     return obj;

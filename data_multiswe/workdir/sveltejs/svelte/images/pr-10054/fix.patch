@@ -1,0 +1,60 @@
+diff --git a/.changeset/metal-beers-learn.md b/.changeset/metal-beers-learn.md
+new file mode 100644
+index 000000000000..87ea21a097b5
+--- /dev/null
++++ b/.changeset/metal-beers-learn.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: improve pseudo elements parsing
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/style.js b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+index 8b1d78544636..7de95e80910b 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/style.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+@@ -219,28 +219,22 @@ function read_selector(parser, inside_pseudo_class = false) {
+ 				start,
+ 				end: parser.index
+ 			});
+-		} else if (parser.eat('::')) {
+-			children.push({
+-				type: 'PseudoElementSelector',
+-				name: read_identifier(parser),
+-				start,
+-				end: parser.index
+-			});
+ 		} else if (parser.eat(':')) {
++			const psuedo_element = parser.eat(':');
++
+ 			const name = read_identifier(parser);
+ 
+-			/** @type {null | import('#compiler').Css.SelectorList} */
+ 			let args = null;
+ 
+ 			if (parser.eat('(')) {
+ 				args = read_selector_list(parser, true);
+ 				parser.eat(')', true);
+-			} else if (name === 'global') {
++			} else if (!psuedo_element && name === 'global') {
+ 				error(parser.index, 'invalid-css-global-selector');
+ 			}
+ 
+ 			children.push({
+-				type: 'PseudoClassSelector',
++				type: psuedo_element ? 'PseudoElementSelector' : 'PseudoClassSelector',
+ 				name,
+ 				args,
+ 				start,
+diff --git a/packages/svelte/src/compiler/types/css.d.ts b/packages/svelte/src/compiler/types/css.d.ts
+index 49a3fc514379..8d91c01a1bf3 100644
+--- a/packages/svelte/src/compiler/types/css.d.ts
++++ b/packages/svelte/src/compiler/types/css.d.ts
+@@ -54,6 +54,7 @@ export interface AttributeSelector extends BaseNode {
+ export interface PseudoElementSelector extends BaseNode {
+ 	type: 'PseudoElementSelector';
+ 	name: string;
++	args: SelectorList | null;
+ }
+ 
+ export interface PseudoClassSelector extends BaseNode {

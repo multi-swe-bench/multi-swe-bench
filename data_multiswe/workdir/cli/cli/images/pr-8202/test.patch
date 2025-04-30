@@ -1,0 +1,93 @@
+diff --git a/api/export_pr_test.go b/api/export_pr_test.go
+index e7d93007855..b7f4dcddbed 100644
+--- a/api/export_pr_test.go
++++ b/api/export_pr_test.go
+@@ -85,6 +85,10 @@ func TestIssue_ExportData(t *testing.T) {
+ 						"project": {
+ 							"id": "PVT_id",
+ 							"title": "Some Project"
++						},
++						"status": {
++							"name": "Todo",
++							"optionId": "abc123"
+ 						}
+ 					}
+ 				] } }
+@@ -93,6 +97,10 @@ func TestIssue_ExportData(t *testing.T) {
+ 				{
+ 					"projectItems": [
+ 						{
++							"status": {
++								"optionId": "abc123",
++								"name": "Todo"
++							},
+ 							"title": "Some Project"
+ 						}
+ 					]
+@@ -205,6 +213,38 @@ func TestPullRequest_ExportData(t *testing.T) {
+ 				}
+ 			`),
+ 		},
++		{
++			name:   "project items",
++			fields: []string{"projectItems"},
++			inputJSON: heredoc.Doc(`
++				{ "projectItems": { "nodes": [
++					{
++						"id": "PVTPR_id",
++						"project": {
++							"id": "PVT_id",
++							"title": "Some Project"
++						},
++						"status": {
++							"name": "Todo",
++							"optionId": "abc123"
++						}
++					}
++				] } }
++			`),
++			outputJSON: heredoc.Doc(`
++				{
++					"projectItems": [
++						{
++							"status": {
++								"optionId": "abc123",
++								"name": "Todo"
++							},
++							"title": "Some Project"
++						}
++					]
++				}
++			`),
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+diff --git a/api/query_builder_test.go b/api/query_builder_test.go
+index 7048b63fb96..e39b0826958 100644
+--- a/api/query_builder_test.go
++++ b/api/query_builder_test.go
+@@ -33,6 +33,11 @@ func TestPullRequestGraphQL(t *testing.T) {
+ 			fields: []string{"isPinned", "stateReason", "number"},
+ 			want:   "number",
+ 		},
++		{
++			name:   "projectItems",
++			fields: []string{"projectItems"},
++			want:   `projectItems(first:100){nodes{id, project{id,title}, status:fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue{optionId,name}}},totalCount}`,
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
+@@ -69,6 +74,11 @@ func TestIssueGraphQL(t *testing.T) {
+ 			fields: []string{"files"},
+ 			want:   "files(first: 100) {nodes {additions,deletions,path}}",
+ 		},
++		{
++			name:   "projectItems",
++			fields: []string{"projectItems"},
++			want:   `projectItems(first:100){nodes{id, project{id,title}, status:fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue{optionId,name}}},totalCount}`,
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {

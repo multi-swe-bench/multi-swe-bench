@@ -1,0 +1,50 @@
+diff --git a/docs/deprecations.md b/docs/deprecations.md
+index c0e51b46dc..8edf2842ea 100644
+--- a/docs/deprecations.md
++++ b/docs/deprecations.md
+@@ -12,14 +12,6 @@ at least the next major release.
+ 
+ ## Planned changes
+ 
+-### `CHECKED_IF` and `CHECKED_ELSE`
+-
+-To make the `CHECKED_IF` and `CHECKED_ELSE` macros more useful, they will
+-be marked as "OK to fail" (`Catch::ResultDisposition::SuppressFail` flag
+-will be added), which means that their failure will not fail the test,
+-making the `else` actually useful.
+-
+-
+ ### Console Colour API
+ 
+ The API for Catch2's console colour will be changed to take an extra
+diff --git a/docs/other-macros.md b/docs/other-macros.md
+index 50593faee7..f23ee6c242 100644
+--- a/docs/other-macros.md
++++ b/docs/other-macros.md
+@@ -15,6 +15,8 @@ stringification machinery to the _expr_ and records the result. As with
+ evaluates to `true`. `CHECKED_ELSE( expr )` work similarly, but the block
+ is entered only if the _expr_ evaluated to `false`.
+ 
++> `CHECKED_X` macros were changed to not count as failure in Catch2 X.Y.Z.
++
+ Example:
+ ```cpp
+ int a = ...;
+diff --git a/src/catch2/internal/catch_run_context.cpp b/src/catch2/internal/catch_run_context.cpp
+index 8379a7aa02..e2719d3127 100644
+--- a/src/catch2/internal/catch_run_context.cpp
++++ b/src/catch2/internal/catch_run_context.cpp
+@@ -230,9 +230,11 @@ namespace Catch {
+         if (result.getResultType() == ResultWas::Ok) {
+             m_totals.assertions.passed++;
+             m_lastAssertionPassed = true;
+-        } else if (!result.isOk()) {
++        } else if (!result.succeeded()) {
+             m_lastAssertionPassed = false;
+-            if( m_activeTestCase->getTestCaseInfo().okToFail() )
++            if (result.isOk()) {
++            }
++            else if( m_activeTestCase->getTestCaseInfo().okToFail() )
+                 m_totals.assertions.failedButOk++;
+             else
+                 m_totals.assertions.failed++;

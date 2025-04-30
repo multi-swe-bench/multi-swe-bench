@@ -1,0 +1,59 @@
+diff --git a/packages/svelte/src/internal/client/dom/blocks/html.js b/packages/svelte/src/internal/client/dom/blocks/html.js
+index f0a4d2bc796f..055d94a77ac4 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/html.js
++++ b/packages/svelte/src/internal/client/dom/blocks/html.js
+@@ -23,7 +23,7 @@ function check_hash(element, server_hash, value) {
+ 	const loc = element.__svelte_meta?.loc;
+ 	if (loc) {
+ 		location = `near ${loc.file}:${loc.line}:${loc.column}`;
+-	} else if (dev_current_component_function.filename) {
++	} else if (dev_current_component_function?.filename) {
+ 		location = `in ${dev_current_component_function.filename}`;
+ 	}
+ 
+@@ -59,6 +59,8 @@ export function html(node, get_value, svg, mathml) {
+ 
+ 		effect = branch(() => {
+ 			if (hydrating) {
++				// We're deliberately not trying to repair mismatches between server and client,
++				// as it's costly and error-prone (and it's an edge case to have a mismatch anyway)
+ 				var hash = /** @type {Comment} */ (hydrate_node).data;
+ 				var next = hydrate_next();
+ 				var last = next;
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 921b409dca0d..e2aa97c7d4bd 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -287,3 +287,32 @@ Note that whereas Svelte 4 would treat `<svelte:element this="input">` (for exam
+ ### `mount` plays transitions by default
+ 
+ The `mount` function used to render a component tree plays transitions by default unless the `intro` option is set to `false`. This is different from legacy class components which, when manually instantiated, didn't play transitions by default.
++
++### `<img src={...}>` and `{@html ...}` hydration mismatches are not repaired
++
++In Svelte 4, if the value of a `src` attribute or `{@html ...}` tag differ between server and client (a.k.a. a hydration mismatch), the mismatch is repaired. This is very costly: setting a `src` attribute (even if it evaluates to the same thing) causes images and iframes to be reloaded, and reinserting a large blob of HTML is slow.
++
++Since these mismatches are extremely rare, Svelte 5 assumes that the values are unchanged, but in development will warn you if they are not. To force an update you can do something like this:
++
++```svelte
++<script>
++	let { markup, src } = $props();
++
++	if (typeof window !== 'undefined') {
++		// stash the values...
++		const initial = { markup, src };
++
++		// unset them...
++		markup = src = undefined;
++
++		$effect(() => {
++			// ...and reset after we've mounted
++			markup = initial.markup;
++			src = initial.src;
++		});
++	}
++</script>
++
++{@html markup}
++<img {src} />
++```

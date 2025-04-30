@@ -1,0 +1,39 @@
+diff --git a/clap_builder/src/output/help_template.rs b/clap_builder/src/output/help_template.rs
+index 8c719043500..9fe7211b306 100644
+--- a/clap_builder/src/output/help_template.rs
++++ b/clap_builder/src/output/help_template.rs
+@@ -476,7 +476,7 @@ impl<'cmd, 'writer> HelpTemplate<'cmd, 'writer> {
+                 }
+             }
+         }
+-        if flatten {
++        if subcmds && flatten {
+             let mut cmd = self.cmd.clone();
+             cmd.build();
+             self.write_flat_subcommands(&cmd, &mut first);
+diff --git a/clap_builder/src/output/usage.rs b/clap_builder/src/output/usage.rs
+index 0b2ff3b93c3..d75b704ba74 100644
+--- a/clap_builder/src/output/usage.rs
++++ b/clap_builder/src/output/usage.rs
+@@ -103,7 +103,7 @@ impl<'cmd> Usage<'cmd> {
+         debug!("Usage::write_help_usage");
+         use std::fmt::Write;
+ 
+-        if self.cmd.is_flatten_help_set() {
++        if self.cmd.has_visible_subcommands() && self.cmd.is_flatten_help_set() {
+             if !self.cmd.is_subcommand_required_set()
+                 || self.cmd.is_args_conflicts_with_subcommands_set()
+             {
+@@ -113,7 +113,11 @@ impl<'cmd> Usage<'cmd> {
+             }
+             let mut cmd = self.cmd.clone();
+             cmd.build();
+-            for (i, sub) in cmd.get_subcommands().enumerate() {
++            for (i, sub) in cmd
++                .get_subcommands()
++                .filter(|c| !c.is_hide_set())
++                .enumerate()
++            {
+                 if i != 0 {
+                     styled.trim_end();
+                     let _ = write!(styled, "{}", USAGE_SEP);

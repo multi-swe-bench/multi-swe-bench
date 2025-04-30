@@ -1,0 +1,45 @@
+diff --git a/internal/config/config_type_test.go b/internal/config/config_type_test.go
+index fca819f4611..fe5e3f239dd 100644
+--- a/internal/config/config_type_test.go
++++ b/internal/config/config_type_test.go
+@@ -50,6 +50,8 @@ func Test_defaultConfig(t *testing.T) {
+ 		# Aliases allow you to create nicknames for gh commands
+ 		aliases:
+ 		    co: pr checkout
++		# The path to a unix socket through which send HTTP connections. If blank, HTTP traffic will be handled by net/http.DefaultTransport.
++		http_unix_socket:
+ 	`)
+ 	assert.Equal(t, expected, mainBuf.String())
+ 	assert.Equal(t, "", hostsBuf.String())
+@@ -81,6 +83,9 @@ func Test_ValidateValue(t *testing.T) {
+ 
+ 	err = ValidateValue("got", "123")
+ 	assert.NoError(t, err)
++
++	err = ValidateValue("http_unix_socket", "really_anything/is/allowed/and/net.Dial\\(...\\)/will/ultimately/validate")
++	assert.NoError(t, err)
+ }
+ 
+ func Test_ValidateKey(t *testing.T) {
+@@ -98,4 +103,7 @@ func Test_ValidateKey(t *testing.T) {
+ 
+ 	err = ValidateKey("pager")
+ 	assert.NoError(t, err)
++
++	err = ValidateKey("http_unix_socket")
++	assert.NoError(t, err)
+ }
+diff --git a/pkg/cmd/factory/http_test.go b/pkg/cmd/factory/http_test.go
+index 6172d846c86..ae40965947d 100644
+--- a/pkg/cmd/factory/http_test.go
++++ b/pkg/cmd/factory/http_test.go
+@@ -135,7 +135,8 @@ func TestNewHTTPClient(t *testing.T) {
+ 			})
+ 
+ 			io, _, _, stderr := iostreams.Test()
+-			client := NewHTTPClient(io, tt.args.config, tt.args.appVersion, tt.args.setAccept)
++			client, err := NewHTTPClient(io, tt.args.config, tt.args.appVersion, tt.args.setAccept)
++			require.NoError(t, err)
+ 
+ 			req, err := http.NewRequest("GET", ts.URL, nil)
+ 			req.Host = tt.host

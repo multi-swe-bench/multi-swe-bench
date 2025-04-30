@@ -1,0 +1,121 @@
+diff --git a/.changeset/silver-shoes-rule.md b/.changeset/silver-shoes-rule.md
+new file mode 100644
+index 000000000000..b1c44c900703
+--- /dev/null
++++ b/.changeset/silver-shoes-rule.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly highlight sources reassigned inside `trace`
+diff --git a/packages/svelte/src/ambient.d.ts b/packages/svelte/src/ambient.d.ts
+index 9dbc61c7cbd4..fbcecba8e47c 100644
+--- a/packages/svelte/src/ambient.d.ts
++++ b/packages/svelte/src/ambient.d.ts
+@@ -433,7 +433,7 @@ declare namespace $inspect {
+ 	 *   });
+ 	 * </script>
+ 	 */
+-	export function trace(name: string): void;
++	export function trace(name?: string): void;
+ 
+ 	// prevent intellisense from being unhelpful
+ 	/** @deprecated */
+diff --git a/packages/svelte/src/internal/client/dev/tracing.js b/packages/svelte/src/internal/client/dev/tracing.js
+index 302a8f648024..6e759ecd595c 100644
+--- a/packages/svelte/src/internal/client/dev/tracing.js
++++ b/packages/svelte/src/internal/client/dev/tracing.js
+@@ -15,7 +15,7 @@ export let tracing_expressions = null;
+  */
+ function log_entry(signal, entry) {
+ 	const debug = signal.debug;
+-	const value = signal.v;
++	const value = signal.trace_need_increase ? signal.trace_v : signal.v;
+ 
+ 	if (value === UNINITIALIZED) {
+ 		return;
+@@ -121,7 +121,7 @@ export function trace(label, fn) {
+ 			console.groupEnd();
+ 		}
+ 
+-		if (previously_tracing_expressions !== null) {
++		if (previously_tracing_expressions !== null && tracing_expressions !== null) {
+ 			for (const [signal, entry] of tracing_expressions.entries) {
+ 				var prev_entry = previously_tracing_expressions.get(signal);
+ 
+diff --git a/packages/svelte/src/internal/client/reactivity/sources.js b/packages/svelte/src/internal/client/reactivity/sources.js
+index 3e8c4a00c833..fedf5b50701e 100644
+--- a/packages/svelte/src/internal/client/reactivity/sources.js
++++ b/packages/svelte/src/internal/client/reactivity/sources.js
+@@ -167,11 +167,16 @@ export function set(source, value) {
+  */
+ export function internal_set(source, value) {
+ 	if (!source.equals(value)) {
++		var old_value = source.v;
+ 		source.v = value;
+ 		source.version = increment_version();
+ 
+ 		if (DEV && tracing_mode_flag) {
+ 			source.updated = get_stack('UpdatedAt');
++			if (active_effect != null) {
++				source.trace_need_increase = true;
++				source.trace_v ??= old_value;
++			}
+ 		}
+ 
+ 		mark_reactions(source, DIRTY);
+diff --git a/packages/svelte/src/internal/client/reactivity/types.d.ts b/packages/svelte/src/internal/client/reactivity/types.d.ts
+index 13e14414b519..9a6e5d8bf098 100644
+--- a/packages/svelte/src/internal/client/reactivity/types.d.ts
++++ b/packages/svelte/src/internal/client/reactivity/types.d.ts
+@@ -17,6 +17,8 @@ export interface Value<V = unknown> extends Signal {
+ 	/** Dev only */
+ 	created?: Error | null;
+ 	updated?: Error | null;
++	trace_need_increase?: boolean;
++	trace_v?: V;
+ 	debug?: null | (() => void);
+ }
+ 
+diff --git a/packages/svelte/src/internal/client/runtime.js b/packages/svelte/src/internal/client/runtime.js
+index 4a90a219712f..e46ce87de273 100644
+--- a/packages/svelte/src/internal/client/runtime.js
++++ b/packages/svelte/src/internal/client/runtime.js
+@@ -528,6 +528,23 @@ export function update_effect(effect) {
+ 		effect.teardown = typeof teardown === 'function' ? teardown : null;
+ 		effect.version = current_version;
+ 
++		var deps = effect.deps;
++
++		// In DEV, we need to handle a case where $inspect.trace() might
++		// incorrectly state a source dependency has not changed when it has.
++		// That's beacuse that source was changed by the same effect, causing
++		// the versions to match. We can avoid this by incrementing the version
++		if (DEV && tracing_mode_flag && (effect.f & DIRTY) !== 0 && deps !== null) {
++			for (let i = 0; i < deps.length; i++) {
++				var dep = deps[i];
++				if (dep.trace_need_increase) {
++					dep.version = increment_version();
++					dep.trace_need_increase = undefined;
++					dep.trace_v = undefined;
++				}
++			}
++		}
++
+ 		if (DEV) {
+ 			dev_effect_stack.push(effect);
+ 		}
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index d422abebbc0f..b6b76b1cb7e2 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -3091,7 +3091,7 @@ declare namespace $inspect {
+ 	 *   });
+ 	 * </script>
+ 	 */
+-	export function trace(name: string): void;
++	export function trace(name?: string): void;
+ 
+ 	// prevent intellisense from being unhelpful
+ 	/** @deprecated */

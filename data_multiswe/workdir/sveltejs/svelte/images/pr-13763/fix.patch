@@ -1,0 +1,107 @@
+diff --git a/.changeset/red-coats-grin.md b/.changeset/red-coats-grin.md
+new file mode 100644
+index 000000000000..0ff1bc84a90a
+--- /dev/null
++++ b/.changeset/red-coats-grin.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: prevent spread attribute from overriding class directive
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+index d4624c9d3a8c..5484c37cb7c6 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/RegularElement.js
+@@ -219,7 +219,8 @@ export function RegularElement(node, context) {
+ 			node_id,
+ 			attributes_id,
+ 			(node.metadata.svg || node.metadata.mathml || is_custom_element_node(node)) && b.true,
+-			node.name.includes('-') && b.true
++			node.name.includes('-') && b.true,
++			context.state
+ 		);
+ 
+ 		// If value binding exists, that one takes care of calling $.init_select
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+index 85a2b04d91ad..8bae80be370a 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/SvelteElement.js
+@@ -102,7 +102,8 @@ export function SvelteElement(node, context) {
+ 			element_id,
+ 			attributes_id,
+ 			b.binary('!==', b.member(element_id, 'namespaceURI'), b.id('$.NAMESPACE_SVG')),
+-			b.call(b.member(b.member(element_id, 'nodeName'), 'includes'), b.literal('-'))
++			b.call(b.member(b.member(element_id, 'nodeName'), 'includes'), b.literal('-')),
++			context.state
+ 		);
+ 	}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+index d2bf3d53ceb1..1d0705b88d59 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+@@ -1,6 +1,6 @@
+ /** @import { Expression, Identifier, ObjectExpression } from 'estree' */
+ /** @import { AST, Namespace } from '#compiler' */
+-/** @import { ComponentContext } from '../../types' */
++/** @import { ComponentClientTransformState, ComponentContext } from '../../types' */
+ import { normalize_attribute } from '../../../../../../utils.js';
+ import { is_ignored } from '../../../../../state.js';
+ import { get_attribute_expression, is_event_attribute } from '../../../../../utils/ast.js';
+@@ -16,6 +16,7 @@ import { build_template_literal, build_update } from './utils.js';
+  * @param {Identifier} attributes_id
+  * @param {false | Expression} preserve_attribute_case
+  * @param {false | Expression} is_custom_element
++ * @param {ComponentClientTransformState} state
+  */
+ export function build_set_attributes(
+ 	attributes,
+@@ -24,9 +25,9 @@ export function build_set_attributes(
+ 	element_id,
+ 	attributes_id,
+ 	preserve_attribute_case,
+-	is_custom_element
++	is_custom_element,
++	state
+ ) {
+-	let needs_isolation = false;
+ 	let has_state = false;
+ 
+ 	/** @type {ObjectExpression['properties']} */
+@@ -50,12 +51,17 @@ export function build_set_attributes(
+ 
+ 			has_state ||= attribute.metadata.expression.has_state;
+ 		} else {
+-			values.push(b.spread(/** @type {Expression} */ (context.visit(attribute))));
+-
+ 			// objects could contain reactive getters -> play it safe and always assume spread attributes are reactive
+ 			has_state = true;
+ 
+-			needs_isolation ||= attribute.metadata.expression.has_call;
++			let value = /** @type {Expression} */ (context.visit(attribute));
++
++			if (attribute.metadata.expression.has_call) {
++				const id = b.id(state.scope.generate('spread_with_call'));
++				state.init.push(b.const(id, create_derived(state, b.thunk(value))));
++				value = b.call('$.get', id);
++			}
++			values.push(b.spread(value));
+ 		}
+ 	}
+ 
+@@ -72,14 +78,7 @@ export function build_set_attributes(
+ 
+ 	if (has_state) {
+ 		context.state.init.push(b.let(attributes_id));
+-
+ 		const update = b.stmt(b.assignment('=', attributes_id, call));
+-
+-		if (needs_isolation) {
+-			context.state.init.push(build_update(update));
+-			return false;
+-		}
+-
+ 		context.state.update.push(update);
+ 		return true;
+ 	}

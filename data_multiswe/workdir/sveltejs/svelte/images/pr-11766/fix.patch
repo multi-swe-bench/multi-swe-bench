@@ -1,0 +1,36 @@
+diff --git a/.changeset/clever-stingrays-shout.md b/.changeset/clever-stingrays-shout.md
+new file mode 100644
+index 000000000000..8bb9ff1acba9
+--- /dev/null
++++ b/.changeset/clever-stingrays-shout.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: support `array.lastIndexOf` without second argument
+diff --git a/packages/svelte/src/internal/client/dev/equality.js b/packages/svelte/src/internal/client/dev/equality.js
+index bac96b743f69..c1c392ba878e 100644
+--- a/packages/svelte/src/internal/client/dev/equality.js
++++ b/packages/svelte/src/internal/client/dev/equality.js
+@@ -28,10 +28,18 @@ export function init_array_prototype_warnings() {
+ 	};
+ 
+ 	array_prototype.lastIndexOf = function (item, from_index) {
+-		const index = lastIndexOf.call(this, item, from_index);
++		// we need to specify this.length - 1 because it's probably using something like
++		// `arguments` inside so passing undefined is different from not passing anything
++		const index = lastIndexOf.call(this, item, from_index ?? this.length - 1);
+ 
+ 		if (index === -1) {
+-			const test = lastIndexOf.call(get_proxied_value(this), get_proxied_value(item), from_index);
++			// we need to specify this.length - 1 because it's probably using something like
++			// `arguments` inside so passing undefined is different from not passing anything
++			const test = lastIndexOf.call(
++				get_proxied_value(this),
++				get_proxied_value(item),
++				from_index ?? this.length - 1
++			);
+ 
+ 			if (test !== -1) {
+ 				w.state_proxy_equality_mismatch('array.lastIndexOf(...)');

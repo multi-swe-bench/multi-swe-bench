@@ -1,0 +1,86 @@
+diff --git a/internal/config/config_type.go b/internal/config/config_type.go
+index 3714698bdd0..92792e93f27 100644
+--- a/internal/config/config_type.go
++++ b/internal/config/config_type.go
+@@ -55,6 +55,11 @@ var configOptions = []ConfigOption{
+ 		Description:  "the path to a unix socket through which to make HTTP connection",
+ 		DefaultValue: "",
+ 	},
++	{
++		Key:          "browser",
++		Description:  "the web browser to use for opening URLs",
++		DefaultValue: "",
++	},
+ }
+ 
+ func ConfigOptions() []ConfigOption {
+@@ -193,6 +198,15 @@ func NewBlankRoot() *yaml.Node {
+ 						Kind:  yaml.ScalarNode,
+ 						Value: "",
+ 					},
++					{
++						HeadComment: "What web browser gh should use when opening URLs. If blank, will refer to environment.",
++						Kind:        yaml.ScalarNode,
++						Value:       "browser",
++					},
++					{
++						Kind:  yaml.ScalarNode,
++						Value: "",
++					},
+ 				},
+ 			},
+ 		},
+diff --git a/pkg/cmd/factory/default.go b/pkg/cmd/factory/default.go
+index 32187689ba8..3693df6d67b 100644
+--- a/pkg/cmd/factory/default.go
++++ b/pkg/cmd/factory/default.go
+@@ -29,7 +29,7 @@ func New(appVersion string) *cmdutil.Factory {
+ 	f.HttpClient = httpClientFunc(f, appVersion) // Depends on Config, IOStreams, and appVersion
+ 	f.Remotes = remotesFunc(f)                   // Depends on Config
+ 	f.BaseRepo = BaseRepoFunc(f)                 // Depends on Remotes
+-	f.Browser = browser(f)                       // Depends on IOStreams
++	f.Browser = browser(f)                       // Depends on Config, and IOStreams
+ 
+ 	return f
+ }
+@@ -91,7 +91,26 @@ func httpClientFunc(f *cmdutil.Factory, appVersion string) func() (*http.Client,
+ 
+ func browser(f *cmdutil.Factory) cmdutil.Browser {
+ 	io := f.IOStreams
+-	return cmdutil.NewBrowser(os.Getenv("BROWSER"), io.Out, io.ErrOut)
++	return cmdutil.NewBrowser(browserLauncher(f), io.Out, io.ErrOut)
++}
++
++// Browser precedence
++// 1. GH_BROWSER
++// 2. browser from config
++// 3. BROWSER
++func browserLauncher(f *cmdutil.Factory) string {
++	if ghBrowser := os.Getenv("GH_BROWSER"); ghBrowser != "" {
++		return ghBrowser
++	}
++
++	cfg, err := f.Config()
++	if err == nil {
++		if cfgBrowser, _ := cfg.Get("", "browser"); cfgBrowser != "" {
++			return cfgBrowser
++		}
++	}
++
++	return os.Getenv("BROWSER")
+ }
+ 
+ func executable() string {
+diff --git a/pkg/cmd/root/help_topic.go b/pkg/cmd/root/help_topic.go
+index 040c9fa1209..b6a4a158dab 100644
+--- a/pkg/cmd/root/help_topic.go
++++ b/pkg/cmd/root/help_topic.go
+@@ -44,7 +44,7 @@ var HelpTopics = map[string]map[string]string{
+ 			GH_EDITOR, GIT_EDITOR, VISUAL, EDITOR (in order of precedence): the editor tool to use
+ 			for authoring text.
+ 
+-			BROWSER: the web browser to use for opening links.
++			GH_BROWSER, BROWSER (in order of precedence): the web browser to use for opening links.
+ 
+ 			DEBUG: set to any value to enable verbose output to standard error. Include values "api"
+ 			or "oauth" to print detailed information about HTTP requests or authentication flow.

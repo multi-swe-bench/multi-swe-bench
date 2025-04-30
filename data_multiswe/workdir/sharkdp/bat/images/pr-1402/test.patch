@@ -1,0 +1,219 @@
+diff --git a/tests/integration_tests.rs b/tests/integration_tests.rs
+index aab2ca84a4..6128b801b9 100644
+--- a/tests/integration_tests.rs
++++ b/tests/integration_tests.rs
+@@ -1,6 +1,7 @@
+ use assert_cmd::assert::OutputAssertExt;
+ use assert_cmd::cargo::CommandCargoExt;
+ use predicates::{prelude::predicate, str::PredicateStrExt};
++use serial_test::serial;
+ use std::fs::File;
+ use std::path::Path;
+ use std::process::{Command, Stdio};
+@@ -9,6 +10,9 @@ use std::str::from_utf8;
+ #[cfg(unix)]
+ use std::time::Duration;
+ 
++mod utils;
++use utils::mocked_pagers;
++
+ const EXAMPLES_DIR: &str = "tests/examples";
+ 
+ #[cfg(unix)]
+@@ -505,6 +509,84 @@ fn pager_value_bat() {
+         .failure();
+ }
+ 
++/// We shall use less instead of most if PAGER is used since PAGER
++/// is a generic env var
++#[test]
++#[serial] // Because of PATH
++fn pager_most_from_pager_env_var() {
++    mocked_pagers::with_mocked_versions_of_more_and_most_in_path(|| {
++        // If the output is not "I am most" then we know 'most' is not used
++        bat()
++            .env("PAGER", mocked_pagers::from("most"))
++            .arg("--paging=always")
++            .arg("test.txt")
++            .assert()
++            .success()
++            .stdout(predicate::eq("hello world\n").normalize());
++    });
++}
++
++/// If the bat-specific BAT_PAGER is used, obey the wish of the user
++/// and allow 'most'
++#[test]
++#[serial] // Because of PATH
++fn pager_most_from_bat_pager_env_var() {
++    mocked_pagers::with_mocked_versions_of_more_and_most_in_path(|| {
++        bat()
++            .env("BAT_PAGER", mocked_pagers::from("most"))
++            .arg("--paging=always")
++            .arg("test.txt")
++            .assert()
++            .success()
++            .stdout(predicate::str::contains("I am most"));
++    });
++}
++
++/// Same reasoning with --pager as with BAT_PAGER
++#[test]
++#[serial] // Because of PATH
++fn pager_most_from_pager_arg() {
++    mocked_pagers::with_mocked_versions_of_more_and_most_in_path(|| {
++        bat()
++            .arg("--paging=always")
++            .arg(format!("--pager={}", mocked_pagers::from("most")))
++            .arg("test.txt")
++            .assert()
++            .success()
++            .stdout(predicate::str::contains("I am most"));
++    });
++}
++
++/// Make sure the logic for 'most' applies even if an argument is passed
++#[test]
++#[serial] // Because of PATH
++fn pager_most_with_arg() {
++    mocked_pagers::with_mocked_versions_of_more_and_most_in_path(|| {
++        bat()
++            .env("PAGER", format!("{} -w", mocked_pagers::from("most")))
++            .arg("--paging=always")
++            .arg("test.txt")
++            .assert()
++            .success()
++            .stdout(predicate::eq("hello world\n").normalize());
++    });
++}
++
++/// Sanity check that 'more' is treated like 'most'
++#[test]
++#[serial] // Because of PATH
++fn pager_more() {
++    mocked_pagers::with_mocked_versions_of_more_and_most_in_path(|| {
++        bat()
++            .env("PAGER", mocked_pagers::from("more"))
++            .arg("--paging=always")
++            .arg("test.txt")
++            .assert()
++            .success()
++            .stdout(predicate::eq("hello world\n").normalize());
++    });
++}
++
+ #[test]
+ fn alias_pager_disable() {
+     bat()
+diff --git a/tests/mocked-pagers/more b/tests/mocked-pagers/more
+new file mode 100755
+index 0000000000..cb57549b09
+--- /dev/null
++++ b/tests/mocked-pagers/more
+@@ -0,0 +1,2 @@
++#!/usr/bin/env bash
++echo I am more
+diff --git a/tests/mocked-pagers/more.bat b/tests/mocked-pagers/more.bat
+new file mode 100755
+index 0000000000..61c3ac08e6
+--- /dev/null
++++ b/tests/mocked-pagers/more.bat
+@@ -0,0 +1,1 @@
++ECHO I am more
+diff --git a/tests/mocked-pagers/most b/tests/mocked-pagers/most
+new file mode 100755
+index 0000000000..29ee1ea37e
+--- /dev/null
++++ b/tests/mocked-pagers/most
+@@ -0,0 +1,2 @@
++#!/usr/bin/env bash
++echo I am most
+diff --git a/tests/mocked-pagers/most.bat b/tests/mocked-pagers/most.bat
+new file mode 100755
+index 0000000000..1082ee071e
+--- /dev/null
++++ b/tests/mocked-pagers/most.bat
+@@ -0,0 +1,1 @@
++ECHO I am most
+diff --git a/tests/utils/mocked_pagers.rs b/tests/utils/mocked_pagers.rs
+new file mode 100644
+index 0000000000..d115316d4b
+--- /dev/null
++++ b/tests/utils/mocked_pagers.rs
+@@ -0,0 +1,69 @@
++use assert_cmd::Command;
++use predicates::prelude::predicate;
++use std::env;
++use std::path::{Path, PathBuf};
++
++/// For some tests we want mocked versions of some pagers
++/// This fn returns the absolute path to the directory with these mocked pagers
++fn get_mocked_pagers_dir() -> PathBuf {
++    let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("Missing CARGO_MANIFEST_DIR");
++    Path::new(&cargo_manifest_dir)
++        .join("tests")
++        .join("mocked-pagers")
++}
++
++/// On Unix: 'most' -> 'most'
++/// On Windows: 'most' -> 'most.bat'
++pub fn from(base: &str) -> String {
++    if cfg!(windows) {
++        format!("{}.bat", base)
++    } else {
++        String::from(base)
++    }
++}
++
++/// Prepends a directory to the PATH environment variable
++/// Returns the original value for later restoration
++fn prepend_dir_to_path_env_var(dir: PathBuf) -> String {
++    // Get current PATH
++    let original_path = env::var("PATH").expect("No PATH?!");
++
++    // Add the new dir first
++    let mut split_paths = env::split_paths(&original_path).collect::<Vec<_>>();
++    split_paths.insert(0, dir);
++
++    // Set PATH with the new dir
++    let new_path = env::join_paths(split_paths).expect("Failed to join paths");
++    env::set_var("PATH", new_path);
++
++    // Return the original value for later restoration of it
++    original_path
++}
++
++/// Helper to restore the value of PATH
++fn restore_path(original_path: String) {
++    env::set_var("PATH", original_path);
++}
++
++/// Allows test to run that require our mocked versions of 'more' and 'most'
++/// in PATH. Temporarily changes PATH while the test code runs, and then restore it
++/// to avoid pollution of global state
++pub fn with_mocked_versions_of_more_and_most_in_path(actual_test: fn()) {
++    let original_path = prepend_dir_to_path_env_var(get_mocked_pagers_dir());
++
++    // Make sure our own variants of 'more' and 'most' are used
++    Command::new(from("more"))
++        .assert()
++        .success()
++        .stdout(predicate::str::contains("I am more"));
++    Command::new(from("most"))
++        .assert()
++        .success()
++        .stdout(predicate::str::contains("I am most"));
++
++    // Now run the actual test
++    actual_test();
++
++    // Make sure to restore PATH since it is global state
++    restore_path(original_path);
++}
+diff --git a/tests/utils/mod.rs b/tests/utils/mod.rs
+new file mode 100644
+index 0000000000..724efc5bfa
+--- /dev/null
++++ b/tests/utils/mod.rs
+@@ -0,0 +1,1 @@
++pub mod mocked_pagers;

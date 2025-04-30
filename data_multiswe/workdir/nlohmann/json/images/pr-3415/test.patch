@@ -1,0 +1,288 @@
+diff --git a/test/src/unit-alt-string.cpp b/test/src/unit-alt-string.cpp
+index bcde18b75a..26f66ecadf 100644
+--- a/test/src/unit-alt-string.cpp
++++ b/test/src/unit-alt-string.cpp
+@@ -49,6 +49,8 @@ class alt_string
+   public:
+     using value_type = std::string::value_type;
+ 
++    static constexpr auto npos = static_cast<std::size_t>(-1);
++
+     alt_string(const char* str): str_impl(str) {}
+     alt_string(const char* str, std::size_t count): str_impl(str, count) {}
+     alt_string(size_t count, char chr): str_impl(count, chr) {}
+@@ -144,11 +146,38 @@ class alt_string
+         str_impl.clear();
+     }
+ 
+-    const value_type* data()
++    const value_type* data() const
+     {
+         return str_impl.data();
+     }
+ 
++    bool empty() const
++    {
++        return str_impl.empty();
++    }
++
++    std::size_t find(const alt_string& str, std::size_t pos = 0) const
++    {
++        return str_impl.find(str.str_impl, pos);
++    }
++
++    std::size_t find_first_of(char c, std::size_t pos = 0) const
++    {
++        return str_impl.find_first_of(c, pos);
++    }
++
++    alt_string substr(std::size_t pos = 0, std::size_t count = npos) const
++    {
++        std::string s = str_impl.substr(pos, count);
++        return {s.data(), s.size()};
++    }
++
++    alt_string& replace(std::size_t pos, std::size_t count, const alt_string& str)
++    {
++        str_impl.replace(pos, count, str.str_impl);
++        return *this;
++    }
++
+   private:
+     std::string str_impl {};
+ 
+@@ -296,4 +325,20 @@ TEST_CASE("alternative string type")
+             CHECK_FALSE(const_doc["Who are you?"] == "I'm Bruce Wayne");
+         }
+     }
++
++    SECTION("JSON pointer")
++    {
++        // conversion from json to alt_json fails to compile (see #3425);
++        // attempted fix(*) produces: [[['b','a','r'],['b','a','z']]] (with each char being an integer)
++        // (*) disable implicit conversion for json_refs of any basic_json type
++        // alt_json j = R"(
++        // {
++        //     "foo": ["bar", "baz"]
++        // }
++        // )"_json;
++        auto j = alt_json::parse(R"({"foo": ["bar", "baz"]})");
++
++        CHECK(j.at(alt_json::json_pointer("/foo/0")) == j["foo"][0]);
++        CHECK(j.at(alt_json::json_pointer("/foo/1")) == j["foo"][1]);
++    }
+ }
+diff --git a/test/src/unit-convenience.cpp b/test/src/unit-convenience.cpp
+index f2018bf3c8..666902582e 100644
+--- a/test/src/unit-convenience.cpp
++++ b/test/src/unit-convenience.cpp
+@@ -37,6 +37,84 @@ using nlohmann::json;
+ 
+ namespace
+ {
++struct alt_string_iter
++{
++    alt_string_iter() = default;
++    alt_string_iter(const char* cstr)
++        : impl(cstr)
++    {}
++
++    void reserve(std::size_t s)
++    {
++        impl.reserve(s);
++    }
++
++    template<typename Iter>
++    void append(Iter first, Iter last)
++    {
++        impl.append(first, last);
++    }
++
++    std::string::const_iterator begin() const
++    {
++        return impl.begin();
++    }
++
++    std::string::const_iterator end() const
++    {
++        return impl.end();
++    }
++
++    std::size_t size() const
++    {
++        return impl.size();
++    }
++
++    alt_string_iter& operator+=(const char c)
++    {
++        impl += c;
++        return *this;
++    }
++
++    std::string impl{};
++};
++
++struct alt_string_data
++{
++    alt_string_data() = default;
++    alt_string_data(const char* cstr)
++        : impl(cstr)
++    {}
++
++    void reserve(std::size_t s)
++    {
++        impl.reserve(s);
++    }
++
++    void append(const char* p, std::size_t s)
++    {
++        impl.append(p, s);
++    }
++
++    const char* data() const
++    {
++        return impl.data();
++    }
++
++    std::size_t size() const
++    {
++        return impl.size();
++    }
++
++    alt_string_data& operator+=(const char c)
++    {
++        impl += c;
++        return *this;
++    }
++
++    std::string impl{};
++};
++
+ void check_escaped(const char* original, const char* escaped = "", bool ensure_ascii = false);
+ void check_escaped(const char* original, const char* escaped, const bool ensure_ascii)
+ {
+@@ -110,4 +188,39 @@ TEST_CASE("convenience functions")
+ 
+         CHECK_THROWS_WITH_AS(check_escaped("\xC2"), "[json.exception.type_error.316] incomplete UTF-8 string; last byte: 0xC2", json::type_error&);
+     }
++
++    SECTION("string concat")
++    {
++        using nlohmann::detail::concat;
++
++        const char* expected = "Hello, world!";
++        alt_string_iter hello_iter{"Hello, "};
++        alt_string_data hello_data{"Hello, "};
++        std::string world = "world";
++
++        SECTION("std::string")
++        {
++            std::string str1 = concat(hello_iter, world, '!');
++            std::string str2 = concat(hello_data, world, '!');
++            std::string str3 = concat("Hello, ", world, '!');
++
++            CHECK(str1 == expected);
++            CHECK(str2 == expected);
++            CHECK(str3 == expected);
++        }
++
++        SECTION("alt_string_iter")
++        {
++            alt_string_iter str = concat<alt_string_iter>(hello_iter, world, '!');
++
++            CHECK(str.impl == expected);
++        }
++
++        SECTION("alt_string_data")
++        {
++            alt_string_data str = concat<alt_string_data>(hello_data, world, '!');
++
++            CHECK(str.impl == expected);
++        }
++    }
+ }
+diff --git a/test/src/unit-json_pointer.cpp b/test/src/unit-json_pointer.cpp
+index 8853c7aa60..7ec157db33 100644
+--- a/test/src/unit-json_pointer.cpp
++++ b/test/src/unit-json_pointer.cpp
+@@ -660,4 +660,54 @@ TEST_CASE("JSON pointers")
+         CHECK(j[ptr] == j["object"]["/"]);
+         CHECK(ptr.to_string() == "/object/~1");
+     }
++
++    SECTION("equality comparison")
++    {
++        auto ptr1 = json::json_pointer("/foo/bar");
++        auto ptr2 = json::json_pointer("/foo/bar");
++
++        CHECK(ptr1 == ptr2);
++        CHECK_FALSE(ptr1 != ptr2);
++    }
++
++    SECTION("backwards compatibility and mixing")
++    {
++        json j = R"(
++        {
++            "foo": ["bar", "baz"]
++        }
++        )"_json;
++
++        using nlohmann::ordered_json;
++        using json_ptr_str = nlohmann::json_pointer<std::string>;
++        using json_ptr_j = nlohmann::json_pointer<json>;
++        using json_ptr_oj = nlohmann::json_pointer<ordered_json>;
++
++        CHECK(std::is_same<json_ptr_str::string_t, json::json_pointer::string_t>::value);
++        CHECK(std::is_same<json_ptr_str::string_t, ordered_json::json_pointer::string_t>::value);
++        CHECK(std::is_same<json_ptr_str::string_t, json_ptr_j::string_t>::value);
++        CHECK(std::is_same<json_ptr_str::string_t, json_ptr_oj::string_t>::value);
++
++        json_ptr_str ptr{"/foo/0"};
++        json_ptr_j ptr_j{"/foo/0"};
++        json_ptr_oj ptr_oj{"/foo/0"};
++
++        CHECK(j.contains(ptr));
++        CHECK(j.contains(ptr_j));
++        CHECK(j.contains(ptr_oj));
++
++        CHECK(j.at(ptr) == j.at(ptr_j));
++        CHECK(j.at(ptr) == j.at(ptr_oj));
++
++        CHECK(j[ptr] == j[ptr_j]);
++        CHECK(j[ptr] == j[ptr_oj]);
++
++        CHECK(j.value(ptr, "x") == j.value(ptr_j, "x"));
++        CHECK(j.value(ptr, "x") == j.value(ptr_oj, "x"));
++
++        CHECK(ptr == ptr_j);
++        CHECK(ptr == ptr_oj);
++        CHECK_FALSE(ptr != ptr_j);
++        CHECK_FALSE(ptr != ptr_oj);
++    }
+ }
+diff --git a/test/src/unit-regression2.cpp b/test/src/unit-regression2.cpp
+index dd2edb4ff3..9b46f54ab6 100644
+--- a/test/src/unit-regression2.cpp
++++ b/test/src/unit-regression2.cpp
+@@ -715,7 +715,6 @@ TEST_CASE("regression tests 2")
+     {
+         std::string p = "/root";
+ 
+-        // matching types
+         json test1;
+         test1[json::json_pointer(p)] = json::object();
+         CHECK(test1.dump() == "{\"root\":{}}");
+@@ -724,10 +723,11 @@ TEST_CASE("regression tests 2")
+         test2[ordered_json::json_pointer(p)] = json::object();
+         CHECK(test2.dump() == "{\"root\":{}}");
+ 
+-        // mixed type - the JSON Pointer is implicitly converted into a string "/root"
++        // json::json_pointer and ordered_json::json_pointer are the same type; behave as above
+         ordered_json test3;
+         test3[json::json_pointer(p)] = json::object();
+-        CHECK(test3.dump() == "{\"/root\":{}}");
++        CHECK(std::is_same<json::json_pointer::string_t, ordered_json::json_pointer::string_t>::value);
++        CHECK(test3.dump() == "{\"root\":{}}");
+     }
+ 
+     SECTION("issue #2982 - to_{binary format} does not provide a mechanism for specifying a custom allocator for the returned type")

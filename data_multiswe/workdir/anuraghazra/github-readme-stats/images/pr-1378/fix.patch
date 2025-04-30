@@ -1,0 +1,45 @@
+diff --git a/src/cards/repo-card.js b/src/cards/repo-card.js
+index 5e6a28dd6d998..5295b174735a5 100644
+--- a/src/cards/repo-card.js
++++ b/src/cards/repo-card.js
+@@ -139,7 +139,7 @@ const renderRepoCard = (repo, options = {}) => {
+   }).join("");
+ 
+   const card = new Card({
+-    defaultTitle: header,
++    defaultTitle: header.length > 35 ? `${header.slice(0, 35)}...` : header,
+     titlePrefixIcon: icons.contribs,
+     width: 400,
+     height,
+diff --git a/src/common/utils.js b/src/common/utils.js
+index 79d6af0f90628..92018a63176c1 100644
+--- a/src/common/utils.js
++++ b/src/common/utils.js
+@@ -220,12 +220,22 @@ function getCardColors({
+  * @param {number} maxLines
+  * @returns {string[]}
+  */
+-function wrapTextMultiline(text, width = 60, maxLines = 3) {
+-  const wrapped = wrap(encodeHTML(text), { width })
+-    .split("\n") // Split wrapped lines to get an array of lines
+-    .map((line) => line.trim()); // Remove leading and trailing whitespace of each line
++function wrapTextMultiline(text, width = 59, maxLines = 3) {
++  const fullWidthComma = "，";
++  const encoded = encodeHTML(text);
++  const isChinese = encoded.includes(fullWidthComma);
+ 
+-  const lines = wrapped.slice(0, maxLines); // Only consider maxLines lines
++  let wrapped = [];
++
++  if (isChinese) {
++    wrapped = encoded.split(fullWidthComma); // Chinese full punctuation
++  } else {
++    wrapped = wrap(encoded, {
++      width,
++    }).split("\n"); // Split wrapped lines to get an array of lines
++  }
++
++  const lines = wrapped.map((line) => line.trim()).slice(0, maxLines); // Only consider maxLines lines
+ 
+   // Add "..." to the last line if the text exceeds maxLines
+   if (wrapped.length > maxLines) {

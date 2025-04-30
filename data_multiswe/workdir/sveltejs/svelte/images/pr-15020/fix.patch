@@ -1,0 +1,51 @@
+diff --git a/.changeset/violet-apes-punch.md b/.changeset/violet-apes-punch.md
+new file mode 100644
+index 000000000000..77f4e923c8ce
+--- /dev/null
++++ b/.changeset/violet-apes-punch.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly parse leading comments in function binding
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/expression.js b/packages/svelte/src/compiler/phases/1-parse/read/expression.js
+index 82a667d38c59..a596cdf572cb 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/expression.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/expression.js
+@@ -38,6 +38,10 @@ export default function read_expression(parser, opening_token, disallow_loose) {
+ 
+ 		let num_parens = 0;
+ 
++		if (node.leadingComments !== undefined && node.leadingComments.length > 0) {
++			parser.index = node.leadingComments.at(-1).end;
++		}
++
+ 		for (let i = parser.index; i < /** @type {number} */ (node.start); i += 1) {
+ 			if (parser.template[i] === '(') num_parens += 1;
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+index b4de1925df24..7719eee6772e 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+@@ -132,8 +132,19 @@ export function BindDirective(node, context) {
+ 		}
+ 
+ 		let i = /** @type {number} */ (node.expression.start);
++		let leading_comments_start = /**@type {any}*/ (node.expression.leadingComments?.at(0))?.start;
++		let leading_comments_end = /**@type {any}*/ (node.expression.leadingComments?.at(-1))?.end;
+ 		while (context.state.analysis.source[--i] !== '{') {
+-			if (context.state.analysis.source[i] === '(') {
++			if (
++				context.state.analysis.source[i] === '(' &&
++				// if the parenthesis is in a leading comment we don't need to throw the error
++				!(
++					leading_comments_start &&
++					leading_comments_end &&
++					i <= leading_comments_end &&
++					i >= leading_comments_start
++				)
++			) {
+ 				e.bind_invalid_parens(node, node.name);
+ 			}
+ 		}

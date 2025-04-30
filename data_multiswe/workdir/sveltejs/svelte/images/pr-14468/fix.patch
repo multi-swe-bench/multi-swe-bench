@@ -1,0 +1,43 @@
+diff --git a/.changeset/brave-keys-rescue.md b/.changeset/brave-keys-rescue.md
+new file mode 100644
+index 000000000000..21ab4888be5f
+--- /dev/null
++++ b/.changeset/brave-keys-rescue.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: ignore text and expressions outside the template when validating HTML
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/ExpressionTag.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/ExpressionTag.js
+index 7e21d5ca1461..e0d2710a08f0 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/ExpressionTag.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/ExpressionTag.js
+@@ -9,9 +9,9 @@ import { mark_subtree_dynamic } from './shared/fragment.js';
+  * @param {Context} context
+  */
+ export function ExpressionTag(node, context) {
+-	const in_attribute = context.path.at(-1)?.type === 'Attribute';
++	const in_template = context.path.at(-1)?.type === 'Fragment';
+ 
+-	if (!in_attribute && context.state.parent_element) {
++	if (in_template && context.state.parent_element) {
+ 		if (!is_tag_valid_with_parent('#text', context.state.parent_element)) {
+ 			e.node_invalid_placement(node, '`{expression}`', context.state.parent_element);
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/Text.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/Text.js
+index 2eca7d43e90a..b60030f6389d 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/Text.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/Text.js
+@@ -9,9 +9,9 @@ import * as e from '../../../errors.js';
+  * @param {Context} context
+  */
+ export function Text(node, context) {
+-	const in_attribute = context.path.at(-1)?.type === 'Attribute';
++	const in_template = context.path.at(-1)?.type === 'Fragment';
+ 
+-	if (!in_attribute && context.state.parent_element && regex_not_whitespace.test(node.data)) {
++	if (in_template && context.state.parent_element && regex_not_whitespace.test(node.data)) {
+ 		if (!is_tag_valid_with_parent('#text', context.state.parent_element)) {
+ 			e.node_invalid_placement(node, 'Text node', context.state.parent_element);
+ 		}

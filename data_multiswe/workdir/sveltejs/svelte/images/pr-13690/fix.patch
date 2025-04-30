@@ -1,0 +1,34 @@
+diff --git a/.changeset/sharp-tigers-notice.md b/.changeset/sharp-tigers-notice.md
+new file mode 100644
+index 000000000000..b51938506615
+--- /dev/null
++++ b/.changeset/sharp-tigers-notice.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: @debug does not work with proxied-state
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/DebugTag.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/DebugTag.js
+index 685d305ba49e..d2697fd0397f 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/DebugTag.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/DebugTag.js
+@@ -9,9 +9,15 @@ import * as b from '../../../../utils/builders.js';
+  */
+ export function DebugTag(node, context) {
+ 	const object = b.object(
+-		node.identifiers.map((identifier) =>
+-			b.prop('init', identifier, /** @type {Expression} */ (context.visit(identifier)))
+-		)
++		node.identifiers.map((identifier) => {
++			const visited = b.call('$.snapshot', /** @type {Expression} */ (context.visit(identifier)));
++
++			return b.prop(
++				'init',
++				identifier,
++				context.state.analysis.runes ? visited : b.call('$.untrack', b.thunk(visited))
++			);
++		})
+ 	);
+ 
+ 	const call = b.call('console.log', object);

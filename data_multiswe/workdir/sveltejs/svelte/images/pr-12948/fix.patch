@@ -1,0 +1,714 @@
+diff --git a/.changeset/quick-eagles-sit.md b/.changeset/quick-eagles-sit.md
+new file mode 100644
+index 000000000000..613ea2bd053c
+--- /dev/null
++++ b/.changeset/quick-eagles-sit.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++breaking: deprecate `context="module"` in favor of `module`
+diff --git a/documentation/docs/02-template-syntax/01-component-fundamentals.md b/documentation/docs/02-template-syntax/01-component-fundamentals.md
+index debe4828d257..fc81bb24bd8f 100644
+--- a/documentation/docs/02-template-syntax/01-component-fundamentals.md
++++ b/documentation/docs/02-template-syntax/01-component-fundamentals.md
+@@ -161,16 +161,16 @@ If you'd like to react to changes to a prop, use the `$derived` or `$effect` run
+ 
+ For more information on reactivity, read the documentation around runes.
+ 
+-## &lt;script context="module"&gt;
++## &lt;script module&gt;
+ 
+-A `<script>` tag with a `context="module"` attribute runs once when the module first evaluates, rather than for each component instance. Values declared in this block are accessible from a regular `<script>` (and the component markup) but not vice versa.
++A `<script>` tag with a `module` attribute runs once when the module first evaluates, rather than for each component instance. Values declared in this block are accessible from a regular `<script>` (and the component markup) but not vice versa.
+ 
+ You can `export` bindings from this block, and they will become exports of the compiled module.
+ 
+ You cannot `export default`, since the default export is the component itself.
+ 
+ ```svelte
+-<script context="module">
++<script module>
+ 	let totalComponents = 0;
+ 
+ 	// the export keyword allows this function to imported with e.g.
+diff --git a/package.json b/package.json
+index 9a7366572cdd..570b3bdcf51b 100644
+--- a/package.json
++++ b/package.json
+@@ -40,6 +40,7 @@
+     "playwright": "^1.41.1",
+     "prettier": "^3.2.4",
+     "prettier-plugin-svelte": "^3.1.2",
++    "svelte": "workspace:^",
+     "typescript": "^5.5.2",
+     "typescript-eslint": "^8.0.0-alpha.34",
+     "v8-natives": "^1.2.5",
+diff --git a/packages/svelte/messages/compile-errors/script.md b/packages/svelte/messages/compile-errors/script.md
+index e84174e42a7d..47dbac6eab70 100644
+--- a/packages/svelte/messages/compile-errors/script.md
++++ b/packages/svelte/messages/compile-errors/script.md
+@@ -16,7 +16,7 @@
+ 
+ ## declaration_duplicate_module_import
+ 
+-> Cannot declare same variable name which is imported inside `<script context="module">`
++> Cannot declare a variable with the same name as an import inside `<script module>`
+ 
+ ## derived_invalid_export
+ 
+@@ -152,7 +152,7 @@
+ 
+ ## store_invalid_subscription
+ 
+-> Cannot reference store value inside `<script context="module">`
++> Cannot reference store value inside `<script module>`
+ 
+ ## store_invalid_subscription_module
+ 
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index 95e60c0cf5f9..49a422ecde30 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -216,12 +216,20 @@ HTML restricts where certain elements can appear. In case of a violation the bro
+ 
+ ## script_duplicate
+ 
+-> A component can have a single top-level `<script>` element and/or a single top-level `<script context="module">` element
++> A component can have a single top-level `<script>` element and/or a single top-level `<script module>` element
++
++## script_invalid_attribute_value
++
++> If the `%name%` attribute is supplied, it must be a boolean attribute
+ 
+ ## script_invalid_context
+ 
+ > If the context attribute is supplied, its value must be "module"
+ 
++## script_reserved_attribute
++
++> The `%name%` attribute is reserved and cannot be used
++
+ ## slot_attribute_duplicate
+ 
+ > Duplicate slot name '%name%' in <%component%>
+diff --git a/packages/svelte/messages/compile-warnings/template.md b/packages/svelte/messages/compile-warnings/template.md
+index 31774d0555f8..194bd1087da9 100644
+--- a/packages/svelte/messages/compile-warnings/template.md
++++ b/packages/svelte/messages/compile-warnings/template.md
+@@ -50,6 +50,14 @@ HTML restricts where certain elements can appear. In case of a violation the bro
+ 
+ This code will work when the component is rendered on the client (which is why this is a warning rather than an error), but if you use server rendering it will cause hydration to fail.
+ 
++## script_context_deprecated
++
++> `context="module"` is deprecated, use the `module` attribute instead
++
++## script_unknown_attribute
++
++> Unrecognized attribute — should be one of `generics`, `lang` or `module`. If this exists for a preprocessor, ensure that the preprocessor removes it
++
+ ## slot_element_deprecated
+ 
+ > Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index f0fca61e9ac7..e6d109399868 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -99,12 +99,12 @@ export function declaration_duplicate(node, name) {
+ }
+ 
+ /**
+- * Cannot declare same variable name which is imported inside `<script context="module">`
++ * Cannot declare a variable with the same name as an import inside `<script module>`
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function declaration_duplicate_module_import(node) {
+-	e(node, "declaration_duplicate_module_import", "Cannot declare same variable name which is imported inside `<script context=\"module\">`");
++	e(node, "declaration_duplicate_module_import", "Cannot declare a variable with the same name as an import inside `<script module>`");
+ }
+ 
+ /**
+@@ -417,12 +417,12 @@ export function store_invalid_scoped_subscription(node) {
+ }
+ 
+ /**
+- * Cannot reference store value inside `<script context="module">`
++ * Cannot reference store value inside `<script module>`
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function store_invalid_subscription(node) {
+-	e(node, "store_invalid_subscription", "Cannot reference store value inside `<script context=\"module\">`");
++	e(node, "store_invalid_subscription", "Cannot reference store value inside `<script module>`");
+ }
+ 
+ /**
+@@ -1044,12 +1044,22 @@ export function render_tag_invalid_spread_argument(node) {
+ }
+ 
+ /**
+- * A component can have a single top-level `<script>` element and/or a single top-level `<script context="module">` element
++ * A component can have a single top-level `<script>` element and/or a single top-level `<script module>` element
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function script_duplicate(node) {
+-	e(node, "script_duplicate", "A component can have a single top-level `<script>` element and/or a single top-level `<script context=\"module\">` element");
++	e(node, "script_duplicate", "A component can have a single top-level `<script>` element and/or a single top-level `<script module>` element");
++}
++
++/**
++ * If the `%name%` attribute is supplied, it must be a boolean attribute
++ * @param {null | number | NodeLike} node
++ * @param {string} name
++ * @returns {never}
++ */
++export function script_invalid_attribute_value(node, name) {
++	e(node, "script_invalid_attribute_value", `If the \`${name}\` attribute is supplied, it must be a boolean attribute`);
+ }
+ 
+ /**
+@@ -1061,6 +1071,16 @@ export function script_invalid_context(node) {
+ 	e(node, "script_invalid_context", "If the context attribute is supplied, its value must be \"module\"");
+ }
+ 
++/**
++ * The `%name%` attribute is reserved and cannot be used
++ * @param {null | number | NodeLike} node
++ * @param {string} name
++ * @returns {never}
++ */
++export function script_reserved_attribute(node, name) {
++	e(node, "script_reserved_attribute", `The \`${name}\` attribute is reserved and cannot be used`);
++}
++
+ /**
+  * Duplicate slot name '%name%' in <%component%>
+  * @param {null | number | NodeLike} node
+diff --git a/packages/svelte/src/compiler/migrate/index.js b/packages/svelte/src/compiler/migrate/index.js
+index 31aee08cfa8c..658da75f3aca 100644
+--- a/packages/svelte/src/compiler/migrate/index.js
++++ b/packages/svelte/src/compiler/migrate/index.js
+@@ -1,5 +1,4 @@
+ /** @import { VariableDeclarator, Node, Identifier } from 'estree' */
+-/** @import { SvelteNode } from '../types/template.js' */
+ /** @import { Visitors } from 'zimmerframe' */
+ /** @import { ComponentAnalysis } from '../phases/types.js' */
+ /** @import { Scope } from '../phases/scope.js' */
+@@ -58,6 +57,13 @@ export function migrate(source) {
+ 			needs_run: false
+ 		};
+ 
++		if (parsed.module) {
++			const context = parsed.module.attributes.find((attr) => attr.name === 'context');
++			if (context) {
++				state.str.update(context.start, context.end, 'module');
++			}
++		}
++
+ 		if (parsed.instance) {
+ 			walk(parsed.instance.content, state, instance_script);
+ 		}
+@@ -223,7 +229,7 @@ export function migrate(source) {
+  * }} State
+  */
+ 
+-/** @type {Visitors<SvelteNode, State>} */
++/** @type {Visitors<Compiler.SvelteNode, State>} */
+ const instance_script = {
+ 	_(node, { state, next }) {
+ 		// @ts-expect-error
+@@ -472,7 +478,7 @@ const instance_script = {
+ 	}
+ };
+ 
+-/** @type {Visitors<SvelteNode, State>} */
++/** @type {Visitors<Compiler.SvelteNode, State>} */
+ const template = {
+ 	Identifier(node, { state, path }) {
+ 		handle_identifier(node, state, path);
+@@ -590,7 +596,7 @@ const template = {
+ /**
+  * @param {VariableDeclarator} declarator
+  * @param {MagicString} str
+- * @param {Compiler.SvelteNode[]} path
++ * @param {Array<Compiler.SvelteNode>} path
+  */
+ function extract_type_and_comment(declarator, str, path) {
+ 	const parent = path.at(-1);
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/script.js b/packages/svelte/src/compiler/phases/1-parse/read/script.js
+index 1b85da60dcb8..3403b5aab465 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/script.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/script.js
+@@ -4,32 +4,14 @@
+ import * as acorn from '../acorn.js';
+ import { regex_not_newline_characters } from '../../patterns.js';
+ import * as e from '../../../errors.js';
++import * as w from '../../../warnings.js';
++import { is_text_attribute } from '../../../utils/ast.js';
+ 
+ const regex_closing_script_tag = /<\/script\s*>/;
+ const regex_starts_with_closing_script_tag = /^<\/script\s*>/;
+ 
+-/**
+- * @param {any[]} attributes
+- * @returns {string}
+- */
+-function get_context(attributes) {
+-	const context = attributes.find(
+-		/** @param {any} attribute */ (attribute) => attribute.name === 'context'
+-	);
+-	if (!context) return 'default';
+-
+-	if (context.value.length !== 1 || context.value[0].type !== 'Text') {
+-		e.script_invalid_context(context.start);
+-	}
+-
+-	const value = context.value[0].data;
+-
+-	if (value !== 'module') {
+-		e.script_invalid_context(context.start);
+-	}
+-
+-	return value;
+-}
++const RESERVED_ATTRIBUTES = ['server', 'client', 'worker', 'test', 'default'];
++const ALLOWED_ATTRIBUTES = ['context', 'generics', 'lang', 'module'];
+ 
+ /**
+  * @param {Parser} parser
+@@ -60,14 +42,56 @@ export function read_script(parser, start, attributes) {
+ 	// TODO is this necessary?
+ 	ast.start = script_start;
+ 
++	/** @type {'default' | 'module'} */
++	let context = 'default';
++
++	for (const attribute of /** @type {Attribute[]} */ (attributes)) {
++		if (RESERVED_ATTRIBUTES.includes(attribute.name)) {
++			e.script_reserved_attribute(attribute, attribute.name);
++		}
++
++		if (!ALLOWED_ATTRIBUTES.includes(attribute.name)) {
++			w.script_unknown_attribute(attribute);
++		}
++
++		if (attribute.name === 'module') {
++			if (attribute.value !== true) {
++				// Deliberately a generic code to future-proof for potential other attributes
++				e.script_invalid_attribute_value(attribute, attribute.name);
++			}
++
++			context = 'module';
++		}
++
++		if (attribute.name === 'context') {
++			if (attribute.value === true || !is_text_attribute(attribute)) {
++				throw new Error('TODO');
++			}
++
++			if (attribute.value.length !== 1 || attribute.value[0].type !== 'Text') {
++				e.script_invalid_context(attribute);
++			}
++
++			const value = attribute.value[0].data;
++
++			if (value !== 'module') {
++				e.script_invalid_context(attribute);
++			}
++
++			w.script_context_deprecated(attribute);
++
++			context = 'module';
++		}
++	}
++
+ 	return {
+ 		type: 'Script',
+ 		start,
+ 		end: parser.index,
+-		context: get_context(attributes),
++		context,
+ 		content: ast,
+ 		parent: null,
+ 		// @ts-ignore
+-		attributes: attributes
++		attributes
+ 	};
+ }
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index 1bd1903d4473..d442cee77d59 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -330,7 +330,7 @@ export function analyze_component(root, source, options) {
+ 
+ 			if (module.ast) {
+ 				for (const { node, path } of references) {
+-					// if the reference is inside context="module", error. this is a bit hacky but it works
++					// if the reference is inside module, error. this is a bit hacky but it works
+ 					if (
+ 						/** @type {number} */ (node.start) > /** @type {number} */ (module.ast.start) &&
+ 						/** @type {number} */ (node.end) < /** @type {number} */ (module.ast.end) &&
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index c803dfbba96a..a4480ce2f12b 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -61,7 +61,7 @@ export interface Root extends BaseNode {
+ 	css: Css.StyleSheet | null;
+ 	/** The parsed `<script>` element, if exists */
+ 	instance: Script | null;
+-	/** The parsed `<script context="module">` element, if exists */
++	/** The parsed `<script module>` element, if exists */
+ 	module: Script | null;
+ 	metadata: {
+ 		/** Whether the component was parsed with typescript */
+@@ -488,7 +488,7 @@ export type SvelteNode = Node | TemplateNode | Fragment | Css.Node;
+ 
+ export interface Script extends BaseNode {
+ 	type: 'Script';
+-	context: string;
++	context: 'default' | 'module';
+ 	content: Program;
+ 	attributes: Attribute[];
+ }
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 90702409b388..797c20667c47 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -117,6 +117,8 @@ export const codes = [
+ 	"element_invalid_self_closing_tag",
+ 	"event_directive_deprecated",
+ 	"node_invalid_placement_ssr",
++	"script_context_deprecated",
++	"script_unknown_attribute",
+ 	"slot_element_deprecated",
+ 	"svelte_component_deprecated",
+ 	"svelte_element_invalid_this"
+@@ -769,6 +771,22 @@ export function node_invalid_placement_ssr(node, thing, parent) {
+ 	w(node, "node_invalid_placement_ssr", `${thing} is invalid inside \`<${parent}>\`. When rendering this component on the server, the resulting HTML will be modified by the browser, likely resulting in a \`hydration_mismatch\` warning`);
+ }
+ 
++/**
++ * `context="module"` is deprecated, use the `module` attribute instead
++ * @param {null | NodeLike} node
++ */
++export function script_context_deprecated(node) {
++	w(node, "script_context_deprecated", "`context=\"module\"` is deprecated, use the `module` attribute instead");
++}
++
++/**
++ * Unrecognized attribute — should be one of `generics`, `lang` or `module`. If this exists for a preprocessor, ensure that the preprocessor removes it
++ * @param {null | NodeLike} node
++ */
++export function script_unknown_attribute(node) {
++	w(node, "script_unknown_attribute", "Unrecognized attribute — should be one of `generics`, `lang` or `module`. If this exists for a preprocessor, ensure that the preprocessor removes it");
++}
++
+ /**
+  * Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+  * @param {null | NodeLike} node
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index 35b4e60f4598..1813328b91e7 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -1519,7 +1519,7 @@ declare module 'svelte/compiler' {
+ 		css: Css.StyleSheet | null;
+ 		/** The parsed `<script>` element, if exists */
+ 		instance: Script | null;
+-		/** The parsed `<script context="module">` element, if exists */
++		/** The parsed `<script module>` element, if exists */
+ 		module: Script | null;
+ 		metadata: {
+ 			/** Whether the component was parsed with typescript */
+@@ -1946,7 +1946,7 @@ declare module 'svelte/compiler' {
+ 
+ 	interface Script extends BaseNode {
+ 		type: 'Script';
+-		context: string;
++		context: 'default' | 'module';
+ 		content: Program;
+ 		attributes: Attribute[];
+ 	}
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 33baf92b1d0f..31d2480b11cf 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -16,7 +16,7 @@ importers:
+         version: 2.27.6
+       '@sveltejs/eslint-config':
+         specifier: ^8.0.1
+-        version: 8.0.1(@stylistic/eslint-plugin-js@1.8.0(eslint@9.6.0))(eslint-config-prettier@9.1.0(eslint@9.6.0))(eslint-plugin-n@17.9.0(eslint@9.6.0))(eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@5.0.0-next.219))(eslint@9.6.0)(typescript-eslint@8.0.0-alpha.34(eslint@9.6.0)(typescript@5.5.2))(typescript@5.5.2)
++        version: 8.0.1(@stylistic/eslint-plugin-js@1.8.0(eslint@9.6.0))(eslint-config-prettier@9.1.0(eslint@9.6.0))(eslint-plugin-n@17.9.0(eslint@9.6.0))(eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@packages+svelte))(eslint@9.6.0)(typescript-eslint@8.0.0-alpha.34(eslint@9.6.0)(typescript@5.5.2))(typescript@5.5.2)
+       '@svitejs/changesets-changelog-github-compact':
+         specifier: ^1.1.0
+         version: 1.1.0
+@@ -43,7 +43,10 @@ importers:
+         version: 3.2.4
+       prettier-plugin-svelte:
+         specifier: ^3.1.2
+-        version: 3.1.2(prettier@3.2.4)(svelte@5.0.0-next.219)
++        version: 3.1.2(prettier@3.2.4)(svelte@packages+svelte)
++      svelte:
++        specifier: workspace:^
++        version: link:packages/svelte
+       typescript:
+         specifier: ^5.5.2
+         version: 5.5.2
+@@ -415,10 +418,6 @@ packages:
+     resolution: {integrity: sha512-lFMjJTrFL3j7L9yBxwYfCq2k6qqwHyzuUl/XBnif78PWTJYyL/dfowQHWE3sp6U6ZzqWiiIZnpTMO96zhkjwtg==}
+     engines: {node: '>=6.0.0'}
+ 
+-  '@ampproject/remapping@2.3.0':
+-    resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
+-    engines: {node: '>=6.0.0'}
+-
+   '@antfu/utils@0.7.8':
+     resolution: {integrity: sha512-rWQkqXRESdjXtc+7NRfK9lASQjpXJu1ayp7qi1d23zZorY+wBHVLHHoVcMsEnkqEBWTFqbztO7/QdJFzyEcLTg==}
+ 
+@@ -1043,26 +1042,14 @@ packages:
+     resolution: {integrity: sha512-HLhSWOLRi875zjjMG/r+Nv0oCW8umGb0BgEhyX3dDX3egwZtB8PqLnjz3yedt8R5StBrzcg4aBpnh8UA9D1BoQ==}
+     engines: {node: '>=6.0.0'}
+ 
+-  '@jridgewell/gen-mapping@0.3.5':
+-    resolution: {integrity: sha512-IzL8ZoEDIBRWEzlCcRhOaCupYyN5gdIK+Q6fbFdPDg6HqX6jpkItn7DFIpW9LQzXG6Df9sA7+OKnq0qlz/GaQg==}
+-    engines: {node: '>=6.0.0'}
+-
+   '@jridgewell/resolve-uri@3.1.1':
+     resolution: {integrity: sha512-dSYZh7HhCDtCKm4QakX0xFpsRDqjjtZf/kjI/v3T3Nwt5r8/qz/M19F9ySyOqU94SXBmeG9ttTul+YnR4LOxFA==}
+     engines: {node: '>=6.0.0'}
+ 
+-  '@jridgewell/resolve-uri@3.1.2':
+-    resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
+-    engines: {node: '>=6.0.0'}
+-
+   '@jridgewell/set-array@1.1.2':
+     resolution: {integrity: sha512-xnkseuNADM0gt2bs+BvhO0p78Mk762YnZdsuzFV018NoG1Sj1SCQvpSqa7XUaTam5vAGasABV9qXASMKnFMwMw==}
+     engines: {node: '>=6.0.0'}
+ 
+-  '@jridgewell/set-array@1.2.1':
+-    resolution: {integrity: sha512-R8gLRTZeyp03ymzP/6Lil/28tGeGEzhx1q2k703KGWRAI1VdvPIXdG70VJc2pAMw3NA6JKL5hhFu1sJX0Mnn/A==}
+-    engines: {node: '>=6.0.0'}
+-
+   '@jridgewell/source-map@0.3.5':
+     resolution: {integrity: sha512-UTYAUj/wviwdsMfzoSJspJxbkH5o1snzwX0//0ENX1u/55kkZZkcTZP6u9bwKGkv+dkk9at4m1Cpt0uY80kcpQ==}
+ 
+@@ -1075,9 +1062,6 @@ packages:
+   '@jridgewell/trace-mapping@0.3.22':
+     resolution: {integrity: sha512-Wf963MzWtA2sjrNt+g18IAln9lKnlRp+K2eH4jjIoF1wYeq3aMREpG09xhlhdzS0EjwU7qmUJYangWa+151vZw==}
+ 
+-  '@jridgewell/trace-mapping@0.3.25':
+-    resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
+-
+   '@lezer/common@1.2.1':
+     resolution: {integrity: sha512-yemX0ZD2xS/73llMZIK6KplkjIjf2EvAHcinDi/TfJ9hS25G0388+ClHt6/3but0oOxinTcQHJLDXh6w1crzFQ==}
+ 
+@@ -1799,10 +1783,6 @@ packages:
+   axobject-query@4.0.0:
+     resolution: {integrity: sha512-+60uv1hiVFhHZeO+Lz0RYzsVHy5Wr1ayX0mwda9KPDVLNJgZ1T9Ny7VmFbLDzxsH0D87I86vgj3gFrjTJUYznw==}
+ 
+-  axobject-query@4.1.0:
+-    resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
+-    engines: {node: '>= 0.4'}
+-
+   balanced-match@1.0.2:
+     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+ 
+@@ -3677,10 +3657,6 @@ packages:
+     resolution: {integrity: sha512-hsoB/WZGEPFXeRRLPhPrbRz67PhP6sqYgvwcAs+gWdSQSvNDw+/lTeUJSWe5h2xC97Fz/8QxAOqItwBzNJPU8w==}
+     engines: {node: '>=16'}
+ 
+-  svelte@5.0.0-next.219:
+-    resolution: {integrity: sha512-f6qHmE2TNVmx9GzBR5tzQQaAVTq/Bll8rYhWRbkYjoCpA+WgkAK3I276SejLv6u/IeVQE7TX8s7ljyanvbtFBA==}
+-    engines: {node: '>=18'}
+-
+   symbol-tree@3.2.4:
+     resolution: {integrity: sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==}
+ 
+@@ -4072,11 +4048,6 @@ snapshots:
+       '@jridgewell/gen-mapping': 0.3.3
+       '@jridgewell/trace-mapping': 0.3.22
+ 
+-  '@ampproject/remapping@2.3.0':
+-    dependencies:
+-      '@jridgewell/gen-mapping': 0.3.5
+-      '@jridgewell/trace-mapping': 0.3.25
+-
+   '@antfu/utils@0.7.8': {}
+ 
+   '@babel/helper-string-parser@7.23.4': {}
+@@ -4835,20 +4806,10 @@ snapshots:
+       '@jridgewell/sourcemap-codec': 1.4.15
+       '@jridgewell/trace-mapping': 0.3.22
+ 
+-  '@jridgewell/gen-mapping@0.3.5':
+-    dependencies:
+-      '@jridgewell/set-array': 1.2.1
+-      '@jridgewell/sourcemap-codec': 1.5.0
+-      '@jridgewell/trace-mapping': 0.3.25
+-
+   '@jridgewell/resolve-uri@3.1.1': {}
+ 
+-  '@jridgewell/resolve-uri@3.1.2': {}
+-
+   '@jridgewell/set-array@1.1.2': {}
+ 
+-  '@jridgewell/set-array@1.2.1': {}
+-
+   '@jridgewell/source-map@0.3.5':
+     dependencies:
+       '@jridgewell/gen-mapping': 0.3.3
+@@ -4863,11 +4824,6 @@ snapshots:
+       '@jridgewell/resolve-uri': 3.1.1
+       '@jridgewell/sourcemap-codec': 1.4.15
+ 
+-  '@jridgewell/trace-mapping@0.3.25':
+-    dependencies:
+-      '@jridgewell/resolve-uri': 3.1.2
+-      '@jridgewell/sourcemap-codec': 1.5.0
+-
+   '@lezer/common@1.2.1': {}
+ 
+   '@lezer/css@1.1.7':
+@@ -5241,13 +5197,13 @@ snapshots:
+       - encoding
+       - supports-color
+ 
+-  '@sveltejs/eslint-config@8.0.1(@stylistic/eslint-plugin-js@1.8.0(eslint@9.6.0))(eslint-config-prettier@9.1.0(eslint@9.6.0))(eslint-plugin-n@17.9.0(eslint@9.6.0))(eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@5.0.0-next.219))(eslint@9.6.0)(typescript-eslint@8.0.0-alpha.34(eslint@9.6.0)(typescript@5.5.2))(typescript@5.5.2)':
++  '@sveltejs/eslint-config@8.0.1(@stylistic/eslint-plugin-js@1.8.0(eslint@9.6.0))(eslint-config-prettier@9.1.0(eslint@9.6.0))(eslint-plugin-n@17.9.0(eslint@9.6.0))(eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@packages+svelte))(eslint@9.6.0)(typescript-eslint@8.0.0-alpha.34(eslint@9.6.0)(typescript@5.5.2))(typescript@5.5.2)':
+     dependencies:
+       '@stylistic/eslint-plugin-js': 1.8.0(eslint@9.6.0)
+       eslint: 9.6.0
+       eslint-config-prettier: 9.1.0(eslint@9.6.0)
+       eslint-plugin-n: 17.9.0(eslint@9.6.0)
+-      eslint-plugin-svelte: 2.38.0(eslint@9.6.0)(svelte@5.0.0-next.219)
++      eslint-plugin-svelte: 2.38.0(eslint@9.6.0)(svelte@packages+svelte)
+       globals: 15.6.0
+       typescript: 5.5.2
+       typescript-eslint: 8.0.0-alpha.34(eslint@9.6.0)(typescript@5.5.2)
+@@ -5633,10 +5589,6 @@ snapshots:
+     dependencies:
+       acorn: 8.11.3
+ 
+-  acorn-typescript@1.4.13(acorn@8.12.1):
+-    dependencies:
+-      acorn: 8.12.1
+-
+   acorn-walk@8.3.2: {}
+ 
+   acorn@8.11.3: {}
+@@ -5710,8 +5662,6 @@ snapshots:
+     dependencies:
+       dequal: 2.0.3
+ 
+-  axobject-query@4.1.0: {}
+-
+   balanced-match@1.0.2: {}
+ 
+   base64-js@0.0.8: {}
+@@ -6091,7 +6041,7 @@ snapshots:
+       minimatch: 9.0.5
+       semver: 7.6.3
+ 
+-  eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@5.0.0-next.219):
++  eslint-plugin-svelte@2.38.0(eslint@9.6.0)(svelte@packages+svelte):
+     dependencies:
+       '@eslint-community/eslint-utils': 4.4.0(eslint@9.6.0)
+       '@jridgewell/sourcemap-codec': 1.5.0
+@@ -6105,9 +6055,9 @@ snapshots:
+       postcss-safe-parser: 6.0.0(postcss@8.4.41)
+       postcss-selector-parser: 6.1.2
+       semver: 7.6.3
+-      svelte-eslint-parser: 0.41.0(svelte@5.0.0-next.219)
++      svelte-eslint-parser: 0.41.0(svelte@packages+svelte)
+     optionalDependencies:
+-      svelte: 5.0.0-next.219
++      svelte: link:packages/svelte
+     transitivePeerDependencies:
+       - supports-color
+       - ts-node
+@@ -7141,10 +7091,10 @@ snapshots:
+       prettier: 3.2.4
+       svelte: 4.2.9
+ 
+-  prettier-plugin-svelte@3.1.2(prettier@3.2.4)(svelte@5.0.0-next.219):
++  prettier-plugin-svelte@3.1.2(prettier@3.2.4)(svelte@packages+svelte):
+     dependencies:
+       prettier: 3.2.4
+-      svelte: 5.0.0-next.219
++      svelte: link:packages/svelte
+ 
+   prettier@2.8.8: {}
+ 
+@@ -7547,7 +7497,7 @@ snapshots:
+       - stylus
+       - sugarss
+ 
+-  svelte-eslint-parser@0.41.0(svelte@5.0.0-next.219):
++  svelte-eslint-parser@0.41.0(svelte@packages+svelte):
+     dependencies:
+       eslint-scope: 7.2.2
+       eslint-visitor-keys: 3.4.3
+@@ -7555,7 +7505,7 @@ snapshots:
+       postcss: 8.4.41
+       postcss-scss: 4.0.9(postcss@8.4.41)
+     optionalDependencies:
+-      svelte: 5.0.0-next.219
++      svelte: link:packages/svelte
+ 
+   svelte-hmr@0.16.0(svelte@4.2.9):
+     dependencies:
+@@ -7626,22 +7576,6 @@ snapshots:
+       magic-string: 0.30.5
+       periscopic: 3.1.0
+ 
+-  svelte@5.0.0-next.219:
+-    dependencies:
+-      '@ampproject/remapping': 2.3.0
+-      '@jridgewell/sourcemap-codec': 1.5.0
+-      '@types/estree': 1.0.5
+-      acorn: 8.12.1
+-      acorn-typescript: 1.4.13(acorn@8.12.1)
+-      aria-query: 5.3.0
+-      axobject-query: 4.1.0
+-      esm-env: 1.0.0
+-      esrap: 1.2.2
+-      is-reference: 3.0.2
+-      locate-character: 3.0.0
+-      magic-string: 0.30.11
+-      zimmerframe: 1.1.2
+-
+   symbol-tree@3.2.4: {}
+ 
+   tapable@2.2.1: {}
+diff --git a/sites/svelte-5-preview/src/lib/CodeMirror.svelte b/sites/svelte-5-preview/src/lib/CodeMirror.svelte
+index 38b89a9aa91c..19c3fcc97f5b 100644
+--- a/sites/svelte-5-preview/src/lib/CodeMirror.svelte
++++ b/sites/svelte-5-preview/src/lib/CodeMirror.svelte
+@@ -1,4 +1,4 @@
+-<script context="module">
++<script module>
+ 	export const cursorIndex = writable(0);
+ </script>
+ 
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/03-deprecations.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/03-deprecations.md
+index e4fdcc86b3e9..0c45bdaab208 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/03-deprecations.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/03-deprecations.md
+@@ -117,3 +117,14 @@ A derived value may be used in other contexts:
+ ## `immutable`
+ 
+ The `immutable` compiler option is deprecated. Use runes mode instead, where all state is immutable (which means that assigning to `object.property` won't cause updates for anything that is observing `object` itself, or a different property of it).
++
++## `context="module"`
++
++`context="module"` is deprecated, use the new `module` attribute instead:
++
++```diff
++- <script context="module">
+++ <script module>
++	...
++</script>
++```

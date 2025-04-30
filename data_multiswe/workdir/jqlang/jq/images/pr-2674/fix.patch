@@ -1,0 +1,32 @@
+diff --git a/docs/content/manual/manual.yml b/docs/content/manual/manual.yml
+index 1a82ec9626..58db48fde6 100644
+--- a/docs/content/manual/manual.yml
++++ b/docs/content/manual/manual.yml
+@@ -2832,10 +2832,8 @@ sections:
+           The `first(expr)` and `last(expr)` functions extract the first
+           and last values from `expr`, respectively.
+ 
+-          The `nth(n; expr)` function extracts the nth value output by
+-          `expr`.  This can be defined as `def nth(n; expr):
+-          last(limit(n + 1; expr));`.  Note that `nth(n; expr)` doesn't
+-          support negative values of `n`.
++          The `nth(n; expr)` function extracts the nth value output by `expr`.
++          Note that `nth(n; expr)` doesn't support negative values of `n`.
+ 
+         examples:
+           - program: '[first(range(.)), last(range(.)), nth(./2; range(.))]'
+diff --git a/src/builtin.jq b/src/builtin.jq
+index aac22cb74c..146a64a36b 100644
+--- a/src/builtin.jq
++++ b/src/builtin.jq
+@@ -163,7 +163,9 @@ def any(condition): any(.[]; condition);
+ def all: all(.[]; .);
+ def any: any(.[]; .);
+ def last(g): reduce g as $item (null; $item);
+-def nth($n; g): if $n < 0 then error("nth doesn't support negative indices") else last(limit($n + 1; g)) end;
++def nth($n; g):
++  if $n < 0 then error("nth doesn't support negative indices")
++  else label $out | foreach g as $item ($n + 1; . - 1; if . <= 0 then $item, break $out else empty end) end;
+ def first: .[0];
+ def last: .[-1];
+ def nth($n): .[$n];

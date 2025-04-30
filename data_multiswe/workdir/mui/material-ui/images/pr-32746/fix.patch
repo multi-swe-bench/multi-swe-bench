@@ -1,0 +1,3007 @@
+diff --git a/.eslintrc.js b/.eslintrc.js
+index bda8a0bc86b406..ecb0897bb19702 100644
+--- a/.eslintrc.js
++++ b/.eslintrc.js
+@@ -69,7 +69,6 @@ module.exports = {
+           // Allowing /icons as to reduce cold-start of dev builds significantly.
+           // There's nothing to tree-shake when importing from /icons this way:
+           // '@mui/icons-material/*/',
+-          '@mui/system/*',
+           '@mui/utils/*',
+           // End block
+           // Macros are fine since their import path is transpiled away
+diff --git a/benchmark/browser/README.md b/benchmark/browser/README.md
+index cdd7762e958baf..1cf256ac31df18 100644
+--- a/benchmark/browser/README.md
++++ b/benchmark/browser/README.md
+@@ -16,31 +16,37 @@ For compareable results ask a maintainer to approve the CircleCI job `benchmark`
+ 
+ ```sh
+ noop (baseline):
+-  06.29 ±00.44ms
++  02.53 ±00.11ms
++Grid (html):
++  28.34 ±01.80ms
++Grid System:
++  167 ±2%
++Grid Material UI:
++  179 ±1%
+ Table:
+-  127.33 ±10.08ms
++  128 ±3%
+ React primitives:
+-  34 ±6%
++  54 ±1%
+ React components:
+-  45 ±3%
++  58 ±1%
+ Styled MUI:
+-  73 ±4%
++  94 ±1%
+ Styled emotion:
+-  67 ±3%
++  96 ±1%
+ Styled SC:
+-  80 ±2%
++  94 ±1%
+ makeStyles:
+-  71 ±3%
++  83 ±0%
+ Box Baseline:
+-  81 ±3%
++  106 ±1%
+ Box MUI:
+-  209 ±15%
++  180 ±1%
+ Box Theme-UI:
+-  172 ±8%
++  201 ±1%
+ Box Chakra-UI:
+-  115 ±8%
++  131 ±1%
+ styled-components Box + @mui/system:
+-  194 ±9%
++  184 ±3%
+ styled-components Box + styled-system:
+-  162 ±10%
++  154 ±3%
+ ```
+diff --git a/benchmark/browser/scenarios/grid-material-ui/index.js b/benchmark/browser/scenarios/grid-material-ui/index.js
+new file mode 100644
+index 00000000000000..f874d17d59012f
+--- /dev/null
++++ b/benchmark/browser/scenarios/grid-material-ui/index.js
+@@ -0,0 +1,14 @@
++import * as React from 'react';
++import Grid from '@mui/material/Grid';
++
++export default function GridMaterialUI() {
++  return (
++    <Grid container spacing={2}>
++      {new Array(1000).fill().map(() => (
++        <Grid item xs={12} sm={6} md={4}>
++          test case
++        </Grid>
++      ))}
++    </Grid>
++  );
++}
+diff --git a/benchmark/browser/scenarios/grid-simple/index.js b/benchmark/browser/scenarios/grid-simple/index.js
+new file mode 100644
+index 00000000000000..00e6a3c17db2ba
+--- /dev/null
++++ b/benchmark/browser/scenarios/grid-simple/index.js
+@@ -0,0 +1,24 @@
++import * as React from 'react';
++import { styled } from '@mui/material/styles';
++
++const Container = styled('div')({ display: 'flex', flexWrap: 'wrap', gap: 2 });
++
++const Item = styled('div')(({ theme }) => ({
++  width: '100%',
++  [theme.breakpoints.up('sm')]: {
++    width: '50%',
++  },
++  [theme.breakpoints.up('md')]: {
++    width: 'calc(100% / 4)',
++  },
++}));
++
++export default function GridSimple() {
++  return (
++    <Container>
++      {new Array(1000).fill().map(() => (
++        <Item>test case</Item>
++      ))}
++    </Container>
++  );
++}
+diff --git a/benchmark/browser/scenarios/grid-system/index.js b/benchmark/browser/scenarios/grid-system/index.js
+new file mode 100644
+index 00000000000000..11a0ebe80325db
+--- /dev/null
++++ b/benchmark/browser/scenarios/grid-system/index.js
+@@ -0,0 +1,14 @@
++import * as React from 'react';
++import Grid from '@mui/system/Grid';
++
++export default function GridSystem() {
++  return (
++    <Grid container spacing={2}>
++      {new Array(1000).fill().map(() => (
++        <Grid xs={12} sm={6} md={4}>
++          test case
++        </Grid>
++      ))}
++    </Grid>
++  );
++}
+diff --git a/benchmark/browser/scripts/benchmark.js b/benchmark/browser/scripts/benchmark.js
+index 8bbd823b548fc7..3547386bd3ae68 100644
+--- a/benchmark/browser/scripts/benchmark.js
++++ b/benchmark/browser/scripts/benchmark.js
+@@ -154,6 +154,18 @@ async function run() {
+         name: 'noop (baseline)',
+         path: './noop/index.js',
+       },
++      {
++        name: 'Grid (html)',
++        path: './grid-simple/index.js',
++      },
++      {
++        name: 'Grid System',
++        path: './grid-system/index.js',
++      },
++      {
++        name: 'Grid Material UI',
++        path: './grid-material-ui/index.js',
++      },
+       {
+         name: 'Table',
+         path: './table-cell/index.js',
+diff --git a/docs/data/system/components/grid/AutoGrid.js b/docs/data/system/components/grid/AutoGrid.js
+new file mode 100644
+index 00000000000000..f36239c4d510c5
+--- /dev/null
++++ b/docs/data/system/components/grid/AutoGrid.js
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function AutoGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={3}>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>xs=6</Item>
++        </Grid>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/AutoGrid.tsx b/docs/data/system/components/grid/AutoGrid.tsx
+new file mode 100644
+index 00000000000000..f36239c4d510c5
+--- /dev/null
++++ b/docs/data/system/components/grid/AutoGrid.tsx
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function AutoGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={3}>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>xs=6</Item>
++        </Grid>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/AutoGrid.tsx.preview b/docs/data/system/components/grid/AutoGrid.tsx.preview
+new file mode 100644
+index 00000000000000..68576f9a5c08a6
+--- /dev/null
++++ b/docs/data/system/components/grid/AutoGrid.tsx.preview
+@@ -0,0 +1,11 @@
++<Grid container spacing={3}>
++  <Grid xs>
++    <Item>xs</Item>
++  </Grid>
++  <Grid xs={6}>
++    <Item>xs=6</Item>
++  </Grid>
++  <Grid xs>
++    <Item>xs</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/AutoGridNoWrap.js b/docs/data/system/components/grid/AutoGridNoWrap.js
+new file mode 100644
+index 00000000000000..b6b10b67d4a40d
+--- /dev/null
++++ b/docs/data/system/components/grid/AutoGridNoWrap.js
+@@ -0,0 +1,63 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++import Avatar from '@mui/material/Avatar';
++import Typography from '@mui/material/Typography';
++
++const Item = styled('div')(({ theme }) => ({
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  borderRadius: '4px',
++}));
++
++const message = `Truncation should be conditionally applicable on this long line of text
++ as this is a much longer line than what the container can support. `;
++
++export default function AutoGridNoWrap() {
++  return (
++    <Box sx={{ flexGrow: 1, overflow: 'hidden', px: 3, maxWidth: 400 }}>
++      <Item
++        sx={{
++          my: 1,
++          mx: 'auto',
++          p: 2,
++        }}
++      >
++        <Grid container wrap="nowrap" spacing={2}>
++          <Grid>
++            <Avatar>W</Avatar>
++          </Grid>
++          <Grid xs>
++            <Typography noWrap>{message}</Typography>
++          </Grid>
++        </Grid>
++      </Item>
++      <Item
++        sx={{
++          my: 1,
++          mx: 'auto',
++          p: 2,
++        }}
++      >
++        <Grid container wrap="nowrap" spacing={2}>
++          <Grid>
++            <Avatar>W</Avatar>
++          </Grid>
++          <Grid xs>
++            <Typography
++              sx={{
++                display: '-webkit-box',
++                WebkitLineClamp: '3',
++                WebkitBoxOrient: 'vertical',
++                overflow: 'hidden',
++              }}
++            >
++              {message}
++            </Typography>
++          </Grid>
++        </Grid>
++      </Item>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/AutoGridNoWrap.tsx b/docs/data/system/components/grid/AutoGridNoWrap.tsx
+new file mode 100644
+index 00000000000000..b6b10b67d4a40d
+--- /dev/null
++++ b/docs/data/system/components/grid/AutoGridNoWrap.tsx
+@@ -0,0 +1,63 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++import Avatar from '@mui/material/Avatar';
++import Typography from '@mui/material/Typography';
++
++const Item = styled('div')(({ theme }) => ({
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  borderRadius: '4px',
++}));
++
++const message = `Truncation should be conditionally applicable on this long line of text
++ as this is a much longer line than what the container can support. `;
++
++export default function AutoGridNoWrap() {
++  return (
++    <Box sx={{ flexGrow: 1, overflow: 'hidden', px: 3, maxWidth: 400 }}>
++      <Item
++        sx={{
++          my: 1,
++          mx: 'auto',
++          p: 2,
++        }}
++      >
++        <Grid container wrap="nowrap" spacing={2}>
++          <Grid>
++            <Avatar>W</Avatar>
++          </Grid>
++          <Grid xs>
++            <Typography noWrap>{message}</Typography>
++          </Grid>
++        </Grid>
++      </Item>
++      <Item
++        sx={{
++          my: 1,
++          mx: 'auto',
++          p: 2,
++        }}
++      >
++        <Grid container wrap="nowrap" spacing={2}>
++          <Grid>
++            <Avatar>W</Avatar>
++          </Grid>
++          <Grid xs>
++            <Typography
++              sx={{
++                display: '-webkit-box',
++                WebkitLineClamp: '3',
++                WebkitBoxOrient: 'vertical',
++                overflow: 'hidden',
++              }}
++            >
++              {message}
++            </Typography>
++          </Grid>
++        </Grid>
++      </Item>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/BasicGrid.js b/docs/data/system/components/grid/BasicGrid.js
+new file mode 100644
+index 00000000000000..ba15e9eef03fe4
+--- /dev/null
++++ b/docs/data/system/components/grid/BasicGrid.js
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function BasicGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++        <Grid xs={4}>
++          <Item>xs=4</Item>
++        </Grid>
++        <Grid xs={4}>
++          <Item>xs=4</Item>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/BasicGrid.tsx b/docs/data/system/components/grid/BasicGrid.tsx
+new file mode 100644
+index 00000000000000..ba15e9eef03fe4
+--- /dev/null
++++ b/docs/data/system/components/grid/BasicGrid.tsx
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function BasicGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++        <Grid xs={4}>
++          <Item>xs=4</Item>
++        </Grid>
++        <Grid xs={4}>
++          <Item>xs=4</Item>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/BasicGrid.tsx.preview b/docs/data/system/components/grid/BasicGrid.tsx.preview
+new file mode 100644
+index 00000000000000..643bd42f0f26a2
+--- /dev/null
++++ b/docs/data/system/components/grid/BasicGrid.tsx.preview
+@@ -0,0 +1,14 @@
++<Grid container spacing={2}>
++  <Grid xs={8}>
++    <Item>xs=8</Item>
++  </Grid>
++  <Grid xs={4}>
++    <Item>xs=4</Item>
++  </Grid>
++  <Grid xs={4}>
++    <Item>xs=4</Item>
++  </Grid>
++  <Grid xs={8}>
++    <Item>xs=8</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/ColumnsGrid.js b/docs/data/system/components/grid/ColumnsGrid.js
+new file mode 100644
+index 00000000000000..a431832ee9ffaa
+--- /dev/null
++++ b/docs/data/system/components/grid/ColumnsGrid.js
+@@ -0,0 +1,28 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function ColumnsGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2} columns={16}>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/ColumnsGrid.tsx b/docs/data/system/components/grid/ColumnsGrid.tsx
+new file mode 100644
+index 00000000000000..a431832ee9ffaa
+--- /dev/null
++++ b/docs/data/system/components/grid/ColumnsGrid.tsx
+@@ -0,0 +1,28 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function ColumnsGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2} columns={16}>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++        <Grid xs={8}>
++          <Item>xs=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/ColumnsGrid.tsx.preview b/docs/data/system/components/grid/ColumnsGrid.tsx.preview
+new file mode 100644
+index 00000000000000..753263d9d451b0
+--- /dev/null
++++ b/docs/data/system/components/grid/ColumnsGrid.tsx.preview
+@@ -0,0 +1,8 @@
++<Grid container spacing={2} columns={16}>
++  <Grid xs={8}>
++    <Item>xs=8</Item>
++  </Grid>
++  <Grid xs={8}>
++    <Item>xs=8</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/CustomBreakpointsGrid.js b/docs/data/system/components/grid/CustomBreakpointsGrid.js
+new file mode 100644
+index 00000000000000..eadc153322bbb1
+--- /dev/null
++++ b/docs/data/system/components/grid/CustomBreakpointsGrid.js
+@@ -0,0 +1,41 @@
++import * as React from 'react';
++import { ThemeProvider, createTheme } from '@mui/system';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function CustomBreakpointsGrid() {
++  return (
++    <ThemeProvider
++      theme={createTheme({
++        breakpoints: {
++          values: {
++            laptop: 1024,
++            tablet: 640,
++            mobile: 0,
++            desktop: 1280,
++          },
++        },
++      })}
++    >
++      <Box sx={{ flexGrow: 1 }}>
++        <Grid container spacing={{ mobile: 1, tablet: 2, laptop: 3 }}>
++          {Array.from(Array(4)).map((_, index) => (
++            <Grid mobile={6} tablet={4} laptop={3} key={index}>
++              <Item>{index + 1}</Item>
++            </Grid>
++          ))}
++        </Grid>
++      </Box>
++    </ThemeProvider>
++  );
++}
+diff --git a/docs/data/system/components/grid/FullWidthGrid.js b/docs/data/system/components/grid/FullWidthGrid.js
+new file mode 100644
+index 00000000000000..2a2f11f9797199
+--- /dev/null
++++ b/docs/data/system/components/grid/FullWidthGrid.js
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function FullWidthGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={6} md={8}>
++          <Item>xs=6 md=8</Item>
++        </Grid>
++        <Grid xs={6} md={4}>
++          <Item>xs=6 md=4</Item>
++        </Grid>
++        <Grid xs={6} md={4}>
++          <Item>xs=6 md=4</Item>
++        </Grid>
++        <Grid xs={6} md={8}>
++          <Item>xs=6 md=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/FullWidthGrid.tsx b/docs/data/system/components/grid/FullWidthGrid.tsx
+new file mode 100644
+index 00000000000000..2a2f11f9797199
+--- /dev/null
++++ b/docs/data/system/components/grid/FullWidthGrid.tsx
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function FullWidthGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={6} md={8}>
++          <Item>xs=6 md=8</Item>
++        </Grid>
++        <Grid xs={6} md={4}>
++          <Item>xs=6 md=4</Item>
++        </Grid>
++        <Grid xs={6} md={4}>
++          <Item>xs=6 md=4</Item>
++        </Grid>
++        <Grid xs={6} md={8}>
++          <Item>xs=6 md=8</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/FullWidthGrid.tsx.preview b/docs/data/system/components/grid/FullWidthGrid.tsx.preview
+new file mode 100644
+index 00000000000000..9085084a78ddaa
+--- /dev/null
++++ b/docs/data/system/components/grid/FullWidthGrid.tsx.preview
+@@ -0,0 +1,14 @@
++<Grid container spacing={2}>
++  <Grid xs={6} md={8}>
++    <Item>xs=6 md=8</Item>
++  </Grid>
++  <Grid xs={6} md={4}>
++    <Item>xs=6 md=4</Item>
++  </Grid>
++  <Grid xs={6} md={4}>
++    <Item>xs=6 md=4</Item>
++  </Grid>
++  <Grid xs={6} md={8}>
++    <Item>xs=6 md=8</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/NestedGrid.js b/docs/data/system/components/grid/NestedGrid.js
+new file mode 100644
+index 00000000000000..62870cdcc2e6eb
+--- /dev/null
++++ b/docs/data/system/components/grid/NestedGrid.js
+@@ -0,0 +1,107 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  borderRadius: '4px',
++}));
++
++export default function NestedGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={12} md={5} lg={4}>
++          <Item>Email subscribe section</Item>
++        </Grid>
++        <Grid container xs={12} md={7} lg={8} spacing={4}>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-a"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category A
++              </Box>
++              <Box component="ul" aria-labelledby="category-a" sx={{ pl: 2 }}>
++                <li>Link 1.1</li>
++                <li>Link 1.2</li>
++                <li>Link 1.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-b"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category B
++              </Box>
++              <Box component="ul" aria-labelledby="category-b" sx={{ pl: 2 }}>
++                <li>Link 2.1</li>
++                <li>Link 2.2</li>
++                <li>Link 2.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-c"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category C
++              </Box>
++              <Box component="ul" aria-labelledby="category-c" sx={{ pl: 2 }}>
++                <li>Link 3.1</li>
++                <li>Link 3.2</li>
++                <li>Link 3.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-d"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category D
++              </Box>
++              <Box component="ul" aria-labelledby="category-d" sx={{ pl: 2 }}>
++                <li>Link 4.1</li>
++                <li>Link 4.2</li>
++                <li>Link 4.3</li>
++              </Box>
++            </Item>
++          </Grid>
++        </Grid>
++        <Grid
++          xs={12}
++          container
++          justifyContent="space-between"
++          alignItems="center"
++          flexDirection={{ xs: 'column', sm: 'row' }}
++          sx={{ fontSize: '12px' }}
++        >
++          <Grid sx={{ order: { xs: 2, sm: 1 } }}>
++            <Item>© Copyright</Item>
++          </Grid>
++          <Grid container columnSpacing={1} sx={{ order: { xs: 1, sm: 2 } }}>
++            <Grid>
++              <Item>Link A</Item>
++            </Grid>
++            <Grid>
++              <Item>Link B</Item>
++            </Grid>
++            <Grid>
++              <Item>Link C</Item>
++            </Grid>
++          </Grid>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/NestedGrid.tsx b/docs/data/system/components/grid/NestedGrid.tsx
+new file mode 100644
+index 00000000000000..62870cdcc2e6eb
+--- /dev/null
++++ b/docs/data/system/components/grid/NestedGrid.tsx
+@@ -0,0 +1,107 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  borderRadius: '4px',
++}));
++
++export default function NestedGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={2}>
++        <Grid xs={12} md={5} lg={4}>
++          <Item>Email subscribe section</Item>
++        </Grid>
++        <Grid container xs={12} md={7} lg={8} spacing={4}>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-a"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category A
++              </Box>
++              <Box component="ul" aria-labelledby="category-a" sx={{ pl: 2 }}>
++                <li>Link 1.1</li>
++                <li>Link 1.2</li>
++                <li>Link 1.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-b"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category B
++              </Box>
++              <Box component="ul" aria-labelledby="category-b" sx={{ pl: 2 }}>
++                <li>Link 2.1</li>
++                <li>Link 2.2</li>
++                <li>Link 2.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-c"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category C
++              </Box>
++              <Box component="ul" aria-labelledby="category-c" sx={{ pl: 2 }}>
++                <li>Link 3.1</li>
++                <li>Link 3.2</li>
++                <li>Link 3.3</li>
++              </Box>
++            </Item>
++          </Grid>
++          <Grid xs={6} lg={3}>
++            <Item>
++              <Box
++                id="category-d"
++                sx={{ fontSize: '12px', textTransform: 'uppercase' }}
++              >
++                Category D
++              </Box>
++              <Box component="ul" aria-labelledby="category-d" sx={{ pl: 2 }}>
++                <li>Link 4.1</li>
++                <li>Link 4.2</li>
++                <li>Link 4.3</li>
++              </Box>
++            </Item>
++          </Grid>
++        </Grid>
++        <Grid
++          xs={12}
++          container
++          justifyContent="space-between"
++          alignItems="center"
++          flexDirection={{ xs: 'column', sm: 'row' }}
++          sx={{ fontSize: '12px' }}
++        >
++          <Grid sx={{ order: { xs: 2, sm: 1 } }}>
++            <Item>© Copyright</Item>
++          </Grid>
++          <Grid container columnSpacing={1} sx={{ order: { xs: 1, sm: 2 } }}>
++            <Grid>
++              <Item>Link A</Item>
++            </Grid>
++            <Grid>
++              <Item>Link B</Item>
++            </Grid>
++            <Grid>
++              <Item>Link C</Item>
++            </Grid>
++          </Grid>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/ResponsiveGrid.js b/docs/data/system/components/grid/ResponsiveGrid.js
+new file mode 100644
+index 00000000000000..69d6d357206d2c
+--- /dev/null
++++ b/docs/data/system/components/grid/ResponsiveGrid.js
+@@ -0,0 +1,27 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function ResponsiveGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={{ xs: 2, md: 3 }} columns={{ xs: 4, sm: 8, md: 12 }}>
++        {Array.from(Array(6)).map((_, index) => (
++          <Grid xs={2} sm={4} key={index}>
++            <Item>{index + 1}</Item>
++          </Grid>
++        ))}
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/ResponsiveGrid.tsx b/docs/data/system/components/grid/ResponsiveGrid.tsx
+new file mode 100644
+index 00000000000000..69d6d357206d2c
+--- /dev/null
++++ b/docs/data/system/components/grid/ResponsiveGrid.tsx
+@@ -0,0 +1,27 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function ResponsiveGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={{ xs: 2, md: 3 }} columns={{ xs: 4, sm: 8, md: 12 }}>
++        {Array.from(Array(6)).map((_, index) => (
++          <Grid xs={2} sm={4} key={index}>
++            <Item>{index + 1}</Item>
++          </Grid>
++        ))}
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/ResponsiveGrid.tsx.preview b/docs/data/system/components/grid/ResponsiveGrid.tsx.preview
+new file mode 100644
+index 00000000000000..e1c166c4caa8f6
+--- /dev/null
++++ b/docs/data/system/components/grid/ResponsiveGrid.tsx.preview
+@@ -0,0 +1,7 @@
++<Grid container spacing={{ xs: 2, md: 3 }} columns={{ xs: 4, sm: 8, md: 12 }}>
++  {Array.from(Array(6)).map((_, index) => (
++    <Grid xs={2} sm={4} key={index}>
++      <Item>{index + 1}</Item>
++    </Grid>
++  ))}
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/RowAndColumnSpacing.js b/docs/data/system/components/grid/RowAndColumnSpacing.js
+new file mode 100644
+index 00000000000000..be62ccee274f40
+--- /dev/null
++++ b/docs/data/system/components/grid/RowAndColumnSpacing.js
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import styled from '@mui/system/styled';
++import Grid from '@mui/system/Grid';
++import Box from '@mui/system/Box';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function RowAndColumnSpacing() {
++  return (
++    <Box sx={{ width: '100%' }}>
++      <Grid container rowSpacing={1} columnSpacing={{ xs: 1, sm: 2, md: 3 }}>
++        <Grid xs={6}>
++          <Item>1</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>2</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>3</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>4</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/RowAndColumnSpacing.tsx b/docs/data/system/components/grid/RowAndColumnSpacing.tsx
+new file mode 100644
+index 00000000000000..be62ccee274f40
+--- /dev/null
++++ b/docs/data/system/components/grid/RowAndColumnSpacing.tsx
+@@ -0,0 +1,34 @@
++import * as React from 'react';
++import styled from '@mui/system/styled';
++import Grid from '@mui/system/Grid';
++import Box from '@mui/system/Box';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function RowAndColumnSpacing() {
++  return (
++    <Box sx={{ width: '100%' }}>
++      <Grid container rowSpacing={1} columnSpacing={{ xs: 1, sm: 2, md: 3 }}>
++        <Grid xs={6}>
++          <Item>1</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>2</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>3</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>4</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/RowAndColumnSpacing.tsx.preview b/docs/data/system/components/grid/RowAndColumnSpacing.tsx.preview
+new file mode 100644
+index 00000000000000..39811a41b91277
+--- /dev/null
++++ b/docs/data/system/components/grid/RowAndColumnSpacing.tsx.preview
+@@ -0,0 +1,14 @@
++<Grid container rowSpacing={1} columnSpacing={{ xs: 1, sm: 2, md: 3 }}>
++  <Grid xs={6}>
++    <Item>1</Item>
++  </Grid>
++  <Grid xs={6}>
++    <Item>2</Item>
++  </Grid>
++  <Grid xs={6}>
++    <Item>3</Item>
++  </Grid>
++  <Grid xs={6}>
++    <Item>4</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/SpacingGrid.js b/docs/data/system/components/grid/SpacingGrid.js
+new file mode 100644
+index 00000000000000..ccaf1010be5d07
+--- /dev/null
++++ b/docs/data/system/components/grid/SpacingGrid.js
+@@ -0,0 +1,70 @@
++import * as React from 'react';
++import Grid from '@mui/system/Grid';
++import FormLabel from '@mui/material/FormLabel';
++import FormControl from '@mui/material/FormControl';
++import FormControlLabel from '@mui/material/FormControlLabel';
++import HighlightedCode from 'docs/src/modules/components/HighlightedCode';
++import RadioGroup from '@mui/material/RadioGroup';
++import Radio from '@mui/material/Radio';
++import Paper from '@mui/material/Paper';
++
++export default function SpacingGrid() {
++  const [spacing, setSpacing] = React.useState(2);
++
++  const handleChange = (event) => {
++    setSpacing(Number(event.target.value));
++  };
++
++  const jsx = `
++<Grid container spacing={${spacing}}>
++`;
++
++  return (
++    <Grid sx={{ flexGrow: 1 }} container spacing={2}>
++      <Grid xs={12}>
++        <Grid container justifyContent="center" spacing={spacing}>
++          {[0, 1, 2].map((value) => (
++            <Grid key={value}>
++              <Paper
++                sx={{
++                  height: 140,
++                  width: 100,
++                  backgroundColor: (theme) =>
++                    theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++                }}
++              />
++            </Grid>
++          ))}
++        </Grid>
++      </Grid>
++      <Grid xs={12}>
++        <Paper sx={{ p: 2 }}>
++          <Grid container>
++            <Grid>
++              <FormControl component="fieldset">
++                <FormLabel component="legend">spacing</FormLabel>
++                <RadioGroup
++                  name="spacing"
++                  aria-label="spacing"
++                  value={spacing.toString()}
++                  onChange={handleChange}
++                  row
++                >
++                  {[0, 0.5, 1, 2, 3, 4, 8, 12].map((value) => (
++                    <FormControlLabel
++                      key={value}
++                      value={value.toString()}
++                      control={<Radio />}
++                      label={value.toString()}
++                    />
++                  ))}
++                </RadioGroup>
++              </FormControl>
++            </Grid>
++          </Grid>
++        </Paper>
++        <HighlightedCode code={jsx} language="jsx" />
++      </Grid>
++    </Grid>
++  );
++}
+diff --git a/docs/data/system/components/grid/SpacingGrid.tsx b/docs/data/system/components/grid/SpacingGrid.tsx
+new file mode 100644
+index 00000000000000..53cbbfca7c013e
+--- /dev/null
++++ b/docs/data/system/components/grid/SpacingGrid.tsx
+@@ -0,0 +1,70 @@
++import * as React from 'react';
++import Grid from '@mui/system/Grid';
++import FormLabel from '@mui/material/FormLabel';
++import FormControl from '@mui/material/FormControl';
++import FormControlLabel from '@mui/material/FormControlLabel';
++import HighlightedCode from 'docs/src/modules/components/HighlightedCode';
++import RadioGroup from '@mui/material/RadioGroup';
++import Radio from '@mui/material/Radio';
++import Paper from '@mui/material/Paper';
++
++export default function SpacingGrid() {
++  const [spacing, setSpacing] = React.useState(2);
++
++  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
++    setSpacing(Number((event.target as HTMLInputElement).value));
++  };
++
++  const jsx = `
++<Grid container spacing={${spacing}}>
++`;
++
++  return (
++    <Grid sx={{ flexGrow: 1 }} container spacing={2}>
++      <Grid xs={12}>
++        <Grid container justifyContent="center" spacing={spacing}>
++          {[0, 1, 2].map((value) => (
++            <Grid key={value}>
++              <Paper
++                sx={{
++                  height: 140,
++                  width: 100,
++                  backgroundColor: (theme) =>
++                    theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++                }}
++              />
++            </Grid>
++          ))}
++        </Grid>
++      </Grid>
++      <Grid xs={12}>
++        <Paper sx={{ p: 2 }}>
++          <Grid container>
++            <Grid>
++              <FormControl component="fieldset">
++                <FormLabel component="legend">spacing</FormLabel>
++                <RadioGroup
++                  name="spacing"
++                  aria-label="spacing"
++                  value={spacing.toString()}
++                  onChange={handleChange}
++                  row
++                >
++                  {[0, 0.5, 1, 2, 3, 4, 8, 12].map((value) => (
++                    <FormControlLabel
++                      key={value}
++                      value={value.toString()}
++                      control={<Radio />}
++                      label={value.toString()}
++                    />
++                  ))}
++                </RadioGroup>
++              </FormControl>
++            </Grid>
++          </Grid>
++        </Paper>
++        <HighlightedCode code={jsx} language="jsx" />
++      </Grid>
++    </Grid>
++  );
++}
+diff --git a/docs/data/system/components/grid/VariableWidthGrid.js b/docs/data/system/components/grid/VariableWidthGrid.js
+new file mode 100644
+index 00000000000000..d3aca8f0f6e4a7
+--- /dev/null
++++ b/docs/data/system/components/grid/VariableWidthGrid.js
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function VariableWidthGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={3}>
++        <Grid xs="auto">
++          <Item>Variable width item</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>xs=6</Item>
++        </Grid>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/VariableWidthGrid.tsx b/docs/data/system/components/grid/VariableWidthGrid.tsx
+new file mode 100644
+index 00000000000000..d3aca8f0f6e4a7
+--- /dev/null
++++ b/docs/data/system/components/grid/VariableWidthGrid.tsx
+@@ -0,0 +1,31 @@
++import * as React from 'react';
++import Box from '@mui/system/Box';
++import Grid from '@mui/system/Grid';
++import styled from '@mui/system/styled';
++
++const Item = styled('div')(({ theme }) => ({
++  backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
++  border: '1px solid',
++  borderColor: theme.palette.mode === 'dark' ? '#444d58' : '#ced7e0',
++  padding: theme.spacing(1),
++  borderRadius: '4px',
++  textAlign: 'center',
++}));
++
++export default function VariableWidthGrid() {
++  return (
++    <Box sx={{ flexGrow: 1 }}>
++      <Grid container spacing={3}>
++        <Grid xs="auto">
++          <Item>Variable width item</Item>
++        </Grid>
++        <Grid xs={6}>
++          <Item>xs=6</Item>
++        </Grid>
++        <Grid xs>
++          <Item>xs</Item>
++        </Grid>
++      </Grid>
++    </Box>
++  );
++}
+diff --git a/docs/data/system/components/grid/VariableWidthGrid.tsx.preview b/docs/data/system/components/grid/VariableWidthGrid.tsx.preview
+new file mode 100644
+index 00000000000000..c054922a5d8907
+--- /dev/null
++++ b/docs/data/system/components/grid/VariableWidthGrid.tsx.preview
+@@ -0,0 +1,11 @@
++<Grid container spacing={3}>
++  <Grid xs="auto">
++    <Item>Variable width item</Item>
++  </Grid>
++  <Grid xs={6}>
++    <Item>xs=6</Item>
++  </Grid>
++  <Grid xs>
++    <Item>xs</Item>
++  </Grid>
++</Grid>
+\ No newline at end of file
+diff --git a/docs/data/system/components/grid/grid.md b/docs/data/system/components/grid/grid.md
+new file mode 100644
+index 00000000000000..c3ade5530acf7f
+--- /dev/null
++++ b/docs/data/system/components/grid/grid.md
+@@ -0,0 +1,149 @@
++---
++product: system
++title: React Grid component
++githubLabel: 'component: Grid'
++packageName: '@mui/system'
++---
++
++# Grid
++
++<p class="description">The responsive layout grid adapts to screen size and orientation, ensuring consistency across layouts.</p>
++
++{{"component": "modules/components/ComponentLinkHeader.js", "design": false}}
++
++The `Grid` component works well for a layout with known columns. The columns can be configured in multple breakpoints which you have to specify the column span of each child.
++
++## How it works
++
++The grid system is implemented with the `Grid` component:
++
++- It uses [CSS's Flexible Box module](https://www.w3.org/TR/css-flexbox-1/) for high flexibility.
++- The grid is always a flex item. Use the `container` prop to add flex container to it.
++- Item widths are set in percentages, so they're always fluid and sized relative to their parent element.
++- There are five default grid breakpoints: xs, sm, md, lg, and xl. If you need custom breakpoints, check out [custom breakpoints grid](#custom-breakpoints).
++- Integer values can be given to each breakpoint, indicating how many of the 12 available columns are occupied by the component when the viewport width satisfies the [breakpoint constraints](/material-ui/customization/breakpoints/#default-breakpoints).
++- It uses negative margin and padding technique to create [gap-like](https://developer.mozilla.org/en-US/docs/Web/CSS/gap) between children.
++- It **does not** have the concept of rows. Meaning, you can't make the children span to multiple rows. If you need to do that, we recommend to use [CSS Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout) instead.
++- It **does not** offer auto-placement children feature. It will try to fit the children one by one and if there is not enough space, the rest of the children will start on the next line and so on. If you need the auto-placement feature, we recommend to use [CSS Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Auto-placement_in_CSS_Grid_Layout) instead.
++
++:::warning
++⚠️ The `Grid` component shouldn't be confused with a data grid; it is closer to a layout grid. For a data grid head to [the `DataGrid` component](/x/react-data-grid/).
++:::
++
++## Fluid grids
++
++Fluid grids use columns that scale and resize content. A fluid grid's layout can use breakpoints to determine if the layout needs to change dramatically.
++
++### Basic grid
++
++In order to create a grid layout, you need a container. Use `container` prop to create a grid container that wraps the grid items (the `Grid` is always an item).
++
++Column widths are integer values between 1 and 12; they apply at any breakpoint and indicate how many columns are occupied by the component.
++
++A value given to a breakpoint applies to all the other breakpoints wider than it (unless overridden, as you can read later in this page). For example, `xs={12}` sizes a component to occupy the whole viewport width regardless of its size.
++
++{{"demo": "BasicGrid.js", "bg": true}}
++
++### Multiple breakpoints
++
++Components may have multiple widths defined, causing the layout to change at the defined breakpoint. Width values given to larger breakpoints override those given to smaller breakpoints.
++
++For example, `xs={12} sm={6}` sizes a component to occupy half of the viewport width (6 columns) when viewport width is [600 or more pixels](/material-ui/customization/breakpoints/#default-breakpoints). For smaller viewports, the component fills all 12 available columns.
++
++{{"demo": "FullWidthGrid.js", "bg": true}}
++
++## Spacing
++
++To control space between children, use the `spacing` prop.
++The spacing value can be any positive number, including decimals and any string.
++The prop is converted into a CSS property using the [`theme.spacing()`](/customization/spacing/) helper.
++
++{{"demo": "SpacingGrid.js", "bg": true, "hideToolbar": true}}
++
++### Row & column spacing
++
++The `rowSpacing` and `columnSpacing` props allow for specifying the row and column gaps independently.
++It's similar to the `row-gap` and `column-gap` properties of [CSS Grid](/system/grid/#row-gap-amp-column-gap).
++
++{{"demo": "RowAndColumnSpacing.js", "bg": true}}
++
++## Responsive values
++
++You can switch the props' value based on the active breakpoint.
++For instance, we can implement the [recommended](https://material.io/design/layout/responsive-layout-grid.html) responsive layout grid of Material Design.
++
++{{"demo": "ResponsiveGrid.js", "bg": true}}
++
++Responsive values is supported by:
++
++- `columns`
++- `columnSpacing`
++- `direction`
++- `rowSpacing`
++- `spacing`
++- all the [other props](#system-props) of the system
++
++## Auto-layout
++
++The Auto-layout makes the _items_ equitably share the available space.
++That also means you can set the width of one _item_ and the others will automatically resize around it.
++
++{{"demo": "AutoGrid.js", "bg": true}}
++
++### Variable width content
++
++Set one of the size breakpoint props to `"auto"` instead of `true` / a `number` to size
++a column based on the natural width of its content.
++
++{{"demo": "VariableWidthGrid.js", "bg": true}}
++
++## Nested Grid
++
++The grid container that renders inside another grid container is a nested grid which inherits the [`columns`](#columns) and [`spacing`](#spacing) from the top. The deep nested grid will inherit the props from the upper nested grid if it receives those props.
++
++{{"demo": "NestedGrid.js", "bg": true}}
++
++## Columns
++
++You can change the default number of columns (12) with the `columns` prop.
++
++{{"demo": "ColumnsGrid.js", "bg": true}}
++
++## Custom breakpoints
++
++If you specify custom breakpoints to the theme, you can use those names as grid item props and in responsive values.
++
++{{"demo": "CustomBreakpointsGrid.js", "bg": true}}
++
++:::info
++
++For **TypeScript**, you have to set module augmentation on the theme breakpoints interface.
++
++```ts
++declare module '@mui/system' {
++  interface BreakpointOverrides {
++    // Your custom breakpoints
++    laptop: true;
++    tablet: true;
++    mobile: true;
++    desktop: true;
++    // Remove default breakpoints
++    xs: false;
++    sm: false;
++    md: false;
++    lg: false;
++    xl: false;
++  }
++}
++```
++
++:::
++
++## Limitations
++
++### direction column and column-reverse
++
++The column width (`xs`, ..., `xl`) and offset props are **not supported** within `direction="column"` and `direction="column-reverse"` containers.
++
++They define the number of grids the component will use for a given breakpoint. They are intended to control **width** using `flex-basis` in `row` containers but they will impact height in `column` containers.
++If used, these props may have undesirable effects on the height of the `Grid` item elements.
+diff --git a/docs/data/system/pages.ts b/docs/data/system/pages.ts
+index eff454fbaf6d7e..d27eeca2b458ba 100644
+--- a/docs/data/system/pages.ts
++++ b/docs/data/system/pages.ts
+@@ -2,7 +2,25 @@ import pagesApi from './pagesApi';
+ 
+ const pages = [
+   {
+-    pathname: '/system',
++    pathname: '/system-styles',
++    scopePathnames: [
++      '/system/basics',
++      '/system/properties',
++      '/system/the-sx-prop',
++      '/system/borders',
++      '/system/display',
++      '/system/flexbox',
++      '/system/grid',
++      '/system/palette',
++      '/system/positions',
++      '/system/shadows',
++      '/system/sizing',
++      '/system/spacing',
++      '/system/screen-readers',
++      '/system/typography',
++      '/system/advanced',
++      '/system/styled',
++    ],
+     icon: 'BuildIcon',
+     children: [
+       { pathname: '/system/basics' },
+@@ -30,6 +48,7 @@ const pages = [
+     children: [
+       { pathname: '/system/react-box', title: 'Box' },
+       { pathname: '/system/react-container', title: 'Container' },
++      { pathname: '/system/react-grid', title: 'Grid' },
+     ],
+   },
+   {
+diff --git a/docs/data/system/pagesApi.js b/docs/data/system/pagesApi.js
+index c90736dcfa7829..d77093b35304aa 100644
+--- a/docs/data/system/pagesApi.js
++++ b/docs/data/system/pagesApi.js
+@@ -1,4 +1,5 @@
+ module.exports = [
+   { pathname: '/system/api/box' },
+   { pathname: '/system/api/container' },
++  { pathname: '/system/api/grid' },
+ ];
+diff --git a/docs/pages/system/api/grid.js b/docs/pages/system/api/grid.js
+new file mode 100644
+index 00000000000000..1296f5b5bebc49
+--- /dev/null
++++ b/docs/pages/system/api/grid.js
+@@ -0,0 +1,19 @@
++import * as React from 'react';
++import ApiPage from 'docs/src/modules/components/ApiPage';
++import mapApiPageTranslations from 'docs/src/modules/utils/mapApiPageTranslations';
++import jsonPageContent from './grid.json';
++
++export default function Page(props) {
++  const { descriptions, pageContent } = props;
++  return <ApiPage descriptions={descriptions} pageContent={pageContent} />;
++}
++
++Page.getInitialProps = () => {
++  const req = require.context('docs/translations/api-docs/grid', false, /grid.*.json$/);
++  const descriptions = mapApiPageTranslations(req);
++
++  return {
++    descriptions,
++    pageContent: jsonPageContent,
++  };
++};
+diff --git a/docs/pages/system/api/grid.json b/docs/pages/system/api/grid.json
+new file mode 100644
+index 00000000000000..686eb51a990f64
+--- /dev/null
++++ b/docs/pages/system/api/grid.json
+@@ -0,0 +1,65 @@
++{
++  "props": {
++    "children": { "type": { "name": "node" } },
++    "columns": {
++      "type": {
++        "name": "union",
++        "description": "Array&lt;number&gt;<br>&#124;&nbsp;number<br>&#124;&nbsp;object"
++      }
++    },
++    "columnSpacing": {
++      "type": {
++        "name": "union",
++        "description": "Array&lt;number<br>&#124;&nbsp;string&gt;<br>&#124;&nbsp;number<br>&#124;&nbsp;object<br>&#124;&nbsp;string"
++      }
++    },
++    "container": { "type": { "name": "bool" } },
++    "direction": {
++      "type": {
++        "name": "union",
++        "description": "'column-reverse'<br>&#124;&nbsp;'column'<br>&#124;&nbsp;'row-reverse'<br>&#124;&nbsp;'row'<br>&#124;&nbsp;Array&lt;'column-reverse'<br>&#124;&nbsp;'column'<br>&#124;&nbsp;'row-reverse'<br>&#124;&nbsp;'row'&gt;<br>&#124;&nbsp;object"
++      }
++    },
++    "lg": {
++      "type": { "name": "union", "description": "'auto'<br>&#124;&nbsp;number<br>&#124;&nbsp;bool" }
++    },
++    "md": {
++      "type": { "name": "union", "description": "'auto'<br>&#124;&nbsp;number<br>&#124;&nbsp;bool" }
++    },
++    "rowSpacing": {
++      "type": {
++        "name": "union",
++        "description": "Array&lt;number<br>&#124;&nbsp;string&gt;<br>&#124;&nbsp;number<br>&#124;&nbsp;object<br>&#124;&nbsp;string"
++      }
++    },
++    "sm": {
++      "type": { "name": "union", "description": "'auto'<br>&#124;&nbsp;number<br>&#124;&nbsp;bool" }
++    },
++    "spacing": {
++      "type": {
++        "name": "union",
++        "description": "Array&lt;number<br>&#124;&nbsp;string&gt;<br>&#124;&nbsp;number<br>&#124;&nbsp;object<br>&#124;&nbsp;string"
++      }
++    },
++    "wrap": {
++      "type": {
++        "name": "enum",
++        "description": "'nowrap'<br>&#124;&nbsp;'wrap-reverse'<br>&#124;&nbsp;'wrap'"
++      }
++    },
++    "xl": {
++      "type": { "name": "union", "description": "'auto'<br>&#124;&nbsp;number<br>&#124;&nbsp;bool" }
++    },
++    "xs": {
++      "type": { "name": "union", "description": "'auto'<br>&#124;&nbsp;number<br>&#124;&nbsp;bool" }
++    }
++  },
++  "name": "Grid",
++  "styles": { "classes": [], "globalClasses": {}, "name": null },
++  "spread": true,
++  "forwardsRefTo": "HTMLElement",
++  "filename": "/packages/mui-system/src/Grid/Grid.tsx",
++  "inheritance": null,
++  "demos": "<ul><li><a href=\"/material-ui/react-grid/\">Grid (Material UI)</a></li></ul>",
++  "cssComponent": true
++}
+diff --git a/docs/pages/system/react-grid.js b/docs/pages/system/react-grid.js
+new file mode 100644
+index 00000000000000..b86a920bb0c34b
+--- /dev/null
++++ b/docs/pages/system/react-grid.js
+@@ -0,0 +1,11 @@
++import * as React from 'react';
++import MarkdownDocs from 'docs/src/modules/components/MarkdownDocs';
++import {
++  demos,
++  docs,
++  demoComponents,
++} from 'docs/data/system/components/grid/grid.md?@mui/markdown';
++
++export default function Page() {
++  return <MarkdownDocs demos={demos} docs={docs} demoComponents={demoComponents} />;
++}
+diff --git a/docs/scripts/ApiBuilders/ComponentApiBuilder.ts b/docs/scripts/ApiBuilders/ComponentApiBuilder.ts
+index 2279c68859ef6d..31bff3ec8af828 100644
+--- a/docs/scripts/ApiBuilders/ComponentApiBuilder.ts
++++ b/docs/scripts/ApiBuilders/ComponentApiBuilder.ts
+@@ -498,8 +498,6 @@ const attachPropsTable = (reactApi: ReactApi) => {
+   reactApi.propsTable = componentProps;
+ };
+ 
+-const systemComponents = ['Container', 'Box'];
+-
+ /**
+  * - Build react component (specified filename) api by lookup at its definition (.d.ts or ts)
+  *   and then generate the API page + json data
+@@ -518,6 +516,7 @@ const generateComponentApi = async (componentInfo: ComponentInfo, program: ttp.t
+     getDemos,
+     readFile,
+     skipApiGeneration,
++    isSystemComponent,
+   } = componentInfo;
+ 
+   const { shouldSkip, spread, EOL, src } = readFile();
+@@ -528,36 +527,49 @@ const generateComponentApi = async (componentInfo: ComponentInfo, program: ttp.t
+ 
+   let reactApi: ReactApi;
+ 
+-  if (systemComponents.includes(name)) {
+-    reactApi = docgenParse(
+-      src,
+-      (ast) => {
+-        let node;
+-        astTypes.visit(ast, {
+-          visitVariableDeclaration: (variablePath) => {
+-            const definitions: any[] = [];
+-            if (variablePath.node.declarations) {
+-              variablePath
+-                .get('declarations')
+-                .each((declarator: any) => definitions.push(declarator.get('init')));
+-            }
+-
+-            definitions.forEach((definition) => {
+-              const definitionName = definition.value.callee.name;
+-
+-              if (definitionName === `create${name}`) {
+-                node = definition;
++  if (isSystemComponent) {
++    try {
++      reactApi = docgenParse(
++        src,
++        (ast) => {
++          let node;
++          astTypes.visit(ast, {
++            visitVariableDeclaration: (variablePath) => {
++              const definitions: any[] = [];
++              if (variablePath.node.declarations) {
++                variablePath
++                  .get('declarations')
++                  .each((declarator: any) => definitions.push(declarator.get('init')));
+               }
+-            });
+-            return false;
+-          },
+-        });
+ 
+-        return node;
+-      },
+-      defaultHandlers,
+-      { filename },
+-    );
++              definitions.forEach((definition) => {
++                if (definition.value?.callee) {
++                  const definitionName = definition.value.callee.name;
++
++                  if (definitionName === `create${name}`) {
++                    node = definition;
++                  }
++                }
++              });
++              return false;
++            },
++          });
++
++          return node;
++        },
++        defaultHandlers,
++        { filename },
++      );
++    } catch (error) {
++      // fallback to default logic if there is no `create*` definition.
++      if ((error as Error).message === 'No suitable component definition found.') {
++        reactApi = docgenParse(src, null, defaultHandlers.concat(muiDefaultPropsHandler), {
++          filename,
++        });
++      } else {
++        throw error;
++      }
++    }
+   } else {
+     reactApi = docgenParse(src, null, defaultHandlers.concat(muiDefaultPropsHandler), { filename });
+   }
+diff --git a/docs/scripts/buildApiUtils.ts b/docs/scripts/buildApiUtils.ts
+index a1640088189da2..c0f9fd4440b01a 100644
+--- a/docs/scripts/buildApiUtils.ts
++++ b/docs/scripts/buildApiUtils.ts
+@@ -7,6 +7,10 @@ import { getLineFeed } from 'docs/scripts/helpers';
+ import { pageToTitle } from 'docs/src/modules/utils/helpers';
+ import { replaceComponentLinks } from 'docs/src/modules/utils/replaceUrl';
+ 
++const systemComponents = fs
++  .readdirSync(path.resolve('packages', 'mui-system', 'src'))
++  .filter((pathname) => pathname.match(/^[A-Z][a-zA-Z]+$/));
++
+ function findComponentDemos(
+   componentName: string,
+   pagesMarkdown: ReadonlyArray<{ pathname: string; components: readonly string[] }>,
+@@ -99,6 +103,10 @@ export type ComponentInfo = {
+   getDemos: () => Array<{ name: string; demoPathname: string }>;
+   apiPagesDirectory: string;
+   skipApiGeneration?: boolean;
++  /**
++   * If `true`, the component's name match one of the system components.
++   */
++  isSystemComponent?: boolean;
+ };
+ 
+ const migratedBaseComponents = [
+@@ -193,6 +201,7 @@ export const getMaterialComponentInfo = (filename: string): ComponentInfo => {
+     muiName: getMuiName(name),
+     apiPathname: `/material-ui/api/${kebabCase(name)}/`,
+     apiPagesDirectory: path.join(process.cwd(), `docs/pages/material-ui/api`),
++    isSystemComponent: systemComponents.includes(name),
+     readFile() {
+       srcInfo = parseFile(filename);
+       return srcInfo;
+@@ -283,6 +292,7 @@ export const getBaseComponentInfo = (filename: string): ComponentInfo => {
+     muiName: getMuiName(name),
+     apiPathname: `/base/api/${kebabCase(name)}/`,
+     apiPagesDirectory: path.join(process.cwd(), `docs/pages/base/api`),
++    isSystemComponent: systemComponents.includes(name),
+     readFile() {
+       srcInfo = parseFile(filename);
+       return srcInfo;
+@@ -329,6 +339,7 @@ export const getSystemComponentInfo = (filename: string): ComponentInfo => {
+     muiName: getMuiName(name),
+     apiPathname: `/system/api/${kebabCase(name)}/`,
+     apiPagesDirectory: path.join(process.cwd(), `docs/pages/system/api`),
++    isSystemComponent: true,
+     readFile() {
+       srcInfo = parseFile(filename);
+       return srcInfo;
+diff --git a/docs/src/modules/components/DemoToolbar.js b/docs/src/modules/components/DemoToolbar.js
+index 30af5dbc6a877f..2d9154859cb9bc 100644
+--- a/docs/src/modules/components/DemoToolbar.js
++++ b/docs/src/modules/components/DemoToolbar.js
+@@ -491,6 +491,9 @@ export default function DemoToolbar(props) {
+                   theme.palette.mode === 'dark'
+                     ? theme.palette.primaryDark[700]
+                     : theme.palette.grey[200],
++                '&.Mui-disabled': {
++                  opacity: 0.5,
++                },
+               }}
+               value={CODE_VARIANTS.TS}
+               disabled={!hasTSVariant}
+diff --git a/docs/translations/api-docs/grid/grid.json b/docs/translations/api-docs/grid/grid.json
+index 7a4b6ed3f25ad2..ea6608316541ce 100644
+--- a/docs/translations/api-docs/grid/grid.json
++++ b/docs/translations/api-docs/grid/grid.json
+@@ -2,65 +2,18 @@
+   "componentDescription": "",
+   "propDescriptions": {
+     "children": "The content of the component.",
+-    "classes": "Override or extend the styles applied to the component. See <a href=\"#css\">CSS API</a> below for more details.",
+     "columns": "The number of columns.",
+     "columnSpacing": "Defines the horizontal space between the type <code>item</code> components. It overrides the value of the <code>spacing</code> prop.",
+-    "component": "The component used for the root node. Either a string to use a HTML element or a component.",
+     "container": "If <code>true</code>, the component will have the flex <em>container</em> behavior. You should be wrapping <em>items</em> with a <em>container</em>.",
+     "direction": "Defines the <code>flex-direction</code> style property. It is applied for all screen sizes.",
+-    "item": "If <code>true</code>, the component will have the flex <em>item</em> behavior. You should be wrapping <em>items</em> with a <em>container</em>.",
+     "lg": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for the <code>lg</code> breakpoint and wider screens if not overridden.",
+     "md": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for the <code>md</code> breakpoint and wider screens if not overridden.",
+     "rowSpacing": "Defines the vertical space between the type <code>item</code> components. It overrides the value of the <code>spacing</code> prop.",
+     "sm": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for the <code>sm</code> breakpoint and wider screens if not overridden.",
+     "spacing": "Defines the space between the type <code>item</code> components. It can only be used on a type <code>container</code> component.",
+-    "sx": "The system prop that allows defining system overrides as well as additional CSS styles. See the <a href=\"/system/the-sx-prop/\">`sx` page</a> for more details.",
+     "wrap": "Defines the <code>flex-wrap</code> style property. It&#39;s applied for all screen sizes.",
+     "xl": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for the <code>xl</code> breakpoint and wider screens if not overridden.",
+-    "xs": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for all the screen sizes with the lowest priority.",
+-    "zeroMinWidth": "If <code>true</code>, it sets <code>min-width: 0</code> on the item. Refer to the limitations section of the documentation to better understand the use case."
++    "xs": "If a number, it sets the number of columns the grid item uses. It can&#39;t be greater than the total number of columns of the container (12 by default). If &#39;auto&#39;, the grid item&#39;s width matches its content. If false, the prop is ignored. If true, the grid item&#39;s width grows to use the space available in the grid container. The value is applied for all the screen sizes with the lowest priority."
+   },
+-  "classDescriptions": {
+-    "root": { "description": "Styles applied to the root element." },
+-    "container": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>container={true}</code>"
+-    },
+-    "item": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>item={true}</code>"
+-    },
+-    "zeroMinWidth": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>zeroMinWidth={true}</code>"
+-    },
+-    "direction-xs-column": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>direction=\"column\"</code>"
+-    },
+-    "direction-xs-column-reverse": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>direction=\"column-reverse\"</code>"
+-    },
+-    "direction-xs-row-reverse": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>direction=\"row-reverse\"</code>"
+-    },
+-    "wrap-xs-nowrap": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>wrap=\"nowrap\"</code>"
+-    },
+-    "wrap-xs-wrap-reverse": {
+-      "description": "Styles applied to {{nodeName}} if {{conditions}}.",
+-      "nodeName": "the root element",
+-      "conditions": "<code>wrap=\"reverse\"</code>"
+-    }
+-  }
++  "classDescriptions": {}
+ }
+diff --git a/docs/translations/translations.json b/docs/translations/translations.json
+index 88c570ad15c4ea..bf62c8cd5f19a3 100644
+--- a/docs/translations/translations.json
++++ b/docs/translations/translations.json
+@@ -160,7 +160,7 @@
+   "visit": "Visit the website",
+   "whosUsing": "Who's using MUI?",
+   "pages": {
+-    "/system": "System",
++    "/system-styles": "System styles",
+     "/system/basics": "Basics",
+     "/system/properties": "Properties",
+     "/system/the-sx-prop": "The sx prop",
+@@ -180,6 +180,7 @@
+     "/system/react-": "Components",
+     "/system/react-box": "Box",
+     "/system/react-container": "Container",
++    "/system/react-grid": "Grid",
+     "/system/styles": "Styles",
+     "/system/styles/basics": "Basics",
+     "/system/styles/advanced": "Advanced",
+diff --git a/packages/mui-joy/src/Grid/Grid.tsx b/packages/mui-joy/src/Grid/Grid.tsx
+new file mode 100644
+index 00000000000000..2e3ac6a3d78025
+--- /dev/null
++++ b/packages/mui-joy/src/Grid/Grid.tsx
+@@ -0,0 +1,35 @@
++import PropTypes from 'prop-types';
++import { createGrid } from '@mui/system/Grid';
++import { OverridableComponent } from '@mui/types';
++import { styled, useThemeProps } from '../styles';
++import { GridTypeMap } from './GridProps';
++
++const Grid = createGrid({
++  createStyledComponent: styled('div', {
++    name: 'MuiGrid',
++    overridesResolver: (props, styles) => styles.root,
++  }),
++  componentName: 'MuiGrid',
++  useThemeProps: (inProps) => useThemeProps({ props: inProps, name: 'MuiGrid' }),
++}) as OverridableComponent<GridTypeMap>;
++
++Grid.propTypes /* remove-proptypes */ = {
++  // ----------------------------- Warning --------------------------------
++  // | These PropTypes are generated from the TypeScript type definitions |
++  // |     To update them edit TypeScript types and run "yarn proptypes"  |
++  // ----------------------------------------------------------------------
++  /**
++   * The content of the component.
++   */
++  children: PropTypes.node,
++  /**
++   * @ignore
++   */
++  sx: PropTypes.oneOfType([
++    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.func, PropTypes.object, PropTypes.bool])),
++    PropTypes.func,
++    PropTypes.object,
++  ]),
++} as any;
++
++export default Grid;
+diff --git a/packages/mui-joy/src/Grid/GridProps.ts b/packages/mui-joy/src/Grid/GridProps.ts
+new file mode 100644
+index 00000000000000..1ec28ae667ea04
+--- /dev/null
++++ b/packages/mui-joy/src/Grid/GridProps.ts
+@@ -0,0 +1,18 @@
++import React from 'react';
++import { OverrideProps } from '@mui/types';
++import { GridBaseProps } from '@mui/system/Grid';
++import { SxProps, SystemProps } from '../styles/types';
++
++export type GridSlot = 'root';
++
++export interface GridTypeMap<P = {}, D extends React.ElementType = 'div'> {
++  props: P & GridBaseProps & { sx?: SxProps } & SystemProps;
++  defaultComponent: D;
++}
++
++export type GridProps<
++  D extends React.ElementType = GridTypeMap['defaultComponent'],
++  P = {
++    component?: React.ElementType;
++  },
++> = OverrideProps<GridTypeMap<P, D>, D>;
+diff --git a/packages/mui-joy/src/Grid/gridClasses.ts b/packages/mui-joy/src/Grid/gridClasses.ts
+new file mode 100644
+index 00000000000000..0b438ae87723c3
+--- /dev/null
++++ b/packages/mui-joy/src/Grid/gridClasses.ts
+@@ -0,0 +1,36 @@
++import { generateUtilityClass, generateUtilityClasses } from '@mui/base';
++import { GridClasses } from '@mui/system/Grid';
++
++export type GridClassKey = keyof GridClasses;
++
++export function getGridUtilityClass(slot: string): string {
++  return generateUtilityClass('MuiGrid', slot);
++}
++
++const SPACINGS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
++const DIRECTIONS = ['column-reverse', 'column', 'row-reverse', 'row'] as const;
++const WRAPS = ['nowrap', 'wrap-reverse', 'wrap'] as const;
++const GRID_SIZES = ['auto', true, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
++
++const gridClasses: GridClasses = generateUtilityClasses('MuiGrid', [
++  'root',
++  'container',
++  'item',
++  'zeroMinWidth',
++
++  // spacings
++  ...SPACINGS.map((spacing) => `spacing-xs-${spacing}` as const),
++  // direction values
++  ...DIRECTIONS.map((direction) => `direction-xs-${direction}` as const),
++  // wrap values
++  ...WRAPS.map((wrap) => `wrap-xs-${wrap}` as const),
++
++  // grid sizes for all breakpoints
++  ...GRID_SIZES.map((size) => `grid-xs-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-sm-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-md-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-lg-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-xl-${size}` as const),
++]);
++
++export default gridClasses;
+diff --git a/packages/mui-joy/src/Grid/index.ts b/packages/mui-joy/src/Grid/index.ts
+new file mode 100644
+index 00000000000000..5a981d71842eb3
+--- /dev/null
++++ b/packages/mui-joy/src/Grid/index.ts
+@@ -0,0 +1,4 @@
++export { default } from './Grid';
++export * from './GridProps';
++export { default as gridClasses } from './gridClasses';
++export * from './gridClasses';
+diff --git a/packages/mui-joy/src/index.ts b/packages/mui-joy/src/index.ts
+index 067719e871f91e..0fd7d1d4a0b702 100644
+--- a/packages/mui-joy/src/index.ts
++++ b/packages/mui-joy/src/index.ts
+@@ -80,3 +80,6 @@ export * from './Radio';
+ 
+ export { default as RadioGroup } from './RadioGroup';
+ export * from './RadioGroup';
++
++export { default as Grid } from './Grid';
++export * from './Grid';
+diff --git a/packages/mui-joy/src/styles/components.d.ts b/packages/mui-joy/src/styles/components.d.ts
+index 6d4a631dfd467e..80a8933985a2df 100644
+--- a/packages/mui-joy/src/styles/components.d.ts
++++ b/packages/mui-joy/src/styles/components.d.ts
+@@ -36,6 +36,7 @@ import { ChipDeleteProps, ChipDeleteSlot } from '../ChipDelete/ChipDeleteProps';
+ import { SliderProps, SliderSlot } from '../Slider/SliderProps';
+ import { RadioProps, RadioSlot } from '../Radio/RadioProps';
+ import { RadioGroupProps, RadioGroupSlot } from '../RadioGroup/RadioGroupProps';
++import { GridProps, GridSlot } from '../Grid/GridProps';
+ 
+ export type OverridesStyleRules<
+   ClassKey extends string = string,
+@@ -194,4 +195,8 @@ export interface Components<Theme = unknown> {
+     defaultProps?: Partial<TypographyProps>;
+     styleOverrides?: OverridesStyleRules<TypographySlot, TypographyProps, Theme>;
+   };
++  MuiGrid?: {
++    defaultProps?: Partial<GridProps>;
++    styleOverrides?: OverridesStyleRules<GridSlot, GridProps, Theme>;
++  };
+ }
+diff --git a/packages/mui-joy/src/styles/index.ts b/packages/mui-joy/src/styles/index.ts
+index eaffa35986948e..45d54a2e264ee9 100644
+--- a/packages/mui-joy/src/styles/index.ts
++++ b/packages/mui-joy/src/styles/index.ts
+@@ -1,4 +1,7 @@
+-// export * from './types';
++// reexports from system for module augmentation
++export type { BreakpointOverrides } from '@mui/system';
++
++// Joy typings
+ export type { ColorSchemeOverrides, SupportedColorScheme } from './types/colorScheme';
+ export type {
+   ColorSystem,
+diff --git a/packages/mui-system/package.json b/packages/mui-system/package.json
+index cedfd62322fdfc..120604c888c707 100644
+--- a/packages/mui-system/package.json
++++ b/packages/mui-system/package.json
+@@ -36,7 +36,8 @@
+     "prebuild": "rimraf build tsconfig.build.tsbuildinfo",
+     "release": "yarn build && npm publish build",
+     "test": "cd ../../ && cross-env NODE_ENV=test mocha 'packages/mui-system/**/*.test.{js,ts,tsx}'",
+-    "typescript": "tslint -p tsconfig.json \"{src,test}/**/*.{spec,d}.{ts,tsx}\" && tsc -p tsconfig.json"
++    "typescript": "tslint -p tsconfig.json \"{src,test}/**/*.{spec,d}.{ts,tsx}\" && tsc -p tsconfig.json",
++    "typescript:module-augmentation": "node scripts/testModuleAugmentation.js"
+   },
+   "peerDependencies": {
+     "@emotion/react": "^11.5.0",
+diff --git a/packages/mui-system/src/Grid/Grid.tsx b/packages/mui-system/src/Grid/Grid.tsx
+new file mode 100644
+index 00000000000000..3cade9719a9478
+--- /dev/null
++++ b/packages/mui-system/src/Grid/Grid.tsx
+@@ -0,0 +1,146 @@
++import PropTypes from 'prop-types';
++import createGrid from './createGrid';
++/**
++ *
++ * Demos:
++ *
++ * - [Grid (Material UI)](https://mui.com/material-ui/react-grid/)
++ *
++ * API:
++ *
++ * - [Grid API](https://mui.com/system/api/grid/)
++ */
++const Grid = createGrid();
++
++Grid.propTypes /* remove-proptypes */ = {
++  // ----------------------------- Warning --------------------------------
++  // | These PropTypes are generated from the TypeScript type definitions |
++  // |     To update them edit TypeScript types and run "yarn proptypes"  |
++  // ----------------------------------------------------------------------
++  /**
++   * The content of the component.
++   */
++  children: PropTypes.node,
++  /**
++   * The number of columns.
++   * @default 12
++   */
++  columns: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.arrayOf(PropTypes.number),
++    PropTypes.number,
++    PropTypes.object,
++  ]),
++  /**
++   * Defines the horizontal space between the type `item` components.
++   * It overrides the value of the `spacing` prop.
++   */
++  columnSpacing: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++    PropTypes.number,
++    PropTypes.object,
++    PropTypes.string,
++  ]),
++  /**
++   * If `true`, the component will have the flex *container* behavior.
++   * You should be wrapping *items* with a *container*.
++   * @default false
++   */
++  container: PropTypes.bool,
++  /**
++   * Defines the `flex-direction` style property.
++   * It is applied for all screen sizes.
++   * @default 'row'
++   */
++  direction: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.oneOf(['column-reverse', 'column', 'row-reverse', 'row']),
++    PropTypes.arrayOf(PropTypes.oneOf(['column-reverse', 'column', 'row-reverse', 'row'])),
++    PropTypes.object,
++  ]),
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `lg` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  lg: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `md` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  md: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++  /**
++   * Defines the vertical space between the type `item` components.
++   * It overrides the value of the `spacing` prop.
++   */
++  rowSpacing: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++    PropTypes.number,
++    PropTypes.object,
++    PropTypes.string,
++  ]),
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `sm` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  sm: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++  /**
++   * Defines the space between the type `item` components.
++   * It can only be used on a type `container` component.
++   * @default 0
++   */
++  spacing: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([
++    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++    PropTypes.number,
++    PropTypes.object,
++    PropTypes.string,
++  ]),
++  /**
++   * @ignore
++   */
++  sx: PropTypes.oneOfType([
++    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.func, PropTypes.object, PropTypes.bool])),
++    PropTypes.func,
++    PropTypes.object,
++  ]),
++  /**
++   * Defines the `flex-wrap` style property.
++   * It's applied for all screen sizes.
++   * @default 'wrap'
++   */
++  wrap: PropTypes.oneOf(['nowrap', 'wrap-reverse', 'wrap']),
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `xl` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  xl: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for all the screen sizes with the lowest priority.
++   * @default false
++   */
++  xs: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++} as any;
++
++export default Grid;
+diff --git a/packages/mui-system/src/Grid/GridProps.ts b/packages/mui-system/src/Grid/GridProps.ts
+new file mode 100644
+index 00000000000000..0eb8b40b6099a4
+--- /dev/null
++++ b/packages/mui-system/src/Grid/GridProps.ts
+@@ -0,0 +1,144 @@
++import * as React from 'react';
++import { OverrideProps, IfEquals } from '@mui/types';
++import { SxProps } from '../styleFunctionSx';
++import { Theme, Breakpoint, BreakpointOverrides } from '../createTheme';
++import { SystemProps } from '../Box';
++
++type ResponsiveStyleValue<T> = T | Array<T | null> | { [key in Breakpoint]?: T | null };
++
++export type GridDirection = 'row' | 'row-reverse' | 'column' | 'column-reverse';
++
++export type GridSpacing = number | string;
++
++export type GridWrap = 'nowrap' | 'wrap' | 'wrap-reverse';
++
++export type GridSize = 'auto' | number;
++
++export interface GridDefaultBreakpoints {
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `lg` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  lg?: boolean | GridSize;
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `md` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  md?: boolean | GridSize;
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `sm` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  sm?: boolean | GridSize;
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for the `xl` breakpoint and wider screens if not overridden.
++   * @default false
++   */
++  xl?: boolean | GridSize;
++  /**
++   * If a number, it sets the number of columns the grid item uses.
++   * It can't be greater than the total number of columns of the container (12 by default).
++   * If 'auto', the grid item's width matches its content.
++   * If false, the prop is ignored.
++   * If true, the grid item's width grows to use the space available in the grid container.
++   * The value is applied for all the screen sizes with the lowest priority.
++   * @default false
++   */
++  xs?: boolean | GridSize;
++}
++
++type CustomBreakpoints = Partial<
++  Record<Breakpoint, boolean | GridSize> & Record<`${Breakpoint}Offset`, GridSize>
++>;
++
++interface BreakpointOverridesEmpty {}
++
++type Breakpoints = IfEquals<
++  BreakpointOverrides,
++  BreakpointOverridesEmpty,
++  GridDefaultBreakpoints,
++  CustomBreakpoints
++>;
++
++export interface GridBaseProps extends Breakpoints {
++  /**
++   * The content of the component.
++   */
++  children?: React.ReactNode;
++  /**
++   * The number of columns.
++   * @default 12
++   */
++  columns?: ResponsiveStyleValue<number>;
++  /**
++   * Defines the horizontal space between the type `item` components.
++   * It overrides the value of the `spacing` prop.
++   */
++  columnSpacing?: ResponsiveStyleValue<GridSpacing>;
++  /**
++   * If `true`, the component will have the flex *container* behavior.
++   * You should be wrapping *items* with a *container*.
++   * @default false
++   */
++  container?: boolean;
++  /**
++   * Defines the `flex-direction` style property.
++   * It is applied for all screen sizes.
++   * @default 'row'
++   */
++  direction?: ResponsiveStyleValue<GridDirection>;
++  /**
++   * Defines the vertical space between the type `item` components.
++   * It overrides the value of the `spacing` prop.
++   */
++  rowSpacing?: ResponsiveStyleValue<GridSpacing>;
++  /**
++   * Defines the space between the type `item` components.
++   * It can only be used on a type `container` component.
++   * @default 0
++   */
++  spacing?: ResponsiveStyleValue<GridSpacing> | undefined;
++  /**
++   * Defines the `flex-wrap` style property.
++   * It's applied for all screen sizes.
++   * @default 'wrap'
++   */
++  wrap?: GridWrap;
++}
++
++export interface GridOwnerState extends GridBaseProps {
++  nested: boolean;
++  gridSize: Partial<Record<Breakpoint, GridSize | boolean>>;
++}
++
++export interface GridTypeMap<P = {}, D extends React.ElementType = 'div'> {
++  props: P & GridBaseProps & { sx?: SxProps<Theme> } & SystemProps<Theme>;
++  defaultComponent: D;
++}
++
++export type GridProps<
++  D extends React.ElementType = GridTypeMap['defaultComponent'],
++  P = {
++    component?: React.ElementType;
++  },
++> = OverrideProps<GridTypeMap<P, D>, D>;
+diff --git a/packages/mui-system/src/Grid/createGrid.tsx b/packages/mui-system/src/Grid/createGrid.tsx
+new file mode 100644
+index 00000000000000..2352251e3acb62
+--- /dev/null
++++ b/packages/mui-system/src/Grid/createGrid.tsx
+@@ -0,0 +1,207 @@
++import * as React from 'react';
++import PropTypes from 'prop-types';
++import clsx from 'clsx';
++import { OverridableComponent } from '@mui/types';
++import {
++  unstable_composeClasses as composeClasses,
++  unstable_generateUtilityClass as generateUtilityClass,
++} from '@mui/utils';
++import systemStyled from '../styled';
++import useThemePropsSystem from '../useThemeProps';
++import useTheme from '../useTheme';
++import { extendSxProp } from '../styleFunctionSx';
++import createTheme from '../createTheme';
++import {
++  generateGridStyles,
++  generateGridSizeStyles,
++  generateGridColumnsStyles,
++  generateGridColumnSpacingStyles,
++  generateGridRowSpacingStyles,
++  generateGridDirectionStyles,
++  generateSizeClassNames,
++  generateSpacingClassNames,
++} from './gridGenerator';
++import { CreateMUIStyled } from '../createStyled';
++import { GridTypeMap, GridOwnerState } from './GridProps';
++import type { Breakpoint } from '../createTheme';
++
++const defaultTheme = createTheme();
++
++// widening Theme to any so that the consumer can own the theme structure.
++const defaultCreateStyledComponent = (systemStyled as CreateMUIStyled<any>)('div', {
++  name: 'MuiGrid',
++  slot: 'Root',
++  overridesResolver: (props, styles) => styles.root,
++});
++
++function useThemePropsDefault<T>(props: T) {
++  return useThemePropsSystem({
++    props,
++    name: 'MuiGrid',
++    defaultTheme,
++  });
++}
++
++export default function createGrid(
++  options: {
++    createStyledComponent?: typeof defaultCreateStyledComponent;
++    useThemeProps?: typeof useThemePropsDefault;
++    componentName?: string;
++  } = {},
++) {
++  const {
++    // This will allow adding custom styled fn (for example for custom sx style function)
++    createStyledComponent = defaultCreateStyledComponent,
++    useThemeProps = useThemePropsDefault,
++    componentName = 'MuiGrid',
++  } = options;
++
++  const NestedContext = React.createContext(false);
++
++  const getGridUtilityClass = (slot: string) => {
++    return generateUtilityClass(componentName, slot);
++  };
++
++  const useUtilityClasses = (ownerState: GridOwnerState, theme: typeof defaultTheme) => {
++    const { container, direction, spacing, wrap, gridSize } = ownerState;
++
++    const slots = {
++      root: [
++        'root',
++        container && 'container',
++        direction !== 'row' && `direction-xs-${String(direction)}`,
++        wrap !== 'wrap' && `wrap-xs-${String(wrap)}`,
++        ...generateSizeClassNames(gridSize),
++        ...(container ? generateSpacingClassNames(spacing, theme.breakpoints.keys[0]) : []),
++      ],
++    };
++
++    return composeClasses(slots, getGridUtilityClass, {});
++  };
++
++  const GridRoot = createStyledComponent<{
++    ownerState: GridOwnerState;
++  }>(
++    generateGridColumnsStyles,
++    generateGridColumnSpacingStyles,
++    generateGridRowSpacingStyles,
++    generateGridSizeStyles,
++    generateGridDirectionStyles,
++    generateGridStyles,
++  );
++
++  const Grid = React.forwardRef(function Grid(inProps, ref) {
++    const theme = useTheme();
++    const themeProps = useThemeProps<typeof inProps & { component?: React.ElementType }>(inProps);
++    const props = extendSxProp(themeProps) as Omit<typeof themeProps, 'color'>; // `color` type conflicts with html color attribute.
++    const nested = React.useContext(NestedContext);
++    const {
++      className,
++      columns: columnsProp = 12,
++      container = false,
++      component = 'div',
++      direction = 'row',
++      wrap = 'wrap',
++      spacing: spacingProp = 0,
++      rowSpacing: rowSpacingProp = spacingProp,
++      columnSpacing: columnSpacingProp = spacingProp,
++      ...rest
++    } = props;
++    // collect breakpoints related props because they can be custom from the theme.
++    const gridSize = {} as GridOwnerState['gridSize'];
++    const other: Record<string, any> = {};
++
++    Object.entries(rest).forEach(([key, val]) => {
++      if (theme.breakpoints.values[key as Breakpoint] !== undefined) {
++        gridSize[key as Breakpoint] = val;
++      } else {
++        other[key] = val;
++      }
++    });
++
++    const columns = inProps.columns ?? (nested ? undefined : columnsProp);
++    const spacing = inProps.spacing ?? (nested ? undefined : spacingProp);
++    const rowSpacing =
++      inProps.rowSpacing ?? inProps.spacing ?? (nested ? undefined : rowSpacingProp);
++    const columnSpacing =
++      inProps.columnSpacing ?? inProps.spacing ?? (nested ? undefined : columnSpacingProp);
++    const ownerState = {
++      ...props,
++      nested,
++      columns,
++      container,
++      direction,
++      wrap,
++      spacing,
++      rowSpacing,
++      columnSpacing,
++      gridSize,
++    };
++
++    const classes = useUtilityClasses(ownerState, theme);
++
++    let result = (
++      <GridRoot
++        ref={ref}
++        as={component}
++        ownerState={ownerState}
++        className={clsx(classes.root, className)}
++        {...other}
++      />
++    );
++
++    if (!nested) {
++      result = <NestedContext.Provider value>{result}</NestedContext.Provider>;
++    }
++
++    return result;
++  }) as OverridableComponent<GridTypeMap>;
++
++  Grid.propTypes /* remove-proptypes */ = {
++    children: PropTypes.node,
++    className: PropTypes.string,
++    columns: PropTypes.oneOfType([
++      PropTypes.arrayOf(PropTypes.number),
++      PropTypes.number,
++      PropTypes.object,
++    ]),
++    columnSpacing: PropTypes.oneOfType([
++      PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++      PropTypes.number,
++      PropTypes.object,
++      PropTypes.string,
++    ]),
++    component: PropTypes.elementType,
++    container: PropTypes.bool,
++    direction: PropTypes.oneOfType([
++      PropTypes.oneOf(['column-reverse', 'column', 'row-reverse', 'row']),
++      PropTypes.arrayOf(PropTypes.oneOf(['column-reverse', 'column', 'row-reverse', 'row'])),
++      PropTypes.object,
++    ]),
++    lg: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++    md: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++    rowSpacing: PropTypes.oneOfType([
++      PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++      PropTypes.number,
++      PropTypes.object,
++      PropTypes.string,
++    ]),
++    sm: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++    spacing: PropTypes.oneOfType([
++      PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.number, PropTypes.string])),
++      PropTypes.number,
++      PropTypes.object,
++      PropTypes.string,
++    ]),
++    sx: PropTypes.oneOfType([
++      PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.func, PropTypes.object, PropTypes.bool])),
++      PropTypes.func,
++      PropTypes.object,
++    ]),
++    wrap: PropTypes.oneOf(['nowrap', 'wrap-reverse', 'wrap']),
++    xl: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++    xs: PropTypes.oneOfType([PropTypes.oneOf(['auto']), PropTypes.number, PropTypes.bool]),
++  };
++
++  return Grid;
++}
+diff --git a/packages/mui-system/src/Grid/gridClasses.ts b/packages/mui-system/src/Grid/gridClasses.ts
+new file mode 100644
+index 00000000000000..65909e9e05fb96
+--- /dev/null
++++ b/packages/mui-system/src/Grid/gridClasses.ts
+@@ -0,0 +1,54 @@
++import {
++  unstable_generateUtilityClass as generateUtilityClass,
++  unstable_generateUtilityClasses as generateUtilityClasses,
++} from '@mui/utils';
++
++export interface GridClasses {
++  /** Styles applied to the root element. */
++  root: string;
++  /** Styles applied to the root element if `container={true}`. */
++  container: string;
++  /** Styles applied to the root element if `direction="column"`. */
++  'direction-xs-column': string;
++  /** Styles applied to the root element if `direction="column-reverse"`. */
++  'direction-xs-column-reverse': string;
++  /** Styles applied to the root element if `direction="row-reverse"`. */
++  'direction-xs-row-reverse': string;
++  /** Styles applied to the root element if `wrap="nowrap"`. */
++  'wrap-xs-nowrap': string;
++  /** Styles applied to the root element if `wrap="reverse"`. */
++  'wrap-xs-wrap-reverse': string;
++}
++
++export type GridClassKey = keyof GridClasses;
++
++export function getGridUtilityClass(slot: string): string {
++  return generateUtilityClass('MuiGrid', slot);
++}
++
++const SPACINGS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
++const DIRECTIONS = ['column-reverse', 'column', 'row-reverse', 'row'] as const;
++const WRAPS = ['nowrap', 'wrap-reverse', 'wrap'] as const;
++const GRID_SIZES = ['auto', true, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
++
++const gridClasses: GridClasses = generateUtilityClasses('MuiGrid', [
++  'root',
++  'container',
++  'item',
++
++  // spacings
++  ...SPACINGS.map((spacing) => `spacing-xs-${spacing}` as const),
++  // direction values
++  ...DIRECTIONS.map((direction) => `direction-xs-${direction}` as const),
++  // wrap values
++  ...WRAPS.map((wrap) => `wrap-xs-${wrap}` as const),
++
++  // grid sizes for all breakpoints
++  ...GRID_SIZES.map((size) => `grid-xs-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-sm-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-md-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-lg-${size}` as const),
++  ...GRID_SIZES.map((size) => `grid-xl-${size}` as const),
++]);
++
++export default gridClasses;
+diff --git a/packages/mui-system/src/Grid/gridGenerator.ts b/packages/mui-system/src/Grid/gridGenerator.ts
+new file mode 100644
+index 00000000000000..130d4bb082d229
+--- /dev/null
++++ b/packages/mui-system/src/Grid/gridGenerator.ts
+@@ -0,0 +1,225 @@
++import { Breakpoints, Breakpoint } from '../createTheme/createBreakpoints';
++import { Spacing } from '../createTheme/createSpacing';
++import { GridOwnerState } from './GridProps';
++
++interface Props {
++  theme: { breakpoints: Breakpoints; spacing?: Spacing };
++  ownerState: GridOwnerState & { parentDisableEqualOverflow?: boolean };
++}
++
++interface Iterator<T> {
++  (appendStyle: (responsizeStyles: Record<string, any>, style: object) => void, value: T): void;
++}
++
++export const traverseBreakpoints = <T = unknown>(
++  breakpoints: Breakpoints,
++  responsize: T | T[] | Record<string, any> | undefined,
++  iterator: Iterator<T>,
++) => {
++  const smallestBreakpoint = breakpoints.keys[0]; // the keys is sorted from smallest to largest by `createBreakpoints`.
++
++  if (Array.isArray(responsize)) {
++    responsize.forEach((breakpointValue, index) => {
++      iterator((responsizeStyles, style) => {
++        if (index <= breakpoints.keys.length - 1) {
++          if (index === 0) {
++            Object.assign(responsizeStyles, style);
++          } else {
++            responsizeStyles[breakpoints.up(breakpoints.keys[index])] = style;
++          }
++        }
++      }, breakpointValue as T);
++    });
++  } else if (responsize && typeof responsize === 'object') {
++    // prevent null
++    // responsize could be a very big object, pick the smallest responsive values
++    const keys =
++      Object.keys(responsize).length > breakpoints.keys.length
++        ? breakpoints.keys
++        : Object.keys(responsize);
++
++    keys.forEach((key) => {
++      if (breakpoints.keys.indexOf(key as Breakpoint) !== -1) {
++        // @ts-ignore already checked that responsize is an object
++        const breakpointValue: T = responsize[key];
++        if (breakpointValue !== undefined) {
++          iterator((responsizeStyles, style) => {
++            if (smallestBreakpoint === key) {
++              Object.assign(responsizeStyles, style);
++            } else {
++              responsizeStyles[breakpoints.up(key as Breakpoint)] = style;
++            }
++          }, breakpointValue);
++        }
++      }
++    });
++  } else if (typeof responsize === 'number' || typeof responsize === 'string') {
++    iterator((responsizeStyles, style) => {
++      Object.assign(responsizeStyles, style);
++    }, responsize);
++  }
++};
++
++export const generateGridSizeStyles = ({ theme, ownerState }: Props) => {
++  const styles = {};
++  traverseBreakpoints<'auto' | number | true>(
++    theme.breakpoints,
++    ownerState.gridSize,
++    (appendStyle, value) => {
++      let style = {};
++      if (value === true) {
++        style = {
++          flexBasis: 0,
++          flexGrow: 1,
++          maxWidth: '100%',
++        };
++      }
++      if (value === 'auto') {
++        style = {
++          flexBasis: 'auto',
++          flexGrow: 0,
++          flexShrink: 0,
++          maxWidth: 'none',
++          width: 'auto',
++        };
++      }
++      if (typeof value === 'number') {
++        style = {
++          flexGrow: 0,
++          flexBasis: 'auto',
++          width: `calc(100% * ${value} / var(--Grid-columns)${
++            ownerState.nested && ownerState.container ? ` + var(--Grid-columnSpacing)` : ''
++          })`,
++        };
++      }
++      appendStyle(styles, style);
++    },
++  );
++  return styles;
++};
++
++export const generateGridColumnsStyles = ({ theme, ownerState }: Props) => {
++  if (!ownerState.container) {
++    return {};
++  }
++  const styles = { '--Grid-columns': 12 };
++  traverseBreakpoints<number>(theme.breakpoints, ownerState.columns, (appendStyle, value) => {
++    appendStyle(styles, { '--Grid-columns': value });
++  });
++  return styles;
++};
++
++export const generateGridRowSpacingStyles = ({ theme, ownerState }: Props) => {
++  if (!ownerState.container) {
++    return {};
++  }
++  const styles = {};
++  traverseBreakpoints<number | string>(
++    theme.breakpoints,
++    ownerState.rowSpacing,
++    (appendStyle, value) => {
++      appendStyle(styles, {
++        '--Grid-rowSpacing': typeof value === 'string' ? value : theme.spacing?.(value),
++      });
++    },
++  );
++  return styles;
++};
++
++export const generateGridColumnSpacingStyles = ({ theme, ownerState }: Props) => {
++  if (!ownerState.container) {
++    return {};
++  }
++  const styles = {};
++  traverseBreakpoints<number | string>(
++    theme.breakpoints,
++    ownerState.columnSpacing,
++    (appendStyle, value) => {
++      appendStyle(styles, {
++        '--Grid-columnSpacing': typeof value === 'string' ? value : theme.spacing?.(value),
++      });
++    },
++  );
++  return styles;
++};
++
++export const generateGridDirectionStyles = ({ theme, ownerState }: Props) => {
++  if (!ownerState.container) {
++    return {};
++  }
++  const styles = {};
++  traverseBreakpoints<number | string>(
++    theme.breakpoints,
++    ownerState.direction,
++    (appendStyle, value) => {
++      appendStyle(styles, { flexDirection: value });
++    },
++  );
++  return styles;
++};
++
++export const generateGridStyles = ({ ownerState }: Props): {} => {
++  return {
++    minWidth: 0,
++    boxSizing: 'border-box',
++    ...(ownerState.container
++      ? {
++          display: 'flex',
++          flexWrap: 'wrap',
++          ...(ownerState.wrap &&
++            ownerState.wrap !== 'wrap' && {
++              flexWrap: ownerState.wrap,
++            }),
++          margin: `calc(var(--Grid-rowSpacing) / -2) calc(var(--Grid-columnSpacing) / -2)`,
++          ...(ownerState.nested
++            ? {
++                padding: `calc(var(--Grid-nested-rowSpacing) / 2) calc(var(--Grid-nested-columnSpacing) / 2)`,
++              }
++            : {
++                '--Grid-nested-rowSpacing': 'var(--Grid-rowSpacing)',
++                '--Grid-nested-columnSpacing': 'var(--Grid-columnSpacing)',
++              }),
++        }
++      : {
++          padding: `calc(var(--Grid-rowSpacing) / 2) calc(var(--Grid-columnSpacing) / 2)`,
++        }),
++  };
++};
++
++export const generateSizeClassNames = (gridSize: GridOwnerState['gridSize']) => {
++  const classNames: string[] = [];
++  Object.entries(gridSize).forEach(([key, value]) => {
++    if (value !== false && value !== undefined) {
++      classNames.push(`grid-${key}-${String(value)}`);
++    }
++  });
++  return classNames;
++};
++
++export const generateSpacingClassNames = (
++  spacing: GridOwnerState['spacing'],
++  smallestBreakpoint: string = 'xs',
++) => {
++  function isValidSpacing(val: GridOwnerState['spacing'] | null) {
++    if (val === undefined) {
++      return false;
++    }
++    return (
++      (typeof val === 'string' && !Number.isNaN(Number(val))) ||
++      (typeof val === 'number' && val > 0)
++    );
++  }
++  if (isValidSpacing(spacing)) {
++    return [`spacing-${smallestBreakpoint}-${String(spacing)}`];
++  }
++  if (typeof spacing === 'object' && !Array.isArray(spacing)) {
++    const classNames: string[] = [];
++    Object.entries(spacing).forEach(([key, value]) => {
++      if (isValidSpacing(value)) {
++        classNames.push(`spacing-${key}-${String(value)}`);
++      }
++    });
++    return classNames;
++  }
++  return [];
++};
+diff --git a/packages/mui-system/src/Grid/index.ts b/packages/mui-system/src/Grid/index.ts
+new file mode 100644
+index 00000000000000..301c2a905bb2bf
+--- /dev/null
++++ b/packages/mui-system/src/Grid/index.ts
+@@ -0,0 +1,5 @@
++export { default } from './Grid';
++export { default as createGrid } from './createGrid';
++export * from './GridProps';
++export { default as gridClasses } from './gridClasses';
++export * from './gridClasses';
+diff --git a/packages/mui-system/src/grid.js b/packages/mui-system/src/cssGrid.js
+similarity index 100%
+rename from packages/mui-system/src/grid.js
+rename to packages/mui-system/src/cssGrid.js
+diff --git a/packages/mui-system/src/getThemeValue.js b/packages/mui-system/src/getThemeValue.js
+index 4dcc12455139b3..8df0642f67d7c8 100644
+--- a/packages/mui-system/src/getThemeValue.js
++++ b/packages/mui-system/src/getThemeValue.js
+@@ -1,7 +1,7 @@
+ import borders from './borders';
+ import display from './display';
+ import flexbox from './flexbox';
+-import grid from './grid';
++import grid from './cssGrid';
+ import positions from './positions';
+ import palette from './palette';
+ import shadows from './shadows';
+diff --git a/packages/mui-system/src/index.js b/packages/mui-system/src/index.js
+index e6ace6a8df0a60..53f6a5ae7f3588 100644
+--- a/packages/mui-system/src/index.js
++++ b/packages/mui-system/src/index.js
+@@ -11,8 +11,8 @@ export { default as compose } from './compose';
+ export { default as display } from './display';
+ export { default as flexbox } from './flexbox';
+ export * from './flexbox';
+-export { default as grid } from './grid';
+-export * from './grid';
++export { default as grid } from './cssGrid';
++export * from './cssGrid';
+ export { default as palette } from './palette';
+ export * from './palette';
+ export { default as positions } from './positions';
+diff --git a/packages/typescript-to-proptypes/src/injector.ts b/packages/typescript-to-proptypes/src/injector.ts
+index f3dd947525e8b3..c4fbf92327b9ba 100644
+--- a/packages/typescript-to-proptypes/src/injector.ts
++++ b/packages/typescript-to-proptypes/src/injector.ts
+@@ -132,8 +132,6 @@ function flattenTsAsExpression(node: object | null | undefined) {
+   return node;
+ }
+ 
+-const systemComponents = ['Container', 'Box'];
+-
+ function plugin(
+   propTypes: t.Program,
+   options: InjectOptions = {},
+@@ -388,7 +386,8 @@ function plugin(
+           const arg = nodeInit.arguments[0];
+           if (babelTypes.isArrowFunctionExpression(arg) || babelTypes.isFunctionExpression(arg)) {
+             getFromProp(arg.params[0]);
+-          } else if (systemComponents.includes(nodeName)) {
++          } else if ((nodeInit.callee as babel.types.Identifier)?.name?.match(/create[A-Z].*/)) {
++            // Any components that are created by a factory function, eg. System Box | Container | Grid.
+             getFromProp(node);
+           }
+         }
+diff --git a/tsconfig.json b/tsconfig.json
+index d37353239f3796..0f7166756ac69a 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -26,6 +26,7 @@
+       "@mui/styles": ["./packages/mui-styles/src"],
+       "@mui/styles/*": ["./packages/mui-styles/src/*"],
+       "@mui/system": ["./packages/mui-system/src"],
++      "@mui/system/*": ["./packages/mui-system/src/*"],
+       "@mui/private-theming": ["./packages/mui-private-theming/src"],
+       "@mui/private-theming/*": ["./packages/mui-private-theming/src/*"],
+       "@mui/types": ["./packages/mui-types"],

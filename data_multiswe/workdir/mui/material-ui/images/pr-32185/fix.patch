@@ -1,0 +1,113 @@
+diff --git a/packages/mui-base/src/BadgeUnstyled/BadgeUnstyled.js b/packages/mui-base/src/BadgeUnstyled/BadgeUnstyled.js
+index f46cbb07d83e43..a33825b05da8f7 100644
+--- a/packages/mui-base/src/BadgeUnstyled/BadgeUnstyled.js
++++ b/packages/mui-base/src/BadgeUnstyled/BadgeUnstyled.js
+@@ -4,7 +4,7 @@ import clsx from 'clsx';
+ import composeClasses from '../composeClasses';
+ import appendOwnerState from '../utils/appendOwnerState';
+ import useBadge from './useBadge';
+-import { getBadgeUtilityClass } from './badgeUnstyledClasses';
++import { getBadgeUnstyledUtilityClass } from './badgeUnstyledClasses';
+ 
+ const useUtilityClasses = (ownerState) => {
+   const { invisible } = ownerState;
+@@ -14,7 +14,7 @@ const useUtilityClasses = (ownerState) => {
+     badge: ['badge', invisible && 'invisible'],
+   };
+ 
+-  return composeClasses(slots, getBadgeUtilityClass, undefined);
++  return composeClasses(slots, getBadgeUnstyledUtilityClass, undefined);
+ };
+ 
+ const BadgeUnstyled = React.forwardRef(function BadgeUnstyled(props, ref) {
+diff --git a/packages/mui-base/src/BadgeUnstyled/badgeUnstyledClasses.ts b/packages/mui-base/src/BadgeUnstyled/badgeUnstyledClasses.ts
+index 9f45c9a268076c..b90cba8ccc58ea 100644
+--- a/packages/mui-base/src/BadgeUnstyled/badgeUnstyledClasses.ts
++++ b/packages/mui-base/src/BadgeUnstyled/badgeUnstyledClasses.ts
+@@ -12,7 +12,7 @@ export interface BadgeUnstyledClasses {
+ 
+ export type BadgeUnstyledClassKey = keyof BadgeUnstyledClasses;
+ 
+-export function getBadgeUtilityClass(slot: string): string {
++export function getBadgeUnstyledUtilityClass(slot: string): string {
+   return generateUtilityClass('BaseBadge', slot);
+ }
+ 
+diff --git a/packages/mui-base/src/BadgeUnstyled/index.js b/packages/mui-base/src/BadgeUnstyled/index.js
+index 4aa33b06390b8f..cc9bfb5616a16e 100644
+--- a/packages/mui-base/src/BadgeUnstyled/index.js
++++ b/packages/mui-base/src/BadgeUnstyled/index.js
+@@ -1,3 +1,6 @@
+ export { default } from './BadgeUnstyled';
+ export { default as useBadge } from './useBadge';
+-export { default as badgeUnstyledClasses, getBadgeUtilityClass } from './badgeUnstyledClasses';
++export {
++  default as badgeUnstyledClasses,
++  getBadgeUnstyledUtilityClass,
++} from './badgeUnstyledClasses';
+diff --git a/packages/mui-material/src/Badge/Badge.js b/packages/mui-material/src/Badge/Badge.js
+index 964312b2f5278e..f0ea28ddb9c758 100644
+--- a/packages/mui-material/src/Badge/Badge.js
++++ b/packages/mui-material/src/Badge/Badge.js
+@@ -2,6 +2,7 @@ import * as React from 'react';
+ import PropTypes from 'prop-types';
+ import clsx from 'clsx';
+ import { usePreviousProps } from '@mui/utils';
++import composeClasses from '@mui/base/composeClasses';
+ import BadgeUnstyled from '@mui/base/BadgeUnstyled';
+ import styled from '../styles/styled';
+ import useThemeProps from '../styles/useThemeProps';
+@@ -12,29 +13,25 @@ import badgeClasses, { getBadgeUtilityClass } from './badgeClasses';
+ const RADIUS_STANDARD = 10;
+ const RADIUS_DOT = 4;
+ 
+-const extendUtilityClasses = (ownerState) => {
++const useUtilityClasses = (ownerState) => {
+   const { color, anchorOrigin, invisible, overlap, variant, classes = {} } = ownerState;
+ 
+-  return {
+-    root: clsx(classes.root, 'root'),
+-    badge: clsx(
+-      classes.badge,
+-      getBadgeUtilityClass('badge'),
+-      getBadgeUtilityClass(variant),
+-      invisible && getBadgeUtilityClass('invisible'),
++  const slots = {
++    root: ['root'],
++    badge: [
++      'badge',
++      variant,
++      invisible && 'invisible',
+       `anchorOrigin${capitalize(anchorOrigin.vertical)}${capitalize(anchorOrigin.horizontal)}`,
+-      getBadgeUtilityClass(
+-        `anchorOrigin${capitalize(anchorOrigin.vertical)}${capitalize(
+-          anchorOrigin.horizontal,
+-        )}${capitalize(overlap)}`,
+-      ),
+-      getBadgeUtilityClass(`overlap${capitalize(overlap)}`),
+-      {
+-        [getBadgeUtilityClass(`color${capitalize(color)}`)]: color !== 'default',
+-        [classes[`color${capitalize(color)}`]]: color !== 'default',
+-      },
+-    ),
++      `anchorOrigin${capitalize(anchorOrigin.vertical)}${capitalize(
++        anchorOrigin.horizontal,
++      )}${capitalize(overlap)}`,
++      `overlap${capitalize(overlap)}`,
++      color !== 'default' && `color${capitalize(color)}`,
++    ],
+   };
++
++  return composeClasses(slots, getBadgeUtilityClass, classes);
+ };
+ 
+ const BadgeRoot = styled('span', {
+@@ -240,7 +237,7 @@ const Badge = React.forwardRef(function Badge(inProps, ref) {
+   } = invisible ? prevProps : props;
+ 
+   const ownerState = { ...props, anchorOrigin, invisible, color, overlap, variant };
+-  const classes = extendUtilityClasses(ownerState);
++  const classes = useUtilityClasses(ownerState);
+ 
+   let displayValue;
+ 

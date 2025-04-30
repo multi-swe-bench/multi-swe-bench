@@ -1,0 +1,23 @@
+diff --git a/balancer/grpclb/grpclb.go b/balancer/grpclb/grpclb.go
+index 735c18410096..abc2e211443c 100644
+--- a/balancer/grpclb/grpclb.go
++++ b/balancer/grpclb/grpclb.go
+@@ -258,11 +258,14 @@ func (lb *lbBalancer) regeneratePicker() {
+ 		}
+ 	}
+ 
++	if len(readySCs) <= 0 {
++		// If there's no ready SubConns, always re-pick. This is to avoid drops
++		// unless at least one SubConn is ready. Otherwise we may drop more
++		// often than want because of drops + re-picks(which become re-drops).
++		lb.picker = &errPicker{err: balancer.ErrNoSubConnAvailable}
++		return
++	}
+ 	if len(lb.fullServerList) <= 0 {
+-		if len(readySCs) <= 0 {
+-			lb.picker = &errPicker{err: balancer.ErrNoSubConnAvailable}
+-			return
+-		}
+ 		lb.picker = &rrPicker{subConns: readySCs}
+ 		return
+ 	}

@@ -1,0 +1,264 @@
+diff --git a/.changeset/itchy-beans-melt.md b/.changeset/itchy-beans-melt.md
+new file mode 100644
+index 000000000000..e6a58d02ff9c
+--- /dev/null
++++ b/.changeset/itchy-beans-melt.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++chore: fix compiler errors test suite
+diff --git a/.changeset/sweet-mangos-beg.md b/.changeset/sweet-mangos-beg.md
+new file mode 100644
+index 000000000000..3a0adfc03c7a
+--- /dev/null
++++ b/.changeset/sweet-mangos-beg.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: handle css nth-selector syntax
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 2a2d969475a1..8d01f4ac972c 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -24,9 +24,11 @@ const internal = {
+ const parse = {
+ 	/** @param {string} name */
+ 	'unclosed-element': (name) => `<${name}> was left open`,
+-	'unclosed-block': () => `block was left open`,
++	'unclosed-block': () => `Block was left open`,
+ 	'unexpected-block-close': () => `Unexpected block closing tag`,
+-	'unexpected-eof': () => `Unexpected end of input`,
++	/** @param {string} [expected]  */
++	'unexpected-eof': (expected) =>
++		`Unexpected end of input` + (expected ? ` (expected ${expected})` : ''),
+ 	/** @param {string} message */
+ 	'js-parse-error': (message) => message,
+ 	/** @param {string} token */
+@@ -39,17 +41,15 @@ const parse = {
+ 	'invalid-script-context': () =>
+ 		`If the context attribute is supplied, its value must be "module"`,
+ 	'invalid-elseif': () => `'elseif' should be 'else if'`,
+-	/**
+-	 * @param {string} child
+-	 * @param {string} parent
+-	 */
+-	'invalid-block-parent': (child, parent) =>
+-		`Expected to close ${parent} before seeing ${child} block`,
++	'invalid-continuing-block-placement': () =>
++		`{:...} block is invalid at this position (did you forget to close the preceeding element or block?)`,
+ 	/**
+ 	 * @param {string} child
+ 	 * @param {string} parent
+ 	 */
+ 	'invalid-block-missing-parent': (child, parent) => `${child} block must be a child of ${parent}`,
++	/** @param {string} name */
++	'duplicate-block-part': (name) => `${name} cannot appear more than once within a block`,
+ 	'expected-block-type': () => `Expected 'if', 'each', 'await', 'key' or 'snippet'`,
+ 	'expected-identifier': () => `Expected an identifier`,
+ 	'invalid-debug': () => `{@debug ...} arguments must be identifiers, not arbitrary expressions`,
+@@ -98,12 +98,9 @@ const css = {
+ 	'invalid-css-empty-declaration': () => `Declaration cannot be empty`,
+ 	'invalid-css-global-placement': () =>
+ 		`:global(...) can be at the start or end of a selector sequence, but not in the middle`,
+-
+ 	'invalid-css-global-selector': () => `:global(...) must contain exactly one selector`,
+-
+ 	'invalid-css-global-selector-list': () =>
+ 		`:global(...) cannot be used to modify a selector, or be modified by another selector`,
+-
+ 	'invalid-css-selector': () => `Invalid selector`,
+ 	'invalid-css-identifier': () => 'Expected a valid CSS identifier'
+ };
+diff --git a/packages/svelte/src/compiler/phases/1-parse/index.js b/packages/svelte/src/compiler/phases/1-parse/index.js
+index 5199ad596005..6b7642c251bd 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/index.js
++++ b/packages/svelte/src/compiler/phases/1-parse/index.js
+@@ -77,8 +77,10 @@ export class Parser {
+ 			const current = this.current();
+ 
+ 			if (current.type === 'RegularElement') {
++				current.end = current.start + 1;
+ 				error(current, 'unclosed-element', current.name);
+ 			} else {
++				current.end = current.start + 1;
+ 				error(current, 'unclosed-block');
+ 			}
+ 		}
+@@ -145,7 +147,7 @@ export class Parser {
+ 
+ 		if (required) {
+ 			if (this.index === this.template.length) {
+-				error(this.index, 'unexpected-eof');
++				error(this.index, 'unexpected-eof', str);
+ 			} else {
+ 				error(this.index, 'expected-token', str);
+ 			}
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/style.js b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+index 5197f103295d..9f59e8205edc 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/style.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+@@ -6,6 +6,7 @@ const REGEX_ATTRIBUTE_FLAGS = /^[a-zA-Z]+/; // only `i` and `s` are valid today,
+ const REGEX_COMBINATOR_WHITESPACE = /^\s*(\+|~|>|\|\|)\s*/;
+ const REGEX_COMBINATOR = /^(\+|~|>|\|\|)/;
+ const REGEX_PERCENTAGE = /^\d+(\.\d+)?%/;
++const REGEX_NTH_OF = /^(even|odd|(-?[0-9]?n?(\s*\+\s*[0-9]+)?))(\s+of\s+)?/;
+ const REGEX_WHITESPACE_OR_COLON = /[\s:]/;
+ const REGEX_BRACE_OR_SEMICOLON = /[{;]/;
+ const REGEX_LEADING_HYPHEN_OR_DIGIT = /-?\d/;
+@@ -234,6 +235,8 @@ function read_selector(parser, inside_pseudo_class = false) {
+ 			if (parser.eat('(')) {
+ 				args = read_selector_list(parser, true);
+ 				parser.eat(')', true);
++			} else if (name === 'global') {
++				error(parser.index, 'invalid-css-global-selector');
+ 			}
+ 
+ 			children.push({
+@@ -291,6 +294,13 @@ function read_selector(parser, inside_pseudo_class = false) {
+ 				start,
+ 				end: parser.index
+ 			});
++		} else if (parser.match_regex(REGEX_NTH_OF)) {
++			children.push({
++				type: 'Nth',
++				value: /** @type {string} */ (parser.read(REGEX_NTH_OF)),
++				start,
++				end: parser.index
++			});
+ 		} else {
+ 			let name = read_identifier(parser);
+ 			if (parser.match('|')) {
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/element.js b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+index a5e2a2a82ab1..019e29c9445b 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/element.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/element.js
+@@ -202,11 +202,13 @@ export default function tag(parser) {
+ 
+ 	let attribute;
+ 	while ((attribute = read(parser))) {
+-		if (
+-			(attribute.type === 'Attribute' || attribute.type === 'BindDirective') &&
+-			unique_names.includes(attribute.name)
+-		) {
+-			error(attribute.start, 'duplicate-attribute');
++		if (attribute.type === 'Attribute' || attribute.type === 'BindDirective') {
++			if (unique_names.includes(attribute.name)) {
++				error(attribute.start, 'duplicate-attribute');
++				// <svelte:element bind:this this=..> is allowed
++			} else if (attribute.name !== 'this') {
++				unique_names.push(attribute.name);
++			}
+ 		}
+ 
+ 		element.attributes.push(attribute);
+@@ -635,13 +637,14 @@ function read_attribute_value(parser) {
+ 			'in attribute value'
+ 		);
+ 	} catch (/** @type {any} e */ e) {
+-		if (e.code === 'parse-error') {
++		if (e.code === 'js-parse-error') {
+ 			// if the attribute value didn't close + self-closing tag
+ 			// eg: `<Component test={{a:1} />`
+ 			// acorn may throw a `Unterminated regular expression` because of `/>`
+-			if (parser.template.slice(e.pos - 1, e.pos + 1) === '/>') {
+-				parser.index = e.pos;
+-				error(e.pos, 'unclosed-attribute-value', quote_mark || '}');
++			const pos = e.position?.[0];
++			if (pos !== undefined && parser.template.slice(pos - 1, pos + 1) === '/>') {
++				parser.index = pos;
++				error(pos, 'unclosed-attribute-value', quote_mark || '}');
+ 			}
+ 		}
+ 		throw e;
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/tag.js b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+index 36a66ac59f52..ebfebb73b187 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/tag.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+@@ -315,7 +315,7 @@ function next(parser) {
+ 	const block = parser.current(); // TODO type should not be TemplateNode, that's much too broad
+ 
+ 	if (block.type === 'IfBlock') {
+-		if (!parser.eat('else')) error(start, 'expected-token', 'else');
++		if (!parser.eat('else')) error(start, 'expected-token', '{:else} or {:else if}');
+ 		if (parser.eat('if')) error(start, 'invalid-elseif');
+ 
+ 		parser.allow_whitespace();
+@@ -359,7 +359,7 @@ function next(parser) {
+ 	}
+ 
+ 	if (block.type === 'EachBlock') {
+-		if (!parser.eat('else')) error(start, 'expected-token', 'else');
++		if (!parser.eat('else')) error(start, 'expected-token', '{:else}');
+ 
+ 		parser.allow_whitespace();
+ 		parser.eat('}', true);
+@@ -375,7 +375,7 @@ function next(parser) {
+ 	if (block.type === 'AwaitBlock') {
+ 		if (parser.eat('then')) {
+ 			if (block.then) {
+-				error(start, 'TODO', 'duplicate then');
++				error(start, 'duplicate-block-part', '{:then}');
+ 			}
+ 
+ 			if (!parser.eat('}')) {
+@@ -394,7 +394,7 @@ function next(parser) {
+ 
+ 		if (parser.eat('catch')) {
+ 			if (block.catch) {
+-				error(start, 'TODO', 'duplicate catch');
++				error(start, 'duplicate-block-part', '{:catch}');
+ 			}
+ 
+ 			if (!parser.eat('}')) {
+@@ -413,6 +413,8 @@ function next(parser) {
+ 
+ 		error(start, 'expected-token', '{:then ...} or {:catch ...}');
+ 	}
++
++	error(start, 'invalid-continuing-block-placement');
+ }
+ 
+ /** @param {import('../index.js').Parser} parser */
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+index fcddaf2df643..b0942d6572c3 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+@@ -306,7 +306,7 @@ function block_might_apply_to_node(block, node) {
+ 	while (i--) {
+ 		const selector = block.selectors[i];
+ 
+-		if (selector.type === 'Percentage') continue;
++		if (selector.type === 'Percentage' || selector.type === 'Nth') continue;
+ 
+ 		const name = selector.name.replace(regex_backslash_and_following_character, '$1');
+ 
+diff --git a/packages/svelte/src/compiler/types/css.d.ts b/packages/svelte/src/compiler/types/css.d.ts
+index 7d936207ac93..49a3fc514379 100644
+--- a/packages/svelte/src/compiler/types/css.d.ts
++++ b/packages/svelte/src/compiler/types/css.d.ts
+@@ -67,6 +67,11 @@ export interface Percentage extends BaseNode {
+ 	value: string;
+ }
+ 
++export interface Nth extends BaseNode {
++	type: 'Nth';
++	value: string;
++}
++
+ export type SimpleSelector =
+ 	| TypeSelector
+ 	| IdSelector
+@@ -74,7 +79,8 @@ export type SimpleSelector =
+ 	| AttributeSelector
+ 	| PseudoElementSelector
+ 	| PseudoClassSelector
+-	| Percentage;
++	| Percentage
++	| Nth;
+ 
+ export interface Combinator extends BaseNode {
+ 	type: 'Combinator';

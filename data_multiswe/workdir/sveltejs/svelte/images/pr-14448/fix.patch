@@ -1,0 +1,65 @@
+diff --git a/.changeset/big-hats-wonder.md b/.changeset/big-hats-wonder.md
+new file mode 100644
+index 000000000000..bc2e352ffb6a
+--- /dev/null
++++ b/.changeset/big-hats-wonder.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: correctly remove unused selectors in middle of selector lists
+diff --git a/packages/svelte/src/compiler/phases/3-transform/css/index.js b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+index d1f3d3baa62d..c1175e4b5b80 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/css/index.js
++++ b/packages/svelte/src/compiler/phases/3-transform/css/index.js
+@@ -200,6 +200,7 @@ const visitors = {
+ 			let pruning = false;
+ 			let prune_start = children[0].start;
+ 			let last = prune_start;
++			let has_previous_used = false;
+ 
+ 			for (let i = 0; i < children.length; i += 1) {
+ 				const selector = children[i];
+@@ -210,9 +211,9 @@ const visitors = {
+ 						while (state.code.original[i] !== ',') i--;
+ 
+ 						if (state.minify) {
+-							state.code.remove(prune_start, i + 1);
++							state.code.remove(prune_start, has_previous_used ? i : i + 1);
+ 						} else {
+-							state.code.overwrite(i, i + 1, '*/');
++							state.code.appendRight(has_previous_used ? i : i + 1, '*/');
+ 						}
+ 					} else {
+ 						if (i === 0) {
+@@ -222,17 +223,10 @@ const visitors = {
+ 								state.code.prependRight(selector.start, '/* (unused) ');
+ 							}
+ 						} else {
+-							// If this is not the last selector add a separator
+-							const separator = i !== children.length - 1 ? ',' : '';
+-
+ 							if (state.minify) {
+ 								prune_start = last;
+-								if (separator) {
+-									while (state.code.original[prune_start - 1] !== ',') prune_start++;
+-									state.code.update(last, prune_start, separator);
+-								}
+ 							} else {
+-								state.code.overwrite(last, selector.start, `${separator} /* (unused) `);
++								state.code.overwrite(last, selector.start, ` /* (unused) `);
+ 							}
+ 						}
+ 					}
+@@ -240,6 +234,10 @@ const visitors = {
+ 					pruning = !pruning;
+ 				}
+ 
++				if (!pruning && selector.metadata.used) {
++					has_previous_used = true;
++				}
++
+ 				last = selector.end;
+ 			}
+ 

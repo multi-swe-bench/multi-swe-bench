@@ -1,0 +1,2797 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 0a571532562..0505bb5b53d 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
+   built-in flags and be copied to all subcommands, instead disable
+   the built-in flags (`Command::disable_help_flag`,
+   `Command::disable_version_flag`) and mark the custom flags as `global(true)`.
++- Looking up a group in `ArgMatches` now returns the arg `Id`s, rather than the values.
++- Various `Arg`, `Command`, and `ArgGroup` calls were switched from accepting `&[]` to `[]` via `IntoIterator`
+ - *(help)* Make `DeriveDisplayOrder` the default and removed the setting.  To sort help, set `next_display_order(None)` (#2808)
+ - *(help)* Subcommand display order respects `Command::next_display_order` instead of `DeriveDisplayOrder` and using its own initial display order value (#2808)
+ - *(env)* Parse `--help` and `--version` like any `ArgAction::SetTrue` flag (#3776)
+diff --git a/clap_bench/benches/05_ripgrep.rs b/clap_bench/benches/05_ripgrep.rs
+index 8cbe330a4f6..3814228353c 100644
+--- a/clap_bench/benches/05_ripgrep.rs
++++ b/clap_bench/benches/05_ripgrep.rs
+@@ -316,7 +316,7 @@ where
+         .arg(flag("help"))
+         .arg(flag("version").short('V'))
+         // First, set up primary positional/flag arguments.
+-        .arg(arg("pattern").required_unless_present_any(&[
++        .arg(arg("pattern").required_unless_present_any([
+             "file",
+             "files",
+             "help-short",
+@@ -337,9 +337,9 @@ where
+             flag("files")
+                 // This should also conflict with `pattern`, but the first file
+                 // path will actually be in `pattern`.
+-                .conflicts_with_all(&["file", "regexp", "type-list"]),
++                .conflicts_with_all(["file", "regexp", "type-list"]),
+         )
+-        .arg(flag("type-list").conflicts_with_all(&["file", "files", "pattern", "regexp"]))
++        .arg(flag("type-list").conflicts_with_all(["file", "files", "pattern", "regexp"]))
+         // Second, set up common flags.
+         .arg(flag("text").short('a'))
+         .arg(flag("count").short('c'))
+diff --git a/clap_bench/benches/06_rustup.rs b/clap_bench/benches/06_rustup.rs
+index f6d391fe1e7..a2189717a09 100644
+--- a/clap_bench/benches/06_rustup.rs
++++ b/clap_bench/benches/06_rustup.rs
+@@ -263,7 +263,7 @@ fn build_cli() -> Command<'static> {
+                         .action(ArgAction::SetTrue)
+                         .help("Standard library API documentation"),
+                 )
+-                .group(ArgGroup::new("page").args(&["book", "std"])),
++                .group(ArgGroup::new("page").args(["book", "std"])),
+         )
+         .subcommand(
+             Command::new("man")
+diff --git a/clap_mangen/src/render.rs b/clap_mangen/src/render.rs
+index 1655af38a2a..b437125bd50 100644
+--- a/clap_mangen/src/render.rs
++++ b/clap_mangen/src/render.rs
+@@ -63,7 +63,7 @@ pub(crate) fn synopsis(roff: &mut Roff, cmd: &clap::Command) {
+         if let Some(value) = arg.get_value_names() {
+             line.push(italic(value.join(" ")));
+         } else {
+-            line.push(italic(arg.get_id()));
++            line.push(italic(arg.get_id().as_str()));
+         }
+         line.push(roman(rhs));
+         line.push(roman(" "));
+@@ -129,7 +129,7 @@ pub(crate) fn options(roff: &mut Roff, cmd: &clap::Command) {
+         if let Some(value) = pos.get_value_names() {
+             header.push(italic(value.join(" ")));
+         } else {
+-            header.push(italic(pos.get_id()));
++            header.push(italic(pos.get_id().as_str()));
+         };
+         header.push(roman(rhs));
+ 
+diff --git a/examples/tutorial_builder/04_03_relations.rs b/examples/tutorial_builder/04_03_relations.rs
+index 37e097558f1..101e8783cfe 100644
+--- a/examples/tutorial_builder/04_03_relations.rs
++++ b/examples/tutorial_builder/04_03_relations.rs
+@@ -14,7 +14,7 @@ fn main() {
+         .group(
+             ArgGroup::new("vers")
+                 .required(true)
+-                .args(&["set-ver", "major", "minor", "patch"]),
++                .args(["set-ver", "major", "minor", "patch"]),
+         )
+         // Arguments can also be added to a group individually, these two arguments
+         // are part of the "input" group which is not required
+diff --git a/examples/tutorial_derive/04_03_relations.rs b/examples/tutorial_derive/04_03_relations.rs
+index f5842b10e43..231cf78237a 100644
+--- a/examples/tutorial_derive/04_03_relations.rs
++++ b/examples/tutorial_derive/04_03_relations.rs
+@@ -5,7 +5,7 @@ use clap::{ArgGroup, Parser};
+ #[clap(group(
+             ArgGroup::new("vers")
+                 .required(true)
+-                .args(&["set_ver", "major", "minor", "patch"]),
++                .args(["set_ver", "major", "minor", "patch"]),
+         ))]
+ struct Cli {
+     /// set version manually
+diff --git a/src/builder/arg.rs b/src/builder/arg.rs
+index 802250d86f0..dd14a95e0bd 100644
+--- a/src/builder/arg.rs
++++ b/src/builder/arg.rs
+@@ -14,7 +14,7 @@ use super::{ArgFlags, ArgSettings};
+ use crate::builder::ArgPredicate;
+ use crate::builder::PossibleValue;
+ use crate::builder::ValueRange;
+-use crate::util::{Id, Key};
++use crate::util::Id;
+ use crate::ArgAction;
+ use crate::ValueHint;
+ use crate::INTERNAL_ERROR_MSG;
+@@ -50,7 +50,6 @@ use crate::INTERNAL_ERROR_MSG;
+ #[derive(Default, Clone)]
+ pub struct Arg<'help> {
+     pub(crate) id: Id,
+-    pub(crate) name: &'help str,
+     pub(crate) help: Option<&'help str>,
+     pub(crate) long_help: Option<&'help str>,
+     pub(crate) action: Option<ArgAction>,
+@@ -102,18 +101,16 @@ impl<'help> Arg<'help> {
+     /// # ;
+     /// ```
+     /// [`Arg::action(ArgAction::Set)`]: Arg::action()
+-    pub fn new<S: Into<&'help str>>(n: S) -> Self {
+-        Arg::default().id(n)
++    pub fn new(id: impl Into<Id>) -> Self {
++        Arg::default().id(id)
+     }
+ 
+     /// Set the identifier used for referencing this argument in the clap API.
+     ///
+     /// See [`Arg::new`] for more details.
+     #[must_use]
+-    pub fn id<S: Into<&'help str>>(mut self, n: S) -> Self {
+-        let name = n.into();
+-        self.id = Id::from(name);
+-        self.name = name;
++    pub fn id(mut self, id: impl Into<Id>) -> Self {
++        self.id = id.into();
+         self
+     }
+ 
+@@ -660,7 +657,7 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [override]: Arg::overrides_with()
+     #[must_use]
+-    pub fn requires<T: Key>(mut self, arg_id: T) -> Self {
++    pub fn requires(mut self, arg_id: impl Into<Id>) -> Self {
+         self.requires.push((ArgPredicate::IsPresent, arg_id.into()));
+         self
+     }
+@@ -2442,7 +2439,7 @@ impl<'help> Arg<'help> {
+     ///
+     /// [`ArgGroup`]: crate::ArgGroup
+     #[must_use]
+-    pub fn group<T: Key>(mut self, group_id: T) -> Self {
++    pub fn group(mut self, group_id: impl Into<Id>) -> Self {
+         self.groups.push(group_id.into());
+         self
+     }
+@@ -2456,7 +2453,7 @@ impl<'help> Arg<'help> {
+     /// Arg::new("debug")
+     ///     .long("debug")
+     ///     .action(ArgAction::SetTrue)
+-    ///     .groups(&["mode", "verbosity"])
++    ///     .groups(["mode", "verbosity"])
+     /// # ;
+     /// ```
+     ///
+@@ -2469,11 +2466,11 @@ impl<'help> Arg<'help> {
+     ///     .arg(Arg::new("debug")
+     ///         .long("debug")
+     ///         .action(ArgAction::SetTrue)
+-    ///         .groups(&["mode", "verbosity"]))
++    ///         .groups(["mode", "verbosity"]))
+     ///     .arg(Arg::new("verbose")
+     ///         .long("verbose")
+     ///         .action(ArgAction::SetTrue)
+-    ///         .groups(&["mode", "verbosity"]))
++    ///         .groups(["mode", "verbosity"]))
+     ///     .get_matches_from(vec![
+     ///         "prog", "--debug"
+     ///     ]);
+@@ -2483,8 +2480,8 @@ impl<'help> Arg<'help> {
+     ///
+     /// [`ArgGroup`]: crate::ArgGroup
+     #[must_use]
+-    pub fn groups<T: Key>(mut self, group_ids: &[T]) -> Self {
+-        self.groups.extend(group_ids.iter().map(Id::from));
++    pub fn groups(mut self, group_ids: impl IntoIterator<Item = impl Into<Id>>) -> Self {
++        self.groups.extend(group_ids.into_iter().map(Into::into));
+         self
+     }
+ 
+@@ -2601,9 +2598,9 @@ impl<'help> Arg<'help> {
+     /// [`Arg::action(ArgAction::Set)`]: Arg::action()
+     /// [`Arg::default_value`]: Arg::default_value()
+     #[must_use]
+-    pub fn default_value_if<T: Key>(
++    pub fn default_value_if(
+         self,
+-        arg_id: T,
++        arg_id: impl Into<Id>,
+         val: Option<&'help str>,
+         default: Option<&'help str>,
+     ) -> Self {
+@@ -2616,9 +2613,9 @@ impl<'help> Arg<'help> {
+     /// [`Arg::default_value_if`]: Arg::default_value_if()
+     /// [`OsStr`]: std::ffi::OsStr
+     #[must_use]
+-    pub fn default_value_if_os<T: Key>(
++    pub fn default_value_if_os(
+         mut self,
+-        arg_id: T,
++        arg_id: impl Into<Id>,
+         val: Option<&'help OsStr>,
+         default: Option<&'help OsStr>,
+     ) -> Self {
+@@ -2649,7 +2646,7 @@ impl<'help> Arg<'help> {
+     ///         .action(ArgAction::Set))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_ifs(&[
++    ///         .default_value_ifs([
+     ///             ("flag", Some("true"), Some("default")),
+     ///             ("opt", Some("channal"), Some("chan")),
+     ///         ]))
+@@ -2670,7 +2667,7 @@ impl<'help> Arg<'help> {
+     ///         .action(ArgAction::SetTrue))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_ifs(&[
++    ///         .default_value_ifs([
+     ///             ("flag", Some("true"), Some("default")),
+     ///             ("opt", Some("channal"), Some("chan")),
+     ///         ]))
+@@ -2695,7 +2692,7 @@ impl<'help> Arg<'help> {
+     ///         .action(ArgAction::Set))
+     ///     .arg(Arg::new("other")
+     ///         .long("other")
+-    ///         .default_value_ifs(&[
++    ///         .default_value_ifs([
+     ///             ("flag", None, Some("default")),
+     ///             ("opt", Some("channal"), Some("chan")),
+     ///         ]))
+@@ -2708,9 +2705,9 @@ impl<'help> Arg<'help> {
+     /// [`Arg::action(ArgAction::Set)`]: Arg::action()
+     /// [`Arg::default_value_if`]: Arg::default_value_if()
+     #[must_use]
+-    pub fn default_value_ifs<T: Key>(
++    pub fn default_value_ifs(
+         mut self,
+-        ifs: &[(T, Option<&'help str>, Option<&'help str>)],
++        ifs: impl IntoIterator<Item = (impl Into<Id>, Option<&'help str>, Option<&'help str>)>,
+     ) -> Self {
+         for (arg, val, default) in ifs {
+             self = self.default_value_if_os(arg, val.map(OsStr::new), default.map(OsStr::new));
+@@ -2724,12 +2721,12 @@ impl<'help> Arg<'help> {
+     /// [`Arg::default_value_ifs`]: Arg::default_value_ifs()
+     /// [`OsStr`]: std::ffi::OsStr
+     #[must_use]
+-    pub fn default_value_ifs_os<T: Key>(
++    pub fn default_value_ifs_os(
+         mut self,
+-        ifs: &[(T, Option<&'help OsStr>, Option<&'help OsStr>)],
++        ifs: impl IntoIterator<Item = (impl Into<Id>, Option<&'help OsStr>, Option<&'help OsStr>)>,
+     ) -> Self {
+         for (arg, val, default) in ifs {
+-            self = self.default_value_if_os(arg, *val, *default);
++            self = self.default_value_if_os(arg.into(), val, default);
+         }
+         self
+     }
+@@ -2788,7 +2785,7 @@ impl<'help> Arg<'help> {
+     /// ```
+     /// [required]: Arg::required()
+     #[must_use]
+-    pub fn required_unless_present<T: Key>(mut self, arg_id: T) -> Self {
++    pub fn required_unless_present(mut self, arg_id: impl Into<Id>) -> Self {
+         self.r_unless.push(arg_id.into());
+         self
+     }
+@@ -2807,7 +2804,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .required_unless_present_all(&["cfg", "dbg"])
++    ///     .required_unless_present_all(["cfg", "dbg"])
+     /// # ;
+     /// ```
+     ///
+@@ -2818,7 +2815,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_unless_present_all(&["dbg", "infile"])
++    ///         .required_unless_present_all(["dbg", "infile"])
+     ///         .action(ArgAction::Set)
+     ///         .long("config"))
+     ///     .arg(Arg::new("dbg")
+@@ -2841,7 +2838,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, error::ErrorKind, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_unless_present_all(&["dbg", "infile"])
++    ///         .required_unless_present_all(["dbg", "infile"])
+     ///         .action(ArgAction::Set)
+     ///         .long("config"))
+     ///     .arg(Arg::new("dbg")
+@@ -2861,12 +2858,11 @@ impl<'help> Arg<'help> {
+     /// [`Arg::required_unless_present_any`]: Arg::required_unless_present_any()
+     /// [`Arg::required_unless_present_all(names)`]: Arg::required_unless_present_all()
+     #[must_use]
+-    pub fn required_unless_present_all<T, I>(mut self, names: I) -> Self
+-    where
+-        I: IntoIterator<Item = T>,
+-        T: Key,
+-    {
+-        self.r_unless_all.extend(names.into_iter().map(Id::from));
++    pub fn required_unless_present_all(
++        mut self,
++        names: impl IntoIterator<Item = impl Into<Id>>,
++    ) -> Self {
++        self.r_unless_all.extend(names.into_iter().map(Into::into));
+         self
+     }
+ 
+@@ -2884,7 +2880,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .required_unless_present_any(&["cfg", "dbg"])
++    ///     .required_unless_present_any(["cfg", "dbg"])
+     /// # ;
+     /// ```
+     ///
+@@ -2897,7 +2893,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_unless_present_any(&["dbg", "infile"])
++    ///         .required_unless_present_any(["dbg", "infile"])
+     ///         .action(ArgAction::Set)
+     ///         .long("config"))
+     ///     .arg(Arg::new("dbg")
+@@ -2920,7 +2916,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, error::ErrorKind, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_unless_present_any(&["dbg", "infile"])
++    ///         .required_unless_present_any(["dbg", "infile"])
+     ///         .action(ArgAction::Set)
+     ///         .long("config"))
+     ///     .arg(Arg::new("dbg")
+@@ -2940,12 +2936,11 @@ impl<'help> Arg<'help> {
+     /// [`Arg::required_unless_present_any(names)`]: Arg::required_unless_present_any()
+     /// [`Arg::required_unless_present_all`]: Arg::required_unless_present_all()
+     #[must_use]
+-    pub fn required_unless_present_any<T, I>(mut self, names: I) -> Self
+-    where
+-        I: IntoIterator<Item = T>,
+-        T: Key,
+-    {
+-        self.r_unless.extend(names.into_iter().map(Id::from));
++    pub fn required_unless_present_any(
++        mut self,
++        names: impl IntoIterator<Item = impl Into<Id>>,
++    ) -> Self {
++        self.r_unless.extend(names.into_iter().map(Into::into));
+         self
+     }
+ 
+@@ -3029,7 +3024,7 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [required]: Arg::required()
+     #[must_use]
+-    pub fn required_if_eq<T: Key>(mut self, arg_id: T, val: &'help str) -> Self {
++    pub fn required_if_eq(mut self, arg_id: impl Into<Id>, val: &'help str) -> Self {
+         self.r_ifs.push((arg_id.into(), val));
+         self
+     }
+@@ -3044,7 +3039,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .required_if_eq_any(&[
++    ///     .required_if_eq_any([
+     ///         ("extra", "val"),
+     ///         ("option", "spec")
+     ///     ])
+@@ -3059,7 +3054,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_if_eq_any(&[
++    ///         .required_if_eq_any([
+     ///             ("extra", "val"),
+     ///             ("option", "spec")
+     ///         ])
+@@ -3085,7 +3080,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, error::ErrorKind, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_if_eq_any(&[
++    ///         .required_if_eq_any([
+     ///             ("extra", "val"),
+     ///             ("option", "spec")
+     ///         ])
+@@ -3108,9 +3103,12 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [required]: Arg::required()
+     #[must_use]
+-    pub fn required_if_eq_any<T: Key>(mut self, ifs: &[(T, &'help str)]) -> Self {
++    pub fn required_if_eq_any(
++        mut self,
++        ifs: impl IntoIterator<Item = (impl Into<Id>, &'help str)>,
++    ) -> Self {
+         self.r_ifs
+-            .extend(ifs.iter().map(|(id, val)| (Id::from_ref(id), *val)));
++            .extend(ifs.into_iter().map(|(id, val)| (id.into(), val)));
+         self
+     }
+ 
+@@ -3124,7 +3122,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .required_if_eq_all(&[
++    ///     .required_if_eq_all([
+     ///         ("extra", "val"),
+     ///         ("option", "spec")
+     ///     ])
+@@ -3139,7 +3137,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_if_eq_all(&[
++    ///         .required_if_eq_all([
+     ///             ("extra", "val"),
+     ///             ("option", "spec")
+     ///         ])
+@@ -3165,7 +3163,7 @@ impl<'help> Arg<'help> {
+     /// # use clap::{Command, Arg, error::ErrorKind, ArgAction};
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+-    ///         .required_if_eq_all(&[
++    ///         .required_if_eq_all([
+     ///             ("extra", "val"),
+     ///             ("option", "spec")
+     ///         ])
+@@ -3186,9 +3184,12 @@ impl<'help> Arg<'help> {
+     /// ```
+     /// [required]: Arg::required()
+     #[must_use]
+-    pub fn required_if_eq_all<T: Key>(mut self, ifs: &[(T, &'help str)]) -> Self {
++    pub fn required_if_eq_all(
++        mut self,
++        ifs: impl IntoIterator<Item = (impl Into<Id>, &'help str)>,
++    ) -> Self {
+         self.r_ifs_all
+-            .extend(ifs.iter().map(|(id, val)| (Id::from_ref(id), *val)));
++            .extend(ifs.into_iter().map(|(id, val)| (id.into(), val)));
+         self
+     }
+ 
+@@ -3248,7 +3249,7 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [override]: Arg::overrides_with()
+     #[must_use]
+-    pub fn requires_if<T: Key>(mut self, val: &'help str, arg_id: T) -> Self {
++    pub fn requires_if(mut self, val: &'help str, arg_id: impl Into<Id>) -> Self {
+         self.requires
+             .push((ArgPredicate::Equals(OsStr::new(val)), arg_id.into()));
+         self
+@@ -3263,7 +3264,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .requires_ifs(&[
++    ///     .requires_ifs([
+     ///         ("val", "arg"),
+     ///         ("other_val", "arg2"),
+     ///     ])
+@@ -3279,7 +3280,7 @@ impl<'help> Arg<'help> {
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+     ///         .action(ArgAction::Set)
+-    ///         .requires_ifs(&[
++    ///         .requires_ifs([
+     ///             ("special.conf", "opt"),
+     ///             ("other.conf", "other"),
+     ///         ])
+@@ -3299,10 +3300,13 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [override]: Arg::overrides_with()
+     #[must_use]
+-    pub fn requires_ifs<T: Key>(mut self, ifs: &[(&'help str, T)]) -> Self {
++    pub fn requires_ifs(
++        mut self,
++        ifs: impl IntoIterator<Item = (&'help str, impl Into<Id>)>,
++    ) -> Self {
+         self.requires.extend(
+-            ifs.iter()
+-                .map(|(val, arg)| (ArgPredicate::Equals(OsStr::new(*val)), Id::from(arg))),
++            ifs.into_iter()
++                .map(|(val, arg)| (ArgPredicate::Equals(OsStr::new(val)), arg.into())),
+         );
+         self
+     }
+@@ -3319,7 +3323,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .requires_all(&["input", "output"])
++    ///     .requires_all(["input", "output"])
+     /// # ;
+     /// ```
+     ///
+@@ -3351,7 +3355,7 @@ impl<'help> Arg<'help> {
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+     ///         .action(ArgAction::Set)
+-    ///         .requires_all(&["input", "output"])
++    ///         .requires_all(["input", "output"])
+     ///         .long("config"))
+     ///     .arg(Arg::new("input"))
+     ///     .arg(Arg::new("output"))
+@@ -3366,9 +3370,12 @@ impl<'help> Arg<'help> {
+     /// [Conflicting]: Arg::conflicts_with()
+     /// [override]: Arg::overrides_with()
+     #[must_use]
+-    pub fn requires_all<T: Key>(mut self, names: &[T]) -> Self {
+-        self.requires
+-            .extend(names.iter().map(|s| (ArgPredicate::IsPresent, s.into())));
++    pub fn requires_all(mut self, names: impl IntoIterator<Item = impl Into<Id>>) -> Self {
++        self.requires.extend(
++            names
++                .into_iter()
++                .map(|s| (ArgPredicate::IsPresent, s.into())),
++        );
+         self
+     }
+ 
+@@ -3417,7 +3424,7 @@ impl<'help> Arg<'help> {
+     /// [`Arg::conflicts_with_all(names)`]: Arg::conflicts_with_all()
+     /// [`Arg::exclusive(true)`]: Arg::exclusive()
+     #[must_use]
+-    pub fn conflicts_with<T: Key>(mut self, arg_id: T) -> Self {
++    pub fn conflicts_with(mut self, arg_id: impl Into<Id>) -> Self {
+         self.blacklist.push(arg_id.into());
+         self
+     }
+@@ -3440,7 +3447,7 @@ impl<'help> Arg<'help> {
+     /// ```rust
+     /// # use clap::Arg;
+     /// Arg::new("config")
+-    ///     .conflicts_with_all(&["debug", "input"])
++    ///     .conflicts_with_all(["debug", "input"])
+     /// # ;
+     /// ```
+     ///
+@@ -3452,7 +3459,7 @@ impl<'help> Arg<'help> {
+     /// let res = Command::new("prog")
+     ///     .arg(Arg::new("cfg")
+     ///         .action(ArgAction::Set)
+-    ///         .conflicts_with_all(&["debug", "input"])
++    ///         .conflicts_with_all(["debug", "input"])
+     ///         .long("config"))
+     ///     .arg(Arg::new("debug")
+     ///         .long("debug"))
+@@ -3467,8 +3474,8 @@ impl<'help> Arg<'help> {
+     /// [`Arg::conflicts_with`]: Arg::conflicts_with()
+     /// [`Arg::exclusive(true)`]: Arg::exclusive()
+     #[must_use]
+-    pub fn conflicts_with_all(mut self, names: &[&str]) -> Self {
+-        self.blacklist.extend(names.iter().copied().map(Id::from));
++    pub fn conflicts_with_all(mut self, names: impl IntoIterator<Item = impl Into<Id>>) -> Self {
++        self.blacklist.extend(names.into_iter().map(Into::into));
+         self
+     }
+ 
+@@ -3505,7 +3512,7 @@ impl<'help> Arg<'help> {
+     /// assert!(!*m.get_one::<bool>("flag").unwrap());
+     /// ```
+     #[must_use]
+-    pub fn overrides_with<T: Key>(mut self, arg_id: T) -> Self {
++    pub fn overrides_with(mut self, arg_id: impl Into<Id>) -> Self {
+         self.overrides.push(arg_id.into());
+         self
+     }
+@@ -3529,7 +3536,7 @@ impl<'help> Arg<'help> {
+     ///         .conflicts_with("color"))
+     ///     .arg(arg!(-d --debug "other flag"))
+     ///     .arg(arg!(-c --color "third flag")
+-    ///         .overrides_with_all(&["flag", "debug"]))
++    ///         .overrides_with_all(["flag", "debug"]))
+     ///     .get_matches_from(vec![
+     ///         "prog", "-f", "-d", "-c"]);
+     ///             //    ^~~~~~^~~~~~~~~ flag and debug are overridden by color
+@@ -3541,8 +3548,8 @@ impl<'help> Arg<'help> {
+     /// assert!(!*m.get_one::<bool>("flag").unwrap());
+     /// ```
+     #[must_use]
+-    pub fn overrides_with_all<T: Key>(mut self, names: &[T]) -> Self {
+-        self.overrides.extend(names.iter().map(Id::from));
++    pub fn overrides_with_all(mut self, names: impl IntoIterator<Item = impl Into<Id>>) -> Self {
++        self.overrides.extend(names.into_iter().map(Into::into));
+         self
+     }
+ }
+@@ -3551,8 +3558,8 @@ impl<'help> Arg<'help> {
+ impl<'help> Arg<'help> {
+     /// Get the name of the argument
+     #[inline]
+-    pub fn get_id(&self) -> &'help str {
+-        self.name
++    pub fn get_id(&self) -> &Id {
++        &self.id
+     }
+ 
+     /// Get the help specified for this argument, if any
+@@ -3965,7 +3972,7 @@ impl<'help> Arg<'help> {
+ 
+     // Used for positionals when printing
+     pub(crate) fn name_no_brackets(&self) -> Cow<str> {
+-        debug!("Arg::name_no_brackets:{}", self.name);
++        debug!("Arg::name_no_brackets:{}", self.get_id());
+         let delim = " ";
+         if !self.val_names.is_empty() {
+             debug!("Arg::name_no_brackets: val_names={:#?}", self.val_names);
+@@ -3983,7 +3990,7 @@ impl<'help> Arg<'help> {
+             }
+         } else {
+             debug!("Arg::name_no_brackets: just name");
+-            Cow::Borrowed(self.name)
++            Cow::Borrowed(self.get_id().as_str())
+         }
+     }
+ 
+@@ -4005,7 +4012,7 @@ impl<'help> From<&'_ Arg<'help>> for Arg<'help> {
+ 
+ impl<'help> PartialEq for Arg<'help> {
+     fn eq(&self, other: &Arg<'help>) -> bool {
+-        self.name == other.name
++        self.get_id() == other.get_id()
+     }
+ }
+ 
+@@ -4017,7 +4024,7 @@ impl<'help> PartialOrd for Arg<'help> {
+ 
+ impl<'help> Ord for Arg<'help> {
+     fn cmp(&self, other: &Arg) -> Ordering {
+-        self.name.cmp(other.name)
++        self.id.cmp(&other.id)
+     }
+ }
+ 
+@@ -4076,7 +4083,6 @@ impl<'help> fmt::Debug for Arg<'help> {
+         #[allow(unused_mut)]
+         let mut ds = ds
+             .field("id", &self.id)
+-            .field("name", &self.name)
+             .field("help", &self.help)
+             .field("long_help", &self.long_help)
+             .field("action", &self.action)
+@@ -4121,7 +4127,7 @@ pub(crate) fn render_arg_val(arg: &Arg) -> String {
+ 
+     let arg_name_storage;
+     let val_names = if arg.val_names.is_empty() {
+-        arg_name_storage = [arg.name];
++        arg_name_storage = [arg.get_id().as_str()];
+         &arg_name_storage
+     } else {
+         arg.val_names.as_slice()
+diff --git a/src/builder/arg_group.rs b/src/builder/arg_group.rs
+index 17bc9a4cfc6..64efeb952c0 100644
+--- a/src/builder/arg_group.rs
++++ b/src/builder/arg_group.rs
+@@ -1,5 +1,5 @@
+ // Internal
+-use crate::util::{Id, Key};
++use crate::util::Id;
+ 
+ /// Family of related [arguments].
+ ///
+@@ -41,7 +41,7 @@ use crate::util::{Id, Key};
+ ///     .arg(arg!(--minor           "auto increase minor"))
+ ///     .arg(arg!(--patch           "auto increase patch"))
+ ///     .group(ArgGroup::new("vers")
+-///          .args(&["set-ver", "major", "minor", "patch"])
++///          .args(["set-ver", "major", "minor", "patch"])
+ ///          .required(true))
+ ///     .try_get_matches_from(vec!["cmd", "--major", "--patch"]);
+ /// // Because we used two args in the group it's an error
+@@ -49,23 +49,30 @@ use crate::util::{Id, Key};
+ /// let err = result.unwrap_err();
+ /// assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
+ /// ```
+-/// This next example shows a passing parse of the same scenario
+ ///
++/// This next example shows a passing parse of the same scenario
+ /// ```rust
+-/// # use clap::{Command, arg, ArgGroup};
++/// # use clap::{Command, arg, ArgGroup, Id};
+ /// let result = Command::new("cmd")
+ ///     .arg(arg!(--"set-ver" <ver> "set the version manually").required(false))
+ ///     .arg(arg!(--major           "auto increase major"))
+ ///     .arg(arg!(--minor           "auto increase minor"))
+ ///     .arg(arg!(--patch           "auto increase patch"))
+ ///     .group(ArgGroup::new("vers")
+-///          .args(&["set-ver", "major", "minor","patch"])
++///          .args(["set-ver", "major", "minor","patch"])
+ ///          .required(true))
+ ///     .try_get_matches_from(vec!["cmd", "--major"]);
+ /// assert!(result.is_ok());
+ /// let matches = result.unwrap();
+ /// // We may not know which of the args was used, so we can test for the group...
+ /// assert!(matches.contains_id("vers"));
++/// // We can also ask the group which arg was used
++/// assert_eq!(matches
++///     .get_one::<Id>("vers")
++///     .expect("`vers` is required")
++///     .as_str(),
++///     "major"
++/// );
+ /// // we could also alternatively check each arg individually (not shown here)
+ /// ```
+ /// [`ArgGroup::multiple(true)`]: ArgGroup::multiple()
+@@ -74,10 +81,9 @@ use crate::util::{Id, Key};
+ /// [arguments]: crate::Arg
+ /// [conflict]: crate::Arg::conflicts_with()
+ /// [requirement]: crate::Arg::requires()
+-#[derive(Default, Debug, PartialEq, Eq)]
+-pub struct ArgGroup<'help> {
++#[derive(Default, Clone, Debug, PartialEq, Eq)]
++pub struct ArgGroup {
+     pub(crate) id: Id,
+-    pub(crate) name: &'help str,
+     pub(crate) args: Vec<Id>,
+     pub(crate) required: bool,
+     pub(crate) requires: Vec<Id>,
+@@ -85,14 +91,8 @@ pub struct ArgGroup<'help> {
+     pub(crate) multiple: bool,
+ }
+ 
+-impl<'help> ArgGroup<'help> {
+-    pub(crate) fn with_id(id: Id) -> Self {
+-        ArgGroup {
+-            id,
+-            ..ArgGroup::default()
+-        }
+-    }
+-
++/// # Builder
++impl ArgGroup {
+     /// Create a `ArgGroup` using a unique name.
+     ///
+     /// The name will be used to get values from the group or refer to the group inside of conflict
+@@ -105,8 +105,8 @@ impl<'help> ArgGroup<'help> {
+     /// ArgGroup::new("config")
+     /// # ;
+     /// ```
+-    pub fn new<S: Into<&'help str>>(n: S) -> Self {
+-        ArgGroup::default().id(n)
++    pub fn new(id: impl Into<Id>) -> Self {
++        ArgGroup::default().id(id)
+     }
+ 
+     /// Sets the group name.
+@@ -119,9 +119,8 @@ impl<'help> ArgGroup<'help> {
+     /// # ;
+     /// ```
+     #[must_use]
+-    pub fn id<S: Into<&'help str>>(mut self, n: S) -> Self {
+-        self.name = n.into();
+-        self.id = Id::from(self.name);
++    pub fn id(mut self, id: impl Into<Id>) -> Self {
++        self.id = id.into();
+         self
+     }
+ 
+@@ -149,7 +148,7 @@ impl<'help> ArgGroup<'help> {
+     /// ```
+     /// [argument]: crate::Arg
+     #[must_use]
+-    pub fn arg<T: Key>(mut self, arg_id: T) -> Self {
++    pub fn arg(mut self, arg_id: impl Into<Id>) -> Self {
+         self.args.push(arg_id.into());
+         self
+     }
+@@ -168,7 +167,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('c')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"]))
++    ///         .args(["flag", "color"]))
+     ///     .get_matches_from(vec!["myprog", "-f"]);
+     /// // maybe we don't know which of the two flags was used...
+     /// assert!(m.contains_id("req_flags"));
+@@ -177,7 +176,7 @@ impl<'help> ArgGroup<'help> {
+     /// ```
+     /// [arguments]: crate::Arg
+     #[must_use]
+-    pub fn args<T: Key>(mut self, ns: &[T]) -> Self {
++    pub fn args(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+         for n in ns {
+             self = self.arg(n);
+         }
+@@ -201,7 +200,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('c')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
++    ///         .args(["flag", "color"])
+     ///         .multiple(true))
+     ///     .get_matches_from(vec!["myprog", "-f", "-c"]);
+     /// // maybe we don't know which of the two flags was used...
+@@ -220,7 +219,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('c')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"]))
++    ///         .args(["flag", "color"]))
+     ///     .try_get_matches_from(vec!["myprog", "-f", "-c"]);
+     /// // Because we used both args in the group it's an error
+     /// assert!(result.is_err());
+@@ -261,7 +260,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('c')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
++    ///         .args(["flag", "color"])
+     ///         .required(true))
+     ///     .try_get_matches_from(vec!["myprog"]);
+     /// // Because we didn't use any of the args in the group, it's an error
+@@ -303,7 +302,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('d')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
++    ///         .args(["flag", "color"])
+     ///         .requires("debug"))
+     ///     .try_get_matches_from(vec!["myprog", "-c"]);
+     /// // because we used an arg from the group, and the group requires "-d" to be used, it's an
+@@ -315,7 +314,7 @@ impl<'help> ArgGroup<'help> {
+     /// [required group]: ArgGroup::required()
+     /// [argument requirement rules]: crate::Arg::requires()
+     #[must_use]
+-    pub fn requires<T: Key>(mut self, id: T) -> Self {
++    pub fn requires(mut self, id: impl Into<Id>) -> Self {
+         self.requires.push(id.into());
+         self
+     }
+@@ -346,8 +345,8 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('v')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
+-    ///         .requires_all(&["debug", "verb"]))
++    ///         .args(["flag", "color"])
++    ///         .requires_all(["debug", "verb"]))
+     ///     .try_get_matches_from(vec!["myprog", "-c", "-d"]);
+     /// // because we used an arg from the group, and the group requires "-d" and "-v" to be used,
+     /// // yet we only used "-d" it's an error
+@@ -358,7 +357,7 @@ impl<'help> ArgGroup<'help> {
+     /// [required group]: ArgGroup::required()
+     /// [argument requirement rules]: crate::Arg::requires_all()
+     #[must_use]
+-    pub fn requires_all(mut self, ns: &[&'help str]) -> Self {
++    pub fn requires_all(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+         for n in ns {
+             self = self.requires(n);
+         }
+@@ -388,7 +387,7 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('d')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
++    ///         .args(["flag", "color"])
+     ///         .conflicts_with("debug"))
+     ///     .try_get_matches_from(vec!["myprog", "-c", "-d"]);
+     /// // because we used an arg from the group, and the group conflicts with "-d", it's an error
+@@ -398,7 +397,7 @@ impl<'help> ArgGroup<'help> {
+     /// ```
+     /// [argument exclusion rules]: crate::Arg::conflicts_with()
+     #[must_use]
+-    pub fn conflicts_with<T: Key>(mut self, id: T) -> Self {
++    pub fn conflicts_with(mut self, id: impl Into<Id>) -> Self {
+         self.conflicts.push(id.into());
+         self
+     }
+@@ -428,8 +427,8 @@ impl<'help> ArgGroup<'help> {
+     ///         .short('v')
+     ///         .action(ArgAction::SetTrue))
+     ///     .group(ArgGroup::new("req_flags")
+-    ///         .args(&["flag", "color"])
+-    ///         .conflicts_with_all(&["debug", "verb"]))
++    ///         .args(["flag", "color"])
++    ///         .conflicts_with_all(["debug", "verb"]))
+     ///     .try_get_matches_from(vec!["myprog", "-c", "-v"]);
+     /// // because we used an arg from the group, and the group conflicts with either "-v" or "-d"
+     /// // it's an error
+@@ -440,7 +439,7 @@ impl<'help> ArgGroup<'help> {
+     ///
+     /// [argument exclusion rules]: crate::Arg::conflicts_with_all()
+     #[must_use]
+-    pub fn conflicts_with_all(mut self, ns: &[&'help str]) -> Self {
++    pub fn conflicts_with_all(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+         for n in ns {
+             self = self.conflicts_with(n);
+         }
+@@ -448,55 +447,42 @@ impl<'help> ArgGroup<'help> {
+     }
+ }
+ 
+-impl<'help> From<&'_ ArgGroup<'help>> for ArgGroup<'help> {
+-    fn from(g: &ArgGroup<'help>) -> Self {
+-        ArgGroup {
+-            id: g.id.clone(),
+-            name: g.name,
+-            required: g.required,
+-            args: g.args.clone(),
+-            requires: g.requires.clone(),
+-            conflicts: g.conflicts.clone(),
+-            multiple: g.multiple,
+-        }
++/// # Reflection
++impl ArgGroup {
++    /// Get the name of the group
++    #[inline]
++    pub fn get_id(&self) -> &Id {
++        &self.id
+     }
+ }
+ 
+-impl Clone for ArgGroup<'_> {
+-    fn clone(&self) -> Self {
+-        ArgGroup {
+-            id: self.id.clone(),
+-            name: self.name,
+-            required: self.required,
+-            args: self.args.clone(),
+-            requires: self.requires.clone(),
+-            conflicts: self.conflicts.clone(),
+-            multiple: self.multiple,
+-        }
++impl From<&'_ ArgGroup> for ArgGroup {
++    fn from(g: &ArgGroup) -> Self {
++        g.clone()
+     }
+ }
+ 
+ #[cfg(test)]
+ mod test {
+-    use super::ArgGroup;
++    use super::*;
+ 
+     #[test]
+     fn groups() {
+         let g = ArgGroup::new("test")
+             .arg("a1")
+             .arg("a4")
+-            .args(&["a2", "a3"])
++            .args(["a2", "a3"])
+             .required(true)
+             .conflicts_with("c1")
+-            .conflicts_with_all(&["c2", "c3"])
++            .conflicts_with_all(["c2", "c3"])
+             .conflicts_with("c4")
+             .requires("r1")
+-            .requires_all(&["r2", "r3"])
++            .requires_all(["r2", "r3"])
+             .requires("r4");
+ 
+-        let args = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
+-        let reqs = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
+-        let confs = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
++        let args: Vec<Id> = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
++        let reqs: Vec<Id> = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
++        let confs: Vec<Id> = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
+ 
+         assert_eq!(g.args, args);
+         assert_eq!(g.requires, reqs);
+@@ -508,18 +494,18 @@ mod test {
+         let g = ArgGroup::new("test")
+             .arg("a1")
+             .arg("a4")
+-            .args(&["a2", "a3"])
++            .args(["a2", "a3"])
+             .required(true)
+             .conflicts_with("c1")
+-            .conflicts_with_all(&["c2", "c3"])
++            .conflicts_with_all(["c2", "c3"])
+             .conflicts_with("c4")
+             .requires("r1")
+-            .requires_all(&["r2", "r3"])
++            .requires_all(["r2", "r3"])
+             .requires("r4");
+ 
+-        let args = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
+-        let reqs = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
+-        let confs = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
++        let args: Vec<Id> = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
++        let reqs: Vec<Id> = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
++        let confs: Vec<Id> = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
+ 
+         let g2 = ArgGroup::from(&g);
+         assert_eq!(g2.args, args);
+diff --git a/src/builder/command.rs b/src/builder/command.rs
+index 593c37ac301..393ce3dd6e3 100644
+--- a/src/builder/command.rs
++++ b/src/builder/command.rs
+@@ -20,7 +20,7 @@ use crate::output::{fmt::Colorizer, Help, HelpWriter, Usage};
+ use crate::parser::{ArgMatcher, ArgMatches, Parser};
+ use crate::util::ChildGraph;
+ use crate::util::FlatMap;
+-use crate::util::{color::ColorChoice, Id, Key};
++use crate::util::{color::ColorChoice, Id};
+ use crate::{Error, INTERNAL_ERROR_MSG};
+ 
+ #[cfg(debug_assertions)]
+@@ -64,7 +64,6 @@ use crate::builder::debug_asserts::assert_app;
+ /// [`Command::get_matches`]: Command::get_matches()
+ #[derive(Debug, Clone)]
+ pub struct Command<'help> {
+-    id: Id,
+     name: String,
+     long_flag: Option<&'help str>,
+     short_flag: Option<char>,
+@@ -94,7 +93,7 @@ pub struct Command<'help> {
+     args: MKeyMap<'help>,
+     subcommands: Vec<Command<'help>>,
+     replacers: FlatMap<&'help str, &'help [&'help str]>,
+-    groups: Vec<ArgGroup<'help>>,
++    groups: Vec<ArgGroup>,
+     current_help_heading: Option<&'help str>,
+     current_disp_ord: Option<usize>,
+     subcommand_value_name: Option<&'help str>,
+@@ -126,7 +125,6 @@ impl<'help> Command<'help> {
+         /// of this code.
+         fn new_inner<'help>(name: String) -> Command<'help> {
+             Command {
+-                id: Id::from(&*name),
+                 name,
+                 ..Default::default()
+             }
+@@ -232,19 +230,15 @@ impl<'help> Command<'help> {
+     /// assert!(res.is_ok());
+     /// ```
+     #[must_use]
+-    pub fn mut_arg<T, F>(mut self, arg_id: T, f: F) -> Self
++    pub fn mut_arg<F>(mut self, arg_id: impl Into<Id>, f: F) -> Self
+     where
+         F: FnOnce(Arg<'help>) -> Arg<'help>,
+-        T: Key + Into<&'help str>,
+     {
+-        let arg_id: &str = arg_id.into();
+-        let id = Id::from(arg_id);
+-
+-        let a = self.args.remove_by_name(&id).unwrap_or_else(|| Arg {
+-            id,
+-            name: arg_id,
+-            ..Arg::default()
+-        });
++        let id = arg_id.into();
++        let a = self
++            .args
++            .remove_by_name(id.as_str())
++            .unwrap_or_else(|| Arg::new(id));
+ 
+         self.args.push(f(a));
+         self
+@@ -274,20 +268,17 @@ impl<'help> Command<'help> {
+     /// assert!(res.is_ok());
+     /// ```
+     #[must_use]
+-    pub fn mut_subcommand<'a, T, F>(mut self, subcmd_id: T, f: F) -> Self
++    pub fn mut_subcommand<F>(mut self, name: impl AsRef<str>, f: F) -> Self
+     where
+         F: FnOnce(Self) -> Self,
+-        T: Into<&'a str>,
+     {
+-        let subcmd_id: &str = subcmd_id.into();
+-        let id = Id::from(subcmd_id);
+-
+-        let pos = self.subcommands.iter().position(|s| s.id == id);
++        let name = name.as_ref();
++        let pos = self.subcommands.iter().position(|s| s.name == name);
+ 
+         let subcmd = if let Some(idx) = pos {
+             self.subcommands.remove(idx)
+         } else {
+-            Self::new(subcmd_id)
++            Self::new(name)
+         };
+ 
+         self.subcommands.push(f(subcmd));
+@@ -321,13 +312,13 @@ impl<'help> Command<'help> {
+     ///     .arg(arg!("--minor 'auto increase minor'"))
+     ///     .arg(arg!("--patch 'auto increase patch'"))
+     ///     .group(ArgGroup::new("vers")
+-    ///          .args(&["set-ver", "major", "minor","patch"])
++    ///          .args(["set-ver", "major", "minor","patch"])
+     ///          .required(true))
+     /// # ;
+     /// ```
+     #[inline]
+     #[must_use]
+-    pub fn group<G: Into<ArgGroup<'help>>>(mut self, group: G) -> Self {
++    pub fn group<G: Into<ArgGroup>>(mut self, group: G) -> Self {
+         self.groups.push(group.into());
+         self
+     }
+@@ -347,10 +338,10 @@ impl<'help> Command<'help> {
+     ///     .arg(arg!("-i [IFACE]      'an interface'"))
+     ///     .groups(&[
+     ///         ArgGroup::new("vers")
+-    ///             .args(&["set-ver", "major", "minor","patch"])
++    ///             .args(["set-ver", "major", "minor","patch"])
+     ///             .required(true),
+     ///         ArgGroup::new("input")
+-    ///             .args(&["c", "i"])
++    ///             .args(["c", "i"])
+     ///     ])
+     /// # ;
+     /// ```
+@@ -358,7 +349,7 @@ impl<'help> Command<'help> {
+     pub fn groups<I, T>(mut self, groups: I) -> Self
+     where
+         I: IntoIterator<Item = T>,
+-        T: Into<ArgGroup<'help>>,
++        T: Into<ArgGroup>,
+     {
+         for g in groups.into_iter() {
+             self = self.group(g.into());
+@@ -3390,7 +3381,7 @@ impl<'help> Command<'help> {
+ 
+     /// Iterate through the set of groups.
+     #[inline]
+-    pub fn get_groups(&self) -> impl Iterator<Item = &ArgGroup<'help>> {
++    pub fn get_groups(&self) -> impl Iterator<Item = &ArgGroup> {
+         self.groups.iter()
+     }
+ 
+@@ -3647,10 +3638,6 @@ impl<'help> Command<'help> {
+ 
+ // Internally used only
+ impl<'help> Command<'help> {
+-    pub(crate) fn get_id(&self) -> Id {
+-        self.id.clone()
+-    }
+-
+     pub(crate) fn get_override_usage(&self) -> Option<&str> {
+         self.usage_str
+     }
+@@ -3774,10 +3761,10 @@ impl<'help> Command<'help> {
+                 // Fill in the groups
+                 for g in &a.groups {
+                     if let Some(ag) = self.groups.iter_mut().find(|grp| grp.id == *g) {
+-                        ag.args.push(a.id.clone());
++                        ag.args.push(a.get_id().clone());
+                     } else {
+-                        let mut ag = ArgGroup::with_id(g.clone());
+-                        ag.args.push(a.id.clone());
++                        let mut ag = ArgGroup::new(g);
++                        ag.args.push(a.get_id().clone());
+                         self.groups.push(ag);
+                     }
+                 }
+@@ -4003,11 +3990,11 @@ impl<'help> Command<'help> {
+ 
+     pub(crate) fn _panic_on_missing_help(&self, help_required_globally: bool) {
+         if self.is_set(AppSettings::HelpExpected) || help_required_globally {
+-            let args_missing_help: Vec<String> = self
++            let args_missing_help: Vec<Id> = self
+                 .args
+                 .args()
+                 .filter(|arg| arg.help.is_none() && arg.long_help.is_none())
+-                .map(|arg| String::from(arg.name))
++                .map(|arg| arg.get_id().clone())
+                 .collect();
+ 
+             assert!(args_missing_help.is_empty(),
+@@ -4099,7 +4086,7 @@ impl<'help> Command<'help> {
+ 
+         if !self.is_disable_help_flag_set() {
+             debug!("Command::_check_help_and_version: Building default --help");
+-            let arg = Arg::new("help")
++            let arg = Arg::new(Id::HELP)
+                 .short('h')
+                 .long("help")
+                 .action(ArgAction::Help)
+@@ -4110,7 +4097,7 @@ impl<'help> Command<'help> {
+         }
+         if !self.is_disable_version_flag_set() {
+             debug!("Command::_check_help_and_version: Building default --version");
+-            let arg = Arg::new("version")
++            let arg = Arg::new(Id::VERSION)
+                 .short('V')
+                 .long("version")
+                 .action(ArgAction::Version)
+@@ -4284,7 +4271,7 @@ impl<'help> Command<'help> {
+             .map(|grp| grp.id.clone())
+     }
+ 
+-    pub(crate) fn find_group(&self, group_id: &Id) -> Option<&ArgGroup<'help>> {
++    pub(crate) fn find_group(&self, group_id: &Id) -> Option<&ArgGroup> {
+         self.groups.iter().find(|g| g.id == *group_id)
+     }
+ 
+@@ -4450,7 +4437,6 @@ impl<'help> Command<'help> {
+ impl<'help> Default for Command<'help> {
+     fn default() -> Self {
+         Self {
+-            id: Default::default(),
+             name: Default::default(),
+             long_flag: Default::default(),
+             short_flag: Default::default(),
+diff --git a/src/builder/debug_asserts.rs b/src/builder/debug_asserts.rs
+index c78def6f654..77b0dbb5993 100644
+--- a/src/builder/debug_asserts.rs
++++ b/src/builder/debug_asserts.rs
+@@ -63,24 +63,30 @@ pub(crate) fn assert_app(cmd: &Command) {
+             !cmd.is_multicall_set(),
+             "Command {}: Arguments like {} cannot be set on a multicall command",
+             cmd.get_name(),
+-            arg.name
++            arg.get_id()
+         );
+ 
+         if let Some(s) = arg.short.as_ref() {
+-            short_flags.push(Flag::Arg(format!("-{}", s), arg.name));
++            short_flags.push(Flag::Arg(format!("-{}", s), arg.get_id().as_str()));
+         }
+ 
+         for (short_alias, _) in &arg.short_aliases {
+-            short_flags.push(Flag::Arg(format!("-{}", short_alias), arg.name));
++            short_flags.push(Flag::Arg(
++                format!("-{}", short_alias),
++                arg.get_id().as_str(),
++            ));
+         }
+ 
+         if let Some(l) = arg.long.as_ref() {
+-            assert!(!l.starts_with('-'), "Argument {}: long {:?} must not start with a `-`, that will be handled by the parser", arg.name, l);
+-            long_flags.push(Flag::Arg(format!("--{}", l), arg.name));
++            assert!(!l.starts_with('-'), "Argument {}: long {:?} must not start with a `-`, that will be handled by the parser", arg.get_id(), l);
++            long_flags.push(Flag::Arg(format!("--{}", l), arg.get_id().as_str()));
+         }
+ 
+         for (long_alias, _) in &arg.aliases {
+-            long_flags.push(Flag::Arg(format!("--{}", long_alias), arg.name));
++            long_flags.push(Flag::Arg(
++                format!("--{}", long_alias),
++                arg.get_id().as_str(),
++            ));
+         }
+ 
+         // Name conflicts
+@@ -88,7 +94,7 @@ pub(crate) fn assert_app(cmd: &Command) {
+             panic!(
+             "Command {}: Argument names must be unique, but '{}' is in use by more than one argument or group{}",
+             cmd.get_name(),
+-            arg.name,
++            arg.get_id(),
+             duplicate_tip(cmd, first, second),
+         );
+         }
+@@ -101,8 +107,8 @@ pub(crate) fn assert_app(cmd: &Command) {
+                             but '--{}' is in use by both '{}' and '{}'{}",
+                     cmd.get_name(),
+                     l,
+-                    first.name,
+-                    second.name,
++                    first.get_id(),
++                    second.get_id(),
+                     duplicate_tip(cmd, first, second)
+                 )
+             }
+@@ -116,8 +122,8 @@ pub(crate) fn assert_app(cmd: &Command) {
+                             but '-{}' is in use by both '{}' and '{}'{}",
+                     cmd.get_name(),
+                     s,
+-                    first.name,
+-                    second.name,
++                    first.get_id(),
++                    second.get_id(),
+                     duplicate_tip(cmd, first, second),
+                 )
+             }
+@@ -134,8 +140,8 @@ pub(crate) fn assert_app(cmd: &Command) {
+                     Use `Arg::num_args(1..)` to allow one \
+                     positional argument to take multiple values",
+                     cmd.get_name(),
+-                    first.name,
+-                    second.name
++                    first.get_id(),
++                    second.get_id()
+                 )
+             }
+         }
+@@ -144,10 +150,10 @@ pub(crate) fn assert_app(cmd: &Command) {
+         for req in &arg.requires {
+             assert!(
+                 cmd.id_exists(&req.1),
+-                "Command {}: Argument or group '{:?}' specified in 'requires*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'requires*' for '{}' does not exist",
+                 cmd.get_name(),
+                 req.1,
+-                arg.name,
++                arg.get_id(),
+             );
+         }
+ 
+@@ -155,14 +161,14 @@ pub(crate) fn assert_app(cmd: &Command) {
+             assert!(
+                 !arg.is_required_set(),
+                 "Argument {}: `required` conflicts with `required_if_eq*`",
+-                arg.name
++                arg.get_id()
+             );
+             assert!(
+                 cmd.id_exists(&req.0),
+-                "Command {}: Argument or group '{:?}' specified in 'required_if_eq*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'required_if_eq*' for '{}' does not exist",
+                     cmd.get_name(),
+                 req.0,
+-                arg.name
++                arg.get_id()
+             );
+         }
+ 
+@@ -170,14 +176,14 @@ pub(crate) fn assert_app(cmd: &Command) {
+             assert!(
+                 !arg.is_required_set(),
+                 "Argument {}: `required` conflicts with `required_if_eq_all`",
+-                arg.name
++                arg.get_id()
+             );
+             assert!(
+                 cmd.id_exists(&req.0),
+-                "Command {}: Argument or group '{:?}' specified in 'required_if_eq_all' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'required_if_eq_all' for '{}' does not exist",
+                     cmd.get_name(),
+                 req.0,
+-                arg.name
++                arg.get_id()
+             );
+         }
+ 
+@@ -185,14 +191,14 @@ pub(crate) fn assert_app(cmd: &Command) {
+             assert!(
+                 !arg.is_required_set(),
+                 "Argument {}: `required` conflicts with `required_unless*`",
+-                arg.name
++                arg.get_id()
+             );
+             assert!(
+                 cmd.id_exists(req),
+-                "Command {}: Argument or group '{:?}' specified in 'required_unless*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'required_unless*' for '{}' does not exist",
+                     cmd.get_name(),
+                 req,
+-                arg.name,
++                arg.get_id(),
+             );
+         }
+ 
+@@ -200,14 +206,14 @@ pub(crate) fn assert_app(cmd: &Command) {
+             assert!(
+                 !arg.is_required_set(),
+                 "Argument {}: `required` conflicts with `required_unless*`",
+-                arg.name
++                arg.get_id()
+             );
+             assert!(
+                 cmd.id_exists(req),
+-                "Command {}: Argument or group '{:?}' specified in 'required_unless*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'required_unless*' for '{}' does not exist",
+                     cmd.get_name(),
+                 req,
+-                arg.name,
++                arg.get_id(),
+             );
+         }
+ 
+@@ -215,10 +221,10 @@ pub(crate) fn assert_app(cmd: &Command) {
+         for req in &arg.blacklist {
+             assert!(
+                 cmd.id_exists(req),
+-                "Command {}: Argument or group '{:?}' specified in 'conflicts_with*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'conflicts_with*' for '{}' does not exist",
+                     cmd.get_name(),
+                 req,
+-                arg.name,
++                arg.get_id(),
+             );
+         }
+ 
+@@ -226,10 +232,10 @@ pub(crate) fn assert_app(cmd: &Command) {
+         for req in &arg.overrides {
+             assert!(
+                 cmd.id_exists(req),
+-                "Command {}: Argument or group '{:?}' specified in 'overrides_with*' for '{}' does not exist",
++                "Command {}: Argument or group '{}' specified in 'overrides_with*' for '{}' does not exist",
+                     cmd.get_name(),
+                 req,
+-                arg.name,
++                arg.get_id(),
+             );
+         }
+ 
+@@ -238,13 +244,13 @@ pub(crate) fn assert_app(cmd: &Command) {
+                 arg.long.is_none(),
+                 "Command {}: Flags or Options cannot have last(true) set. '{}' has both a long and last(true) set.",
+                     cmd.get_name(),
+-                arg.name
++                arg.get_id()
+             );
+             assert!(
+                 arg.short.is_none(),
+                 "Command {}: Flags or Options cannot have last(true) set. '{}' has both a short and last(true) set.",
+                     cmd.get_name(),
+-                arg.name
++                arg.get_id()
+             );
+         }
+ 
+@@ -252,7 +258,7 @@ pub(crate) fn assert_app(cmd: &Command) {
+             !(arg.is_required_set() && arg.is_global_set()),
+             "Command {}: Global arguments cannot be required.\n\n\t'{}' is marked as both global and required",
+                     cmd.get_name(),
+-            arg.name
++            arg.get_id()
+         );
+ 
+         if arg.get_value_hint() == ValueHint::CommandWithArguments {
+@@ -260,14 +266,14 @@ pub(crate) fn assert_app(cmd: &Command) {
+                 arg.is_positional(),
+                 "Command {}: Argument '{}' has hint CommandWithArguments and must be positional.",
+                 cmd.get_name(),
+-                arg.name
++                arg.get_id()
+             );
+ 
+             assert!(
+                 cmd.is_trailing_var_arg_set(),
+                 "Command {}: Positional argument '{}' has hint CommandWithArguments, so Command must have TrailingVarArg set.",
+                     cmd.get_name(),
+-                arg.name
++                arg.get_id()
+             );
+         }
+     }
+@@ -278,24 +284,24 @@ pub(crate) fn assert_app(cmd: &Command) {
+             cmd.get_groups().filter(|x| x.id == group.id).count() < 2,
+             "Command {}: Argument group name must be unique\n\n\t'{}' is already in use",
+             cmd.get_name(),
+-            group.name,
++            group.get_id(),
+         );
+ 
+         // Groups should not have naming conflicts with Args
+         assert!(
+-            !cmd.get_arguments().any(|x| x.id == group.id),
++            !cmd.get_arguments().any(|x| x.get_id() == group.get_id()),
+             "Command {}: Argument group name '{}' must not conflict with argument name",
+             cmd.get_name(),
+-            group.name,
++            group.get_id(),
+         );
+ 
+         for arg in &group.args {
+             // Args listed inside groups should exist
+             assert!(
+-                cmd.get_arguments().any(|x| x.id == *arg),
+-                "Command {}: Argument group '{}' contains non-existent argument '{:?}'",
++                cmd.get_arguments().any(|x| x.get_id() == arg),
++                "Command {}: Argument group '{}' contains non-existent argument '{}'",
+                 cmd.get_name(),
+-                group.name,
++                group.get_id(),
+                 arg
+             );
+         }
+@@ -350,12 +356,10 @@ pub(crate) fn assert_app(cmd: &Command) {
+ }
+ 
+ fn duplicate_tip(cmd: &Command<'_>, first: &Arg<'_>, second: &Arg<'_>) -> &'static str {
+-    if !cmd.is_disable_help_flag_set()
+-        && (first.id == Id::help_hash() || second.id == Id::help_hash())
+-    {
++    if !cmd.is_disable_help_flag_set() && (first.id == Id::HELP || second.id == Id::HELP) {
+         " (call `cmd.disable_help_flag(true)` to remove the auto-generated `--help`)"
+     } else if !cmd.is_disable_version_flag_set()
+-        && (first.id == Id::version_hash() || second.id == Id::version_hash())
++        && (first.id == Id::VERSION || second.id == Id::VERSION)
+     {
+         " (call `cmd.disable_version_flag(true)` to remove the auto-generated `--version`)"
+     } else {
+@@ -580,7 +584,7 @@ fn _verify_positionals(cmd: &Command) -> bool {
+                     "Found non-required positional argument with a lower \
+                          index than a required positional argument by two or more: {:?} \
+                          index {:?}",
+-                    p.name,
++                    p.get_id(),
+                     p.index
+                 );
+             } else if p.is_required_set() && !p.is_last_set() {
+@@ -609,7 +613,7 @@ fn _verify_positionals(cmd: &Command) -> bool {
+                     p.is_required_set(),
+                     "Found non-required positional argument with a lower \
+                          index than a required positional argument: {:?} index {:?}",
+-                    p.name,
++                    p.get_id(),
+                     p.index
+                 );
+             } else if p.is_required_set() && !p.is_last_set() {
+@@ -644,26 +648,26 @@ fn _verify_positionals(cmd: &Command) -> bool {
+ }
+ 
+ fn assert_arg(arg: &Arg) {
+-    debug!("Arg::_debug_asserts:{}", arg.name);
++    debug!("Arg::_debug_asserts:{}", arg.get_id());
+ 
+     // Self conflict
+     // TODO: this check should be recursive
+     assert!(
+         !arg.blacklist.iter().any(|x| *x == arg.id),
+         "Argument '{}' cannot conflict with itself",
+-        arg.name,
++        arg.get_id(),
+     );
+     assert!(
+         !arg.overrides.iter().any(|x| *x == arg.id),
+         "Argument '{}' cannot override itself, its the default",
+-        arg.name,
++        arg.get_id(),
+     );
+ 
+     assert_eq!(
+         arg.get_action().takes_values(),
+         arg.is_takes_value_set(),
+         "Argument `{}`'s selected action {:?} contradicts `takes_value`",
+-        arg.name,
++        arg.get_id(),
+         arg.get_action()
+     );
+     if let Some(action_type_id) = arg.get_action().value_type_id() {
+@@ -671,7 +675,7 @@ fn assert_arg(arg: &Arg) {
+             action_type_id,
+             arg.get_value_parser().type_id(),
+             "Argument `{}`'s selected action {:?} contradicts `value_parser` ({:?})",
+-            arg.name,
++            arg.get_id(),
+             arg.get_action(),
+             arg.get_value_parser()
+         );
+@@ -681,14 +685,14 @@ fn assert_arg(arg: &Arg) {
+         assert!(
+             arg.is_takes_value_set(),
+             "Argument '{}' has value hint but takes no value",
+-            arg.name
++            arg.get_id()
+         );
+ 
+         if arg.get_value_hint() == ValueHint::CommandWithArguments {
+             assert!(
+                 arg.is_multiple_values_set(),
+                 "Argument '{}' uses hint CommandWithArguments and must accept multiple values",
+-                arg.name
++                arg.get_id()
+             )
+         }
+     }
+@@ -697,15 +701,15 @@ fn assert_arg(arg: &Arg) {
+         assert!(
+             arg.is_positional(),
+             "Argument '{}' is a positional argument and can't have short or long name versions",
+-            arg.name
++            arg.get_id()
+         );
+         assert!(
+             arg.is_takes_value_set(),
+             "Argument '{}` is positional, it must take a value{}",
+-            arg.name,
+-            if arg.id == Id::help_hash() {
++            arg.get_id(),
++            if arg.id == Id::HELP {
+                 " (`mut_arg` no longer works with implicit `--help`)"
+-            } else if arg.id == Id::help_hash() || arg.id == Id::version_hash() {
++            } else if arg.id == Id::VERSION {
+                 " (`mut_arg` no longer works with implicit `--version`)"
+             } else {
+                 ""
+@@ -721,7 +725,9 @@ fn assert_arg(arg: &Arg) {
+         if num_vals.max_values() < num_val_names {
+             panic!(
+                 "Argument {}: Too many value names ({}) compared to `num_args` ({})",
+-                arg.name, num_val_names, num_vals
++                arg.get_id(),
++                num_val_names,
++                num_vals
+             );
+         }
+     }
+@@ -730,14 +736,14 @@ fn assert_arg(arg: &Arg) {
+         num_vals.takes_values(),
+         arg.is_takes_value_set(),
+         "Argument {}: mismatch between `num_args` ({}) and `takes_value`",
+-        arg.name,
++        arg.get_id(),
+         num_vals,
+     );
+     assert_eq!(
+         num_vals.is_multiple(),
+         arg.is_multiple_values_set(),
+         "Argument {}: mismatch between `num_args` ({}) and `multiple_values`",
+-        arg.name,
++        arg.get_id(),
+         num_vals,
+     );
+ 
+@@ -745,7 +751,7 @@ fn assert_arg(arg: &Arg) {
+         assert!(
+             !arg.is_require_equals_set(),
+             "Argument {}: cannot accept more than 1 arg (num_args={}) with require_equals",
+-            arg.name,
++            arg.get_id(),
+             num_vals
+         );
+     }
+@@ -754,7 +760,7 @@ fn assert_arg(arg: &Arg) {
+         assert!(
+             !arg.is_multiple_values_set(),
+             "Argument {}: mismatch between `num_args` and `multiple_values`",
+-            arg.name
++            arg.get_id()
+         );
+     }
+ 
+@@ -819,7 +825,7 @@ fn assert_defaults<'d>(
+                 {
+                     panic!(
+                         "Argument `{}`'s {}={:?} failed validation: {}",
+-                        arg.name,
++                        arg.get_id(),
+                         field,
+                         part.to_str_lossy(),
+                         err
+@@ -829,7 +835,10 @@ fn assert_defaults<'d>(
+         } else if let Err(err) = value_parser.parse_ref(&assert_cmd, Some(arg), default_os) {
+             panic!(
+                 "Argument `{}`'s {}={:?} failed validation: {}",
+-                arg.name, field, default_os, err
++                arg.get_id(),
++                field,
++                default_os,
++                err
+             );
+         }
+     }
+diff --git a/src/lib.rs b/src/lib.rs
+index 34c461a90ad..0059ca39338 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -108,6 +108,7 @@ pub use crate::util::color::ColorChoice;
+ #[cfg(not(feature = "color"))]
+ #[allow(unused_imports)]
+ pub(crate) use crate::util::color::ColorChoice;
++pub use crate::util::Id;
+ 
+ pub use crate::derive::{Args, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+ 
+diff --git a/src/macros.rs b/src/macros.rs
+index 504b30650d9..b11bfcacf49 100644
+--- a/src/macros.rs
++++ b/src/macros.rs
+@@ -204,7 +204,7 @@ macro_rules! arg_impl {
+ 
+                 let mut arg = $arg;
+                 let long = $crate::arg_impl! { @string $long };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(long);
+                 }
+                 let action = $crate::ArgAction::SetTrue;
+@@ -229,7 +229,7 @@ macro_rules! arg_impl {
+ 
+                 let mut arg = $arg;
+                 let long = $crate::arg_impl! { @string $long };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(long);
+                 }
+                 let action = $crate::ArgAction::SetTrue;
+@@ -299,7 +299,7 @@ macro_rules! arg_impl {
+                 arg = arg.required(true);
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(value_name);
+                 }
+                 arg
+@@ -326,7 +326,7 @@ macro_rules! arg_impl {
+                 arg = arg.required(true);
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(value_name);
+                 }
+                 arg
+@@ -357,7 +357,7 @@ macro_rules! arg_impl {
+                 }
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(value_name);
+                 }
+                 arg
+@@ -388,7 +388,7 @@ macro_rules! arg_impl {
+                 }
+ 
+                 let value_name = $crate::arg_impl! { @string $value_name };
+-                if arg.get_id().is_empty() {
++                if arg.get_id() == "" {
+                     arg = arg.id(value_name);
+                 }
+                 arg
+@@ -536,7 +536,7 @@ macro_rules! arg {
+         let arg = $crate::arg_impl! {
+             @arg ($crate::Arg::default()) $($tail)+
+         };
+-        debug_assert!(!arg.get_id().is_empty(), "Without a value or long flag, the `name:` prefix is required");
++        debug_assert_ne!(arg.get_id(), "", "Without a value or long flag, the `name:` prefix is required");
+         arg
+     }};
+ }
+diff --git a/src/mkeymap.rs b/src/mkeymap.rs
+index 56f22b6977f..28eb268bc61 100644
+--- a/src/mkeymap.rs
++++ b/src/mkeymap.rs
+@@ -2,7 +2,6 @@ use std::iter::Iterator;
+ use std::ops::Index;
+ use std::{ffi::OsStr, ffi::OsString};
+ 
+-use crate::util::Id;
+ use crate::Arg;
+ use crate::INTERNAL_ERROR_MSG;
+ 
+@@ -144,10 +143,10 @@ impl<'help> MKeyMap<'help> {
+ 
+     /// Remove an arg in the graph by Id, usually used by `mut_arg`. Return
+     /// `Some(arg)` if removed.
+-    pub(crate) fn remove_by_name(&mut self, name: &Id) -> Option<Arg<'help>> {
++    pub(crate) fn remove_by_name(&mut self, name: &str) -> Option<Arg<'help>> {
+         self.args
+             .iter()
+-            .position(|arg| &arg.id == name)
++            .position(|arg| arg.id == name)
+             // since it's a cold function, using this wouldn't hurt much
+             .map(|i| self.args.remove(i))
+     }
+diff --git a/src/output/help.rs b/src/output/help.rs
+index 6715d07539d..26620a05e86 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -217,7 +217,7 @@ impl<'help, 'cmd, 'writer> Help<'help, 'cmd, 'writer> {
+                 x.to_string()
+             } else {
+                 let mut s = '{'.to_string();
+-                s.push_str(arg.name);
++                s.push_str(arg.id.as_str());
+                 s
+             };
+             ord_v.push((arg.get_display_order(), key, arg));
+@@ -294,7 +294,7 @@ impl<'help, 'cmd, 'writer> Help<'help, 'cmd, 'writer> {
+ 
+     /// Writes argument's possible values to the wrapped stream.
+     fn val(&mut self, arg: &Arg<'help>) -> io::Result<()> {
+-        debug!("Help::val: arg={}", arg.name);
++        debug!("Help::val: arg={}", arg.get_id());
+         let mut need_closing_bracket = false;
+         if arg.is_takes_value_set() && !arg.is_positional() {
+             let is_optional_val = arg.get_min_vals() == 0;
+@@ -335,7 +335,9 @@ impl<'help, 'cmd, 'writer> Help<'help, 'cmd, 'writer> {
+     ) -> io::Result<()> {
+         debug!(
+             "Help::align_to_about: arg={}, next_line_help={}, longest={}",
+-            arg.name, next_line_help, longest
++            arg.get_id(),
++            next_line_help,
++            longest
+         );
+         if self.use_long || next_line_help {
+             // long help prints messages on the next line so it doesn't need to align text
+@@ -1101,7 +1103,11 @@ pub(crate) enum HelpWriter<'writer> {
+ }
+ 
+ fn should_show_arg(use_long: bool, arg: &Arg) -> bool {
+-    debug!("should_show_arg: use_long={:?}, arg={}", use_long, arg.name);
++    debug!(
++        "should_show_arg: use_long={:?}, arg={}",
++        use_long,
++        arg.get_id()
++    );
+     if arg.is_hide_set() {
+         return false;
+     }
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index 718af533f1a..0235eff5ef3 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -100,7 +100,10 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
+                     .get_positionals()
+                     .find(|p| p.is_last_set())
+                     .expect(INTERNAL_ERROR_MSG);
+-                debug!("Usage::create_help_usage: '{}' has .last(true)", pos.name);
++                debug!(
++                    "Usage::create_help_usage: '{}' has .last(true)",
++                    pos.get_id()
++                );
+                 let req = pos.is_required_set();
+                 if req && self.cmd.get_positionals().any(|p| !p.is_required_set()) {
+                     usage.push_str(" -- <");
+@@ -192,9 +195,13 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
+             .filter(|pos| !pos.is_hide_set())
+             .filter(|pos| !pos.is_last_set())
+         {
+-            debug!("Usage::get_args_tag:iter:{}", pos.name);
++            debug!("Usage::get_args_tag:iter:{}", pos.get_id());
+             let required = self.cmd.groups_for_arg(&pos.id).any(|grp_s| {
+-                debug!("Usage::get_args_tag:iter:{:?}:iter:{:?}", pos.name, grp_s);
++                debug!(
++                    "Usage::get_args_tag:iter:{:?}:iter:{:?}",
++                    pos.get_id(),
++                    grp_s
++                );
+                 // if it's part of a required group we don't want to count it
+                 self.cmd.get_groups().any(|g| g.required && (g.id == grp_s))
+             });
+@@ -221,7 +228,11 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
+                         && !pos.is_hide_set()
+                         && !pos.is_last_set()
+                         && !self.cmd.groups_for_arg(&pos.id).any(|grp_s| {
+-                            debug!("Usage::get_args_tag:iter:{:?}:iter:{:?}", pos.name, grp_s);
++                            debug!(
++                                "Usage::get_args_tag:iter:{:?}:iter:{:?}",
++                                pos.get_id(),
++                                grp_s
++                            );
+                             // if it's part of a required group we don't want to count it
+                             self.cmd.get_groups().any(|g| g.required && (g.id == grp_s))
+                         })
+@@ -230,7 +241,7 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
+ 
+             debug!(
+                 "Usage::get_args_tag:iter: Exactly one, returning '{}'",
+-                pos.name
++                pos.get_id()
+             );
+ 
+             Some(format!(
+@@ -287,7 +298,7 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
+     fn needs_options_tag(&self) -> bool {
+         debug!("Usage::needs_options_tag");
+         'outer: for f in self.cmd.get_non_positionals() {
+-            debug!("Usage::needs_options_tag:iter: f={}", f.name);
++            debug!("Usage::needs_options_tag:iter: f={}", f.get_id());
+ 
+             // Don't print `[OPTIONS]` just for help or version
+             if f.long == Some("help") || f.long == Some("version") {
+diff --git a/src/parser/arg_matcher.rs b/src/parser/arg_matcher.rs
+index 4fb763fe476..6b68e6411b5 100644
+--- a/src/parser/arg_matcher.rs
++++ b/src/parser/arg_matcher.rs
+@@ -30,7 +30,10 @@ impl ArgMatcher {
+                     args.chain(groups).collect()
+                 },
+                 #[cfg(debug_assertions)]
+-                valid_subcommands: _cmd.get_subcommands().map(|sc| sc.get_id()).collect(),
++                valid_subcommands: _cmd
++                    .get_subcommands()
++                    .map(|sc| sc.get_name().to_owned())
++                    .collect(),
+                 ..Default::default()
+             },
+             pending: None,
+@@ -110,8 +113,8 @@ impl ArgMatcher {
+         self.matches.args.keys()
+     }
+ 
+-    pub(crate) fn entry(&mut self, arg: &Id) -> crate::util::Entry<Id, MatchedArg> {
+-        self.matches.args.entry(arg.clone())
++    pub(crate) fn entry(&mut self, arg: Id) -> crate::util::Entry<Id, MatchedArg> {
++        self.matches.args.entry(arg)
+     }
+ 
+     pub(crate) fn subcommand(&mut self, sc: SubCommand) {
+@@ -127,7 +130,7 @@ impl ArgMatcher {
+     }
+ 
+     pub(crate) fn start_custom_arg(&mut self, arg: &Arg, source: ValueSource) {
+-        let id = &arg.id;
++        let id = arg.id.clone();
+         debug!(
+             "ArgMatcher::start_custom_arg: id={:?}, source={:?}",
+             id, source
+@@ -138,7 +141,7 @@ impl ArgMatcher {
+         ma.new_val_group();
+     }
+ 
+-    pub(crate) fn start_custom_group(&mut self, id: &Id, source: ValueSource) {
++    pub(crate) fn start_custom_group(&mut self, id: Id, source: ValueSource) {
+         debug!(
+             "ArgMatcher::start_custom_arg: id={:?}, source={:?}",
+             id, source
+@@ -150,7 +153,7 @@ impl ArgMatcher {
+     }
+ 
+     pub(crate) fn start_occurrence_of_arg(&mut self, arg: &Arg) {
+-        let id = &arg.id;
++        let id = arg.id.clone();
+         debug!("ArgMatcher::start_occurrence_of_arg: id={:?}", id);
+         let ma = self.entry(id).or_insert(MatchedArg::new_arg(arg));
+         debug_assert_eq!(ma.type_id(), Some(arg.get_value_parser().type_id()));
+@@ -158,7 +161,7 @@ impl ArgMatcher {
+         ma.new_val_group();
+     }
+ 
+-    pub(crate) fn start_occurrence_of_group(&mut self, id: &Id) {
++    pub(crate) fn start_occurrence_of_group(&mut self, id: Id) {
+         debug!("ArgMatcher::start_occurrence_of_group: id={:?}", id);
+         let ma = self.entry(id).or_insert(MatchedArg::new_group());
+         debug_assert_eq!(ma.type_id(), None);
+@@ -167,7 +170,7 @@ impl ArgMatcher {
+     }
+ 
+     pub(crate) fn start_occurrence_of_external(&mut self, cmd: &crate::Command) {
+-        let id = &Id::empty_hash();
++        let id = Id::EXTERNAL;
+         debug!("ArgMatcher::start_occurrence_of_external: id={:?}", id,);
+         let ma = self.entry(id).or_insert(MatchedArg::new_external(cmd));
+         debug_assert_eq!(
+@@ -200,7 +203,8 @@ impl ArgMatcher {
+             .unwrap_or(0);
+         debug!(
+             "ArgMatcher::needs_more_vals: o={}, pending={}",
+-            o.name, num_pending
++            o.get_id(),
++            num_pending
+         );
+         let expected = o.get_num_args().expect(INTERNAL_ERROR_MSG);
+         debug!(
+diff --git a/src/parser/error.rs b/src/parser/error.rs
+index caeba4b8fee..fb143f88df6 100644
+--- a/src/parser/error.rs
++++ b/src/parser/error.rs
+@@ -1,5 +1,3 @@
+-use crate::util::Id;
+-
+ /// Violation of [`ArgMatches`][crate::ArgMatches] assumptions
+ #[derive(Clone, Debug)]
+ #[allow(missing_copy_implementations)] // We might add non-Copy types in the future
+@@ -22,7 +20,7 @@ pub enum MatchesError {
+ 
+ impl MatchesError {
+     #[track_caller]
+-    pub(crate) fn unwrap<T>(id: &Id, r: Result<T, MatchesError>) -> T {
++    pub(crate) fn unwrap<T>(id: &str, r: Result<T, MatchesError>) -> T {
+         let err = match r {
+             Ok(t) => {
+                 return t;
+@@ -30,7 +28,7 @@ impl MatchesError {
+             Err(err) => err,
+         };
+         panic!(
+-            "Mismatch between definition and access of `{:?}`. {}",
++            "Mismatch between definition and access of `{}`. {}",
+             id, err
+         )
+     }
+diff --git a/src/parser/matches/arg_matches.rs b/src/parser/matches/arg_matches.rs
+index 1f991c659a6..7b77a54500e 100644
+--- a/src/parser/matches/arg_matches.rs
++++ b/src/parser/matches/arg_matches.rs
+@@ -12,7 +12,7 @@ use crate::parser::MatchedArg;
+ use crate::parser::MatchesError;
+ use crate::parser::ValueSource;
+ use crate::util::FlatMap;
+-use crate::util::{Id, Key};
++use crate::util::Id;
+ use crate::INTERNAL_ERROR_MSG;
+ 
+ /// Container for parse results.
+@@ -65,7 +65,7 @@ pub struct ArgMatches {
+     #[cfg(debug_assertions)]
+     pub(crate) valid_args: Vec<Id>,
+     #[cfg(debug_assertions)]
+-    pub(crate) valid_subcommands: Vec<Id>,
++    pub(crate) valid_subcommands: Vec<String>,
+     pub(crate) args: FlatMap<Id, MatchedArg>,
+     pub(crate) subcommand: Option<Box<SubCommand>>,
+ }
+@@ -108,8 +108,7 @@ impl ArgMatches {
+     /// [`default_value`]: crate::Arg::default_value()
+     #[track_caller]
+     pub fn get_one<T: Any + Clone + Send + Sync + 'static>(&self, id: &str) -> Option<&T> {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_get_one(id))
++        MatchesError::unwrap(id, self.try_get_one(id))
+     }
+ 
+     /// Iterate over values of a specific option or positional argument.
+@@ -149,8 +148,7 @@ impl ArgMatches {
+         &self,
+         id: &str,
+     ) -> Option<ValuesRef<T>> {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_get_many(id))
++        MatchesError::unwrap(id, self.try_get_many(id))
+     }
+ 
+     /// Iterate over the original argument values.
+@@ -196,8 +194,7 @@ impl ArgMatches {
+     /// [`String`]: std::string::String
+     #[track_caller]
+     pub fn get_raw(&self, id: &str) -> Option<RawValues<'_>> {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_get_raw(id))
++        MatchesError::unwrap(id, self.try_get_raw(id))
+     }
+ 
+     /// Returns the value of a specific option or positional argument.
+@@ -235,8 +232,7 @@ impl ArgMatches {
+     /// [`default_value`]: crate::Arg::default_value()
+     #[track_caller]
+     pub fn remove_one<T: Any + Clone + Send + Sync + 'static>(&mut self, id: &str) -> Option<T> {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_remove_one(id))
++        MatchesError::unwrap(id, self.try_remove_one(id))
+     }
+ 
+     /// Return values of a specific option or positional argument.
+@@ -274,8 +270,7 @@ impl ArgMatches {
+         &mut self,
+         id: &str,
+     ) -> Option<Values2<T>> {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_remove_many(id))
++        MatchesError::unwrap(id, self.try_remove_many(id))
+     }
+ 
+     /// Check if values are present for the argument or group id
+@@ -305,8 +300,7 @@ impl ArgMatches {
+     ///
+     /// [`default_value`]: crate::Arg::default_value()
+     pub fn contains_id(&self, id: &str) -> bool {
+-        let internal_id = Id::from(id);
+-        MatchesError::unwrap(&internal_id, self.try_contains_id(id))
++        MatchesError::unwrap(id, self.try_contains_id(id))
+     }
+ 
+     /// Check if any args were present on the command line
+@@ -367,9 +361,8 @@ impl ArgMatches {
+     /// [`Iterator`]: std::iter::Iterator
+     #[cfg(feature = "unstable-grouped")]
+     #[cfg_attr(debug_assertions, track_caller)]
+-    pub fn grouped_values_of<T: Key>(&self, id: T) -> Option<GroupedValues> {
+-        let id = Id::from(id);
+-        let arg = self.get_arg(&id)?;
++    pub fn grouped_values_of(&self, id: &str) -> Option<GroupedValues> {
++        let arg = self.get_arg(id)?;
+         let v = GroupedValues {
+             iter: arg.vals().map(|g| g.iter().map(unwrap_string).collect()),
+             len: arg.vals().len(),
+@@ -401,10 +394,8 @@ impl ArgMatches {
+     ///
+     /// [`default_value`]: crate::Arg::default_value()
+     #[cfg_attr(debug_assertions, track_caller)]
+-    pub fn value_source<T: Key>(&self, id: T) -> Option<ValueSource> {
+-        let id = Id::from(id);
+-
+-        let value = self.get_arg(&id);
++    pub fn value_source(&self, id: &str) -> Option<ValueSource> {
++        let value = self.get_arg(id);
+ 
+         value.and_then(MatchedArg::source)
+     }
+@@ -552,8 +543,8 @@ impl ArgMatches {
+     /// ```
+     /// [delimiter]: crate::Arg::value_delimiter()
+     #[cfg_attr(debug_assertions, track_caller)]
+-    pub fn index_of<T: Key>(&self, id: T) -> Option<usize> {
+-        let arg = self.get_arg(&Id::from(id))?;
++    pub fn index_of(&self, id: &str) -> Option<usize> {
++        let arg = self.get_arg(id)?;
+         let i = arg.get_index(0)?;
+         Some(i)
+     }
+@@ -634,8 +625,8 @@ impl ArgMatches {
+     /// [`ArgMatches::index_of`]: ArgMatches::index_of()
+     /// [delimiter]: Arg::value_delimiter()
+     #[cfg_attr(debug_assertions, track_caller)]
+-    pub fn indices_of<T: Key>(&self, id: T) -> Option<Indices<'_>> {
+-        let arg = self.get_arg(&Id::from(id))?;
++    pub fn indices_of(&self, id: &str) -> Option<Indices<'_>> {
++        let arg = self.get_arg(id)?;
+         let i = Indices {
+             iter: arg.indices(),
+             len: arg.num_vals(),
+@@ -800,8 +791,8 @@ impl ArgMatches {
+     ///
+     /// [subcommand]: crate::Command::subcommand
+     /// [`Command`]: crate::Command
+-    pub fn subcommand_matches<T: Key>(&self, id: T) -> Option<&ArgMatches> {
+-        self.get_subcommand(&id.into()).map(|sc| &sc.matches)
++    pub fn subcommand_matches(&self, name: &str) -> Option<&ArgMatches> {
++        self.get_subcommand(name).map(|sc| &sc.matches)
+     }
+ 
+     /// The name of the current [subcommand].
+@@ -839,11 +830,11 @@ impl ArgMatches {
+     /// before they do a query on `ArgMatches`.
+     #[inline]
+     #[doc(hidden)]
+-    pub fn is_valid_subcommand(&self, _id: impl Key) -> bool {
++    pub fn is_valid_subcommand(&self, _name: &str) -> bool {
+         #[cfg(debug_assertions)]
+         {
+-            let id = Id::from(_id);
+-            id == Id::empty_hash() || self.valid_subcommands.contains(&id)
++            let _name = _name.to_owned();
++            _name == String::default() || self.valid_subcommands.contains(&_name)
+         }
+         #[cfg(not(debug_assertions))]
+         {
+@@ -859,8 +850,7 @@ impl ArgMatches {
+         &self,
+         id: &str,
+     ) -> Result<Option<&T>, MatchesError> {
+-        let id = Id::from(id);
+-        let arg = self.try_get_arg_t::<T>(&id)?;
++        let arg = self.try_get_arg_t::<T>(id)?;
+         let value = match arg.and_then(|a| a.first()) {
+             Some(value) => value,
+             None => {
+@@ -878,8 +868,7 @@ impl ArgMatches {
+         &self,
+         id: &str,
+     ) -> Result<Option<ValuesRef<T>>, MatchesError> {
+-        let id = Id::from(id);
+-        let arg = match self.try_get_arg_t::<T>(&id)? {
++        let arg = match self.try_get_arg_t::<T>(id)? {
+             Some(arg) => arg,
+             None => return Ok(None),
+         };
+@@ -895,8 +884,7 @@ impl ArgMatches {
+ 
+     /// Non-panicking version of [`ArgMatches::get_raw`]
+     pub fn try_get_raw(&self, id: &str) -> Result<Option<RawValues<'_>>, MatchesError> {
+-        let id = Id::from(id);
+-        let arg = match self.try_get_arg(&id)? {
++        let arg = match self.try_get_arg(id)? {
+             Some(arg) => arg,
+             None => return Ok(None),
+         };
+@@ -914,8 +902,7 @@ impl ArgMatches {
+         &mut self,
+         id: &str,
+     ) -> Result<Option<T>, MatchesError> {
+-        let id = Id::from(id);
+-        match self.try_remove_arg_t::<T>(&id)? {
++        match self.try_remove_arg_t::<T>(id)? {
+             Some(values) => Ok(values
+                 .into_vals_flatten()
+                 // enforced by `try_get_arg_t`
+@@ -930,8 +917,7 @@ impl ArgMatches {
+         &mut self,
+         id: &str,
+     ) -> Result<Option<Values2<T>>, MatchesError> {
+-        let id = Id::from(id);
+-        let arg = match self.try_remove_arg_t::<T>(&id)? {
++        let arg = match self.try_remove_arg_t::<T>(id)? {
+             Some(arg) => arg,
+             None => return Ok(None),
+         };
+@@ -947,11 +933,9 @@ impl ArgMatches {
+ 
+     /// Non-panicking version of [`ArgMatches::contains_id`]
+     pub fn try_contains_id(&self, id: &str) -> Result<bool, MatchesError> {
+-        let id = Id::from(id);
+-
+-        self.verify_arg(&id)?;
++        self.verify_arg(id)?;
+ 
+-        let presence = self.args.contains_key(&id);
++        let presence = self.args.contains_key(id);
+         Ok(presence)
+     }
+ }
+@@ -959,7 +943,7 @@ impl ArgMatches {
+ // Private methods
+ impl ArgMatches {
+     #[inline]
+-    fn try_get_arg(&self, arg: &Id) -> Result<Option<&MatchedArg>, MatchesError> {
++    fn try_get_arg(&self, arg: &str) -> Result<Option<&MatchedArg>, MatchesError> {
+         self.verify_arg(arg)?;
+         Ok(self.args.get(arg))
+     }
+@@ -967,7 +951,7 @@ impl ArgMatches {
+     #[inline]
+     fn try_get_arg_t<T: Any + Send + Sync + 'static>(
+         &self,
+-        arg: &Id,
++        arg: &str,
+     ) -> Result<Option<&MatchedArg>, MatchesError> {
+         let arg = match self.try_get_arg(arg)? {
+             Some(arg) => arg,
+@@ -982,7 +966,7 @@ impl ArgMatches {
+     #[inline]
+     fn try_remove_arg_t<T: Any + Send + Sync + 'static>(
+         &mut self,
+-        arg: &Id,
++        arg: &str,
+     ) -> Result<Option<MatchedArg>, MatchesError> {
+         self.verify_arg(arg)?;
+         let matched = match self.args.remove(arg) {
+@@ -997,7 +981,7 @@ impl ArgMatches {
+         if actual == expected {
+             Ok(Some(matched))
+         } else {
+-            self.args.insert(arg.clone(), matched);
++            self.args.insert(Id::from(arg.to_owned()), matched);
+             Err(MatchesError::Downcast { actual, expected })
+         }
+     }
+@@ -1016,16 +1000,11 @@ impl ArgMatches {
+     }
+ 
+     #[inline]
+-    fn verify_arg(&self, _arg: &Id) -> Result<(), MatchesError> {
++    fn verify_arg(&self, _arg: &str) -> Result<(), MatchesError> {
+         #[cfg(debug_assertions)]
+         {
+-            if *_arg == Id::empty_hash() || self.valid_args.contains(_arg) {
+-            } else if self.valid_subcommands.contains(_arg) {
+-                debug!(
+-                    "Subcommand `{:?}` used where an argument or group name was expected.",
+-                    _arg
+-                );
+-                return Err(MatchesError::UnknownArgument {});
++            let _arg = Id::from(_arg.to_owned());
++            if _arg == Id::EXTERNAL || self.valid_args.contains(&_arg) {
+             } else {
+                 debug!(
+                     "`{:?}` is not an id of an argument or a group.\n\
+@@ -1041,15 +1020,11 @@ impl ArgMatches {
+ 
+     #[inline]
+     #[cfg_attr(debug_assertions, track_caller)]
+-    fn get_arg(&self, arg: &Id) -> Option<&MatchedArg> {
++    fn get_arg<'s>(&'s self, arg: &str) -> Option<&'s MatchedArg> {
+         #[cfg(debug_assertions)]
+         {
+-            if *arg == Id::empty_hash() || self.valid_args.contains(arg) {
+-            } else if self.valid_subcommands.contains(arg) {
+-                panic!(
+-                    "Subcommand `{:?}` used where an argument or group name was expected.",
+-                    arg
+-                );
++            let arg = Id::from(arg.to_owned());
++            if arg == Id::EXTERNAL || self.valid_args.contains(&arg) {
+             } else {
+                 panic!(
+                     "`{:?}` is not an id of an argument or a group.\n\
+@@ -1065,22 +1040,18 @@ impl ArgMatches {
+ 
+     #[inline]
+     #[cfg_attr(debug_assertions, track_caller)]
+-    fn get_subcommand(&self, id: &Id) -> Option<&SubCommand> {
++    fn get_subcommand(&self, name: &str) -> Option<&SubCommand> {
+         #[cfg(debug_assertions)]
+         {
+-            if *id == Id::empty_hash() || self.valid_subcommands.contains(id) {
+-            } else if self.valid_args.contains(id) {
+-                panic!(
+-                    "Argument or group `{:?}` used where a subcommand name was expected.",
+-                    id
+-                );
++            let name = name.to_owned();
++            if name == String::default() || self.valid_subcommands.contains(&name) {
+             } else {
+-                panic!("`{:?}` is not a name of a subcommand.", id);
++                panic!("`{}` is not a name of a subcommand.", name);
+             }
+         }
+ 
+         if let Some(ref sc) = self.subcommand {
+-            if sc.id == *id {
++            if sc.name == name {
+                 return Some(sc);
+             }
+         }
+@@ -1091,7 +1062,6 @@ impl ArgMatches {
+ 
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub(crate) struct SubCommand {
+-    pub(crate) id: Id,
+     pub(crate) name: String,
+     pub(crate) matches: ArgMatches,
+ }
+diff --git a/src/parser/parser.rs b/src/parser/parser.rs
+index b421dcebddf..d2355210be5 100644
+--- a/src/parser/parser.rs
++++ b/src/parser/parser.rs
+@@ -17,6 +17,7 @@ use crate::mkeymap::KeyType;
+ use crate::output::fmt::Stream;
+ use crate::output::{fmt::Colorizer, Usage};
+ use crate::parser::features::suggestions;
++use crate::parser::AnyValue;
+ use crate::parser::{ArgMatcher, SubCommand};
+ use crate::parser::{Validator, ValueSource};
+ use crate::util::Id;
+@@ -433,12 +434,11 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+ 
+                 for raw_val in raw_args.remaining(&mut args_cursor) {
+                     let val = external_parser.parse_ref(self.cmd, None, raw_val)?;
+-                    let external_id = &Id::empty_hash();
+-                    sc_m.add_val_to(external_id, val, raw_val.to_os_string());
++                    let external_id = Id::EXTERNAL;
++                    sc_m.add_val_to(&external_id, val, raw_val.to_os_string());
+                 }
+ 
+                 matcher.subcommand(SubCommand {
+-                    id: Id::from(&*sc_name),
+                     name: sc_name,
+                     matches: sc_m.into_inner(),
+                 });
+@@ -629,9 +629,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         #![allow(clippy::needless_bool)] // Prefer consistent if/else-if ladder
+ 
+         debug!(
+-            "Parser::is_new_arg: {:?}:{:?}",
++            "Parser::is_new_arg: {:?}:{}",
+             next.to_value_os(),
+-            current_positional.name
++            current_positional.get_id()
+         );
+ 
+         if self.cmd.is_allow_hyphen_values_set()
+@@ -698,7 +698,6 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+                 }
+             }
+             matcher.subcommand(SubCommand {
+-                id: sc.get_id(),
+                 name: sc.get_name().to_owned(),
+                 matches: sc_matcher.into_inner(),
+             });
+@@ -971,7 +970,9 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+     ) -> ClapResult<ParseResult> {
+         debug!(
+             "Parser::parse_opt_value; arg={}, val={:?}, has_eq={:?}",
+-            arg.name, attached_value, has_eq
++            arg.get_id(),
++            attached_value,
++            has_eq
+         );
+         debug!("Parser::parse_opt_value; arg.settings={:?}", arg.settings);
+ 
+@@ -1052,15 +1053,19 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+             let value_parser = arg.get_value_parser();
+             let val = value_parser.parse_ref(self.cmd, Some(arg), &raw_val)?;
+ 
+-            // Increment or create the group "args"
+-            for group in self.cmd.groups_for_arg(&arg.id) {
+-                matcher.add_val_to(&group, val.clone(), raw_val.clone());
+-            }
+-
+             matcher.add_val_to(&arg.id, val, raw_val);
+             matcher.add_index_to(&arg.id, self.cur_idx.get());
+         }
+ 
++        // Increment or create the group "args"
++        for group in self.cmd.groups_for_arg(&arg.id) {
++            matcher.add_val_to(
++                &group,
++                AnyValue::new(arg.get_id().clone()),
++                OsString::from(arg.get_id().as_str()),
++            );
++        }
++
+         Ok(())
+     }
+ 
+@@ -1208,7 +1213,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+             ArgAction::Count => {
+                 let raw_vals = if raw_vals.is_empty() {
+                     let existing_value = *matcher
+-                        .get_one::<crate::builder::CountType>(arg.get_id())
++                        .get_one::<crate::builder::CountType>(arg.get_id().as_str())
+                         .unwrap_or(&0);
+                     let next_value = existing_value.saturating_add(1);
+                     vec![OsString::from(next_value.to_string())]
+@@ -1359,7 +1364,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         debug!("Parser::add_defaults");
+ 
+         for arg in self.cmd.get_arguments() {
+-            debug!("Parser::add_defaults:iter:{}:", arg.name);
++            debug!("Parser::add_defaults:iter:{}:", arg.get_id());
+             self.add_default_value(arg, matcher)?;
+         }
+ 
+@@ -1406,13 +1411,16 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         if !arg.default_vals.is_empty() {
+             debug!(
+                 "Parser::add_default_value:iter:{}: has default vals",
+-                arg.name
++                arg.get_id()
+             );
+             if matcher.contains(&arg.id) {
+-                debug!("Parser::add_default_value:iter:{}: was used", arg.name);
++                debug!("Parser::add_default_value:iter:{}: was used", arg.get_id());
+             // do nothing
+             } else {
+-                debug!("Parser::add_default_value:iter:{}: wasn't used", arg.name);
++                debug!(
++                    "Parser::add_default_value:iter:{}: wasn't used",
++                    arg.get_id()
++                );
+                 let arg_values: Vec<_> = arg
+                     .default_vals
+                     .iter()
+@@ -1432,7 +1440,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         } else {
+             debug!(
+                 "Parser::add_default_value:iter:{}: doesn't have default vals",
+-                arg.name
++                arg.get_id()
+             );
+ 
+             // do nothing
+@@ -1448,7 +1456,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         }
+         matcher.start_custom_arg(arg, source);
+         for group in self.cmd.groups_for_arg(&arg.id) {
+-            matcher.start_custom_group(&group, source);
++            matcher.start_custom_group(group, source);
+         }
+     }
+ 
+@@ -1460,7 +1468,7 @@ impl<'help, 'cmd> Parser<'help, 'cmd> {
+         matcher.start_occurrence_of_arg(arg);
+         // Increment or create the group "args"
+         for group in self.cmd.groups_for_arg(&arg.id) {
+-            matcher.start_occurrence_of_group(&group);
++            matcher.start_occurrence_of_group(group);
+         }
+     }
+ }
+diff --git a/src/parser/validator.rs b/src/parser/validator.rs
+index 545a61758f1..3936a5be083 100644
+--- a/src/parser/validator.rs
++++ b/src/parser/validator.rs
+@@ -310,7 +310,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+         matcher: &ArgMatcher,
+         conflicts: &mut Conflicts,
+     ) -> bool {
+-        debug!("Validator::is_missing_required_ok: {}", a.name);
++        debug!("Validator::is_missing_required_ok: {}", a.get_id());
+         let conflicts = conflicts.gather_conflicts(self.cmd, matcher, &a.id);
+         !conflicts.is_empty()
+     }
+@@ -336,7 +336,7 @@ impl<'help, 'cmd> Validator<'help, 'cmd> {
+ 
+     // Failing a required unless means, the arg's "unless" wasn't present, and neither were they
+     fn fails_arg_required_unless(&self, a: &Arg<'help>, matcher: &ArgMatcher) -> bool {
+-        debug!("Validator::fails_arg_required_unless: a={:?}", a.name);
++        debug!("Validator::fails_arg_required_unless: a={:?}", a.get_id());
+         let exists = |id| matcher.check_explicit(id, ArgPredicate::IsPresent);
+ 
+         (a.r_unless_all.is_empty() || !a.r_unless_all.iter().all(exists))
+diff --git a/src/util/fnv.rs b/src/util/fnv.rs
+deleted file mode 100644
+index 4602300a498..00000000000
+--- a/src/util/fnv.rs
++++ /dev/null
+@@ -1,46 +0,0 @@
+-use std::{
+-    fmt::Display,
+-    hash::{Hash, Hasher},
+-};
+-
+-const MAGIC_INIT: u64 = 0x811C_9DC5;
+-
+-// TODO: Docs
+-pub trait Key: Hash + Display {
+-    fn key(&self) -> u64;
+-}
+-
+-impl<T> Key for T
+-where
+-    T: Hash + Display,
+-{
+-    fn key(&self) -> u64 {
+-        let mut hasher = FnvHasher::new();
+-        self.hash(&mut hasher);
+-        hasher.finish()
+-    }
+-}
+-
+-pub(crate) struct FnvHasher(u64);
+-
+-impl FnvHasher {
+-    pub(crate) fn new() -> Self {
+-        FnvHasher(MAGIC_INIT)
+-    }
+-}
+-
+-impl Hasher for FnvHasher {
+-    fn finish(&self) -> u64 {
+-        self.0
+-    }
+-    fn write(&mut self, bytes: &[u8]) {
+-        let FnvHasher(mut hash) = *self;
+-
+-        for byte in bytes.iter() {
+-            hash ^= u64::from(*byte);
+-            hash = hash.wrapping_mul(0x0100_0000_01b3);
+-        }
+-
+-        *self = FnvHasher(hash);
+-    }
+-}
+diff --git a/src/util/id.rs b/src/util/id.rs
+index 29dfe5a616e..0768a6d667d 100644
+--- a/src/util/id.rs
++++ b/src/util/id.rs
+@@ -1,93 +1,159 @@
+-use crate::util::fnv::Key;
+-
+-use std::{
+-    fmt::{Debug, Formatter, Result},
+-    hash::{Hash, Hasher},
+-    ops::Deref,
+-};
+-
+-#[derive(Clone, Eq, Default)]
+-#[cfg_attr(not(debug_assertions), repr(transparent))]
+-pub(crate) struct Id {
+-    #[cfg(debug_assertions)]
+-    name: String,
+-    id: u64,
+-}
+-
+-macro_rules! precomputed_hashes {
+-    ($($fn_name:ident, $const:expr, $name:expr;)*) => {
+-        impl Id {
+-            $(
+-                #[allow(dead_code)]
+-                pub(crate) fn $fn_name() -> Self {
+-                    Id {
+-                        #[cfg(debug_assertions)]
+-                        name: $name.into(),
+-                        id: $const,
+-                    }
+-                }
+-            )*
++/// [`Arg`][crate::Arg] or [`ArgGroup`][crate::ArgGroup] identifier
++///
++/// This is used for accessing the value in [`ArgMatches`][crate::ArgMatches] or defining
++/// relationships between `Arg`s and `ArgGroup`s with functions like
++/// [`Arg::conflicts_with`][crate::Arg::conflicts_with].
++#[derive(Default, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
++pub struct Id {
++    name: Inner,
++}
++
++impl Id {
++    pub(crate) const HELP: Self = Self::from_static_ref("help");
++    pub(crate) const VERSION: Self = Self::from_static_ref("version");
++    pub(crate) const EXTERNAL: Self = Self::from_static_ref("");
++
++    fn from_string(name: String) -> Self {
++        Self {
++            name: Inner::Owned(name.into_boxed_str()),
++        }
++    }
++
++    fn from_ref(name: &str) -> Self {
++        Self {
++            name: Inner::Owned(Box::from(name)),
++        }
++    }
++
++    const fn from_static_ref(name: &'static str) -> Self {
++        Self {
++            name: Inner::Static(name),
+         }
+-    };
++    }
++
++    /// Get the raw string of the `Id`
++    pub fn as_str(&self) -> &str {
++        self.name.as_str()
++    }
+ }
+ 
+-// precompute some common values
+-precomputed_hashes! {
+-    empty_hash,   0x1C9D_3ADB_639F_298E, "";
+-    help_hash,    0x5963_6393_CFFB_FE5F, "help";
+-    version_hash, 0x30FF_0B7C_4D07_9478, "version";
++impl<'s> From<&'s Id> for Id {
++    fn from(id: &'s Id) -> Self {
++        id.clone()
++    }
+ }
+ 
+-impl Id {
+-    pub(crate) fn from_ref<T: Key>(val: T) -> Self {
+-        Id {
+-            #[cfg(debug_assertions)]
+-            name: val.to_string(),
+-            id: val.key(),
+-        }
++impl From<String> for Id {
++    fn from(name: String) -> Self {
++        Self::from_string(name)
++    }
++}
++
++impl<'s> From<&'s String> for Id {
++    fn from(name: &'s String) -> Self {
++        Self::from_ref(name.as_str())
+     }
+ }
+ 
+-impl Debug for Id {
+-    fn fmt(&self, f: &mut Formatter) -> Result {
+-        #[cfg(debug_assertions)]
+-        write!(f, "{}", self.name)?;
+-        #[cfg(not(debug_assertions))]
+-        write!(f, "[hash: {:X}]", self.id)?;
++impl From<&'static str> for Id {
++    fn from(name: &'static str) -> Self {
++        Self::from_static_ref(name)
++    }
++}
+ 
+-        Ok(())
++impl std::fmt::Display for Id {
++    #[inline]
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        std::fmt::Display::fmt(self.as_str(), f)
+     }
+ }
+ 
+-impl Deref for Id {
+-    type Target = u64;
++impl std::fmt::Debug for Id {
++    #[inline]
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        std::fmt::Debug::fmt(self.as_str(), f)
++    }
++}
+ 
+-    fn deref(&self) -> &Self::Target {
+-        &self.id
++impl AsRef<str> for Id {
++    #[inline]
++    fn as_ref(&self) -> &str {
++        self.as_str()
+     }
+ }
+ 
+-impl<T: Key> From<T> for Id {
+-    fn from(val: T) -> Self {
+-        Id {
+-            #[cfg(debug_assertions)]
+-            name: val.to_string(),
+-            id: val.key(),
++impl std::borrow::Borrow<str> for Id {
++    #[inline]
++    fn borrow(&self) -> &str {
++        self.as_str()
++    }
++}
++
++impl PartialEq<str> for Id {
++    #[inline]
++    fn eq(&self, other: &str) -> bool {
++        PartialEq::eq(self.as_str(), other)
++    }
++}
++
++impl<'s> PartialEq<&'s str> for Id {
++    #[inline]
++    fn eq(&self, other: &&str) -> bool {
++        PartialEq::eq(self.as_str(), *other)
++    }
++}
++
++impl PartialEq<String> for Id {
++    #[inline]
++    fn eq(&self, other: &String) -> bool {
++        PartialEq::eq(self.as_str(), other.as_str())
++    }
++}
++
++#[derive(Clone)]
++enum Inner {
++    Static(&'static str),
++    Owned(Box<str>),
++}
++
++impl Inner {
++    fn as_str(&self) -> &str {
++        match self {
++            Self::Static(s) => s,
++            Self::Owned(s) => s.as_ref(),
+         }
+     }
+ }
+ 
+-impl Hash for Id {
+-    fn hash<H>(&self, state: &mut H)
+-    where
+-        H: Hasher,
+-    {
+-        self.id.hash(state)
++impl Default for Inner {
++    fn default() -> Self {
++        Self::Static("")
++    }
++}
++
++impl PartialEq for Inner {
++    fn eq(&self, other: &Inner) -> bool {
++        self.as_str() == other.as_str()
+     }
+ }
+ 
+-impl PartialEq for Id {
+-    fn eq(&self, other: &Id) -> bool {
+-        self.id == other.id
++impl PartialOrd for Inner {
++    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
++        self.as_str().partial_cmp(other.as_str())
++    }
++}
++
++impl Ord for Inner {
++    fn cmp(&self, other: &Inner) -> std::cmp::Ordering {
++        self.as_str().cmp(other.as_str())
++    }
++}
++
++impl Eq for Inner {}
++
++impl std::hash::Hash for Inner {
++    #[inline]
++    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
++        self.as_str().hash(state);
+     }
+ }
+diff --git a/src/util/mod.rs b/src/util/mod.rs
+index 73b7ad81a97..ed38fbc545f 100644
+--- a/src/util/mod.rs
++++ b/src/util/mod.rs
+@@ -2,20 +2,19 @@
+ 
+ mod flat_map;
+ mod flat_set;
+-mod fnv;
+ mod graph;
+ mod id;
+ mod str_to_bool;
+ 
+-pub use self::fnv::Key;
++pub use self::id::Id;
+ 
+ pub(crate) use self::flat_map::Entry;
+ pub(crate) use self::flat_map::FlatMap;
+ pub(crate) use self::flat_set::FlatSet;
++pub(crate) use self::graph::ChildGraph;
+ pub(crate) use self::str_to_bool::str_to_bool;
+ pub(crate) use self::str_to_bool::FALSE_LITERALS;
+ pub(crate) use self::str_to_bool::TRUE_LITERALS;
+-pub(crate) use self::{graph::ChildGraph, id::Id};
+ 
+ pub(crate) mod color;
+ 

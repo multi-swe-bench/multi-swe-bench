@@ -1,0 +1,56 @@
+diff --git a/.changeset/happy-coats-marry.md b/.changeset/happy-coats-marry.md
+new file mode 100644
+index 000000000000..bdc8d6ec183b
+--- /dev/null
++++ b/.changeset/happy-coats-marry.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: ensure assignments to state field inside constructor trigger effects
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/AssignmentExpression.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/AssignmentExpression.js
+index 4365870bf72e..e4c630adb6b3 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/AssignmentExpression.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/AssignmentExpression.js
+@@ -57,20 +57,6 @@ function build_assignment(operator, left, right, context) {
+ 					return b.assignment(operator, /** @type {Pattern} */ (context.visit(left)), value);
+ 				}
+ 			}
+-		} else if (left.property.type === 'Identifier' && context.state.in_constructor) {
+-			const public_state = context.state.public_state.get(left.property.name);
+-
+-			if (public_state !== undefined && should_proxy(right, context.state.scope)) {
+-				const value = /** @type {Expression} */ (context.visit(right));
+-
+-				return b.assignment(
+-					operator,
+-					/** @type {Pattern} */ (context.visit(left)),
+-					public_state.kind === 'raw_state'
+-						? value
+-						: build_proxy_reassignment(value, public_state.id)
+-				);
+-			}
+ 		}
+ 	}
+ 
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/MemberExpression.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/MemberExpression.js
+index 801841dfb6f2..501ecda5557d 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/MemberExpression.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/MemberExpression.js
+@@ -13,15 +13,6 @@ export function MemberExpression(node, context) {
+ 		if (field) {
+ 			return context.state.in_constructor ? b.member(node, 'v') : b.call('$.get', node);
+ 		}
+-	} else if (node.object.type === 'ThisExpression') {
+-		// rewrite `this.foo` as `this.#foo.v` inside a constructor
+-		if (node.property.type === 'Identifier' && !node.computed) {
+-			const field = context.state.public_state.get(node.property.name);
+-
+-			if (field && context.state.in_constructor) {
+-				return b.member(b.member(b.this, field.id), 'v');
+-			}
+-		}
+ 	}
+ 
+ 	context.next();

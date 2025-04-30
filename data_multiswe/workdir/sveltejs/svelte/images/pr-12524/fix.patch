@@ -1,0 +1,37 @@
+diff --git a/.changeset/brown-moons-sleep.md b/.changeset/brown-moons-sleep.md
+new file mode 100644
+index 000000000000..3074d919a021
+--- /dev/null
++++ b/.changeset/brown-moons-sleep.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: dynamic event delegation for stateful call expressions
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 645895144f38..9c366c74cf2e 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -1143,8 +1143,19 @@ function serialize_event_handler(node, { state, visit }) {
+ 				])
+ 			);
+ 
+-		if (handler.type === 'Identifier' || handler.type === 'MemberExpression') {
+-			const id = object(handler);
++		if (
++			handler.type === 'Identifier' ||
++			handler.type === 'MemberExpression' ||
++			(handler.type === 'CallExpression' &&
++				(handler.callee.type === 'Identifier' || handler.callee.type === 'MemberExpression'))
++		) {
++			const id = object(
++				handler.type === 'CallExpression'
++					? /** @type {import("estree").Identifier | import("estree").MemberExpression} */ (
++							handler.callee
++						)
++					: handler
++			);
+ 			const binding = id === null ? null : state.scope.get(id.name);
+ 			if (
+ 				binding !== null &&

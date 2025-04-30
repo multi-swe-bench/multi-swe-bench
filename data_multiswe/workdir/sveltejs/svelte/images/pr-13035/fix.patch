@@ -1,0 +1,168 @@
+diff --git a/.changeset/six-beans-laugh.md b/.changeset/six-beans-laugh.md
+new file mode 100644
+index 000000000000..f069501d9f3d
+--- /dev/null
++++ b/.changeset/six-beans-laugh.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: prevent binding to imports
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+index 43d1a3d46844..4cc3506a6cff 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/BindDirective.js
+@@ -44,10 +44,6 @@ export function BindDirective(node, context) {
+ 			e.bind_invalid_value(node.expression);
+ 		}
+ 
+-		if (binding?.kind === 'derived') {
+-			e.constant_binding(node.expression, 'derived state');
+-		}
+-
+ 		if (context.state.analysis.runes && binding?.kind === 'each') {
+ 			e.each_item_invalid_assignment(node);
+ 		}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
+index 0d3165e35592..979fb2dcfd01 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/shared/utils.js
+@@ -71,7 +71,11 @@ export function validate_no_const_assignment(node, argument, scope, is_binding)
+ 		}
+ 	} else if (argument.type === 'Identifier') {
+ 		const binding = scope.get(argument.name);
+-		if (binding?.declaration_kind === 'const' && binding.kind !== 'each') {
++		if (
++			binding?.kind === 'derived' ||
++			binding?.declaration_kind === 'import' ||
++			(binding?.declaration_kind === 'const' && binding.kind !== 'each')
++		) {
+ 			// e.invalid_const_assignment(
+ 			// 	node,
+ 			// 	is_binding,
+@@ -83,7 +87,12 @@ export function validate_no_const_assignment(node, argument, scope, is_binding)
+ 			// );
+ 
+ 			// TODO have a more specific error message for assignments to things like `{:then foo}`
+-			const thing = 'constant';
++			const thing =
++				binding.declaration_kind === 'import'
++					? 'import'
++					: binding.kind === 'derived'
++						? 'derived state'
++						: 'constant';
+ 
+ 			if (is_binding) {
+ 				e.constant_binding(node, thing);
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index f0db435b83da..007c39b3197d 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -390,7 +390,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 
+ 			if (node.expression) {
+ 				for (const id of extract_identifiers_from_destructuring(node.expression)) {
+-					const binding = scope.declare(id, 'derived', 'const');
++					const binding = scope.declare(id, 'template', 'const');
+ 					bindings.push(binding);
+ 				}
+ 			} else {
+@@ -401,7 +401,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 					start: node.start,
+ 					end: node.end
+ 				};
+-				const binding = scope.declare(id, 'derived', 'const');
++				const binding = scope.declare(id, 'template', 'const');
+ 				bindings.push(binding);
+ 			}
+ 		},
+@@ -492,7 +492,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				for (const id of extract_identifiers(declarator.id)) {
+ 					const binding = state.scope.declare(
+ 						id,
+-						is_parent_const_tag ? 'derived' : 'normal',
++						is_parent_const_tag ? 'template' : 'normal',
+ 						node.kind,
+ 						declarator.init
+ 					);
+@@ -548,7 +548,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				binding.metadata = { inside_rest: is_rest_id };
+ 			}
+ 			if (node.context.type !== 'Identifier') {
+-				scope.declare(b.id('$$item'), 'derived', 'synthetic');
++				scope.declare(b.id('$$item'), 'template', 'synthetic');
+ 			}
+ 			// Visit to pick up references from default initializers
+ 			visit(node.context, { scope });
+@@ -557,7 +557,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				const is_keyed =
+ 					node.key &&
+ 					(node.key.type !== 'Identifier' || !node.index || node.key.name !== node.index);
+-				scope.declare(b.id(node.index), is_keyed ? 'derived' : 'normal', 'const', node);
++				scope.declare(b.id(node.index), is_keyed ? 'template' : 'normal', 'const', node);
+ 			}
+ 			if (node.key) visit(node.key, { scope });
+ 
+@@ -604,7 +604,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 					scopes.set(node.value, value_scope);
+ 					context.visit(node.value, { scope: value_scope });
+ 					for (const id of extract_identifiers(node.value)) {
+-						then_scope.declare(id, 'derived', 'const');
++						then_scope.declare(id, 'template', 'const');
+ 						value_scope.declare(id, 'normal', 'const');
+ 					}
+ 				}
+@@ -618,7 +618,7 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 					scopes.set(node.error, error_scope);
+ 					context.visit(node.error, { scope: error_scope });
+ 					for (const id of extract_identifiers(node.error)) {
+-						catch_scope.declare(id, 'derived', 'const');
++						catch_scope.declare(id, 'template', 'const');
+ 						error_scope.declare(id, 'normal', 'const');
+ 					}
+ 				}
+diff --git a/packages/svelte/src/compiler/types/index.d.ts b/packages/svelte/src/compiler/types/index.d.ts
+index 5b0d474c649d..fc6163e365bc 100644
+--- a/packages/svelte/src/compiler/types/index.d.ts
++++ b/packages/svelte/src/compiler/types/index.d.ts
+@@ -267,6 +267,7 @@ export interface Binding {
+ 	 * - `snippet`: A snippet parameter
+ 	 * - `store_sub`: A $store value
+ 	 * - `legacy_reactive`: A `$:` declaration
++	 * - `template`: A binding declared in the template, e.g. in an `await` block or `const` tag
+ 	 */
+ 	kind:
+ 		| 'normal'
+@@ -279,7 +280,8 @@ export interface Binding {
+ 		| 'each'
+ 		| 'snippet'
+ 		| 'store_sub'
+-		| 'legacy_reactive';
++		| 'legacy_reactive'
++		| 'template';
+ 	declaration_kind: DeclarationKind;
+ 	/**
+ 	 * What the value was initialized with.
+diff --git a/packages/svelte/types/index.d.ts b/packages/svelte/types/index.d.ts
+index cefb0134a02b..5b0f7e1402d1 100644
+--- a/packages/svelte/types/index.d.ts
++++ b/packages/svelte/types/index.d.ts
+@@ -922,6 +922,7 @@ declare module 'svelte/compiler' {
+ 		 * - `snippet`: A snippet parameter
+ 		 * - `store_sub`: A $store value
+ 		 * - `legacy_reactive`: A `$:` declaration
++		 * - `template`: A binding declared in the template, e.g. in an `await` block or `const` tag
+ 		 */
+ 		kind:
+ 			| 'normal'
+@@ -934,7 +935,8 @@ declare module 'svelte/compiler' {
+ 			| 'each'
+ 			| 'snippet'
+ 			| 'store_sub'
+-			| 'legacy_reactive';
++			| 'legacy_reactive'
++			| 'template';
+ 		declaration_kind: DeclarationKind;
+ 		/**
+ 		 * What the value was initialized with.

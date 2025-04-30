@@ -1,0 +1,180 @@
+diff --git a/packages/svelte/tests/helpers.js b/packages/svelte/tests/helpers.js
+index f8dbf4c866bb..002ebf2e38ff 100644
+--- a/packages/svelte/tests/helpers.js
++++ b/packages/svelte/tests/helpers.js
+@@ -69,7 +69,7 @@ export async function compile_directory(
+ 
+ 	fs.rmSync(output_dir, { recursive: true, force: true });
+ 
+-	for (const file of glob('**', { cwd, filesOnly: true })) {
++	for (let file of glob('**', { cwd, filesOnly: true })) {
+ 		if (file.startsWith('_')) continue;
+ 
+ 		let text = fs.readFileSync(`${cwd}/${file}`, 'utf-8').replace(/\r\n/g, '\n');
+@@ -101,7 +101,17 @@ export async function compile_directory(
+ 
+ 				write(out, result);
+ 			}
+-		} else if (file.endsWith('.svelte')) {
++		} else if (
++			file.endsWith('.svelte') &&
++			// Make it possible to compile separate versions for client and server to simulate
++			// cases where `{browser ? 'foo' : 'bar'}` is turning into `{'foo'}` on the server
++			// and `{bar}` on the client, assuming we have sophisticated enough treeshaking
++			// in the future to make this a thing.
++			(!file.endsWith('.server.svelte') || generate === 'server') &&
++			(!file.endsWith('.client.svelte') || generate === 'client')
++		) {
++			file = file.replace(/\.client\.svelte$/, '.svelte').replace(/\.server\.svelte$/, '.svelte');
++
+ 			if (preprocessor?.preprocess) {
+ 				const preprocessed = await preprocess(
+ 					text,
+diff --git a/packages/svelte/tests/hydration/samples/html-tag-hydration-2/_config.js b/packages/svelte/tests/hydration/samples/html-tag-hydration-2/_config.js
+deleted file mode 100644
+index 77135780021a..000000000000
+--- a/packages/svelte/tests/hydration/samples/html-tag-hydration-2/_config.js
++++ /dev/null
+@@ -1,19 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	server_props: {
+-		browser: false
+-	},
+-
+-	props: {
+-		browser: true
+-	},
+-
+-	compileOptions: {
+-		dev: true
+-	},
+-
+-	errors: [
+-		'The value of an `{@html ...}` block in packages/​svelte/​tests/​hydration/​samples/​html-tag-hydration-2/​main.svelte changed between server and client renders. The client value will be ignored in favour of the server value'
+-	]
+-});
+diff --git a/packages/svelte/tests/hydration/samples/html-tag-hydration-2/main.svelte b/packages/svelte/tests/hydration/samples/html-tag-hydration-2/main.svelte
+deleted file mode 100644
+index 6794452c67f3..000000000000
+--- a/packages/svelte/tests/hydration/samples/html-tag-hydration-2/main.svelte
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<script lang="ts">
+-	let { browser } = $props();
+-</script>
+-
+-{@html browser ? 'browser' : 'server'}
+diff --git a/packages/svelte/tests/hydration/samples/img-src-mismatch/_config.js b/packages/svelte/tests/hydration/samples/img-src-mismatch/_config.js
+new file mode 100644
+index 000000000000..864bd4fac76b
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/img-src-mismatch/_config.js
+@@ -0,0 +1,17 @@
++import { test } from '../../test';
++
++export default test({
++	server_props: {
++		src: 'server.jpg'
++	},
++	props: {
++		src: 'client.jpg'
++	},
++	test(assert, target) {
++		// We deliberately don't slow down hydration just for supporting this edge case mismatch.
++		assert.htmlEqual(target.innerHTML, '<img src="server.jpg" alt="">');
++	},
++	errors: [
++		'The `src` attribute on `...<img src="server.jpg" alt="">` changed its value between server and client renders. The client value, `client.jpg`, will be ignored in favour of the server value'
++	]
++});
+diff --git a/packages/svelte/tests/hydration/samples/img-src-mismatch/main.svelte b/packages/svelte/tests/hydration/samples/img-src-mismatch/main.svelte
+new file mode 100644
+index 000000000000..dc25ec0d734a
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/img-src-mismatch/main.svelte
+@@ -0,0 +1,5 @@
++<script>
++	let { src } = $props();
++</script>
++
++<img {src} alt="" />
+diff --git a/packages/svelte/tests/hydration/samples/raw-mismatch-static/_config.js b/packages/svelte/tests/hydration/samples/raw-mismatch-static/_config.js
+new file mode 100644
+index 000000000000..e807deb19931
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/raw-mismatch-static/_config.js
+@@ -0,0 +1,15 @@
++import { test } from '../../test';
++
++export default test({
++	test(assert, target) {
++		// This test case guards against a potential future bug where we could optimize html tags away for static content:
++		// Even if the {@html } block seems static, it should be preserved as such, because it could be dynamic originally
++		// (like {@html browser ? 'foo' : 'bar'} which is then different between client and server.
++		// Also see https://github.com/sveltejs/svelte/issues/8683 where this happened for Svelte 4.
++		assert.htmlEqual(target.innerHTML, 'Server');
++	},
++
++	errors: [
++		'The value of an `{@html ...}` block changed between server and client renders. The client value will be ignored in favour of the server value'
++	]
++});
+diff --git a/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.client.svelte b/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.client.svelte
+new file mode 100644
+index 000000000000..c04ecb327a13
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.client.svelte
+@@ -0,0 +1,1 @@
++{@html '<p>Client</p> <span>has more nodes so if we would walk this because we think it is static we would get an error</span>'}
+diff --git a/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.server.svelte b/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.server.svelte
+new file mode 100644
+index 000000000000..e7167a0969f4
+--- /dev/null
++++ b/packages/svelte/tests/hydration/samples/raw-mismatch-static/main.server.svelte
+@@ -0,0 +1,1 @@
++{@html 'Server'}
+diff --git a/packages/svelte/tests/hydration/samples/raw-mismatch/_config.js b/packages/svelte/tests/hydration/samples/raw-mismatch/_config.js
+index b6f54c3757d1..2942ee80f7ee 100644
+--- a/packages/svelte/tests/hydration/samples/raw-mismatch/_config.js
++++ b/packages/svelte/tests/hydration/samples/raw-mismatch/_config.js
+@@ -1,10 +1,21 @@
+ import { test } from '../../test';
+ 
+ export default test({
+-	// Even if the {@html } block seems static, it should be preserved as such, because it could be dynamic originally
+-	// (like {@html browser ? 'foo' : 'bar'} which is then different between client and server.
+-	// Question is whether that's actually something someone would do in practise, and why, so it's probably better to not
+-	// slow down hydration just for supporting this edge case - so far we've said no. If someone really needs this we could
+-	// add something like {@html dynamic ...}
+-	skip: true
++	server_props: {
++		html: 'Server'
++	},
++
++	props: {
++		html: 'Client'
++	},
++
++	test(assert, target) {
++		// We deliberately don't slow down hydration just for supporting this edge case mismatch.
++		// If someone really needs this and workarounds are insufficient we could add something like {@html dynamic ...}
++		assert.htmlEqual(target.innerHTML, 'Server');
++	},
++
++	errors: [
++		'The value of an `{@html ...}` block changed between server and client renders. The client value will be ignored in favour of the server value'
++	]
+ });
+diff --git a/packages/svelte/tests/hydration/samples/raw-mismatch/main.svelte b/packages/svelte/tests/hydration/samples/raw-mismatch/main.svelte
+index d052b2a9c17c..36dab58554e8 100644
+--- a/packages/svelte/tests/hydration/samples/raw-mismatch/main.svelte
++++ b/packages/svelte/tests/hydration/samples/raw-mismatch/main.svelte
+@@ -1,1 +1,5 @@
+-{@html '<p>foo</p>'}
++<script>
++	let { html } = $props();
++</script>
++
++{@html html}

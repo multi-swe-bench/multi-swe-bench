@@ -1,0 +1,188 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/_config.js b/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/_config.js
+new file mode 100644
+index 000000000000..c07346d55d0a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/_config.js
+@@ -0,0 +1,8 @@
++import { test } from '../../test';
++
++export default test({
++	mode: ['client'],
++	test({ assert, logs }) {
++		assert.deepEqual(logs, [true]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/main.svelte b/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/main.svelte
+new file mode 100644
+index 000000000000..2ad07e1253c9
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/mutation-correct-return-value/main.svelte
+@@ -0,0 +1,4 @@
++<script>
++	export let a = {};
++	console.log((a.b = true));
++</script>
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/Component1.svelte b/packages/svelte/tests/runtime-runes/samples/binding-interop/Component1.svelte
+new file mode 100644
+index 000000000000..9a21ff4a1a32
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/Component1.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let { object = $bindable(), primitive = $bindable() } = $props();
++</script>
++
++{#if primitive}
++	<button onclick={() => (primitive = 'bar')}>{primitive}</button>
++{:else}
++	<button onclick={() => (object.value = 'bar')}>{object.value}</button>
++{/if}
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/Component2.svelte b/packages/svelte/tests/runtime-runes/samples/binding-interop/Component2.svelte
+new file mode 100644
+index 000000000000..9f9724c9a4c2
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/Component2.svelte
+@@ -0,0 +1,9 @@
++<script>
++	let { object = $bindable({}), primitive = $bindable('') } = $props();
++</script>
++
++{#if primitive}
++	<button onclick={() => (primitive = 'bar')}>{primitive}</button>
++{:else}
++	<button onclick={() => (object.value = 'bar')}>{object.value}</button>
++{/if}
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/Legacy.svelte b/packages/svelte/tests/runtime-runes/samples/binding-interop/Legacy.svelte
+new file mode 100644
+index 000000000000..765355fbf333
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/Legacy.svelte
+@@ -0,0 +1,24 @@
++<svelte:options runes={false} />
++
++<script>
++	import Component1 from './Component1.svelte';
++	import Component2 from './Component2.svelte';
++
++	let object1 = { value: 'foo' };
++	let object2 = { value: 'foo' };
++
++	let primitive1 = 'foo';
++	let primitive2 = 'foo';
++</script>
++
++{object1.value}
++<Component1 bind:object={object1} />
++
++{object2.value}
++<Component2 bind:object={object2} />
++
++{primitive1}
++<Component1 bind:primitive={primitive1} />
++
++{primitive2}
++<Component2 bind:primitive={primitive2} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/Runes.svelte b/packages/svelte/tests/runtime-runes/samples/binding-interop/Runes.svelte
+new file mode 100644
+index 000000000000..26484ff9effd
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/Runes.svelte
+@@ -0,0 +1,39 @@
++<script>
++	import Component1 from './Component1.svelte';
++	import Component2 from './Component2.svelte';
++
++	let object1 = $state({ value: 'foo' });
++	let object2 = $state({ value: 'foo' });
++
++	class Frozen {
++		constructor(value) {
++			this.value = value;
++		}
++	}
++	let object3 = $state(new Frozen('foo'));
++	let object4 = $state(new Frozen('foo'));
++
++	let primitive1 = $state('foo');
++	let primitive2 = $state('foo');
++</script>
++
++{object1.value}
++<Component1 bind:object={object1} />
++
++{object2.value}
++<Component2 bind:object={object2} />
++
++<!-- force them into a different render effect so they don't coincidently update with the others -->
++{#if true}
++	{object3.value}
++	<Component1 bind:object={object3} />
++
++	{object4.value}
++	<Component2 bind:object={object4} />
++{/if}
++
++{primitive1}
++<Component1 bind:primitive={primitive1} />
++
++{primitive2}
++<Component2 bind:primitive={primitive2} />
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/_config.js b/packages/svelte/tests/runtime-runes/samples/binding-interop/_config.js
+new file mode 100644
+index 000000000000..9e204c224e19
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/_config.js
+@@ -0,0 +1,24 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	mode: ['client'],
++	async test({ assert, target }) {
++		const buttons = target.querySelectorAll('button');
++
++		for (const button of buttons) {
++			await button.click();
++			flushSync();
++		}
++		flushSync();
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++			bar <button>bar</button> bar <button>bar</button> bar <button>bar</button> bar <button>bar</button>
++			<hr>
++			bar <button>bar</button> bar <button>bar</button> foo <button>foo</button> foo <button>foo</button> bar <button>bar</button> bar <button>bar</button>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/binding-interop/main.svelte b/packages/svelte/tests/runtime-runes/samples/binding-interop/main.svelte
+new file mode 100644
+index 000000000000..31ed1a0c9783
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/binding-interop/main.svelte
+@@ -0,0 +1,10 @@
++<script>
++	import Legacy from './Legacy.svelte';
++	import Runes from './Runes.svelte';
++</script>
++
++<Legacy />
++
++<hr />
++
++<Runes />
+diff --git a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+index 9dd2ef3048ce..c766ee0a79b4 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+@@ -5,6 +5,6 @@ export default function Bind_this($$anchor) {
+ 	var fragment = $.comment();
+ 	var node = $.first_child(fragment);
+ 
+-	$.bind_this(Foo(node, {}), ($$value) => foo = $$value, () => foo);
++	$.bind_this(Foo(node, { $$legacy: true }), ($$value) => foo = $$value, () => foo);
+ 	$.append($$anchor, fragment);
+ }
+\ No newline at end of file

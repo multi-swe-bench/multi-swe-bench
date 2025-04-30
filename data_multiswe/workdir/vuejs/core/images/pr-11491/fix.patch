@@ -1,0 +1,73 @@
+diff --git a/packages/runtime-core/src/helpers/renderSlot.ts b/packages/runtime-core/src/helpers/renderSlot.ts
+index f0b13904f08..d1f8f1d8afe 100644
+--- a/packages/runtime-core/src/helpers/renderSlot.ts
++++ b/packages/runtime-core/src/helpers/renderSlot.ts
+@@ -87,7 +87,7 @@ export function renderSlot(
+   return rendered
+ }
+ 
+-function ensureValidVNode(vnodes: VNodeArrayChildren) {
++export function ensureValidVNode(vnodes: VNodeArrayChildren) {
+   return vnodes.some(child => {
+     if (!isVNode(child)) return true
+     if (child.type === Comment) return false
+diff --git a/packages/runtime-core/src/index.ts b/packages/runtime-core/src/index.ts
+index 8adbe91ee17..df7b61a6cb6 100644
+--- a/packages/runtime-core/src/index.ts
++++ b/packages/runtime-core/src/index.ts
+@@ -371,6 +371,7 @@ import {
+ import { renderComponentRoot } from './componentRenderUtils'
+ import { setCurrentRenderingInstance } from './componentRenderContext'
+ import { isVNode, normalizeVNode } from './vnode'
++import { ensureValidVNode } from './helpers/renderSlot'
+ 
+ const _ssrUtils = {
+   createComponentInstance,
+@@ -380,6 +381,7 @@ const _ssrUtils = {
+   isVNode,
+   normalizeVNode,
+   getComponentPublicInstance,
++  ensureValidVNode,
+ }
+ 
+ /**
+diff --git a/packages/server-renderer/src/helpers/ssrRenderSlot.ts b/packages/server-renderer/src/helpers/ssrRenderSlot.ts
+index 2069591e024..06c2d7bfa97 100644
+--- a/packages/server-renderer/src/helpers/ssrRenderSlot.ts
++++ b/packages/server-renderer/src/helpers/ssrRenderSlot.ts
+@@ -1,4 +1,4 @@
+-import type { ComponentInternalInstance, Slots } from 'vue'
++import { type ComponentInternalInstance, type Slots, ssrUtils } from 'vue'
+ import {
+   type Props,
+   type PushFn,
+@@ -7,6 +7,8 @@ import {
+ } from '../render'
+ import { isArray } from '@vue/shared'
+ 
++const { ensureValidVNode } = ssrUtils
++
+ export type SSRSlots = Record<string, SSRSlot>
+ export type SSRSlot = (
+   props: Props,
+@@ -61,8 +63,18 @@ export function ssrRenderSlotInner(
+       slotScopeId ? ' ' + slotScopeId : '',
+     )
+     if (isArray(ret)) {
+-      // normal slot
+-      renderVNodeChildren(push, ret, parentComponent, slotScopeId)
++      const validSlotContent = ensureValidVNode(ret)
++      if (validSlotContent) {
++        // normal slot
++        renderVNodeChildren(
++          push,
++          validSlotContent,
++          parentComponent,
++          slotScopeId,
++        )
++      } else if (fallbackRenderFn) {
++        fallbackRenderFn()
++      }
+     } else {
+       // ssr slot.
+       // check if the slot renders all comments, in which case use the fallback

@@ -1,0 +1,142 @@
+diff --git a/tests/flexLayout.test.js b/tests/flexLayout.test.js
+new file mode 100644
+index 0000000000000..5f2defd6ea805
+--- /dev/null
++++ b/tests/flexLayout.test.js
+@@ -0,0 +1,46 @@
++const { flexLayout } = require("../src/common/utils");
++
++describe("flexLayout", () => {
++  it("should work with row & col layouts", () => {
++    const layout = flexLayout({
++      items: ["<text>1</text>", "<text>2</text>"],
++      gap: 60,
++    });
++
++    expect(layout).toStrictEqual([
++      `<g transform="translate(0, 0)"><text>1</text></g>`,
++      `<g transform="translate(60, 0)"><text>2</text></g>`,
++    ]);
++
++    const columns = flexLayout({
++      items: ["<text>1</text>", "<text>2</text>"],
++      gap: 60,
++      direction: "column",
++    });
++
++    expect(columns).toStrictEqual([
++      `<g transform="translate(0, 0)"><text>1</text></g>`,
++      `<g transform="translate(0, 60)"><text>2</text></g>`,
++    ]);
++  });
++
++  it("should work with sizes", () => {
++    const layout = flexLayout({
++      items: [
++        "<text>1</text>",
++        "<text>2</text>",
++        "<text>3</text>",
++        "<text>4</text>",
++      ],
++      gap: 20,
++      sizes: [200, 100, 55, 25],
++    });
++
++    expect(layout).toStrictEqual([
++      `<g transform="translate(0, 0)"><text>1</text></g>`,
++      `<g transform="translate(220, 0)"><text>2</text></g>`,
++      `<g transform="translate(340, 0)"><text>3</text></g>`,
++      `<g transform="translate(415, 0)"><text>4</text></g>`,
++    ]);
++  });
++});
+diff --git a/tests/renderRepoCard.test.js b/tests/renderRepoCard.test.js
+index e375d35383ca5..a6d249821dee1 100644
+--- a/tests/renderRepoCard.test.js
++++ b/tests/renderRepoCard.test.js
+@@ -89,36 +89,6 @@ describe("Test renderRepoCard", () => {
+     );
+   });
+ 
+-  it("should shift the text position depending on language length", () => {
+-    document.body.innerHTML = renderRepoCard({
+-      ...data_repo.repository,
+-      primaryLanguage: {
+-        ...data_repo.repository.primaryLanguage,
+-        name: "Jupyter Notebook",
+-      },
+-    });
+-
+-    expect(queryByTestId(document.body, "primary-lang")).toBeInTheDocument();
+-    expect(queryByTestId(document.body, "star-fork-group")).toHaveAttribute(
+-      "transform",
+-      "translate(155, 0)",
+-    );
+-
+-    // Small lang
+-    document.body.innerHTML = renderRepoCard({
+-      ...data_repo.repository,
+-      primaryLanguage: {
+-        ...data_repo.repository.primaryLanguage,
+-        name: "Ruby",
+-      },
+-    });
+-
+-    expect(queryByTestId(document.body, "star-fork-group")).toHaveAttribute(
+-      "transform",
+-      "translate(125, 0)",
+-    );
+-  });
+-
+   it("should hide language if primaryLanguage is null & fallback to correct values", () => {
+     document.body.innerHTML = renderRepoCard({
+       ...data_repo.repository,
+@@ -332,11 +302,13 @@ describe("Test renderRepoCard", () => {
+     );
+     expect(queryByTestId(document.body, "badge")).toHaveTextContent("模板");
+   });
+-  
++
+   it("should render without rounding", () => {
+-    document.body.innerHTML = renderRepoCard(data_repo.repository, { border_radius: "0" });
++    document.body.innerHTML = renderRepoCard(data_repo.repository, {
++      border_radius: "0",
++    });
+     expect(document.querySelector("rect")).toHaveAttribute("rx", "0");
+-    document.body.innerHTML = renderRepoCard(data_repo.repository, { });
++    document.body.innerHTML = renderRepoCard(data_repo.repository, {});
+     expect(document.querySelector("rect")).toHaveAttribute("rx", "4.5");
+   });
+ });
+diff --git a/tests/utils.test.js b/tests/utils.test.js
+index 66f55d5d25129..15c4d97481590 100644
+--- a/tests/utils.test.js
++++ b/tests/utils.test.js
+@@ -44,27 +44,6 @@ describe("Test utils.js", () => {
+     ).toHaveTextContent(/Secondary Message/gim);
+   });
+ 
+-  it("should test flexLayout", () => {
+-    const layout = flexLayout({
+-      items: ["<text>1</text>", "<text>2</text>"],
+-      gap: 60,
+-    }).join("");
+-
+-    expect(layout).toBe(
+-      `<g transform=\"translate(0, 0)\"><text>1</text></g><g transform=\"translate(60, 0)\"><text>2</text></g>`,
+-    );
+-
+-    const columns = flexLayout({
+-      items: ["<text>1</text>", "<text>2</text>"],
+-      gap: 60,
+-      direction: "column",
+-    }).join("");
+-
+-    expect(columns).toBe(
+-      `<g transform=\"translate(0, 0)\"><text>1</text></g><g transform=\"translate(0, 60)\"><text>2</text></g>`,
+-    );
+-  });
+-
+   it("getCardColors: should return expected values", () => {
+     let colors = getCardColors({
+       title_color: "f00",

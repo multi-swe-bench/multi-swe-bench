@@ -1,0 +1,78 @@
+diff --git a/go.mod b/go.mod
+index 15d0d4cb287..5e1e579e1fe 100644
+--- a/go.mod
++++ b/go.mod
+@@ -31,7 +31,6 @@ require (
+ 	github.com/opentracing/opentracing-go v1.1.0
+ 	github.com/shurcooL/githubv4 v0.0.0-20200928013246-d292edc3691b
+ 	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a // indirect
+-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
+ 	github.com/sourcegraph/jsonrpc2 v0.1.0
+ 	github.com/spf13/cobra v1.2.1
+ 	github.com/spf13/pflag v1.0.5
+diff --git a/go.sum b/go.sum
+index 2b0de5b9d03..370065a19bc 100644
+--- a/go.sum
++++ b/go.sum
+@@ -315,8 +315,6 @@ github.com/shurcooL/githubv4 v0.0.0-20200928013246-d292edc3691b/go.mod h1:hAF0iL
+ github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a h1:KikTa6HtAK8cS1qjvUvvq4QO21QnwC+EfvB+OAuZ/ZU=
+ github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a/go.mod h1:AuYgA5Kyo4c7HfUmvRGs/6rGlMMV/6B1bVnB9JxJEEg=
+ github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
+-github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 h1:JIAuq3EEf9cgbU6AtGPK4CTG3Zf6CKMNqf0MHTggAUA=
+-github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
+ github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
+ github.com/smartystreets/goconvey v1.6.4/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=
+ github.com/sourcegraph/jsonrpc2 v0.1.0 h1:ohJHjZ+PcaLxDUjqk2NC3tIGsVa5bXThe1ZheSXOjuk=
+diff --git a/pkg/cmd/codespace/code.go b/pkg/cmd/codespace/code.go
+index 17b65896374..2c66b4655d0 100644
+--- a/pkg/cmd/codespace/code.go
++++ b/pkg/cmd/codespace/code.go
+@@ -3,12 +3,17 @@ package codespace
+ import (
+ 	"context"
+ 	"fmt"
++	"io/ioutil"
+ 	"net/url"
+ 
+-	"github.com/skratchdot/open-golang/open"
++	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+ )
+ 
++type browser interface {
++	Browse(string) error
++}
++
+ func newCodeCmd(app *App) *cobra.Command {
+ 	var (
+ 		codespace   string
+@@ -20,7 +25,8 @@ func newCodeCmd(app *App) *cobra.Command {
+ 		Short: "Open a codespace in Visual Studio Code",
+ 		Args:  noArgsConstraint,
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+-			return app.VSCode(cmd.Context(), codespace, useInsiders)
++			b := cmdutil.NewBrowser("", ioutil.Discard, app.io.ErrOut)
++			return app.VSCode(cmd.Context(), b, codespace, useInsiders)
+ 		},
+ 	}
+ 
+@@ -31,7 +37,7 @@ func newCodeCmd(app *App) *cobra.Command {
+ }
+ 
+ // VSCode opens a codespace in the local VS VSCode application.
+-func (a *App) VSCode(ctx context.Context, codespaceName string, useInsiders bool) error {
++func (a *App) VSCode(ctx context.Context, browser browser, codespaceName string, useInsiders bool) error {
+ 	if codespaceName == "" {
+ 		codespace, err := chooseCodespace(ctx, a.apiClient)
+ 		if err != nil {
+@@ -44,8 +50,8 @@ func (a *App) VSCode(ctx context.Context, codespaceName string, useInsiders bool
+ 	}
+ 
+ 	url := vscodeProtocolURL(codespaceName, useInsiders)
+-	if err := open.Run(url); err != nil {
+-		return fmt.Errorf("error opening vscode URL %s: %s. (Is Visual Studio Code installed?)", url, err)
++	if err := browser.Browse(url); err != nil {
++		return fmt.Errorf("error opening Visual Studio Code: %w", err)
+ 	}
+ 
+ 	return nil

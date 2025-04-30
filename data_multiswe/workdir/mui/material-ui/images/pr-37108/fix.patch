@@ -1,0 +1,74 @@
+diff --git a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
+index ef66e3001929a9..00c55a25459b80 100644
+--- a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
++++ b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.js
+@@ -73,6 +73,33 @@ export function unstable_createStyleFunctionSx() {
+     return handleBreakpoints(props, val, styleFromPropValue);
+   }
+ 
++  const sortMediaQueries = (mediaQueries) => {
++    const sortedMediaQueries = {};
++    Object.keys(mediaQueries)
++      .sort((a, b) =>
++        a.localeCompare(b, undefined, {
++          numeric: true,
++        }),
++      )
++      .forEach((key) => {
++        sortedMediaQueries[key] = mediaQueries[key];
++      });
++    return sortedMediaQueries;
++  };
++
++  const separateMediaQueries = (sxOutput) => {
++    const mediaQueryObj = {};
++    const restObj = {};
++    Object.keys(sxOutput).forEach((key) => {
++      if (key.includes('@media')) {
++        mediaQueryObj[key] = sxOutput[key];
++      } else {
++        restObj[key] = sxOutput[key];
++      }
++    });
++    return { mediaQueryObj, restObj };
++  };
++
+   function styleFunctionSx(props) {
+     const { sx, theme = {} } = props || {};
+ 
+@@ -102,6 +129,7 @@ export function unstable_createStyleFunctionSx() {
+       const breakpointsKeys = Object.keys(emptyBreakpoints);
+ 
+       let css = emptyBreakpoints;
++      let shouldSort = false;
+ 
+       Object.keys(sxObject).forEach((styleKey) => {
+         const value = callIfFn(sxObject[styleKey], theme);
+@@ -110,6 +138,9 @@ export function unstable_createStyleFunctionSx() {
+             if (config[styleKey]) {
+               css = merge(css, getThemeValue(styleKey, value, theme, config));
+             } else {
++              if (styleKey.includes('@media')) {
++                shouldSort = true;
++              }
+               const breakpointsValues = handleBreakpoints({ theme }, value, (x) => ({
+                 [styleKey]: x,
+               }));
+@@ -126,7 +157,16 @@ export function unstable_createStyleFunctionSx() {
+         }
+       });
+ 
+-      return removeUnusedBreakpoints(breakpointsKeys, css);
++      const sxOutput = removeUnusedBreakpoints(breakpointsKeys, css);
++
++      if (!shouldSort) {
++        return sxOutput;
++      }
++
++      shouldSort = false;
++      const { mediaQueryObj, restObj } = separateMediaQueries(sxOutput);
++      const sortedMediaQueries = sortMediaQueries(mediaQueryObj);
++      return { ...sortedMediaQueries, ...restObj };
+     }
+ 
+     return Array.isArray(sx) ? sx.map(traverse) : traverse(sx);

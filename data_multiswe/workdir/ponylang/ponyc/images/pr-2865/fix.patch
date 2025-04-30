@@ -1,0 +1,688 @@
+diff --git a/packages/builtin/_partial_arithmetic.pony b/packages/builtin/_partial_arithmetic.pony
+new file mode 100644
+index 0000000000..0b3ba3809f
+--- /dev/null
++++ b/packages/builtin/_partial_arithmetic.pony
+@@ -0,0 +1,65 @@
++
++trait _PartialArithmetic
++  fun add_partial[T: (Integer[T] val & Int)](x: T, y: T): T? =>
++    (let r: T, let overflow: Bool) = x.addc(y)
++    if overflow then error else r end
++
++  fun sub_partial[T: (Integer[T] val & Int)](x: T, y: T): T? =>
++    (let r: T, let overflow: Bool) = x.subc(y)
++    if overflow then error else r end
++
++  fun mul_partial[T: (Integer[T] val & Int)](x: T, y: T): T? =>
++    (let r: T, let overflow: Bool) = x.mulc(y)
++    if overflow then error else r end
++
++primitive _UnsignedPartialArithmetic is _PartialArithmetic
++  fun div_partial[T: _UnsignedInteger[T] val](x: T, y: T): T? =>
++    if (y == T.from[U8](0)) then
++      error
++    else
++      x /~ y
++    end
++
++  fun mod_partial[T: _UnsignedInteger[T] val](x: T, y: T): T? =>
++    if (y == T.from[U8](0)) then
++      error
++    else
++      x %~ y
++    end
++
++  fun divmod_partial[T: _UnsignedInteger[T] val](x: T, y: T): (T, T)? =>
++    if (y == T.from[U8](0)) then
++      error
++    else
++      (x /~ y, x %~ y)
++    end
++
++primitive _SignedPartialArithmetic is _PartialArithmetic
++
++  fun div_partial[T: (_SignedInteger[T, U] val & Signed), U: _UnsignedInteger[U] val](x: T, y: T): T? =>
++    if (y == T.from[I8](0)) or ((y == T.from[I8](I8(-1))) and (x == T.min_value())) then
++      error
++    else
++      x /~ y
++    end
++
++  fun mod_partial[T: (_SignedInteger[T, U] val & Signed), U: _UnsignedInteger[U] val](x: T, y: T): T? =>
++    if (y == T.from[I8](0)) or ((y == T.from[I8](I8(-1))) and (x == T.min_value())) then
++      error
++    else
++      x %~ y
++    end
++
++  fun divmod_partial[T: (_SignedInteger[T, U] val & Signed), U: _UnsignedInteger[U] val](x: T, y: T): (T, T)? =>
++    if (y == T.from[I8](0)) or ((y == T.from[I8](I8(-1))) and (x == T.min_value())) then
++      error
++    else
++      (x/~y, x %~ y)
++    end
++
++  fun neg_partial[T: (_SignedInteger[T, U] val & Signed), U: _UnsignedInteger[U] val](x: T): T? =>
++    if x == T.min_value() then
++      error
++    else
++      -~x
++    end
+diff --git a/packages/builtin/real.pony b/packages/builtin/real.pony
+index 01e49ecce2..24485c5866 100644
+--- a/packages/builtin/real.pony
++++ b/packages/builtin/real.pony
+@@ -233,6 +233,48 @@ trait val Integer[A: Integer[A] val] is Real[A]
+     """
+     this %~ y
+ 
++  fun add_partial(y: A): A ?
++    """
++    Add y to this number.
++
++    If the operation overflows this function errors.
++    """
++
++  fun sub_partial(y: A): A ?
++    """
++    Subtract y from this number.
++
++    If the operation overflows/underflows this function errors.
++    """
++
++  fun mul_partial(y: A): A ?
++    """
++    Multiply y with this number.
++
++    If the operation overflows this function errors.
++    """
++
++  fun div_partial(y: A): A ?
++    """
++    Divides this number by y.
++
++    If y is `0` this function errors.
++    """
++
++  fun mod_partial(y: A): A ?
++    """
++    Calculates the remainder of this number divided by y.
++
++    If y is `0` this function errors.
++    """
++
++  fun divmod_partial(y: A): (A, A) ?
++    """
++    Divides this number by y and calculates the remainder of the operation.
++
++    If y is `0` this function errors.
++    """
++
+   fun neg_unsafe(): A =>
+     """
+     Unsafe operation.
+@@ -350,12 +392,16 @@ trait val _UnsignedInteger[A: _UnsignedInteger[A] val] is Integer[A]
+ 
+   fun clz_unsafe(): A
+     """
++    Count leading zeroes.
++
+     Unsafe operation.
+     If this is 0, the result is undefined.
+     """
+ 
+   fun ctz_unsafe(): A
+     """
++    Count trailing zeroes.
++
+     Unsafe operation.
+     If this is 0, the result is undefined.
+     """
+diff --git a/packages/builtin/signed.pony b/packages/builtin/signed.pony
+index eb73ac5b37..2a22e75fdd 100644
+--- a/packages/builtin/signed.pony
++++ b/packages/builtin/signed.pony
+@@ -40,6 +40,24 @@ primitive I8 is _SignedInteger[I8, U8]
+   fun mulc(y: I8): (I8, Bool) =>
+     @"llvm.smul.with.overflow.i8"[(I8, Bool)](this, y)
+ 
++  fun add_partial(y: I8): I8 ? =>
++    _SignedPartialArithmetic.add_partial[I8](this, y)?
++
++  fun sub_partial(y: I8): I8 ? =>
++    _SignedPartialArithmetic.sub_partial[I8](this, y)?
++
++  fun mul_partial(y: I8): I8 ? =>
++    _SignedPartialArithmetic.mul_partial[I8](this, y)?
++
++  fun div_partial(y: I8): I8 ? =>
++    _SignedPartialArithmetic.div_partial[I8, U8](this, y)?
++
++  fun mod_partial(y: I8): I8 ? =>
++    _SignedPartialArithmetic.mod_partial[I8, U8](this, y)?
++
++  fun divmod_partial(y: I8): (I8, I8) ? =>
++    _SignedPartialArithmetic.divmod_partial[I8, U8](this, y)?
++
+ primitive I16 is _SignedInteger[I16, U16]
+   new create(value: I16) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.i16()
+@@ -82,6 +100,25 @@ primitive I16 is _SignedInteger[I16, U16]
+   fun mulc(y: I16): (I16, Bool) =>
+     @"llvm.smul.with.overflow.i16"[(I16, Bool)](this, y)
+ 
++  fun add_partial(y: I16): I16 ? =>
++    _SignedPartialArithmetic.add_partial[I16](this, y)?
++
++  fun sub_partial(y: I16): I16 ? =>
++    _SignedPartialArithmetic.sub_partial[I16](this, y)?
++
++  fun mul_partial(y: I16): I16 ? =>
++    _SignedPartialArithmetic.mul_partial[I16](this, y)?
++
++  fun div_partial(y: I16): I16 ? =>
++    _SignedPartialArithmetic.div_partial[I16, U16](this, y)?
++
++  fun mod_partial(y: I16): I16 ? =>
++    _SignedPartialArithmetic.mod_partial[I16, U16](this, y)?
++
++  fun divmod_partial(y: I16): (I16, I16) ? =>
++    _SignedPartialArithmetic.divmod_partial[I16, U16](this, y)?
++
++
+ primitive I32 is _SignedInteger[I32, U32]
+   new create(value: I32) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.i32()
+@@ -124,6 +161,24 @@ primitive I32 is _SignedInteger[I32, U32]
+   fun mulc(y: I32): (I32, Bool) =>
+     @"llvm.smul.with.overflow.i32"[(I32, Bool)](this, y)
+ 
++  fun add_partial(y: I32): I32 ? =>
++    _SignedPartialArithmetic.add_partial[I32](this, y)?
++
++  fun sub_partial(y: I32): I32 ? =>
++    _SignedPartialArithmetic.sub_partial[I32](this, y)?
++
++  fun mul_partial(y: I32): I32 ? =>
++    _SignedPartialArithmetic.mul_partial[I32](this, y)?
++
++  fun div_partial(y: I32): I32 ? =>
++    _SignedPartialArithmetic.div_partial[I32, U32](this, y)?
++
++  fun mod_partial(y: I32): I32 ? =>
++    _SignedPartialArithmetic.mod_partial[I32, U32](this, y)?
++
++  fun divmod_partial(y: I32): (I32, I32) ? =>
++    _SignedPartialArithmetic.divmod_partial[I32, U32](this, y)?
++
+ primitive I64 is _SignedInteger[I64, U64]
+   new create(value: I64) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.i64()
+@@ -167,6 +222,23 @@ primitive I64 is _SignedInteger[I64, U64]
+   fun mulc(y: I64): (I64, Bool) =>
+     _SignedCheckedArithmetic._mulc[U64, I64](this, y)
+ 
++  fun add_partial(y: I64): I64 ? =>
++    _SignedPartialArithmetic.add_partial[I64](this, y)?
++
++  fun sub_partial(y: I64): I64 ? =>
++    _SignedPartialArithmetic.sub_partial[I64](this, y)?
++
++  fun mul_partial(y: I64): I64 ? =>
++    _SignedPartialArithmetic.mul_partial[I64](this, y)?
++
++  fun div_partial(y: I64): I64 ? =>
++    _SignedPartialArithmetic.div_partial[I64, U64](this, y)?
++
++  fun mod_partial(y: I64): I64 ? =>
++    _SignedPartialArithmetic.mod_partial[I64, U64](this, y)?
++
++  fun divmod_partial(y: I64): (I64, I64) ? =>
++    _SignedPartialArithmetic.divmod_partial[I64, U64](this, y)?
+ 
+ primitive ILong is _SignedInteger[ILong, ULong]
+   new create(value: ILong) => value
+@@ -263,6 +335,24 @@ primitive ILong is _SignedInteger[ILong, ULong]
+       _SignedCheckedArithmetic._mulc[ULong, ILong](this, y)
+     end
+ 
++  fun add_partial(y: ILong): ILong ? =>
++    _SignedPartialArithmetic.add_partial[ILong](this, y)?
++
++  fun sub_partial(y: ILong): ILong ? =>
++    _SignedPartialArithmetic.sub_partial[ILong](this, y)?
++
++  fun mul_partial(y: ILong): ILong ? =>
++    _SignedPartialArithmetic.mul_partial[ILong](this, y)?
++
++  fun div_partial(y: ILong): ILong ? =>
++    _SignedPartialArithmetic.div_partial[ILong, ULong](this, y)?
++
++  fun mod_partial(y: ILong): ILong ? =>
++    _SignedPartialArithmetic.mod_partial[ILong, ULong](this, y)?
++
++  fun divmod_partial(y: ILong): (ILong, ILong) ? =>
++    _SignedPartialArithmetic.divmod_partial[ILong, ULong](this, y)?
++
+ primitive ISize is _SignedInteger[ISize, USize]
+   new create(value: ISize) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.isize()
+@@ -357,6 +447,24 @@ primitive ISize is _SignedInteger[ISize, USize]
+       _SignedCheckedArithmetic._mulc[USize, ISize](this, y)
+     end
+ 
++  fun add_partial(y: ISize): ISize ? =>
++    _SignedPartialArithmetic.add_partial[ISize](this, y)?
++
++  fun sub_partial(y: ISize): ISize ? =>
++    _SignedPartialArithmetic.sub_partial[ISize](this, y)?
++
++  fun mul_partial(y: ISize): ISize ? =>
++    _SignedPartialArithmetic.mul_partial[ISize](this, y)?
++
++  fun div_partial(y: ISize): ISize ? =>
++    _SignedPartialArithmetic.div_partial[ISize, USize](this, y)?
++
++  fun mod_partial(y: ISize): ISize ? =>
++    _SignedPartialArithmetic.mod_partial[ISize, USize](this, y)?
++
++  fun divmod_partial(y: ISize): (ISize, ISize) ? =>
++    _SignedPartialArithmetic.divmod_partial[ISize, USize](this, y)?
++
+ primitive I128 is _SignedInteger[I128, U128]
+   new create(value: I128) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.i128()
+@@ -547,6 +655,24 @@ primitive I128 is _SignedInteger[I128, U128]
+     // doing
+     _SignedCheckedArithmetic._mulc[U128, I128](this, y)
+ 
++  fun add_partial(y: I128): I128 ? =>
++    _SignedPartialArithmetic.add_partial[I128](this, y)?
++
++  fun sub_partial(y: I128): I128 ? =>
++    _SignedPartialArithmetic.sub_partial[I128](this, y)?
++
++  fun mul_partial(y: I128): I128 ? =>
++    _SignedPartialArithmetic.mul_partial[I128](this, y)?
++
++  fun div_partial(y: I128): I128 ? =>
++    _SignedPartialArithmetic.div_partial[I128, U128](this, y)?
++
++  fun mod_partial(y: I128): I128 ? =>
++    _SignedPartialArithmetic.mod_partial[I128, U128](this, y)?
++
++  fun divmod_partial(y: I128): (I128, I128) ? =>
++    _SignedPartialArithmetic.divmod_partial[I128, U128](this, y)?
++
+ type Signed is (I8 | I16 | I32 | I64 | I128 | ILong | ISize)
+ 
+ 
+diff --git a/packages/builtin/unsigned.pony b/packages/builtin/unsigned.pony
+index 4ef8dd6c66..5b482cf887 100644
+--- a/packages/builtin/unsigned.pony
++++ b/packages/builtin/unsigned.pony
+@@ -43,6 +43,24 @@ primitive U8 is _UnsignedInteger[U8]
+   fun mulc(y: U8): (U8, Bool) =>
+     @"llvm.umul.with.overflow.i8"[(U8, Bool)](this, y)
+ 
++  fun add_partial(y: U8): U8 ? =>
++    _UnsignedPartialArithmetic.add_partial[U8](this, y)?
++
++  fun sub_partial(y: U8): U8 ? =>
++    _UnsignedPartialArithmetic.sub_partial[U8](this, y)?
++
++  fun mul_partial(y: U8): U8 ? =>
++    _UnsignedPartialArithmetic.mul_partial[U8](this, y)?
++
++  fun div_partial(y: U8): U8 ? =>
++    _UnsignedPartialArithmetic.div_partial[U8](this, y)?
++
++  fun mod_partial(y: U8): U8 ? =>
++    _UnsignedPartialArithmetic.mod_partial[U8](this, y)?
++
++  fun divmod_partial(y: U8): (U8, U8) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[U8](this, y)?
++
+ primitive U16 is _UnsignedInteger[U16]
+   new create(value: U16) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.u16()
+@@ -88,6 +106,24 @@ primitive U16 is _UnsignedInteger[U16]
+   fun mulc(y: U16): (U16, Bool) =>
+     @"llvm.umul.with.overflow.i16"[(U16, Bool)](this, y)
+ 
++  fun add_partial(y: U16): U16 ? =>
++    _UnsignedPartialArithmetic.add_partial[U16](this, y)?
++
++  fun sub_partial(y: U16): U16 ? =>
++    _UnsignedPartialArithmetic.sub_partial[U16](this, y)?
++
++  fun mul_partial(y: U16): U16 ? =>
++    _UnsignedPartialArithmetic.mul_partial[U16](this, y)?
++
++  fun div_partial(y: U16): U16 ? =>
++    _UnsignedPartialArithmetic.div_partial[U16](this, y)?
++
++  fun mod_partial(y: U16): U16 ? =>
++    _UnsignedPartialArithmetic.mod_partial[U16](this, y)?
++
++  fun divmod_partial(y: U16): (U16, U16) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[U16](this, y)?
++
+ primitive U32 is _UnsignedInteger[U32]
+   new create(value: U32) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.u32()
+@@ -133,6 +169,24 @@ primitive U32 is _UnsignedInteger[U32]
+   fun mulc(y: U32): (U32, Bool) =>
+     @"llvm.umul.with.overflow.i32"[(U32, Bool)](this, y)
+ 
++  fun add_partial(y: U32): U32 ? =>
++    _UnsignedPartialArithmetic.add_partial[U32](this, y)?
++
++  fun sub_partial(y: U32): U32 ? =>
++    _UnsignedPartialArithmetic.sub_partial[U32](this, y)?
++
++  fun mul_partial(y: U32): U32 ? =>
++    _UnsignedPartialArithmetic.mul_partial[U32](this, y)?
++
++  fun div_partial(y: U32): U32 ? =>
++    _UnsignedPartialArithmetic.div_partial[U32](this, y)?
++
++  fun mod_partial(y: U32): U32 ? =>
++    _UnsignedPartialArithmetic.mod_partial[U32](this, y)?
++
++  fun divmod_partial(y: U32): (U32, U32) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[U32](this, y)?
++
+ primitive U64 is _UnsignedInteger[U64]
+   new create(value: U64) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.u64()
+@@ -185,6 +239,24 @@ primitive U64 is _UnsignedInteger[U64]
+   fun mulc(y: U64): (U64, Bool) =>
+     @"llvm.umul.with.overflow.i64"[(U64, Bool)](this, y)
+ 
++  fun add_partial(y: U64): U64 ? =>
++    _UnsignedPartialArithmetic.add_partial[U64](this, y)?
++
++  fun sub_partial(y: U64): U64 ? =>
++    _UnsignedPartialArithmetic.sub_partial[U64](this, y)?
++
++  fun mul_partial(y: U64): U64 ? =>
++    _UnsignedPartialArithmetic.mul_partial[U64](this, y)?
++
++  fun div_partial(y: U64): U64 ? =>
++    _UnsignedPartialArithmetic.div_partial[U64](this, y)?
++
++  fun mod_partial(y: U64): U64 ? =>
++    _UnsignedPartialArithmetic.mod_partial[U64](this, y)?
++
++  fun divmod_partial(y: U64): (U64, U64) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[U64](this, y)?
++
+ primitive ULong is _UnsignedInteger[ULong]
+   new create(value: ULong) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.ulong()
+@@ -293,6 +365,24 @@ primitive ULong is _UnsignedInteger[ULong]
+       @"llvm.umul.with.overflow.i64"[(ULong, Bool)](this, y)
+     end
+ 
++  fun add_partial(y: ULong): ULong ? =>
++    _UnsignedPartialArithmetic.add_partial[ULong](this, y)?
++
++  fun sub_partial(y: ULong): ULong ? =>
++    _UnsignedPartialArithmetic.sub_partial[ULong](this, y)?
++
++  fun mul_partial(y: ULong): ULong ? =>
++    _UnsignedPartialArithmetic.mul_partial[ULong](this, y)?
++
++  fun div_partial(y: ULong): ULong ? =>
++    _UnsignedPartialArithmetic.div_partial[ULong](this, y)?
++
++  fun mod_partial(y: ULong): ULong ? =>
++    _UnsignedPartialArithmetic.mod_partial[ULong](this, y)?
++
++  fun divmod_partial(y: ULong): (ULong, ULong) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[ULong](this, y)?
++
+ primitive USize is _UnsignedInteger[USize]
+   new create(value: USize) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.usize()
+@@ -394,6 +484,24 @@ primitive USize is _UnsignedInteger[USize]
+       @"llvm.umul.with.overflow.i64"[(USize, Bool)](this, y)
+     end
+ 
++  fun add_partial(y: USize): USize ? =>
++    _UnsignedPartialArithmetic.add_partial[USize](this, y)?
++
++  fun sub_partial(y: USize): USize ? =>
++    _UnsignedPartialArithmetic.sub_partial[USize](this, y)?
++
++  fun mul_partial(y: USize): USize ? =>
++    _UnsignedPartialArithmetic.mul_partial[USize](this, y)?
++
++  fun div_partial(y: USize): USize ? =>
++    _UnsignedPartialArithmetic.div_partial[USize](this, y)?
++
++  fun mod_partial(y: USize): USize ? =>
++    _UnsignedPartialArithmetic.mod_partial[USize](this, y)?
++
++  fun divmod_partial(y: USize): (USize, USize) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[USize](this, y)?
++
+ primitive U128 is _UnsignedInteger[U128]
+   new create(value: U128) => value
+   new from[A: (Number & Real[A] val)](a: A) => a.u128()
+@@ -649,4 +757,22 @@ primitive U128 is _UnsignedInteger[U128]
+       (result, overflow)
+     end
+ 
++  fun add_partial(y: U128): U128 ? =>
++    _UnsignedPartialArithmetic.add_partial[U128](this, y)?
++
++  fun sub_partial(y: U128): U128 ? =>
++    _UnsignedPartialArithmetic.sub_partial[U128](this, y)?
++
++  fun mul_partial(y: U128): U128 ? =>
++    _UnsignedPartialArithmetic.mul_partial[U128](this, y)?
++
++  fun div_partial(y: U128): U128 ? =>
++    _UnsignedPartialArithmetic.div_partial[U128](this, y)?
++
++  fun mod_partial(y: U128): U128 ? =>
++    _UnsignedPartialArithmetic.mod_partial[U128](this, y)?
++
++  fun divmod_partial(y: U128): (U128, U128) ? =>
++    _UnsignedPartialArithmetic.divmod_partial[U128](this, y)?
++
+ type Unsigned is (U8 | U16 | U32 | U64 | U128 | ULong | USize)
+diff --git a/src/libponyc/ast/bnfprint.c b/src/libponyc/ast/bnfprint.c
+index c8b5676598..115d37b3af 100644
+--- a/src/libponyc/ast/bnfprint.c
++++ b/src/libponyc/ast/bnfprint.c
+@@ -11,7 +11,7 @@
+ /** This file contains the BNF printer, which prints out the Pony BNF in human
+  * readable and ANTLR file form. This is intended as a form of documentation,
+  * as well as allowing us to use ANTLR to check for grammar errors (such as
+- * ambiguities). Since the printed gramamr is generated from the actual parse
++ * ambiguities). Since the printed grammar is generated from the actual parse
+  * macros we are guaranteed that it is accurate and up to date.
+  *
+  * We generate a BNF tree structure from the parser source. To do this we
+diff --git a/src/libponyc/ast/lexer.c b/src/libponyc/ast/lexer.c
+index 92279adccb..7ceecd1b51 100644
+--- a/src/libponyc/ast/lexer.c
++++ b/src/libponyc/ast/lexer.c
+@@ -1215,11 +1215,11 @@ static token_id newline_symbols(token_id raw_token, bool newline)
+ 
+   switch(raw_token)
+   {
+-    case TK_LPAREN:      return TK_LPAREN_NEW;
+-    case TK_LSQUARE:     return TK_LSQUARE_NEW;
+-    case TK_MINUS:       return TK_MINUS_NEW;
+-    case TK_MINUS_TILDE: return TK_MINUS_TILDE_NEW;
+-    default:             return raw_token;
++    case TK_LPAREN:         return TK_LPAREN_NEW;
++    case TK_LSQUARE:        return TK_LSQUARE_NEW;
++    case TK_MINUS:          return TK_MINUS_NEW;
++    case TK_MINUS_TILDE:    return TK_MINUS_TILDE_NEW;
++    default:                return raw_token;
+   }
+ }
+ 
+diff --git a/src/libponyc/pass/sugar.c b/src/libponyc/pass/sugar.c
+index 14955f594b..8e1a3daee5 100644
+--- a/src/libponyc/pass/sugar.c
++++ b/src/libponyc/pass/sugar.c
+@@ -731,7 +731,7 @@ static ast_result_t sugar_as(pass_opt_t* opt, ast_t** astp)
+ }
+ 
+ 
+-static ast_result_t sugar_binop(ast_t** astp, const char* fn_name)
++static ast_result_t sugar_binop(ast_t** astp, const char* fn_name, const char* fn_name_partial)
+ {
+   AST_GET_CHILDREN(*astp, left, right, question);
+ 
+@@ -752,9 +752,13 @@ static ast_result_t sugar_binop(ast_t** astp, const char* fn_name)
+     ast_add(positional, arg);
+   }
+ 
++  const char* name = fn_name;
++  if(fn_name_partial != NULL && ast_id(question) == TK_QUESTION)
++    name = fn_name_partial;
++
+   REPLACE(astp,
+     NODE(TK_CALL,
+-      NODE(TK_DOT, TREE(left) ID(fn_name))
++      NODE(TK_DOT, TREE(left) ID(name))
+       TREE(positional)
+       NONE
+       TREE(question)));
+@@ -1149,69 +1153,69 @@ ast_result_t pass_sugar(ast_t** astp, pass_opt_t* options)
+ 
+   switch(ast_id(ast))
+   {
+-    case TK_MODULE:           return sugar_module(options, ast);
+-    case TK_PRIMITIVE:        return sugar_entity(options, ast, true, TK_VAL);
+-    case TK_STRUCT:           return sugar_entity(options, ast, true, TK_REF);
+-    case TK_CLASS:            return sugar_entity(options, ast, true, TK_REF);
+-    case TK_ACTOR:            return sugar_entity(options, ast, true, TK_TAG);
++    case TK_MODULE:              return sugar_module(options, ast);
++    case TK_PRIMITIVE:           return sugar_entity(options, ast, true, TK_VAL);
++    case TK_STRUCT:              return sugar_entity(options, ast, true, TK_REF);
++    case TK_CLASS:               return sugar_entity(options, ast, true, TK_REF);
++    case TK_ACTOR:               return sugar_entity(options, ast, true, TK_TAG);
+     case TK_TRAIT:
+-    case TK_INTERFACE:        return sugar_entity(options, ast, false, TK_REF);
+-    case TK_TYPEPARAM:        return sugar_typeparam(ast);
+-    case TK_NEW:              return sugar_new(options, ast);
+-    case TK_BE:               return sugar_be(options, ast);
+-    case TK_FUN:              return sugar_fun(options, ast);
+-    case TK_RETURN:           return sugar_return(options, ast);
++    case TK_INTERFACE:           return sugar_entity(options, ast, false, TK_REF);
++    case TK_TYPEPARAM:           return sugar_typeparam(ast);
++    case TK_NEW:                 return sugar_new(options, ast);
++    case TK_BE:                  return sugar_be(options, ast);
++    case TK_FUN:                 return sugar_fun(options, ast);
++    case TK_RETURN:              return sugar_return(options, ast);
+     case TK_IF:
+     case TK_WHILE:
+-    case TK_REPEAT:           return sugar_else(ast, 2);
+-    case TK_IFTYPE_SET:       return sugar_else(ast, 1);
+-    case TK_TRY:              return sugar_try(ast);
+-    case TK_FOR:              return sugar_for(options, astp);
+-    case TK_WITH:             return sugar_with(options, astp);
+-    case TK_CASE:             return sugar_case(options, ast);
+-    case TK_ASSIGN:           return sugar_update(astp);
+-    case TK_AS:               return sugar_as(options, astp);
+-    case TK_PLUS:             return sugar_binop(astp, "add");
+-    case TK_MINUS:            return sugar_binop(astp, "sub");
+-    case TK_MULTIPLY:         return sugar_binop(astp, "mul");
+-    case TK_DIVIDE:           return sugar_binop(astp, "div");
+-    case TK_MOD:              return sugar_binop(astp, "mod");
+-    case TK_PLUS_TILDE:       return sugar_binop(astp, "add_unsafe");
+-    case TK_MINUS_TILDE:      return sugar_binop(astp, "sub_unsafe");
+-    case TK_MULTIPLY_TILDE:   return sugar_binop(astp, "mul_unsafe");
+-    case TK_DIVIDE_TILDE:     return sugar_binop(astp, "div_unsafe");
+-    case TK_MOD_TILDE:        return sugar_binop(astp, "mod_unsafe");
+-    case TK_LSHIFT:           return sugar_binop(astp, "shl");
+-    case TK_RSHIFT:           return sugar_binop(astp, "shr");
+-    case TK_LSHIFT_TILDE:     return sugar_binop(astp, "shl_unsafe");
+-    case TK_RSHIFT_TILDE:     return sugar_binop(astp, "shr_unsafe");
+-    case TK_AND:              return sugar_binop(astp, "op_and");
+-    case TK_OR:               return sugar_binop(astp, "op_or");
+-    case TK_XOR:              return sugar_binop(astp, "op_xor");
+-    case TK_EQ:               return sugar_binop(astp, "eq");
+-    case TK_NE:               return sugar_binop(astp, "ne");
+-    case TK_LT:               return sugar_binop(astp, "lt");
+-    case TK_LE:               return sugar_binop(astp, "le");
+-    case TK_GE:               return sugar_binop(astp, "ge");
+-    case TK_GT:               return sugar_binop(astp, "gt");
+-    case TK_EQ_TILDE:         return sugar_binop(astp, "eq_unsafe");
+-    case TK_NE_TILDE:         return sugar_binop(astp, "ne_unsafe");
+-    case TK_LT_TILDE:         return sugar_binop(astp, "lt_unsafe");
+-    case TK_LE_TILDE:         return sugar_binop(astp, "le_unsafe");
+-    case TK_GE_TILDE:         return sugar_binop(astp, "ge_unsafe");
+-    case TK_GT_TILDE:         return sugar_binop(astp, "gt_unsafe");
+-    case TK_UNARY_MINUS:      return sugar_unop(astp, "neg");
+-    case TK_UNARY_MINUS_TILDE:return sugar_unop(astp, "neg_unsafe");
+-    case TK_NOT:              return sugar_unop(astp, "op_not");
++    case TK_REPEAT:              return sugar_else(ast, 2);
++    case TK_IFTYPE_SET:          return sugar_else(ast, 1);
++    case TK_TRY:                 return sugar_try(ast);
++    case TK_FOR:                 return sugar_for(options, astp);
++    case TK_WITH:                return sugar_with(options, astp);
++    case TK_CASE:                return sugar_case(options, ast);
++    case TK_ASSIGN:              return sugar_update(astp);
++    case TK_AS:                  return sugar_as(options, astp);
++    case TK_PLUS:                return sugar_binop(astp, "add", "add_partial");
++    case TK_MINUS:               return sugar_binop(astp, "sub", "sub_partial");
++    case TK_MULTIPLY:            return sugar_binop(astp, "mul", "mul_partial");
++    case TK_DIVIDE:              return sugar_binop(astp, "div", "div_partial");
++    case TK_MOD:                 return sugar_binop(astp, "mod", "mod_partial");
++    case TK_PLUS_TILDE:          return sugar_binop(astp, "add_unsafe", NULL);
++    case TK_MINUS_TILDE:         return sugar_binop(astp, "sub_unsafe", NULL);
++    case TK_MULTIPLY_TILDE:      return sugar_binop(astp, "mul_unsafe", NULL);
++    case TK_DIVIDE_TILDE:        return sugar_binop(astp, "div_unsafe", NULL);
++    case TK_MOD_TILDE:           return sugar_binop(astp, "mod_unsafe", NULL);
++    case TK_LSHIFT:              return sugar_binop(astp, "shl", NULL);
++    case TK_RSHIFT:              return sugar_binop(astp, "shr", NULL);
++    case TK_LSHIFT_TILDE:        return sugar_binop(astp, "shl_unsafe", NULL);
++    case TK_RSHIFT_TILDE:        return sugar_binop(astp, "shr_unsafe", NULL);
++    case TK_AND:                 return sugar_binop(astp, "op_and", NULL);
++    case TK_OR:                  return sugar_binop(astp, "op_or", NULL);
++    case TK_XOR:                 return sugar_binop(astp, "op_xor", NULL);
++    case TK_EQ:                  return sugar_binop(astp, "eq", NULL);
++    case TK_NE:                  return sugar_binop(astp, "ne", NULL);
++    case TK_LT:                  return sugar_binop(astp, "lt", NULL);
++    case TK_LE:                  return sugar_binop(astp, "le", NULL);
++    case TK_GE:                  return sugar_binop(astp, "ge", NULL);
++    case TK_GT:                  return sugar_binop(astp, "gt", NULL);
++    case TK_EQ_TILDE:            return sugar_binop(astp, "eq_unsafe", NULL);
++    case TK_NE_TILDE:            return sugar_binop(astp, "ne_unsafe", NULL);
++    case TK_LT_TILDE:            return sugar_binop(astp, "lt_unsafe", NULL);
++    case TK_LE_TILDE:            return sugar_binop(astp, "le_unsafe", NULL);
++    case TK_GE_TILDE:            return sugar_binop(astp, "ge_unsafe", NULL);
++    case TK_GT_TILDE:            return sugar_binop(astp, "gt_unsafe", NULL);
++    case TK_UNARY_MINUS:         return sugar_unop(astp, "neg");
++    case TK_UNARY_MINUS_TILDE:   return sugar_unop(astp, "neg_unsafe");
++    case TK_NOT:                 return sugar_unop(astp, "op_not");
+     case TK_FFIDECL:
+-    case TK_FFICALL:          return sugar_ffi(options, ast);
+-    case TK_IFDEF:            return sugar_ifdef(options, ast);
+-    case TK_USE:              return sugar_use(options, ast);
+-    case TK_SEMI:             return sugar_semi(options, astp);
++    case TK_FFICALL:             return sugar_ffi(options, ast);
++    case TK_IFDEF:               return sugar_ifdef(options, ast);
++    case TK_USE:                 return sugar_use(options, ast);
++    case TK_SEMI:                return sugar_semi(options, astp);
+     case TK_LAMBDATYPE:
+-    case TK_BARELAMBDATYPE:   return sugar_lambdatype(options, astp);
+-    case TK_BARELAMBDA:       return sugar_barelambda(options, ast);
+-    case TK_LOCATION:         return sugar_location(options, astp);
+-    default:                  return AST_OK;
++    case TK_BARELAMBDATYPE:      return sugar_lambdatype(options, astp);
++    case TK_BARELAMBDA:          return sugar_barelambda(options, ast);
++    case TK_LOCATION:            return sugar_location(options, astp);
++    default:                     return AST_OK;
+   }
+ }

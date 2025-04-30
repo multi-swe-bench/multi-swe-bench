@@ -1,0 +1,80 @@
+diff --git a/src/builder/command.rs b/src/builder/command.rs
+index 1fcb64ecc8b..1645cc79f84 100644
+--- a/src/builder/command.rs
++++ b/src/builder/command.rs
+@@ -708,6 +708,52 @@ impl<'help> App<'help> {
+         c.print()
+     }
+ 
++    /// Returns the help message (`-h`).
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// let mut cmd = Command::new("myprog");
++    /// let help: String = cmd.render_help();
++    /// print!("{}",help);
++    /// ```
++    pub fn render_help(&mut self) -> String {
++        self._build_self();
++
++        let mut help: String = "".into();
++        let usage = Usage::new(self);
++        match Help::new(HelpWriter::String(&mut help), self, &usage, false).write_help() {
++            Ok(_) => help,
++            Err(e) => {
++                panic!("{}", e.to_string())
++            }
++        }
++    }
++
++    /// Returns the long help message.
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::Command;
++    /// let mut cmd = Command::new("myprog");
++    /// let help: String = cmd.render_long_help();
++    /// print!("{}",help);
++    /// ```
++    pub fn render_long_help(&mut self) -> String {
++        self._build_self();
++
++        let mut help: String = "".into();
++        let usage = Usage::new(self);
++        match Help::new(HelpWriter::String(&mut help), self, &usage, true).write_help() {
++            Ok(_) => help,
++            Err(e) => {
++                panic!("{}", e.to_string())
++            }
++        }
++    }
++
+     /// Prints the long help message (`--help`) to [`io::stdout()`].
+     ///
+     /// See also [`Command::print_help`].
+diff --git a/src/output/help.rs b/src/output/help.rs
+index eb53bfa5451..a94f4112ebb 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -129,6 +129,10 @@ macro_rules! write_method {
+                 Ok(())
+             }
+             HelpWriter::Normal(w) => w.write_all($msg.as_ref()),
++            HelpWriter::String(s) => {
++                s.push_str($msg.into().as_str());
++                Ok(())
++            }
+         }
+     };
+ }
+@@ -1117,6 +1121,7 @@ const TAB_WIDTH: usize = 4;
+ pub(crate) enum HelpWriter<'writer> {
+     Normal(&'writer mut dyn Write),
+     Buffer(&'writer mut Colorizer),
++    String(&'writer mut String),
+ }
+ 
+ fn should_show_arg(use_long: bool, arg: &Arg) -> bool {

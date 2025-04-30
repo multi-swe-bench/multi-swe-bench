@@ -1,0 +1,87 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/ambiguous-source/_config.js b/packages/svelte/tests/runtime-runes/samples/ambiguous-source/_config.js
+index 046603c063fa..2775015dffd9 100644
+--- a/packages/svelte/tests/runtime-runes/samples/ambiguous-source/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/ambiguous-source/_config.js
+@@ -1,13 +1,11 @@
+ import { test } from '../../test';
+ 
+ export default test({
+-	html: `<button>0</button>`,
++	html: `<button>0 / 0</button>`,
+ 
+-	async test({ assert, target, window }) {
++	async test({ assert, target }) {
+ 		const btn = target.querySelector('button');
+-		const clickEvent = new window.Event('click', { bubbles: true });
+-		await btn?.dispatchEvent(clickEvent);
+-
+-		assert.htmlEqual(target.innerHTML, `<button>1</button>`);
++		await btn?.click();
++		assert.htmlEqual(target.innerHTML, `<button>1 / 1</button>`);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/ambiguous-source/main.svelte b/packages/svelte/tests/runtime-runes/samples/ambiguous-source/main.svelte
+index 878cf2e0bdd1..8cec3dac6d16 100644
+--- a/packages/svelte/tests/runtime-runes/samples/ambiguous-source/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/ambiguous-source/main.svelte
+@@ -2,6 +2,7 @@
+   import { setup } from './utils.js';
+ 
+   let { num } = $state(setup());
++  let { num: num_frozen } = $state(setup());
+ </script>
+ 
+-<button on:click={() => num++}>{num}</button>
++<button on:click={() => { num++; num_frozen++; }}>{num} / {num_frozen}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports3/_config.js b/packages/svelte/tests/runtime-runes/samples/exports3/_config.js
+new file mode 100644
+index 000000000000..d56d3b306d65
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports3/_config.js
+@@ -0,0 +1,12 @@
++import { test } from '../../test';
++
++export default test({
++	async test({ assert, target }) {
++		assert.htmlEqual(target.innerHTML, `0 0 <button>0 / 0</button>`);
++		const [btn] = target.querySelectorAll('button');
++
++		btn?.click();
++		await Promise.resolve();
++		assert.htmlEqual(target.innerHTML, '0 1 <button>0 / 1</button>');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports3/main.svelte b/packages/svelte/tests/runtime-runes/samples/exports3/main.svelte
+new file mode 100644
+index 000000000000..ea5c63234398
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports3/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	import Sub from './sub.svelte'
++	let sub = $state();
++</script>
++
++<Sub bind:this={sub} />
++<button on:click={() => sub.increment()}>{sub?.count1.value} / {sub?.count2.value}</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/exports3/sub.svelte b/packages/svelte/tests/runtime-runes/samples/exports3/sub.svelte
+new file mode 100644
+index 000000000000..37de78094a22
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/exports3/sub.svelte
+@@ -0,0 +1,15 @@
++<script>
++	export const count1 = $state.frozen({value: 0}); 
++	export const count2 = $state({value: 0}); 
++	
++	export function increment() { 
++		count2.value += 1;
++	}
++
++</script>
++
++{count1.value}
++{count2.value} 
++
++<!-- so that count1/2 become sources -->
++<svelte:options accessors />

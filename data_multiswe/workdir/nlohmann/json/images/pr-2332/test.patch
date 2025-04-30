@@ -1,0 +1,29 @@
+diff --git a/test/src/unit-class_lexer.cpp b/test/src/unit-class_lexer.cpp
+index 0f544d5553..6d4ede8a5e 100644
+--- a/test/src/unit-class_lexer.cpp
++++ b/test/src/unit-class_lexer.cpp
+@@ -241,5 +241,8 @@ TEST_CASE("lexer class")
+         CHECK((scan_string("/* true */", true) == json::lexer::token_type::end_of_input));
+         CHECK((scan_string("/*/**/", true) == json::lexer::token_type::end_of_input));
+         CHECK((scan_string("/*/* */", true) == json::lexer::token_type::end_of_input));
++
++        CHECK((scan_string("//\n//\n", true) == json::lexer::token_type::end_of_input));
++        CHECK((scan_string("/**//**//**/", true) == json::lexer::token_type::end_of_input));
+     }
+ }
+diff --git a/test/src/unit-regression2.cpp b/test/src/unit-regression2.cpp
+index d445f068e8..1f8c527de7 100644
+--- a/test/src/unit-regression2.cpp
++++ b/test/src/unit-regression2.cpp
+@@ -478,4 +478,11 @@ TEST_CASE("regression tests 2")
+         CHECK(jsonObj["aaaa"] == 11);
+         CHECK(jsonObj["bbb"] == 222);
+     }
++
++    SECTION("issue #2330 - ignore_comment=true fails on multiple consecutive lines starting with comments")
++    {
++        std::string ss = "//\n//\n{\n}\n";
++        json j = json::parse(ss, nullptr, true, true);
++        CHECK(j.dump() == "{}");
++    }
+ }

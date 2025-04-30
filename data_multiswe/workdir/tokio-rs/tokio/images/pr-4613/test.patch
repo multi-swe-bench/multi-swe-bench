@@ -1,0 +1,120 @@
+diff --git a/tests-build/tests/fail/macros_invalid_input.rs b/tests-build/tests/fail/macros_invalid_input.rs
+index eb04eca76b6..5179bb6add2 100644
+--- a/tests-build/tests/fail/macros_invalid_input.rs
++++ b/tests-build/tests/fail/macros_invalid_input.rs
+@@ -33,6 +33,15 @@ async fn test_worker_threads_not_int() {}
+ #[tokio::test(flavor = "current_thread", worker_threads = 4)]
+ async fn test_worker_threads_and_current_thread() {}
+ 
++#[tokio::test(crate = 456)]
++async fn test_crate_not_ident_int() {}
++
++#[tokio::test(crate = "456")]
++async fn test_crate_not_ident_invalid() {}
++
++#[tokio::test(crate = "abc::edf")]
++async fn test_crate_not_ident_path() {}
++
+ #[tokio::test]
+ #[test]
+ async fn test_has_second_test_attr() {}
+diff --git a/tests-build/tests/fail/macros_invalid_input.stderr b/tests-build/tests/fail/macros_invalid_input.stderr
+index e872e74d533..5e492f8fd25 100644
+--- a/tests-build/tests/fail/macros_invalid_input.stderr
++++ b/tests-build/tests/fail/macros_invalid_input.stderr
+@@ -4,7 +4,7 @@ error: the `async` keyword is missing from the function declaration
+ 4 | fn main_is_not_async() {}
+   | ^^
+ 
+-error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`
++error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`, `crate`
+  --> $DIR/macros_invalid_input.rs:6:15
+   |
+ 6 | #[tokio::main(foo)]
+@@ -22,13 +22,13 @@ error: the `async` keyword is missing from the function declaration
+ 13 | fn test_is_not_async() {}
+    | ^^
+ 
+-error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`
++error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`, `crate`
+   --> $DIR/macros_invalid_input.rs:15:15
+    |
+ 15 | #[tokio::test(foo)]
+    |               ^^^
+ 
+-error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`
++error: Unknown attribute foo is specified; expected one of: `flavor`, `worker_threads`, `start_paused`, `crate`
+   --> $DIR/macros_invalid_input.rs:18:15
+    |
+ 18 | #[tokio::test(foo = 123)]
+@@ -64,16 +64,34 @@ error: The `worker_threads` option requires the `multi_thread` runtime flavor. U
+ 33 | #[tokio::test(flavor = "current_thread", worker_threads = 4)]
+    |                                                           ^
+ 
++error: Failed to parse value of `crate` as ident.
++  --> $DIR/macros_invalid_input.rs:36:23
++   |
++36 | #[tokio::test(crate = 456)]
++   |                       ^^^
++
++error: Failed to parse value of `crate` as ident: "456"
++  --> $DIR/macros_invalid_input.rs:39:23
++   |
++39 | #[tokio::test(crate = "456")]
++   |                       ^^^^^
++
++error: Failed to parse value of `crate` as ident: "abc::edf"
++  --> $DIR/macros_invalid_input.rs:42:23
++   |
++42 | #[tokio::test(crate = "abc::edf")]
++   |                       ^^^^^^^^^^
++
+ error: second test attribute is supplied
+-  --> $DIR/macros_invalid_input.rs:37:1
++  --> $DIR/macros_invalid_input.rs:46:1
+    |
+-37 | #[test]
++46 | #[test]
+    | ^^^^^^^
+ 
+ error: duplicated attribute
+-  --> $DIR/macros_invalid_input.rs:37:1
++  --> $DIR/macros_invalid_input.rs:46:1
+    |
+-37 | #[test]
++46 | #[test]
+    | ^^^^^^^
+    |
+    = note: `-D duplicate-macro-attributes` implied by `-D warnings`
+diff --git a/tokio/tests/macros_rename_test.rs b/tokio/tests/macros_rename_test.rs
+new file mode 100644
+index 00000000000..fd5554ced1f
+--- /dev/null
++++ b/tokio/tests/macros_rename_test.rs
+@@ -0,0 +1,26 @@
++#![cfg(feature = "full")]
++
++#[allow(unused_imports)]
++use std as tokio;
++
++use ::tokio as tokio1;
++
++async fn compute() -> usize {
++    let join = tokio1::spawn(async { 1 });
++    join.await.unwrap()
++}
++
++#[tokio1::main(crate = "tokio1")]
++async fn compute_main() -> usize {
++    compute().await
++}
++
++#[test]
++fn crate_rename_main() {
++    assert_eq!(1, compute_main());
++}
++
++#[tokio1::test(crate = "tokio1")]
++async fn crate_rename_test() {
++    assert_eq!(1, compute().await);
++}

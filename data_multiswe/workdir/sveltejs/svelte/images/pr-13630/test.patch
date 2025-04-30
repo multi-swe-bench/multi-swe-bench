@@ -1,0 +1,68 @@
+diff --git a/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/input.svelte b/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/input.svelte
+new file mode 100644
+index 000000000000..78c7a6b1243c
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/input.svelte
+@@ -0,0 +1,27 @@
++<script>
++	let count = 0;
++
++	$: {
++		console.log({ count, double });
++	}
++
++	// this comment should remain attached to this declaration after migration
++	$: double = count * 2; // this too
++
++	// triple
++	let triple;
++	$: {
++		// update triple
++		triple = count * 3;
++		// trailing comment
++		// in triple
++	}
++
++	function increment() {
++		count += 1;
++	}
++</script>
++
++<button onclick={increment}>
++	clicks: {count}
++</button>
+\ No newline at end of file
+diff --git a/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/output.svelte b/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/output.svelte
+new file mode 100644
+index 000000000000..48a3378d515c
+--- /dev/null
++++ b/packages/svelte/tests/migrate/samples/reactive-statements-reorder-with-comments/output.svelte
+@@ -0,0 +1,27 @@
++<script>
++	import { run } from 'svelte/legacy';
++
++	let count = $state(0);
++
++
++
++	// triple
++	//  update triple
++	let triple = $derived(count * 3)
++	//  trailing comment
++	//  in triple;
++
++	function increment() {
++		count += 1;
++	}
++	// this comment should remain attached to this declaration after migration
++	let double = $derived(count * 2); // this too
++	run(() => {
++		console.log({ count, double });
++	});
++	
++</script>
++
++<button onclick={increment}>
++	clicks: {count}
++</button>
+\ No newline at end of file

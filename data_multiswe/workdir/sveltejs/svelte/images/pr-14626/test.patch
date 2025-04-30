@@ -1,0 +1,57 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/_config.js b/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/_config.js
+index 158d1e6f63e0..dd5c387405e0 100644
+--- a/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/_config.js
+@@ -4,17 +4,23 @@ import { assert_ok } from '../../../suite';
+ 
+ export default test({
+ 	async test({ assert, target, logs }) {
+-		const input = target.querySelector('input');
+-
+-		assert_ok(input);
++		const [input, checkbox] = target.querySelectorAll('input');
+ 
+ 		input.value = '2';
+ 		input.dispatchEvent(new window.Event('input'));
+ 
+ 		flushSync();
+ 
+-		assert.htmlEqual(target.innerHTML, `<button>a: 2</button><input type="value">`);
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>a: 2</button><input type="value"><div><input type="checkbox" ></div>`
++		);
+ 
+ 		assert.deepEqual(logs, ['b', '2', 'a', '2']);
++
++		flushSync(() => {
++			checkbox.click();
++		});
++		assert.deepEqual(logs, ['b', '2', 'a', '2', 'check', false]);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/main.svelte b/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/main.svelte
+index 191a4234764d..f6d908fba196 100644
+--- a/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/bind-getter-setter/main.svelte
+@@ -2,6 +2,7 @@
+ 	import Child from './Child.svelte';
+ 
+ 	let a = $state(0);
++	let check = $state(true);
+ </script>
+ 
+ <button onclick={() => a++}>a: {a}</button>
+@@ -14,3 +15,11 @@
+ 	}}
+ />
+ 
++<div>
++	<input type="checkbox" 
++	bind:checked={()=>check,
++	(v)=>{
++		console.log('check', v);
++		check = v;
++	}} />
++</div>
+\ No newline at end of file

@@ -1,0 +1,4456 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index bf8c20046..a98a2f561 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -193,6 +193,10 @@ jobs:
+       shell: bash
+       run: ci/test-complete
+ 
++    - name: Print hostname detected by grep-cli crate
++      shell: bash
++      run: ${{ env.CARGO }} test --manifest-path crates/cli/Cargo.toml ${{ env.TARGET_FLAGS }} --lib print_hostname -- --nocapture
++
+   rustfmt:
+     runs-on: ubuntu-latest
+     steps:
+diff --git a/.gitignore b/.gitignore
+index aefc2c0ed..881633e23 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -7,6 +7,7 @@ target
+ /termcolor/Cargo.lock
+ /wincolor/Cargo.lock
+ /deployment
++/.idea
+ 
+ # Snapcraft files
+ stage
+diff --git a/Cargo.lock b/Cargo.lock
+index d6fd4508c..6029cc1a0 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -19,9 +19,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
+ 
+ [[package]]
+ name = "base64"
+-version = "0.20.0"
++version = "0.21.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
++checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
+ 
+ [[package]]
+ name = "bitflags"
+@@ -177,10 +177,8 @@ version = "0.1.9"
+ dependencies = [
+  "bstr",
+  "globset",
+- "lazy_static",
++ "libc",
+  "log",
+- "regex",
+- "same-file",
+  "termcolor",
+  "winapi-util",
+ ]
+@@ -211,6 +209,7 @@ dependencies = [
+  "grep-matcher",
+  "grep-regex",
+  "grep-searcher",
++ "log",
+  "serde",
+  "serde_json",
+  "termcolor",
+@@ -600,9 +599,9 @@ checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
+ 
+ [[package]]
+ name = "winapi-util"
+-version = "0.1.5"
++version = "0.1.6"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "70ec6ce85bb158151cae5e5c87f95a8e97d2c0c4b001223f33a334e3ce5de178"
++checksum = "f29e6f9198ba0d26b4c9f07dbe6f9ed633e1f3d5b8b414090084349e46a52596"
+ dependencies = [
+  "winapi",
+ ]
+diff --git a/complete/_rg b/complete/_rg
+index 657648ca7..7fd6c542b 100644
+--- a/complete/_rg
++++ b/complete/_rg
+@@ -305,6 +305,8 @@ _rg() {
+     '--debug[show debug messages]'
+     '--field-context-separator[set string to delimit fields in context lines]'
+     '--field-match-separator[set string to delimit fields in matching lines]'
++    '--hostname-bin=[executable for getting system hostname]:hostname executable:_command_names -e'
++    '--hyperlink-format=[specify pattern for hyperlinks]:pattern'
+     '--trace[show more verbose debug messages]'
+     '--dfa-size-limit=[specify upper size limit of generated DFA]:DFA size (bytes)'
+     "(1 stats)--files[show each file that would be searched (but don't search)]"
+diff --git a/crates/cli/Cargo.toml b/crates/cli/Cargo.toml
+index 5226b762a..8e576b669 100644
+--- a/crates/cli/Cargo.toml
++++ b/crates/cli/Cargo.toml
+@@ -11,16 +11,16 @@ repository = "https://github.com/BurntSushi/ripgrep/tree/master/crates/cli"
+ readme = "README.md"
+ keywords = ["regex", "grep", "cli", "utility", "util"]
+ license = "Unlicense OR MIT"
+-edition = "2018"
++edition = "2021"
+ 
+ [dependencies]
+-bstr = "1.6.0"
++bstr = { version = "1.6.2", features = ["std"] }
+ globset = { version = "0.4.10", path = "../globset" }
+-lazy_static = "1.1.0"
+-log = "0.4.5"
+-regex = "1.1"
+-same-file = "1.0.4"
+-termcolor = "1.0.4"
++log = "0.4.20"
++termcolor = "1.3.0"
+ 
+ [target.'cfg(windows)'.dependencies.winapi-util]
+-version = "0.1.1"
++version = "0.1.6"
++
++[target.'cfg(unix)'.dependencies.libc]
++version = "0.2.148"
+diff --git a/crates/cli/src/decompress.rs b/crates/cli/src/decompress.rs
+index 72eefddad..9e93c9825 100644
+--- a/crates/cli/src/decompress.rs
++++ b/crates/cli/src/decompress.rs
+@@ -1,8 +1,10 @@
+-use std::ffi::{OsStr, OsString};
+-use std::fs::File;
+-use std::io;
+-use std::path::{Path, PathBuf};
+-use std::process::Command;
++use std::{
++    ffi::{OsStr, OsString},
++    fs::File,
++    io,
++    path::{Path, PathBuf},
++    process::Command,
++};
+ 
+ use globset::{Glob, GlobSet, GlobSetBuilder};
+ 
+@@ -161,7 +163,7 @@ impl DecompressionMatcher {
+     /// Create a new matcher with default rules.
+     ///
+     /// To add more matching rules, build a matcher with
+-    /// [`DecompressionMatcherBuilder`](struct.DecompressionMatcherBuilder.html).
++    /// [`DecompressionMatcherBuilder`].
+     pub fn new() -> DecompressionMatcher {
+         DecompressionMatcherBuilder::new()
+             .build()
+@@ -221,9 +223,8 @@ impl DecompressionReaderBuilder {
+         path: P,
+     ) -> Result<DecompressionReader, CommandError> {
+         let path = path.as_ref();
+-        let mut cmd = match self.matcher.command(path) {
+-            None => return DecompressionReader::new_passthru(path),
+-            Some(cmd) => cmd,
++        let Some(mut cmd) = self.matcher.command(path) else {
++            return DecompressionReader::new_passthru(path);
+         };
+         cmd.arg(path);
+ 
+@@ -302,9 +303,7 @@ impl DecompressionReaderBuilder {
+ /// The default matching rules are probably good enough for most cases, and if
+ /// they require revision, pull requests are welcome. In cases where they must
+ /// be changed or extended, they can be customized through the use of
+-/// [`DecompressionMatcherBuilder`](struct.DecompressionMatcherBuilder.html)
+-/// and
+-/// [`DecompressionReaderBuilder`](struct.DecompressionReaderBuilder.html).
++/// [`DecompressionMatcherBuilder`] and [`DecompressionReaderBuilder`].
+ ///
+ /// By default, this reader will asynchronously read the processes' stderr.
+ /// This prevents subtle deadlocking bugs for noisy processes that write a lot
+@@ -320,15 +319,14 @@ impl DecompressionReaderBuilder {
+ /// matcher.
+ ///
+ /// ```no_run
+-/// use std::io::Read;
+-/// use std::process::Command;
++/// use std::{io::Read, process::Command};
++///
+ /// use grep_cli::DecompressionReader;
+ ///
+-/// # fn example() -> Result<(), Box<::std::error::Error>> {
+ /// let mut rdr = DecompressionReader::new("/usr/share/man/man1/ls.1.gz")?;
+ /// let mut contents = vec![];
+ /// rdr.read_to_end(&mut contents)?;
+-/// # Ok(()) }
++/// # Ok::<(), Box<dyn std::error::Error>>(())
+ /// ```
+ #[derive(Debug)]
+ pub struct DecompressionReader {
+@@ -347,9 +345,7 @@ impl DecompressionReader {
+     ///
+     /// This uses the default matching rules for determining how to decompress
+     /// the given file. To change those matching rules, use
+-    /// [`DecompressionReaderBuilder`](struct.DecompressionReaderBuilder.html)
+-    /// and
+-    /// [`DecompressionMatcherBuilder`](struct.DecompressionMatcherBuilder.html).
++    /// [`DecompressionReaderBuilder`] and [`DecompressionMatcherBuilder`].
+     ///
+     /// When creating readers for many paths. it is better to use the builder
+     /// since it will amortize the cost of constructing the matcher.
+@@ -453,10 +449,7 @@ fn try_resolve_binary<P: AsRef<Path>>(
+     use std::env;
+ 
+     fn is_exe(path: &Path) -> bool {
+-        let md = match path.metadata() {
+-            Err(_) => return false,
+-            Ok(md) => md,
+-        };
++        let Ok(md) = path.metadata() else { return false };
+         !md.is_dir()
+     }
+ 
+@@ -464,15 +457,12 @@ fn try_resolve_binary<P: AsRef<Path>>(
+     if prog.is_absolute() {
+         return Ok(prog.to_path_buf());
+     }
+-    let syspaths = match env::var_os("PATH") {
+-        Some(syspaths) => syspaths,
+-        None => {
+-            let msg = "system PATH environment variable not found";
+-            return Err(CommandError::io(io::Error::new(
+-                io::ErrorKind::Other,
+-                msg,
+-            )));
+-        }
++    let Some(syspaths) = env::var_os("PATH") else {
++        let msg = "system PATH environment variable not found";
++        return Err(CommandError::io(io::Error::new(
++            io::ErrorKind::Other,
++            msg,
++        )));
+     };
+     for syspath in env::split_paths(&syspaths) {
+         if syspath.as_os_str().is_empty() {
+diff --git a/crates/cli/src/escape.rs b/crates/cli/src/escape.rs
+index 6d06abb5d..9b442343c 100644
+--- a/crates/cli/src/escape.rs
++++ b/crates/cli/src/escape.rs
+@@ -1,21 +1,7 @@
+ use std::ffi::OsStr;
+-use std::str;
+ 
+ use bstr::{ByteSlice, ByteVec};
+ 
+-/// A single state in the state machine used by `unescape`.
+-#[derive(Clone, Copy, Eq, PartialEq)]
+-enum State {
+-    /// The state after seeing a `\`.
+-    Escape,
+-    /// The state after seeing a `\x`.
+-    HexFirst,
+-    /// The state after seeing a `\x[0-9A-Fa-f]`.
+-    HexSecond(char),
+-    /// Default state.
+-    Literal,
+-}
+-
+ /// Escapes arbitrary bytes into a human readable string.
+ ///
+ /// This converts `\t`, `\r` and `\n` into their escaped forms. It also
+@@ -38,17 +24,7 @@ enum State {
+ /// assert_eq!(r"foo\nbar\xFFbaz", escape(b"foo\nbar\xFFbaz"));
+ /// ```
+ pub fn escape(bytes: &[u8]) -> String {
+-    let mut escaped = String::new();
+-    for (s, e, ch) in bytes.char_indices() {
+-        if ch == '\u{FFFD}' {
+-            for b in bytes[s..e].bytes() {
+-                escape_byte(b, &mut escaped);
+-            }
+-        } else {
+-            escape_char(ch, &mut escaped);
+-        }
+-    }
+-    escaped
++    bytes.escape_bytes().to_string()
+ }
+ 
+ /// Escapes an OS string into a human readable string.
+@@ -89,76 +65,7 @@ pub fn escape_os(string: &OsStr) -> String {
+ /// assert_eq!(&b"foo\nbar\xFFbaz"[..], &*unescape(r"foo\nbar\xFFbaz"));
+ /// ```
+ pub fn unescape(s: &str) -> Vec<u8> {
+-    use self::State::*;
+-
+-    let mut bytes = vec![];
+-    let mut state = Literal;
+-    for c in s.chars() {
+-        match state {
+-            Escape => match c {
+-                '\\' => {
+-                    bytes.push(b'\\');
+-                    state = Literal;
+-                }
+-                'n' => {
+-                    bytes.push(b'\n');
+-                    state = Literal;
+-                }
+-                'r' => {
+-                    bytes.push(b'\r');
+-                    state = Literal;
+-                }
+-                't' => {
+-                    bytes.push(b'\t');
+-                    state = Literal;
+-                }
+-                'x' => {
+-                    state = HexFirst;
+-                }
+-                c => {
+-                    bytes.extend(format!(r"\{}", c).into_bytes());
+-                    state = Literal;
+-                }
+-            },
+-            HexFirst => match c {
+-                '0'..='9' | 'A'..='F' | 'a'..='f' => {
+-                    state = HexSecond(c);
+-                }
+-                c => {
+-                    bytes.extend(format!(r"\x{}", c).into_bytes());
+-                    state = Literal;
+-                }
+-            },
+-            HexSecond(first) => match c {
+-                '0'..='9' | 'A'..='F' | 'a'..='f' => {
+-                    let ordinal = format!("{}{}", first, c);
+-                    let byte = u8::from_str_radix(&ordinal, 16).unwrap();
+-                    bytes.push(byte);
+-                    state = Literal;
+-                }
+-                c => {
+-                    let original = format!(r"\x{}{}", first, c);
+-                    bytes.extend(original.into_bytes());
+-                    state = Literal;
+-                }
+-            },
+-            Literal => match c {
+-                '\\' => {
+-                    state = Escape;
+-                }
+-                c => {
+-                    bytes.extend(c.to_string().as_bytes());
+-                }
+-            },
+-        }
+-    }
+-    match state {
+-        Escape => bytes.push(b'\\'),
+-        HexFirst => bytes.extend(b"\\x"),
+-        HexSecond(c) => bytes.extend(format!("\\x{}", c).into_bytes()),
+-        Literal => {}
+-    }
+-    bytes
++    Vec::unescape_bytes(s)
+ }
+ 
+ /// Unescapes an OS string.
+@@ -171,27 +78,6 @@ pub fn unescape_os(string: &OsStr) -> Vec<u8> {
+     unescape(&string.to_string_lossy())
+ }
+ 
+-/// Adds the given codepoint to the given string, escaping it if necessary.
+-fn escape_char(cp: char, into: &mut String) {
+-    if cp.is_ascii() {
+-        escape_byte(cp as u8, into);
+-    } else {
+-        into.push(cp);
+-    }
+-}
+-
+-/// Adds the given byte to the given string, escaping it if necessary.
+-fn escape_byte(byte: u8, into: &mut String) {
+-    match byte {
+-        0x21..=0x5B | 0x5D..=0x7D => into.push(byte as char),
+-        b'\n' => into.push_str(r"\n"),
+-        b'\r' => into.push_str(r"\r"),
+-        b'\t' => into.push_str(r"\t"),
+-        b'\\' => into.push_str(r"\\"),
+-        _ => into.push_str(&format!(r"\x{:02X}", byte)),
+-    }
+-}
+-
+ #[cfg(test)]
+ mod tests {
+     use super::{escape, unescape};
+@@ -215,7 +101,8 @@ mod tests {
+     #[test]
+     fn nul() {
+         assert_eq!(b(b"\x00"), unescape(r"\x00"));
+-        assert_eq!(r"\x00", escape(b"\x00"));
++        assert_eq!(b(b"\x00"), unescape(r"\0"));
++        assert_eq!(r"\0", escape(b"\x00"));
+     }
+ 
+     #[test]
+diff --git a/crates/cli/src/hostname.rs b/crates/cli/src/hostname.rs
+new file mode 100644
+index 000000000..37ad54c78
+--- /dev/null
++++ b/crates/cli/src/hostname.rs
+@@ -0,0 +1,85 @@
++use std::{ffi::OsString, io};
++
++/// Returns the hostname of the current system.
++///
++/// It is unusual, although technically possible, for this routine to return
++/// an error. It is difficult to list out the error conditions, but one such
++/// possibility is platform support.
++///
++/// # Platform specific behavior
++///
++/// On Windows, this currently uses the "physical DNS hostname" computer name.
++/// This may change in the future.
++///
++/// On Unix, this returns the result of the `gethostname` function from the
++/// `libc` linked into the program.
++pub fn hostname() -> io::Result<OsString> {
++    #[cfg(windows)]
++    {
++        use winapi_util::sysinfo::{get_computer_name, ComputerNameKind};
++        get_computer_name(ComputerNameKind::PhysicalDnsHostname)
++    }
++    #[cfg(unix)]
++    {
++        gethostname()
++    }
++    #[cfg(not(any(windows, unix)))]
++    {
++        io::Error::new(
++            io::ErrorKind::Other,
++            "hostname could not be found on unsupported platform",
++        )
++    }
++}
++
++#[cfg(unix)]
++fn gethostname() -> io::Result<OsString> {
++    use std::os::unix::ffi::OsStringExt;
++
++    // SAFETY: There don't appear to be any safety requirements for calling
++    // sysconf.
++    let limit = unsafe { libc::sysconf(libc::_SC_HOST_NAME_MAX) };
++    if limit == -1 {
++        // It is in theory possible for sysconf to return -1 for a limit but
++        // *not* set errno, in which case, io::Error::last_os_error is
++        // indeterminate. But untangling that is super annoying because std
++        // doesn't expose any unix-specific APIs for inspecting the errno. (We
++        // could do it ourselves, but it just doesn't seem worth doing?)
++        return Err(io::Error::last_os_error());
++    }
++    let Ok(maxlen) = usize::try_from(limit) else {
++        let msg = format!("host name max limit ({}) overflowed usize", limit);
++        return Err(io::Error::new(io::ErrorKind::Other, msg));
++    };
++    // maxlen here includes the NUL terminator.
++    let mut buf = vec![0; maxlen];
++    // SAFETY: The pointer we give is valid as it is derived directly from a
++    // Vec. Similarly, `maxlen` is the length of our Vec, and is thus valid
++    // to write to.
++    let rc = unsafe {
++        libc::gethostname(buf.as_mut_ptr().cast::<libc::c_char>(), maxlen)
++    };
++    if rc == -1 {
++        return Err(io::Error::last_os_error());
++    }
++    // POSIX says that if the hostname is bigger than `maxlen`, then it may
++    // write a truncate name back that is not necessarily NUL terminated (wtf,
++    // lol). So if we can't find a NUL terminator, then just give up.
++    let Some(zeropos) = buf.iter().position(|&b| b == 0) else {
++        let msg = "could not find NUL terminator in hostname";
++        return Err(io::Error::new(io::ErrorKind::Other, msg));
++    };
++    buf.truncate(zeropos);
++    buf.shrink_to_fit();
++    Ok(OsString::from_vec(buf))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn print_hostname() {
++        println!("{:?}", hostname().unwrap());
++    }
++}
+diff --git a/crates/cli/src/human.rs b/crates/cli/src/human.rs
+index ba8bf08a5..61b430dec 100644
+--- a/crates/cli/src/human.rs
++++ b/crates/cli/src/human.rs
+@@ -1,10 +1,3 @@
+-use std::error;
+-use std::fmt;
+-use std::io;
+-use std::num::ParseIntError;
+-
+-use regex::Regex;
+-
+ /// An error that occurs when parsing a human readable size description.
+ ///
+ /// This error provides an end user friendly message describing why the
+@@ -18,7 +11,7 @@ pub struct ParseSizeError {
+ #[derive(Clone, Debug, Eq, PartialEq)]
+ enum ParseSizeErrorKind {
+     InvalidFormat,
+-    InvalidInt(ParseIntError),
++    InvalidInt(std::num::ParseIntError),
+     Overflow,
+ }
+ 
+@@ -30,7 +23,7 @@ impl ParseSizeError {
+         }
+     }
+ 
+-    fn int(original: &str, err: ParseIntError) -> ParseSizeError {
++    fn int(original: &str, err: std::num::ParseIntError) -> ParseSizeError {
+         ParseSizeError {
+             original: original.to_string(),
+             kind: ParseSizeErrorKind::InvalidInt(err),
+@@ -45,22 +38,18 @@ impl ParseSizeError {
+     }
+ }
+ 
+-impl error::Error for ParseSizeError {
+-    fn description(&self) -> &str {
+-        "invalid size"
+-    }
+-}
++impl std::error::Error for ParseSizeError {}
+ 
+-impl fmt::Display for ParseSizeError {
+-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++impl std::fmt::Display for ParseSizeError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         use self::ParseSizeErrorKind::*;
+ 
+         match self.kind {
+             InvalidFormat => write!(
+                 f,
+-                "invalid format for size '{}', which should be a sequence \
+-                     of digits followed by an optional 'K', 'M' or 'G' \
+-                     suffix",
++                "invalid format for size '{}', which should be a non-empty \
++                 sequence of digits followed by an optional 'K', 'M' or 'G' \
++                 suffix",
+                 self.original
+             ),
+             InvalidInt(ref err) => write!(
+@@ -73,9 +62,9 @@ impl fmt::Display for ParseSizeError {
+     }
+ }
+ 
+-impl From<ParseSizeError> for io::Error {
+-    fn from(size_err: ParseSizeError) -> io::Error {
+-        io::Error::new(io::ErrorKind::Other, size_err)
++impl From<ParseSizeError> for std::io::Error {
++    fn from(size_err: ParseSizeError) -> std::io::Error {
++        std::io::Error::new(std::io::ErrorKind::Other, size_err)
+     }
+ }
+ 
+@@ -88,29 +77,24 @@ impl From<ParseSizeError> for io::Error {
+ ///
+ /// Additional suffixes may be added over time.
+ pub fn parse_human_readable_size(size: &str) -> Result<u64, ParseSizeError> {
+-    lazy_static::lazy_static! {
+-        // Normally I'd just parse something this simple by hand to avoid the
+-        // regex dep, but we bring regex in any way for glob matching, so might
+-        // as well use it.
+-        static ref RE: Regex = Regex::new(r"^([0-9]+)([KMG])?$").unwrap();
++    let digits_end =
++        size.as_bytes().iter().take_while(|&b| b.is_ascii_digit()).count();
++    let digits = &size[..digits_end];
++    if digits.is_empty() {
++        return Err(ParseSizeError::format(size));
+     }
++    let value =
++        digits.parse::<u64>().map_err(|e| ParseSizeError::int(size, e))?;
+ 
+-    let caps = match RE.captures(size) {
+-        Some(caps) => caps,
+-        None => return Err(ParseSizeError::format(size)),
+-    };
+-    let value: u64 =
+-        caps[1].parse().map_err(|err| ParseSizeError::int(size, err))?;
+-    let suffix = match caps.get(2) {
+-        None => return Ok(value),
+-        Some(cap) => cap.as_str(),
+-    };
++    let suffix = &size[digits_end..];
++    if suffix.is_empty() {
++        return Ok(value);
++    }
+     let bytes = match suffix {
+         "K" => value.checked_mul(1 << 10),
+         "M" => value.checked_mul(1 << 20),
+         "G" => value.checked_mul(1 << 30),
+-        // Because if the regex matches this group, it must be [KMG].
+-        _ => unreachable!(),
++        _ => return Err(ParseSizeError::format(size)),
+     };
+     bytes.ok_or_else(|| ParseSizeError::overflow(size))
+ }
+diff --git a/crates/cli/src/lib.rs b/crates/cli/src/lib.rs
+index 53b4d2c34..b335a3f52 100644
+--- a/crates/cli/src/lib.rs
++++ b/crates/cli/src/lib.rs
+@@ -11,27 +11,11 @@ and Linux.
+ 
+ # Standard I/O
+ 
+-The
+-[`is_readable_stdin`](fn.is_readable_stdin.html),
+-[`is_tty_stderr`](fn.is_tty_stderr.html),
+-[`is_tty_stdin`](fn.is_tty_stdin.html)
+-and
+-[`is_tty_stdout`](fn.is_tty_stdout.html)
+-routines query aspects of standard I/O. `is_readable_stdin` determines whether
+-stdin can be usefully read from, while the `tty` methods determine whether a
+-tty is attached to stdin/stdout/stderr.
+-
+-`is_readable_stdin` is useful when writing an application that changes behavior
+-based on whether the application was invoked with data on stdin. For example,
+-`rg foo` might recursively search the current working directory for
+-occurrences of `foo`, but `rg foo < file` might only search the contents of
+-`file`.
+-
+-The `tty` methods are useful for similar reasons. Namely, commands like `ls`
+-will change their output depending on whether they are printing to a terminal
+-or not. For example, `ls` shows a file on each line when stdout is redirected
+-to a file or a pipe, but condenses the output to show possibly many files on
+-each line when stdout is connected to a tty.
++[`is_readable_stdin`] determines whether stdin can be usefully read from. It
++is useful when writing an application that changes behavior based on whether
++the application was invoked with data on stdin. For example, `rg foo` might
++recursively search the current working directory for occurrences of `foo`, but
++`rg foo < file` might only search the contents of `file`.
+ 
+ 
+ # Coloring and buffering
+@@ -160,26 +144,28 @@ error message is crafted that typically tells the user how to fix the problem.
+ 
+ mod decompress;
+ mod escape;
++mod hostname;
+ mod human;
+ mod pattern;
+ mod process;
+ mod wtr;
+ 
+-use std::io::IsTerminal;
+-
+-pub use crate::decompress::{
+-    resolve_binary, DecompressionMatcher, DecompressionMatcherBuilder,
+-    DecompressionReader, DecompressionReaderBuilder,
+-};
+-pub use crate::escape::{escape, escape_os, unescape, unescape_os};
+-pub use crate::human::{parse_human_readable_size, ParseSizeError};
+-pub use crate::pattern::{
+-    pattern_from_bytes, pattern_from_os, patterns_from_path,
+-    patterns_from_reader, patterns_from_stdin, InvalidPatternError,
+-};
+-pub use crate::process::{CommandError, CommandReader, CommandReaderBuilder};
+-pub use crate::wtr::{
+-    stdout, stdout_buffered_block, stdout_buffered_line, StandardStream,
++pub use crate::{
++    decompress::{
++        resolve_binary, DecompressionMatcher, DecompressionMatcherBuilder,
++        DecompressionReader, DecompressionReaderBuilder,
++    },
++    escape::{escape, escape_os, unescape, unescape_os},
++    hostname::hostname,
++    human::{parse_human_readable_size, ParseSizeError},
++    pattern::{
++        pattern_from_bytes, pattern_from_os, patterns_from_path,
++        patterns_from_reader, patterns_from_stdin, InvalidPatternError,
++    },
++    process::{CommandError, CommandReader, CommandReaderBuilder},
++    wtr::{
++        stdout, stdout_buffered_block, stdout_buffered_line, StandardStream,
++    },
+ };
+ 
+ /// Returns true if and only if stdin is believed to be readable.
+@@ -189,34 +175,60 @@ pub use crate::wtr::{
+ /// might search the current directory for occurrences of `foo` where as
+ /// `command foo < some-file` or `cat some-file | command foo` might instead
+ /// only search stdin for occurrences of `foo`.
++///
++/// Note that this isn't perfect and essentially corresponds to a heuristic.
++/// When things are unclear (such as if an error occurs during introspection to
++/// determine whether stdin is readable), this prefers to return `false`. That
++/// means it's possible for an end user to pipe something into your program and
++/// have this return `false` and thus potentially lead to ignoring the user's
++/// stdin data. While not ideal, this is perhaps better than falsely assuming
++/// stdin is readable, which would result in blocking forever on reading stdin.
++/// Regardless, commands should always provide explicit fallbacks to override
++/// behavior. For example, `rg foo -` will explicitly search stdin and `rg foo
++/// ./` will explicitly search the current working directory.
+ pub fn is_readable_stdin() -> bool {
++    use std::io::IsTerminal;
++
+     #[cfg(unix)]
+     fn imp() -> bool {
+-        use same_file::Handle;
+-        use std::os::unix::fs::FileTypeExt;
+-
+-        let ft = match Handle::stdin().and_then(|h| h.as_file().metadata()) {
+-            Err(_) => return false,
+-            Ok(md) => md.file_type(),
++        use std::{
++            fs::File,
++            os::{fd::AsFd, unix::fs::FileTypeExt},
+         };
++
++        let stdin = std::io::stdin();
++        let Ok(fd) = stdin.as_fd().try_clone_to_owned() else { return false };
++        let file = File::from(fd);
++        let Ok(md) = file.metadata() else { return false };
++        let ft = md.file_type();
+         ft.is_file() || ft.is_fifo() || ft.is_socket()
+     }
+ 
+     #[cfg(windows)]
+     fn imp() -> bool {
+-        use winapi_util as winutil;
+-
+-        winutil::file::typ(winutil::HandleRef::stdin())
++        winapi_util::file::typ(winapi_util::HandleRef::stdin())
+             .map(|t| t.is_disk() || t.is_pipe())
+             .unwrap_or(false)
+     }
+ 
+-    !is_tty_stdin() && imp()
++    #[cfg(not(any(unix, windows)))]
++    fn imp() -> bool {
++        false
++    }
++
++    !std::io::stdin().is_terminal() && imp()
+ }
+ 
+ /// Returns true if and only if stdin is believed to be connected to a tty
+ /// or a console.
++///
++/// Note that this is now just a wrapper around
++/// [`std::io::IsTerminal`](https://doc.rust-lang.org/std/io/trait.IsTerminal.html).
++/// Callers should prefer using the `IsTerminal` trait directly. This routine
++/// is deprecated and will be removed in the next semver incompatible release.
++#[deprecated(since = "0.1.10", note = "use std::io::IsTerminal instead")]
+ pub fn is_tty_stdin() -> bool {
++    use std::io::IsTerminal;
+     std::io::stdin().is_terminal()
+ }
+ 
+@@ -228,12 +240,26 @@ pub fn is_tty_stdin() -> bool {
+ /// terminal or whether it's being redirected somewhere else. For example,
+ /// implementations of `ls` will often show one item per line when stdout is
+ /// redirected, but will condensed output when printing to a tty.
++///
++/// Note that this is now just a wrapper around
++/// [`std::io::IsTerminal`](https://doc.rust-lang.org/std/io/trait.IsTerminal.html).
++/// Callers should prefer using the `IsTerminal` trait directly. This routine
++/// is deprecated and will be removed in the next semver incompatible release.
++#[deprecated(since = "0.1.10", note = "use std::io::IsTerminal instead")]
+ pub fn is_tty_stdout() -> bool {
++    use std::io::IsTerminal;
+     std::io::stdout().is_terminal()
+ }
+ 
+ /// Returns true if and only if stderr is believed to be connected to a tty
+ /// or a console.
++///
++/// Note that this is now just a wrapper around
++/// [`std::io::IsTerminal`](https://doc.rust-lang.org/std/io/trait.IsTerminal.html).
++/// Callers should prefer using the `IsTerminal` trait directly. This routine
++/// is deprecated and will be removed in the next semver incompatible release.
++#[deprecated(since = "0.1.10", note = "use std::io::IsTerminal instead")]
+ pub fn is_tty_stderr() -> bool {
++    use std::io::IsTerminal;
+     std::io::stderr().is_terminal()
+ }
+diff --git a/crates/cli/src/pattern.rs b/crates/cli/src/pattern.rs
+index 9662d526e..f2466882e 100644
+--- a/crates/cli/src/pattern.rs
++++ b/crates/cli/src/pattern.rs
+@@ -1,10 +1,4 @@
+-use std::error;
+-use std::ffi::OsStr;
+-use std::fmt;
+-use std::fs::File;
+-use std::io;
+-use std::path::Path;
+-use std::str;
++use std::{ffi::OsStr, io, path::Path};
+ 
+ use bstr::io::BufReadExt;
+ 
+@@ -28,14 +22,10 @@ impl InvalidPatternError {
+     }
+ }
+ 
+-impl error::Error for InvalidPatternError {
+-    fn description(&self) -> &str {
+-        "invalid pattern"
+-    }
+-}
++impl std::error::Error for InvalidPatternError {}
+ 
+-impl fmt::Display for InvalidPatternError {
+-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++impl std::fmt::Display for InvalidPatternError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         write!(
+             f,
+             "found invalid UTF-8 in pattern at byte offset {}: {} \
+@@ -77,7 +67,7 @@ pub fn pattern_from_os(pattern: &OsStr) -> Result<&str, InvalidPatternError> {
+ pub fn pattern_from_bytes(
+     pattern: &[u8],
+ ) -> Result<&str, InvalidPatternError> {
+-    str::from_utf8(pattern).map_err(|err| InvalidPatternError {
++    std::str::from_utf8(pattern).map_err(|err| InvalidPatternError {
+         original: escape(pattern),
+         valid_up_to: err.valid_up_to(),
+     })
+@@ -91,7 +81,7 @@ pub fn pattern_from_bytes(
+ /// path.
+ pub fn patterns_from_path<P: AsRef<Path>>(path: P) -> io::Result<Vec<String>> {
+     let path = path.as_ref();
+-    let file = File::open(path).map_err(|err| {
++    let file = std::fs::File::open(path).map_err(|err| {
+         io::Error::new(
+             io::ErrorKind::Other,
+             format!("{}: {}", path.display(), err),
+@@ -135,7 +125,6 @@ pub fn patterns_from_stdin() -> io::Result<Vec<String>> {
+ /// ```
+ /// use grep_cli::patterns_from_reader;
+ ///
+-/// # fn example() -> Result<(), Box<::std::error::Error>> {
+ /// let patterns = "\
+ /// foo
+ /// bar\\s+foo
+@@ -147,7 +136,7 @@ pub fn patterns_from_stdin() -> io::Result<Vec<String>> {
+ ///     r"bar\s+foo",
+ ///     r"[a-z]{3}",
+ /// ]);
+-/// # Ok(()) }
++/// # Ok::<(), Box<dyn std::error::Error>>(())
+ /// ```
+ pub fn patterns_from_reader<R: io::Read>(rdr: R) -> io::Result<Vec<String>> {
+     let mut patterns = vec![];
+diff --git a/crates/cli/src/process.rs b/crates/cli/src/process.rs
+index 4280b07a4..11e02566a 100644
+--- a/crates/cli/src/process.rs
++++ b/crates/cli/src/process.rs
+@@ -1,9 +1,7 @@
+-use std::error;
+-use std::fmt;
+-use std::io::{self, Read};
+-use std::iter;
+-use std::process;
+-use std::thread::{self, JoinHandle};
++use std::{
++    io::{self, Read},
++    process,
++};
+ 
+ /// An error that can occur while running a command and reading its output.
+ ///
+@@ -40,14 +38,10 @@ impl CommandError {
+     }
+ }
+ 
+-impl error::Error for CommandError {
+-    fn description(&self) -> &str {
+-        "command error"
+-    }
+-}
++impl std::error::Error for CommandError {}
+ 
+-impl fmt::Display for CommandError {
+-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++impl std::fmt::Display for CommandError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         match self.kind {
+             CommandErrorKind::Io(ref e) => e.fmt(f),
+             CommandErrorKind::Stderr(ref bytes) => {
+@@ -55,7 +49,7 @@ impl fmt::Display for CommandError {
+                 if msg.trim().is_empty() {
+                     write!(f, "<stderr is empty>")
+                 } else {
+-                    let div = iter::repeat('-').take(79).collect::<String>();
++                    let div = "-".repeat(79);
+                     write!(
+                         f,
+                         "\n{div}\n{msg}\n{div}",
+@@ -161,18 +155,17 @@ impl CommandReaderBuilder {
+ /// is returned as an error.
+ ///
+ /// ```no_run
+-/// use std::io::Read;
+-/// use std::process::Command;
++/// use std::{io::Read, process::Command};
++///
+ /// use grep_cli::CommandReader;
+ ///
+-/// # fn example() -> Result<(), Box<::std::error::Error>> {
+ /// let mut cmd = Command::new("gzip");
+ /// cmd.arg("-d").arg("-c").arg("/usr/share/man/man1/ls.1.gz");
+ ///
+ /// let mut rdr = CommandReader::new(&mut cmd)?;
+ /// let mut contents = vec![];
+ /// rdr.read_to_end(&mut contents)?;
+-/// # Ok(()) }
++/// # Ok::<(), Box<dyn std::error::Error>>(())
+ /// ```
+ #[derive(Debug)]
+ pub struct CommandReader {
+@@ -279,7 +272,7 @@ impl io::Read for CommandReader {
+ /// stderr.
+ #[derive(Debug)]
+ enum StderrReader {
+-    Async(Option<JoinHandle<CommandError>>),
++    Async(Option<std::thread::JoinHandle<CommandError>>),
+     Sync(process::ChildStderr),
+ }
+ 
+@@ -287,7 +280,7 @@ impl StderrReader {
+     /// Create a reader for stderr that reads contents asynchronously.
+     fn r#async(mut stderr: process::ChildStderr) -> StderrReader {
+         let handle =
+-            thread::spawn(move || stderr_to_command_error(&mut stderr));
++            std::thread::spawn(move || stderr_to_command_error(&mut stderr));
+         StderrReader::Async(Some(handle))
+     }
+ 
+diff --git a/crates/cli/src/wtr.rs b/crates/cli/src/wtr.rs
+index b4890364e..18c1175ab 100644
+--- a/crates/cli/src/wtr.rs
++++ b/crates/cli/src/wtr.rs
+@@ -1,8 +1,6 @@
+-use std::io;
++use std::io::{self, IsTerminal};
+ 
+-use termcolor;
+-
+-use crate::is_tty_stdout;
++use termcolor::{self, HyperlinkSpec};
+ 
+ /// A writer that supports coloring with either line or block buffering.
+ pub struct StandardStream(StandardStreamKind);
+@@ -22,7 +20,7 @@ pub struct StandardStream(StandardStreamKind);
+ /// The color choice given is passed along to the underlying writer. To
+ /// completely disable colors in all cases, use `ColorChoice::Never`.
+ pub fn stdout(color_choice: termcolor::ColorChoice) -> StandardStream {
+-    if is_tty_stdout() {
++    if std::io::stdout().is_terminal() {
+         stdout_buffered_line(color_choice)
+     } else {
+         stdout_buffered_block(color_choice)
+@@ -101,6 +99,16 @@ impl termcolor::WriteColor for StandardStream {
+         }
+     }
+ 
++    #[inline]
++    fn supports_hyperlinks(&self) -> bool {
++        use self::StandardStreamKind::*;
++
++        match self.0 {
++            LineBuffered(ref w) => w.supports_hyperlinks(),
++            BlockBuffered(ref w) => w.supports_hyperlinks(),
++        }
++    }
++
+     #[inline]
+     fn set_color(&mut self, spec: &termcolor::ColorSpec) -> io::Result<()> {
+         use self::StandardStreamKind::*;
+@@ -111,6 +119,16 @@ impl termcolor::WriteColor for StandardStream {
+         }
+     }
+ 
++    #[inline]
++    fn set_hyperlink(&mut self, link: &HyperlinkSpec) -> io::Result<()> {
++        use self::StandardStreamKind::*;
++
++        match self.0 {
++            LineBuffered(ref mut w) => w.set_hyperlink(link),
++            BlockBuffered(ref mut w) => w.set_hyperlink(link),
++        }
++    }
++
+     #[inline]
+     fn reset(&mut self) -> io::Result<()> {
+         use self::StandardStreamKind::*;
+diff --git a/crates/core/app.rs b/crates/core/app.rs
+index 875c880b2..d0dfc8d37 100644
+--- a/crates/core/app.rs
++++ b/crates/core/app.rs
+@@ -580,6 +580,8 @@ pub fn all_args_and_flags() -> Vec<RGArg> {
+     flag_glob_case_insensitive(&mut args);
+     flag_heading(&mut args);
+     flag_hidden(&mut args);
++    flag_hostname_bin(&mut args);
++    flag_hyperlink_format(&mut args);
+     flag_iglob(&mut args);
+     flag_ignore_case(&mut args);
+     flag_ignore_file(&mut args);
+@@ -1494,6 +1496,100 @@ This flag can be disabled with --no-hidden.
+     args.push(arg);
+ }
+ 
++fn flag_hostname_bin(args: &mut Vec<RGArg>) {
++    const SHORT: &str = "Run a program to get this system's hostname.";
++    const LONG: &str = long!(
++        "\
++This flag controls how ripgrep determines this system's hostname. The flag's
++value should correspond to an executable (either a path or something that can
++be found via your system's *PATH* environment variable). When set, ripgrep will
++run this executable, with no arguments, and treat its output (with leading and
++trailing whitespace stripped) as your system's hostname.
++
++When not set (the default, or the empty string), ripgrep will try to
++automatically detect your system's hostname. On Unix, this corresponds
++to calling *gethostname*. On Windows, this corresponds to calling
++*GetComputerNameExW* to fetch the system's \"physical DNS hostname.\"
++
++ripgrep uses your system's hostname for producing hyperlinks.
++"
++    );
++    let arg =
++        RGArg::flag("hostname-bin", "COMMAND").help(SHORT).long_help(LONG);
++    args.push(arg);
++}
++
++fn flag_hyperlink_format(args: &mut Vec<RGArg>) {
++    const SHORT: &str = "Set the format of hyperlinks to match results.";
++    const LONG: &str = long!(
++        "\
++Set the format of hyperlinks to match results. Hyperlinks make certain elements
++of ripgrep's output, such as file paths, clickable. This generally only works
++in terminal emulators that support OSC-8 hyperlinks. For example, the format
++*file://{host}{file}* will emit an RFC 8089 hyperlink.
++
++The following variables are available in the format string:
++
++*{path}*: Required. This is replaced with a path to a matching file. The
++path is guaranteed to be absolute and percent encoded such that it is valid to
++put into a URI. Note that a path is guaranteed to start with a */*.
++
++*{host}*: Optional. This is replaced with your system's hostname. On Unix,
++this corresponds to calling *gethostname*. On Windows, this corresponds to
++calling *GetComputerNameExW* to fetch the system's \"physical DNS hostname.\"
++Alternatively, if --hostname-bin was provided, then the hostname returned from
++the output of that program will be returned. If no hostname could be found,
++then this variable is replaced with the empty string.
++
++*{line}*: Optional. If appropriate, this is replaced with the line number of
++a match. If no line number is available (for example, if --no-line-number was
++given), then it is automatically replaced with the value *1*.
++
++*{column}*: Optional, but requires the presence of **{line}**. If appropriate,
++this is replaced with the column number of a match. If no column number is
++available (for example, if --no-column was given), then it is automatically
++replaced with the value *1*.
++
++*{wslprefix}*: Optional. This is a special value that is set to
++*wsl$/WSL_DISTRO_NAME*, where *WSL_DISTRO_NAME* corresponds to the value of
++the equivalent environment variable. If the system is not Unix or if the
++*WSL_DISTRO_NAME* environment variable is not set, then this is replaced with
++the empty string.
++
++Alternatively, a format string may correspond to one of the following
++aliases: default, file, grep+, kitty, macvim, none, subl, textmate, vscode,
++vscode-insiders, vscodium.
++
++A format string may be empty. An empty format string is equivalent to the
++*none* alias. In this case, hyperlinks will be disabled.
++
++At present, the default format when ripgrep detects a tty on stdout all systems
++is *default*. This is an alias that expands to *file://{host}{path}* on Unix
++and *file://{path}* on Windows. When stdout is not a tty, then the default
++format behaves as if it were *none*. That is, hyperlinks are disabled.
++
++Note that hyperlinks are only written when colors are enabled. To write
++hyperlinks without colors, you'll need to configure ripgrep to not colorize
++anything without actually disabling all ANSI escape codes completely:
++
++    --colors 'path:none' --colors 'line:none' --colors 'column:none' --colors 'match:none'
++
++ripgrep works this way because it treats the *--color=(never|always|auto)* flag
++as a proxy for whether ANSI escape codes should be used at all. This means
++that environment variables like *NO_COLOR=1* and *TERM=dumb* not only disable
++colors, but hyperlinks as well. Similarly, colors and hyperlinks are disabled
++when ripgrep is not writing to a tty. (Unless one forces the issue by setting
++*--color=always*.)
++
++For more information on hyperlinks in terminal emulators, see:
++https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
++"
++    );
++    let arg =
++        RGArg::flag("hyperlink-format", "FORMAT").help(SHORT).long_help(LONG);
++    args.push(arg);
++}
++
+ fn flag_iglob(args: &mut Vec<RGArg>) {
+     const SHORT: &str = "Include or exclude files case insensitively.";
+     const LONG: &str = long!(
+diff --git a/crates/core/args.rs b/crates/core/args.rs
+index dc4cadb82..75029a050 100644
+--- a/crates/core/args.rs
++++ b/crates/core/args.rs
+@@ -2,9 +2,10 @@ use std::cmp;
+ use std::env;
+ use std::ffi::{OsStr, OsString};
+ use std::fs;
+-use std::io::{self, Write};
++use std::io::{self, IsTerminal, Write};
+ use std::path::{Path, PathBuf};
+ use std::process;
++use std::str::FromStr;
+ use std::sync::Arc;
+ use std::time::SystemTime;
+ 
+@@ -17,8 +18,9 @@ use grep::pcre2::{
+     RegexMatcherBuilder as PCRE2RegexMatcherBuilder,
+ };
+ use grep::printer::{
+-    default_color_specs, ColorSpecs, JSONBuilder, Standard, StandardBuilder,
+-    Stats, Summary, SummaryBuilder, SummaryKind, JSON,
++    default_color_specs, ColorSpecs, HyperlinkConfig, HyperlinkEnvironment,
++    HyperlinkFormat, JSONBuilder, PathPrinter, PathPrinterBuilder, Standard,
++    StandardBuilder, Stats, Summary, SummaryBuilder, SummaryKind, JSON,
+ };
+ use grep::regex::{
+     RegexMatcher as RustRegexMatcher,
+@@ -37,7 +39,6 @@ use crate::app;
+ use crate::config;
+ use crate::logger::Logger;
+ use crate::messages::{set_ignore_messages, set_messages};
+-use crate::path_printer::{PathPrinter, PathPrinterBuilder};
+ use crate::search::{
+     PatternMatcher, Printer, SearchWorker, SearchWorkerBuilder,
+ };
+@@ -235,6 +236,7 @@ impl Args {
+         let mut builder = PathPrinterBuilder::new();
+         builder
+             .color_specs(self.matches().color_specs()?)
++            .hyperlink(self.matches().hyperlink_config()?)
+             .separator(self.matches().path_separator()?)
+             .terminator(self.matches().path_terminator().unwrap_or(b'\n'));
+         Ok(builder.build(wtr))
+@@ -772,6 +774,7 @@ impl ArgMatches {
+         let mut builder = StandardBuilder::new();
+         builder
+             .color_specs(self.color_specs()?)
++            .hyperlink(self.hyperlink_config()?)
+             .stats(self.stats())
+             .heading(self.heading())
+             .path(self.with_filename(paths))
+@@ -811,6 +814,7 @@ impl ArgMatches {
+         builder
+             .kind(self.summary_kind().expect("summary format"))
+             .color_specs(self.color_specs()?)
++            .hyperlink(self.hyperlink_config()?)
+             .stats(self.stats())
+             .path(self.with_filename(paths))
+             .max_matches(self.max_count()?)
+@@ -972,7 +976,7 @@ impl ArgMatches {
+         } else if preference == "ansi" {
+             ColorChoice::AlwaysAnsi
+         } else if preference == "auto" {
+-            if cli::is_tty_stdout() || self.is_present("pretty") {
++            if std::io::stdout().is_terminal() || self.is_present("pretty") {
+                 ColorChoice::Auto
+             } else {
+                 ColorChoice::Never
+@@ -1106,7 +1110,7 @@ impl ArgMatches {
+         if self.is_present("no-heading") || self.is_present("vimgrep") {
+             false
+         } else {
+-            cli::is_tty_stdout()
++            std::io::stdout().is_terminal()
+                 || self.is_present("heading")
+                 || self.is_present("pretty")
+         }
+@@ -1118,6 +1122,27 @@ impl ArgMatches {
+         self.is_present("hidden") || self.unrestricted_count() >= 2
+     }
+ 
++    /// Returns the hyperlink pattern to use. A default pattern suitable
++    /// for the current system is used if the value is not set.
++    ///
++    /// If an invalid pattern is provided, then an error is returned.
++    fn hyperlink_config(&self) -> Result<HyperlinkConfig> {
++        let mut env = HyperlinkEnvironment::new();
++        env.host(hostname(self.value_of_os("hostname-bin")))
++            .wsl_prefix(wsl_prefix());
++        let fmt = match self.value_of_lossy("hyperlink-format") {
++            None => HyperlinkFormat::from_str("default").unwrap(),
++            Some(format) => match HyperlinkFormat::from_str(&format) {
++                Ok(format) => format,
++                Err(err) => {
++                    let msg = format!("invalid hyperlink format: {err}");
++                    return Err(msg.into());
++                }
++            },
++        };
++        Ok(HyperlinkConfig::new(env, fmt))
++    }
++
+     /// Returns true if ignore files should be processed case insensitively.
+     fn ignore_file_case_insensitive(&self) -> bool {
+         self.is_present("ignore-file-case-insensitive")
+@@ -1163,7 +1188,7 @@ impl ArgMatches {
+         // generally want to show line numbers by default when printing to a
+         // tty for human consumption, except for one interesting case: when
+         // we're only searching stdin. This makes pipelines work as expected.
+-        (cli::is_tty_stdout() && !self.is_only_stdin(paths))
++        (std::io::stdout().is_terminal() && !self.is_only_stdin(paths))
+             || self.is_present("line-number")
+             || self.is_present("column")
+             || self.is_present("pretty")
+@@ -1823,6 +1848,107 @@ fn current_dir() -> Result<PathBuf> {
+     .into())
+ }
+ 
++/// Retrieves the hostname that ripgrep should use wherever a hostname is
++/// required. Currently, that's just in the hyperlink format.
++///
++/// This works by first running the given binary program (if present and with
++/// no arguments) to get the hostname after trimming leading and trailing
++/// whitespace. If that fails for any reason, then it falls back to getting
++/// the hostname via platform specific means (e.g., `gethostname` on Unix).
++///
++/// The purpose of `bin` is to make it possible for end users to override how
++/// ripgrep determines the hostname.
++fn hostname(bin: Option<&OsStr>) -> Option<String> {
++    let Some(bin) = bin else { return platform_hostname() };
++    let bin = match grep::cli::resolve_binary(bin) {
++        Ok(bin) => bin,
++        Err(err) => {
++            log::debug!(
++                "failed to run command '{bin:?}' to get hostname \
++                 (falling back to platform hostname): {err}",
++            );
++            return platform_hostname();
++        }
++    };
++    let mut cmd = process::Command::new(&bin);
++    cmd.stdin(process::Stdio::null());
++    let rdr = match grep::cli::CommandReader::new(&mut cmd) {
++        Ok(rdr) => rdr,
++        Err(err) => {
++            log::debug!(
++                "failed to spawn command '{bin:?}' to get \
++                 hostname (falling back to platform hostname): {err}",
++            );
++            return platform_hostname();
++        }
++    };
++    let out = match io::read_to_string(rdr) {
++        Ok(out) => out,
++        Err(err) => {
++            log::debug!(
++                "failed to read output from command '{bin:?}' to get \
++                 hostname (falling back to platform hostname): {err}",
++            );
++            return platform_hostname();
++        }
++    };
++    let hostname = out.trim();
++    if hostname.is_empty() {
++        log::debug!(
++            "output from command '{bin:?}' is empty after trimming \
++             leading and trailing whitespace (falling back to \
++             platform hostname)",
++        );
++        return platform_hostname();
++    }
++    Some(hostname.to_string())
++}
++
++/// Attempts to get the hostname by using platform specific routines. For
++/// example, this will do `gethostname` on Unix and `GetComputerNameExW` on
++/// Windows.
++fn platform_hostname() -> Option<String> {
++    let hostname_os = match grep::cli::hostname() {
++        Ok(x) => x,
++        Err(err) => {
++            log::debug!("could not get hostname: {}", err);
++            return None;
++        }
++    };
++    let Some(hostname) = hostname_os.to_str() else {
++        log::debug!(
++            "got hostname {:?}, but it's not valid UTF-8",
++            hostname_os
++        );
++        return None;
++    };
++    Some(hostname.to_string())
++}
++
++/// Returns a value that is meant to fill in the `{wslprefix}` variable for
++/// a user given hyperlink format. A WSL prefix is a share/network like thing
++/// that is meant to permit Windows applications to open files stored within
++/// a WSL drive.
++///
++/// If a WSL distro name is unavailable, not valid UTF-8 or this isn't running
++/// in a Unix environment, then this returns None.
++///
++/// See: <https://learn.microsoft.com/en-us/windows/wsl/filesystems>
++fn wsl_prefix() -> Option<String> {
++    if !cfg!(unix) {
++        return None;
++    }
++    let distro_os = env::var_os("WSL_DISTRO_NAME")?;
++    let Some(distro) = distro_os.to_str() else {
++        log::debug!(
++            "found WSL_DISTRO_NAME={:?}, but value is not UTF-8",
++            distro_os
++        );
++        return None;
++    };
++    Some(format!("wsl$/{distro}"))
++}
++
+ /// Tries to assign a timestamp to every `Subject` in the vector to help with
+ /// sorting Subjects by time.
+ fn load_timestamps<G>(
+diff --git a/crates/core/main.rs b/crates/core/main.rs
+index 45230a208..5088cf08f 100644
+--- a/crates/core/main.rs
++++ b/crates/core/main.rs
+@@ -16,7 +16,6 @@ mod app;
+ mod args;
+ mod config;
+ mod logger;
+-mod path_printer;
+ mod search;
+ mod subject;
+ 
+@@ -248,7 +247,7 @@ fn files(args: &Args) -> Result<bool> {
+             if quit_after_match {
+                 break;
+             }
+-            if let Err(err) = path_printer.write_path(subject.path()) {
++            if let Err(err) = path_printer.write(subject.path()) {
+                 // A broken pipe means graceful termination.
+                 if err.kind() == io::ErrorKind::BrokenPipe {
+                     break;
+@@ -293,7 +292,7 @@ fn files_parallel(args: &Args) -> Result<bool> {
+ 
+     let print_thread = thread::spawn(move || -> io::Result<()> {
+         for subject in rx.iter() {
+-            path_printer.write_path(subject.path())?;
++            path_printer.write(subject.path())?;
+         }
+         Ok(())
+     });
+diff --git a/crates/core/path_printer.rs b/crates/core/path_printer.rs
+deleted file mode 100644
+index b964a84af..000000000
+--- a/crates/core/path_printer.rs
++++ /dev/null
+@@ -1,98 +0,0 @@
+-use std::io;
+-use std::path::Path;
+-
+-use grep::printer::{ColorSpecs, PrinterPath};
+-use termcolor::WriteColor;
+-
+-/// A configuration for describing how paths should be written.
+-#[derive(Clone, Debug)]
+-struct Config {
+-    colors: ColorSpecs,
+-    separator: Option<u8>,
+-    terminator: u8,
+-}
+-
+-impl Default for Config {
+-    fn default() -> Config {
+-        Config {
+-            colors: ColorSpecs::default(),
+-            separator: None,
+-            terminator: b'\n',
+-        }
+-    }
+-}
+-
+-/// A builder for constructing things to search over.
+-#[derive(Clone, Debug)]
+-pub struct PathPrinterBuilder {
+-    config: Config,
+-}
+-
+-impl PathPrinterBuilder {
+-    /// Return a new subject builder with a default configuration.
+-    pub fn new() -> PathPrinterBuilder {
+-        PathPrinterBuilder { config: Config::default() }
+-    }
+-
+-    /// Create a new path printer with the current configuration that writes
+-    /// paths to the given writer.
+-    pub fn build<W: WriteColor>(&self, wtr: W) -> PathPrinter<W> {
+-        PathPrinter { config: self.config.clone(), wtr }
+-    }
+-
+-    /// Set the color specification for this printer.
+-    ///
+-    /// Currently, only the `path` component of the given specification is
+-    /// used.
+-    pub fn color_specs(
+-        &mut self,
+-        specs: ColorSpecs,
+-    ) -> &mut PathPrinterBuilder {
+-        self.config.colors = specs;
+-        self
+-    }
+-
+-    /// A path separator.
+-    ///
+-    /// When provided, the path's default separator will be replaced with
+-    /// the given separator.
+-    ///
+-    /// This is not set by default, and the system's default path separator
+-    /// will be used.
+-    pub fn separator(&mut self, sep: Option<u8>) -> &mut PathPrinterBuilder {
+-        self.config.separator = sep;
+-        self
+-    }
+-
+-    /// A path terminator.
+-    ///
+-    /// When printing a path, it will be by terminated by the given byte.
+-    ///
+-    /// This is set to `\n` by default.
+-    pub fn terminator(&mut self, terminator: u8) -> &mut PathPrinterBuilder {
+-        self.config.terminator = terminator;
+-        self
+-    }
+-}
+-
+-/// A printer for emitting paths to a writer, with optional color support.
+-#[derive(Debug)]
+-pub struct PathPrinter<W> {
+-    config: Config,
+-    wtr: W,
+-}
+-
+-impl<W: WriteColor> PathPrinter<W> {
+-    /// Write the given path to the underlying writer.
+-    pub fn write_path(&mut self, path: &Path) -> io::Result<()> {
+-        let ppath = PrinterPath::with_separator(path, self.config.separator);
+-        if !self.wtr.supports_color() {
+-            self.wtr.write_all(ppath.as_bytes())?;
+-        } else {
+-            self.wtr.set_color(self.config.colors.path())?;
+-            self.wtr.write_all(ppath.as_bytes())?;
+-            self.wtr.reset()?;
+-        }
+-        self.wtr.write_all(&[self.config.terminator])
+-    }
+-}
+diff --git a/crates/grep/examples/simplegrep.rs b/crates/grep/examples/simplegrep.rs
+index 218b69353..fc73ea963 100644
+--- a/crates/grep/examples/simplegrep.rs
++++ b/crates/grep/examples/simplegrep.rs
+@@ -1,14 +1,15 @@
+-use std::env;
+-use std::error::Error;
+-use std::ffi::OsString;
+-use std::process;
++use std::{env, error::Error, ffi::OsString, io::IsTerminal, process};
+ 
+-use grep::cli;
+-use grep::printer::{ColorSpecs, StandardBuilder};
+-use grep::regex::RegexMatcher;
+-use grep::searcher::{BinaryDetection, SearcherBuilder};
+-use termcolor::ColorChoice;
+-use walkdir::WalkDir;
++use {
++    grep::{
++        cli,
++        printer::{ColorSpecs, StandardBuilder},
++        regex::RegexMatcher,
++        searcher::{BinaryDetection, SearcherBuilder},
++    },
++    termcolor::ColorChoice,
++    walkdir::WalkDir,
++};
+ 
+ fn main() {
+     if let Err(err) = try_main() {
+@@ -36,7 +37,7 @@ fn search(pattern: &str, paths: &[OsString]) -> Result<(), Box<dyn Error>> {
+         .build();
+     let mut printer = StandardBuilder::new()
+         .color_specs(ColorSpecs::default_with_color())
+-        .build(cli::stdout(if cli::is_tty_stdout() {
++        .build(cli::stdout(if std::io::stdout().is_terminal() {
+             ColorChoice::Auto
+         } else {
+             ColorChoice::Never
+diff --git a/crates/printer/Cargo.toml b/crates/printer/Cargo.toml
+index e557d08d0..dc63a6cc7 100644
+--- a/crates/printer/Cargo.toml
++++ b/crates/printer/Cargo.toml
+@@ -12,20 +12,33 @@ repository = "https://github.com/BurntSushi/ripgrep/tree/master/crates/printer"
+ readme = "README.md"
+ keywords = ["grep", "pattern", "print", "printer", "sink"]
+ license = "Unlicense OR MIT"
+-edition = "2018"
++edition = "2021"
+ 
+ [features]
+-default = ["serde1"]
+-serde1 = ["base64", "serde", "serde_json"]
++default = ["serde"]
++serde = ["dep:base64", "dep:serde", "dep:serde_json"]
+ 
+ [dependencies]
+-base64 = { version = "0.20.0", optional = true }
+-bstr = "1.6.0"
++base64 = { version = "0.21.4", optional = true }
++bstr = "1.6.2"
+ grep-matcher = { version = "0.1.6", path = "../matcher" }
+ grep-searcher = { version = "0.1.11", path = "../searcher" }
+-termcolor = "1.0.4"
+-serde = { version = "1.0.77", optional = true, features = ["derive"] }
+-serde_json = { version = "1.0.27", optional = true }
++log = "0.4.5"
++termcolor = "1.3.0"
++serde = { version = "1.0.188", optional = true, features = ["derive"] }
++serde_json = { version = "1.0.107", optional = true }
+ 
+ [dev-dependencies]
+ grep-regex = { version = "0.1.11", path = "../regex" }
++
++[package.metadata.docs.rs]
++# We want to document all features.
++all-features = true
++# This opts into a nightly unstable option to show the features that need to be
++# enabled for public API items. To do that, we set 'docsrs', and when that's
++# enabled, we enable the 'doc_auto_cfg' feature.
++#
++# To test this locally, run:
++#
++#     RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
++rustdoc-args = ["--cfg", "docsrs"]
+diff --git a/crates/printer/src/color.rs b/crates/printer/src/color.rs
+index 11d2c3e62..d17674e9b 100644
+--- a/crates/printer/src/color.rs
++++ b/crates/printer/src/color.rs
+@@ -1,7 +1,3 @@
+-use std::error;
+-use std::fmt;
+-use std::str::FromStr;
+-
+ use termcolor::{Color, ColorSpec, ParseColorError};
+ 
+ /// Returns a default set of color specifications.
+@@ -38,17 +34,7 @@ pub enum ColorError {
+     InvalidFormat(String),
+ }
+ 
+-impl error::Error for ColorError {
+-    fn description(&self) -> &str {
+-        match *self {
+-            ColorError::UnrecognizedOutType(_) => "unrecognized output type",
+-            ColorError::UnrecognizedSpecType(_) => "unrecognized spec type",
+-            ColorError::UnrecognizedColor(_, _) => "unrecognized color name",
+-            ColorError::UnrecognizedStyle(_) => "unrecognized style attribute",
+-            ColorError::InvalidFormat(_) => "invalid color spec",
+-        }
+-    }
+-}
++impl std::error::Error for ColorError {}
+ 
+ impl ColorError {
+     fn from_parse_error(err: ParseColorError) -> ColorError {
+@@ -59,33 +45,33 @@ impl ColorError {
+     }
+ }
+ 
+-impl fmt::Display for ColorError {
+-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++impl std::fmt::Display for ColorError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         match *self {
+             ColorError::UnrecognizedOutType(ref name) => write!(
+                 f,
+                 "unrecognized output type '{}'. Choose from: \
+-                     path, line, column, match.",
++                 path, line, column, match.",
+                 name,
+             ),
+             ColorError::UnrecognizedSpecType(ref name) => write!(
+                 f,
+                 "unrecognized spec type '{}'. Choose from: \
+-                     fg, bg, style, none.",
++                fg, bg, style, none.",
+                 name,
+             ),
+             ColorError::UnrecognizedColor(_, ref msg) => write!(f, "{}", msg),
+             ColorError::UnrecognizedStyle(ref name) => write!(
+                 f,
+                 "unrecognized style attribute '{}'. Choose from: \
+-                     nobold, bold, nointense, intense, nounderline, \
+-                     underline.",
++                 nobold, bold, nointense, intense, nounderline, \
++                 underline.",
+                 name,
+             ),
+             ColorError::InvalidFormat(ref original) => write!(
+                 f,
+                 "invalid color spec format: '{}'. Valid format \
+-                     is '(path|line|column|match):(fg|bg|style):(value)'.",
++                 is '(path|line|column|match):(fg|bg|style):(value)'.",
+                 original,
+             ),
+         }
+@@ -305,7 +291,7 @@ impl SpecValue {
+     }
+ }
+ 
+-impl FromStr for UserColorSpec {
++impl std::str::FromStr for UserColorSpec {
+     type Err = ColorError;
+ 
+     fn from_str(s: &str) -> Result<UserColorSpec, ColorError> {
+@@ -345,7 +331,7 @@ impl FromStr for UserColorSpec {
+     }
+ }
+ 
+-impl FromStr for OutType {
++impl std::str::FromStr for OutType {
+     type Err = ColorError;
+ 
+     fn from_str(s: &str) -> Result<OutType, ColorError> {
+@@ -359,7 +345,7 @@ impl FromStr for OutType {
+     }
+ }
+ 
+-impl FromStr for SpecType {
++impl std::str::FromStr for SpecType {
+     type Err = ColorError;
+ 
+     fn from_str(s: &str) -> Result<SpecType, ColorError> {
+@@ -373,7 +359,7 @@ impl FromStr for SpecType {
+     }
+ }
+ 
+-impl FromStr for Style {
++impl std::str::FromStr for Style {
+     type Err = ColorError;
+ 
+     fn from_str(s: &str) -> Result<Style, ColorError> {
+diff --git a/crates/printer/src/counter.rs b/crates/printer/src/counter.rs
+index c2faac837..a9f5af16d 100644
+--- a/crates/printer/src/counter.rs
++++ b/crates/printer/src/counter.rs
+@@ -1,36 +1,36 @@
+ use std::io::{self, Write};
+ 
+-use termcolor::{ColorSpec, WriteColor};
++use termcolor::{ColorSpec, HyperlinkSpec, WriteColor};
+ 
+ /// A writer that counts the number of bytes that have been successfully
+ /// written.
+ #[derive(Clone, Debug)]
+-pub struct CounterWriter<W> {
++pub(crate) struct CounterWriter<W> {
+     wtr: W,
+     count: u64,
+     total_count: u64,
+ }
+ 
+ impl<W: Write> CounterWriter<W> {
+-    pub fn new(wtr: W) -> CounterWriter<W> {
+-        CounterWriter { wtr: wtr, count: 0, total_count: 0 }
++    pub(crate) fn new(wtr: W) -> CounterWriter<W> {
++        CounterWriter { wtr, count: 0, total_count: 0 }
+     }
+ }
+ 
+ impl<W> CounterWriter<W> {
+     /// Returns the total number of bytes written since construction or the
+     /// last time `reset` was called.
+-    pub fn count(&self) -> u64 {
++    pub(crate) fn count(&self) -> u64 {
+         self.count
+     }
+ 
+     /// Returns the total number of bytes written since construction.
+-    pub fn total_count(&self) -> u64 {
++    pub(crate) fn total_count(&self) -> u64 {
+         self.total_count + self.count
+     }
+ 
+     /// Resets the number of bytes written to `0`.
+-    pub fn reset_count(&mut self) {
++    pub(crate) fn reset_count(&mut self) {
+         self.total_count += self.count;
+         self.count = 0;
+     }
+@@ -40,21 +40,21 @@ impl<W> CounterWriter<W> {
+     /// After this call, the total count of bytes written to the underlying
+     /// writer is erased and reset.
+     #[allow(dead_code)]
+-    pub fn clear(&mut self) {
++    pub(crate) fn clear(&mut self) {
+         self.count = 0;
+         self.total_count = 0;
+     }
+ 
+     #[allow(dead_code)]
+-    pub fn get_ref(&self) -> &W {
++    pub(crate) fn get_ref(&self) -> &W {
+         &self.wtr
+     }
+ 
+-    pub fn get_mut(&mut self) -> &mut W {
++    pub(crate) fn get_mut(&mut self) -> &mut W {
+         &mut self.wtr
+     }
+ 
+-    pub fn into_inner(self) -> W {
++    pub(crate) fn into_inner(self) -> W {
+         self.wtr
+     }
+ }
+@@ -76,10 +76,18 @@ impl<W: WriteColor> WriteColor for CounterWriter<W> {
+         self.wtr.supports_color()
+     }
+ 
++    fn supports_hyperlinks(&self) -> bool {
++        self.wtr.supports_hyperlinks()
++    }
++
+     fn set_color(&mut self, spec: &ColorSpec) -> io::Result<()> {
+         self.wtr.set_color(spec)
+     }
+ 
++    fn set_hyperlink(&mut self, link: &HyperlinkSpec) -> io::Result<()> {
++        self.wtr.set_hyperlink(link)
++    }
++
+     fn reset(&mut self) -> io::Result<()> {
+         self.wtr.reset()
+     }
+diff --git a/crates/printer/src/hyperlink.rs b/crates/printer/src/hyperlink.rs
+new file mode 100644
+index 000000000..7e6be6e49
+--- /dev/null
++++ b/crates/printer/src/hyperlink.rs
+@@ -0,0 +1,1001 @@
++use std::{cell::RefCell, io, path::Path, sync::Arc};
++
++use {
++    bstr::ByteSlice,
++    termcolor::{HyperlinkSpec, WriteColor},
++};
++
++use crate::hyperlink_aliases;
++
++/// Hyperlink configuration.
++///
++/// This configuration specifies both the [hyperlink format](HyperlinkFormat)
++/// and an [environment](HyperlinkConfig) for interpolating a subset of
++/// variables. The specific subset includes variables that are intended to
++/// be invariant throughout the lifetime of a process, such as a machine's
++/// hostname.
++///
++/// A hyperlink configuration can be provided to printer builders such as
++/// [`StandardBuilder::hyperlink`](crate::StandardBuilder::hyperlink).
++#[derive(Clone, Debug, Default, Eq, PartialEq)]
++pub struct HyperlinkConfig(Arc<HyperlinkConfigInner>);
++
++#[derive(Clone, Debug, Default, Eq, PartialEq)]
++struct HyperlinkConfigInner {
++    env: HyperlinkEnvironment,
++    format: HyperlinkFormat,
++}
++
++impl HyperlinkConfig {
++    /// Create a new configuration from an environment and a format.
++    pub fn new(
++        env: HyperlinkEnvironment,
++        format: HyperlinkFormat,
++    ) -> HyperlinkConfig {
++        HyperlinkConfig(Arc::new(HyperlinkConfigInner { env, format }))
++    }
++
++    /// Returns the hyperlink environment in this configuration.
++    pub(crate) fn environment(&self) -> &HyperlinkEnvironment {
++        &self.0.env
++    }
++
++    /// Returns the hyperlink format in this configuration.
++    pub(crate) fn format(&self) -> &HyperlinkFormat {
++        &self.0.format
++    }
++}
++
++/// A hyperlink format with variables.
++///
++/// This can be created by parsing a string using `HyperlinkPattern::from_str`.
++///
++/// The default format is empty. An empty format is valid and effectively
++/// disables hyperlinks.
++///
++/// # Example
++///
++/// ```
++/// use grep_printer::HyperlinkFormat;
++///
++/// let fmt = "vscode".parse::<HyperlinkFormat>()?;
++/// assert_eq!(fmt.to_string(), "vscode://file{path}:{line}:{column}");
++///
++/// # Ok::<(), Box<dyn std::error::Error>>(())
++/// ```
++#[derive(Clone, Debug, Default, Eq, PartialEq)]
++pub struct HyperlinkFormat {
++    parts: Vec<Part>,
++    is_line_dependent: bool,
++}
++
++impl HyperlinkFormat {
++    /// Creates an empty hyperlink format.
++    pub fn empty() -> HyperlinkFormat {
++        HyperlinkFormat::default()
++    }
++
++    /// Returns true if this format is empty.
++    pub fn is_empty(&self) -> bool {
++        self.parts.is_empty()
++    }
++
++    /// Creates a [`HyperlinkConfig`] from this format and the environment
++    /// given.
++    pub fn into_config(self, env: HyperlinkEnvironment) -> HyperlinkConfig {
++        HyperlinkConfig::new(env, self)
++    }
++
++    /// Returns true if the format can produce line-dependent hyperlinks.
++    pub(crate) fn is_line_dependent(&self) -> bool {
++        self.is_line_dependent
++    }
++}
++
++impl std::str::FromStr for HyperlinkFormat {
++    type Err = HyperlinkFormatError;
++
++    fn from_str(s: &str) -> Result<HyperlinkFormat, HyperlinkFormatError> {
++        use self::HyperlinkFormatErrorKind::*;
++
++        #[derive(Debug)]
++        enum State {
++            Verbatim,
++            VerbatimCloseVariable,
++            OpenVariable,
++            InVariable,
++        }
++
++        let mut builder = FormatBuilder::new();
++        let input = match hyperlink_aliases::find(s) {
++            Some(format) => format,
++            None => s,
++        };
++        let mut name = String::new();
++        let mut state = State::Verbatim;
++        let err = |kind| HyperlinkFormatError { kind };
++        for ch in input.chars() {
++            state = match state {
++                State::Verbatim => {
++                    if ch == '{' {
++                        State::OpenVariable
++                    } else if ch == '}' {
++                        State::VerbatimCloseVariable
++                    } else {
++                        builder.append_char(ch);
++                        State::Verbatim
++                    }
++                }
++                State::VerbatimCloseVariable => {
++                    if ch == '}' {
++                        builder.append_char('}');
++                        State::Verbatim
++                    } else {
++                        return Err(err(InvalidCloseVariable));
++                    }
++                }
++                State::OpenVariable => {
++                    if ch == '{' {
++                        builder.append_char('{');
++                        State::Verbatim
++                    } else {
++                        name.clear();
++                        if ch == '}' {
++                            builder.append_var(&name)?;
++                            State::Verbatim
++                        } else {
++                            name.push(ch);
++                            State::InVariable
++                        }
++                    }
++                }
++                State::InVariable => {
++                    if ch == '}' {
++                        builder.append_var(&name)?;
++                        State::Verbatim
++                    } else {
++                        name.push(ch);
++                        State::InVariable
++                    }
++                }
++            };
++        }
++        match state {
++            State::Verbatim => builder.build(),
++            State::VerbatimCloseVariable => Err(err(InvalidCloseVariable)),
++            State::OpenVariable | State::InVariable => {
++                Err(err(UnclosedVariable))
++            }
++        }
++    }
++}
++
++impl std::fmt::Display for HyperlinkFormat {
++    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
++        for part in self.parts.iter() {
++            part.fmt(f)?;
++        }
++        Ok(())
++    }
++}
++
++/// A static environment for hyperlink interpolation.
++///
++/// This environment permits setting the values of varibables used in hyperlink
++/// interpolation that are not expected to change for the lifetime of a program.
++/// That is, these values are invariant.
++///
++/// Currently, this includes the hostname and a WSL distro prefix.
++#[derive(Clone, Debug, Default, Eq, PartialEq)]
++pub struct HyperlinkEnvironment {
++    host: Option<String>,
++    wsl_prefix: Option<String>,
++}
++
++impl HyperlinkEnvironment {
++    /// Create a new empty hyperlink environment.
++    pub fn new() -> HyperlinkEnvironment {
++        HyperlinkEnvironment::default()
++    }
++
++    /// Set the `{host}` variable, which fills in any hostname components of
++    /// a hyperlink.
++    ///
++    /// One can get the hostname in the current environment via the `hostname`
++    /// function in the `grep-cli` crate.
++    pub fn host(&mut self, host: Option<String>) -> &mut HyperlinkEnvironment {
++        self.host = host;
++        self
++    }
++
++    /// Set the `{wslprefix}` variable, which contains the WSL distro prefix.
++    /// An example value is `wsl$/Ubuntu`. The distro name can typically be
++    /// discovered from the `WSL_DISTRO_NAME` environment variable.
++    pub fn wsl_prefix(
++        &mut self,
++        wsl_prefix: Option<String>,
++    ) -> &mut HyperlinkEnvironment {
++        self.wsl_prefix = wsl_prefix;
++        self
++    }
++}
++
++/// An error that can occur when parsing a hyperlink format.
++#[derive(Clone, Debug, Eq, PartialEq)]
++pub struct HyperlinkFormatError {
++    kind: HyperlinkFormatErrorKind,
++}
++
++#[derive(Clone, Debug, Eq, PartialEq)]
++enum HyperlinkFormatErrorKind {
++    /// This occurs when there are zero variables in the format.
++    NoVariables,
++    /// This occurs when the {path} variable is missing.
++    NoPathVariable,
++    /// This occurs when the {line} variable is missing, while the {column}
++    /// variable is present.
++    NoLineVariable,
++    /// This occurs when an unknown variable is used.
++    InvalidVariable(String),
++    /// The format doesn't start with a valid scheme.
++    InvalidScheme,
++    /// This occurs when an unescaped `}` is found without a corresponding
++    /// `{` preceding it.
++    InvalidCloseVariable,
++    /// This occurs when a `{` is found without a corresponding `}` following
++    /// it.
++    UnclosedVariable,
++}
++
++impl std::error::Error for HyperlinkFormatError {}
++
++impl std::fmt::Display for HyperlinkFormatError {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        use self::HyperlinkFormatErrorKind::*;
++
++        match self.kind {
++            NoVariables => {
++                let aliases = hyperlink_aliases::iter()
++                    .map(|(name, _)| name)
++                    .collect::<Vec<&str>>()
++                    .join(", ");
++                write!(
++                    f,
++                    "at least a {{path}} variable is required in a \
++                     hyperlink format, or otherwise use a valid alias: {}",
++                    aliases,
++                )
++            }
++            NoPathVariable => {
++                write!(
++                    f,
++                    "the {{path}} variable is required in a hyperlink format",
++                )
++            }
++            NoLineVariable => {
++                write!(
++                    f,
++                    "the hyperlink format contains a {{column}} variable, \
++                     but no {{line}} variable is present",
++                )
++            }
++            InvalidVariable(ref name) => {
++                write!(
++                    f,
++                    "invalid hyperlink format variable: '{name}', choose \
++                     from: path, line, column, host",
++                )
++            }
++            InvalidScheme => {
++                write!(
++                    f,
++                    "the hyperlink format must start with a valid URL scheme, \
++                     i.e., [0-9A-Za-z+-.]+:",
++                )
++            }
++            InvalidCloseVariable => {
++                write!(
++                    f,
++                    "unopened variable: found '}}' without a \
++                     corresponding '{{' preceding it",
++                )
++            }
++            UnclosedVariable => {
++                write!(
++                    f,
++                    "unclosed variable: found '{{' without a \
++                     corresponding '}}' following it",
++                )
++            }
++        }
++    }
++}
++
++/// A builder for `HyperlinkPattern`.
++///
++/// Once a `HyperlinkPattern` is built, it is immutable.
++#[derive(Debug)]
++struct FormatBuilder {
++    parts: Vec<Part>,
++}
++
++impl FormatBuilder {
++    /// Creates a new hyperlink format builder.
++    fn new() -> FormatBuilder {
++        FormatBuilder { parts: vec![] }
++    }
++
++    /// Appends static text.
++    fn append_slice(&mut self, text: &[u8]) -> &mut FormatBuilder {
++        if let Some(Part::Text(contents)) = self.parts.last_mut() {
++            contents.extend_from_slice(text);
++        } else if !text.is_empty() {
++            self.parts.push(Part::Text(text.to_vec()));
++        }
++        self
++    }
++
++    /// Appends a single character.
++    fn append_char(&mut self, ch: char) -> &mut FormatBuilder {
++        self.append_slice(ch.encode_utf8(&mut [0; 4]).as_bytes())
++    }
++
++    /// Appends a variable with the given name. If the name isn't recognized,
++    /// then this returns an error.
++    fn append_var(
++        &mut self,
++        name: &str,
++    ) -> Result<&mut FormatBuilder, HyperlinkFormatError> {
++        let part = match name {
++            "host" => Part::Host,
++            "wslprefix" => Part::WSLPrefix,
++            "path" => Part::Path,
++            "line" => Part::Line,
++            "column" => Part::Column,
++            unknown => {
++                let err = HyperlinkFormatError {
++                    kind: HyperlinkFormatErrorKind::InvalidVariable(
++                        unknown.to_string(),
++                    ),
++                };
++                return Err(err);
++            }
++        };
++        self.parts.push(part);
++        Ok(self)
++    }
++
++    /// Builds the format.
++    fn build(&self) -> Result<HyperlinkFormat, HyperlinkFormatError> {
++        self.validate()?;
++        Ok(HyperlinkFormat {
++            parts: self.parts.clone(),
++            is_line_dependent: self.parts.contains(&Part::Line),
++        })
++    }
++
++    /// Validate that the format is well-formed.
++    fn validate(&self) -> Result<(), HyperlinkFormatError> {
++        use self::HyperlinkFormatErrorKind::*;
++
++        let err = |kind| HyperlinkFormatError { kind };
++        // An empty format is fine. It just means hyperlink support is
++        // disabled.
++        if self.parts.is_empty() {
++            return Ok(());
++        }
++        // If all parts are just text, then there are no variables. It's
++        // likely a reference to invalid alias.
++        if self.parts.iter().all(|p| matches!(*p, Part::Text(_))) {
++            return Err(err(NoVariables));
++        }
++        // Even if we have other variables, no path variable means the
++        // hyperlink can't possibly work the way it is intended.
++        if !self.parts.contains(&Part::Path) {
++            return Err(err(NoPathVariable));
++        }
++        // If the {column} variable is used, then we also need a {line}
++        // variable or else {column} can't possibly work.
++        if self.parts.contains(&Part::Column)
++            && !self.parts.contains(&Part::Line)
++        {
++            return Err(err(NoLineVariable));
++        }
++        self.validate_scheme()
++    }
++
++    /// Validate that the format starts with a valid scheme. Validation is done
++    /// according to how a scheme is defined in RFC 1738 sections 2.1[1] and
++    /// 5[2]. In short, a scheme is this:
++    ///
++    /// scheme = 1*[ lowalpha | digit | "+" | "-" | "." ]
++    ///
++    /// but is case insensitive.
++    ///
++    /// [1]: https://datatracker.ietf.org/doc/html/rfc1738#section-2.1
++    /// [2]: https://datatracker.ietf.org/doc/html/rfc1738#section-5
++    fn validate_scheme(&self) -> Result<(), HyperlinkFormatError> {
++        let err_invalid_scheme = HyperlinkFormatError {
++            kind: HyperlinkFormatErrorKind::InvalidScheme,
++        };
++        let Some(Part::Text(ref part)) = self.parts.first() else {
++            return Err(err_invalid_scheme);
++        };
++        let Some(colon) = part.find_byte(b':') else {
++            return Err(err_invalid_scheme);
++        };
++        let scheme = &part[..colon];
++        if scheme.is_empty() {
++            return Err(err_invalid_scheme);
++        }
++        let is_valid_scheme_char = |byte| match byte {
++            b'0'..=b'9' | b'A'..=b'Z' | b'a'..=b'z' | b'+' | b'-' | b'.' => {
++                true
++            }
++            _ => false,
++        };
++        if !scheme.iter().all(|&b| is_valid_scheme_char(b)) {
++            return Err(err_invalid_scheme);
++        }
++        Ok(())
++    }
++}
++
++/// A hyperlink format part.
++///
++/// A sequence of these corresponds to a complete format. (Not all sequences
++/// are valid.)
++#[derive(Clone, Debug, Eq, PartialEq)]
++enum Part {
++    /// Static text.
++    ///
++    /// We use `Vec<u8>` here (and more generally treat a format string as a
++    /// sequence of bytes) because file paths may be arbitrary bytes. A rare
++    /// case, but one for which there is no good reason to choke on.
++    Text(Vec<u8>),
++    /// Variable for the hostname.
++    Host,
++    /// Variable for a WSL path prefix.
++    WSLPrefix,
++    /// Variable for the file path.
++    Path,
++    /// Variable for the line number.
++    Line,
++    /// Variable for the column number.
++    Column,
++}
++
++impl Part {
++    /// Interpolate this part using the given `env` and `values`, and write
++    /// the result of interpolation to the buffer provided.
++    fn interpolate_to(
++        &self,
++        env: &HyperlinkEnvironment,
++        values: &Values,
++        dest: &mut Vec<u8>,
++    ) {
++        match self {
++            Part::Text(ref text) => dest.extend_from_slice(text),
++            Part::Host => dest.extend_from_slice(
++                env.host.as_ref().map(|s| s.as_bytes()).unwrap_or(b""),
++            ),
++            Part::WSLPrefix => dest.extend_from_slice(
++                env.wsl_prefix.as_ref().map(|s| s.as_bytes()).unwrap_or(b""),
++            ),
++            Part::Path => dest.extend_from_slice(&values.path.0),
++            Part::Line => {
++                let line = values.line.unwrap_or(1).to_string();
++                dest.extend_from_slice(line.as_bytes());
++            }
++            Part::Column => {
++                let column = values.column.unwrap_or(1).to_string();
++                dest.extend_from_slice(column.as_bytes());
++            }
++        }
++    }
++}
++
++impl std::fmt::Display for Part {
++    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
++        match self {
++            Part::Text(text) => write!(f, "{}", String::from_utf8_lossy(text)),
++            Part::Host => write!(f, "{{host}}"),
++            Part::WSLPrefix => write!(f, "{{wslprefix}}"),
++            Part::Path => write!(f, "{{path}}"),
++            Part::Line => write!(f, "{{line}}"),
++            Part::Column => write!(f, "{{column}}"),
++        }
++    }
++}
++
++/// The values to replace the format variables with.
++///
++/// This only consists of values that depend on each path or match printed.
++/// Values that are invariant throughout the lifetime of the process are set
++/// via a [`HyperlinkEnvironment`].
++#[derive(Clone, Debug)]
++pub(crate) struct Values<'a> {
++    path: &'a HyperlinkPath,
++    line: Option<u64>,
++    column: Option<u64>,
++}
++
++impl<'a> Values<'a> {
++    /// Creates a new set of values, starting with the path given.
++    ///
++    /// Callers may also set the line and column number using the mutator
++    /// methods.
++    pub(crate) fn new(path: &'a HyperlinkPath) -> Values<'a> {
++        Values { path, line: None, column: None }
++    }
++
++    /// Sets the line number for these values.
++    ///
++    /// If a line number is not set and a hyperlink format contains a `{line}`
++    /// variable, then it is interpolated with the value of `1` automatically.
++    pub(crate) fn line(mut self, line: Option<u64>) -> Values<'a> {
++        self.line = line;
++        self
++    }
++
++    /// Sets the column number for these values.
++    ///
++    /// If a column number is not set and a hyperlink format contains a
++    /// `{column}` variable, then it is interpolated with the value of `1`
++    /// automatically.
++    pub(crate) fn column(mut self, column: Option<u64>) -> Values<'a> {
++        self.column = column;
++        self
++    }
++}
++
++/// An abstraction for interpolating a hyperlink format with values for every
++/// variable.
++///
++/// Interpolation of variables occurs through two different sources. The
++/// first is via a `HyperlinkEnvironment` for values that are expected to
++/// be invariant. This comes from the `HyperlinkConfig` used to build this
++/// interpolator. The second source is via `Values`, which is provided to
++/// `Interpolator::begin`. The `Values` contains things like the file path,
++/// line number and column number.
++#[derive(Clone, Debug)]
++pub(crate) struct Interpolator {
++    config: HyperlinkConfig,
++    buf: RefCell<Vec<u8>>,
++}
++
++impl Interpolator {
++    /// Create a new interpolator for the given hyperlink format configuration.
++    pub(crate) fn new(config: &HyperlinkConfig) -> Interpolator {
++        Interpolator { config: config.clone(), buf: RefCell::new(vec![]) }
++    }
++
++    /// Start interpolation with the given values by writing a hyperlink
++    /// to `wtr`. Subsequent writes to `wtr`, until `Interpolator::end` is
++    /// called, are the label for the hyperlink.
++    ///
++    /// This returns an interpolator status which indicates whether the
++    /// hyperlink was written. It might not be written, for example, if the
++    /// underlying writer doesn't support hyperlinks or if the hyperlink
++    /// format is empty. The status should be provided to `Interpolator::end`
++    /// as an instruction for whether to close the hyperlink or not.
++    pub(crate) fn begin<W: WriteColor>(
++        &self,
++        values: &Values,
++        mut wtr: W,
++    ) -> io::Result<InterpolatorStatus> {
++        if self.config.format().is_empty()
++            || !wtr.supports_hyperlinks()
++            || !wtr.supports_color()
++        {
++            return Ok(InterpolatorStatus::inactive());
++        }
++        let mut buf = self.buf.borrow_mut();
++        buf.clear();
++        for part in self.config.format().parts.iter() {
++            part.interpolate_to(self.config.environment(), values, &mut buf);
++        }
++        let spec = HyperlinkSpec::open(&buf);
++        wtr.set_hyperlink(&spec)?;
++        Ok(InterpolatorStatus { active: true })
++    }
++
++    /// Writes the correct escape sequences to `wtr` to close any extant
++    /// hyperlink, marking the end of a hyperlink's label.
++    ///
++    /// The status given should be returned from a corresponding
++    /// `Interpolator::begin` call. Since `begin` may not write a hyperlink
++    /// (e.g., if the underlying writer doesn't support hyperlinks), it follows
++    /// that `finish` must not close a hyperlink that was never opened. The
++    /// status indicates whether the hyperlink was opened or not.
++    pub(crate) fn finish<W: WriteColor>(
++        &self,
++        status: InterpolatorStatus,
++        mut wtr: W,
++    ) -> io::Result<()> {
++        if !status.active {
++            return Ok(());
++        }
++        wtr.set_hyperlink(&HyperlinkSpec::close())
++    }
++}
++
++/// A status indicating whether a hyperlink was written or not.
++///
++/// This is created by `Interpolator::begin` and used by `Interpolator::finish`
++/// to determine whether a hyperlink was actually opened or not. If it wasn't
++/// opened, then finishing interpolation is a no-op.
++#[derive(Debug)]
++pub(crate) struct InterpolatorStatus {
++    active: bool,
++}
++
++impl InterpolatorStatus {
++    /// Create an inactive interpolator status.
++    pub(crate) fn inactive() -> InterpolatorStatus {
++        InterpolatorStatus { active: false }
++    }
++}
++
++/// Represents the `{path}` part of a hyperlink.
++///
++/// This is the value to use as-is in the hyperlink, converted from an OS file
++/// path.
++#[derive(Clone, Debug)]
++pub(crate) struct HyperlinkPath(Vec<u8>);
++
++impl HyperlinkPath {
++    /// Returns a hyperlink path from an OS path.
++    #[cfg(unix)]
++    pub(crate) fn from_path(original_path: &Path) -> Option<HyperlinkPath> {
++        use std::os::unix::ffi::OsStrExt;
++
++        // We canonicalize the path in order to get an absolute version of it
++        // without any `.` or `..` or superflous separators. Unfortunately,
++        // this does also remove symlinks, and in theory, it would be nice to
++        // retain them. Perhaps even simpler, we could just join the current
++        // working directory with the path and be done with it. There was
++        // some discussion about this on PR#2483, and there generally appears
++        // to be some uncertainty about the extent to which hyperlinks with
++        // things like `..` in them actually work. So for now, we do the safest
++        // thing possible even though I think it can result in worse user
++        // experience. (Because it means the path you click on and the actual
++        // path that gets followed are different, even though they ostensibly
++        // refer to the same file.)
++        //
++        // There's also the potential issue that path canonicalization is
++        // expensive since it can touch the file system. That is probably
++        // less of an issue since hyperlinks are only created when they're
++        // supported, i.e., when writing to a tty.
++        //
++        // [1]: https://github.com/BurntSushi/ripgrep/pull/2483
++        let path = match original_path.canonicalize() {
++            Ok(path) => path,
++            Err(err) => {
++                log::debug!(
++                    "hyperlink creation for {:?} failed, error occurred \
++                     during path canonicalization: {}",
++                    original_path,
++                    err,
++                );
++                return None;
++            }
++        };
++        let bytes = path.as_os_str().as_bytes();
++        // This should not be possible since one imagines that canonicalization
++        // should always return an absolute path. But it doesn't actually
++        // appear guaranteed by POSIX, so we check whether it's true or not and
++        // refuse to create a hyperlink from a relative path if it isn't.
++        if !bytes.starts_with(b"/") {
++            log::debug!(
++                "hyperlink creation for {:?} failed, canonicalization \
++                 returned {:?}, which does not start with a slash",
++                original_path,
++                path,
++            );
++            return None;
++        }
++        Some(HyperlinkPath::encode(bytes))
++    }
++
++    /// Returns a hyperlink path from an OS path.
++    #[cfg(windows)]
++    pub(crate) fn from_path(original_path: &Path) -> Option<HyperlinkPath> {
++        // On Windows, Path::canonicalize returns the result of
++        // GetFinalPathNameByHandleW with VOLUME_NAME_DOS,
++        // which produces paths such as the following:
++        //
++        //   \\?\C:\dir\file.txt           (local path)
++        //   \\?\UNC\server\dir\file.txt   (network share)
++        //
++        // The \\?\ prefix comes from VOLUME_NAME_DOS and is constant.
++        // It is followed either by the drive letter, or by UNC\
++        // (universal naming convention), which denotes a network share.
++        //
++        // Given that the default URL format on Windows is file://{path}
++        // we need to return the following from this function:
++        //
++        //   /C:/dir/file.txt        (local path)
++        //   //server/dir/file.txt   (network share)
++        //
++        // Which produces the following links:
++        //
++        //   file:///C:/dir/file.txt        (local path)
++        //   file:////server/dir/file.txt   (network share)
++        //
++        // This substitutes the {path} variable with the expected value for
++        // the most common DOS paths, but on the other hand, network paths
++        // start with a single slash, which may be unexpected. It seems to work
++        // though?
++        //
++        // Note that the following URL syntax also seems to be valid?
++        //
++        //   file://server/dir/file.txt
++        //
++        // But the initial implementation of this routine went for the format
++        // above.
++        //
++        // Also note that the file://C:/dir/file.txt syntax is not correct,
++        // even though it often works in practice.
++        //
++        // In the end, this choice was confirmed by VSCode, whose format is
++        //
++        //   vscode://file{path}:{line}:{column}
++        //
++        // and which correctly understands the following URL format for network
++        // drives:
++        //
++        //   vscode://file//server/dir/file.txt:1:1
++        //
++        // It doesn't parse any other number of slashes in "file//server" as a
++        // network path.
++
++        const WIN32_NAMESPACE_PREFIX: &str = r"\\?\";
++        const UNC_PREFIX: &str = r"UNC\";
++
++        // As for Unix, we canonicalize the path to make sure we have an
++        // absolute path.
++        let path = match original_path.canonicalize() {
++            Ok(path) => path,
++            Err(err) => {
++                log::debug!(
++                    "hyperlink creation for {:?} failed, error occurred \
++                     during path canonicalization: {}",
++                    original_path,
++                    err,
++                );
++                return None;
++            }
++        };
++        // We convert the path to a string for easier manipulation. If it
++        // wasn't valid UTF-16 (and thus could not be non-lossily transcoded
++        // to UTF-8), then we just give up. It's not clear we could make
++        // a meaningful hyperlink from it anyway. And this should be an
++        // exceptionally rare case.
++        let mut string = match path.to_str() {
++            Some(string) => string,
++            None => {
++                log::debug!(
++                    "hyperlink creation for {:?} failed, path is not \
++                     valid UTF-8",
++                    original_path,
++                );
++                return None;
++            }
++        };
++        // As the comment above says, we expect all canonicalized paths to
++        // begin with a \\?\. If it doesn't, then something weird is happening
++        // and we should just give up.
++        if !string.starts_with(WIN32_NAMESPACE_PREFIX) {
++            log::debug!(
++                "hyperlink creation for {:?} failed, canonicalization \
++                 returned {:?}, which does not start with \\\\?\\",
++                original_path,
++                path,
++            );
++            return None;
++        }
++        string = &string[WIN32_NAMESPACE_PREFIX.len()..];
++
++        // And as above, drop the UNC prefix too, but keep the leading slash.
++        if string.starts_with(UNC_PREFIX) {
++            string = &string[(UNC_PREFIX.len() - 1)..];
++        }
++        // Finally, add a leading slash. In the local file case, this turns
++        // C:\foo\bar into /C:\foo\bar (and then percent encoding turns it into
++        // /C:/foo/bar). In the network share case, this turns \share\foo\bar
++        // into /\share/foo/bar (and then percent encoding turns it into
++        // //share/foo/bar).
++        let with_slash = format!("/{string}");
++        Some(HyperlinkPath::encode(with_slash.as_bytes()))
++    }
++
++    /// Percent-encodes a path.
++    ///
++    /// The alphanumeric ASCII characters and "-", ".", "_", "~" are unreserved
++    /// as per section 2.3 of RFC 3986 (Uniform Resource Identifier (URI):
++    /// Generic Syntax), and are not encoded. The other ASCII characters except
++    /// "/" and ":" are percent-encoded, and "\" is replaced by "/" on Windows.
++    ///
++    /// Section 4 of RFC 8089 (The "file" URI Scheme) does not mandate precise
++    /// encoding requirements for non-ASCII characters, and this implementation
++    /// leaves them unencoded. On Windows, the UrlCreateFromPathW function does
++    /// not encode non-ASCII characters. Doing so with UTF-8 encoded paths
++    /// creates invalid file:// URLs on that platform.
++    fn encode(input: &[u8]) -> HyperlinkPath {
++        let mut result = Vec::with_capacity(input.len());
++        for &byte in input.iter() {
++            match byte {
++                b'0'..=b'9'
++                | b'A'..=b'Z'
++                | b'a'..=b'z'
++                | b'/'
++                | b':'
++                | b'-'
++                | b'.'
++                | b'_'
++                | b'~'
++                | 128.. => {
++                    result.push(byte);
++                }
++                #[cfg(windows)]
++                b'\\' => {
++                    result.push(b'/');
++                }
++                _ => {
++                    const HEX: &[u8] = b"0123456789ABCDEF";
++                    result.push(b'%');
++                    result.push(HEX[(byte >> 4) as usize]);
++                    result.push(HEX[(byte & 0xF) as usize]);
++                }
++            }
++        }
++        HyperlinkPath(result)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use std::str::FromStr;
++
++    use super::*;
++
++    #[test]
++    fn build_format() {
++        let format = FormatBuilder::new()
++            .append_slice(b"foo://")
++            .append_slice(b"bar-")
++            .append_slice(b"baz")
++            .append_var("path")
++            .unwrap()
++            .build()
++            .unwrap();
++
++        assert_eq!(format.to_string(), "foo://bar-baz{path}");
++        assert_eq!(format.parts[0], Part::Text(b"foo://bar-baz".to_vec()));
++        assert!(!format.is_empty());
++    }
++
++    #[test]
++    fn build_empty_format() {
++        let format = FormatBuilder::new().build().unwrap();
++
++        assert!(format.is_empty());
++        assert_eq!(format, HyperlinkFormat::empty());
++        assert_eq!(format, HyperlinkFormat::default());
++    }
++
++    #[test]
++    fn handle_alias() {
++        assert!(HyperlinkFormat::from_str("file").is_ok());
++        assert!(HyperlinkFormat::from_str("none").is_ok());
++        assert!(HyperlinkFormat::from_str("none").unwrap().is_empty());
++    }
++
++    #[test]
++    fn parse_format() {
++        let format = HyperlinkFormat::from_str(
++            "foo://{host}/bar/{path}:{line}:{column}",
++        )
++        .unwrap();
++
++        assert_eq!(
++            format.to_string(),
++            "foo://{host}/bar/{path}:{line}:{column}"
++        );
++        assert_eq!(format.parts.len(), 8);
++        assert!(format.parts.contains(&Part::Path));
++        assert!(format.parts.contains(&Part::Line));
++        assert!(format.parts.contains(&Part::Column));
++    }
++
++    #[test]
++    fn parse_valid() {
++        assert!(HyperlinkFormat::from_str("").unwrap().is_empty());
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{path}").unwrap().to_string(),
++            "foo://{path}"
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{path}/bar").unwrap().to_string(),
++            "foo://{path}/bar"
++        );
++
++        HyperlinkFormat::from_str("f://{path}").unwrap();
++        HyperlinkFormat::from_str("f:{path}").unwrap();
++        HyperlinkFormat::from_str("f-+.:{path}").unwrap();
++        HyperlinkFormat::from_str("f42:{path}").unwrap();
++        HyperlinkFormat::from_str("42:{path}").unwrap();
++        HyperlinkFormat::from_str("+:{path}").unwrap();
++        HyperlinkFormat::from_str("F42:{path}").unwrap();
++        HyperlinkFormat::from_str("F42://foo{{bar}}{path}").unwrap();
++    }
++
++    #[test]
++    fn parse_invalid() {
++        use super::HyperlinkFormatErrorKind::*;
++
++        let err = |kind| HyperlinkFormatError { kind };
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://bar").unwrap_err(),
++            err(NoVariables),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{line}").unwrap_err(),
++            err(NoPathVariable),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{path").unwrap_err(),
++            err(UnclosedVariable),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{path}:{column}").unwrap_err(),
++            err(NoLineVariable),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("{path}").unwrap_err(),
++            err(InvalidScheme),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str(":{path}").unwrap_err(),
++            err(InvalidScheme),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("f*:{path}").unwrap_err(),
++            err(InvalidScheme),
++        );
++
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{bar}").unwrap_err(),
++            err(InvalidVariable("bar".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{}}bar}").unwrap_err(),
++            err(InvalidVariable("".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{b}}ar}").unwrap_err(),
++            err(InvalidVariable("b".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{bar}}}").unwrap_err(),
++            err(InvalidVariable("bar".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{{bar}").unwrap_err(),
++            err(InvalidCloseVariable),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{{{bar}").unwrap_err(),
++            err(InvalidVariable("bar".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{b{{ar}").unwrap_err(),
++            err(InvalidVariable("b{{ar".to_string())),
++        );
++        assert_eq!(
++            HyperlinkFormat::from_str("foo://{bar{{}").unwrap_err(),
++            err(InvalidVariable("bar{{".to_string())),
++        );
++    }
++}
+diff --git a/crates/printer/src/hyperlink_aliases.rs b/crates/printer/src/hyperlink_aliases.rs
+new file mode 100644
+index 000000000..c98bc0b06
+--- /dev/null
++++ b/crates/printer/src/hyperlink_aliases.rs
+@@ -0,0 +1,87 @@
++/// Aliases to well-known hyperlink schemes.
++///
++/// These need to be sorted by name.
++const HYPERLINK_PATTERN_ALIASES: &[(&str, &str)] = &[
++    #[cfg(not(windows))]
++    ("default", "file://{host}{path}"),
++    #[cfg(windows)]
++    ("default", "file://{path}"),
++    ("file", "file://{host}{path}"),
++    // https://github.com/misaki-web/grepp
++    ("grep+", "grep+://{path}:{line}"),
++    ("kitty", "file://{host}{path}#{line}"),
++    // https://macvim.org/docs/gui_mac.txt.html#mvim%3A%2F%2F
++    ("macvim", "mvim://open?url=file://{path}&line={line}&column={column}"),
++    ("none", ""),
++    // https://github.com/inopinatus/sublime_url
++    ("subl", "subl://open?url=file://{path}&line={line}&column={column}"),
++    // https://macromates.com/blog/2007/the-textmate-url-scheme/
++    ("textmate", "txmt://open?url=file://{path}&line={line}&column={column}"),
++    // https://code.visualstudio.com/docs/editor/command-line#_opening-vs-code-with-urls
++    ("vscode", "vscode://file{path}:{line}:{column}"),
++    ("vscode-insiders", "vscode-insiders://file{path}:{line}:{column}"),
++    ("vscodium", "vscodium://file{path}:{line}:{column}"),
++];
++
++/// Look for the hyperlink format defined by the given alias name.
++///
++/// If one does not exist, `None` is returned.
++pub(crate) fn find(name: &str) -> Option<&str> {
++    HYPERLINK_PATTERN_ALIASES
++        .binary_search_by_key(&name, |&(name, _)| name)
++        .map(|i| HYPERLINK_PATTERN_ALIASES[i].1)
++        .ok()
++}
++
++/// Return an iterator over all available alias names and their definitions.
++pub(crate) fn iter() -> impl Iterator<Item = (&'static str, &'static str)> {
++    HYPERLINK_PATTERN_ALIASES.iter().copied()
++}
++
++#[cfg(test)]
++mod tests {
++    use crate::HyperlinkFormat;
++
++    use super::*;
++
++    #[test]
++    fn is_sorted() {
++        let mut prev = HYPERLINK_PATTERN_ALIASES
++            .get(0)
++            .expect("aliases should be non-empty")
++            .0;
++        for &(name, _) in HYPERLINK_PATTERN_ALIASES.iter().skip(1) {
++            assert!(
++                name > prev,
++                "'{prev}' should come before '{name}' in \
++                 HYPERLINK_PATTERN_ALIASES",
++            );
++            prev = name;
++        }
++    }
++
++    #[test]
++    fn alias_names_are_reasonable() {
++        for &(name, _) in HYPERLINK_PATTERN_ALIASES.iter() {
++            // There's no hard rule here, but if we want to define an alias
++            // with a name that doesn't pass this assert, then we should
++            // probably flag it as worthy of consideration. For example, we
++            // really do not want to define an alias that contains `{` or `}`,
++            // which might confuse it for a variable.
++            assert!(name.chars().all(|c| c.is_alphanumeric()
++                || c == '+'
++                || c == '-'
++                || c == '.'));
++        }
++    }
++
++    #[test]
++    fn aliases_are_valid_formats() {
++        for (name, definition) in HYPERLINK_PATTERN_ALIASES {
++            assert!(
++                definition.parse::<HyperlinkFormat>().is_ok(),
++                "invalid hyperlink alias '{name}': {definition}",
++            );
++        }
++    }
++}
+diff --git a/crates/printer/src/json.rs b/crates/printer/src/json.rs
+index d952f1f99..3f5bd48a1 100644
+--- a/crates/printer/src/json.rs
++++ b/crates/printer/src/json.rs
+@@ -1,17 +1,20 @@
+-use std::io::{self, Write};
+-use std::path::Path;
+-use std::time::Instant;
++use std::{
++    io::{self, Write},
++    path::Path,
++    time::Instant,
++};
+ 
+-use grep_matcher::{Match, Matcher};
+-use grep_searcher::{
+-    Searcher, Sink, SinkContext, SinkContextKind, SinkFinish, SinkMatch,
++use {
++    grep_matcher::{Match, Matcher},
++    grep_searcher::{
++        Searcher, Sink, SinkContext, SinkContextKind, SinkFinish, SinkMatch,
++    },
++    serde_json as json,
+ };
+-use serde_json as json;
+ 
+-use crate::counter::CounterWriter;
+-use crate::jsont;
+-use crate::stats::Stats;
+-use crate::util::find_iter_at_in_context;
++use crate::{
++    counter::CounterWriter, jsont, stats::Stats, util::find_iter_at_in_context,
++};
+ 
+ /// The configuration for the JSON printer.
+ ///
+@@ -467,7 +470,7 @@ impl<W: io::Write> JSON<W> {
+         matcher: M,
+     ) -> JSONSink<'static, 's, M, W> {
+         JSONSink {
+-            matcher: matcher,
++            matcher,
+             json: self,
+             path: None,
+             start_time: Instant::now(),
+@@ -493,7 +496,7 @@ impl<W: io::Write> JSON<W> {
+         P: ?Sized + AsRef<Path>,
+     {
+         JSONSink {
+-            matcher: matcher,
++            matcher,
+             json: self,
+             path: Some(path.as_ref()),
+             start_time: Instant::now(),
+diff --git a/crates/printer/src/jsont.rs b/crates/printer/src/jsont.rs
+index 47a99f3b3..5f67f1155 100644
+--- a/crates/printer/src/jsont.rs
++++ b/crates/printer/src/jsont.rs
+@@ -6,19 +6,19 @@
+ // convenient for deserialization however, so these types would become a bit
+ // more complex.
+ 
+-use std::borrow::Cow;
+-use std::path::Path;
+-use std::str;
++use std::{borrow::Cow, path::Path};
+ 
+-use base64;
+-use serde::{Serialize, Serializer};
++use {
++    base64,
++    serde::{Serialize, Serializer},
++};
+ 
+ use crate::stats::Stats;
+ 
+ #[derive(Serialize)]
+ #[serde(tag = "type", content = "data")]
+ #[serde(rename_all = "snake_case")]
+-pub enum Message<'a> {
++pub(crate) enum Message<'a> {
+     Begin(Begin<'a>),
+     End(End<'a>),
+     Match(Match<'a>),
+@@ -26,48 +26,48 @@ pub enum Message<'a> {
+ }
+ 
+ #[derive(Serialize)]
+-pub struct Begin<'a> {
++pub(crate) struct Begin<'a> {
+     #[serde(serialize_with = "ser_path")]
+-    pub path: Option<&'a Path>,
++    pub(crate) path: Option<&'a Path>,
+ }
+ 
+ #[derive(Serialize)]
+-pub struct End<'a> {
++pub(crate) struct End<'a> {
+     #[serde(serialize_with = "ser_path")]
+-    pub path: Option<&'a Path>,
+-    pub binary_offset: Option<u64>,
+-    pub stats: Stats,
++    pub(crate) path: Option<&'a Path>,
++    pub(crate) binary_offset: Option<u64>,
++    pub(crate) stats: Stats,
+ }
+ 
+ #[derive(Serialize)]
+-pub struct Match<'a> {
++pub(crate) struct Match<'a> {
+     #[serde(serialize_with = "ser_path")]
+-    pub path: Option<&'a Path>,
++    pub(crate) path: Option<&'a Path>,
+     #[serde(serialize_with = "ser_bytes")]
+-    pub lines: &'a [u8],
+-    pub line_number: Option<u64>,
+-    pub absolute_offset: u64,
+-    pub submatches: &'a [SubMatch<'a>],
++    pub(crate) lines: &'a [u8],
++    pub(crate) line_number: Option<u64>,
++    pub(crate) absolute_offset: u64,
++    pub(crate) submatches: &'a [SubMatch<'a>],
+ }
+ 
+ #[derive(Serialize)]
+-pub struct Context<'a> {
++pub(crate) struct Context<'a> {
+     #[serde(serialize_with = "ser_path")]
+-    pub path: Option<&'a Path>,
++    pub(crate) path: Option<&'a Path>,
+     #[serde(serialize_with = "ser_bytes")]
+-    pub lines: &'a [u8],
+-    pub line_number: Option<u64>,
+-    pub absolute_offset: u64,
+-    pub submatches: &'a [SubMatch<'a>],
++    pub(crate) lines: &'a [u8],
++    pub(crate) line_number: Option<u64>,
++    pub(crate) absolute_offset: u64,
++    pub(crate) submatches: &'a [SubMatch<'a>],
+ }
+ 
+ #[derive(Serialize)]
+-pub struct SubMatch<'a> {
++pub(crate) struct SubMatch<'a> {
+     #[serde(rename = "match")]
+     #[serde(serialize_with = "ser_bytes")]
+-    pub m: &'a [u8],
+-    pub start: usize,
+-    pub end: usize,
++    pub(crate) m: &'a [u8],
++    pub(crate) start: usize,
++    pub(crate) end: usize,
+ }
+ 
+ /// Data represents things that look like strings, but may actually not be
+@@ -91,7 +91,7 @@ enum Data<'a> {
+ 
+ impl<'a> Data<'a> {
+     fn from_bytes(bytes: &[u8]) -> Data<'_> {
+-        match str::from_utf8(bytes) {
++        match std::str::from_utf8(bytes) {
+             Ok(text) => Data::Text { text: Cow::Borrowed(text) },
+             Err(_) => Data::Bytes { bytes },
+         }
+@@ -123,7 +123,8 @@ where
+     T: AsRef<[u8]>,
+     S: Serializer,
+ {
+-    ser.serialize_str(&base64::encode(&bytes))
++    use base64::engine::{general_purpose::STANDARD, Engine};
++    ser.serialize_str(&STANDARD.encode(&bytes))
+ }
+ 
+ fn ser_bytes<T, S>(bytes: T, ser: S) -> Result<S::Ok, S::Error>
+diff --git a/crates/printer/src/lib.rs b/crates/printer/src/lib.rs
+index 29e0a45b0..6c4a37352 100644
+--- a/crates/printer/src/lib.rs
++++ b/crates/printer/src/lib.rs
+@@ -27,11 +27,11 @@ contain matches.
+ This example shows how to create a "standard" printer and execute a search.
+ 
+ ```
+-use std::error::Error;
+-
+-use grep_regex::RegexMatcher;
+-use grep_printer::Standard;
+-use grep_searcher::Searcher;
++use {
++    grep_regex::RegexMatcher,
++    grep_printer::Standard,
++    grep_searcher::Searcher,
++};
+ 
+ const SHERLOCK: &'static [u8] = b"\
+ For the Doctor Watsons of this world, as opposed to the Sherlock
+@@ -42,37 +42,40 @@ but Doctor Watson has to have it taken out for him and dusted,
+ and exhibited clearly, with a label attached.
+ ";
+ 
+-# fn main() { example().unwrap(); }
+-fn example() -> Result<(), Box<Error>> {
+-    let matcher = RegexMatcher::new(r"Sherlock")?;
+-    let mut printer = Standard::new_no_color(vec![]);
+-    Searcher::new().search_slice(&matcher, SHERLOCK, printer.sink(&matcher))?;
+-
+-    // into_inner gives us back the underlying writer we provided to
+-    // new_no_color, which is wrapped in a termcolor::NoColor. Thus, a second
+-    // into_inner gives us back the actual buffer.
+-    let output = String::from_utf8(printer.into_inner().into_inner())?;
+-    let expected = "\
++let matcher = RegexMatcher::new(r"Sherlock")?;
++let mut printer = Standard::new_no_color(vec![]);
++Searcher::new().search_slice(&matcher, SHERLOCK, printer.sink(&matcher))?;
++
++// into_inner gives us back the underlying writer we provided to
++// new_no_color, which is wrapped in a termcolor::NoColor. Thus, a second
++// into_inner gives us back the actual buffer.
++let output = String::from_utf8(printer.into_inner().into_inner())?;
++let expected = "\
+ 1:For the Doctor Watsons of this world, as opposed to the Sherlock
+ 3:be, to a very large extent, the result of luck. Sherlock Holmes
+ ";
+-    assert_eq!(output, expected);
+-    Ok(())
+-}
++assert_eq!(output, expected);
++# Ok::<(), Box<dyn std::error::Error>>(())
+ ```
+ */
+ 
+ #![deny(missing_docs)]
+-
+-pub use crate::color::{
+-    default_color_specs, ColorError, ColorSpecs, UserColorSpec,
++#![cfg_attr(docsrs, feature(doc_auto_cfg))]
++
++pub use crate::{
++    color::{default_color_specs, ColorError, ColorSpecs, UserColorSpec},
++    hyperlink::{
++        HyperlinkConfig, HyperlinkEnvironment, HyperlinkFormat,
++        HyperlinkFormatError,
++    },
++    path::{PathPrinter, PathPrinterBuilder},
++    standard::{Standard, StandardBuilder, StandardSink},
++    stats::Stats,
++    summary::{Summary, SummaryBuilder, SummaryKind, SummarySink},
+ };
+-#[cfg(feature = "serde1")]
++
++#[cfg(feature = "serde")]
+ pub use crate::json::{JSONBuilder, JSONSink, JSON};
+-pub use crate::standard::{Standard, StandardBuilder, StandardSink};
+-pub use crate::stats::Stats;
+-pub use crate::summary::{Summary, SummaryBuilder, SummaryKind, SummarySink};
+-pub use crate::util::PrinterPath;
+ 
+ // The maximum number of bytes to execute a search to account for look-ahead.
+ //
+@@ -90,10 +93,13 @@ mod macros;
+ 
+ mod color;
+ mod counter;
+-#[cfg(feature = "serde1")]
++mod hyperlink;
++mod hyperlink_aliases;
++#[cfg(feature = "serde")]
+ mod json;
+-#[cfg(feature = "serde1")]
++#[cfg(feature = "serde")]
+ mod jsont;
++mod path;
+ mod standard;
+ mod stats;
+ mod summary;
+diff --git a/crates/printer/src/path.rs b/crates/printer/src/path.rs
+new file mode 100644
+index 000000000..38a2c9ecb
+--- /dev/null
++++ b/crates/printer/src/path.rs
+@@ -0,0 +1,176 @@
++use std::{io, path::Path};
++
++use termcolor::WriteColor;
++
++use crate::{
++    color::ColorSpecs,
++    hyperlink::{self, HyperlinkConfig},
++    util::PrinterPath,
++};
++
++/// A configuration for describing how paths should be written.
++#[derive(Clone, Debug)]
++struct Config {
++    colors: ColorSpecs,
++    hyperlink: HyperlinkConfig,
++    separator: Option<u8>,
++    terminator: u8,
++}
++
++impl Default for Config {
++    fn default() -> Config {
++        Config {
++            colors: ColorSpecs::default(),
++            hyperlink: HyperlinkConfig::default(),
++            separator: None,
++            terminator: b'\n',
++        }
++    }
++}
++
++/// A builder for a printer that emits file paths.
++#[derive(Clone, Debug)]
++pub struct PathPrinterBuilder {
++    config: Config,
++}
++
++impl PathPrinterBuilder {
++    /// Return a new path printer builder with a default configuration.
++    pub fn new() -> PathPrinterBuilder {
++        PathPrinterBuilder { config: Config::default() }
++    }
++
++    /// Create a new path printer with the current configuration that writes
++    /// paths to the given writer.
++    pub fn build<W: WriteColor>(&self, wtr: W) -> PathPrinter<W> {
++        let interpolator =
++            hyperlink::Interpolator::new(&self.config.hyperlink);
++        PathPrinter { config: self.config.clone(), wtr, interpolator }
++    }
++
++    /// Set the user color specifications to use for coloring in this printer.
++    ///
++    /// A [`UserColorSpec`](crate::UserColorSpec) can be constructed from
++    /// a string in accordance with the color specification format. See
++    /// the `UserColorSpec` type documentation for more details on the
++    /// format. A [`ColorSpecs`] can then be generated from zero or more
++    /// `UserColorSpec`s.
++    ///
++    /// Regardless of the color specifications provided here, whether color
++    /// is actually used or not is determined by the implementation of
++    /// `WriteColor` provided to `build`. For example, if `termcolor::NoColor`
++    /// is provided to `build`, then no color will ever be printed regardless
++    /// of the color specifications provided here.
++    ///
++    /// This completely overrides any previous color specifications. This does
++    /// not add to any previously provided color specifications on this
++    /// builder.
++    ///
++    /// The default color specifications provide no styling.
++    pub fn color_specs(
++        &mut self,
++        specs: ColorSpecs,
++    ) -> &mut PathPrinterBuilder {
++        self.config.colors = specs;
++        self
++    }
++
++    /// Set the configuration to use for hyperlinks output by this printer.
++    ///
++    /// Regardless of the hyperlink format provided here, whether hyperlinks
++    /// are actually used or not is determined by the implementation of
++    /// `WriteColor` provided to `build`. For example, if `termcolor::NoColor`
++    /// is provided to `build`, then no hyperlinks will ever be printed
++    /// regardless of the format provided here.
++    ///
++    /// This completely overrides any previous hyperlink format.
++    ///
++    /// The default configuration results in not emitting any hyperlinks.
++    pub fn hyperlink(
++        &mut self,
++        config: HyperlinkConfig,
++    ) -> &mut PathPrinterBuilder {
++        self.config.hyperlink = config;
++        self
++    }
++
++    /// Set the path separator used when printing file paths.
++    ///
++    /// Typically, printing is done by emitting the file path as is. However,
++    /// this setting provides the ability to use a different path separator
++    /// from what the current environment has configured.
++    ///
++    /// A typical use for this option is to permit cygwin users on Windows to
++    /// set the path separator to `/` instead of using the system default of
++    /// `\`.
++    ///
++    /// This is disabled by default.
++    pub fn separator(&mut self, sep: Option<u8>) -> &mut PathPrinterBuilder {
++        self.config.separator = sep;
++        self
++    }
++
++    /// Set the path terminator used.
++    ///
++    /// The path terminator is a byte that is printed after every file path
++    /// emitted by this printer.
++    ///
++    /// The default path terminator is `\n`.
++    pub fn terminator(&mut self, terminator: u8) -> &mut PathPrinterBuilder {
++        self.config.terminator = terminator;
++        self
++    }
++}
++
++/// A printer file paths, with optional color and hyperlink support.
++///
++/// This printer is very similar to [`Summary`](crate::Summary) in that it
++/// principally only emits file paths. The main difference is that this printer
++/// doesn't actually execute any search via a `Sink` implementation, and instead
++/// just provides a way for the caller to print paths.
++///
++/// A caller could just print the paths themselves, but this printer handles
++/// a few details:
++///
++/// * It can normalize path separators.
++/// * It permits configuring the terminator.
++/// * It allows setting the color configuration in a way that is consistent
++/// with the other printers in this crate.
++/// * It allows setting the hyperlink format in a way that is consistent
++/// with the other printers in this crate.
++#[derive(Debug)]
++pub struct PathPrinter<W> {
++    config: Config,
++    wtr: W,
++    interpolator: hyperlink::Interpolator,
++}
++
++impl<W: WriteColor> PathPrinter<W> {
++    /// Write the given path to the underlying writer.
++    pub fn write(&mut self, path: &Path) -> io::Result<()> {
++        let ppath = PrinterPath::new(path.as_ref())
++            .with_separator(self.config.separator);
++        if !self.wtr.supports_color() {
++            self.wtr.write_all(ppath.as_bytes())?;
++        } else {
++            let status = self.start_hyperlink(&ppath)?;
++            self.wtr.set_color(self.config.colors.path())?;
++            self.wtr.write_all(ppath.as_bytes())?;
++            self.wtr.reset()?;
++            self.interpolator.finish(status, &mut self.wtr)?;
++        }
++        self.wtr.write_all(&[self.config.terminator])
++    }
++
++    /// Starts a hyperlink span when applicable.
++    fn start_hyperlink(
++        &mut self,
++        path: &PrinterPath,
++    ) -> io::Result<hyperlink::InterpolatorStatus> {
++        let Some(hyperpath) = path.as_hyperlink() else {
++            return Ok(hyperlink::InterpolatorStatus::inactive());
++        };
++        let values = hyperlink::Values::new(hyperpath);
++        self.interpolator.begin(&values, &mut self.wtr)
++    }
++}
+diff --git a/crates/printer/src/standard.rs b/crates/printer/src/standard.rs
+index ab887c1e3..cd6a4e549 100644
+--- a/crates/printer/src/standard.rs
++++ b/crates/printer/src/standard.rs
+@@ -1,24 +1,31 @@
+-use std::cell::{Cell, RefCell};
+-use std::cmp;
+-use std::io::{self, Write};
+-use std::path::Path;
+-use std::sync::Arc;
+-use std::time::Instant;
+-
+-use bstr::ByteSlice;
+-use grep_matcher::{Match, Matcher};
+-use grep_searcher::{
+-    LineStep, Searcher, Sink, SinkContext, SinkContextKind, SinkFinish,
+-    SinkMatch,
++use std::{
++    cell::{Cell, RefCell},
++    cmp,
++    io::{self, Write},
++    path::Path,
++    sync::Arc,
++    time::Instant,
+ };
+-use termcolor::{ColorSpec, NoColor, WriteColor};
+-
+-use crate::color::ColorSpecs;
+-use crate::counter::CounterWriter;
+-use crate::stats::Stats;
+-use crate::util::{
+-    find_iter_at_in_context, trim_ascii_prefix, trim_line_terminator,
+-    PrinterPath, Replacer, Sunk,
++
++use {
++    bstr::ByteSlice,
++    grep_matcher::{Match, Matcher},
++    grep_searcher::{
++        LineStep, Searcher, Sink, SinkContext, SinkContextKind, SinkFinish,
++        SinkMatch,
++    },
++    termcolor::{ColorSpec, NoColor, WriteColor},
++};
++
++use crate::{
++    color::ColorSpecs,
++    counter::CounterWriter,
++    hyperlink::{self, HyperlinkConfig},
++    stats::Stats,
++    util::{
++        find_iter_at_in_context, trim_ascii_prefix, trim_line_terminator,
++        PrinterPath, Replacer, Sunk,
++    },
+ };
+ 
+ /// The configuration for the standard printer.
+@@ -29,6 +36,7 @@ use crate::util::{
+ #[derive(Debug, Clone)]
+ struct Config {
+     colors: ColorSpecs,
++    hyperlink: HyperlinkConfig,
+     stats: bool,
+     heading: bool,
+     path: bool,
+@@ -54,6 +62,7 @@ impl Default for Config {
+     fn default() -> Config {
+         Config {
+             colors: ColorSpecs::default(),
++            hyperlink: HyperlinkConfig::default(),
+             stats: false,
+             heading: false,
+             path: true,
+@@ -160,6 +169,25 @@ impl StandardBuilder {
+         self
+     }
+ 
++    /// Set the configuration to use for hyperlinks output by this printer.
++    ///
++    /// Regardless of the hyperlink format provided here, whether hyperlinks
++    /// are actually used or not is determined by the implementation of
++    /// `WriteColor` provided to `build`. For example, if `termcolor::NoColor`
++    /// is provided to `build`, then no hyperlinks will ever be printed
++    /// regardless of the format provided here.
++    ///
++    /// This completely overrides any previous hyperlink format.
++    ///
++    /// The default configuration results in not emitting any hyperlinks.
++    pub fn hyperlink(
++        &mut self,
++        config: HyperlinkConfig,
++    ) -> &mut StandardBuilder {
++        self.config.hyperlink = config;
++        self
++    }
++
+     /// Enable the gathering of various aggregate statistics.
+     ///
+     /// When this is enabled (it's disabled by default), statistics will be
+@@ -503,19 +531,22 @@ impl<W: WriteColor> Standard<W> {
+         &'s mut self,
+         matcher: M,
+     ) -> StandardSink<'static, 's, M, W> {
++        let interpolator =
++            hyperlink::Interpolator::new(&self.config.hyperlink);
+         let stats = if self.config.stats { Some(Stats::new()) } else { None };
+         let needs_match_granularity = self.needs_match_granularity();
+         StandardSink {
+-            matcher: matcher,
++            matcher,
+             standard: self,
+             replacer: Replacer::new(),
++            interpolator,
+             path: None,
+             start_time: Instant::now(),
+             match_count: 0,
+             after_context_remaining: 0,
+             binary_byte_offset: None,
+-            stats: stats,
+-            needs_match_granularity: needs_match_granularity,
++            stats,
++            needs_match_granularity,
+         }
+     }
+ 
+@@ -535,23 +566,24 @@ impl<W: WriteColor> Standard<W> {
+         if !self.config.path {
+             return self.sink(matcher);
+         }
++        let interpolator =
++            hyperlink::Interpolator::new(&self.config.hyperlink);
+         let stats = if self.config.stats { Some(Stats::new()) } else { None };
+-        let ppath = PrinterPath::with_separator(
+-            path.as_ref(),
+-            self.config.separator_path,
+-        );
++        let ppath = PrinterPath::new(path.as_ref())
++            .with_separator(self.config.separator_path);
+         let needs_match_granularity = self.needs_match_granularity();
+         StandardSink {
+-            matcher: matcher,
++            matcher,
+             standard: self,
+             replacer: Replacer::new(),
++            interpolator,
+             path: Some(ppath),
+             start_time: Instant::now(),
+             match_count: 0,
+             after_context_remaining: 0,
+             binary_byte_offset: None,
+-            stats: stats,
+-            needs_match_granularity: needs_match_granularity,
++            stats,
++            needs_match_granularity,
+         }
+     }
+ 
+@@ -629,6 +661,7 @@ pub struct StandardSink<'p, 's, M: Matcher, W> {
+     matcher: M,
+     standard: &'s mut Standard<W>,
+     replacer: Replacer<M>,
++    interpolator: hyperlink::Interpolator,
+     path: Option<PrinterPath<'p>>,
+     start_time: Instant,
+     match_count: u64,
+@@ -919,8 +952,8 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         sink: &'a StandardSink<'_, '_, M, W>,
+     ) -> StandardImpl<'a, M, W> {
+         StandardImpl {
+-            searcher: searcher,
+-            sink: sink,
++            searcher,
++            sink,
+             sunk: Sunk::empty(),
+             in_color_match: Cell::new(false),
+         }
+@@ -938,7 +971,7 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+             &sink.standard.matches,
+             sink.replacer.replacement(),
+         );
+-        StandardImpl { sunk: sunk, ..StandardImpl::new(searcher, sink) }
++        StandardImpl { sunk, ..StandardImpl::new(searcher, sink) }
+     }
+ 
+     /// Bundle self with a searcher and return the core implementation of Sink
+@@ -953,7 +986,7 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+             &sink.standard.matches,
+             sink.replacer.replacement(),
+         );
+-        StandardImpl { sunk: sunk, ..StandardImpl::new(searcher, sink) }
++        StandardImpl { sunk, ..StandardImpl::new(searcher, sink) }
+     }
+ 
+     fn sink(&self) -> io::Result<()> {
+@@ -1209,23 +1242,13 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         line_number: Option<u64>,
+         column: Option<u64>,
+     ) -> io::Result<()> {
+-        let sep = self.separator_field();
+-
+-        if !self.config().heading {
+-            self.write_path_field(sep)?;
+-        }
+-        if let Some(n) = line_number {
+-            self.write_line_number(n, sep)?;
+-        }
+-        if let Some(n) = column {
+-            if self.config().column {
+-                self.write_column_number(n, sep)?;
+-            }
+-        }
+-        if self.config().byte_offset {
+-            self.write_byte_offset(absolute_byte_offset, sep)?;
+-        }
+-        Ok(())
++        let mut prelude = PreludeWriter::new(self);
++        prelude.start(line_number, column)?;
++        prelude.write_path()?;
++        prelude.write_line_number(line_number)?;
++        prelude.write_column_number(column)?;
++        prelude.write_byte_offset(absolute_byte_offset)?;
++        prelude.end()
+     }
+ 
+     #[inline(always)]
+@@ -1386,7 +1409,7 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+     /// terminator.)
+     fn write_path_line(&self) -> io::Result<()> {
+         if let Some(path) = self.path() {
+-            self.write_spec(self.config().colors.path(), path.as_bytes())?;
++            self.write_path_hyperlink(path)?;
+             if let Some(term) = self.config().path_terminator {
+                 self.write(&[term])?;
+             } else {
+@@ -1396,22 +1419,6 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         Ok(())
+     }
+ 
+-    /// If this printer has a file path associated with it, then this will
+-    /// write that path to the underlying writer followed by the given field
+-    /// separator. (If a path terminator is set, then that is used instead of
+-    /// the field separator.)
+-    fn write_path_field(&self, field_separator: &[u8]) -> io::Result<()> {
+-        if let Some(path) = self.path() {
+-            self.write_spec(self.config().colors.path(), path.as_bytes())?;
+-            if let Some(term) = self.config().path_terminator {
+-                self.write(&[term])?;
+-            } else {
+-                self.write(field_separator)?;
+-            }
+-        }
+-        Ok(())
+-    }
+-
+     fn write_search_prelude(&self) -> io::Result<()> {
+         let this_search_written = self.wtr().borrow().count() > 0;
+         if this_search_written {
+@@ -1438,7 +1445,7 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         let bin = self.searcher.binary_detection();
+         if let Some(byte) = bin.quit_byte() {
+             if let Some(path) = self.path() {
+-                self.write_spec(self.config().colors.path(), path.as_bytes())?;
++                self.write_path_hyperlink(path)?;
+                 self.write(b": ")?;
+             }
+             let remainder = format!(
+@@ -1450,7 +1457,7 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+             self.write(remainder.as_bytes())?;
+         } else if let Some(byte) = bin.convert_byte() {
+             if let Some(path) = self.path() {
+-                self.write_spec(self.config().colors.path(), path.as_bytes())?;
++                self.write_path_hyperlink(path)?;
+                 self.write(b": ")?;
+             }
+             let remainder = format!(
+@@ -1471,39 +1478,6 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         Ok(())
+     }
+ 
+-    fn write_line_number(
+-        &self,
+-        line_number: u64,
+-        field_separator: &[u8],
+-    ) -> io::Result<()> {
+-        let n = line_number.to_string();
+-        self.write_spec(self.config().colors.line(), n.as_bytes())?;
+-        self.write(field_separator)?;
+-        Ok(())
+-    }
+-
+-    fn write_column_number(
+-        &self,
+-        column_number: u64,
+-        field_separator: &[u8],
+-    ) -> io::Result<()> {
+-        let n = column_number.to_string();
+-        self.write_spec(self.config().colors.column(), n.as_bytes())?;
+-        self.write(field_separator)?;
+-        Ok(())
+-    }
+-
+-    fn write_byte_offset(
+-        &self,
+-        offset: u64,
+-        field_separator: &[u8],
+-    ) -> io::Result<()> {
+-        let n = offset.to_string();
+-        self.write_spec(self.config().colors.column(), n.as_bytes())?;
+-        self.write(field_separator)?;
+-        Ok(())
+-    }
+-
+     fn write_line_term(&self) -> io::Result<()> {
+         self.write(self.searcher.line_terminator().as_bytes())
+     }
+@@ -1516,6 +1490,40 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+         Ok(())
+     }
+ 
++    fn write_path(&self, path: &PrinterPath) -> io::Result<()> {
++        let mut wtr = self.wtr().borrow_mut();
++        wtr.set_color(self.config().colors.path())?;
++        wtr.write_all(path.as_bytes())?;
++        wtr.reset()
++    }
++
++    fn write_path_hyperlink(&self, path: &PrinterPath) -> io::Result<()> {
++        let status = self.start_hyperlink(path, None, None)?;
++        self.write_path(path)?;
++        self.end_hyperlink(status)
++    }
++
++    fn start_hyperlink(
++        &self,
++        path: &PrinterPath,
++        line_number: Option<u64>,
++        column: Option<u64>,
++    ) -> io::Result<hyperlink::InterpolatorStatus> {
++        let Some(hyperpath) = path.as_hyperlink() else {
++            return Ok(hyperlink::InterpolatorStatus::inactive());
++        };
++        let values =
++            hyperlink::Values::new(hyperpath).line(line_number).column(column);
++        self.sink.interpolator.begin(&values, &mut *self.wtr().borrow_mut())
++    }
++
++    fn end_hyperlink(
++        &self,
++        status: hyperlink::InterpolatorStatus,
++    ) -> io::Result<()> {
++        self.sink.interpolator.finish(status, &mut *self.wtr().borrow_mut())
++    }
++
+     fn start_color_match(&self) -> io::Result<()> {
+         if self.in_color_match.get() {
+             return Ok(());
+@@ -1615,6 +1623,159 @@ impl<'a, M: Matcher, W: WriteColor> StandardImpl<'a, M, W> {
+     }
+ }
+ 
++/// A writer for the prelude (the beginning part of a matching line).
++///
++/// This encapsulates the state needed to print the prelude.
++struct PreludeWriter<'a, M: Matcher, W> {
++    std: &'a StandardImpl<'a, M, W>,
++    next_separator: PreludeSeparator,
++    field_separator: &'a [u8],
++    interp_status: hyperlink::InterpolatorStatus,
++}
++
++/// A type of separator used in the prelude
++enum PreludeSeparator {
++    /// No separator.
++    None,
++    /// The field separator, either for a matching or contextual line.
++    FieldSeparator,
++    /// The path terminator.
++    PathTerminator,
++}
++
++impl<'a, M: Matcher, W: WriteColor> PreludeWriter<'a, M, W> {
++    /// Creates a new prelude printer.
++    #[inline(always)]
++    fn new(std: &'a StandardImpl<'a, M, W>) -> PreludeWriter<'a, M, W> {
++        PreludeWriter {
++            std,
++            next_separator: PreludeSeparator::None,
++            field_separator: std.separator_field(),
++            interp_status: hyperlink::InterpolatorStatus::inactive(),
++        }
++    }
++
++    /// Starts the prelude with a hyperlink when applicable.
++    ///
++    /// If a heading was written, and the hyperlink format is invariant on
++    /// the line number, then this doesn't hyperlink each line prelude, as it
++    /// wouldn't point to the line anyway. The hyperlink on the heading should
++    /// be sufficient and less confusing.
++    #[inline(always)]
++    fn start(
++        &mut self,
++        line_number: Option<u64>,
++        column: Option<u64>,
++    ) -> io::Result<()> {
++        let Some(path) = self.std.path() else { return Ok(()) };
++        if self.config().hyperlink.format().is_line_dependent()
++            || !self.config().heading
++        {
++            self.interp_status =
++                self.std.start_hyperlink(path, line_number, column)?;
++        }
++        Ok(())
++    }
++
++    /// Ends the prelude and writes the remaining output.
++    #[inline(always)]
++    fn end(&mut self) -> io::Result<()> {
++        self.std.end_hyperlink(std::mem::replace(
++            &mut self.interp_status,
++            hyperlink::InterpolatorStatus::inactive(),
++        ))?;
++        self.write_separator()
++    }
++
++    /// If this printer has a file path associated with it, then this will
++    /// write that path to the underlying writer followed by the given field
++    /// separator. (If a path terminator is set, then that is used instead of
++    /// the field separator.)
++    #[inline(always)]
++    fn write_path(&mut self) -> io::Result<()> {
++        // The prelude doesn't handle headings, only what comes before a match
++        // on the same line. So if we are emitting paths in headings, we should
++        // not do it here on each line.
++        if self.config().heading {
++            return Ok(());
++        }
++        let Some(path) = self.std.path() else { return Ok(()) };
++        self.write_separator()?;
++        self.std.write_path(path)?;
++
++        self.next_separator = if self.config().path_terminator.is_some() {
++            PreludeSeparator::PathTerminator
++        } else {
++            PreludeSeparator::FieldSeparator
++        };
++        Ok(())
++    }
++
++    /// Writes the line number field if present.
++    #[inline(always)]
++    fn write_line_number(&mut self, line: Option<u64>) -> io::Result<()> {
++        let Some(line_number) = line else { return Ok(()) };
++        self.write_separator()?;
++        let n = line_number.to_string();
++        self.std.write_spec(self.config().colors.line(), n.as_bytes())?;
++        self.next_separator = PreludeSeparator::FieldSeparator;
++        Ok(())
++    }
++
++    /// Writes the column number field if present and configured to do so.
++    #[inline(always)]
++    fn write_column_number(&mut self, column: Option<u64>) -> io::Result<()> {
++        if !self.config().column {
++            return Ok(());
++        }
++        let Some(column_number) = column else { return Ok(()) };
++        self.write_separator()?;
++        let n = column_number.to_string();
++        self.std.write_spec(self.config().colors.column(), n.as_bytes())?;
++        self.next_separator = PreludeSeparator::FieldSeparator;
++        Ok(())
++    }
++
++    /// Writes the byte offset field if configured to do so.
++    #[inline(always)]
++    fn write_byte_offset(&mut self, offset: u64) -> io::Result<()> {
++        if !self.config().byte_offset {
++            return Ok(());
++        }
++        self.write_separator()?;
++        let n = offset.to_string();
++        self.std.write_spec(self.config().colors.column(), n.as_bytes())?;
++        self.next_separator = PreludeSeparator::FieldSeparator;
++        Ok(())
++    }
++
++    /// Writes the separator defined by the preceding field.
++    ///
++    /// This is called before writing the contents of a field, and at
++    /// the end of the prelude.
++    #[inline(always)]
++    fn write_separator(&mut self) -> io::Result<()> {
++        match self.next_separator {
++            PreludeSeparator::None => {}
++            PreludeSeparator::FieldSeparator => {
++                self.std.write(self.field_separator)?;
++            }
++            PreludeSeparator::PathTerminator => {
++                if let Some(term) = self.config().path_terminator {
++                    self.std.write(&[term])?;
++                }
++            }
++        }
++        self.next_separator = PreludeSeparator::None;
++        Ok(())
++    }
++
++    #[inline(always)]
++    fn config(&self) -> &Config {
++        self.std.config()
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use grep_matcher::LineTerminator;
+diff --git a/crates/printer/src/stats.rs b/crates/printer/src/stats.rs
+index 357b9a772..9aa14d466 100644
+--- a/crates/printer/src/stats.rs
++++ b/crates/printer/src/stats.rs
+@@ -1,5 +1,7 @@
+-use std::ops::{Add, AddAssign};
+-use std::time::Duration;
++use std::{
++    ops::{Add, AddAssign},
++    time::Duration,
++};
+ 
+ use crate::util::NiceDuration;
+ 
+@@ -8,7 +10,7 @@ use crate::util::NiceDuration;
+ /// When statistics are reported by a printer, they correspond to all searches
+ /// executed with that printer.
+ #[derive(Clone, Debug, Default, PartialEq, Eq)]
+-#[cfg_attr(feature = "serde1", derive(serde::Serialize))]
++#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+ pub struct Stats {
+     elapsed: NiceDuration,
+     searches: u64,
+diff --git a/crates/printer/src/summary.rs b/crates/printer/src/summary.rs
+index b1adb9045..431b3a923 100644
+--- a/crates/printer/src/summary.rs
++++ b/crates/printer/src/summary.rs
+@@ -1,17 +1,24 @@
+-use std::cell::RefCell;
+-use std::io::{self, Write};
+-use std::path::Path;
+-use std::sync::Arc;
+-use std::time::Instant;
+-
+-use grep_matcher::Matcher;
+-use grep_searcher::{Searcher, Sink, SinkError, SinkFinish, SinkMatch};
+-use termcolor::{ColorSpec, NoColor, WriteColor};
+-
+-use crate::color::ColorSpecs;
+-use crate::counter::CounterWriter;
+-use crate::stats::Stats;
+-use crate::util::{find_iter_at_in_context, PrinterPath};
++use std::{
++    cell::RefCell,
++    io::{self, Write},
++    path::Path,
++    sync::Arc,
++    time::Instant,
++};
++
++use {
++    grep_matcher::Matcher,
++    grep_searcher::{Searcher, Sink, SinkError, SinkFinish, SinkMatch},
++    termcolor::{ColorSpec, NoColor, WriteColor},
++};
++
++use crate::{
++    color::ColorSpecs,
++    counter::CounterWriter,
++    hyperlink::{self, HyperlinkConfig},
++    stats::Stats,
++    util::{find_iter_at_in_context, PrinterPath},
++};
+ 
+ /// The configuration for the summary printer.
+ ///
+@@ -22,6 +29,7 @@ use crate::util::{find_iter_at_in_context, PrinterPath};
+ struct Config {
+     kind: SummaryKind,
+     colors: ColorSpecs,
++    hyperlink: HyperlinkConfig,
+     stats: bool,
+     path: bool,
+     max_matches: Option<u64>,
+@@ -36,6 +44,7 @@ impl Default for Config {
+         Config {
+             kind: SummaryKind::Count,
+             colors: ColorSpecs::default(),
++            hyperlink: HyperlinkConfig::default(),
+             stats: false,
+             path: true,
+             max_matches: None,
+@@ -206,6 +215,25 @@ impl SummaryBuilder {
+         self
+     }
+ 
++    /// Set the configuration to use for hyperlinks output by this printer.
++    ///
++    /// Regardless of the hyperlink format provided here, whether hyperlinks
++    /// are actually used or not is determined by the implementation of
++    /// `WriteColor` provided to `build`. For example, if `termcolor::NoColor`
++    /// is provided to `build`, then no hyperlinks will ever be printed
++    /// regardless of the format provided here.
++    ///
++    /// This completely overrides any previous hyperlink format.
++    ///
++    /// The default configuration results in not emitting any hyperlinks.
++    pub fn hyperlink(
++        &mut self,
++        config: HyperlinkConfig,
++    ) -> &mut SummaryBuilder {
++        self.config.hyperlink = config;
++        self
++    }
++
+     /// Enable the gathering of various aggregate statistics.
+     ///
+     /// When this is enabled (it's disabled by default), statistics will be
+@@ -370,19 +398,22 @@ impl<W: WriteColor> Summary<W> {
+         &'s mut self,
+         matcher: M,
+     ) -> SummarySink<'static, 's, M, W> {
++        let interpolator =
++            hyperlink::Interpolator::new(&self.config.hyperlink);
+         let stats = if self.config.stats || self.config.kind.requires_stats() {
+             Some(Stats::new())
+         } else {
+             None
+         };
+         SummarySink {
+-            matcher: matcher,
++            matcher,
+             summary: self,
++            interpolator,
+             path: None,
+             start_time: Instant::now(),
+             match_count: 0,
+             binary_byte_offset: None,
+-            stats: stats,
++            stats,
+         }
+     }
+ 
+@@ -402,23 +433,24 @@ impl<W: WriteColor> Summary<W> {
+         if !self.config.path && !self.config.kind.requires_path() {
+             return self.sink(matcher);
+         }
++        let interpolator =
++            hyperlink::Interpolator::new(&self.config.hyperlink);
+         let stats = if self.config.stats || self.config.kind.requires_stats() {
+             Some(Stats::new())
+         } else {
+             None
+         };
+-        let ppath = PrinterPath::with_separator(
+-            path.as_ref(),
+-            self.config.separator_path,
+-        );
++        let ppath = PrinterPath::new(path.as_ref())
++            .with_separator(self.config.separator_path);
+         SummarySink {
+-            matcher: matcher,
++            matcher,
+             summary: self,
++            interpolator,
+             path: Some(ppath),
+             start_time: Instant::now(),
+             match_count: 0,
+             binary_byte_offset: None,
+-            stats: stats,
++            stats,
+         }
+     }
+ }
+@@ -460,6 +492,7 @@ impl<W> Summary<W> {
+ pub struct SummarySink<'p, 's, M: Matcher, W> {
+     matcher: M,
+     summary: &'s mut Summary<W>,
++    interpolator: hyperlink::Interpolator,
+     path: Option<PrinterPath<'p>>,
+     start_time: Instant,
+     match_count: u64,
+@@ -532,12 +565,9 @@ impl<'p, 's, M: Matcher, W: WriteColor> SummarySink<'p, 's, M, W> {
+     /// write that path to the underlying writer followed by a line terminator.
+     /// (If a path terminator is set, then that is used instead of the line
+     /// terminator.)
+-    fn write_path_line(&self, searcher: &Searcher) -> io::Result<()> {
+-        if let Some(ref path) = self.path {
+-            self.write_spec(
+-                self.summary.config.colors.path(),
+-                path.as_bytes(),
+-            )?;
++    fn write_path_line(&mut self, searcher: &Searcher) -> io::Result<()> {
++        if self.path.is_some() {
++            self.write_path()?;
+             if let Some(term) = self.summary.config.path_terminator {
+                 self.write(&[term])?;
+             } else {
+@@ -551,12 +581,9 @@ impl<'p, 's, M: Matcher, W: WriteColor> SummarySink<'p, 's, M, W> {
+     /// write that path to the underlying writer followed by the field
+     /// separator. (If a path terminator is set, then that is used instead of
+     /// the field separator.)
+-    fn write_path_field(&self) -> io::Result<()> {
+-        if let Some(ref path) = self.path {
+-            self.write_spec(
+-                self.summary.config.colors.path(),
+-                path.as_bytes(),
+-            )?;
++    fn write_path_field(&mut self) -> io::Result<()> {
++        if self.path.is_some() {
++            self.write_path()?;
+             if let Some(term) = self.summary.config.path_terminator {
+                 self.write(&[term])?;
+             } else {
+@@ -566,6 +593,41 @@ impl<'p, 's, M: Matcher, W: WriteColor> SummarySink<'p, 's, M, W> {
+         Ok(())
+     }
+ 
++    /// If this printer has a file path associated with it, then this will
++    /// write that path to the underlying writer in the appropriate style
++    /// (color and hyperlink).
++    fn write_path(&mut self) -> io::Result<()> {
++        if self.path.is_some() {
++            let status = self.start_hyperlink()?;
++            self.write_spec(
++                self.summary.config.colors.path(),
++                self.path.as_ref().unwrap().as_bytes(),
++            )?;
++            self.end_hyperlink(status)?;
++        }
++        Ok(())
++    }
++
++    /// Starts a hyperlink span when applicable.
++    fn start_hyperlink(
++        &mut self,
++    ) -> io::Result<hyperlink::InterpolatorStatus> {
++        let Some(hyperpath) =
++            self.path.as_ref().and_then(|p| p.as_hyperlink())
++        else {
++            return Ok(hyperlink::InterpolatorStatus::inactive());
++        };
++        let values = hyperlink::Values::new(hyperpath);
++        self.interpolator.begin(&values, &mut *self.summary.wtr.borrow_mut())
++    }
++
++    fn end_hyperlink(
++        &self,
++        status: hyperlink::InterpolatorStatus,
++    ) -> io::Result<()> {
++        self.interpolator.finish(status, &mut *self.summary.wtr.borrow_mut())
++    }
++
+     /// Write the line terminator configured on the given searcher.
+     fn write_line_term(&self, searcher: &Searcher) -> io::Result<()> {
+         self.write(searcher.line_terminator().as_bytes())
+@@ -704,11 +766,11 @@ impl<'p, 's, M: Matcher, W: WriteColor> Sink for SummarySink<'p, 's, M, W> {
+             }
+             SummaryKind::CountMatches => {
+                 if show_count {
++                    self.write_path_field()?;
+                     let stats = self
+                         .stats
+                         .as_ref()
+                         .expect("CountMatches should enable stats tracking");
+-                    self.write_path_field()?;
+                     self.write(stats.matches().to_string().as_bytes())?;
+                     self.write_line_term(searcher)?;
+                 }
+diff --git a/crates/printer/src/util.rs b/crates/printer/src/util.rs
+index 73a299640..b633ec9ae 100644
+--- a/crates/printer/src/util.rs
++++ b/crates/printer/src/util.rs
+@@ -1,21 +1,20 @@
+-use std::borrow::Cow;
+-use std::fmt;
+-use std::io;
+-use std::path::Path;
+-use std::time;
+-
+-use bstr::{ByteSlice, ByteVec};
+-use grep_matcher::{Captures, LineTerminator, Match, Matcher};
+-use grep_searcher::{
+-    LineIter, Searcher, SinkContext, SinkContextKind, SinkError, SinkMatch,
++use std::{borrow::Cow, cell::OnceCell, fmt, io, path::Path, time};
++
++use {
++    bstr::ByteVec,
++    grep_matcher::{Captures, LineTerminator, Match, Matcher},
++    grep_searcher::{
++        LineIter, Searcher, SinkContext, SinkContextKind, SinkError, SinkMatch,
++    },
+ };
+-#[cfg(feature = "serde1")]
++
++#[cfg(feature = "serde")]
+ use serde::{Serialize, Serializer};
+ 
+-use crate::MAX_LOOK_AHEAD;
++use crate::{hyperlink::HyperlinkPath, MAX_LOOK_AHEAD};
+ 
+ /// A type for handling replacements while amortizing allocation.
+-pub struct Replacer<M: Matcher> {
++pub(crate) struct Replacer<M: Matcher> {
+     space: Option<Space<M>>,
+ }
+ 
+@@ -43,7 +42,7 @@ impl<M: Matcher> Replacer<M> {
+     ///
+     /// This constructor does not allocate. Instead, space for dealing with
+     /// replacements is allocated lazily only when needed.
+-    pub fn new() -> Replacer<M> {
++    pub(crate) fn new() -> Replacer<M> {
+         Replacer { space: None }
+     }
+ 
+@@ -52,7 +51,7 @@ impl<M: Matcher> Replacer<M> {
+     /// replacement, use the `replacement` method.
+     ///
+     /// This can fail if the underlying matcher reports an error.
+-    pub fn replace_all<'a>(
++    pub(crate) fn replace_all<'a>(
+         &'a mut self,
+         searcher: &Searcher,
+         matcher: &M,
+@@ -110,7 +109,9 @@ impl<M: Matcher> Replacer<M> {
+     /// all replacement occurrences within the returned replacement buffer.
+     ///
+     /// If no replacement has occurred then `None` is returned.
+-    pub fn replacement<'a>(&'a self) -> Option<(&'a [u8], &'a [Match])> {
++    pub(crate) fn replacement<'a>(
++        &'a self,
++    ) -> Option<(&'a [u8], &'a [Match])> {
+         match self.space {
+             None => None,
+             Some(ref space) => {
+@@ -127,7 +128,7 @@ impl<M: Matcher> Replacer<M> {
+     ///
+     /// Subsequent calls to `replacement` after calling `clear` (but before
+     /// executing another replacement) will always return `None`.
+-    pub fn clear(&mut self) {
++    pub(crate) fn clear(&mut self) {
+         if let Some(ref mut space) = self.space {
+             space.dst.clear();
+             space.matches.clear();
+@@ -143,8 +144,7 @@ impl<M: Matcher> Replacer<M> {
+         if self.space.is_none() {
+             let caps =
+                 matcher.new_captures().map_err(io::Error::error_message)?;
+-            self.space =
+-                Some(Space { caps: caps, dst: vec![], matches: vec![] });
++            self.space = Some(Space { caps, dst: vec![], matches: vec![] });
+         }
+         Ok(self.space.as_mut().unwrap())
+     }
+@@ -163,7 +163,7 @@ impl<M: Matcher> Replacer<M> {
+ /// results of the replacement instead of the bytes reported directly by the
+ /// searcher.
+ #[derive(Debug)]
+-pub struct Sunk<'a> {
++pub(crate) struct Sunk<'a> {
+     bytes: &'a [u8],
+     absolute_byte_offset: u64,
+     line_number: Option<u64>,
+@@ -174,7 +174,7 @@ pub struct Sunk<'a> {
+ 
+ impl<'a> Sunk<'a> {
+     #[inline]
+-    pub fn empty() -> Sunk<'static> {
++    pub(crate) fn empty() -> Sunk<'static> {
+         Sunk {
+             bytes: &[],
+             absolute_byte_offset: 0,
+@@ -186,7 +186,7 @@ impl<'a> Sunk<'a> {
+     }
+ 
+     #[inline]
+-    pub fn from_sink_match(
++    pub(crate) fn from_sink_match(
+         sunk: &'a SinkMatch<'a>,
+         original_matches: &'a [Match],
+         replacement: Option<(&'a [u8], &'a [Match])>,
+@@ -194,17 +194,17 @@ impl<'a> Sunk<'a> {
+         let (bytes, matches) =
+             replacement.unwrap_or_else(|| (sunk.bytes(), original_matches));
+         Sunk {
+-            bytes: bytes,
++            bytes,
+             absolute_byte_offset: sunk.absolute_byte_offset(),
+             line_number: sunk.line_number(),
+             context_kind: None,
+-            matches: matches,
+-            original_matches: original_matches,
++            matches,
++            original_matches,
+         }
+     }
+ 
+     #[inline]
+-    pub fn from_sink_context(
++    pub(crate) fn from_sink_context(
+         sunk: &'a SinkContext<'a>,
+         original_matches: &'a [Match],
+         replacement: Option<(&'a [u8], &'a [Match])>,
+@@ -212,47 +212,47 @@ impl<'a> Sunk<'a> {
+         let (bytes, matches) =
+             replacement.unwrap_or_else(|| (sunk.bytes(), original_matches));
+         Sunk {
+-            bytes: bytes,
++            bytes,
+             absolute_byte_offset: sunk.absolute_byte_offset(),
+             line_number: sunk.line_number(),
+             context_kind: Some(sunk.kind()),
+-            matches: matches,
+-            original_matches: original_matches,
++            matches,
++            original_matches,
+         }
+     }
+ 
+     #[inline]
+-    pub fn context_kind(&self) -> Option<&'a SinkContextKind> {
++    pub(crate) fn context_kind(&self) -> Option<&'a SinkContextKind> {
+         self.context_kind
+     }
+ 
+     #[inline]
+-    pub fn bytes(&self) -> &'a [u8] {
++    pub(crate) fn bytes(&self) -> &'a [u8] {
+         self.bytes
+     }
+ 
+     #[inline]
+-    pub fn matches(&self) -> &'a [Match] {
++    pub(crate) fn matches(&self) -> &'a [Match] {
+         self.matches
+     }
+ 
+     #[inline]
+-    pub fn original_matches(&self) -> &'a [Match] {
++    pub(crate) fn original_matches(&self) -> &'a [Match] {
+         self.original_matches
+     }
+ 
+     #[inline]
+-    pub fn lines(&self, line_term: u8) -> LineIter<'a> {
++    pub(crate) fn lines(&self, line_term: u8) -> LineIter<'a> {
+         LineIter::new(line_term, self.bytes())
+     }
+ 
+     #[inline]
+-    pub fn absolute_byte_offset(&self) -> u64 {
++    pub(crate) fn absolute_byte_offset(&self) -> u64 {
+         self.absolute_byte_offset
+     }
+ 
+     #[inline]
+-    pub fn line_number(&self) -> Option<u64> {
++    pub(crate) fn line_number(&self) -> Option<u64> {
+         self.line_number
+     }
+ }
+@@ -264,11 +264,12 @@ impl<'a> Sunk<'a> {
+ /// something else. This allows us to amortize work if we are printing the
+ /// file path for every match.
+ ///
+-/// In the common case, no transformation is needed, which lets us avoid the
+-/// allocation. Typically, only Windows requires a transform, since we can't
+-/// access the raw bytes of a path directly and first need to lossily convert
+-/// to UTF-8. Windows is also typically where the path separator replacement
+-/// is used, e.g., in cygwin environments to use `/` instead of `\`.
++/// In the common case, no transformation is needed, which lets us avoid
++/// the allocation. Typically, only Windows requires a transform, since
++/// it's fraught to access the raw bytes of a path directly and first need
++/// to lossily convert to UTF-8. Windows is also typically where the path
++/// separator replacement is used, e.g., in cygwin environments to use `/`
++/// instead of `\`.
+ ///
+ /// Users of this type are expected to construct it from a normal `Path`
+ /// found in the standard library. It can then be written to any `io::Write`
+@@ -276,49 +277,87 @@ impl<'a> Sunk<'a> {
+ /// portability with a small cost: on Windows, paths that are not valid UTF-16
+ /// will not roundtrip correctly.
+ #[derive(Clone, Debug)]
+-pub struct PrinterPath<'a>(Cow<'a, [u8]>);
++pub(crate) struct PrinterPath<'a> {
++    // On Unix, we can re-materialize a `Path` from our `Cow<'a, [u8]>` with
++    // zero cost, so there's no point in storing it. At time of writing,
++    // OsStr::as_os_str_bytes (and its corresponding constructor) are not
++    // stable yet. Those would let us achieve the same end portably. (As long
++    // as we keep our UTF-8 requirement on Windows.)
++    #[cfg(not(unix))]
++    path: &'a Path,
++    bytes: Cow<'a, [u8]>,
++    hyperlink: OnceCell<Option<HyperlinkPath>>,
++}
+ 
+ impl<'a> PrinterPath<'a> {
+     /// Create a new path suitable for printing.
+-    pub fn new(path: &'a Path) -> PrinterPath<'a> {
+-        PrinterPath(Vec::from_path_lossy(path))
++    pub(crate) fn new(path: &'a Path) -> PrinterPath<'a> {
++        PrinterPath {
++            #[cfg(not(unix))]
++            path,
++            // N.B. This is zero-cost on Unix and requires at least a UTF-8
++            // check on Windows. This doesn't allocate on Windows unless the
++            // path is invalid UTF-8 (which is exceptionally rare).
++            bytes: Vec::from_path_lossy(path),
++            hyperlink: OnceCell::new(),
++        }
+     }
+ 
+-    /// Create a new printer path from the given path which can be efficiently
+-    /// written to a writer without allocation.
++    /// Set the separator on this path.
+     ///
+-    /// If the given separator is present, then any separators in `path` are
+-    /// replaced with it.
+-    pub fn with_separator(path: &'a Path, sep: Option<u8>) -> PrinterPath<'a> {
+-        let mut ppath = PrinterPath::new(path);
+-        if let Some(sep) = sep {
+-            ppath.replace_separator(sep);
++    /// When set, `PrinterPath::as_bytes` will return the path provided but
++    /// with its separator replaced with the one given.
++    pub(crate) fn with_separator(
++        mut self,
++        sep: Option<u8>,
++    ) -> PrinterPath<'a> {
++        /// Replace the path separator in this path with the given separator
++        /// and do it in place. On Windows, both `/` and `\` are treated as
++        /// path separators that are both replaced by `new_sep`. In all other
++        /// environments, only `/` is treated as a path separator.
++        fn replace_separator(bytes: &[u8], sep: u8) -> Vec<u8> {
++            let mut bytes = bytes.to_vec();
++            for b in bytes.iter_mut() {
++                if *b == b'/' || (cfg!(windows) && *b == b'\\') {
++                    *b = sep;
++                }
++            }
++            bytes
+         }
+-        ppath
++        let Some(sep) = sep else { return self };
++        self.bytes = Cow::Owned(replace_separator(self.as_bytes(), sep));
++        self
+     }
+ 
+-    /// Replace the path separator in this path with the given separator
+-    /// and do it in place. On Windows, both `/` and `\` are treated as
+-    /// path separators that are both replaced by `new_sep`. In all other
+-    /// environments, only `/` is treated as a path separator.
+-    fn replace_separator(&mut self, new_sep: u8) {
+-        let transformed_path: Vec<u8> = self
+-            .0
+-            .bytes()
+-            .map(|b| {
+-                if b == b'/' || (cfg!(windows) && b == b'\\') {
+-                    new_sep
+-                } else {
+-                    b
+-                }
+-            })
+-            .collect();
+-        self.0 = Cow::Owned(transformed_path);
++    /// Return the raw bytes for this path.
++    pub(crate) fn as_bytes(&self) -> &[u8] {
++        &self.bytes
+     }
+ 
+-    /// Return the raw bytes for this path.
+-    pub fn as_bytes(&self) -> &[u8] {
+-        &self.0
++    /// Return this path as a hyperlink.
++    ///
++    /// Note that a hyperlink may not be able to be created from a path.
++    /// Namely, computing the hyperlink may require touching the file system
++    /// (e.g., for path canonicalization) and that can fail. This failure is
++    /// silent but is logged.
++    pub(crate) fn as_hyperlink(&self) -> Option<&HyperlinkPath> {
++        self.hyperlink
++            .get_or_init(|| HyperlinkPath::from_path(self.as_path()))
++            .as_ref()
++    }
++
++    /// Return this path as an actual `Path` type.
++    fn as_path(&self) -> &Path {
++        #[cfg(unix)]
++        fn imp<'p>(p: &'p PrinterPath<'_>) -> &'p Path {
++            use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
++            Path::new(OsStr::from_bytes(p.as_bytes()))
++        }
++        #[cfg(not(unix))]
++        fn imp<'p>(p: &'p PrinterPath<'_>) -> &'p Path {
++            p.path
++        }
++        imp(self)
+     }
+ }
+ 
+@@ -327,7 +366,7 @@ impl<'a> PrinterPath<'a> {
+ /// with the Deserialize impl for std::time::Duration, since this type only
+ /// adds new fields.
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+-pub struct NiceDuration(pub time::Duration);
++pub(crate) struct NiceDuration(pub time::Duration);
+ 
+ impl fmt::Display for NiceDuration {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+@@ -345,7 +384,7 @@ impl NiceDuration {
+     }
+ }
+ 
+-#[cfg(feature = "serde1")]
++#[cfg(feature = "serde")]
+ impl Serialize for NiceDuration {
+     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+         use serde::ser::SerializeStruct;
+@@ -363,7 +402,7 @@ impl Serialize for NiceDuration {
+ ///
+ /// This stops trimming a prefix as soon as it sees non-whitespace or a line
+ /// terminator.
+-pub fn trim_ascii_prefix(
++pub(crate) fn trim_ascii_prefix(
+     line_term: LineTerminator,
+     slice: &[u8],
+     range: Match,
+@@ -384,7 +423,7 @@ pub fn trim_ascii_prefix(
+     range.with_start(range.start() + count)
+ }
+ 
+-pub fn find_iter_at_in_context<M, F>(
++pub(crate) fn find_iter_at_in_context<M, F>(
+     searcher: &Searcher,
+     matcher: M,
+     mut bytes: &[u8],
+@@ -444,7 +483,7 @@ where
+ /// Given a buf and some bounds, if there is a line terminator at the end of
+ /// the given bounds in buf, then the bounds are trimmed to remove the line
+ /// terminator.
+-pub fn trim_line_terminator(
++pub(crate) fn trim_line_terminator(
+     searcher: &Searcher,
+     buf: &[u8],
+     line: &mut Match,

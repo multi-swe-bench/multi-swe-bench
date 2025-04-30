@@ -1,0 +1,301 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/noscript-removal/_config.js b/packages/svelte/tests/runtime-legacy/samples/noscript-removal/_config.js
+deleted file mode 100644
+index d7e1b908c009..000000000000
+--- a/packages/svelte/tests/runtime-legacy/samples/noscript-removal/_config.js
++++ /dev/null
+@@ -1,27 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	test({ assert, target, variant }) {
+-		// if created on client side, should not build noscript
+-		if (variant === 'dom') {
+-			assert.equal(target.querySelectorAll('noscript').length, 0);
+-			assert.htmlEqual(
+-				target.innerHTML,
+-				`
+-					<div>foo</div>
+-					<div>foo<div>foo</div></div>
+-				`
+-			);
+-		} else {
+-			assert.equal(target.querySelectorAll('noscript').length, 3);
+-			assert.htmlEqual(
+-				target.innerHTML,
+-				`
+-					<noscript>foo</noscript>
+-					<div>foo<noscript>foo</noscript></div>
+-					<div>foo<div>foo<noscript>foo</noscript></div></div>
+-				`
+-			);
+-		}
+-	}
+-});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/noscript-removal/main.svelte b/packages/svelte/tests/runtime-legacy/samples/noscript-removal/main.svelte
+deleted file mode 100644
+index 0cc2155e5d65..000000000000
+--- a/packages/svelte/tests/runtime-legacy/samples/noscript-removal/main.svelte
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<noscript>foo</noscript>
+-
+-<div>foo<noscript>foo</noscript></div>
+-
+-<div>foo<div>foo<noscript>foo</noscript></div></div>
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-6/_config.js b/packages/svelte/tests/runtime-runes/samples/each-updates-6/_config.js
+new file mode 100644
+index 000000000000..8bd2d17131df
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-6/_config.js
+@@ -0,0 +1,27 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<ul><li>test (1) <span style="background-color: red; width: 20px; height: 20px; display: inline-block;"></span></li><li>test 2 (2)</li><li>test 3 (3)</li></ul><button>Swap items 1 &amp; 3</button>`,
++
++	async test({ assert, target }) {
++		const [btn1] = target.querySelectorAll('button');
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<ul><li>test (1) <span style="background-color: red; width: 20px; height: 20px; display: inline-block;"></span></li><li>test 2 (2)</li><li>test 3 (3)</li></ul><button>Swap items 1 &amp; 3</button>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-6/main.svelte b/packages/svelte/tests/runtime-runes/samples/each-updates-6/main.svelte
+new file mode 100644
+index 000000000000..a1b948ac0fb8
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-6/main.svelte
+@@ -0,0 +1,26 @@
++<script>
++	const items = $state([
++		{ name: 'test', id: 1, color: 'red' },
++		{ name: 'test 2', id: 2 },
++		{ name: 'test 3', id: 3 },
++	]);
++	const onclick = () => {
++		const from = 0;
++		const to = 2;
++		items.splice(to, 0, items.splice(from, 1)[0]);
++	};
++</script>
++
++{#snippet renderItem(item)}
++	<li>
++		{item.name} ({item.id})
++		{#if item.color}<span style="background-color: {item.color}; width: 20px; height: 20px; display: inline-block;"></span>{/if}
++	</li>
++{/snippet}
++
++<ul>
++	{#each items as item (item.id)}
++		{@render renderItem(item)}
++	{/each}
++</ul>
++<button {onclick}>Swap items 1 & 3</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-7/_config.js b/packages/svelte/tests/runtime-runes/samples/each-updates-7/_config.js
+new file mode 100644
+index 000000000000..7f1f5b65890d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-7/_config.js
+@@ -0,0 +1,27 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<ul><li>test (1)</li> <span style="background-color: red; width: 20px; height: 20px; display: inline-block;"></span><li>test 2 (2)</li><li>test 3 (3)</li></ul><button>Swap items 1 &amp; 3</button>`,
++
++	async test({ assert, target }) {
++		const [btn1] = target.querySelectorAll('button');
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<ul><li>test (1)</li><span style="background-color: red; width: 20px; height: 20px; display: inline-block;"></span><li>test 2 (2)</li><li>test 3 (3)</li></ul><button>Swap items 1 &amp; 3</button>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-7/main.svelte b/packages/svelte/tests/runtime-runes/samples/each-updates-7/main.svelte
+new file mode 100644
+index 000000000000..df8b054a4258
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-7/main.svelte
+@@ -0,0 +1,26 @@
++<script>
++	const items = $state([
++		{ name: 'test', id: 1, color: 'red' },
++		{ name: 'test 2', id: 2 },
++		{ name: 'test 3', id: 3 },
++	]);
++	const onclick = () => {
++		const from = 0;
++		const to = 2;
++		items.splice(to, 0, items.splice(from, 1)[0]);
++	};
++</script>
++
++{#snippet renderItem(item)}
++	<li>
++		{item.name} ({item.id})
++	</li>
++	{#if item.color}<span style="background-color: {item.color}; width: 20px; height: 20px; display: inline-block;"></span>{/if}
++{/snippet}
++
++<ul>
++	{#each items as item (item.id)}
++		{@render renderItem(item)}
++	{/each}
++</ul>
++<button {onclick}>Swap items 1 & 3</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-8/_config.js b/packages/svelte/tests/runtime-runes/samples/each-updates-8/_config.js
+new file mode 100644
+index 000000000000..e675dcaf67c1
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-8/_config.js
+@@ -0,0 +1,42 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>Add new message</button><p>first</p><p>message 1</p>`,
++
++	async test({ assert, target }) {
++		/**
++		 * @type {{ click: () => void; }}
++		 */
++		let btn1;
++
++		[btn1] = target.querySelectorAll('button');
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>Add new message</button><p>first</p><p>message 1</p><p>message 2</p>`
++		);
++
++		await Promise.resolve();
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>Add new message</button><p>first</p><p>message 1</p><p>message 2</p>`
++		);
++
++		flushSync(() => {
++			btn1.click();
++		});
++
++		await Promise.resolve();
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>Add new message</button><p>first</p><p>message 1</p><p>message 2</p><p>message 3</p>`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/each-updates-8/main.svelte b/packages/svelte/tests/runtime-runes/samples/each-updates-8/main.svelte
+new file mode 100644
+index 000000000000..869ccdc8dd78
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/each-updates-8/main.svelte
+@@ -0,0 +1,23 @@
++<script>
++	let messages = $state([{id: 1, content: "message 1"}]);
++
++	function add() {
++		const newId = messages.length + 1
++		messages.push({id: 0, tmpId: newId, content: `message ${newId}`})
++
++		queueMicrotask(() => {
++			const msg = messages.find((m) => m.tmpId === newId && m.id === 0)
++			msg.tmpId = ""
++			msg.id = newId
++		})
++	}
++</script>
++
++<button onclick={add}>Add new message</button>
++
++{#each messages as msg, i (`${msg.id}_${msg.tmpId ?? ""}`)}
++	{#if i === 0}
++		<p>first</p>
++	{/if}
++	<p>{msg.content}</p>
++{/each}
+diff --git a/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
+index 0e193af12d5f..c38eede434ff 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-component-snippet/_expected/client/index.svelte.js
+@@ -3,7 +3,7 @@ import * as $ from "svelte/internal/client";
+ import TextInput from './Child.svelte';
+ 
+ var root_1 = $.template(`Something`, 1);
+-var root = $.template(`<!> `, 1);
++var root = $.template(`<!> `, 5);
+ 
+ export default function Bind_component_snippet($$anchor) {
+ 	var snippet = ($$anchor) => {
+diff --git a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+index c766ee0a79b4..c1f5a2a309dc 100644
+--- a/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/bind-this/_expected/client/index.svelte.js
+@@ -2,7 +2,7 @@ import "svelte/internal/disclose-version";
+ import * as $ from "svelte/internal/client";
+ 
+ export default function Bind_this($$anchor) {
+-	var fragment = $.comment();
++	var fragment = $.comment(true);
+ 	var node = $.first_child(fragment);
+ 
+ 	$.bind_this(Foo(node, { $$legacy: true }), ($$value) => foo = $$value, () => foo);
+diff --git a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
+index 2d25ba9fd25c..2cf005abdf19 100644
+--- a/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/function-prop-no-getter/_expected/client/index.svelte.js
+@@ -9,7 +9,7 @@ export default function Function_prop_no_getter($$anchor) {
+ 	}
+ 
+ 	const plusOne = (num) => num + 1;
+-	var fragment = $.comment();
++	var fragment = $.comment(true);
+ 	var node = $.first_child(fragment);
+ 
+ 	Button(node, {
+diff --git a/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js b/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
+index 7cb2415bf565..0f2d6f420094 100644
+--- a/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
++++ b/packages/svelte/tests/snapshot/samples/state-proxy-literal/_expected/client/index.svelte.js
+@@ -30,4 +30,4 @@ export default function State_proxy_literal($$anchor) {
+ 	$.append($$anchor, fragment);
+ }
+ 
+-$.delegate(["click"]);
++$.delegate(["click"]);
+\ No newline at end of file

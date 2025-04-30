@@ -1,0 +1,74 @@
+diff --git a/.release-notes/3971.md b/.release-notes/3971.md
+new file mode 100644
+index 0000000000..3fd1e8cce2
+--- /dev/null
++++ b/.release-notes/3971.md
+@@ -0,0 +1,14 @@
++## Fix return checking in behaviours and constructors
++
++Our checks to make sure that the usage of return in behaviours and constructors was overly restrictive. It was checking for any usage of `return` that had a value including when the return wasn't from the method itself.
++
++For example:
++
++```pony
++actor Main
++  new create(env: Env) =>
++    let f = {() => if true then return None end}
++```
++
++Would return an error despite the return being in a lambda and therefore not returning a value from the constructor.
++
+diff --git a/src/libponyc/pass/syntax.c b/src/libponyc/pass/syntax.c
+index 001064037a..c5422f94f0 100644
+--- a/src/libponyc/pass/syntax.c
++++ b/src/libponyc/pass/syntax.c
+@@ -764,18 +764,39 @@ static ast_result_t syntax_return(pass_opt_t* opt, ast_t* ast,
+ 
+     if(value_count > 0)
+     {
+-      if(ast_id(opt->check.frame->method) == TK_NEW)
++      if (ast_id(opt->check.frame->method) == TK_BE ||
++        ast_id(opt->check.frame->method) == TK_NEW)
+       {
+-        ast_error(opt->check.errors, ast,
+-          "A return in a constructor must not have an expression");
+-        return AST_ERROR;
+-      }
++        bool should_error = true;
++        ast_t* pparent = parent;
+ 
+-      if(ast_id(opt->check.frame->method) == TK_BE)
+-      {
+-        ast_error(opt->check.errors, ast,
+-          "A return in a behaviour must not have an expression");
+-        return AST_ERROR;
++        switch(ast_id(opt->check.frame->method))
++        {
++          case TK_BE:
++          case TK_NEW:
++            while (pparent != NULL)
++            {
++              switch(ast_id(pparent))
++              {
++                case TK_LAMBDA:
++                  should_error = false;
++                case TK_BE:
++                case TK_NEW:
++                  break;
++                default: {}
++              }
++
++              pparent = ast_parent(pparent);
++            }
++          default: {}
++        }
++
++        if (should_error)
++        {
++          ast_error(opt->check.errors, ast,
++            "A return in a constructor or a behaviour can't return a value");
++          return AST_ERROR;
++        }
+       }
+     }
+   }

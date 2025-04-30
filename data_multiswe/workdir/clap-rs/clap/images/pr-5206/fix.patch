@@ -1,0 +1,295 @@
+diff --git a/clap_builder/src/builder/app_settings.rs b/clap_builder/src/builder/app_settings.rs
+index 4fce4b4a2ee..f9a87dadcd4 100644
+--- a/clap_builder/src/builder/app_settings.rs
++++ b/clap_builder/src/builder/app_settings.rs
+@@ -57,6 +57,7 @@ pub(crate) enum AppSettings {
+     SubcommandsNegateReqs,
+     ArgsNegateSubcommands,
+     SubcommandPrecedenceOverArg,
++    FlattenHelp,
+     ArgRequiredElseHelp,
+     NextLineHelp,
+     DisableColoredHelp,
+diff --git a/clap_builder/src/builder/command.rs b/clap_builder/src/builder/command.rs
+index 264649c7b1c..e82652e805a 100644
+--- a/clap_builder/src/builder/command.rs
++++ b/clap_builder/src/builder/command.rs
+@@ -2049,6 +2049,21 @@ impl Command {
+         self
+     }
+ 
++    /// Flatten subcommand help into the current command's help
++    ///
++    /// This shows a summary of subcommands within the usage and help for the current command, similar to
++    /// `git stash --help` showing information on `push`, `pop`, etc.
++    /// To see more information, a user can still pass `--help` to the individual subcommands.
++    #[inline]
++    #[must_use]
++    pub fn flatten_help(self, yes: bool) -> Self {
++        if yes {
++            self.setting(AppSettings::FlattenHelp)
++        } else {
++            self.unset_setting(AppSettings::FlattenHelp)
++        }
++    }
++
+     /// Set the default section heading for future args.
+     ///
+     /// This will be used for any arg that hasn't had [`Arg::help_heading`] called.
+@@ -3430,6 +3445,12 @@ impl Command {
+         self.long_about.as_ref()
+     }
+ 
++    /// Get the custom section heading specified via [`Command::flatten_help`].
++    #[inline]
++    pub fn is_flatten_help_set(&self) -> bool {
++        self.is_set(AppSettings::FlattenHelp)
++    }
++
+     /// Get the custom section heading specified via [`Command::next_help_heading`].
+     ///
+     /// [`Command::help_heading`]: Command::help_heading()
+diff --git a/clap_builder/src/output/help_template.rs b/clap_builder/src/output/help_template.rs
+index da2e7541328..92a039dfe1c 100644
+--- a/clap_builder/src/output/help_template.rs
++++ b/clap_builder/src/output/help_template.rs
+@@ -393,9 +393,11 @@ impl<'cmd, 'writer> HelpTemplate<'cmd, 'writer> {
+             .filter_map(|arg| arg.get_help_heading())
+             .collect::<FlatSet<_>>();
+ 
++        let flatten = self.cmd.is_flatten_help_set();
++
+         let mut first = true;
+ 
+-        if subcmds {
++        if subcmds && !flatten {
+             if !first {
+                 self.writer.push_str("\n\n");
+             }
+@@ -474,6 +476,11 @@ impl<'cmd, 'writer> HelpTemplate<'cmd, 'writer> {
+                 }
+             }
+         }
++        if flatten {
++            let mut cmd = self.cmd.clone();
++            cmd.build();
++            self.write_flat_subcommands(&cmd, &mut first);
++        }
+     }
+ 
+     /// Sorts arguments by length and display order and write their help to the wrapped stream.
+@@ -873,6 +880,70 @@ impl<'cmd, 'writer> HelpTemplate<'cmd, 'writer> {
+ 
+ /// Subcommand handling
+ impl<'cmd, 'writer> HelpTemplate<'cmd, 'writer> {
++    /// Writes help for subcommands of a Parser Object to the wrapped stream.
++    fn write_flat_subcommands(&mut self, cmd: &Command, first: &mut bool) {
++        debug!(
++            "HelpTemplate::write_flat_subcommands, cmd={}, first={}",
++            cmd.get_name(),
++            *first
++        );
++        use std::fmt::Write as _;
++        let header = &self.styles.get_header();
++
++        let mut ord_v = Vec::new();
++        for subcommand in cmd
++            .get_subcommands()
++            .filter(|subcommand| should_show_subcommand(subcommand))
++        {
++            ord_v.push((
++                subcommand.get_display_order(),
++                subcommand.get_name(),
++                subcommand,
++            ));
++        }
++        ord_v.sort_by(|a, b| (a.0, &a.1).cmp(&(b.0, &b.1)));
++        for (_, _, subcommand) in ord_v {
++            if !*first {
++                self.writer.push_str("\n\n");
++            }
++            *first = false;
++
++            let heading = subcommand.get_usage_name_fallback();
++            let about = cmd
++                .get_about()
++                .or_else(|| cmd.get_long_about())
++                .unwrap_or_default();
++
++            let _ = write!(
++                self.writer,
++                "{}{heading}:{}\n",
++                header.render(),
++                header.render_reset()
++            );
++            if !about.is_empty() {
++                let _ = write!(self.writer, "{about}\n",);
++            }
++
++            let mut sub_help = HelpTemplate {
++                writer: self.writer,
++                cmd: subcommand,
++                styles: self.styles,
++                usage: self.usage,
++                next_line_help: self.next_line_help,
++                term_w: self.term_w,
++                use_long: self.use_long,
++            };
++            let args = subcommand
++                .get_arguments()
++                .filter(|arg| should_show_arg(self.use_long, arg) && !arg.is_global_set())
++                .collect::<Vec<_>>();
++            sub_help.write_args(&args, heading, option_sort_key);
++            if subcommand.is_flatten_help_set() {
++                sub_help.write_flat_subcommands(subcommand, first);
++            }
++        }
++    }
++
+     /// Writes help for subcommands of a Parser Object to the wrapped stream.
+     fn write_subcommands(&mut self, cmd: &Command) {
+         debug!("HelpTemplate::write_subcommands");
+diff --git a/clap_builder/src/output/usage.rs b/clap_builder/src/output/usage.rs
+index d4e932ce7f6..0b2ff3b93c3 100644
+--- a/clap_builder/src/output/usage.rs
++++ b/clap_builder/src/output/usage.rs
+@@ -101,9 +101,29 @@ impl<'cmd> Usage<'cmd> {
+     // Creates a usage string for display in help messages (i.e. not for errors)
+     fn write_help_usage(&self, styled: &mut StyledStr) {
+         debug!("Usage::write_help_usage");
++        use std::fmt::Write;
+ 
+-        self.write_arg_usage(styled, &[], true);
+-        self.write_subcommand_usage(styled);
++        if self.cmd.is_flatten_help_set() {
++            if !self.cmd.is_subcommand_required_set()
++                || self.cmd.is_args_conflicts_with_subcommands_set()
++            {
++                self.write_arg_usage(styled, &[], true);
++                styled.trim_end();
++                let _ = write!(styled, "{}", USAGE_SEP);
++            }
++            let mut cmd = self.cmd.clone();
++            cmd.build();
++            for (i, sub) in cmd.get_subcommands().enumerate() {
++                if i != 0 {
++                    styled.trim_end();
++                    let _ = write!(styled, "{}", USAGE_SEP);
++                }
++                Usage::new(sub).write_usage_no_title(styled, &[]);
++            }
++        } else {
++            self.write_arg_usage(styled, &[], true);
++            self.write_subcommand_usage(styled);
++        }
+     }
+ 
+     // Creates a context aware usage string, or "smart usage" from currently used
+diff --git a/examples/git-derive.md b/examples/git-derive.md
+index 57edb612e9e..442498dc603 100644
+--- a/examples/git-derive.md
++++ b/examples/git-derive.md
+@@ -73,18 +73,30 @@ Default subcommand:
+ ```console
+ $ git-derive stash -h
+ Usage: git-derive[EXE] stash [OPTIONS]
+-       git-derive[EXE] stash <COMMAND>
+-
+-Commands:
+-  push   
+-  pop    
+-  apply  
+-  help   Print this message or the help of the given subcommand(s)
++       git-derive[EXE] stash push [OPTIONS]
++       git-derive[EXE] stash pop [STASH]
++       git-derive[EXE] stash apply [STASH]
++       git-derive[EXE] stash help [COMMAND]...
+ 
+ Options:
+   -m, --message <MESSAGE>  
+   -h, --help               Print help
+ 
++git-derive[EXE] stash push:
++  -m, --message <MESSAGE>  
++  -h, --help               Print help
++
++git-derive[EXE] stash pop:
++  -h, --help   Print help
++  [STASH]  
++
++git-derive[EXE] stash apply:
++  -h, --help   Print help
++  [STASH]  
++
++git-derive[EXE] stash help:
++  [COMMAND]...  Print help for the subcommand(s)
++
+ $ git-derive stash push -h
+ Usage: git-derive[EXE] stash push [OPTIONS]
+ 
+diff --git a/examples/git-derive.rs b/examples/git-derive.rs
+index ad82e0cea78..9d171373d9f 100644
+--- a/examples/git-derive.rs
++++ b/examples/git-derive.rs
+@@ -76,6 +76,7 @@ impl std::fmt::Display for ColorWhen {
+ 
+ #[derive(Debug, Args)]
+ #[command(args_conflicts_with_subcommands = true)]
++#[command(flatten_help = true)]
+ struct StashArgs {
+     #[command(subcommand)]
+     command: Option<StashCommands>,
+diff --git a/examples/git.md b/examples/git.md
+index d90b2e8e053..55acc69c246 100644
+--- a/examples/git.md
++++ b/examples/git.md
+@@ -71,18 +71,30 @@ Default subcommand:
+ ```console
+ $ git stash -h
+ Usage: git[EXE] stash [OPTIONS]
+-       git[EXE] stash <COMMAND>
+-
+-Commands:
+-  push   
+-  pop    
+-  apply  
+-  help   Print this message or the help of the given subcommand(s)
++       git[EXE] stash push [OPTIONS]
++       git[EXE] stash pop [STASH]
++       git[EXE] stash apply [STASH]
++       git[EXE] stash help [COMMAND]...
+ 
+ Options:
+   -m, --message <MESSAGE>  
+   -h, --help               Print help
+ 
++git[EXE] stash push:
++  -m, --message <MESSAGE>  
++  -h, --help               Print help
++
++git[EXE] stash pop:
++  -h, --help   Print help
++  [STASH]  
++
++git[EXE] stash apply:
++  -h, --help   Print help
++  [STASH]  
++
++git[EXE] stash help:
++  [COMMAND]...  Print help for the subcommand(s)
++
+ $ git stash push -h
+ Usage: git[EXE] stash push [OPTIONS]
+ 
+diff --git a/examples/git.rs b/examples/git.rs
+index 02173675f9c..fc8fd01f79e 100644
+--- a/examples/git.rs
++++ b/examples/git.rs
+@@ -45,6 +45,7 @@ fn cli() -> Command {
+         .subcommand(
+             Command::new("stash")
+                 .args_conflicts_with_subcommands(true)
++                .flatten_help(true)
+                 .args(push_args())
+                 .subcommand(Command::new("push").args(push_args()))
+                 .subcommand(Command::new("pop").arg(arg!([STASH])))

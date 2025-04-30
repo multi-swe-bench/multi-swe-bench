@@ -1,0 +1,143 @@
+diff --git a/api/index.js b/api/index.js
+index 10dd48478ec6b..d986685440923 100644
+--- a/api/index.js
++++ b/api/index.js
+@@ -26,6 +26,7 @@ export default async (req, res) => {
+     include_all_commits,
+     line_height,
+     title_color,
++    ring_color,
+     icon_color,
+     text_color,
+     text_bold,
+@@ -76,6 +77,7 @@ export default async (req, res) => {
+         include_all_commits: parseBoolean(include_all_commits),
+         line_height,
+         title_color,
++        ring_color,
+         icon_color,
+         text_color,
+         text_bold: parseBoolean(text_bold),
+diff --git a/readme.md b/readme.md
+index 9c35b708fb43f..18f5df5894053 100644
+--- a/readme.md
++++ b/readme.md
+@@ -195,6 +195,7 @@ You can provide multiple comma-separated values in the bg_color option to render
+ -   `custom_title` - Sets a custom title for the card. Default:  `<username> Github Stats`.
+ -   `text_bold` - Use bold text _(boolean)_. Default: `true`.
+ -   `disable_animations` - Disables all animations in the card _(boolean)_. Default: `false`.
++-   `ring_color` - Color of the rank circle _(hex color)_. Defaults to the theme ring color if it exists and otherwise the title color.
+ 
+ > **Note**
+ > When hide_rank=`true`, the minimum card width is 270 px + the title length and padding.
+diff --git a/src/cards/stats-card.js b/src/cards/stats-card.js
+index c9ab66ecf889f..5b21eba19b249 100644
+--- a/src/cards/stats-card.js
++++ b/src/cards/stats-card.js
+@@ -89,6 +89,7 @@ const renderStatsCard = (stats = {}, options = { hide: [] }) => {
+     include_all_commits = false,
+     line_height = 25,
+     title_color,
++    ring_color,
+     icon_color,
+     text_color,
+     text_bold = true,
+@@ -104,13 +105,14 @@ const renderStatsCard = (stats = {}, options = { hide: [] }) => {
+   const lheight = parseInt(String(line_height), 10);
+ 
+   // returns theme based colors with proper overrides and defaults
+-  const { titleColor, textColor, iconColor, bgColor, borderColor } =
++  const { titleColor, iconColor, textColor, bgColor, borderColor, ringColor } =
+     getCardColors({
+       title_color,
+-      icon_color,
+       text_color,
++      icon_color,
+       bg_color,
+       border_color,
++      ring_color,
+       theme,
+     });
+ 
+@@ -200,6 +202,7 @@ const renderStatsCard = (stats = {}, options = { hide: [] }) => {
+   const progress = 100 - rank.score;
+   const cssStyles = getStyles({
+     titleColor,
++    ringColor,
+     textColor,
+     iconColor,
+     show_icons,
+diff --git a/src/common/utils.js b/src/common/utils.js
+index 33b5f03d99615..79810f21e0842 100644
+--- a/src/common/utils.js
++++ b/src/common/utils.js
+@@ -133,9 +133,9 @@ function isValidGradient(colors) {
+  * @returns {string | string[]} The gradient or color.
+  */
+ function fallbackColor(color, fallbackColor) {
+-  let colors = color.split(",");
+   let gradient = null;
+ 
++  let colors = color ? color.split(",") : [];
+   if (colors.length > 1 && isValidGradient(colors)) {
+     gradient = colors;
+   }
+@@ -207,6 +207,7 @@ function getCardColors({
+   icon_color,
+   bg_color,
+   border_color,
++  ring_color,
+   theme,
+   fallbackTheme = "default",
+ }) {
+@@ -221,6 +222,13 @@ function getCardColors({
+     title_color || selectedTheme.title_color,
+     "#" + defaultTheme.title_color,
+   );
++
++  // get the color provided by the user else the theme color
++  // finally if both colors are invalid we use the titleColor
++  const ringColor = fallbackColor(
++    ring_color || selectedTheme.ring_color,
++    titleColor,
++  );
+   const iconColor = fallbackColor(
+     icon_color || selectedTheme.icon_color,
+     "#" + defaultTheme.icon_color,
+@@ -239,7 +247,7 @@ function getCardColors({
+     "#" + defaultBorderColor,
+   );
+ 
+-  return { titleColor, iconColor, textColor, bgColor, borderColor };
++  return { titleColor, iconColor, textColor, bgColor, borderColor, ringColor };
+ }
+ 
+ /**
+diff --git a/src/getStyles.js b/src/getStyles.js
+index 79692e8579035..f7b90f4adc7b4 100644
+--- a/src/getStyles.js
++++ b/src/getStyles.js
+@@ -77,6 +77,7 @@ const getStyles = ({
+   titleColor,
+   textColor,
+   iconColor,
++  ringColor,
+   show_icons,
+   progress,
+ }) => {
+@@ -105,13 +106,13 @@ const getStyles = ({
+     }
+ 
+     .rank-circle-rim {
+-      stroke: ${titleColor};
++      stroke: ${ringColor};
+       fill: none;
+       stroke-width: 6;
+       opacity: 0.2;
+     }
+     .rank-circle {
+-      stroke: ${titleColor};
++      stroke: ${ringColor};
+       stroke-dasharray: 250;
+       fill: none;
+       stroke-width: 6;

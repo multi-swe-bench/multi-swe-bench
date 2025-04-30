@@ -1,0 +1,59 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/clsx/_config.js b/packages/svelte/tests/runtime-runes/samples/clsx/_config.js
+index e0813d0e6c40..202a13b1cbc2 100644
+--- a/packages/svelte/tests/runtime-runes/samples/clsx/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/clsx/_config.js
+@@ -1,3 +1,4 @@
++import { flushSync } from 'svelte';
+ import { test } from '../../test';
+ 
+ export default test({
+@@ -14,27 +15,32 @@ export default test({
+ 		<div class="foo">child</div>
+ 		<div class="foo">child</div>
+ 
++		<applied-to-custom-element class="foo svelte-owbekl"></applied-to-custom-element>
++
+ 		<button>update</button>
+ 	`,
+ 	test({ assert, target }) {
+ 		const button = target.querySelector('button');
+ 
+ 		button?.click();
++		flushSync();
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+ 			`
+ 				<div class="foo svelte-owbekl"></div>
+ 				<div class="foo svelte-owbekl"></div>
+-				<div class="foo svelte-owbekl"></div>
+-				<div class="foo svelte-owbekl"></div>
++				<div class="bar svelte-owbekl"></div>
++				<div class="bar svelte-owbekl"></div>
+ 				<div class="foo svelte-owbekl"></div>
+ 
+ 				<div class="foo">child</div>
+ 				<div class="foo">child</div>
++				<div class="bar">child</div>
++				<div class="bar">child</div>
+ 				<div class="foo">child</div>
+-				<div class="foo">child</div>
+-				<div class="foo">child</div>
++
++				<applied-to-custom-element class="bar svelte-owbekl"></applied-to-custom-element>
+ 
+ 				<button>update</button>
+ 			`
+diff --git a/packages/svelte/tests/runtime-runes/samples/clsx/main.svelte b/packages/svelte/tests/runtime-runes/samples/clsx/main.svelte
+index bf68b42e1108..ebc0697f9746 100644
+--- a/packages/svelte/tests/runtime-runes/samples/clsx/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/clsx/main.svelte
+@@ -18,6 +18,8 @@
+ <Child class={[ foo, bar ]} />
+ <Child {...spread} />
+ 
++<applied-to-custom-element class={{ foo, bar }}></applied-to-custom-element>
++
+ <button onclick={() => {
+     foo = null;
+     bar = 'bar';

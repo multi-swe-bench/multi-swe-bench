@@ -1,0 +1,225 @@
+diff --git a/packages/compiler-sfc/src/compileScript.ts b/packages/compiler-sfc/src/compileScript.ts
+index 2c15b7f496e..14e882cb86e 100644
+--- a/packages/compiler-sfc/src/compileScript.ts
++++ b/packages/compiler-sfc/src/compileScript.ts
+@@ -552,7 +552,11 @@ export function compileScript(
+             (processDefineSlots(ctx, init, decl.id) ||
+               processDefineModel(ctx, init, decl.id))
+ 
+-          if (isDefineProps || isDefineEmits) {
++          if (
++            isDefineProps &&
++            !ctx.propsDestructureRestId &&
++            ctx.propsDestructureDecl
++          ) {
+             if (left === 1) {
+               ctx.s.remove(node.start! + startOffset, node.end! + startOffset)
+             } else {
+@@ -570,6 +574,12 @@ export function compileScript(
+               ctx.s.remove(start, end)
+               left--
+             }
++          } else if (isDefineEmits) {
++            ctx.s.overwrite(
++              startOffset + init.start!,
++              startOffset + init.end!,
++              '__emit'
++            )
+           } else {
+             lastNonRemoved = i
+           }
+@@ -781,22 +791,29 @@ export function compileScript(
+   // inject user assignment of props
+   // we use a default __props so that template expressions referencing props
+   // can use it directly
+-  if (ctx.propsIdentifier) {
+-    ctx.s.prependLeft(
+-      startOffset,
+-      `\nconst ${ctx.propsIdentifier} = __props;\n`
+-    )
+-  }
+-  if (ctx.propsDestructureRestId) {
+-    ctx.s.prependLeft(
+-      startOffset,
+-      `\nconst ${ctx.propsDestructureRestId} = ${ctx.helper(
+-        `createPropsRestProxy`
+-      )}(__props, ${JSON.stringify(
+-        Object.keys(ctx.propsDestructuredBindings)
+-      )});\n`
+-    )
++  if (ctx.propsDecl) {
++    if (ctx.propsDestructureRestId) {
++      ctx.s.overwrite(
++        startOffset + ctx.propsCall!.start!,
++        startOffset + ctx.propsCall!.end!,
++        `${ctx.helper(`createPropsRestProxy`)}(__props, ${JSON.stringify(
++          Object.keys(ctx.propsDestructuredBindings)
++        )})`
++      )
++      ctx.s.overwrite(
++        startOffset + ctx.propsDestructureDecl!.start!,
++        startOffset + ctx.propsDestructureDecl!.end!,
++        ctx.propsDestructureRestId
++      )
++    } else if (!ctx.propsDestructureDecl) {
++      ctx.s.overwrite(
++        startOffset + ctx.propsCall!.start!,
++        startOffset + ctx.propsCall!.end!,
++        '__props'
++      )
++    }
+   }
++
+   // inject temp variables for async context preservation
+   if (hasAwait) {
+     const any = ctx.isTS ? `: any` : ``
+@@ -807,10 +824,8 @@ export function compileScript(
+     ctx.hasDefineExposeCall || !options.inlineTemplate
+       ? [`expose: __expose`]
+       : []
+-  if (ctx.emitIdentifier) {
+-    destructureElements.push(
+-      ctx.emitIdentifier === `emit` ? `emit` : `emit: ${ctx.emitIdentifier}`
+-    )
++  if (ctx.emitDecl) {
++    destructureElements.push(`emit: __emit`)
+   }
+   if (destructureElements.length) {
+     args += `, { ${destructureElements.join(', ')} }`
+diff --git a/packages/compiler-sfc/src/script/context.ts b/packages/compiler-sfc/src/script/context.ts
+index af2dee16568..5fe09d28a42 100644
+--- a/packages/compiler-sfc/src/script/context.ts
++++ b/packages/compiler-sfc/src/script/context.ts
+@@ -1,4 +1,4 @@
+-import { Node, ObjectPattern, Program } from '@babel/types'
++import { CallExpression, Node, ObjectPattern, Program } from '@babel/types'
+ import { SFCDescriptor } from '../parse'
+ import { generateCodeFrame } from '@vue/shared'
+ import { parse as babelParse, ParserPlugin } from '@babel/parser'
+@@ -38,7 +38,8 @@ export class ScriptCompileContext {
+   hasDefineModelCall = false
+ 
+   // defineProps
+-  propsIdentifier: string | undefined
++  propsCall: CallExpression | undefined
++  propsDecl: Node | undefined
+   propsRuntimeDecl: Node | undefined
+   propsTypeDecl: Node | undefined
+   propsDestructureDecl: ObjectPattern | undefined
+@@ -49,7 +50,7 @@ export class ScriptCompileContext {
+   // defineEmits
+   emitsRuntimeDecl: Node | undefined
+   emitsTypeDecl: Node | undefined
+-  emitIdentifier: string | undefined
++  emitDecl: Node | undefined
+ 
+   // defineModel
+   modelDecls: Record<string, ModelDecl> = {}
+diff --git a/packages/compiler-sfc/src/script/defineEmits.ts b/packages/compiler-sfc/src/script/defineEmits.ts
+index a50cf91fc4a..02014d1b276 100644
+--- a/packages/compiler-sfc/src/script/defineEmits.ts
++++ b/packages/compiler-sfc/src/script/defineEmits.ts
+@@ -29,10 +29,7 @@ export function processDefineEmits(
+     ctx.emitsTypeDecl = node.typeParameters.params[0]
+   }
+ 
+-  if (declId) {
+-    ctx.emitIdentifier =
+-      declId.type === 'Identifier' ? declId.name : ctx.getString(declId)
+-  }
++  ctx.emitDecl = declId
+ 
+   return true
+ }
+diff --git a/packages/compiler-sfc/src/script/defineProps.ts b/packages/compiler-sfc/src/script/defineProps.ts
+index 1ae5a16e3d6..5004e314da1 100644
+--- a/packages/compiler-sfc/src/script/defineProps.ts
++++ b/packages/compiler-sfc/src/script/defineProps.ts
+@@ -77,15 +77,14 @@ export function processDefineProps(
+     ctx.propsTypeDecl = node.typeParameters.params[0]
+   }
+ 
+-  if (declId) {
+-    // handle props destructure
+-    if (declId.type === 'ObjectPattern') {
+-      processPropsDestructure(ctx, declId)
+-    } else {
+-      ctx.propsIdentifier = ctx.getString(declId)
+-    }
++  // handle props destructure
++  if (declId && declId.type === 'ObjectPattern') {
++    processPropsDestructure(ctx, declId)
+   }
+ 
++  ctx.propsCall = node
++  ctx.propsDecl = declId
++
+   return true
+ }
+ 
+@@ -97,31 +96,33 @@ function processWithDefaults(
+   if (!isCallOf(node, WITH_DEFAULTS)) {
+     return false
+   }
+-  if (processDefineProps(ctx, node.arguments[0], declId)) {
+-    if (ctx.propsRuntimeDecl) {
+-      ctx.error(
+-        `${WITH_DEFAULTS} can only be used with type-based ` +
+-          `${DEFINE_PROPS} declaration.`,
+-        node
+-      )
+-    }
+-    if (ctx.propsDestructureDecl) {
+-      ctx.error(
+-        `${WITH_DEFAULTS}() is unnecessary when using destructure with ${DEFINE_PROPS}().\n` +
+-          `Prefer using destructure default values, e.g. const { foo = 1 } = defineProps(...).`,
+-        node.callee
+-      )
+-    }
+-    ctx.propsRuntimeDefaults = node.arguments[1]
+-    if (!ctx.propsRuntimeDefaults) {
+-      ctx.error(`The 2nd argument of ${WITH_DEFAULTS} is required.`, node)
+-    }
+-  } else {
++  if (!processDefineProps(ctx, node.arguments[0], declId)) {
+     ctx.error(
+       `${WITH_DEFAULTS}' first argument must be a ${DEFINE_PROPS} call.`,
+       node.arguments[0] || node
+     )
+   }
++
++  if (ctx.propsRuntimeDecl) {
++    ctx.error(
++      `${WITH_DEFAULTS} can only be used with type-based ` +
++        `${DEFINE_PROPS} declaration.`,
++      node
++    )
++  }
++  if (ctx.propsDestructureDecl) {
++    ctx.error(
++      `${WITH_DEFAULTS}() is unnecessary when using destructure with ${DEFINE_PROPS}().\n` +
++        `Prefer using destructure default values, e.g. const { foo = 1 } = defineProps(...).`,
++      node.callee
++    )
++  }
++  ctx.propsRuntimeDefaults = node.arguments[1]
++  if (!ctx.propsRuntimeDefaults) {
++    ctx.error(`The 2nd argument of ${WITH_DEFAULTS} is required.`, node)
++  }
++  ctx.propsCall = node
++
+   return true
+ }
+ 
+diff --git a/packages/compiler-sfc/src/script/definePropsDestructure.ts b/packages/compiler-sfc/src/script/definePropsDestructure.ts
+index a81b4a5c5cb..f6fdaf87218 100644
+--- a/packages/compiler-sfc/src/script/definePropsDestructure.ts
++++ b/packages/compiler-sfc/src/script/definePropsDestructure.ts
+@@ -28,7 +28,6 @@ export function processPropsDestructure(
+   declId: ObjectPattern
+ ) {
+   if (!ctx.options.propsDestructure && !ctx.options.reactivityTransform) {
+-    ctx.propsIdentifier = ctx.getString(declId)
+     return
+   }
+ 

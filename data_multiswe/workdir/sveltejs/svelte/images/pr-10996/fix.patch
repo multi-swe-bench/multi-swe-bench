@@ -1,0 +1,263 @@
+diff --git a/.changeset/smart-cherries-leave.md b/.changeset/smart-cherries-leave.md
+new file mode 100644
+index 000000000000..d844352c7fb5
+--- /dev/null
++++ b/.changeset/smart-cherries-leave.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: hydrate HTML with surrounding whitespace
+diff --git a/.prettierignore b/.prettierignore
+index 45e12c6e3fbc..dc6385309b58 100644
+--- a/.prettierignore
++++ b/.prettierignore
+@@ -10,10 +10,8 @@ packages/svelte/tests/**/_actual*
+ packages/svelte/tests/**/expected*
+ packages/svelte/tests/**/_output
+ packages/svelte/tests/**/shards/*.test.js
+-packages/svelte/tests/hydration/samples/*/_before.html
+-packages/svelte/tests/hydration/samples/*/_before_head.html
+-packages/svelte/tests/hydration/samples/*/_after.html
+-packages/svelte/tests/hydration/samples/*/_after_head.html
++packages/svelte/tests/hydration/samples/*/_expected.html
++packages/svelte/tests/hydration/samples/*/_override.html
+ packages/svelte/types
+ packages/svelte/compiler.cjs
+ playgrounds/demo/src
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index 5b40e32606ef..ac71edfd01d8 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -24,11 +24,11 @@ import { create_attribute, is_custom_element_node, is_element_node } from '../..
+ import { error } from '../../../errors.js';
+ import { binding_properties } from '../../bindings.js';
+ import { regex_starts_with_newline, regex_whitespaces_strict } from '../../patterns.js';
+-import { DOMBooleanAttributes } from '../../../../constants.js';
++import { DOMBooleanAttributes, HYDRATION_END, HYDRATION_START } from '../../../../constants.js';
+ import { sanitize_template_string } from '../../../utils/sanitize_template_string.js';
+ 
+-const block_open = t_string('<![>');
+-const block_close = t_string('<!]>');
++export const block_open = t_string(`<!--${HYDRATION_START}-->`);
++export const block_close = t_string(`<!--${HYDRATION_END}-->`);
+ 
+ /**
+  * @param {string} value
+diff --git a/packages/svelte/src/constants.js b/packages/svelte/src/constants.js
+index 28e6d8d1172f..5c9408d31471 100644
+--- a/packages/svelte/src/constants.js
++++ b/packages/svelte/src/constants.js
+@@ -19,6 +19,9 @@ export const TRANSITION_GLOBAL = 1 << 2;
+ export const TEMPLATE_FRAGMENT = 1;
+ export const TEMPLATE_USE_IMPORT_NODE = 1 << 1;
+ 
++export const HYDRATION_START = '[';
++export const HYDRATION_END = ']';
++
+ export const UNINITIALIZED = Symbol();
+ 
+ /** List of Element events that will be delegated */
+diff --git a/packages/svelte/src/internal/client/dom/blocks/each.js b/packages/svelte/src/internal/client/dom/blocks/each.js
+index 2cca222051e1..8ad815a7a796 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/each.js
++++ b/packages/svelte/src/internal/client/dom/blocks/each.js
+@@ -4,7 +4,8 @@ import {
+ 	EACH_IS_CONTROLLED,
+ 	EACH_IS_STRICT_EQUALS,
+ 	EACH_ITEM_REACTIVE,
+-	EACH_KEYED
++	EACH_KEYED,
++	HYDRATION_START
+ } from '../../../../constants.js';
+ import { hydrate_anchor, hydrate_nodes, hydrating, set_hydrating } from '../hydration.js';
+ import { empty } from '../operations.js';
+@@ -117,7 +118,10 @@ function each(anchor, flags, get_collection, get_key, render_fn, fallback_fn, re
+ 			var child_anchor = hydrate_nodes[0];
+ 
+ 			for (var i = 0; i < length; i++) {
+-				if (child_anchor.nodeType !== 8 || /** @type {Comment} */ (child_anchor).data !== '[') {
++				if (
++					child_anchor.nodeType !== 8 ||
++					/** @type {Comment} */ (child_anchor).data !== HYDRATION_START
++				) {
+ 					// If `nodes` is null, then that means that the server rendered fewer items than what
+ 					// expected, so break out and continue appending non-hydrated items
+ 					mismatch = true;
+diff --git a/packages/svelte/src/internal/client/dom/blocks/svelte-head.js b/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
+index 07d02d2c06ee..70606cd32fd4 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
++++ b/packages/svelte/src/internal/client/dom/blocks/svelte-head.js
+@@ -1,6 +1,7 @@
+ import { hydrate_anchor, hydrate_nodes, hydrating, set_hydrate_nodes } from '../hydration.js';
+ import { empty } from '../operations.js';
+ import { block } from '../../reactivity/effects.js';
++import { HYDRATION_START } from '../../../../constants.js';
+ 
+ /**
+  * @param {(anchor: Node) => import('#client').Dom | void} render_fn
+@@ -19,7 +20,7 @@ export function head(render_fn) {
+ 		previous_hydrate_nodes = hydrate_nodes;
+ 
+ 		let anchor = /** @type {import('#client').TemplateNode} */ (document.head.firstChild);
+-		while (anchor.nodeType !== 8 || /** @type {Comment} */ (anchor).data !== '[') {
++		while (anchor.nodeType !== 8 || /** @type {Comment} */ (anchor).data !== HYDRATION_START) {
+ 			anchor = /** @type {import('#client').TemplateNode} */ (anchor.nextSibling);
+ 		}
+ 
+diff --git a/packages/svelte/src/internal/client/dom/hydration.js b/packages/svelte/src/internal/client/dom/hydration.js
+index 6404aa78f01a..ef157f8344c8 100644
+--- a/packages/svelte/src/internal/client/dom/hydration.js
++++ b/packages/svelte/src/internal/client/dom/hydration.js
+@@ -1,3 +1,5 @@
++import { HYDRATION_END, HYDRATION_START } from '../../../constants.js';
++
+ /**
+  * Use this variable to guard everything related to hydration code so it can be treeshaken out
+  * if the user doesn't use the `hydrate` method and these code paths are therefore not needed.
+@@ -23,7 +25,7 @@ export function set_hydrate_nodes(nodes) {
+ }
+ 
+ /**
+- * This function is only called when `hydrating` is true. If passed a `<![>` opening
++ * This function is only called when `hydrating` is true. If passed a `<!--[-->` opening
+  * hydration marker, it finds the corresponding closing marker and sets `hydrate_nodes`
+  * to everything between the markers, before returning the closing marker.
+  * @param {Node} node
+@@ -37,7 +39,7 @@ export function hydrate_anchor(node) {
+ 	var current = /** @type {Node | null} */ (node);
+ 
+ 	// TODO this could have false positives, if a user comment consisted of `[`. need to tighten that up
+-	if (/** @type {Comment} */ (current)?.data !== '[') {
++	if (/** @type {Comment} */ (current)?.data !== HYDRATION_START) {
+ 		return node;
+ 	}
+ 
+@@ -49,9 +51,9 @@ export function hydrate_anchor(node) {
+ 		if (current.nodeType === 8) {
+ 			var data = /** @type {Comment} */ (current).data;
+ 
+-			if (data === '[') {
++			if (data === HYDRATION_START) {
+ 				depth += 1;
+-			} else if (data === ']') {
++			} else if (data === HYDRATION_END) {
+ 				if (depth === 0) {
+ 					hydrate_nodes = /** @type {import('#client').TemplateNode[]} */ (nodes);
+ 					return current;
+diff --git a/packages/svelte/src/internal/client/render.js b/packages/svelte/src/internal/client/render.js
+index aa2c0b4d55b2..2f281371636a 100644
+--- a/packages/svelte/src/internal/client/render.js
++++ b/packages/svelte/src/internal/client/render.js
+@@ -6,7 +6,7 @@ import {
+ 	empty,
+ 	init_operations
+ } from './dom/operations.js';
+-import { PassiveDelegatedEvents } from '../../constants.js';
++import { HYDRATION_START, PassiveDelegatedEvents } from '../../constants.js';
+ import { flush_sync, push, pop, current_component_context, untrack } from './runtime.js';
+ import { effect_root, branch } from './reactivity/effects.js';
+ import {
+@@ -121,8 +121,7 @@ export function mount(component, options) {
+  * @returns {Exports}
+  */
+ export function hydrate(component, options) {
+-	const container = options.target;
+-	const first_child = /** @type {ChildNode} */ (container.firstChild);
++	const target = options.target;
+ 	const previous_hydrate_nodes = hydrate_nodes;
+ 
+ 	let hydrated = false;
+@@ -132,7 +131,19 @@ export function hydrate(component, options) {
+ 		return flush_sync(() => {
+ 			set_hydrating(true);
+ 
+-			const anchor = hydrate_anchor(first_child);
++			var node = target.firstChild;
++			while (
++				node &&
++				(node.nodeType !== 8 || /** @type {Comment} */ (node).data !== HYDRATION_START)
++			) {
++				node = node.nextSibling;
++			}
++
++			if (!node) {
++				throw new Error('Missing hydration marker');
++			}
++
++			const anchor = hydrate_anchor(node);
+ 			const instance = _mount(component, { ...options, anchor });
+ 
+ 			// flush_sync will run this callback and then synchronously run any pending effects,
+@@ -153,7 +164,7 @@ export function hydrate(component, options) {
+ 				error
+ 			);
+ 
+-			clear_text_content(container);
++			clear_text_content(target);
+ 
+ 			set_hydrating(false);
+ 			return mount(component, options);
+diff --git a/packages/svelte/src/internal/server/hydration.js b/packages/svelte/src/internal/server/hydration.js
+new file mode 100644
+index 000000000000..941918456b95
+--- /dev/null
++++ b/packages/svelte/src/internal/server/hydration.js
+@@ -0,0 +1,4 @@
++import { HYDRATION_END, HYDRATION_START } from '../../constants.js';
++
++export const BLOCK_OPEN = `<!--${HYDRATION_START}-->`;
++export const BLOCK_CLOSE = `<!--${HYDRATION_END}-->`;
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index f163bbfb6d77..1ecd0c991d31 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -9,6 +9,7 @@ import {
+ } from '../../constants.js';
+ import { DEV } from 'esm-env';
+ import { current_component, pop, push } from './context.js';
++import { BLOCK_CLOSE, BLOCK_OPEN } from './hydration.js';
+ 
+ /**
+  * @typedef {{
+@@ -161,11 +162,11 @@ export function element(payload, tag, attributes_fn, children_fn) {
+ 
+ 	if (!VoidElements.has(tag)) {
+ 		if (tag !== 'textarea') {
+-			payload.out += '<!--[-->';
++			payload.out += BLOCK_OPEN;
+ 		}
+ 		children_fn();
+ 		if (tag !== 'textarea') {
+-			payload.out += '<!--]-->';
++			payload.out += BLOCK_CLOSE;
+ 		}
+ 		payload.out += `</${tag}>`;
+ 	}
+@@ -187,7 +188,7 @@ export function render(component, options) {
+ 
+ 	const prev_on_destroy = on_destroy;
+ 	on_destroy = [];
+-	payload.out += '<!--[-->';
++	payload.out += BLOCK_OPEN;
+ 
+ 	if (options.context) {
+ 		push();
+@@ -200,14 +201,14 @@ export function render(component, options) {
+ 		pop();
+ 	}
+ 
+-	payload.out += '<!--]-->';
++	payload.out += BLOCK_CLOSE;
+ 	for (const cleanup of on_destroy) cleanup();
+ 	on_destroy = prev_on_destroy;
+ 
+ 	return {
+ 		head:
+ 			payload.head.out || payload.head.title
+-				? payload.head.title + '<!--[-->' + payload.head.out + '<!--]-->'
++				? payload.head.title + BLOCK_OPEN + payload.head.out + BLOCK_CLOSE
+ 				: '',
+ 		html: payload.out
+ 	};

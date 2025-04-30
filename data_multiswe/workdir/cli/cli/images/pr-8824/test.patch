@@ -1,0 +1,78 @@
+diff --git a/internal/docs/docs_test.go b/internal/docs/docs_test.go
+index 06e924224e1..71c0186a942 100644
+--- a/internal/docs/docs_test.go
++++ b/internal/docs/docs_test.go
+@@ -28,6 +28,8 @@ func init() {
+ 
+ 	jsonCmd.Flags().StringSlice("json", nil, "help message for flag json")
+ 
++	aliasCmd.Flags().StringSlice("yang", nil, "help message for flag yang")
++
+ 	echoCmd.AddCommand(timesCmd, echoSubCmd, deprecatedCmd)
+ 	rootCmd.AddCommand(printCmd, echoCmd, dummyCmd)
+ }
+@@ -75,6 +77,13 @@ var printCmd = &cobra.Command{
+ 	Long:  `an absolutely utterly useless command for testing.`,
+ }
+ 
++var aliasCmd = &cobra.Command{
++	Use:     "ying [yang]",
++	Short:   "The ying and yang of it all",
++	Long:    "an absolutely utterly useless command for testing aliases!.",
++	Aliases: []string{"yoo", "foo"},
++}
++
+ var jsonCmd = &cobra.Command{
+ 	Use:   "blah --json <fields>",
+ 	Short: "View details in JSON",
+diff --git a/internal/docs/man_test.go b/internal/docs/man_test.go
+index 287f356ed7e..2a0f6a7f73b 100644
+--- a/internal/docs/man_test.go
++++ b/internal/docs/man_test.go
+@@ -98,6 +98,21 @@ func TestGenManSeeAlso(t *testing.T) {
+ 	}
+ }
+ 
++func TestGenManAliases(t *testing.T) {
++	buf := new(bytes.Buffer)
++	header := &GenManHeader{}
++	if err := renderMan(aliasCmd, header, buf); err != nil {
++		t.Fatal(err)
++	}
++
++	output := buf.String()
++
++	checkStringContains(t, output, translate(aliasCmd.Name()))
++	checkStringContains(t, output, "ALIASES")
++	checkStringContains(t, output, "foo")
++	checkStringContains(t, output, "yoo")
++}
++
+ func TestGenManJSONFields(t *testing.T) {
+ 	buf := new(bytes.Buffer)
+ 	header := &GenManHeader{}
+diff --git a/internal/docs/markdown_test.go b/internal/docs/markdown_test.go
+index 0710cad716d..59cb2b34d99 100644
+--- a/internal/docs/markdown_test.go
++++ b/internal/docs/markdown_test.go
+@@ -70,6 +70,20 @@ func TestGenMdNoHiddenParents(t *testing.T) {
+ 	checkStringOmits(t, output, "Options inherited from parent commands")
+ }
+ 
++func TestGenMdAliases(t *testing.T) {
++	buf := new(bytes.Buffer)
++	if err := genMarkdownCustom(aliasCmd, buf, nil); err != nil {
++		t.Fatal(err)
++	}
++	output := buf.String()
++
++	checkStringContains(t, output, aliasCmd.Long)
++	checkStringContains(t, output, jsonCmd.Example)
++	checkStringContains(t, output, "ALIASES")
++	checkStringContains(t, output, "yoo")
++	checkStringContains(t, output, "foo")
++}
++
+ func TestGenMdJSONFields(t *testing.T) {
+ 	buf := new(bytes.Buffer)
+ 	if err := genMarkdownCustom(jsonCmd, buf, nil); err != nil {

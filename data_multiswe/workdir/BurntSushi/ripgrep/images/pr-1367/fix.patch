@@ -1,0 +1,38 @@
+diff --git a/grep-regex/src/literal.rs b/grep-regex/src/literal.rs
+index 1563ca052..a0e99b730 100644
+--- a/grep-regex/src/literal.rs
++++ b/grep-regex/src/literal.rs
+@@ -193,7 +193,7 @@ fn union_required(expr: &Hir, lits: &mut Literals) {
+ fn repeat_range_literals<F: FnMut(&Hir, &mut Literals)>(
+     e: &Hir,
+     min: u32,
+-    max: Option<u32>,
++    _max: Option<u32>,
+     _greedy: bool,
+     lits: &mut Literals,
+     mut f: F,
+@@ -214,9 +214,7 @@ fn repeat_range_literals<F: FnMut(&Hir, &mut Literals)>(
+         if n < min as usize {
+             lits.cut();
+         }
+-        if max.map_or(true, |max| min < max) {
+-            lits.cut();
+-        }
++        lits.cut();
+     }
+ }
+ 
+@@ -328,4 +326,13 @@ mod tests {
+         // assert_eq!(one_regex(r"a.*c"), pat("a"));
+         assert_eq!(one_regex(r"a(.*c)"), pat("a"));
+     }
++
++    #[test]
++    fn regression_1319() {
++        // Regression from:
++        // https://github.com/BurntSushi/ripgrep/issues/1319
++        assert_eq!(one_regex(r"TTGAGTCCAGGAG[ATCG]{2}C"),
++            pat("TTGAGTCCAGGAGA|TTGAGTCCAGGAGC|\
++                 TTGAGTCCAGGAGG|TTGAGTCCAGGAGT"));
++    }
+ }

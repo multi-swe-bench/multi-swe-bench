@@ -1,0 +1,162 @@
+diff --git a/clap_builder/src/builder/action.rs b/clap_builder/src/builder/action.rs
+index 79ee9238e47..2def801f401 100644
+--- a/clap_builder/src/builder/action.rs
++++ b/clap_builder/src/builder/action.rs
+@@ -257,6 +257,58 @@ pub enum ArgAction {
+     /// # }
+     /// ```
+     Help,
++    /// When encountered, display [`Command::print_help`][super::Command::print_help]
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # #[cfg(feature = "help")] {
++    /// # use clap_builder as clap;
++    /// # use clap::Command;
++    /// # use clap::Arg;
++    /// let cmd = Command::new("mycmd")
++    ///     .arg(
++    ///         Arg::new("special-help")
++    ///             .short('?')
++    ///             .action(clap::ArgAction::HelpShort)
++    ///     );
++    ///
++    /// // Existing help still exists
++    /// let err = cmd.clone().try_get_matches_from(["mycmd", "-h"]).unwrap_err();
++    /// assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
++    ///
++    /// // New help available
++    /// let err = cmd.try_get_matches_from(["mycmd", "-?"]).unwrap_err();
++    /// assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
++    /// # }
++    /// ```
++    HelpShort,
++    /// When encountered, display [`Command::print_long_help`][super::Command::print_long_help]
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # #[cfg(feature = "help")] {
++    /// # use clap_builder as clap;
++    /// # use clap::Command;
++    /// # use clap::Arg;
++    /// let cmd = Command::new("mycmd")
++    ///     .arg(
++    ///         Arg::new("special-help")
++    ///             .short('?')
++    ///             .action(clap::ArgAction::HelpLong)
++    ///     );
++    ///
++    /// // Existing help still exists
++    /// let err = cmd.clone().try_get_matches_from(["mycmd", "-h"]).unwrap_err();
++    /// assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
++    ///
++    /// // New help available
++    /// let err = cmd.try_get_matches_from(["mycmd", "-?"]).unwrap_err();
++    /// assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
++    /// # }
++    /// ```
++    HelpLong,
+     /// When encountered, display [`Command::version`][super::Command::version]
+     ///
+     /// Depending on the flag, [`Command::long_version`][super::Command::long_version] may be shown
+@@ -299,6 +351,8 @@ impl ArgAction {
+             Self::SetFalse => false,
+             Self::Count => false,
+             Self::Help => false,
++            Self::HelpShort => false,
++            Self::HelpLong => false,
+             Self::Version => false,
+         }
+     }
+@@ -311,6 +365,8 @@ impl ArgAction {
+             Self::SetFalse => Some(std::ffi::OsStr::new("true")),
+             Self::Count => Some(std::ffi::OsStr::new("0")),
+             Self::Help => None,
++            Self::HelpShort => None,
++            Self::HelpLong => None,
+             Self::Version => None,
+         }
+     }
+@@ -323,6 +379,8 @@ impl ArgAction {
+             Self::SetFalse => Some(std::ffi::OsStr::new("false")),
+             Self::Count => None,
+             Self::Help => None,
++            Self::HelpShort => None,
++            Self::HelpLong => None,
+             Self::Version => None,
+         }
+     }
+@@ -335,6 +393,8 @@ impl ArgAction {
+             Self::SetFalse => Some(super::ValueParser::bool()),
+             Self::Count => Some(crate::value_parser!(u8).into()),
+             Self::Help => None,
++            Self::HelpShort => None,
++            Self::HelpLong => None,
+             Self::Version => None,
+         }
+     }
+@@ -348,6 +408,8 @@ impl ArgAction {
+             Self::SetFalse => None,
+             Self::Count => Some(AnyValueId::of::<CountType>()),
+             Self::Help => None,
++            Self::HelpShort => None,
++            Self::HelpLong => None,
+             Self::Version => None,
+         }
+     }
+diff --git a/clap_builder/src/output/usage.rs b/clap_builder/src/output/usage.rs
+index 3f387a0d71e..884a64df960 100644
+--- a/clap_builder/src/output/usage.rs
++++ b/clap_builder/src/output/usage.rs
+@@ -4,6 +4,7 @@
+ #![cfg_attr(not(feature = "usage"), allow(dead_code))]
+ 
+ // Internal
++use crate::builder::ArgAction;
+ use crate::builder::StyledStr;
+ use crate::builder::Styles;
+ use crate::builder::{ArgPredicate, Command};
+@@ -210,6 +211,20 @@ impl<'cmd> Usage<'cmd> {
+                 debug!("Usage::needs_options_tag:iter Option is built-in");
+                 continue;
+             }
++            match f.get_action() {
++                ArgAction::Set
++                | ArgAction::Append
++                | ArgAction::SetTrue
++                | ArgAction::SetFalse
++                | ArgAction::Count => {}
++                ArgAction::Help
++                | ArgAction::HelpShort
++                | ArgAction::HelpLong
++                | ArgAction::Version => {
++                    debug!("Usage::needs_options_tag:iter Option is built-in");
++                    continue;
++                }
++            }
+ 
+             if f.is_hide_set() {
+                 debug!("Usage::needs_options_tag:iter Option is hidden");
+diff --git a/clap_builder/src/parser/parser.rs b/clap_builder/src/parser/parser.rs
+index d2e198b2885..3e02d4c0bf7 100644
+--- a/clap_builder/src/parser/parser.rs
++++ b/clap_builder/src/parser/parser.rs
+@@ -1237,6 +1237,16 @@ impl<'cmd> Parser<'cmd> {
+                 debug!("Help: use_long={use_long}");
+                 Err(self.help_err(use_long))
+             }
++            ArgAction::HelpShort => {
++                let use_long = false;
++                debug!("Help: use_long={use_long}");
++                Err(self.help_err(use_long))
++            }
++            ArgAction::HelpLong => {
++                let use_long = true;
++                debug!("Help: use_long={use_long}");
++                Err(self.help_err(use_long))
++            }
+             ArgAction::Version => {
+                 let use_long = match ident {
+                     Some(Identifier::Long) => true,

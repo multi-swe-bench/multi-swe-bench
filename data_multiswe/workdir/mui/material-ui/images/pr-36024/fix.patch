@@ -1,0 +1,159 @@
+diff --git a/docs/data/material/components/selects/selects.md b/docs/data/material/components/selects/selects.md
+index f173272e057968..53acbc214ed801 100644
+--- a/docs/data/material/components/selects/selects.md
++++ b/docs/data/material/components/selects/selects.md
+@@ -127,6 +127,67 @@ Display categories with the `ListSubheader` component or the native `<optgroup>`
+ 
+ {{"demo": "GroupedSelect.js"}}
+ 
++:::warning
++If you wish to wrap the ListSubheader in a custom component, you'll have to annotate it so Material UI can handle it properly when determining focusable elements.
++
++You have two options for solving this:
++Option 1: Define a static boolean field called `muiSkipListHighlight` on your component function, and set it to `true`:
++
++```tsx
++function MyListSubheader(props: ListSubheaderProps) {
++  return <ListSubheader {...props} />;
++}
++
++MyListSubheader.muiSkipListHighlight = true;
++export default MyListSubheader;
++
++// elsewhere:
++
++return (
++  <Select>
++    <MyListSubheader>Group 1</MyListSubheader>
++    <MenuItem value={1}>Option 1</MenuItem>
++    <MenuItem value={2}>Option 2</MenuItem>
++    <MyListSubheader>Group 2</MyListSubheader>
++    <MenuItem value={3}>Option 3</MenuItem>
++    <MenuItem value={4}>Option 4</MenuItem>
++    {/* ... */}
++  </Select>
++```
++
++Option 2: Place a `muiSkipListHighlight` prop on each instance of your component.
++The prop doesn't have to be forwarded to the ListSubheader, nor present in the underlying DOM element.
++It just has to be placed on a component that's used as a subheader.
++
++```tsx
++export default function MyListSubheader(
++  props: ListSubheaderProps & { muiSkipListHighlight: boolean },
++) {
++  const { muiSkipListHighlight, ...other } = props;
++  return <ListSubheader {...other} />;
++}
++
++// elsewhere:
++
++return (
++  <Select>
++    <MyListSubheader muiSkipListHighlight>Group 1</MyListSubheader>
++    <MenuItem value={1}>Option 1</MenuItem>
++    <MenuItem value={2}>Option 2</MenuItem>
++    <MyListSubheader muiSkipListHighlight>Group 2</MyListSubheader>
++    <MenuItem value={3}>Option 3</MenuItem>
++    <MenuItem value={4}>Option 4</MenuItem>
++    {/* ... */}
++  </Select>
++);
++```
++
++We recommend the first option as it doesn't require updating all the usage sites of the component.
++
++Keep in mind this is **only necessary** if you wrap the ListSubheader in a custom component.
++If you use the ListSubheader directly, **no additional code is required**.
++:::
++
+ ## Accessibility
+ 
+ To properly label your `Select` input you need an extra element with an `id` that contains a label.
+diff --git a/packages/mui-material/src/ListSubheader/ListSubheader.js b/packages/mui-material/src/ListSubheader/ListSubheader.js
+index 6fcb2db0d9d095..a0b566b6a866ce 100644
+--- a/packages/mui-material/src/ListSubheader/ListSubheader.js
++++ b/packages/mui-material/src/ListSubheader/ListSubheader.js
+@@ -100,6 +100,8 @@ const ListSubheader = React.forwardRef(function ListSubheader(inProps, ref) {
+   );
+ });
+ 
++ListSubheader.muiSkipListHighlight = true;
++
+ ListSubheader.propTypes /* remove-proptypes */ = {
+   // ----------------------------- Warning --------------------------------
+   // | These PropTypes are generated from the TypeScript type definitions |
+diff --git a/packages/mui-material/src/MenuList/MenuList.js b/packages/mui-material/src/MenuList/MenuList.js
+index a9f2337a528998..ad13b3e5033c63 100644
+--- a/packages/mui-material/src/MenuList/MenuList.js
++++ b/packages/mui-material/src/MenuList/MenuList.js
+@@ -232,6 +232,17 @@ const MenuList = React.forwardRef(function MenuList(props, ref) {
+         activeItemIndex = index;
+       }
+     }
++
++    if (
++      activeItemIndex === index &&
++      (child.props.disabled || child.props.muiSkipListHighlight || child.type.muiSkipListHighlight)
++    ) {
++      activeItemIndex += 1;
++      if (activeItemIndex >= children.length) {
++        // there are no focusable items within the list.
++        activeItemIndex = -1;
++      }
++    }
+   });
+ 
+   const items = React.Children.map(children, (child, index) => {
+diff --git a/packages/mui-material/src/Select/SelectInput.js b/packages/mui-material/src/Select/SelectInput.js
+index 0b9c246cc8110e..2bb926fd16f3e0 100644
+--- a/packages/mui-material/src/Select/SelectInput.js
++++ b/packages/mui-material/src/Select/SelectInput.js
+@@ -350,7 +350,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+     }
+   }
+ 
+-  const items = childrenArray.map((child, index, arr) => {
++  const items = childrenArray.map((child) => {
+     if (!React.isValidElement(child)) {
+       return null;
+     }
+@@ -391,26 +391,6 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+       foundMatch = true;
+     }
+ 
+-    if (child.props.value === undefined) {
+-      return React.cloneElement(child, {
+-        'aria-readonly': true,
+-        role: 'option',
+-      });
+-    }
+-
+-    const isFirstSelectableElement = () => {
+-      if (value) {
+-        return selected;
+-      }
+-      const firstSelectableElement = arr.find(
+-        (item) => item?.props?.value !== undefined && item.props.disabled !== true,
+-      );
+-      if (child === firstSelectableElement) {
+-        return true;
+-      }
+-      return selected;
+-    };
+-
+     return React.cloneElement(child, {
+       'aria-selected': selected ? 'true' : 'false',
+       onClick: handleItemClick(child),
+@@ -427,10 +407,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
+         }
+       },
+       role: 'option',
+-      selected:
+-        arr[0]?.props?.value === undefined || arr[0]?.props?.disabled === true
+-          ? isFirstSelectableElement()
+-          : selected,
++      selected,
+       value: undefined, // The value is most likely not a valid HTML attribute.
+       'data-value': child.props.value, // Instead, we provide it as a data attribute.
+     });

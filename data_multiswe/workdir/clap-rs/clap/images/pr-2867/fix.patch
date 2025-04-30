@@ -1,0 +1,719 @@
+diff --git a/README.md b/README.md
+index 09e8f0c27e7..0c96f50aaa6 100644
+--- a/README.md
++++ b/README.md
+@@ -385,15 +385,13 @@ ARGS:
+     INPUT    The input file to use
+ 
+ USAGE:
+-    MyApp [FLAGS] [OPTIONS] <INPUT> [SUBCOMMAND]
+-
+-FLAGS:
+-    -h, --help       Print help information
+-    -v               Sets the level of verbosity
+-    -V, --version    Print version information
++    MyApp [OPTIONS] <INPUT> [SUBCOMMAND]
+ 
+ OPTIONS:
+     -c, --config <FILE>    Sets a custom config file
++    -h, --help             Print help information
++    -v                     Sets the level of verbosity
++    -V, --version          Print version information
+ 
+ SUBCOMMANDS:
+     help    Print this message or the help of the given subcommand(s)
+diff --git a/benches/04_new_help.rs b/benches/04_new_help.rs
+index 83c9e001c38..077ac30cf2f 100644
+--- a/benches/04_new_help.rs
++++ b/benches/04_new_help.rs
+@@ -196,7 +196,7 @@ pub fn example10(c: &mut Criterion) {
+ }
+ 
+ pub fn example4_template(c: &mut Criterion) {
+-    let mut app = app_example4().help_template("{bin} {version}\n{author}\n{about}\n\nUSAGE:\n    {usage}\n\nFLAGS:\n{flags}\n\nARGS:\n{args}\n");
++    let mut app = app_example4().help_template("{bin} {version}\n{author}\n{about}\n\nUSAGE:\n    {usage}\n\nOPTIONS:\n{options}\n\nARGS:\n{args}\n");
+     c.bench_function("example4_template", |b| b.iter(|| build_help(&mut app)));
+ }
+ 
+diff --git a/benches/05_ripgrep.rs b/benches/05_ripgrep.rs
+index 5a33745915e..d8386293708 100644
+--- a/benches/05_ripgrep.rs
++++ b/benches/05_ripgrep.rs
+@@ -3,7 +3,7 @@
+ //
+ // CLI used is adapted from ripgrep 48a8a3a691220f9e5b2b08f4051abe8655ea7e8a
+ 
+-use clap::{App, AppSettings, Arg, ArgSettings};
++use clap::{App, Arg, ArgSettings};
+ use criterion::{criterion_group, criterion_main, Criterion};
+ use std::collections::HashMap;
+ use std::io::Cursor;
+@@ -267,7 +267,7 @@ ARGS:
+ {positionals}
+ 
+ OPTIONS:
+-{unified}";
++{options}";
+ 
+ /// Build a clap application with short help strings.
+ fn app_short() -> App<'static> {
+@@ -306,7 +306,6 @@ where
+         .version("0.4.0") // Simulating
+         .about(ABOUT)
+         .max_term_width(100)
+-        .setting(AppSettings::UnifiedHelpMessage)
+         .override_usage(USAGE)
+         .help_template(TEMPLATE)
+         // Handle help/version manually to make their output formatting
+diff --git a/clap_derive/README.md b/clap_derive/README.md
+index 710cb648e19..0367163e331 100644
+--- a/clap_derive/README.md
++++ b/clap_derive/README.md
+@@ -82,22 +82,20 @@ Guillaume Pinot <texitoi@texitoi.eu>, others
+ A basic example
+ 
+ USAGE:
+-    basic [FLAGS] [OPTIONS] --output <output> [--] [file]...
++    basic [OPTIONS] --output <output> [--] [file]...
+ 
+ ARGS:
+     <FILE>...    Files to process
+ 
+-FLAGS:
+-    -d, --debug      Activate debug mode
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-    -v, --verbose    Verbose mode (-v, -vv, -vvv, etc.)
+-
+ OPTIONS:
+-    -l, --level <level>...     admin_level to consider
+     -c, --nb-cars <nb-cars>    Number of cars
++    -d, --debug                Activate debug mode
++    -h, --help                 Print help information
++    -l, --level <level>...     admin_level to consider
+     -o, --output <output>      Output file
+     -s, --speed <speed>        Set speed [default: 42]
++    -V, --version              Print version information
++    -v, --verbose              Verbose mode (-v, -vv, -vvv, etc.)
+ 
+ ARGS:
+     <file>...    Files to process
+diff --git a/site/content/_index.md b/site/content/_index.md
+index b06e29121a1..3ba3ca0612f 100644
+--- a/site/content/_index.md
++++ b/site/content/_index.md
+@@ -50,11 +50,9 @@ Simple program to greet a person
+ USAGE:
+     hello [OPTIONS] --name <name>
+ 
+-FLAGS:
+-    -h, --help       Print help information
+-    -V, --version    Print version information
+-
+ OPTIONS:
+     -c, --count <count>    Number of times to greet [default: 1]
++    -h, --help             Print help information
+     -n, --name <name>      Name of the person to greet
++    -V, --version          Print version information
+ ```
+diff --git a/src/build/app/debug_asserts.rs b/src/build/app/debug_asserts.rs
+index b451f66af9f..dbe5dcab4dd 100644
+--- a/src/build/app/debug_asserts.rs
++++ b/src/build/app/debug_asserts.rs
+@@ -283,6 +283,19 @@ pub(crate) fn assert_app(app: &App) {
+     detect_duplicate_flags(&long_flags, "long");
+     detect_duplicate_flags(&short_flags, "short");
+ 
++    if let Some(help_template) = app.template {
++        assert!(
++            !help_template.contains("{flags}"),
++            "{}",
++            "`{flags}` template variable was removed in clap3, they are now included in `{options}`"
++        );
++        assert!(
++            !help_template.contains("{unified}"),
++            "{}",
++            "`{unified}` template variable was removed in clap3, use `{options}` instead"
++        );
++    }
++
+     app._panic_on_missing_help(app.g_settings.is_set(AppSettings::HelpRequired));
+     assert_app_flags(app);
+ }
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index 51d0713ec42..32543c008b8 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -206,7 +206,7 @@ impl<'help> App<'help> {
+         self.args.args()
+     }
+ 
+-    /// Iterate through the *positionals*.
++    /// Iterate through the *positionals* arguments.
+     #[inline]
+     pub fn get_positionals(&self) -> impl Iterator<Item = &Arg<'help>> {
+         self.get_arguments().filter(|a| a.is_positional())
+@@ -224,22 +224,6 @@ impl<'help> App<'help> {
+             .filter(|a| a.is_set(ArgSettings::TakesValue) && a.get_index().is_none())
+     }
+ 
+-    /// Iterate through the *positionals* that don't have custom heading.
+-    pub fn get_positionals_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
+-        self.get_positionals()
+-            .filter(|a| a.get_help_heading().is_none())
+-    }
+-
+-    /// Iterate through the *flags* that don't have custom heading.
+-    pub fn get_flags_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
+-        self.get_flags().filter(|a| a.get_help_heading().is_none())
+-    }
+-
+-    /// Iterate through the *options* that don't have custom heading.
+-    pub fn get_opts_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
+-        self.get_opts().filter(|a| a.get_help_heading().is_none())
+-    }
+-
+     // Get a list of subcommands which contain the provided Argument
+     //
+     // This command will only include subcommands in its list for which the subcommands
+@@ -863,10 +847,6 @@ impl<'help> App<'help> {
+     ///   * `{usage}`               - Automatically generated or given usage string.
+     ///   * `{all-args}`            - Help for all arguments (options, flags, positional
+     ///                               arguments, and subcommands) including titles.
+-    ///   * `{unified}`             - Unified help for options and flags. Note, you must *also*
+-    ///                               set [`AppSettings::UnifiedHelpMessage`] to fully merge both
+-    ///                               options and flags, otherwise the ordering is "best effort".
+-    ///   * `{flags}`               - Help for flags.
+     ///   * `{options}`             - Help for options.
+     ///   * `{positionals}`         - Help for positional arguments.
+     ///   * `{subcommands}`         - Help for subcommands.
+@@ -986,7 +966,7 @@ impl<'help> App<'help> {
+     /// ```no_run
+     /// # use clap::{App, AppSettings};
+     /// App::new("myprog")
+-    ///     .unset_global_setting(AppSettings::UnifiedHelpMessage)
++    ///     .unset_global_setting(AppSettings::AllowNegativeNumbers)
+     /// # ;
+     /// ```
+     /// [global]: App::global_setting()
+@@ -1116,7 +1096,7 @@ impl<'help> App<'help> {
+     /// header for the specified argument type) until a subsequent call to
+     /// [`App::help_heading`] or [`App::stop_custom_headings`].
+     ///
+-    /// This is useful if the default `FLAGS`, `OPTIONS`, or `ARGS` headings are
++    /// This is useful if the default `OPTIONS` or `ARGS` headings are
+     /// not specific enough for one's use case.
+     ///
+     /// [`App::arg`]: App::arg()
+@@ -1732,9 +1712,9 @@ impl<'help> App<'help> {
+     /// cust-ord
+     ///
+     /// USAGE:
+-    ///     cust-ord [FLAGS] [OPTIONS]
++    ///     cust-ord [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     -h, --help       Print help information
+     ///     -V, --version    Print version information
+     ///
+@@ -2200,7 +2180,7 @@ impl<'help> App<'help> {
+     /// USAGE:
+     ///     myprog [SUBCOMMAND]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     -h, --help       Print help information
+     ///     -V, --version    Print version information
+     ///
+@@ -2228,7 +2208,7 @@ impl<'help> App<'help> {
+     /// USAGE:
+     ///     myprog [THING]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     -h, --help       Print help information
+     ///     -V, --version    Print version information
+     ///
+@@ -2674,6 +2654,23 @@ impl<'a, T> Captures<'a> for T {}
+ 
+ // Internal Query Methods
+ impl<'help> App<'help> {
++    /// Iterate through the *named* arguments.
++    pub(crate) fn get_non_positional(&self) -> impl Iterator<Item = &Arg<'help>> {
++        self.get_arguments().filter(|a| !a.is_positional())
++    }
++
++    /// Iterate through the *positionals* that don't have custom heading.
++    pub(crate) fn get_positionals_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++        self.get_positionals()
++            .filter(|a| a.get_help_heading().is_none())
++    }
++
++    /// Iterate through the *named* that don't have custom heading.
++    pub(crate) fn get_non_positional_with_no_heading(&self) -> impl Iterator<Item = &Arg<'help>> {
++        self.get_non_positional()
++            .filter(|a| a.get_help_heading().is_none())
++    }
++
+     pub(crate) fn find(&self, arg_id: &Id) -> Option<&Arg<'help>> {
+         self.args.args().find(|a| a.id == *arg_id)
+     }
+diff --git a/src/build/app/settings.rs b/src/build/app/settings.rs
+index aebd9b6b5e6..8defdfb8edd 100644
+--- a/src/build/app/settings.rs
++++ b/src/build/app/settings.rs
+@@ -11,7 +11,6 @@ bitflags! {
+         const ARG_REQUIRED_ELSE_HELP         = 1 << 2;
+         const PROPAGATE_VERSION              = 1 << 3;
+         const DISABLE_VERSION_FOR_SC         = 1 << 4;
+-        const UNIFIED_HELP                   = 1 << 5;
+         const WAIT_ON_ERROR                  = 1 << 6;
+         const SC_REQUIRED_ELSE_HELP          = 1 << 7;
+         const NO_AUTO_HELP                   = 1 << 8;
+@@ -112,8 +111,6 @@ impl_settings! { AppSettings, AppFlags,
+         => Flags::USE_LONG_FORMAT_FOR_HELP_SC,
+     TrailingVarArg("trailingvararg")
+         => Flags::TRAILING_VARARG,
+-    UnifiedHelpMessage("unifiedhelpmessage")
+-        => Flags::UNIFIED_HELP,
+     NextLineHelp("nextlinehelp")
+         => Flags::NEXT_LINE_HELP,
+     IgnoreErrors("ignoreerrors")
+@@ -892,25 +889,6 @@ pub enum AppSettings {
+     /// [`Arg::multiple_values(true)`]: crate::Arg::multiple_values()
+     TrailingVarArg,
+ 
+-    /// Groups flags and options together, presenting a more unified help message
+-    /// (a la `getopts` or `docopt` style).
+-    ///
+-    /// The default is that the auto-generated help message will group flags, and options
+-    /// separately.
+-    ///
+-    /// **NOTE:** This setting is cosmetic only and does not affect any functionality.
+-    ///
+-    /// # Examples
+-    ///
+-    /// ```rust
+-    /// # use clap::{App, Arg, AppSettings};
+-    /// App::new("myprog")
+-    ///     .setting(AppSettings::UnifiedHelpMessage)
+-    ///     .get_matches();
+-    /// // running `myprog --help` will display a unified "docopt" or "getopts" style help message
+-    /// ```
+-    UnifiedHelpMessage,
+-
+     /// Will display a message "Press \[ENTER\]/\[RETURN\] to continue..." and wait for user before
+     /// exiting
+     ///
+@@ -1086,10 +1064,6 @@ mod test {
+             "trailingvararg".parse::<AppSettings>().unwrap(),
+             AppSettings::TrailingVarArg
+         );
+-        assert_eq!(
+-            "unifiedhelpmessage".parse::<AppSettings>().unwrap(),
+-            AppSettings::UnifiedHelpMessage
+-        );
+         assert_eq!(
+             "waitonerror".parse::<AppSettings>().unwrap(),
+             AppSettings::WaitOnError
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index 1142182962a..65aa7c54f96 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -659,9 +659,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     --config     Some help text describing the --config arg
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+@@ -723,9 +723,9 @@ impl<'help> Arg<'help> {
+     /// prog
+     ///
+     /// USAGE:
+-    ///     prog [FLAGS]
++    ///     prog [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///         --config
+     ///             The config file used by the myprog must be in JSON format
+     ///             with only valid keys and may not contain other nonsense
+@@ -2575,14 +2575,12 @@ impl<'help> Arg<'help> {
+     /// valnames
+     ///
+     /// USAGE:
+-    ///    valnames [FLAGS] [OPTIONS]
+-    ///
+-    /// FLAGS:
+-    ///     -h, --help       Print help information
+-    ///     -V, --version    Print version information
++    ///    valnames [OPTIONS]
+     ///
+     /// OPTIONS:
++    ///     -h, --help                       Print help information
+     ///     --io-files <INFILE> <OUTFILE>    Some help text
++    ///     -V, --version                    Print version information
+     /// ```
+     /// [`Arg::next_line_help(true)`]: Arg::next_line_help()
+     /// [`Arg::number_of_values`]: Arg::number_of_values()
+@@ -2628,14 +2626,12 @@ impl<'help> Arg<'help> {
+     /// valnames
+     ///
+     /// USAGE:
+-    ///    valnames [FLAGS] [OPTIONS]
+-    ///
+-    /// FLAGS:
+-    ///     -h, --help       Print help information
+-    ///     -V, --version    Print version information
++    ///    valnames [OPTIONS]
+     ///
+     /// OPTIONS:
+     ///     --config <FILE>     Some help text
++    ///     -h, --help          Print help information
++    ///     -V, --version       Print version information
+     /// ```
+     /// [option]: Arg::takes_value()
+     /// [positional]: Arg::index()
+@@ -3293,13 +3289,11 @@ impl<'help> Arg<'help> {
+     /// cust-ord
+     ///
+     /// USAGE:
+-    ///     cust-ord [FLAGS] [OPTIONS]
+-    ///
+-    /// FLAGS:
+-    ///     -h, --help       Print help information
+-    ///     -V, --version    Print version information
++    ///     cust-ord [OPTIONS]
+     ///
+     /// OPTIONS:
++    ///     -h, --help                Print help information
++    ///     -V, --version             Print version information
+     ///     -O, --other-option <b>    I should be first!
+     ///     -o, --long-option <a>     Some help and text
+     /// ```
+@@ -3318,14 +3312,13 @@ impl<'help> Arg<'help> {
+     /// allows one to access this arg early using the `--` syntax. Accessing an arg early, even with
+     /// the `--` syntax is otherwise not possible.
+     ///
+-    /// **NOTE:** This will change the usage string to look like `$ prog [FLAGS] [-- <ARG>]` if
++    /// **NOTE:** This will change the usage string to look like `$ prog [OPTIONS] [-- <ARG>]` if
+     /// `ARG` is marked as `.last(true)`.
+     ///
+     /// **NOTE:** This setting will imply [`crate::AppSettings::DontCollapseArgsInUsage`] because failing
+     /// to set this can make the usage string very confusing.
+     ///
+-    /// **NOTE**: This setting only applies to positional arguments, and has no affect on FLAGS /
+-    /// OPTIONS
++    /// **NOTE**: This setting only applies to positional arguments, and has no affect on OPTIONS
+     ///
+     /// **NOTE:** Setting this requires [`crate::ArgSettings::TakesValue`]
+     ///
+@@ -3873,9 +3866,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+     /// ```
+@@ -4114,13 +4107,11 @@ impl<'help> Arg<'help> {
+     /// nlh
+     ///
+     /// USAGE:
+-    ///     nlh [FLAGS] [OPTIONS]
++    ///     nlh [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     -h, --help       Print help information
+     ///     -V, --version    Print version information
+-    ///
+-    /// OPTIONS:
+     ///     -o, --long-option-flag <value1> <value2>
+     ///         Some really long help and complex
+     ///         help that makes more sense to be
+@@ -4499,9 +4490,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+     /// ```
+@@ -4526,9 +4517,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     --config     Some help text describing the --config arg
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+@@ -4577,9 +4568,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+     /// ```
+@@ -4604,9 +4595,9 @@ impl<'help> Arg<'help> {
+     /// helptest
+     ///
+     /// USAGE:
+-    ///    helptest [FLAGS]
++    ///    helptest [OPTIONS]
+     ///
+-    /// FLAGS:
++    /// OPTIONS:
+     ///     --config     Some help text describing the --config arg
+     /// -h, --help       Print help information
+     /// -V, --version    Print version information
+diff --git a/src/output/help.rs b/src/output/help.rs
+index 5a1fc080cb3..eadd65721ea 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -747,16 +747,10 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+             .get_positionals_with_no_heading()
+             .filter(|arg| should_show_arg(self.use_long, arg))
+             .collect::<Vec<_>>();
+-        let flags = self
++        let non_pos = self
+             .parser
+             .app
+-            .get_flags_with_no_heading()
+-            .filter(|arg| should_show_arg(self.use_long, arg))
+-            .collect::<Vec<_>>();
+-        let opts = self
+-            .parser
+-            .app
+-            .get_opts_with_no_heading()
++            .get_non_positional_with_no_heading()
+             .filter(|arg| should_show_arg(self.use_long, arg))
+             .collect::<Vec<_>>();
+         let subcmds = self.parser.app.has_visible_subcommands();
+@@ -778,63 +772,37 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+             true
+         };
+ 
+-        let unified_help = self.parser.is_set(AppSettings::UnifiedHelpMessage);
+-
+-        if unified_help && (!flags.is_empty() || !opts.is_empty()) {
+-            let opts_flags = self
+-                .parser
+-                .app
+-                .args
+-                .args()
+-                .filter(|a| !a.is_positional())
+-                .collect::<Vec<_>>();
++        if !non_pos.is_empty() {
+             if !first {
+                 self.none("\n\n")?;
+             }
+             self.warning("OPTIONS:\n")?;
+-            self.write_args(&*opts_flags)?;
++            self.write_args(&non_pos)?;
+             first = false;
+-        } else {
+-            if !flags.is_empty() {
+-                if !first {
+-                    self.none("\n\n")?;
+-                }
+-                self.warning("FLAGS:\n")?;
+-                self.write_args(&flags)?;
+-                first = false;
+-            }
+-            if !opts.is_empty() {
+-                if !first {
+-                    self.none("\n\n")?;
+-                }
+-                self.warning("OPTIONS:\n")?;
+-                self.write_args(&opts)?;
+-                first = false;
+-            }
+-            if !custom_headings.is_empty() {
+-                for heading in custom_headings {
+-                    let args = self
+-                        .parser
+-                        .app
+-                        .args
+-                        .args()
+-                        .filter(|a| {
+-                            if let Some(help_heading) = a.help_heading {
+-                                return help_heading == heading;
+-                            }
+-                            false
+-                        })
+-                        .filter(|arg| should_show_arg(self.use_long, arg))
+-                        .collect::<Vec<_>>();
+-
+-                    if !args.is_empty() {
+-                        if !first {
+-                            self.none("\n\n")?;
++        }
++        if !custom_headings.is_empty() {
++            for heading in custom_headings {
++                let args = self
++                    .parser
++                    .app
++                    .args
++                    .args()
++                    .filter(|a| {
++                        if let Some(help_heading) = a.help_heading {
++                            return help_heading == heading;
+                         }
+-                        self.warning(&*format!("{}:\n", heading))?;
+-                        self.write_args(&*args)?;
+-                        first = false
++                        false
++                    })
++                    .filter(|arg| should_show_arg(self.use_long, arg))
++                    .collect::<Vec<_>>();
++
++                if !args.is_empty() {
++                    if !first {
++                        self.none("\n\n")?;
+                     }
++                    self.warning(&*format!("{}:\n", heading))?;
++                    self.write_args(&*args)?;
++                    first = false
+                 }
+             }
+         }
+@@ -1012,21 +980,10 @@ impl<'help, 'app, 'parser, 'writer> Help<'help, 'app, 'parser, 'writer> {
+                     "all-args" => {
+                         self.write_all_args()?;
+                     }
+-                    "unified" => {
+-                        let opts_flags = self
+-                            .parser
+-                            .app
+-                            .args
+-                            .args()
+-                            .filter(|a| !a.is_positional())
+-                            .collect::<Vec<_>>();
+-                        self.write_args(&opts_flags)?;
+-                    }
+-                    "flags" => {
+-                        self.write_args(&self.parser.app.get_flags().collect::<Vec<_>>())?;
+-                    }
+                     "options" => {
+-                        self.write_args(&self.parser.app.get_opts().collect::<Vec<_>>())?;
++                        // Include even those with a heading as we don't have a good way of
++                        // handling help_heading in the template.
++                        self.write_args(&self.parser.app.get_non_positional().collect::<Vec<_>>())?;
+                     }
+                     "positionals" => {
+                         self.write_args(&self.parser.app.get_positionals().collect::<Vec<_>>())?;
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index fd058b5a478..d0f335ff8d0 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -62,19 +62,7 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+             String::new()
+         };
+ 
+-        let flags = self.needs_flags_tag();
+-        if flags && !self.p.is_set(AS::UnifiedHelpMessage) {
+-            usage.push_str(" [FLAGS]");
+-        } else if flags {
+-            usage.push_str(" [OPTIONS]");
+-        }
+-        if !self.p.is_set(AS::UnifiedHelpMessage)
+-            && self
+-                .p
+-                .app
+-                .get_opts()
+-                .any(|o| !o.is_set(ArgSettings::Required) && !o.is_set(ArgSettings::Hidden))
+-        {
++        if self.needs_options_tag() {
+             usage.push_str(" [OPTIONS]");
+         }
+ 
+@@ -93,7 +81,7 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+         if self
+             .p
+             .app
+-            .get_opts()
++            .get_non_positional()
+             .any(|o| o.is_set(ArgSettings::MultipleValues))
+             && self
+                 .p
+@@ -328,22 +316,28 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+         }
+     }
+ 
+-    // Determines if we need the `[FLAGS]` tag in the usage string
+-    fn needs_flags_tag(&self) -> bool {
+-        debug!("Usage::needs_flags_tag");
+-        'outer: for f in self.p.app.get_flags() {
+-            debug!("Usage::needs_flags_tag:iter: f={}", f.name);
++    // Determines if we need the `[OPTIONS]` tag in the usage string
++    fn needs_options_tag(&self) -> bool {
++        debug!("Usage::needs_options_tag");
++        'outer: for f in self.p.app.get_non_positional() {
++            debug!("Usage::needs_options_tag:iter: f={}", f.name);
+ 
+-            // Don't print `[FLAGS]` just for help or version
++            // Don't print `[OPTIONS]` just for help or version
+             if f.long == Some("help") || f.long == Some("version") {
++                debug!("Usage::needs_options_tag:iter Option is built-in");
+                 continue;
+             }
+ 
+             if f.is_set(ArgSettings::Hidden) {
++                debug!("Usage::needs_options_tag:iter Option is hidden");
++                continue;
++            }
++            if f.is_set(ArgSettings::Required) {
++                debug!("Usage::needs_options_tag:iter Option is required");
+                 continue;
+             }
+             for grp_s in self.p.app.groups_for_arg(&f.id) {
+-                debug!("Usage::needs_flags_tag:iter:iter: grp_s={:?}", grp_s);
++                debug!("Usage::needs_options_tag:iter:iter: grp_s={:?}", grp_s);
+                 if self
+                     .p
+                     .app
+@@ -351,16 +345,16 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+                     .iter()
+                     .any(|g| g.id == grp_s && g.required)
+                 {
+-                    debug!("Usage::needs_flags_tag:iter:iter: Group is required");
++                    debug!("Usage::needs_options_tag:iter:iter: Group is required");
+                     continue 'outer;
+                 }
+             }
+ 
+-            debug!("Usage::needs_flags_tag:iter: [FLAGS] required");
++            debug!("Usage::needs_options_tag:iter: [OPTIONS] required");
+             return true;
+         }
+ 
+-        debug!("Usage::needs_flags_tag: [FLAGS] not required");
++        debug!("Usage::needs_options_tag: [OPTIONS] not required");
+         false
+     }
+ 

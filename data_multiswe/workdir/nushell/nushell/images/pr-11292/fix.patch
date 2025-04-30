@@ -1,0 +1,89 @@
+diff --git a/crates/nu-cli/src/menus/help_completions.rs b/crates/nu-cli/src/menus/help_completions.rs
+index 91642ff980a0c..349e6be331268 100644
+--- a/crates/nu-cli/src/menus/help_completions.rs
++++ b/crates/nu-cli/src/menus/help_completions.rs
+@@ -57,7 +57,7 @@ impl NuHelpCompleter {
+ 
+                 if !sig.named.is_empty() {
+                     long_desc.push_str(&get_flags_section(Some(&*self.0.clone()), sig, |v| {
+-                        v.into_string_parsable(", ", &self.0.config)
++                        v.into_string(", ", &self.0.config)
+                     }))
+                 }
+ 
+@@ -72,8 +72,8 @@ impl NuHelpCompleter {
+                     for positional in &sig.optional_positional {
+                         let opt_suffix = if let Some(value) = &positional.default_value {
+                             format!(
+-                                " (optional, default: {})",
+-                                &value.into_string_parsable(", ", &self.0.config),
++                                " (optional, default: `{}`)",
++                                &value.into_string(", ", &self.0.config),
+                             )
+                         } else {
+                             (" (optional)").to_string()
+diff --git a/crates/nu-engine/src/documentation.rs b/crates/nu-engine/src/documentation.rs
+index 6de0554b28b3f..9fc3653f70816 100644
+--- a/crates/nu-engine/src/documentation.rs
++++ b/crates/nu-engine/src/documentation.rs
+@@ -139,7 +139,7 @@ fn get_documentation(
+     if !sig.named.is_empty() {
+         long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
+             nu_highlight_string(
+-                &v.into_string_parsable(", ", &engine_state.config),
++                &v.into_string(", ", &engine_state.config),
+                 engine_state,
+                 stack,
+             )
+@@ -185,9 +185,9 @@ fn get_documentation(
+                 _ => {
+                     let opt_suffix = if let Some(value) = &positional.default_value {
+                         format!(
+-                            " (optional, default: {})",
++                            " (optional, default: `{}`)",
+                             nu_highlight_string(
+-                                &value.into_string_parsable(", ", &engine_state.config),
++                                &value.into_string(", ", &engine_state.config),
+                                 engine_state,
+                                 stack
+                             )
+diff --git a/crates/nu-protocol/src/value/mod.rs b/crates/nu-protocol/src/value/mod.rs
+index 4a486fc4c1a33..a52e246bb74ad 100644
+--- a/crates/nu-protocol/src/value/mod.rs
++++ b/crates/nu-protocol/src/value/mod.rs
+@@ -819,35 +819,6 @@ impl Value {
+         format!("{self:#?}")
+     }
+ 
+-    /// Convert Value into a parsable string (quote strings)
+-    /// bugbug other, rarer types not handled
+-
+-    pub fn into_string_parsable(&self, separator: &str, config: &Config) -> String {
+-        match self {
+-            // give special treatment to the simple types to make them parsable
+-            Value::String { val, .. } => format!("'{}'", val),
+-
+-            // recurse back into this function for recursive formatting
+-            Value::List { vals: val, .. } => format!(
+-                "[{}]",
+-                val.iter()
+-                    .map(|x| x.into_string_parsable(", ", config))
+-                    .collect::<Vec<_>>()
+-                    .join(separator)
+-            ),
+-            Value::Record { val, .. } => format!(
+-                "{{{}}}",
+-                val.iter()
+-                    .map(|(x, y)| format!("{}: {}", x, y.into_string_parsable(", ", config)))
+-                    .collect::<Vec<_>>()
+-                    .join(separator)
+-            ),
+-
+-            // defer to standard handling for types where standard representation is parsable
+-            _ => self.into_string(separator, config),
+-        }
+-    }
+-
+     /// Convert Value into string. Note that Streams will be consumed.
+     pub fn debug_string(&self, separator: &str, config: &Config) -> String {
+         match self {

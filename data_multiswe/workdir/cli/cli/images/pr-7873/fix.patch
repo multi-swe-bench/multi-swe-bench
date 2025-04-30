@@ -1,0 +1,49 @@
+diff --git a/pkg/cmd/status/status.go b/pkg/cmd/status/status.go
+index 7e39d63d098..4e6bd37818b 100644
+--- a/pkg/cmd/status/status.go
++++ b/pkg/cmd/status/status.go
+@@ -286,7 +286,28 @@ func (s *StatusGetter) LoadNotifications() error {
+ 					if !ok {
+ 						return nil
+ 					}
+-					if actual, err := s.ActualMention(n.Subject.LatestCommentURL); actual != "" && err == nil {
++					actual, err := s.ActualMention(n.Subject.LatestCommentURL)
++
++					if err != nil {
++						var httpErr api.HTTPError
++						httpStatusCode := -1
++
++						if errors.As(err, &httpErr) {
++							httpStatusCode = httpErr.StatusCode
++						}
++
++						switch httpStatusCode {
++						case 403:
++							s.addAuthError(httpErr.Message, factory.SSOURL())
++						case 404:
++							return nil
++						default:
++							abortFetching()
++							return fmt.Errorf("could not fetch comment: %w", err)
++						}
++					}
++
++					if actual != "" {
+ 						// I'm so sorry
+ 						split := strings.Split(n.Subject.URL, "/")
+ 						fetched <- StatusItem{
+@@ -295,14 +316,6 @@ func (s *StatusGetter) LoadNotifications() error {
+ 							preview:    actual,
+ 							index:      n.index,
+ 						}
+-					} else if err != nil {
+-						var httpErr api.HTTPError
+-						if errors.As(err, &httpErr) && httpErr.StatusCode == 403 {
+-							s.addAuthError(httpErr.Message, factory.SSOURL())
+-						} else {
+-							abortFetching()
+-							return fmt.Errorf("could not fetch comment: %w", err)
+-						}
+ 					}
+ 				}
+ 			}

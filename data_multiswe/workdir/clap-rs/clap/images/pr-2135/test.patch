@@ -1,0 +1,135 @@
+diff --git a/tests/help.rs b/tests/help.rs
+index ce2e3fe56f4..fd730aa2a4d 100644
+--- a/tests/help.rs
++++ b/tests/help.rs
+@@ -472,6 +472,19 @@ FLAGS:
+ OPTIONS:
+         --arg <argument>    Pass an argument to the program. [default: default-argument]";
+ 
++static ESCAPED_DEFAULT_VAL: &str = "default 0.1
++
++USAGE:
++    default [OPTIONS]
++
++FLAGS:
++    -h, --help       Prints help information
++    -V, --version    Prints version information
++
++OPTIONS:
++        --arg <argument>    Pass an argument to the program. [default: \"\\n\"] [possible values: normal, \" \", \"\\n\", \"\\t\",
++                            other]";
++
+ static LAST_ARG_USAGE: &str = "flamegraph 0.1
+ 
+ USAGE:
+@@ -1376,6 +1389,23 @@ fn hidden_default_val() {
+     ));
+ }
+ 
++#[test]
++fn escaped_whitespace_values() {
++    let app1 = App::new("default").version("0.1").term_width(120).arg(
++        Arg::new("argument")
++            .about("Pass an argument to the program.")
++            .long("arg")
++            .default_value("\n")
++            .possible_values(&["normal", " ", "\n", "\t", "other"]),
++    );
++    assert!(utils::compare_output(
++        app1,
++        "default --help",
++        ESCAPED_DEFAULT_VAL,
++        false
++    ));
++}
++
+ fn issue_1112_setup() -> App<'static> {
+     App::new("test")
+         .author("Kevin K.")
+diff --git a/tests/possible_values.rs b/tests/possible_values.rs
+index 9583b3f2276..b5d2eb3d15e 100644
+--- a/tests/possible_values.rs
++++ b/tests/possible_values.rs
+@@ -3,22 +3,42 @@ mod utils;
+ use clap::{App, Arg, ErrorKind};
+ 
+ #[cfg(feature = "suggestions")]
+-static PV_ERROR: &str = "error: 'slo' isn't a valid value for '--Option <option3>'
+-\t[possible values: fast, slow]
++static PV_ERROR: &str = "error: \"slo\" isn't a valid value for '-O <option>'
++\t[possible values: \"ludicrous speed\", fast, slow]
+ 
+-\tDid you mean 'slow'?
++\tDid you mean \"slow\"?
+ 
+ USAGE:
+-    clap-test --Option <option3>
++    clap-test -O <option>
+ 
+ For more information try --help";
+ 
+ #[cfg(not(feature = "suggestions"))]
+-static PV_ERROR: &'static str = "error: 'slo' isn't a valid value for '--Option <option3>'
+-\t[possible values: fast, slow]
++static PV_ERROR: &'static str = "error: \"slo\" isn't a valid value for '-O <option>'
++\t[possible values: \"ludicrous speed\", fast, slow]
+ 
+ USAGE:
+-    clap-test --Option <option3>
++    clap-test -O <option>
++
++For more information try --help";
++
++#[cfg(feature = "suggestions")]
++static PV_ERROR_ESCAPED: &str = "error: \"ludicrous\" isn't a valid value for '-O <option>'
++\t[possible values: \"ludicrous speed\", fast, slow]
++
++\tDid you mean \"ludicrous speed\"?
++
++USAGE:
++    clap-test -O <option>
++
++For more information try --help";
++
++#[cfg(not(feature = "suggestions"))]
++static PV_ERROR_ESCAPED: &'static str = "error: \"ludicrous\" isn't a valid value for '-O <option>'
++\t[possible values: \"ludicrous speed\", fast, slow]
++
++USAGE:
++    clap-test -O <option>
+ 
+ For more information try --help";
+ 
+@@ -163,13 +183,31 @@ fn possible_values_of_option_multiple_fail() {
+ #[test]
+ fn possible_values_output() {
+     assert!(utils::compare_output(
+-        utils::complex_app(),
++        App::new("test").arg(Arg::new("option").short('O').possible_values(&[
++            "slow",
++            "fast",
++            "ludicrous speed"
++        ])),
+         "clap-test -O slo",
+         PV_ERROR,
+         true
+     ));
+ }
+ 
++#[test]
++fn escaped_possible_values_output() {
++    assert!(utils::compare_output(
++        App::new("test").arg(Arg::new("option").short('O').possible_values(&[
++            "slow",
++            "fast",
++            "ludicrous speed"
++        ])),
++        "clap-test -O ludicrous",
++        PV_ERROR_ESCAPED,
++        true
++    ));
++}
++
+ #[test]
+ fn case_insensitive() {
+     let m = App::new("pv")

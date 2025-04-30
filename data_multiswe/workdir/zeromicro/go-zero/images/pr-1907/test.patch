@@ -1,0 +1,57 @@
+diff --git a/core/logx/logs_test.go b/core/logx/logs_test.go
+index a0f20710f9f4..71038ca36f6b 100644
+--- a/core/logx/logs_test.go
++++ b/core/logx/logs_test.go
+@@ -462,7 +462,7 @@ func TestStructedLogWithDuration(t *testing.T) {
+ 
+ 	WithDuration(time.Second).Info(message)
+ 	var entry logEntry
+-	if err := json.Unmarshal([]byte(w.builder.String()), &entry); err != nil {
++	if err := json.Unmarshal([]byte(w.String()), &entry); err != nil {
+ 		t.Error(err)
+ 	}
+ 	assert.Equal(t, levelInfo, entry.Level)
+@@ -515,7 +515,7 @@ func TestErrorfWithWrappedError(t *testing.T) {
+ 	defer writer.Store(old)
+ 
+ 	Errorf("hello %w", errors.New(message))
+-	assert.True(t, strings.Contains(w.builder.String(), "hello there"))
++	assert.True(t, strings.Contains(w.String(), "hello there"))
+ }
+ 
+ func TestMustNil(t *testing.T) {
+diff --git a/core/logx/syslog_test.go b/core/logx/syslog_test.go
+index 780f346dd49e..7e3890936038 100644
+--- a/core/logx/syslog_test.go
++++ b/core/logx/syslog_test.go
+@@ -38,7 +38,7 @@ func captureOutput(f func()) string {
+ 	f()
+ 	SetLevel(prevLevel)
+ 
+-	return w.builder.String()
++	return w.String()
+ }
+ 
+ func getContent(jsonStr string) string {
+diff --git a/zrpc/internal/client_test.go b/zrpc/internal/client_test.go
+index 5352f7ef2928..487049f627c2 100644
+--- a/zrpc/internal/client_test.go
++++ b/zrpc/internal/client_test.go
+@@ -31,6 +31,17 @@ func TestWithNonBlock(t *testing.T) {
+ 	assert.True(t, options.NonBlock)
+ }
+ 
++func TestWithStreamClientInterceptor(t *testing.T) {
++	var options ClientOptions
++	opt := WithStreamClientInterceptor(func(ctx context.Context, desc *grpc.StreamDesc,
++		cc *grpc.ClientConn, method string, streamer grpc.Streamer,
++		opts ...grpc.CallOption) (grpc.ClientStream, error) {
++		return nil, nil
++	})
++	opt(&options)
++	assert.Equal(t, 1, len(options.DialOptions))
++}
++
+ func TestWithTransportCredentials(t *testing.T) {
+ 	var options ClientOptions
+ 	opt := WithTransportCredentials(nil)

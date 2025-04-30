@@ -1,0 +1,37 @@
+diff --git a/.changeset/lazy-chefs-float.md b/.changeset/lazy-chefs-float.md
+new file mode 100644
+index 000000000000..ce15e3dabca1
+--- /dev/null
++++ b/.changeset/lazy-chefs-float.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: account for shadowing children slot during migration
+diff --git a/packages/svelte/src/compiler/migrate/index.js b/packages/svelte/src/compiler/migrate/index.js
+index b7687af09f0b..a226412d71b3 100644
+--- a/packages/svelte/src/compiler/migrate/index.js
++++ b/packages/svelte/src/compiler/migrate/index.js
+@@ -1292,6 +1292,21 @@ const template = {
+ 			existing_prop.needs_refine_type = false;
+ 		}
+ 
++		if (
++			slot_name === 'default' &&
++			path.some(
++				(parent) =>
++					(parent.type === 'SvelteComponent' ||
++						parent.type === 'Component' ||
++						parent.type === 'RegularElement' ||
++						parent.type === 'SvelteElement' ||
++						parent.type === 'SvelteFragment') &&
++					parent.attributes.some((attr) => (attr.type = 'LetDirective'))
++			)
++		) {
++			aliased_slot_name = `${name}_render`;
++			state.derived_conflicting_slots.set(aliased_slot_name, name);
++		}
+ 		name = aliased_slot_name ?? name;
+ 
+ 		if (node.fragment.nodes.length > 0) {

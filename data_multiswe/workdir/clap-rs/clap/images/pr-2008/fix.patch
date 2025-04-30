@@ -1,0 +1,164 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index fd57f1c14ce..266faedd413 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -81,7 +81,9 @@ pub struct App<'b> {
+     pub(crate) about: Option<&'b str>,
+     pub(crate) long_about: Option<&'b str>,
+     pub(crate) before_help: Option<&'b str>,
++    pub(crate) before_long_help: Option<&'b str>,
+     pub(crate) after_help: Option<&'b str>,
++    pub(crate) after_long_help: Option<&'b str>,
+     pub(crate) aliases: Vec<(&'b str, bool)>, // (name, visible)
+     pub(crate) short_flag_aliases: Vec<(char, bool)>, // (name, visible)
+     pub(crate) long_flag_aliases: Vec<(&'b str, bool)>, // (name, visible)
+@@ -404,6 +406,9 @@ impl<'b> App<'b> {
+     /// information is displayed **after** the auto-generated help information. This is often used
+     /// to describe how to use the arguments, or caveats to be noted.
+     ///
++    /// **NOTE:** If only `after_long_help` is provided, and not [`App::after_help`] but the user requests
++    /// `-h` clap will still display the contents of `after_help` appropriately
++    ///
+     /// # Examples
+     ///
+     /// ```no_run
+@@ -417,10 +422,35 @@ impl<'b> App<'b> {
+         self
+     }
+ 
++    /// Adds additional help information to be displayed in addition to auto-generated help. This
++    /// information is displayed **after** the auto-generated help information and is meant to be
++    /// more verbose than `after_help`. This is often used for man pages.. This is often used
++    /// to describe how to use the arguments, or caveats to be noted in man pages.
++    ///
++    /// **NOTE:** If only `after_help` is provided, and not [`App::after_long_help`] but the user requests
++    /// `--help`, clap will still display the contents of `after_help` appropriately
++    ///
++    /// # Examples
++    ///
++    /// ```no_run
++    /// # use clap::App;
++    /// App::new("myprog")
++    ///     .after_long_help("Does really amazing things to great people... but be careful with -R, \
++    ///                      like, for real, be careful with this!")
++    /// # ;
++    /// ```
++    pub fn after_long_help<S: Into<&'b str>>(mut self, help: S) -> Self {
++        self.after_long_help = Some(help.into());
++        self
++    }
++
+     /// Adds additional help information to be displayed in addition to auto-generated help. This
+     /// information is displayed **before** the auto-generated help information. This is often used
+     /// for header information.
+     ///
++    /// **NOTE:** If only `before_long_help` is provided, and not [`App::before_help`] but the user requests
++    /// `-h` clap will still display the contents of `before_long_help` appropriately
++    ///
+     /// # Examples
+     ///
+     /// ```no_run
+@@ -434,6 +464,26 @@ impl<'b> App<'b> {
+         self
+     }
+ 
++    /// Adds additional help information to be displayed in addition to auto-generated help. This
++    /// information is displayed **before** the auto-generated help information and is meant to be more
++    /// verbose than `before_help`. This is often used for header information in man pages.
++    ///
++    /// **NOTE:** If only `before_help` is provided, and not [`App::before_long_help`] but the user requests
++    /// `--help`, clap will still display the contents of `before_help` appropriately
++    ///
++    /// # Examples
++    ///
++    /// ```no_run
++    /// # use clap::App;
++    /// App::new("myprog")
++    ///     .before_long_help("Some verbose and long info I'd like to appear before the help info")
++    /// # ;
++    /// ```
++    pub fn before_long_help<S: Into<&'b str>>(mut self, help: S) -> Self {
++        self.before_long_help = Some(help.into());
++        self
++    }
++
+     /// Allows the subcommand to be used as if it were an [`Arg::short`]
+     ///
+     /// Sets the short version of the subcommand flag without the preceding `-`.
+@@ -2691,7 +2741,9 @@ impl<'a> From<&'a Yaml> for App<'a> {
+         yaml_str!(a, yaml, bin_name);
+         yaml_str!(a, yaml, about);
+         yaml_str!(a, yaml, before_help);
++        yaml_str!(a, yaml, before_long_help);
+         yaml_str!(a, yaml, after_help);
++        yaml_str!(a, yaml, after_long_help);
+         yaml_str!(a, yaml, alias);
+         yaml_str!(a, yaml, visible_alias);
+ 
+diff --git a/src/output/help.rs b/src/output/help.rs
+index 9a7062d87ae..d64cb3c4665 100644
+--- a/src/output/help.rs
++++ b/src/output/help.rs
+@@ -839,7 +839,22 @@ impl<'b, 'c, 'd, 'w> Help<'b, 'c, 'd, 'w> {
+     /// Writes default help for a Parser Object to the wrapped stream.
+     pub(crate) fn write_default_help(&mut self) -> ClapResult<()> {
+         debug!("Help::write_default_help");
+-        if let Some(h) = self.parser.app.before_help {
++        if self.use_long {
++            if let Some(h) = self
++                .parser
++                .app
++                .before_long_help
++                .or_else(|| self.parser.app.before_help)
++            {
++                self.write_before_after_help(h)?;
++                self.none("\n\n")?;
++            }
++        } else if let Some(h) = self
++            .parser
++            .app
++            .before_help
++            .or_else(|| self.parser.app.before_long_help)
++        {
+             self.write_before_after_help(h)?;
+             self.none("\n\n")?;
+         }
+@@ -886,7 +901,24 @@ impl<'b, 'c, 'd, 'w> Help<'b, 'c, 'd, 'w> {
+             self.write_all_args()?;
+         }
+ 
+-        if let Some(h) = self.parser.app.after_help {
++        if self.use_long {
++            if let Some(h) = self
++                .parser
++                .app
++                .after_long_help
++                .or_else(|| self.parser.app.after_help)
++            {
++                if flags || opts || pos || subcmds {
++                    self.none("\n\n")?;
++                }
++                self.write_before_after_help(h)?;
++            }
++        } else if let Some(h) = self
++            .parser
++            .app
++            .after_help
++            .or_else(|| self.parser.app.after_long_help)
++        {
+             if flags || opts || pos || subcmds {
+                 self.none("\n\n")?;
+             }
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index e9614771691..a8fca2acd1a 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -1195,6 +1195,8 @@ where
+         };
+ 
+         self.app.long_about.is_some()
++            || self.app.before_long_help.is_some()
++            || self.app.after_long_help.is_some()
+             || self.app.args.args.iter().any(should_long)
+             || self.app.subcommands.iter().any(|s| s.long_about.is_some())
+     }

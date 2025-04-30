@@ -1,0 +1,45 @@
+diff --git a/pkg/cmd/project/shared/queries/export_data_test.go b/pkg/cmd/project/shared/queries/export_data_test.go
+index adfdce63f56..25e3fbace0f 100644
+--- a/pkg/cmd/project/shared/queries/export_data_test.go
++++ b/pkg/cmd/project/shared/queries/export_data_test.go
+@@ -295,6 +295,7 @@ func TestJSONProjectItem_DraftIssue_ProjectV2ItemFieldIterationValue(t *testing.
+ 	iterationFieldValue := FieldValueNodes{Type: "ProjectV2ItemFieldIterationValue"}
+ 	iterationFieldValue.ProjectV2ItemFieldIterationValue.Title = "Iteration Title"
+ 	iterationFieldValue.ProjectV2ItemFieldIterationValue.Field = iterationField
++	iterationFieldValue.ProjectV2ItemFieldIterationValue.IterationId = "iterationId"
+ 
+ 	draftIssue := ProjectItem{
+ 		Id: "draftIssueId",
+@@ -321,7 +322,7 @@ func TestJSONProjectItem_DraftIssue_ProjectV2ItemFieldIterationValue(t *testing.
+ 	assert.NoError(t, err)
+ 	assert.JSONEq(
+ 		t,
+-		`{"items":[{"sprint":{"title":"Iteration Title","startDate":"","duration":0},"content":{"type":"DraftIssue","body":"a body","title":"Pull Request title","id":"draftIssueId"},"id":"draftIssueId"}],"totalCount":5}`,
++		`{"items":[{"sprint":{"title":"Iteration Title","startDate":"","duration":0,"iterationId":"iterationId"},"content":{"type":"DraftIssue","body":"a body","title":"Pull Request title","id":"draftIssueId"},"id":"draftIssueId"}],"totalCount":5}`,
+ 		string(out))
+ 
+ }
+diff --git a/pkg/cmd/project/shared/queries/queries_test.go b/pkg/cmd/project/shared/queries/queries_test.go
+index bfdd4d95c06..57ec9ed02f2 100644
+--- a/pkg/cmd/project/shared/queries/queries_test.go
++++ b/pkg/cmd/project/shared/queries/queries_test.go
+@@ -395,8 +395,9 @@ func TestProjectItems_FieldTitle(t *testing.T) {
+ 									"fieldValues": map[string]interface{}{
+ 										"nodes": []map[string]interface{}{
+ 											{
+-												"__typename": "ProjectV2ItemFieldIterationValue",
+-												"title":      "Iteration Title 1",
++												"__typename":  "ProjectV2ItemFieldIterationValue",
++												"title":       "Iteration Title 1",
++												"iterationId": "iterationId1",
+ 											},
+ 											{
+ 												"__typename": "ProjectV2ItemFieldMilestoneValue",
+@@ -426,6 +427,7 @@ func TestProjectItems_FieldTitle(t *testing.T) {
+ 	assert.Len(t, project.Items.Nodes, 1)
+ 	assert.Len(t, project.Items.Nodes[0].FieldValues.Nodes, 2)
+ 	assert.Equal(t, project.Items.Nodes[0].FieldValues.Nodes[0].ProjectV2ItemFieldIterationValue.Title, "Iteration Title 1")
++	assert.Equal(t, project.Items.Nodes[0].FieldValues.Nodes[0].ProjectV2ItemFieldIterationValue.IterationId, "iterationId1")
+ 	assert.Equal(t, project.Items.Nodes[0].FieldValues.Nodes[1].ProjectV2ItemFieldMilestoneValue.Milestone.Title, "Milestone Title 1")
+ }
+ 

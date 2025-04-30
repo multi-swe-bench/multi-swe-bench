@@ -1,0 +1,79 @@
+diff --git a/test/libponyc/badpony.cc b/test/libponyc/badpony.cc
+index aea3dd268e..0067780068 100644
+--- a/test/libponyc/badpony.cc
++++ b/test/libponyc/badpony.cc
+@@ -1306,9 +1306,42 @@ TEST_F(BadPonyTest, NotSafeToWrite)
+       const char* errs[] =
+         {"not safe to write right side to left side", NULL};
+       const char* frame1[] = {
+-        "right side type: Foo ref^", 
++        "right side type: Foo ref^",
+         "left side type: X iso", NULL};
+       const char** frames[] = {frame1, NULL};
+       DO(test_expected_error_frames(src, "badpony", errs, frames));
+   }
+ }
++
++TEST_F(BadPonyTest, MatchIsoFieldWithoutConsume)
++{
++  // From issue #4579
++  const char* src =
++    "class Bad\n"
++    "  var _s: String iso\n"
++
++    "  new iso create(s: String iso) =>\n"
++    "    _s = consume s\n"
++
++    "  fun ref take(): String iso^ =>\n"
++    "    match _s\n"
++    "    | let s': String iso => consume s'\n"
++    "    end";
++
++    TEST_ERRORS_1(src, "this capture violates capabilities");
++}
++
++TEST_F(BadPonyTest, MatchIsoLetWithoutConsume)
++{
++  // From issue #4579
++  const char* src =
++    "class Bad\n"
++    "  fun bad() =>\n"
++    "    let a: String iso = recover iso String end\n"
++
++    "    match a\n"
++    "    | let a': String iso => None\n"
++    "    end";
++
++    TEST_ERRORS_1(src, "this capture violates capabilities");
++}
+diff --git a/test/libponyc/matchtype.cc b/test/libponyc/matchtype.cc
+index 23d7d03301..edd0e4b3ee 100644
+--- a/test/libponyc/matchtype.cc
++++ b/test/libponyc/matchtype.cc
+@@ -388,6 +388,7 @@ TEST_F(MatchTypeTest, Capabilities)
+ 
+     "interface Test\n"
+     "  fun z(c1: C1, c2: C2, t1: T1, t2: T2,\n"
++    "    c1iso: C1 iso,\n"
+     "    c1ref: C1 ref, c1val: C1 val, c1box: C1 box,\n"
+     "    c2ref: C2 ref,\n"
+     "    c1refc2ref: (C1 ref, C2 ref),\n"
+@@ -461,6 +462,18 @@ TEST_F(MatchTypeTest, Capabilities)
+     is_matchtype(type_of("t1refandt2ref"), type_of("t1valandt2box"), NULL, &opt));
+   ASSERT_EQ(MATCHTYPE_ACCEPT,
+     is_matchtype(type_of("t1refandt2ref"), type_of("t1refandt2box"), NULL, &opt));
++
++  // Ephemerality
++  ast_t* c1iso_bang = alias(type_of("c1iso"));
++  ast_t* c1iso_eph = consume_type(type_of("c1iso"), TK_NONE, false);
++  ASSERT_EQ(MATCHTYPE_ACCEPT,
++    is_matchtype(type_of("c1iso"), type_of("c1iso"), NULL, &opt));
++  ASSERT_EQ(MATCHTYPE_DENY_CAP,
++    is_matchtype(c1iso_bang, type_of("c1iso"), NULL, &opt));
++  ASSERT_EQ(MATCHTYPE_DENY_CAP,
++    is_matchtype(type_of("c1iso"), c1iso_eph, NULL, &opt));
++  ASSERT_EQ(MATCHTYPE_ACCEPT,
++    is_matchtype(c1iso_eph, c1iso_eph, NULL, &opt));
+ }
+ 
+ 

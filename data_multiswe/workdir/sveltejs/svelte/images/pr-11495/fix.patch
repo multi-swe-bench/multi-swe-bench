@@ -1,0 +1,498 @@
+diff --git a/.changeset/yellow-guests-double.md b/.changeset/yellow-guests-double.md
+new file mode 100644
+index 000000000000..454caacdba22
+--- /dev/null
++++ b/.changeset/yellow-guests-double.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++chore: backwards compat for dash-case warnings
+diff --git a/packages/svelte/scripts/process-messages/templates/compile-warnings.js b/packages/svelte/scripts/process-messages/templates/compile-warnings.js
+index cac547de6049..97e0d860dcfe 100644
+--- a/packages/svelte/scripts/process-messages/templates/compile-warnings.js
++++ b/packages/svelte/scripts/process-messages/templates/compile-warnings.js
+@@ -2,9 +2,12 @@ import { getLocator } from 'locate-character';
+ 
+ /** @typedef {{ start?: number, end?: number }} NodeLike */
+ 
+-/** @type {import('#compiler').Warning[]} */
++/** @type {Array<{ warning: import('#compiler').Warning; legacy_code: string | null }>} */
+ let warnings = [];
+ 
++/** @type {Set<string>[]} */
++let ignore_stack = [];
++
+ /** @type {string | undefined} */
+ let filename;
+ 
+@@ -15,13 +18,61 @@ let locator = getLocator('', { offsetLine: 1 });
+  *   source: string;
+  *   filename: string | undefined;
+  * }} options
+- * @returns {import('#compiler').Warning[]}
+  */
+ export function reset_warnings(options) {
+ 	filename = options.filename;
++	ignore_stack = [];
++	warnings = [];
+ 	locator = getLocator(options.source, { offsetLine: 1 });
++}
++
++/**
++ * @param {boolean} is_runes
++ */
++export function get_warnings(is_runes) {
++	/** @type {import('#compiler').Warning[]} */
++	const final = [];
++	for (const { warning, legacy_code } of warnings) {
++		if (legacy_code) {
++			if (is_runes) {
++				final.push({
++					...warning,
++					message:
++						(warning.message += ` (this warning was tried to silence using code ${legacy_code}. In runes mode, use the new code ${warning.code} instead)`)
++				});
++			}
++		} else {
++			final.push(warning);
++		}
++	}
++
++	return final;
++}
++
++/**
++ * @param {string[]} ignores
++ */
++export function push_ignore(ignores) {
++	const next = new Set([...(ignore_stack.at(-1) || []), ...ignores]);
++	ignore_stack.push(next);
++}
+ 
+-	return (warnings = []);
++export function pop_ignore() {
++	ignore_stack.pop();
++}
++
++// TODO add more mappings for prominent codes that have been renamed
++const legacy_codes = new Map([
++	['reactive_declaration_invalid_placement', 'non-top-level-reactive-declaration']
++]);
++
++const new_codes = new Map([...legacy_codes.entries()].map(([key, value]) => [value, key]));
++
++/**
++ * @param {string} legacy_code
++ */
++export function legacy_to_new_code(legacy_code) {
++	return new_codes.get(legacy_code) || legacy_code.replaceAll('-', '_');
+ }
+ 
+ /**
+@@ -30,15 +81,25 @@ export function reset_warnings(options) {
+  * @param {string} message
+  */
+ function w(node, code, message) {
+-	// @ts-expect-error
+-	if (node?.ignores?.has(code)) return;
++	const ignores = ignore_stack.at(-1);
++	if (ignores?.has(code)) return;
++
++	// backwards compat: Svelte 5 changed all warnings from dash to underscore
++	/** @type {string | null} */
++	let legacy_code = legacy_codes.get(code) || code.replaceAll('_', '-');
++	if (!ignores?.has(legacy_code)) {
++		legacy_code = null;
++	}
+ 
+ 	warnings.push({
+-		code,
+-		message,
+-		filename,
+-		start: node?.start !== undefined ? locator(node.start) : undefined,
+-		end: node?.end !== undefined ? locator(node.end) : undefined
++		legacy_code,
++		warning: {
++			code,
++			message,
++			filename,
++			start: node?.start !== undefined ? locator(node.start) : undefined,
++			end: node?.end !== undefined ? locator(node.end) : undefined
++		}
+ 	});
+ }
+ 
+diff --git a/packages/svelte/src/compiler/index.js b/packages/svelte/src/compiler/index.js
+index ba312a1a639e..4a10b84d055a 100644
+--- a/packages/svelte/src/compiler/index.js
++++ b/packages/svelte/src/compiler/index.js
+@@ -8,7 +8,7 @@ import { remove_typescript_nodes } from './phases/1-parse/remove_typescript_node
+ import { analyze_component, analyze_module } from './phases/2-analyze/index.js';
+ import { transform_component, transform_module } from './phases/3-transform/index.js';
+ import { validate_component_options, validate_module_options } from './validate-options.js';
+-import { reset_warnings } from './warnings.js';
++import { get_warnings, reset_warnings } from './warnings.js';
+ export { default as preprocess } from './preprocess/index.js';
+ 
+ /**
+@@ -21,7 +21,7 @@ export { default as preprocess } from './preprocess/index.js';
+  */
+ export function compile(source, options) {
+ 	try {
+-		const warnings = reset_warnings({ source, filename: options.filename });
++		reset_warnings({ source, filename: options.filename });
+ 		const validated = validate_component_options(options, '');
+ 		let parsed = _parse(source);
+ 
+@@ -46,7 +46,7 @@ export function compile(source, options) {
+ 		const analysis = analyze_component(parsed, source, combined_options);
+ 
+ 		const result = transform_component(analysis, source, combined_options);
+-		result.warnings = warnings;
++		result.warnings = get_warnings(analysis.runes);
+ 		result.ast = to_public_ast(source, parsed, options.modernAst);
+ 		return result;
+ 	} catch (e) {
+@@ -68,11 +68,11 @@ export function compile(source, options) {
+  */
+ export function compileModule(source, options) {
+ 	try {
+-		const warnings = reset_warnings({ source, filename: options.filename });
++		reset_warnings({ source, filename: options.filename });
+ 		const validated = validate_module_options(options, '');
+ 		const analysis = analyze_module(parse_acorn(source, false), validated);
+ 		const result = transform_module(analysis, source, validated);
+-		result.warnings = warnings;
++		result.warnings = get_warnings(true);
+ 		return result;
+ 	} catch (e) {
+ 		if (e instanceof CompileError) {
+diff --git a/packages/svelte/src/compiler/migrate/index.js b/packages/svelte/src/compiler/migrate/index.js
+index e6328c70baff..b00a9b8343b6 100644
+--- a/packages/svelte/src/compiler/migrate/index.js
++++ b/packages/svelte/src/compiler/migrate/index.js
+@@ -4,9 +4,10 @@ import { parse } from '../phases/1-parse/index.js';
+ import { analyze_component } from '../phases/2-analyze/index.js';
+ import { validate_component_options } from '../validate-options.js';
+ import { get_rune } from '../phases/scope.js';
+-import { reset_warnings } from '../warnings.js';
++import { legacy_to_new_code, reset_warnings } from '../warnings.js';
+ import { extract_identifiers } from '../utils/ast.js';
+ import { regex_is_valid_identifier } from '../phases/patterns.js';
++import { extract_svelte_ignore } from '../utils/extract_svelte_ignore.js';
+ 
+ /**
+  * Does a best-effort migration of Svelte code towards using runes, event attributes and render tags.
+@@ -174,6 +175,30 @@ export function migrate(source) {
+ 
+ /** @type {import('zimmerframe').Visitors<import('../types/template.js').SvelteNode, State>} */
+ const instance_script = {
++	_(node, { state, next }) {
++		// @ts-expect-error
++		const comments = node.leadingComments;
++		if (comments) {
++			for (const comment of comments) {
++				if (comment.type === 'Line') {
++					/** @type {string} */
++					const text = comment.value;
++					const ignores = extract_svelte_ignore(text);
++					if (ignores.length > 0) {
++						const svelte_ignore = text.indexOf('svelte-ignore');
++						state.str.overwrite(
++							comment.start + svelte_ignore + 13 + '//'.length,
++							comment.end,
++							text
++								.substring(svelte_ignore + 13)
++								.replace(new RegExp(ignores.join('|'), 'g'), (match) => legacy_to_new_code(match))
++						);
++					}
++				}
++			}
++		}
++		next();
++	},
+ 	Identifier(node, { state }) {
+ 		handle_identifier(node, state);
+ 	},
+@@ -474,6 +499,19 @@ const template = {
+ 		} else {
+ 			state.str.update(node.start, node.end, `{@render ${name}?.(${slot_props})}`);
+ 		}
++	},
++	Comment(node, { state }) {
++		const ignores = extract_svelte_ignore(node.data);
++		if (ignores.length > 0) {
++			const svelte_ignore = node.data.indexOf('svelte-ignore');
++			state.str.overwrite(
++				node.start + svelte_ignore + 13 + '<!--'.length,
++				node.end - '-->'.length,
++				node.data
++					.substring(svelte_ignore + 13)
++					.replace(new RegExp(ignores.join('|'), 'g'), (match) => legacy_to_new_code(match))
++			);
++		}
+ 	}
+ };
+ 
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/index.js b/packages/svelte/src/compiler/phases/2-analyze/index.js
+index e4d6f6a4db9c..306c740f7b19 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/index.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/index.js
+@@ -439,8 +439,7 @@ export function analyze_component(root, source, options) {
+ 				component_slots: new Set(),
+ 				expression: null,
+ 				private_derived_state: [],
+-				function_depth: scope.function_depth,
+-				ignores: new Set()
++				function_depth: scope.function_depth
+ 			};
+ 
+ 			walk(
+@@ -511,8 +510,7 @@ export function analyze_component(root, source, options) {
+ 				component_slots: new Set(),
+ 				expression: null,
+ 				private_derived_state: [],
+-				function_depth: scope.function_depth,
+-				ignores: new Set()
++				function_depth: scope.function_depth
+ 			};
+ 
+ 			walk(
+@@ -1093,62 +1091,44 @@ function is_safe_identifier(expression, scope) {
+ 
+ /** @type {import('./types').Visitors} */
+ const common_visitors = {
+-	_(node, context) {
+-		// @ts-expect-error
+-		const comments = /** @type {import('estree').Comment[]} */ (node.leadingComments);
+-
+-		if (comments) {
++	_(node, { next, path }) {
++		const parent = path.at(-1);
++		if (parent?.type === 'Fragment') {
++			const idx = parent.nodes.indexOf(/** @type {any} */ (node));
+ 			/** @type {string[]} */
+ 			const ignores = [];
+ 
+-			for (const comment of comments) {
+-				ignores.push(...extract_svelte_ignore(comment.value));
++			for (let i = idx - 1; i >= 0; i--) {
++				const prev = parent.nodes[i];
++				if (prev.type === 'Comment') {
++					ignores.push(...extract_svelte_ignore(prev.data));
++				} else if (prev.type !== 'Text') {
++					break;
++				}
+ 			}
+ 
+ 			if (ignores.length > 0) {
+-				// @ts-expect-error see below
+-				node.ignores = new Set([...context.state.ignores, ...ignores]);
++				w.push_ignore(ignores);
++				next();
++				w.pop_ignore();
+ 			}
+-		}
+-
+-		// @ts-expect-error
+-		if (node.ignores) {
+-			context.next({
+-				...context.state,
+-				// @ts-expect-error see below
+-				ignores: node.ignores
+-			});
+-		} else if (context.state.ignores.size > 0) {
++		} else {
+ 			// @ts-expect-error
+-			node.ignores = context.state.ignores;
+-		}
+-	},
+-	Fragment(node, context) {
+-		/** @type {string[]} */
+-		let ignores = [];
++			const comments = /** @type {import('estree').Comment[]} */ (node.leadingComments);
+ 
+-		for (const child of node.nodes) {
+-			if (child.type === 'Text' && child.data.trim() === '') {
+-				continue;
+-			}
++			if (comments) {
++				/** @type {string[]} */
++				const ignores = [];
+ 
+-			if (child.type === 'Comment') {
+-				ignores.push(...extract_svelte_ignore(child.data));
+-			} else {
+-				const combined_ignores = new Set(context.state.ignores);
+-				for (const ignore of ignores) combined_ignores.add(ignore);
+-
+-				if (combined_ignores.size > 0) {
+-					// TODO this is a grotesque hack that's made necessary by the fact that
+-					// we can't call `context.visit(...)` here, because we do the convoluted
+-					// visitor merging thing. I'm increasingly of the view that we should
+-					// rearchitect this stuff and have a single visitor per node. It'd be
+-					// more efficient and much simpler.
+-					// @ts-expect-error
+-					child.ignores = combined_ignores;
++				for (const comment of comments) {
++					ignores.push(...extract_svelte_ignore(comment.value));
+ 				}
+ 
+-				ignores = [];
++				if (ignores.length > 0) {
++					w.push_ignore(ignores);
++					next();
++					w.pop_ignore();
++				}
+ 			}
+ 		}
+ 	},
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/types.d.ts b/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
+index cc815fae7b7b..d2c503e8b108 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
++++ b/packages/svelte/src/compiler/phases/2-analyze/types.d.ts
+@@ -22,7 +22,6 @@ export interface AnalysisState {
+ 	expression: ExpressionTag | ClassDirective | SpreadAttribute | null;
+ 	private_derived_state: string[];
+ 	function_depth: number;
+-	ignores: Set<string>;
+ }
+ 
+ export interface LegacyAnalysisState extends AnalysisState {
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 39d9d9efb0b8..52e50833636b 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -3,8 +3,10 @@
+ import { getLocator } from 'locate-character';
+ 
+ /** @typedef {{ start?: number, end?: number }} NodeLike */
+-/** @type {import('#compiler').Warning[]} */
++/** @type {Array<{ warning: import('#compiler').Warning; legacy_code: string | null }>} */
+ let warnings = [];
++/** @type {Set<string>[]} */
++let ignore_stack = [];
+ /** @type {string | undefined} */
+ let filename;
+ let locator = getLocator('', { offsetLine: 1 });
+@@ -14,12 +16,65 @@ let locator = getLocator('', { offsetLine: 1 });
+  *   source: string;
+  *   filename: string | undefined;
+  * }} options
+- * @returns {import('#compiler').Warning[]}
+  */
+ export function reset_warnings(options) {
+ 	filename = options.filename;
++	ignore_stack = [];
++	warnings = [];
+ 	locator = getLocator(options.source, { offsetLine: 1 });
+-	return warnings = [];
++}
++
++/**
++ * @param {boolean} is_runes
++ */
++export function get_warnings(is_runes) {
++	/** @type {import('#compiler').Warning[]} */
++	const final = [];
++
++	for (const { warning, legacy_code } of warnings) {
++		if (legacy_code) {
++			if (is_runes) {
++				final.push({
++					...warning,
++					message: warning.message += ` (this warning was tried to silence using code ${legacy_code}. In runes mode, use the new code ${warning.code} instead)`
++				});
++			}
++		} else {
++			final.push(warning);
++		}
++	}
++
++	return final;
++}
++
++/**
++ * @param {string[]} ignores
++ */
++export function push_ignore(ignores) {
++	const next = new Set([...ignore_stack.at(-1) || [], ...ignores]);
++
++	ignore_stack.push(next);
++}
++
++export function pop_ignore() {
++	ignore_stack.pop();
++}
++
++// TODO add more mappings for prominent codes that have been renamed
++const legacy_codes = new Map([
++	[
++		'reactive_declaration_invalid_placement',
++		'non-top-level-reactive-declaration'
++	]
++]);
++
++const new_codes = new Map([...legacy_codes.entries()].map(([key, value]) => [value, key]));
++
++/**
++ * @param {string} legacy_code
++ */
++export function legacy_to_new_code(legacy_code) {
++	return new_codes.get(legacy_code) || legacy_code.replaceAll('-', '_');
+ }
+ 
+ /**
+@@ -28,15 +83,27 @@ export function reset_warnings(options) {
+  * @param {string} message
+  */
+ function w(node, code, message) {
+-	// @ts-expect-error
+-	if (node?.ignores?.has(code)) return;
++	const ignores = ignore_stack.at(-1);
++
++	if (ignores?.has(code)) return;
++
++	// backwards compat: Svelte 5 changed all warnings from dash to underscore
++	/** @type {string | null} */
++	let legacy_code = legacy_codes.get(code) || code.replaceAll('_', '-');
++
++	if (!ignores?.has(legacy_code)) {
++		legacy_code = null;
++	}
+ 
+ 	warnings.push({
+-		code,
+-		message,
+-		filename,
+-		start: node?.start !== undefined ? locator(node.start) : undefined,
+-		end: node?.end !== undefined ? locator(node.end) : undefined
++		legacy_code,
++		warning: {
++			code,
++			message,
++			filename,
++			start: node?.start !== undefined ? locator(node.start) : undefined,
++			end: node?.end !== undefined ? locator(node.end) : undefined
++		}
+ 	});
+ }
+ 
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 9cb885555b4b..d5883b06aeb5 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -158,9 +158,9 @@ In the event that you need to support ancient browsers that don't implement `:wh
+ css = css.replace(/:where\((.+?)\)/, '$1');
+ ```
+ 
+-### Renames of various error/warning codes
++### Renames of error/warning codes
+ 
+-Various error and warning codes have been renamed slightly.
++Error and warning codes have been renamed: Instead of using dashes they now use underscores as separators (e.g. `a11y_misplaced_scope` instead of `a11y-misplaced-scope`). Some codes have also been slightly reworded. For backwards compatibility, dash separators are still supported, but you should migrate towards underscores.
+ 
+ ### Reduced number of namespaces
+ 

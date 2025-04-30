@@ -1,0 +1,154 @@
+diff --git a/docs/data/material/components/button-group/LoadingButtonGroup.js b/docs/data/material/components/button-group/LoadingButtonGroup.js
+new file mode 100644
+index 00000000000000..0a22138642535c
+--- /dev/null
++++ b/docs/data/material/components/button-group/LoadingButtonGroup.js
+@@ -0,0 +1,17 @@
++import * as React from 'react';
++import ButtonGroup from '@mui/material/ButtonGroup';
++import Button from '@mui/material/Button';
++import LoadingButton from '@mui/lab/LoadingButton';
++import SaveIcon from '@mui/icons-material/Save';
++
++export default function LoadingButtonGroup() {
++  return (
++    <ButtonGroup variant="outlined" aria-label="loading button group">
++      <Button>Submit</Button>
++      <LoadingButton>Fetch data</LoadingButton>
++      <LoadingButton loading loadingPosition="start" startIcon={<SaveIcon />}>
++        Save
++      </LoadingButton>
++    </ButtonGroup>
++  );
++}
+diff --git a/docs/data/material/components/button-group/LoadingButtonGroup.tsx b/docs/data/material/components/button-group/LoadingButtonGroup.tsx
+new file mode 100644
+index 00000000000000..0a22138642535c
+--- /dev/null
++++ b/docs/data/material/components/button-group/LoadingButtonGroup.tsx
+@@ -0,0 +1,17 @@
++import * as React from 'react';
++import ButtonGroup from '@mui/material/ButtonGroup';
++import Button from '@mui/material/Button';
++import LoadingButton from '@mui/lab/LoadingButton';
++import SaveIcon from '@mui/icons-material/Save';
++
++export default function LoadingButtonGroup() {
++  return (
++    <ButtonGroup variant="outlined" aria-label="loading button group">
++      <Button>Submit</Button>
++      <LoadingButton>Fetch data</LoadingButton>
++      <LoadingButton loading loadingPosition="start" startIcon={<SaveIcon />}>
++        Save
++      </LoadingButton>
++    </ButtonGroup>
++  );
++}
+diff --git a/docs/data/material/components/button-group/LoadingButtonGroup.tsx.preview b/docs/data/material/components/button-group/LoadingButtonGroup.tsx.preview
+new file mode 100644
+index 00000000000000..d29ade4c4ac183
+--- /dev/null
++++ b/docs/data/material/components/button-group/LoadingButtonGroup.tsx.preview
+@@ -0,0 +1,7 @@
++<ButtonGroup variant="outlined" aria-label="loading button group">
++  <Button>Submit</Button>
++  <LoadingButton>Fetch data</LoadingButton>
++  <LoadingButton loading loadingPosition="start" startIcon={<SaveIcon />}>
++    Save
++  </LoadingButton>
++</ButtonGroup>
+\ No newline at end of file
+diff --git a/docs/data/material/components/button-group/button-group.md b/docs/data/material/components/button-group/button-group.md
+index a73eb6e5b2fed3..a0645298d04bb6 100644
+--- a/docs/data/material/components/button-group/button-group.md
++++ b/docs/data/material/components/button-group/button-group.md
+@@ -1,7 +1,7 @@
+ ---
+ productId: material-ui
+ title: React Button Group component
+-components: Button, ButtonGroup
++components: Button, ButtonGroup, LoadingButton
+ githubLabel: 'component: ButtonGroup'
+ ---
+ 
+@@ -47,3 +47,11 @@ The button group can be displayed vertically using the `orientation` prop.
+ You can remove the elevation with the `disableElevation` prop.
+ 
+ {{"demo": "DisableElevation.js"}}
++
++## Experimental APIs
++
++### Loading button
++
++You can use the [`<LoadingButton />`](/material-ui/react-button/#loading-button) from [`@mui/lab`](/material-ui/about-the-lab/) in the button group.
++
++{{"demo": "LoadingButtonGroup.js"}}
+diff --git a/docs/pages/material-ui/api/loading-button.json b/docs/pages/material-ui/api/loading-button.json
+index 9b7b296141a065..cd04eeaa8bd641 100644
+--- a/docs/pages/material-ui/api/loading-button.json
++++ b/docs/pages/material-ui/api/loading-button.json
+@@ -367,6 +367,6 @@
+   "forwardsRefTo": "HTMLButtonElement",
+   "filename": "/packages/mui-lab/src/LoadingButton/LoadingButton.js",
+   "inheritance": { "component": "Button", "pathname": "/material-ui/api/button/" },
+-  "demos": "<ul><li><a href=\"/material-ui/react-button/\">Button</a></li></ul>",
++  "demos": "<ul><li><a href=\"/material-ui/react-button-group/\">Button Group</a></li>\n<li><a href=\"/material-ui/react-button/\">Button</a></li></ul>",
+   "cssComponent": false
+ }
+diff --git a/packages/mui-lab/src/LoadingButton/LoadingButton.d.ts b/packages/mui-lab/src/LoadingButton/LoadingButton.d.ts
+index 8603a50e117072..50a04120a40a99 100644
+--- a/packages/mui-lab/src/LoadingButton/LoadingButton.d.ts
++++ b/packages/mui-lab/src/LoadingButton/LoadingButton.d.ts
+@@ -60,6 +60,7 @@ export type LoadingButtonTypeMap<
+  *
+  * Demos:
+  *
++ * - [Button Group](https://mui.com/material-ui/react-button-group/)
+  * - [Button](https://mui.com/material-ui/react-button/)
+  *
+  * API:
+diff --git a/packages/mui-lab/src/LoadingButton/LoadingButton.js b/packages/mui-lab/src/LoadingButton/LoadingButton.js
+index 15d2b7574669d1..b0f6dc6bf8ca02 100644
+--- a/packages/mui-lab/src/LoadingButton/LoadingButton.js
++++ b/packages/mui-lab/src/LoadingButton/LoadingButton.js
+@@ -5,7 +5,9 @@ import { capitalize, unstable_useId as useId } from '@mui/material/utils';
+ import { unstable_composeClasses as composeClasses } from '@mui/base';
+ import { styled, useThemeProps } from '@mui/material/styles';
+ import Button from '@mui/material/Button';
++import { ButtonGroupContext } from '@mui/material/ButtonGroup';
+ import CircularProgress from '@mui/material/CircularProgress';
++import resolveProps from '@mui/utils/resolveProps';
+ import loadingButtonClasses, { getLoadingButtonUtilityClass } from './loadingButtonClasses';
+ 
+ const useUtilityClasses = (ownerState) => {
+@@ -135,7 +137,9 @@ const LoadingButtonLoadingIndicator = styled('span', {
+ }));
+ 
+ const LoadingButton = React.forwardRef(function LoadingButton(inProps, ref) {
+-  const props = useThemeProps({ props: inProps, name: 'MuiLoadingButton' });
++  const contextProps = React.useContext(ButtonGroupContext);
++  const resolvedProps = resolveProps(contextProps, inProps);
++  const props = useThemeProps({ props: resolvedProps, name: 'MuiLoadingButton' });
+   const {
+     children,
+     disabled = false,
+diff --git a/packages/mui-material/src/ButtonGroup/index.d.ts b/packages/mui-material/src/ButtonGroup/index.d.ts
+index cb8b2e7907c4b4..09df42ba505364 100644
+--- a/packages/mui-material/src/ButtonGroup/index.d.ts
++++ b/packages/mui-material/src/ButtonGroup/index.d.ts
+@@ -2,3 +2,5 @@ export { default } from './ButtonGroup';
+ export * from './ButtonGroup';
+ export { default as buttonGroupClasses } from './buttonGroupClasses';
+ export * from './buttonGroupClasses';
++export { default as ButtonGroupContext } from './ButtonGroupContext';
++export { default as ButtonGroupButtonContext } from './ButtonGroupButtonContext';
+diff --git a/packages/mui-material/src/ButtonGroup/index.js b/packages/mui-material/src/ButtonGroup/index.js
+index 3a585146bc9596..b30f044d2b4600 100644
+--- a/packages/mui-material/src/ButtonGroup/index.js
++++ b/packages/mui-material/src/ButtonGroup/index.js
+@@ -2,3 +2,5 @@
+ export { default } from './ButtonGroup';
+ export { default as buttonGroupClasses } from './buttonGroupClasses';
+ export * from './buttonGroupClasses';
++export { default as ButtonGroupContext } from './ButtonGroupContext';
++export { default as ButtonGroupButtonContext } from './ButtonGroupButtonContext';

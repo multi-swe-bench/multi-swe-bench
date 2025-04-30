@@ -1,0 +1,58 @@
+diff --git a/api/fake_http.go b/api/fake_http.go
+index a88c9df173d..d8b7506a61c 100644
+--- a/api/fake_http.go
++++ b/api/fake_http.go
+@@ -70,6 +70,25 @@ func (f *FakeHTTP) StubRepoResponseWithPermission(owner, repo, permission string
+ 	f.responseStubs = append(f.responseStubs, resp)
+ }
+ 
++func (f *FakeHTTP) StubRepoResponseWithDefaultBranch(owner, repo, defaultBranch string) {
++	body := bytes.NewBufferString(fmt.Sprintf(`
++		{ "data": { "repo_000": {
++			"id": "REPOID",
++			"name": "%s",
++			"owner": {"login": "%s"},
++			"defaultBranchRef": {
++				"name": "%s"
++			},
++			"viewerPermission": "READ"
++		} } }
++	`, repo, owner, defaultBranch))
++	resp := &http.Response{
++		StatusCode: 200,
++		Body:       ioutil.NopCloser(body),
++	}
++	f.responseStubs = append(f.responseStubs, resp)
++}
++
+ func (f *FakeHTTP) StubForkedRepoResponse(forkFullName, parentFullName string) {
+ 	forkRepo := strings.SplitN(forkFullName, "/", 2)
+ 	parentRepo := strings.SplitN(parentFullName, "/", 2)
+diff --git a/command/pr.go b/command/pr.go
+index a5b1f0079af..22f083b974b 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -101,13 +101,19 @@ func prStatus(cmd *cobra.Command, args []string) error {
+ 	fmt.Fprintln(out, "")
+ 
+ 	printHeader(out, "Current branch")
+-	if prPayload.CurrentPR != nil {
+-		printPrs(out, 0, *prPayload.CurrentPR)
++	currentPR := prPayload.CurrentPR
++	currentBranch, _ := ctx.Branch()
++	noPRMessage := fmt.Sprintf("  There is no pull request associated with %s", utils.Cyan("["+currentPRHeadRef+"]"))
++	if currentPR != nil {
++		if baseRepo.(*api.Repository).DefaultBranchRef.Name == currentBranch && currentPR.State != "OPEN" {
++			printMessage(out, noPRMessage)
++		} else {
++			printPrs(out, 0, *currentPR)
++		}
+ 	} else if currentPRHeadRef == "" {
+ 		printMessage(out, "  There is no current branch")
+ 	} else {
+-		message := fmt.Sprintf("  There is no pull request associated with %s", utils.Cyan("["+currentPRHeadRef+"]"))
+-		printMessage(out, message)
++		printMessage(out, noPRMessage)
+ 	}
+ 	fmt.Fprintln(out)
+ 

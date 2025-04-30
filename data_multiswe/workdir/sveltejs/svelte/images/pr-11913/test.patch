@@ -1,0 +1,144 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/reactive-map/_config.js b/packages/svelte/tests/runtime-runes/samples/reactive-map/_config.js
+index 03fa1bd9ac76..aad2178137db 100644
+--- a/packages/svelte/tests/runtime-runes/samples/reactive-map/_config.js
++++ b/packages/svelte/tests/runtime-runes/samples/reactive-map/_config.js
+@@ -2,10 +2,10 @@ import { flushSync } from '../../../../src/index-client';
+ import { test } from '../../test';
+ 
+ export default test({
+-	html: `<button>add</button><button>delete</button><button>clear</button>`,
++	html: `<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:0</div>`,
+ 
+ 	test({ assert, target }) {
+-		const [btn, btn2, btn3] = target.querySelectorAll('button');
++		const [btn, btn2, btn3, btn4, btn5] = target.querySelectorAll('button');
+ 
+ 		flushSync(() => {
+ 			btn?.click();
+@@ -13,38 +13,56 @@ export default test({
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+-			`<button>add</button><button>delete</button><button>clear</button><div>1:1</div>`
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:1</div>`
+ 		);
+ 
+ 		flushSync(() => {
+-			btn?.click();
++			btn2?.click();
+ 		});
+ 
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:0</div>`
++		);
++
+ 		flushSync(() => {
+-			btn?.click();
++			btn3?.click();
+ 		});
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+-			`<button>add</button><button>delete</button><button>clear</button><div>1:1</div><div>2:2</div><div>3:3</div>`
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:0</div><div>2:2</div>`
+ 		);
+ 
+ 		flushSync(() => {
+-			btn2?.click();
++			btn3?.click();
++		});
++
++		flushSync(() => {
++			btn3?.click();
+ 		});
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+-			`<button>add</button><button>delete</button><button>clear</button><div>1:1</div><div>2:2</div>`
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:0</div><div>2:2</div><div>3:3</div><div>4:4</div>`
+ 		);
+ 
+ 		flushSync(() => {
+-			btn3?.click();
++			btn4?.click();
++		});
++
++		assert.htmlEqual(
++			target.innerHTML,
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button><div>0:0</div><div>2:2</div><div>3:3</div>`
++		);
++
++		flushSync(() => {
++			btn5?.click();
+ 		});
+ 
+ 		assert.htmlEqual(
+ 			target.innerHTML,
+-			`<button>add</button><button>delete</button><button>clear</button>`
++			`<button>set if</button><button>set if 1</button><button>add</button><button>delete</button><button>clear</button>`
+ 		);
+ 	}
+ });
+diff --git a/packages/svelte/tests/runtime-runes/samples/reactive-map/main.svelte b/packages/svelte/tests/runtime-runes/samples/reactive-map/main.svelte
+index 703ef4cf99e2..d712b12a29a8 100644
+--- a/packages/svelte/tests/runtime-runes/samples/reactive-map/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/reactive-map/main.svelte
+@@ -1,20 +1,46 @@
+ <script>
+-	import {Map} from 'svelte/reactivity';
++	import { Map } from 'svelte/reactivity';
+ 
+-	let state = new Map();
++	let state = new Map([[0, 0]]);
+ </script>
+ 
+-<button onclick={() => {
+-	state.set(state.size + 1, state.size + 1);
+-}}>add</button>
++<button
++	onclick={() => {
++		if (state.has(0)) {
++			state.set(0, 1);
++		}
++	}}
++>
++	set if
++</button>
+ 
+-<button onclick={() => {
+-	state.delete(state.size);
+-}}>delete</button>
++<button
++	onclick={() => {
++		if (state.get(0) === 1) {
++			state.set(0, 0);
++		}
++	}}
++>
++	set if 1
++</button>
+ 
+-<button onclick={() => {
+-	state.clear();
+-}}>clear</button>
++<button
++	onclick={() => {
++		state.set(state.size + 1, state.size + 1);
++	}}>add</button
++>
++
++<button
++	onclick={() => {
++		state.delete(state.size);
++	}}>delete</button
++>
++
++<button
++	onclick={() => {
++		state.clear();
++	}}>clear</button
++>
+ 
+ {#each state as [key, value]}
+ 	<div>{key}:{value}</div>

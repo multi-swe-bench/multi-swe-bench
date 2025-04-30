@@ -1,0 +1,152 @@
+diff --git a/packages/mui-material/src/Accordion/Accordion.js b/packages/mui-material/src/Accordion/Accordion.js
+index 50edbe4ff75a08..539b60cf1d7764 100644
+--- a/packages/mui-material/src/Accordion/Accordion.js
++++ b/packages/mui-material/src/Accordion/Accordion.js
+@@ -115,7 +115,11 @@ const AccordionRoot = styled(Paper, {
+ );
+ 
+ const Accordion = React.forwardRef(function Accordion(inProps, ref) {
+-  const props = useThemeProps({ props: inProps, name: 'MuiAccordion' });
++  const props = useThemeProps({
++    props: inProps,
++    name: 'MuiAccordion',
++    shallowMergePropNames: ['TransitionProps'],
++  });
+   const {
+     children: childrenProp,
+     className,
+diff --git a/packages/mui-material/src/styles/useThemeProps.d.ts b/packages/mui-material/src/styles/useThemeProps.d.ts
+index 1fb5722e78b23a..84b4baf7c8622e 100644
+--- a/packages/mui-material/src/styles/useThemeProps.d.ts
++++ b/packages/mui-material/src/styles/useThemeProps.d.ts
+@@ -15,4 +15,8 @@ export default function useThemeProps<
+   Theme extends ThemeWithProps,
+   Props,
+   Name extends keyof any,
+->(params: { props: Props; name: Name }): Props & ThemedProps<Theme, Name>;
++>(params: {
++  props: Props;
++  name: Name;
++  shallowMergePropNames?: Array<keyof Props>;
++}): Props & ThemedProps<Theme, Name>;
+diff --git a/packages/mui-material/src/styles/useThemeProps.js b/packages/mui-material/src/styles/useThemeProps.js
+index 25fa93ccf039e1..517aa3f2d0a9af 100644
+--- a/packages/mui-material/src/styles/useThemeProps.js
++++ b/packages/mui-material/src/styles/useThemeProps.js
+@@ -2,6 +2,12 @@ import { useThemeProps as systemUseThemeProps } from '@mui/system';
+ import defaultTheme from './defaultTheme';
+ import THEME_ID from './identifier';
+ 
+-export default function useThemeProps({ props, name }) {
+-  return systemUseThemeProps({ props, name, defaultTheme, themeId: THEME_ID });
++export default function useThemeProps({ props, name, shallowMergePropNames = [] }) {
++  return systemUseThemeProps({
++    props,
++    name,
++    defaultTheme,
++    shallowMergePropNames,
++    themeId: THEME_ID,
++  });
+ }
+diff --git a/packages/mui-system/src/useThemeProps/getThemeProps.d.ts b/packages/mui-system/src/useThemeProps/getThemeProps.d.ts
+index 0d114982076718..e2f96d953893c3 100644
+--- a/packages/mui-system/src/useThemeProps/getThemeProps.d.ts
++++ b/packages/mui-system/src/useThemeProps/getThemeProps.d.ts
+@@ -14,4 +14,5 @@ export default function getThemeProps<Theme, Props, Name extends keyof any>(para
+   props: Props;
+   name: Name;
+   theme?: Theme;
++  shallowMergePropNames?: string[];
+ }): Props & ThemedProps<Theme, Name>;
+diff --git a/packages/mui-system/src/useThemeProps/getThemeProps.js b/packages/mui-system/src/useThemeProps/getThemeProps.js
+index aa3a17f87941c9..b847c336b9ab1c 100644
+--- a/packages/mui-system/src/useThemeProps/getThemeProps.js
++++ b/packages/mui-system/src/useThemeProps/getThemeProps.js
+@@ -1,7 +1,7 @@
+ import { internal_resolveProps as resolveProps } from '@mui/utils';
+ 
+ export default function getThemeProps(params) {
+-  const { theme, name, props } = params;
++  const { theme, name, props, shallowMergePropNames = [] } = params;
+ 
+   if (
+     !theme ||
+@@ -12,5 +12,5 @@ export default function getThemeProps(params) {
+     return props;
+   }
+ 
+-  return resolveProps(theme.components[name].defaultProps, props);
++  return resolveProps(theme.components[name].defaultProps, props, shallowMergePropNames);
+ }
+diff --git a/packages/mui-system/src/useThemeProps/useThemeProps.d.ts b/packages/mui-system/src/useThemeProps/useThemeProps.d.ts
+index 20b93fa6515b15..71df9e3a67675a 100644
+--- a/packages/mui-system/src/useThemeProps/useThemeProps.d.ts
++++ b/packages/mui-system/src/useThemeProps/useThemeProps.d.ts
+@@ -16,5 +16,6 @@ export default function useThemeProps<
+   props: Props;
+   name: Name;
+   defaultTheme?: Theme;
++  shallowMergePropNames?: Array<keyof Props>;
+   themeId?: string;
+ }): Props & ThemedProps<Theme, Name>;
+diff --git a/packages/mui-system/src/useThemeProps/useThemeProps.js b/packages/mui-system/src/useThemeProps/useThemeProps.js
+index 21f351e8009b8e..b9f402578eb86c 100644
+--- a/packages/mui-system/src/useThemeProps/useThemeProps.js
++++ b/packages/mui-system/src/useThemeProps/useThemeProps.js
+@@ -1,11 +1,17 @@
+ import getThemeProps from './getThemeProps';
+ import useTheme from '../useTheme';
+ 
+-export default function useThemeProps({ props, name, defaultTheme, themeId }) {
++export default function useThemeProps({
++  props,
++  name,
++  defaultTheme,
++  themeId,
++  shallowMergePropNames = [],
++}) {
+   let theme = useTheme(defaultTheme);
+   if (themeId) {
+     theme = theme[themeId] || theme;
+   }
+-  const mergedProps = getThemeProps({ theme, name, props });
++  const mergedProps = getThemeProps({ theme, name, props, shallowMergePropNames });
+   return mergedProps;
+ }
+diff --git a/packages/mui-utils/src/resolveProps.ts b/packages/mui-utils/src/resolveProps.ts
+index fef2dbdb86f049..3a8a2434fab84a 100644
+--- a/packages/mui-utils/src/resolveProps.ts
++++ b/packages/mui-utils/src/resolveProps.ts
+@@ -1,3 +1,5 @@
++import { isPlainObject } from './deepmerge';
++
+ /**
+  * Add keys, values of `defaultProps` that does not exist in `props`
+  * @param {object} defaultProps
+@@ -11,10 +13,13 @@ export default function resolveProps<
+     slots?: Record<string, unknown>;
+     slotProps?: Record<string, unknown>;
+   } & Record<string, unknown>,
+->(defaultProps: T, props: T) {
++>(defaultProps: T, props: T, shallowMergePropNames: Array<string> = []) {
+   const output = { ...props };
+ 
+   (Object.keys(defaultProps) as Array<keyof T>).forEach((propName) => {
++    const defaultValue = defaultProps[propName];
++    const currentValue = output[propName];
++
+     if (propName.toString().match(/^(components|slots)$/)) {
+       output[propName] = {
+         ...(defaultProps[propName] as any),
+@@ -42,6 +47,11 @@ export default function resolveProps<
+       }
+     } else if (output[propName] === undefined) {
+       output[propName] = defaultProps[propName];
++    } else if (shallowMergePropNames.includes(String(propName))) {
++      output[propName] = {
++        ...(isPlainObject(defaultValue) && defaultValue),
++        ...(isPlainObject(currentValue) && currentValue),
++      } as T[keyof T];
+     }
+   });
+ 

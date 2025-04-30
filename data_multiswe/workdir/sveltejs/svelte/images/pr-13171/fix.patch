@@ -1,0 +1,75 @@
+diff --git a/.changeset/nasty-eggs-walk.md b/.changeset/nasty-eggs-walk.md
+new file mode 100644
+index 000000000000..2e4b061dd543
+--- /dev/null
++++ b/.changeset/nasty-eggs-walk.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: separate `template_effect` for dynamic class/style directive with dynamic attributes
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+index 5ac6d0afa052..b46392bf11ce 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/shared/element.js
+@@ -3,7 +3,7 @@
+ /** @import { ComponentContext } from '../../types' */
+ import { normalize_attribute } from '../../../../../../utils.js';
+ import * as b from '../../../../../utils/builders.js';
+-import { build_getter } from '../../utils.js';
++import { build_getter, create_derived } from '../../utils.js';
+ import { build_template_literal, build_update } from './utils.js';
+ 
+ /**
+@@ -25,11 +25,20 @@ export function build_style_directives(
+ 	const state = context.state;
+ 
+ 	for (const directive of style_directives) {
++		const { has_state, has_call } = directive.metadata.expression;
++
+ 		let value =
+ 			directive.value === true
+ 				? build_getter({ name: directive.name, type: 'Identifier' }, context.state)
+ 				: build_attribute_value(directive.value, context).value;
+ 
++		if (has_call) {
++			const id = b.id(state.scope.generate('style_directive'));
++
++			state.init.push(b.const(id, create_derived(state, b.thunk(value))));
++			value = b.call('$.get', id);
++		}
++
+ 		const update = b.stmt(
+ 			b.call(
+ 				'$.set_style',
+@@ -41,8 +50,6 @@ export function build_style_directives(
+ 			)
+ 		);
+ 
+-		const { has_state, has_call } = directive.metadata.expression;
+-
+ 		if (!is_attributes_reactive && has_call) {
+ 			state.init.push(build_update(update));
+ 		} else if (is_attributes_reactive || has_state || has_call) {
+@@ -69,10 +76,17 @@ export function build_class_directives(
+ ) {
+ 	const state = context.state;
+ 	for (const directive of class_directives) {
+-		const value = /** @type {Expression} */ (context.visit(directive.expression));
+-		const update = b.stmt(b.call('$.toggle_class', element_id, b.literal(directive.name), value));
+-
+ 		const { has_state, has_call } = directive.metadata.expression;
++		let value = /** @type {Expression} */ (context.visit(directive.expression));
++
++		if (has_call) {
++			const id = b.id(state.scope.generate('class_directive'));
++
++			state.init.push(b.const(id, create_derived(state, b.thunk(value))));
++			value = b.call('$.get', id);
++		}
++
++		const update = b.stmt(b.call('$.toggle_class', element_id, b.literal(directive.name), value));
+ 
+ 		if (!is_attributes_reactive && has_call) {
+ 			state.init.push(build_update(update));

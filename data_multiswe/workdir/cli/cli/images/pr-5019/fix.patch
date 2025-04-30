@@ -1,0 +1,51 @@
+diff --git a/pkg/cmd/release/create/create.go b/pkg/cmd/release/create/create.go
+index 4d0ea32c865..5e5c14a6c30 100644
+--- a/pkg/cmd/release/create/create.go
++++ b/pkg/cmd/release/create/create.go
+@@ -389,13 +389,6 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 	}
+ 
+-	if opts.Draft && len(opts.DiscussionCategory) > 0 {
+-		return fmt.Errorf(
+-			"%s Discussions not supported with draft releases",
+-			opts.IO.ColorScheme().FailureIcon(),
+-		)
+-	}
+-
+ 	params := map[string]interface{}{
+ 		"tag_name":   opts.TagName,
+ 		"draft":      opts.Draft,
+@@ -443,7 +436,7 @@ func createRun(opts *CreateOptions) error {
+ 		}
+ 
+ 		if !opts.Draft {
+-			rel, err := publishRelease(httpClient, newRelease.APIURL)
++			rel, err := publishRelease(httpClient, newRelease.APIURL, opts.DiscussionCategory)
+ 			if err != nil {
+ 				return err
+ 			}
+diff --git a/pkg/cmd/release/create/http.go b/pkg/cmd/release/create/http.go
+index 07a37a4f662..f9f778a2151 100644
+--- a/pkg/cmd/release/create/http.go
++++ b/pkg/cmd/release/create/http.go
+@@ -155,8 +155,17 @@ func createRelease(httpClient *http.Client, repo ghrepo.Interface, params map[st
+ 	return &newRelease, err
+ }
+ 
+-func publishRelease(httpClient *http.Client, releaseURL string) (*shared.Release, error) {
+-	req, err := http.NewRequest("PATCH", releaseURL, bytes.NewBufferString(`{"draft":false}`))
++func publishRelease(httpClient *http.Client, releaseURL string, discussionCategory string) (*shared.Release, error) {
++	params := map[string]interface{}{"draft": false}
++	if discussionCategory != "" {
++		params["discussion_category_name"] = discussionCategory
++	}
++
++	bodyBytes, err := json.Marshal(params)
++	if err != nil {
++		return nil, err
++	}
++	req, err := http.NewRequest("PATCH", releaseURL, bytes.NewBuffer(bodyBytes))
+ 	if err != nil {
+ 		return nil, err
+ 	}

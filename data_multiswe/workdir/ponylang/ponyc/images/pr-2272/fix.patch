@@ -1,0 +1,2630 @@
+diff --git a/Makefile b/Makefile
+index b44106721c..20e44c799d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -349,13 +349,16 @@ libgtest.files := $(libgtest.dir)/gtest-all.cc
+ libgbenchmark := $(lib)
+ libgbenchmark.dir := lib/gbenchmark
+ libgbenchmark.files := $(libgbenchmark.dir)/gbenchmark_main.cc $(libgbenchmark.dir)/gbenchmark-all.cc
++libblake2 := $(lib)
++libblake2.dir := lib/blake2
++libblake2.files := $(libblake2.dir)/blake2b-ref.c
+ 
+ # We don't add libponyrt here. It's a special case because it can be compiled
+ # to LLVM bitcode.
+ ifeq ($(OSTYPE), linux)
+-  libraries := libponyc libponyrt-pic libgtest libgbenchmark
++  libraries := libponyc libponyrt-pic libgtest libgbenchmark libblake2
+ else
+-  libraries := libponyc libgtest libgbenchmark
++  libraries := libponyc libgtest libgbenchmark libblake2
+ endif
+ 
+ # Third party, but prebuilt. Prebuilt libraries are defined as
+@@ -403,7 +406,8 @@ benchmarks := libponyc.benchmarks libponyrt.benchmarks
+ 
+ # Define include paths for targets if necessary. Note that these include paths
+ # will automatically apply to the test suite of a target as well.
+-libponyc.include := -I src/common/ -I src/libponyrt/ $(llvm.include)
++libponyc.include := -I src/common/ -I src/libponyrt/ $(llvm.include) \
++  -isystem lib/blake2
+ libponycc.include := -I src/common/ $(llvm.include)
+ libponyrt.include := -I src/common/ -I src/libponyrt/
+ libponyrt-pic.include := $(libponyrt.include)
+@@ -420,6 +424,7 @@ libponyrt.benchmarks.include := -I src/common/ -I src/libponyrt/ -isystem \
+ ponyc.include := -I src/common/ -I src/libponyrt/ $(llvm.include)
+ libgtest.include := -isystem lib/gtest/
+ libgbenchmark.include := -isystem lib/gbenchmark/include/
++libblake2.include := -isystem lib/blake2/
+ 
+ ifneq (,$(filter $(OSTYPE), osx bsd))
+   libponyrt.include += -I /usr/local/include
+@@ -482,13 +487,14 @@ endif
+ # target specific disabling of build options
+ libgtest.disable = -Wconversion -Wno-sign-conversion -Wextra
+ libgbenchmark.disable = -Wconversion -Wno-sign-conversion -Wextra
++libblake2.disable = -Wconversion -Wno-sign-conversion -Wextra
+ 
+ # Link relationships.
+-ponyc.links = libponyc libponyrt llvm
+-libponyc.tests.links = libgtest libponyc llvm
++ponyc.links = libponyc libponyrt llvm libblake2
++libponyc.tests.links = libgtest libponyc llvm libblake2
+ libponyc.tests.links.whole = libponyrt
+ libponyrt.tests.links = libgtest libponyrt
+-libponyc.benchmarks.links = libgbenchmark libponyc libponyrt llvm
++libponyc.benchmarks.links = libblake2 libgbenchmark libponyc libponyrt llvm
+ libponyrt.benchmarks.links = libgbenchmark libponyrt
+ 
+ ifeq ($(OSTYPE),linux)
+@@ -523,7 +529,7 @@ all: $(targets)
+ 	@:
+ 
+ # Dependencies
+-libponyc.depends := libponyrt
++libponyc.depends := libponyrt libblake2
+ libponyc.tests.depends := libponyc libgtest
+ libponyrt.tests.depends := libponyrt libgtest
+ libponyc.benchmarks.depends := libponyc libgbenchmark
+diff --git a/lib/blake2/blake2-impl.h b/lib/blake2/blake2-impl.h
+new file mode 100644
+index 0000000000..5dff7fc7a3
+--- /dev/null
++++ b/lib/blake2/blake2-impl.h
+@@ -0,0 +1,160 @@
++/*
++   BLAKE2 reference source code package - reference C implementations
++
++   Copyright 2012, Samuel Neves <sneves@dei.uc.pt>.  You may use this under the
++   terms of the CC0, the OpenSSL Licence, or the Apache Public License 2.0, at
++   your option.  The terms of these licenses can be found at:
++
++   - CC0 1.0 Universal : http://creativecommons.org/publicdomain/zero/1.0
++   - OpenSSL license   : https://www.openssl.org/source/license.html
++   - Apache 2.0        : http://www.apache.org/licenses/LICENSE-2.0
++
++   More information about the BLAKE2 hash function can be found at
++   https://blake2.net.
++*/
++#ifndef BLAKE2_IMPL_H
++#define BLAKE2_IMPL_H
++
++#include <stdint.h>
++#include <string.h>
++
++#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L)
++  #if   defined(_MSC_VER)
++    #define BLAKE2_INLINE __inline
++  #elif defined(__GNUC__)
++    #define BLAKE2_INLINE __inline__
++  #else
++    #define BLAKE2_INLINE
++  #endif
++#else
++  #define BLAKE2_INLINE inline
++#endif
++
++static BLAKE2_INLINE uint32_t load32( const void *src )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  uint32_t w;
++  memcpy(&w, src, sizeof w);
++  return w;
++#else
++  const uint8_t *p = ( const uint8_t * )src;
++  return (( uint32_t )( p[0] ) <<  0) |
++         (( uint32_t )( p[1] ) <<  8) |
++         (( uint32_t )( p[2] ) << 16) |
++         (( uint32_t )( p[3] ) << 24) ;
++#endif
++}
++
++static BLAKE2_INLINE uint64_t load64( const void *src )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  uint64_t w;
++  memcpy(&w, src, sizeof w);
++  return w;
++#else
++  const uint8_t *p = ( const uint8_t * )src;
++  return (( uint64_t )( p[0] ) <<  0) |
++         (( uint64_t )( p[1] ) <<  8) |
++         (( uint64_t )( p[2] ) << 16) |
++         (( uint64_t )( p[3] ) << 24) |
++         (( uint64_t )( p[4] ) << 32) |
++         (( uint64_t )( p[5] ) << 40) |
++         (( uint64_t )( p[6] ) << 48) |
++         (( uint64_t )( p[7] ) << 56) ;
++#endif
++}
++
++static BLAKE2_INLINE uint16_t load16( const void *src )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  uint16_t w;
++  memcpy(&w, src, sizeof w);
++  return w;
++#else
++  const uint8_t *p = ( const uint8_t * )src;
++  return (( uint16_t )( p[0] ) <<  0) |
++         (( uint16_t )( p[1] ) <<  8) ;
++#endif
++}
++
++static BLAKE2_INLINE void store16( void *dst, uint16_t w )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  memcpy(dst, &w, sizeof w);
++#else
++  uint8_t *p = ( uint8_t * )dst;
++  *p++ = ( uint8_t )w; w >>= 8;
++  *p++ = ( uint8_t )w;
++#endif
++}
++
++static BLAKE2_INLINE void store32( void *dst, uint32_t w )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  memcpy(dst, &w, sizeof w);
++#else
++  uint8_t *p = ( uint8_t * )dst;
++  p[0] = (uint8_t)(w >>  0);
++  p[1] = (uint8_t)(w >>  8);
++  p[2] = (uint8_t)(w >> 16);
++  p[3] = (uint8_t)(w >> 24);
++#endif
++}
++
++static BLAKE2_INLINE void store64( void *dst, uint64_t w )
++{
++#if defined(NATIVE_LITTLE_ENDIAN)
++  memcpy(dst, &w, sizeof w);
++#else
++  uint8_t *p = ( uint8_t * )dst;
++  p[0] = (uint8_t)(w >>  0);
++  p[1] = (uint8_t)(w >>  8);
++  p[2] = (uint8_t)(w >> 16);
++  p[3] = (uint8_t)(w >> 24);
++  p[4] = (uint8_t)(w >> 32);
++  p[5] = (uint8_t)(w >> 40);
++  p[6] = (uint8_t)(w >> 48);
++  p[7] = (uint8_t)(w >> 56);
++#endif
++}
++
++static BLAKE2_INLINE uint64_t load48( const void *src )
++{
++  const uint8_t *p = ( const uint8_t * )src;
++  return (( uint64_t )( p[0] ) <<  0) |
++         (( uint64_t )( p[1] ) <<  8) |
++         (( uint64_t )( p[2] ) << 16) |
++         (( uint64_t )( p[3] ) << 24) |
++         (( uint64_t )( p[4] ) << 32) |
++         (( uint64_t )( p[5] ) << 40) ;
++}
++
++static BLAKE2_INLINE void store48( void *dst, uint64_t w )
++{
++  uint8_t *p = ( uint8_t * )dst;
++  p[0] = (uint8_t)(w >>  0);
++  p[1] = (uint8_t)(w >>  8);
++  p[2] = (uint8_t)(w >> 16);
++  p[3] = (uint8_t)(w >> 24);
++  p[4] = (uint8_t)(w >> 32);
++  p[5] = (uint8_t)(w >> 40);
++}
++
++static BLAKE2_INLINE uint32_t rotr32( const uint32_t w, const unsigned c )
++{
++  return ( w >> c ) | ( w << ( 32 - c ) );
++}
++
++static BLAKE2_INLINE uint64_t rotr64( const uint64_t w, const unsigned c )
++{
++  return ( w >> c ) | ( w << ( 64 - c ) );
++}
++
++/* prevents compiler optimizing out memset() */
++static BLAKE2_INLINE void secure_zero_memory(void *v, size_t n)
++{
++  static void *(*const volatile memset_v)(void *, int, size_t) = &memset;
++  memset_v(v, 0, n);
++}
++
++#endif
+diff --git a/lib/blake2/blake2.h b/lib/blake2/blake2.h
+new file mode 100644
+index 0000000000..9104333f7e
+--- /dev/null
++++ b/lib/blake2/blake2.h
+@@ -0,0 +1,91 @@
++/*
++   BLAKE2 reference source code package - reference C implementations
++
++   Copyright 2012, Samuel Neves <sneves@dei.uc.pt>.  You may use this under the
++   terms of the CC0, the OpenSSL Licence, or the Apache Public License 2.0, at
++   your option.  The terms of these licenses can be found at:
++
++   - CC0 1.0 Universal : http://creativecommons.org/publicdomain/zero/1.0
++   - OpenSSL license   : https://www.openssl.org/source/license.html
++   - Apache 2.0        : http://www.apache.org/licenses/LICENSE-2.0
++
++   More information about the BLAKE2 hash function can be found at
++   https://blake2.net.
++*/
++#ifndef BLAKE2_H
++#define BLAKE2_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++#if defined(_MSC_VER)
++#define BLAKE2_PACKED(x) __pragma(pack(push, 1)) x __pragma(pack(pop))
++#else
++#define BLAKE2_PACKED(x) x __attribute__((packed))
++#endif
++
++#if defined(__cplusplus)
++extern "C" {
++#endif
++
++  enum blake2b_constant
++  {
++    BLAKE2B_BLOCKBYTES = 128,
++    BLAKE2B_OUTBYTES   = 64,
++    BLAKE2B_KEYBYTES   = 64,
++    BLAKE2B_SALTBYTES  = 16,
++    BLAKE2B_PERSONALBYTES = 16
++  };
++
++  typedef struct blake2b_state__
++  {
++    uint64_t h[8];
++    uint64_t t[2];
++    uint64_t f[2];
++    uint8_t  buf[BLAKE2B_BLOCKBYTES];
++    size_t   buflen;
++    size_t   outlen;
++    uint8_t  last_node;
++  } blake2b_state;
++
++  BLAKE2_PACKED(struct blake2b_param__
++  {
++    uint8_t  digest_length; /* 1 */
++    uint8_t  key_length;    /* 2 */
++    uint8_t  fanout;        /* 3 */
++    uint8_t  depth;         /* 4 */
++    uint32_t leaf_length;   /* 8 */
++    uint32_t node_offset;   /* 12 */
++    uint32_t xof_length;    /* 16 */
++    uint8_t  node_depth;    /* 17 */
++    uint8_t  inner_length;  /* 18 */
++    uint8_t  reserved[14];  /* 32 */
++    uint8_t  salt[BLAKE2B_SALTBYTES]; /* 48 */
++    uint8_t  personal[BLAKE2B_PERSONALBYTES];  /* 64 */
++  });
++
++  typedef struct blake2b_param__ blake2b_param;
++
++  /* Padded structs result in a compile-time error */
++  enum {
++    BLAKE2_DUMMY_2 = 1/(int)(sizeof(blake2b_param) == BLAKE2B_OUTBYTES)
++  };
++
++  /* Streaming API */
++  int blake2b_init( blake2b_state *S, size_t outlen );
++  int blake2b_init_key( blake2b_state *S, size_t outlen, const void *key, size_t keylen );
++  int blake2b_init_param( blake2b_state *S, const blake2b_param *P );
++  int blake2b_update( blake2b_state *S, const void *in, size_t inlen );
++  int blake2b_final( blake2b_state *S, void *out, size_t outlen );
++
++  /* Simple API */
++  int blake2b( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen );
++
++  /* This is simply an alias for blake2b */
++  int blake2( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen );
++
++#if defined(__cplusplus)
++}
++#endif
++
++#endif
+diff --git a/lib/blake2/blake2b-ref.c b/lib/blake2/blake2b-ref.c
+new file mode 100644
+index 0000000000..cd38b1ba00
+--- /dev/null
++++ b/lib/blake2/blake2b-ref.c
+@@ -0,0 +1,379 @@
++/*
++   BLAKE2 reference source code package - reference C implementations
++
++   Copyright 2012, Samuel Neves <sneves@dei.uc.pt>.  You may use this under the
++   terms of the CC0, the OpenSSL Licence, or the Apache Public License 2.0, at
++   your option.  The terms of these licenses can be found at:
++
++   - CC0 1.0 Universal : http://creativecommons.org/publicdomain/zero/1.0
++   - OpenSSL license   : https://www.openssl.org/source/license.html
++   - Apache 2.0        : http://www.apache.org/licenses/LICENSE-2.0
++
++   More information about the BLAKE2 hash function can be found at
++   https://blake2.net.
++*/
++
++#include <stdint.h>
++#include <string.h>
++#include <stdio.h>
++
++#include "blake2.h"
++#include "blake2-impl.h"
++
++static const uint64_t blake2b_IV[8] =
++{
++  0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
++  0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
++  0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
++  0x1f83d9abfb41bd6bULL, 0x5be0cd19137e2179ULL
++};
++
++static const uint8_t blake2b_sigma[12][16] =
++{
++  {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 } ,
++  { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 } ,
++  { 11,  8, 12,  0,  5,  2, 15, 13, 10, 14,  3,  6,  7,  1,  9,  4 } ,
++  {  7,  9,  3,  1, 13, 12, 11, 14,  2,  6,  5, 10,  4,  0, 15,  8 } ,
++  {  9,  0,  5,  7,  2,  4, 10, 15, 14,  1, 11, 12,  6,  8,  3, 13 } ,
++  {  2, 12,  6, 10,  0, 11,  8,  3,  4, 13,  7,  5, 15, 14,  1,  9 } ,
++  { 12,  5,  1, 15, 14, 13,  4, 10,  0,  7,  6,  3,  9,  2,  8, 11 } ,
++  { 13, 11,  7, 14, 12,  1,  3,  9,  5,  0, 15,  4,  8,  6,  2, 10 } ,
++  {  6, 15, 14,  9, 11,  3,  0,  8, 12,  2, 13,  7,  1,  4, 10,  5 } ,
++  { 10,  2,  8,  4,  7,  6,  1,  5, 15, 11,  9, 14,  3, 12, 13 , 0 } ,
++  {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 } ,
++  { 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 }
++};
++
++
++static void blake2b_set_lastnode( blake2b_state *S )
++{
++  S->f[1] = (uint64_t)-1;
++}
++
++/* Some helper functions, not necessarily useful */
++static int blake2b_is_lastblock( const blake2b_state *S )
++{
++  return S->f[0] != 0;
++}
++
++static void blake2b_set_lastblock( blake2b_state *S )
++{
++  if( S->last_node ) blake2b_set_lastnode( S );
++
++  S->f[0] = (uint64_t)-1;
++}
++
++static void blake2b_increment_counter( blake2b_state *S, const uint64_t inc )
++{
++  S->t[0] += inc;
++  S->t[1] += ( S->t[0] < inc );
++}
++
++static void blake2b_init0( blake2b_state *S )
++{
++  size_t i;
++  memset( S, 0, sizeof( blake2b_state ) );
++
++  for( i = 0; i < 8; ++i ) S->h[i] = blake2b_IV[i];
++}
++
++/* init xors IV with input parameter block */
++int blake2b_init_param( blake2b_state *S, const blake2b_param *P )
++{
++  const uint8_t *p = ( const uint8_t * )( P );
++  size_t i;
++
++  blake2b_init0( S );
++
++  /* IV XOR ParamBlock */
++  for( i = 0; i < 8; ++i )
++    S->h[i] ^= load64( p + sizeof( S->h[i] ) * i );
++
++  S->outlen = P->digest_length;
++  return 0;
++}
++
++
++
++int blake2b_init( blake2b_state *S, size_t outlen )
++{
++  blake2b_param P[1];
++
++  if ( ( !outlen ) || ( outlen > BLAKE2B_OUTBYTES ) ) return -1;
++
++  P->digest_length = (uint8_t)outlen;
++  P->key_length    = 0;
++  P->fanout        = 1;
++  P->depth         = 1;
++  store32( &P->leaf_length, 0 );
++  store32( &P->node_offset, 0 );
++  store32( &P->xof_length, 0 );
++  P->node_depth    = 0;
++  P->inner_length  = 0;
++  memset( P->reserved, 0, sizeof( P->reserved ) );
++  memset( P->salt,     0, sizeof( P->salt ) );
++  memset( P->personal, 0, sizeof( P->personal ) );
++  return blake2b_init_param( S, P );
++}
++
++
++int blake2b_init_key( blake2b_state *S, size_t outlen, const void *key, size_t keylen )
++{
++  blake2b_param P[1];
++
++  if ( ( !outlen ) || ( outlen > BLAKE2B_OUTBYTES ) ) return -1;
++
++  if ( !key || !keylen || keylen > BLAKE2B_KEYBYTES ) return -1;
++
++  P->digest_length = (uint8_t)outlen;
++  P->key_length    = (uint8_t)keylen;
++  P->fanout        = 1;
++  P->depth         = 1;
++  store32( &P->leaf_length, 0 );
++  store32( &P->node_offset, 0 );
++  store32( &P->xof_length, 0 );
++  P->node_depth    = 0;
++  P->inner_length  = 0;
++  memset( P->reserved, 0, sizeof( P->reserved ) );
++  memset( P->salt,     0, sizeof( P->salt ) );
++  memset( P->personal, 0, sizeof( P->personal ) );
++
++  if( blake2b_init_param( S, P ) < 0 ) return -1;
++
++  {
++    uint8_t block[BLAKE2B_BLOCKBYTES];
++    memset( block, 0, BLAKE2B_BLOCKBYTES );
++    memcpy( block, key, keylen );
++    blake2b_update( S, block, BLAKE2B_BLOCKBYTES );
++    secure_zero_memory( block, BLAKE2B_BLOCKBYTES ); /* Burn the key from stack */
++  }
++  return 0;
++}
++
++#define G(r,i,a,b,c,d)                      \
++  do {                                      \
++    a = a + b + m[blake2b_sigma[r][2*i+0]]; \
++    d = rotr64(d ^ a, 32);                  \
++    c = c + d;                              \
++    b = rotr64(b ^ c, 24);                  \
++    a = a + b + m[blake2b_sigma[r][2*i+1]]; \
++    d = rotr64(d ^ a, 16);                  \
++    c = c + d;                              \
++    b = rotr64(b ^ c, 63);                  \
++  } while(0)
++
++#define ROUND(r)                    \
++  do {                              \
++    G(r,0,v[ 0],v[ 4],v[ 8],v[12]); \
++    G(r,1,v[ 1],v[ 5],v[ 9],v[13]); \
++    G(r,2,v[ 2],v[ 6],v[10],v[14]); \
++    G(r,3,v[ 3],v[ 7],v[11],v[15]); \
++    G(r,4,v[ 0],v[ 5],v[10],v[15]); \
++    G(r,5,v[ 1],v[ 6],v[11],v[12]); \
++    G(r,6,v[ 2],v[ 7],v[ 8],v[13]); \
++    G(r,7,v[ 3],v[ 4],v[ 9],v[14]); \
++  } while(0)
++
++static void blake2b_compress( blake2b_state *S, const uint8_t block[BLAKE2B_BLOCKBYTES] )
++{
++  uint64_t m[16];
++  uint64_t v[16];
++  size_t i;
++
++  for( i = 0; i < 16; ++i ) {
++    m[i] = load64( block + i * sizeof( m[i] ) );
++  }
++
++  for( i = 0; i < 8; ++i ) {
++    v[i] = S->h[i];
++  }
++
++  v[ 8] = blake2b_IV[0];
++  v[ 9] = blake2b_IV[1];
++  v[10] = blake2b_IV[2];
++  v[11] = blake2b_IV[3];
++  v[12] = blake2b_IV[4] ^ S->t[0];
++  v[13] = blake2b_IV[5] ^ S->t[1];
++  v[14] = blake2b_IV[6] ^ S->f[0];
++  v[15] = blake2b_IV[7] ^ S->f[1];
++
++  ROUND( 0 );
++  ROUND( 1 );
++  ROUND( 2 );
++  ROUND( 3 );
++  ROUND( 4 );
++  ROUND( 5 );
++  ROUND( 6 );
++  ROUND( 7 );
++  ROUND( 8 );
++  ROUND( 9 );
++  ROUND( 10 );
++  ROUND( 11 );
++
++  for( i = 0; i < 8; ++i ) {
++    S->h[i] = S->h[i] ^ v[i] ^ v[i + 8];
++  }
++}
++
++#undef G
++#undef ROUND
++
++int blake2b_update( blake2b_state *S, const void *pin, size_t inlen )
++{
++  const unsigned char * in = (const unsigned char *)pin;
++  if( inlen > 0 )
++  {
++    size_t left = S->buflen;
++    size_t fill = BLAKE2B_BLOCKBYTES - left;
++    if( inlen > fill )
++    {
++      S->buflen = 0;
++      memcpy( S->buf + left, in, fill ); /* Fill buffer */
++      blake2b_increment_counter( S, BLAKE2B_BLOCKBYTES );
++      blake2b_compress( S, S->buf ); /* Compress */
++      in += fill; inlen -= fill;
++      while(inlen > BLAKE2B_BLOCKBYTES) {
++        blake2b_increment_counter(S, BLAKE2B_BLOCKBYTES);
++        blake2b_compress( S, in );
++        in += BLAKE2B_BLOCKBYTES;
++        inlen -= BLAKE2B_BLOCKBYTES;
++      }
++    }
++    memcpy( S->buf + S->buflen, in, inlen );
++    S->buflen += inlen;
++  }
++  return 0;
++}
++
++int blake2b_final( blake2b_state *S, void *out, size_t outlen )
++{
++  uint8_t buffer[BLAKE2B_OUTBYTES] = {0};
++  size_t i;
++
++  if( out == NULL || outlen < S->outlen )
++    return -1;
++
++  if( blake2b_is_lastblock( S ) )
++    return -1;
++
++  blake2b_increment_counter( S, S->buflen );
++  blake2b_set_lastblock( S );
++  memset( S->buf + S->buflen, 0, BLAKE2B_BLOCKBYTES - S->buflen ); /* Padding */
++  blake2b_compress( S, S->buf );
++
++  for( i = 0; i < 8; ++i ) /* Output full hash to temp buffer */
++    store64( buffer + sizeof( S->h[i] ) * i, S->h[i] );
++
++  memcpy( out, buffer, S->outlen );
++  secure_zero_memory(buffer, sizeof(buffer));
++  return 0;
++}
++
++/* inlen, at least, should be uint64_t. Others can be size_t. */
++int blake2b( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen )
++{
++  blake2b_state S[1];
++
++  /* Verify parameters */
++  if ( NULL == in && inlen > 0 ) return -1;
++
++  if ( NULL == out ) return -1;
++
++  if( NULL == key && keylen > 0 ) return -1;
++
++  if( !outlen || outlen > BLAKE2B_OUTBYTES ) return -1;
++
++  if( keylen > BLAKE2B_KEYBYTES ) return -1;
++
++  if( keylen > 0 )
++  {
++    if( blake2b_init_key( S, outlen, key, keylen ) < 0 ) return -1;
++  }
++  else
++  {
++    if( blake2b_init( S, outlen ) < 0 ) return -1;
++  }
++
++  blake2b_update( S, ( const uint8_t * )in, inlen );
++  blake2b_final( S, out, outlen );
++  return 0;
++}
++
++int blake2( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen ) {
++  return blake2b(out, outlen, in, inlen, key, keylen);
++}
++
++#if defined(SUPERCOP)
++int crypto_hash( unsigned char *out, unsigned char *in, unsigned long long inlen )
++{
++  return blake2b( out, BLAKE2B_OUTBYTES, in, inlen, NULL, 0 );
++}
++#endif
++
++#if defined(BLAKE2B_SELFTEST)
++#include <string.h>
++#include "blake2-kat.h"
++int main( void )
++{
++  uint8_t key[BLAKE2B_KEYBYTES];
++  uint8_t buf[BLAKE2_KAT_LENGTH];
++  size_t i, step;
++
++  for( i = 0; i < BLAKE2B_KEYBYTES; ++i )
++    key[i] = ( uint8_t )i;
++
++  for( i = 0; i < BLAKE2_KAT_LENGTH; ++i )
++    buf[i] = ( uint8_t )i;
++
++  /* Test simple API */
++  for( i = 0; i < BLAKE2_KAT_LENGTH; ++i )
++  {
++    uint8_t hash[BLAKE2B_OUTBYTES];
++    blake2b( hash, BLAKE2B_OUTBYTES, buf, i, key, BLAKE2B_KEYBYTES );
++
++    if( 0 != memcmp( hash, blake2b_keyed_kat[i], BLAKE2B_OUTBYTES ) )
++    {
++      goto fail;
++    }
++  }
++
++  /* Test streaming API */
++  for(step = 1; step < BLAKE2B_BLOCKBYTES; ++step) {
++    for (i = 0; i < BLAKE2_KAT_LENGTH; ++i) {
++      uint8_t hash[BLAKE2B_OUTBYTES];
++      blake2b_state S;
++      uint8_t * p = buf;
++      size_t mlen = i;
++      int err = 0;
++
++      if( (err = blake2b_init_key(&S, BLAKE2B_OUTBYTES, key, BLAKE2B_KEYBYTES)) < 0 ) {
++        goto fail;
++      }
++
++      while (mlen >= step) {
++        if ( (err = blake2b_update(&S, p, step)) < 0 ) {
++          goto fail;
++        }
++        mlen -= step;
++        p += step;
++      }
++      if ( (err = blake2b_update(&S, p, mlen)) < 0) {
++        goto fail;
++      }
++      if ( (err = blake2b_final(&S, hash, BLAKE2B_OUTBYTES)) < 0) {
++        goto fail;
++      }
++
++      if (0 != memcmp(hash, blake2b_keyed_kat[i], BLAKE2B_OUTBYTES)) {
++        goto fail;
++      }
++    }
++  }
++
++  puts( "ok" );
++  return 0;
++fail:
++  puts("error");
++  return -1;
++}
++#endif
+diff --git a/packages/serialise/serialise.pony b/packages/serialise/serialise.pony
+index 0a1542a647..4af2fe8a2d 100644
+--- a/packages/serialise/serialise.pony
++++ b/packages/serialise/serialise.pony
+@@ -20,8 +20,24 @@ possibly including recompilation of the same code. This is due to the use of
+ type identifiers rather than a heavy-weight self-describing serialisation
+ schema. This also means it isn't safe to deserialise something serialised by
+ the same program compiled for a different platform.
++
++The Serialise.signature method is provided for the purposes of comparing
++communicating Pony binaries to determine if they are the same. Confirming this
++before deserialising data can help mitigate the risk of accidental serialisation
++across different Pony binaries, but does not on its own address the security
++issues of accepting data from untrusted sources.
+ """
+ 
++primitive Serialise
++  fun signature(): Array[U8] val =>
++    """
++    Returns a byte array that is unique to this compiled Pony binary, for the
++    purposes of comparing before deserialising any data from that source.
++    It is statistically impossible for two serialisation-incompatible Pony
++    binaries to have the same serialise signature.
++    """
++    @"internal.signature"[Array[U8] val]()
++
+ primitive SerialiseAuth
+   """
+   This is a capability that allows the holder to serialise objects. It does not
+diff --git a/src/libponyc/ast/ast.c b/src/libponyc/ast/ast.c
+index 9e4312dce5..8cbb4dc897 100644
+--- a/src/libponyc/ast/ast.c
++++ b/src/libponyc/ast/ast.c
+@@ -67,13 +67,22 @@ struct ast_t
+   token_t* t;
+   symtab_t* symtab;
+   void* data;
+-  struct ast_t* parent;
+-  struct ast_t* child;
+-  struct ast_t* sibling;
+-  struct ast_t* annotation_type;
++  ast_t* parent;
++  ast_t* child;
++  ast_t* sibling;
++  ast_t* annotation_type;
+   uint32_t flags;
+ };
+ 
++// Minimal AST structure for signature computation.
++typedef struct ast_signature_t
++{
++  token_signature_t* t;
++  struct ast_signature_t* child;
++  struct ast_signature_t* sibling;
++  struct ast_signature_t* annotation_type;
++} ast_signature_t;
++
+ static bool ast_cmp(ast_t* a, ast_t* b)
+ {
+   return a == b;
+@@ -1676,6 +1685,194 @@ void ast_extract_children(ast_t* parent, size_t child_count,
+   }
+ }
+ 
++static void ast_signature_serialise_trace(pony_ctx_t* ctx, void* object)
++{
++  ast_t* ast = (ast_t*)object;
++
++  // Ignore the data. We don't want to cross package boundaries.
++  // The symtab, parent and type don't provide additional information to the
++  // signature so we ignore them as well.
++
++  token_id id = ast_id(ast);
++  bool docstring = false;
++
++  if(id == TK_STRING)
++  {
++    switch(ast_id(ast_parent(ast)))
++    {
++      case TK_MODULE:
++      case TK_NEW:
++      case TK_FUN:
++      case TK_BE:
++      case TK_TYPE:
++      case TK_INTERFACE:
++      case TK_TRAIT:
++      case TK_PRIMITIVE:
++      case TK_STRUCT:
++      case TK_CLASS:
++      case TK_ACTOR:
++        docstring = true;
++        break;
++
++      default: {}
++    }
++  }
++
++  pony_traceknown(ctx, ast->t, docstring ?
++    token_docstring_signature_pony_type() : token_signature_pony_type(),
++    PONY_TRACE_MUTABLE);
++
++  if(id == TK_NOMINAL)
++  {
++    pony_assert(ast->child != NULL);
++
++    pony_traceknown(ctx, ast->child, (ast_id(ast->child) == TK_ID) ?
++      ast_nominal_pkg_id_signature_pony_type() : ast_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++  } else if(ast->child != NULL) {
++    pony_traceknown(ctx, ast->child, ast_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++  }
++
++  if((id != TK_PACKAGE) && (ast->sibling != NULL))
++    pony_traceknown(ctx, ast->sibling, ast_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++
++  // Don't use ast->annotation_type directly. It could be a type, and we don't
++  // want to serialise types.
++  ast_t* annotation = ast_annotation(ast);
++
++  if(annotation != NULL)
++    pony_traceknown(ctx, annotation, ast_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++}
++
++static void ast_signature_serialise(pony_ctx_t* ctx, void* object, void* buf,
++  size_t offset, int mutability)
++{
++  (void)mutability;
++
++  ast_t* ast = (ast_t*)object;
++  ast_signature_t* dst = (ast_signature_t*)((uintptr_t)buf + offset);
++
++  dst->t = (token_signature_t*)pony_serialise_offset(ctx, ast->t);
++  dst->child = (ast_signature_t*)pony_serialise_offset(ctx, ast->child);
++
++  if(ast_id(ast) != TK_PACKAGE)
++    dst->sibling = (ast_signature_t*)pony_serialise_offset(ctx, ast->sibling);
++  else
++    dst->sibling = NULL;
++
++  ast_t* annotation = ast_annotation(ast);
++
++  dst->annotation_type = (ast_signature_t*)pony_serialise_offset(ctx,
++    annotation);
++}
++
++static pony_type_t ast_signature_pony =
++{
++  0,
++  sizeof(ast_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  ast_signature_serialise_trace,
++  ast_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++pony_type_t* ast_signature_pony_type()
++{
++  return &ast_signature_pony;
++}
++
++// Special case serialisation for package IDs nodes as TK_NOMINAL children.
++static void ast_nominal_pkg_id_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  ast_t* ast = (ast_t*)object;
++
++  pony_assert(ast_id(ast) == TK_ID);
++  ast_t* parent = ast->parent;
++  (void)parent;
++  pony_assert((parent != NULL) && (ast_id(parent) == TK_NOMINAL) &&
++    (ast == parent->child));
++
++  // Ignore the token. We'll setup a fake token directly referencing the
++  // associated package later.
++
++  pony_assert(ast->child == NULL);
++  pony_assert(ast->sibling != NULL);
++
++  pony_traceknown(ctx, ast->sibling, ast_signature_pony_type(),
++    PONY_TRACE_MUTABLE);
++
++  ast_t* annotation = ast_annotation(ast);
++
++  if(annotation != NULL)
++    pony_traceknown(ctx, annotation, ast_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++}
++
++static void ast_nominal_pkg_id_signature_serialise(pony_ctx_t* ctx,
++  void* object, void* buf, size_t offset, int mutability)
++{
++  (void)mutability;
++
++  ast_t* ast = (ast_t*)object;
++  ast_signature_t* dst = (ast_signature_t*)((uintptr_t)buf + offset);
++
++  ast_t* def = (ast_t*)ast_data(ast_parent(ast));
++  pony_assert(def != NULL);
++  ast_t* pkg_ast = ast_nearest(def, TK_PACKAGE);
++  package_t* pkg = (package_t*)ast_data(pkg_ast);
++  pony_assert(pkg != NULL);
++  dst->t = (token_signature_t*)pony_serialise_offset(ctx, pkg);
++
++  dst->child = (ast_signature_t*)pony_serialise_offset(ctx, ast->child);
++  dst->sibling = (ast_signature_t*)pony_serialise_offset(ctx, ast->sibling);
++
++  ast_t* annotation = ast_annotation(ast);
++
++  dst->annotation_type = (ast_signature_t*)pony_serialise_offset(ctx,
++    annotation);
++}
++
++static pony_type_t ast_nominal_pkg_id_signature_pony =
++{
++  0,
++  sizeof(ast_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  ast_nominal_pkg_id_signature_serialise_trace,
++  ast_nominal_pkg_id_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++pony_type_t* ast_nominal_pkg_id_signature_pony_type()
++{
++  return &ast_nominal_pkg_id_signature_pony;
++}
++
+ static void ast_serialise_trace_data(pony_ctx_t* ctx, ast_t* ast)
+ {
+   if(ast->data == NULL)
+diff --git a/src/libponyc/ast/ast.h b/src/libponyc/ast/ast.h
+index bd12df150f..c24074b1a5 100644
+--- a/src/libponyc/ast/ast.h
++++ b/src/libponyc/ast/ast.h
+@@ -205,6 +205,10 @@ void ast_extract_children(ast_t* parent, size_t child_count,
+       children); \
+   }
+ 
++pony_type_t* ast_signature_pony_type();
++
++pony_type_t* ast_nominal_pkg_id_signature_pony_type();
++
+ pony_type_t* ast_pony_type();
+ 
+ #if defined(PLATFORM_IS_POSIX_BASED) && defined(__cplusplus)
+diff --git a/src/libponyc/ast/token.c b/src/libponyc/ast/token.c
+index f6074e3d01..c29c4dc7a6 100644
+--- a/src/libponyc/ast/token.c
++++ b/src/libponyc/ast/token.c
+@@ -8,7 +8,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-typedef struct token_t
++struct token_t
+ {
+   token_id id;
+   source_t* source;
+@@ -27,7 +27,26 @@ typedef struct token_t
+     double real;
+     lexint_t integer;
+   };
+-} token_t;
++};
++
++
++// Minimal token structure for signature computation.
++struct token_signature_t
++{
++  token_id id;
++
++  union
++  {
++    struct
++    {
++      const char* string;
++      size_t str_length;
++    };
++
++    double real;
++    lexint_t integer;
++  };
++};
+ 
+ 
+ token_t* token_new(token_id id)
+@@ -316,6 +335,125 @@ void token_set_pos(token_t* token, source_t* source, size_t line, size_t pos)
+ 
+ // Serialisation
+ 
++static void token_signature_serialise_trace(pony_ctx_t* ctx, void* object)
++{
++  token_t* token = (token_t*)object;
++
++  if((token->id == TK_STRING) || (token->id == TK_ID))
++    string_trace_len(ctx, token->string, token->str_length);
++}
++
++static void token_signature_serialise(pony_ctx_t* ctx, void* object, void* buf,
++  size_t offset, int mutability)
++{
++  (void)mutability;
++
++  token_t* token = (token_t*)object;
++  token_signature_t* dst = (token_signature_t*)((uintptr_t)buf + offset);
++
++  memset(dst, 0, sizeof(token_signature_t));
++
++  dst->id = token->id;
++
++  switch(token->id)
++  {
++    case TK_STRING:
++    case TK_ID:
++      dst->str_length = token->str_length;
++      dst->string = (const char*)pony_serialise_offset(ctx,
++        (char*)token->string);
++      break;
++
++    case TK_FLOAT:
++      dst->real = token->real;
++      break;
++
++    case TK_INT:
++      dst->integer = token->integer;
++      break;
++
++    default: {}
++  }
++}
++
++static pony_type_t token_signature_pony =
++{
++  0,
++  sizeof(token_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  token_signature_serialise_trace,
++  token_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++pony_type_t* token_signature_pony_type()
++{
++  return &token_signature_pony;
++}
++
++// Docstring-specific signature serialisation. We don't want docstrings to
++// influence signatures so we pretend them to be TK_NONE nodes.
++static void token_docstring_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  (void)ctx;
++
++  token_t* token = (token_t*)object;
++
++  pony_assert(token->id == TK_STRING);
++}
++
++static void token_docstring_signature_serialise(pony_ctx_t* ctx, void* object,
++  void* buf, size_t offset, int mutability)
++{
++  (void)ctx;
++  (void)object;
++  (void)mutability;
++
++  token_signature_t* dst = (token_signature_t*)((uintptr_t)buf + offset);
++
++  memset(dst, 0, sizeof(token_signature_t));
++
++  dst->id = TK_NONE;
++}
++
++static pony_type_t token_docstring_signature_pony =
++{
++  0,
++  sizeof(token_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  token_docstring_signature_serialise_trace,
++  token_docstring_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++pony_type_t* token_docstring_signature_pony_type()
++{
++  return &token_docstring_signature_pony;
++}
++
+ static void token_serialise_trace(pony_ctx_t* ctx, void* object)
+ {
+   token_t* token = (token_t*)object;
+diff --git a/src/libponyc/ast/token.h b/src/libponyc/ast/token.h
+index 2f18ec333b..0a126def12 100644
+--- a/src/libponyc/ast/token.h
++++ b/src/libponyc/ast/token.h
+@@ -15,6 +15,8 @@ extern "C" {
+ 
+ typedef struct token_t token_t;
+ 
++typedef struct token_signature_t token_signature_t;
++
+ typedef enum token_id
+ {
+   TK_EOF,
+@@ -291,6 +293,13 @@ token_t* token_dup_new_id(token_t* token, token_id id);
+   */
+ void token_free(token_t* token);
+ 
++/// Get a pony_type_t for token_t. Should only be used for signature computation.
++pony_type_t* token_signature_pony_type();
++
++/// Get a pony_type_t for a docstring token_t. Should only be used for signature
++/// computation.
++pony_type_t* token_docstring_signature_pony_type();
++
+ /// Get a pony_type_t for token_t. Should only be used for serialisation.
+ pony_type_t* token_pony_type();
+ 
+diff --git a/src/libponyc/codegen/genprim.c b/src/libponyc/codegen/genprim.c
+index d1fa836736..d698abd6b0 100644
+--- a/src/libponyc/codegen/genprim.c
++++ b/src/libponyc/codegen/genprim.c
+@@ -6,7 +6,9 @@
+ #include "genopt.h"
+ #include "genserialise.h"
+ #include "gentrace.h"
++#include "../pkg/package.h"
+ #include "../pkg/platformfuns.h"
++#include "../pkg/program.h"
+ #include "../pass/names.h"
+ #include "../type/assemble.h"
+ #include "../type/cap.h"
+@@ -1967,6 +1969,68 @@ static void make_rdtscp(compile_t* c)
+   }
+ }
+ 
++static LLVMValueRef make_signature_array(compile_t* c, compile_type_t* c_t,
++  const char* signature)
++{
++  LLVMValueRef args[SIGNATURE_LENGTH];
++
++  for(size_t i = 0; i < SIGNATURE_LENGTH; i++)
++    args[i] = LLVMConstInt(c->i8, signature[i], false);
++
++  LLVMValueRef sig = LLVMConstArray(c->i8, args, SIGNATURE_LENGTH);
++  LLVMValueRef g_sig = LLVMAddGlobal(c->module, LLVMTypeOf(sig), "");
++  LLVMSetLinkage(g_sig, LLVMPrivateLinkage);
++  LLVMSetInitializer(g_sig, sig);
++  LLVMSetGlobalConstant(g_sig, true);
++  LLVMSetUnnamedAddr(g_sig, true);
++
++  args[0] = LLVMConstInt(c->i32, 0, false);
++  args[1] = LLVMConstInt(c->i32, 0, false);
++
++  LLVMValueRef ptr = LLVMConstInBoundsGEP(g_sig, args, 2);
++
++  args[0] = c_t->desc;
++  args[1] = LLVMConstInt(c->intptr, SIGNATURE_LENGTH, false);
++  args[2] = args[1];
++  args[3] = ptr;
++
++  LLVMValueRef inst = LLVMConstNamedStruct(c_t->structure, args, 4);
++  LLVMValueRef g_inst = LLVMAddGlobal(c->module, c_t->structure, "");
++  LLVMSetInitializer(g_inst, inst);
++  LLVMSetGlobalConstant(g_inst, true);
++  LLVMSetLinkage(g_inst, LLVMPrivateLinkage);
++  LLVMSetUnnamedAddr(g_inst, true);
++
++  return g_inst;
++}
++
++void genprim_signature(compile_t* c)
++{
++  reach_type_t* t = reach_type_name(c->reach, "Array_U8_val");
++
++  if(t == NULL)
++    return;
++
++  compile_type_t* c_t = (compile_type_t*)t->c_type;
++
++  ast_t* def = (ast_t*)ast_data(t->ast);
++  pony_assert(def != NULL);
++
++  ast_t* program = ast_nearest(def, TK_PROGRAM);
++  pony_assert(program != NULL);
++
++  const char* signature = program_signature(program);
++  LLVMValueRef g_array = make_signature_array(c, c_t, signature);
++
++  // Array_U8_val* @internal.signature()
++  LLVMTypeRef f_type = LLVMFunctionType(c_t->use_type, NULL, 0, false);
++  LLVMValueRef fun = codegen_addfun(c, "internal.signature", f_type, false);
++  LLVMSetFunctionCallConv(fun, LLVMCCallConv);
++  codegen_startfun(c, fun, NULL, NULL, false);
++  LLVMBuildRet(c->builder, g_array);
++  codegen_finishfun(c);
++}
++
+ void genprim_builtins(compile_t* c)
+ {
+   number_conversions(c);
+diff --git a/src/libponyc/codegen/genprim.h b/src/libponyc/codegen/genprim.h
+index 38e0c673e2..35af3efaec 100644
+--- a/src/libponyc/codegen/genprim.h
++++ b/src/libponyc/codegen/genprim.h
+@@ -29,6 +29,8 @@ void genprim_string_deserialise(compile_t* c, reach_type_t* t);
+ 
+ void genprim_platform_methods(compile_t* c, reach_type_t* t);
+ 
++void genprim_signature(compile_t* c);
++
+ void genprim_builtins(compile_t* c);
+ 
+ void genprim_reachable_init(compile_t* c, ast_t* program);
+diff --git a/src/libponyc/codegen/gentype.c b/src/libponyc/codegen/gentype.c
+index b20d4036e7..66204a93e8 100644
+--- a/src/libponyc/codegen/gentype.c
++++ b/src/libponyc/codegen/gentype.c
+@@ -847,6 +847,8 @@ bool gentypes(compile_t* c)
+     make_global_instance(c, t);
+   }
+ 
++  genprim_signature(c);
++
+   // Cache the instance of None, which is used as the return value for
+   // behaviour calls.
+   t = reach_type_name(c->reach, "None");
+diff --git a/src/libponyc/pass/pass.c b/src/libponyc/pass/pass.c
+index 3ea9513fc2..dbd546c4d4 100644
+--- a/src/libponyc/pass/pass.c
++++ b/src/libponyc/pass/pass.c
+@@ -15,6 +15,7 @@
+ #include "serialisers.h"
+ #include "docgen.h"
+ #include "../codegen/codegen.h"
++#include "../pkg/program.h"
+ #include "../../libponyrt/mem/pool.h"
+ #include "ponyassert.h"
+ 
+@@ -250,6 +251,15 @@ static bool ast_passes(ast_t** astp, pass_opt_t* options, pass_id last)
+ 
+   if(options->check_tree)
+     check_tree(*astp, options->check.errors);
++
++  if(ast_id(*astp) == TK_PROGRAM)
++  {
++    program_signature(*astp);
++
++    if(options->verbosity >= VERBOSITY_TOOL_INFO)
++      program_dump(*astp);
++  }
++
+   return true;
+ }
+ 
+diff --git a/src/libponyc/pass/scope.c b/src/libponyc/pass/scope.c
+index f73684a250..73f332c0c7 100644
+--- a/src/libponyc/pass/scope.c
++++ b/src/libponyc/pass/scope.c
+@@ -92,6 +92,10 @@ bool use_package(ast_t* ast, const char* path, ast_t* name,
+   // again
+   ast_setdata(ast, (void*)package);
+ 
++  ast_t* curr_package = ast_nearest(ast, TK_PACKAGE);
++  pony_assert(curr_package != NULL);
++  package_add_dependency(curr_package, package);
++
+   if(name != NULL && ast_id(name) == TK_ID) // We have an alias
+     return set_scope(options, ast, name, package, false);
+ 
+diff --git a/src/libponyc/pkg/package.c b/src/libponyc/pkg/package.c
+index dd9dd56f97..3162d38a2d 100644
+--- a/src/libponyc/pkg/package.c
++++ b/src/libponyc/pkg/package.c
+@@ -9,7 +9,9 @@
+ #include "../expr/literal.h"
+ #include "../../libponyrt/gc/serialise.h"
+ #include "../../libponyrt/mem/pool.h"
++#include "../../libponyrt/sched/scheduler.h"
+ #include "ponyassert.h"
++#include <blake2.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <stdbool.h>
+@@ -68,17 +70,40 @@ static const char* simple_builtin =
+   "  => None";
+ 
+ 
++DECLARE_HASHMAP_SERIALISE(package_set, package_set_t, package_t)
++
+ // Per package state
+-typedef struct package_t
++struct package_t
+ {
+   const char* path; // Absolute path
+   const char* qualified_name; // For pretty printing, eg "builtin/U32"
+   const char* id; // Hygienic identifier
+-  const char* filename; // Filename if we are an executable
++  const char* filename; // Directory name
+   const char* symbol; // Wart to use for symbol names
++  ast_t* ast;
++  package_set_t dependencies;
++  package_group_t* group;
++  size_t group_index;
+   size_t next_hygienic_id;
++  size_t low_index;
+   bool allow_ffi;
+-} package_t;
++  bool on_stack;
++};
++
++// Minimal package data structure for signature computation.
++typedef struct package_signature_t
++{
++  const char* filename;
++  package_group_t* group;
++  size_t group_index;
++} package_signature_t;
++
++// A strongly connected component in the package dependency graph
++struct package_group_t
++{
++  char* signature;
++  package_set_t members;
++};
+ 
+ // Per defined magic package sate
+ typedef struct magic_package_t
+@@ -98,6 +123,31 @@ static strlist_t* safe = NULL;
+ static magic_package_t* magic_packages = NULL;
+ static bool report_build = true;
+ 
++DECLARE_STACK(package_stack, package_stack_t, package_t)
++DEFINE_STACK(package_stack, package_stack_t, package_t)
++
++DEFINE_LIST_SERIALISE(package_group_list, package_group_list_t, package_group_t,
++  NULL, package_group_free, package_group_pony_type())
++
++
++static size_t package_hash(package_t* pkg)
++{
++  // Hash the full string instead of the stringtab pointer. We want a
++  // deterministic hash in order to enable deterministic hashmap iteration,
++  // which in turn enables deterministic package signatures.
++  return (size_t)ponyint_hash_str(pkg->qualified_name);
++}
++
++
++static bool package_cmp(package_t* a, package_t* b)
++{
++  return a->qualified_name == b->qualified_name;
++}
++
++
++DEFINE_HASHMAP_SERIALISE(package_set, package_set_t, package_t, package_hash,
++  package_cmp, NULL, package_pony_type())
++
+ 
+ // Find the magic source code associated with the given path, if any
+ static magic_package_t* find_magic_package(const char* path)
+@@ -188,6 +238,12 @@ void path_cat(const char* part1, const char* part2, char result[FILENAME_MAX])
+ }
+ 
+ 
++static int string_compare(const void* a, const void* b)
++{
++  return strcmp(*(const char**)a, *(const char**)b);
++}
++
++
+ // Attempt to parse the source files in the specified directory and add them to
+ // the given package AST
+ // @return true on success, false on error
+@@ -211,14 +267,16 @@ static bool parse_files_in_dir(ast_t* package, const char* dir_path,
+     return false;
+   }
+ 
++  size_t count = 0;
++  size_t buf_size = 4 * sizeof(const char*);
++  const char** entries = (const char**)ponyint_pool_alloc_size(buf_size);
+   PONY_DIRINFO* d;
+-  bool r = true;
+ 
+   while((d = pony_dir_entry_next(dir)) != NULL)
+   {
+     // Handle only files with the specified extension that don't begin with
+     // a dot. This avoids including UNIX hidden files in a build.
+-    char* name = pony_dir_info_name(d);
++    const char* name = stringtab(pony_dir_info_name(d));
+ 
+     if(name[0] == '.')
+       continue;
+@@ -227,13 +285,33 @@ static bool parse_files_in_dir(ast_t* package, const char* dir_path,
+ 
+     if((p != NULL) && (strcmp(p, EXTENSION) == 0))
+     {
+-      char fullpath[FILENAME_MAX];
+-      path_cat(dir_path, name, fullpath);
+-      r &= parse_source_file(package, fullpath, opt);
++      if((count * sizeof(const char*)) == buf_size)
++      {
++        size_t new_buf_size = buf_size * 2;
++        entries = (const char**)ponyint_pool_realloc_size(buf_size,
++          new_buf_size, entries);
++        buf_size = new_buf_size;
++      }
++
++      entries[count++] = name;
+     }
+   }
+ 
+   pony_closedir(dir);
++
++  // In order for package signatures to be deterministic, file parsing order
++  // must be deterministic too.
++  qsort(entries, count, sizeof(const char*), string_compare);
++  bool r = true;
++
++  for(size_t i = 0; i < count; i++)
++  {
++    char fullpath[FILENAME_MAX];
++    path_cat(dir_path, entries[i], fullpath);
++    r &= parse_source_file(package, fullpath, opt);
++  }
++
++  ponyint_pool_free_size(buf_size, entries);
+   return r;
+ }
+ 
+@@ -512,7 +590,12 @@ static ast_t* create_package(ast_t* program, const char* name,
+   else
+     pkg->symbol = NULL;
+ 
++  pkg->ast = package;
++  package_set_init(&pkg->dependencies, 1);
++  pkg->group = NULL;
++  pkg->group_index = -1;
+   pkg->next_hygienic_id = 0;
++  pkg->low_index = -1;
+   ast_setdata(package, pkg);
+ 
+   ast_scope(package);
+@@ -525,6 +608,8 @@ static ast_t* create_package(ast_t* program, const char* name,
+   else
+     pkg->allow_ffi = true;
+ 
++  pkg->on_stack = false;
++
+   return package;
+ }
+ 
+@@ -959,7 +1044,10 @@ ast_t* package_load(ast_t* from, const char* path, pass_opt_t* opt)
+ void package_free(package_t* package)
+ {
+   if(package != NULL)
++  {
++    package_set_destroy(&package->dependencies);
+     POOL_FREE(package_t, package);
++  }
+ }
+ 
+ 
+@@ -1068,6 +1156,449 @@ const char* package_alias_from_id(ast_t* module, const char* id)
+ }
+ 
+ 
++void package_add_dependency(ast_t* package, ast_t* dep)
++{
++  pony_assert(ast_id(package) == TK_PACKAGE);
++  pony_assert(ast_id(dep) == TK_PACKAGE);
++
++  if(package == dep)
++    return;
++
++  package_t* pkg = (package_t*)ast_data(package);
++  package_t* pkg_dep = (package_t*)ast_data(dep);
++
++  pony_assert(pkg != NULL);
++  pony_assert(pkg_dep != NULL);
++
++  size_t index = HASHMAP_UNKNOWN;
++  package_t* in_set = package_set_get(&pkg->dependencies, pkg_dep, &index);
++
++  if(in_set != NULL)
++    return;
++
++  package_set_putindex(&pkg->dependencies, pkg_dep, index);
++}
++
++
++const char* package_signature(ast_t* package)
++{
++  pony_assert(ast_id(package) == TK_PACKAGE);
++
++  package_t* pkg = (package_t*)ast_data(package);
++  pony_assert(pkg->group != NULL);
++
++  return package_group_signature(pkg->group);
++}
++
++
++size_t package_group_index(ast_t* package)
++{
++  pony_assert(ast_id(package) == TK_PACKAGE);
++
++  package_t* pkg = (package_t*)ast_data(package);
++  pony_assert(pkg->group_index != (size_t)-1);
++
++  return pkg->group_index;
++}
++
++
++package_group_t* package_group_new()
++{
++  package_group_t* group = POOL_ALLOC(package_group_t);
++  group->signature = NULL;
++  package_set_init(&group->members, 1);
++  return group;
++}
++
++
++void package_group_free(package_group_t* group)
++{
++  if(group->signature != NULL)
++    ponyint_pool_free_size(SIGNATURE_LENGTH, group->signature);
++
++  package_set_destroy(&group->members);
++  POOL_FREE(package_group_t, group);
++}
++
++
++static void make_dependency_group(package_t* package,
++  package_group_list_t** groups, package_stack_t** stack, size_t* index)
++{
++  pony_assert(!package->on_stack);
++  package->group_index = package->low_index = (*index)++;
++  *stack = package_stack_push(*stack, package);
++  package->on_stack = true;
++
++  size_t i = HASHMAP_BEGIN;
++  package_t* dep;
++
++  while((dep = package_set_next(&package->dependencies, &i)) != NULL)
++  {
++    if(dep->group_index == (size_t)-1)
++    {
++      make_dependency_group(dep, groups, stack, index);
++
++      if(dep->low_index < package->low_index)
++        package->low_index = dep->low_index;
++    } else if(dep->on_stack && (dep->group_index < package->low_index)) {
++      package->low_index = dep->group_index;
++    }
++  }
++
++  if(package->group_index == package->low_index)
++  {
++    package_group_t* group = package_group_new();
++    package_t* member;
++    size_t i = 0;
++
++    do
++    {
++      *stack = package_stack_pop(*stack, &member);
++      member->on_stack = false;
++      member->group = group;
++      member->group_index = i++;
++      package_set_put(&group->members, member);
++    } while(package != member);
++
++    *groups = package_group_list_push(*groups, group);
++  }
++}
++
++
++// A dependency group is a strongly connected component in the dependency graph.
++package_group_list_t* package_dependency_groups(ast_t* first_package)
++{
++  package_group_list_t* groups = NULL;
++  package_stack_t* stack = NULL;
++  size_t index = 0;
++
++  while(first_package != NULL)
++  {
++    pony_assert(ast_id(first_package) == TK_PACKAGE);
++    package_t* package = (package_t*)ast_data(first_package);
++
++    if(package->group_index == (size_t)-1)
++      make_dependency_group(package, &groups, &stack, &index);
++
++    first_package = ast_sibling(first_package);
++  }
++
++  pony_assert(stack == NULL);
++  return package_group_list_reverse(groups);
++}
++
++
++static void print_signature(const char* sig)
++{
++  for(size_t i = 0; i < SIGNATURE_LENGTH; i++)
++    printf("%02hhX", sig[i]);
++}
++
++
++void package_group_dump(package_group_t* group)
++{
++  package_set_t deps;
++  package_set_init(&deps, 1);
++
++  fputs("Signature: ", stdout);
++
++  if(group->signature != NULL)
++    print_signature(group->signature);
++  else
++    fputs("(NONE)", stdout);
++
++  putchar('\n');
++
++  puts("Members:");
++
++  size_t i = HASHMAP_BEGIN;
++  package_t* member;
++
++  while((member = package_set_next(&group->members, &i)) != NULL)
++  {
++    printf("  %s\n", member->filename);
++
++    size_t j = HASHMAP_BEGIN;
++    package_t* dep;
++
++    while((dep = package_set_next(&member->dependencies, &j)) != NULL)
++    {
++      size_t k = HASHMAP_UNKNOWN;
++      package_t* in_set = package_set_get(&group->members, dep, &k);
++
++      if(in_set == NULL)
++      {
++        k = HASHMAP_UNKNOWN;
++        in_set = package_set_get(&deps, dep, &k);
++
++        if(in_set == NULL)
++          package_set_putindex(&deps, dep, k);
++      }
++    }
++  }
++
++  puts("Dependencies:");
++
++  i = HASHMAP_BEGIN;
++
++  while((member = package_set_next(&deps, &i)) != NULL)
++    printf("  %s\n", member->filename);
++
++  package_set_destroy(&deps);
++}
++
++
++// *_signature_* handles the current group, *_dep_signature_* handles the direct
++// dependencies. Indirect dependencies are ignored, they are covered by the
++// signature of the direct dependencies.
++// Some data is traced but not serialised. This is to avoid redundant
++// information.
++
++
++static void package_dep_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  package_t* package = (package_t*)object;
++
++  string_trace(ctx, package->filename);
++  pony_traceknown(ctx, package->group, package_group_dep_signature_pony_type(),
++    PONY_TRACE_MUTABLE);
++}
++
++static void package_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  package_t* package = (package_t*)object;
++
++  string_trace(ctx, package->filename);
++  // The group has already been traced.
++
++  size_t i = HASHMAP_BEGIN;
++  package_t* dep;
++
++  while((dep = package_set_next(&package->dependencies, &i)) != NULL)
++    pony_traceknown(ctx, dep, package_dep_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++
++  pony_traceknown(ctx, package->ast, ast_signature_pony_type(),
++    PONY_TRACE_MUTABLE);
++}
++
++
++static void package_signature_serialise(pony_ctx_t* ctx, void* object,
++  void* buf, size_t offset, int mutability)
++{
++  (void)mutability;
++
++  package_t* package = (package_t*)object;
++  package_signature_t* dst = (package_signature_t*)((uintptr_t)buf + offset);
++
++  dst->filename = (const char*)pony_serialise_offset(ctx,
++    (char*)package->filename);
++  dst->group = (package_group_t*)pony_serialise_offset(ctx, package->group);
++  dst->group_index = package->group_index;
++}
++
++
++static pony_type_t package_dep_signature_pony =
++{
++  0,
++  sizeof(package_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  package_dep_signature_serialise_trace,
++  package_signature_serialise, // Same function for both package and package_dep.
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++pony_type_t* package_dep_signature_pony_type()
++{
++  return &package_dep_signature_pony;
++}
++
++
++static pony_type_t package_signature_pony =
++{
++  0,
++  sizeof(package_signature_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  package_signature_serialise_trace,
++  package_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++pony_type_t* package_signature_pony_type()
++{
++  return &package_signature_pony;
++}
++
++
++static void package_group_dep_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  package_group_t* group = (package_group_t*)object;
++
++  pony_assert(group->signature != NULL);
++  pony_serialise_reserve(ctx, group->signature, SIGNATURE_LENGTH);
++}
++
++
++static void package_group_signature_serialise_trace(pony_ctx_t* ctx,
++  void* object)
++{
++  package_group_t* group = (package_group_t*)object;
++
++  pony_assert(group->signature == NULL);
++
++  size_t i = HASHMAP_BEGIN;
++  package_t* member;
++
++  while((member = package_set_next(&group->members, &i)) != NULL)
++  {
++    pony_traceknown(ctx, member, package_signature_pony_type(),
++      PONY_TRACE_MUTABLE);
++  }
++}
++
++
++static void package_group_signature_serialise(pony_ctx_t* ctx, void* object,
++  void* buf, size_t offset, int mutability)
++{
++  (void)ctx;
++  (void)mutability;
++
++  package_group_t* group = (package_group_t*)object;
++  package_group_t* dst = (package_group_t*)((uintptr_t)buf + offset);
++
++  if(group->signature != NULL)
++  {
++    uintptr_t ptr_offset = pony_serialise_offset(ctx, group->signature);
++    char* dst_sig = (char*)((uintptr_t)buf + ptr_offset);
++    memcpy(dst_sig, group->signature, SIGNATURE_LENGTH);
++    dst->signature = (char*)ptr_offset;
++  } else {
++    dst->signature = NULL;
++  }
++}
++
++
++static pony_type_t package_group_dep_signature_pony =
++{
++  0,
++  sizeof(const char*),
++  0,
++  0,
++  NULL,
++  NULL,
++  package_group_dep_signature_serialise_trace,
++  package_group_signature_serialise, // Same function for both group and group_dep.
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++pony_type_t* package_group_dep_signature_pony_type()
++{
++  return &package_group_dep_signature_pony;
++}
++
++
++static pony_type_t package_group_signature_pony =
++{
++  0,
++  sizeof(const char*),
++  0,
++  0,
++  NULL,
++  NULL,
++  package_group_signature_serialise_trace,
++  package_group_signature_serialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++pony_type_t* package_group_signature_pony_type()
++{
++  return &package_group_signature_pony;
++}
++
++
++static void* s_alloc_fn(pony_ctx_t* ctx, size_t size)
++{
++  (void)ctx;
++  return ponyint_pool_alloc_size(size);
++}
++
++
++static void s_throw_fn()
++{
++  pony_assert(false);
++}
++
++
++// TODO: Make group signature indiependent of package load order.
++const char* package_group_signature(package_group_t* group)
++{
++  if(group->signature == NULL)
++  {
++    pony_ctx_t ctx;
++    memset(&ctx, 0, sizeof(pony_ctx_t));
++    ponyint_array_t array;
++    memset(&array, 0, sizeof(ponyint_array_t));
++    char* buf = (char*)ponyint_pool_alloc_size(SIGNATURE_LENGTH);
++
++    pony_serialise(&ctx, group, package_group_signature_pony_type(), &array,
++      s_alloc_fn, s_throw_fn);
++    int status = blake2b(buf, SIGNATURE_LENGTH, array.ptr, array.size, NULL, 0);
++    (void)status;
++    pony_assert(status == 0);
++
++    group->signature = buf;
++    ponyint_pool_free_size(array.size, array.ptr);
++  }
++
++  return group->signature;
++}
++
++
+ void package_done()
+ {
+   strlist_free(search);
+@@ -1091,6 +1622,13 @@ static void package_serialise_trace(pony_ctx_t* ctx, void* object)
+ 
+   if(package->symbol != NULL)
+     string_trace(ctx, package->symbol);
++
++  pony_traceknown(ctx, package->ast, ast_pony_type(), PONY_TRACE_MUTABLE);
++  package_set_serialise_trace(ctx, &package->dependencies);
++
++  if(package->group != NULL)
++    pony_traceknown(ctx, package->group, package_group_pony_type(),
++      PONY_TRACE_MUTABLE);
+ }
+ 
+ 
+@@ -1110,8 +1648,16 @@ static void package_serialise(pony_ctx_t* ctx, void* object, void* buf,
+     (char*)package->filename);
+   dst->symbol = (const char*)pony_serialise_offset(ctx, (char*)package->symbol);
+ 
++  dst->ast = (ast_t*)pony_serialise_offset(ctx, package->ast);
++  package_set_serialise(ctx, &package->dependencies, buf,
++    offset + offsetof(package_t, dependencies), PONY_TRACE_MUTABLE);
++  dst->group = (package_group_t*)pony_serialise_offset(ctx, package->group);
++
++  dst->group_index = package->group_index;
+   dst->next_hygienic_id = package->next_hygienic_id;
++  dst->low_index = package->low_index;
+   dst->allow_ffi = package->allow_ffi;
++  dst->on_stack = package->on_stack;
+ }
+ 
+ 
+@@ -1126,6 +1672,12 @@ static void package_deserialise(pony_ctx_t* ctx, void* object)
+   package->filename = string_deserialise_offset(ctx,
+     (uintptr_t)package->filename);
+   package->symbol = string_deserialise_offset(ctx, (uintptr_t)package->symbol);
++
++  package->ast = (ast_t*)pony_deserialise_offset(ctx, ast_pony_type(),
++    (uintptr_t)package->ast);
++  package_set_deserialise(ctx, &package->dependencies);
++  package->group = (package_group_t*)pony_deserialise_offset(ctx,
++    package_group_pony_type(), (uintptr_t)package->group);
+ }
+ 
+ 
+@@ -1157,6 +1709,78 @@ pony_type_t* package_pony_type()
+ }
+ 
+ 
++static void package_group_serialise_trace(pony_ctx_t* ctx, void* object)
++{
++  package_group_t* group = (package_group_t*)object;
++
++  if(group->signature != NULL)
++    pony_serialise_reserve(ctx, group->signature, SIGNATURE_LENGTH);
++
++  package_set_serialise_trace(ctx, &group->members);
++}
++
++
++static void package_group_serialise(pony_ctx_t* ctx, void* object, void* buf,
++  size_t offset, int mutability)
++{
++  (void)ctx;
++  (void)mutability;
++
++  package_group_t* group = (package_group_t*)object;
++  package_group_t* dst = (package_group_t*)((uintptr_t)buf + offset);
++
++  uintptr_t ptr_offset = pony_serialise_offset(ctx, group->signature);
++  dst->signature = (char*)ptr_offset;
++
++  if(group->signature != NULL)
++  {
++    char* dst_sig = (char*)((uintptr_t)buf + ptr_offset);
++    memcpy(dst_sig, group->signature, SIGNATURE_LENGTH);
++  }
++
++  package_set_serialise(ctx, &group->members, buf,
++    offset + offsetof(package_group_t, members), PONY_TRACE_MUTABLE);
++}
++
++
++static void package_group_deserialise(pony_ctx_t* ctx, void* object)
++{
++  package_group_t* group = (package_group_t*)object;
++
++  group->signature = (char*)pony_deserialise_block(ctx,
++    (uintptr_t)group->signature, SIGNATURE_LENGTH);
++  package_set_deserialise(ctx, &group->members);
++}
++
++
++static pony_type_t package_group_pony =
++{
++  0,
++  sizeof(package_group_t),
++  0,
++  0,
++  NULL,
++  NULL,
++  package_group_serialise_trace,
++  package_group_serialise,
++  package_group_deserialise,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  0,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++pony_type_t* package_group_pony_type()
++{
++  return &package_group_pony;
++}
++
++
+ bool is_path_absolute(const char* path)
+ {
+   // Begins with /
+diff --git a/src/libponyc/pkg/package.h b/src/libponyc/pkg/package.h
+index 5def1d2384..512ac1ab95 100644
+--- a/src/libponyc/pkg/package.h
++++ b/src/libponyc/pkg/package.h
+@@ -6,9 +6,15 @@
+ #include "../ast/stringtab.h"
+ #include "../pass/pass.h"
+ 
++#define SIGNATURE_LENGTH 64
++
+ PONY_EXTERN_C_BEGIN
+ 
+ typedef struct package_t package_t;
++typedef struct package_group_t package_group_t;
++
++DECLARE_LIST_SERIALISE(package_group_list, package_group_list_t,
++  package_group_t)
+ 
+ /**
+  * Cat together the 2 given path fragments into the given buffer.
+@@ -139,13 +145,46 @@ bool package_allow_ffi(typecheck_t* t);
+  */
+ const char* package_alias_from_id(ast_t* module, const char* id);
+ 
++/**
++ * Adds a package to the dependency list of another package.
++ */
++void package_add_dependency(ast_t* package, ast_t* dep);
++
++const char* package_signature(ast_t* package);
++
++size_t package_group_index(ast_t* package);
++
++package_group_t* package_group_new();
++
++void package_group_free(package_group_t* group);
++
++/**
++ * Build a list of the dependency groups (the strongly connected components) in
++ * the package dependency graph. The list is topologically sorted.
++ */
++package_group_list_t* package_dependency_groups(ast_t* first_package);
++
++const char* package_group_signature(package_group_t* group);
++
++void package_group_dump(package_group_t* group);
++
+ /**
+  * Cleans up the list of search directories.
+  */
+ void package_done();
+ 
++pony_type_t* package_dep_signature_pony_type();
++
++pony_type_t* package_signature_pony_type();
++
++pony_type_t* package_group_dep_signature_pony_type();
++
++pony_type_t* package_group_signature_pony_type();
++
+ pony_type_t* package_pony_type();
+ 
++pony_type_t* package_group_pony_type();
++
+ bool is_path_absolute(const char* path);
+ 
+ bool is_path_relative(const char* path);
+diff --git a/src/libponyc/pkg/program.c b/src/libponyc/pkg/program.c
+index 21a71436f9..38c738dc8a 100644
+--- a/src/libponyc/pkg/program.c
++++ b/src/libponyc/pkg/program.c
+@@ -4,12 +4,15 @@
+ #include "../../libponyrt/gc/serialise.h"
+ #include "../../libponyrt/mem/pool.h"
+ #include "ponyassert.h"
++#include <blake2.h>
+ #include <string.h>
+ 
+ 
+ // Per program state.
+ typedef struct program_t
+ {
++  package_group_list_t* package_groups;
++  char* signature;
+   uint32_t next_package_id;
+   strlist_t* libpaths;
+   strlist_t* libs;
+@@ -46,6 +49,8 @@ static void append_to_args(program_t* program, const char* text)
+ program_t* program_create()
+ {
+   program_t* p = POOL_ALLOC(program_t);
++  p->package_groups = NULL;
++  p->signature = NULL;
+   p->next_package_id = 0;
+   p->libpaths = NULL;
+   p->libs = NULL;
+@@ -60,6 +65,11 @@ void program_free(program_t* program)
+ {
+   pony_assert(program != NULL);
+ 
++  package_group_list_free(program->package_groups);
++
++  if(program->signature != NULL)
++    ponyint_pool_free_size(SIGNATURE_LENGTH, program->signature);
++
+   strlist_free(program->libpaths);
+   strlist_free(program->libs);
+ 
+@@ -250,10 +260,91 @@ const char* program_lib_args(ast_t* program)
+ }
+ 
+ 
++const char* program_signature(ast_t* program)
++{
++  pony_assert(program != NULL);
++  pony_assert(ast_id(program) == TK_PROGRAM);
++
++  program_t* data = (program_t*)ast_data(program);
++  pony_assert(data != NULL);
++
++  if(data->signature == NULL)
++  {
++    ast_t* first_package = ast_child(program);
++    pony_assert(first_package != NULL);
++
++    pony_assert(data->package_groups == NULL);
++    data->package_groups = package_dependency_groups(first_package);
++
++    blake2b_state hash_state;
++    int status = blake2b_init(&hash_state, SIGNATURE_LENGTH);
++    pony_assert(status == 0);
++
++    package_group_list_t* iter = data->package_groups;
++
++    while(iter != NULL)
++    {
++      package_group_t* group = package_group_list_data(iter);
++      const char* group_sig = package_group_signature(group);
++      blake2b_update(&hash_state, group_sig, SIGNATURE_LENGTH);
++      iter = package_group_list_next(iter);
++    }
++
++    data->signature = (char*)ponyint_pool_alloc_size(SIGNATURE_LENGTH);
++    status = blake2b_final(&hash_state, data->signature, SIGNATURE_LENGTH);
++    pony_assert(status == 0);
++  }
++
++  return data->signature;
++}
++
++
++static void print_signature(const char* sig)
++{
++  for(size_t i = 0; i < SIGNATURE_LENGTH; i++)
++    printf("%02hhX", sig[i]);
++}
++
++
++void program_dump(ast_t* program)
++{
++  pony_assert(program != NULL);
++  pony_assert(ast_id(program) == TK_PROGRAM);
++
++  program_t* data = (program_t*)ast_data(program);
++  pony_assert(data != NULL);
++
++  const char* signature = program_signature(program);
++  fputs("Program signature: ", stdout);
++  print_signature(signature);
++  puts("\n");
++
++  size_t i = 0;
++  package_group_list_t* iter = data->package_groups;
++
++  while(iter != NULL)
++  {
++    printf("Group " __zu "\n", i);
++    package_group_t* group = package_group_list_data(iter);
++    package_group_dump(group);
++    putchar('\n');
++    iter = package_group_list_next(iter);
++    i++;
++  }
++}
++
++
+ static void program_serialise_trace(pony_ctx_t* ctx, void* object)
+ {
+   program_t* program = (program_t*)object;
+ 
++  if(program->package_groups != NULL)
++    pony_traceknown(ctx, program->package_groups,
++      package_group_list_pony_type(), PONY_TRACE_MUTABLE);
++
++  if(program->signature != NULL)
++    pony_serialise_reserve(ctx, program->signature, SIGNATURE_LENGTH);
++
+   if(program->libpaths != NULL)
+     pony_traceknown(ctx, program->libpaths, strlist_pony_type(),
+       PONY_TRACE_MUTABLE);
+@@ -274,30 +365,48 @@ static void program_serialise(pony_ctx_t* ctx, void* object, void* buf,
+   program_t* program = (program_t*)object;
+   program_t* dst = (program_t*)((uintptr_t)buf + offset);
+ 
++  dst->package_groups = (package_group_list_t*)pony_serialise_offset(ctx,
++    program->package_groups);
++
++  uintptr_t ptr_offset = pony_serialise_offset(ctx, program->signature);
++  dst->signature = (char*)ptr_offset;
++
++  if(program->signature != NULL)
++  {
++    char* dst_sig = (char*)((uintptr_t)buf + ptr_offset);
++    memcpy(dst_sig, program->signature, SIGNATURE_LENGTH);
++  }
++
++  dst->next_package_id = program->next_package_id;
+   dst->libpaths = (strlist_t*)pony_serialise_offset(ctx, program->libpaths);
+   dst->libs = (strlist_t*)pony_serialise_offset(ctx, program->libs);
+-  dst->lib_args = (char*)pony_serialise_offset(ctx, program->lib_args);
+   dst->lib_args_size = program->lib_args_size;
+   dst->lib_args_alloced = program->lib_args_size + 1;
+ 
++  ptr_offset = pony_serialise_offset(ctx, program->lib_args);
++  dst->lib_args = (char*)ptr_offset;
++
+   if(dst->lib_args != NULL)
+-    memcpy(dst->lib_args, program->lib_args, program->lib_args_size + 1);
++  {
++    char* dst_lib = (char*)((uintptr_t)buf + ptr_offset);
++    memcpy(dst_lib, program->lib_args, program->lib_args_size + 1);
++  }
+ }
+ 
+ static void program_deserialise(pony_ctx_t* ctx, void* object)
+ {
+   program_t* program = (program_t*)object;
+ 
++  program->package_groups = (package_group_list_t*)pony_deserialise_offset(ctx,
++    package_group_list_pony_type(), (uintptr_t)program->package_groups);
++  program->signature = (char*)pony_deserialise_block(ctx,
++    (uintptr_t)program->signature, SIGNATURE_LENGTH);
+   program->libpaths = (strlist_t*)pony_deserialise_offset(ctx,
+     strlist_pony_type(), (uintptr_t)program->libpaths);
+   program->libs = (strlist_t*)pony_deserialise_offset(ctx, strlist_pony_type(),
+     (uintptr_t)program->libs);
+-
+-  if(program->lib_args != (char*)((size_t)(~0)))
+-    program->lib_args = (char*)pony_deserialise_block(ctx,
+-      (uintptr_t)program->lib_args, program->lib_args_size + 1);
+-  else
+-    program->lib_args = NULL;
++  program->lib_args = (char*)pony_deserialise_block(ctx,
++    (uintptr_t)program->lib_args, program->lib_args_size + 1);
+ }
+ 
+ 
+diff --git a/src/libponyc/pkg/program.h b/src/libponyc/pkg/program.h
+index f791154fd7..7871ecbf50 100644
+--- a/src/libponyc/pkg/program.h
++++ b/src/libponyc/pkg/program.h
+@@ -42,6 +42,10 @@ void program_lib_build_args(ast_t* program, pass_opt_t* opt,
+  */
+ const char* program_lib_args(ast_t* program);
+ 
++const char* program_signature(ast_t* program);
++
++void program_dump(ast_t* program);
++
+ pony_type_t* program_pony_type();
+ 
+ PONY_EXTERN_C_END
+diff --git a/src/libponyrt/ds/list.c b/src/libponyrt/ds/list.c
+index 71cf0fea61..4fd6adbd62 100644
+--- a/src/libponyrt/ds/list.c
++++ b/src/libponyrt/ds/list.c
+@@ -178,3 +178,35 @@ void ponyint_list_free(list_t* list, free_fn f)
+     list = next;
+   }
+ }
++
++void ponyint_list_serialise_trace(pony_ctx_t* ctx, void* object,
++  pony_type_t* list_type, pony_type_t* elem_type)
++{
++  list_t* list = (list_t*)object;
++
++  if(list->data != NULL)
++    pony_traceknown(ctx, list->data, elem_type, PONY_TRACE_MUTABLE);
++
++  if(list->next != NULL)
++    pony_traceknown(ctx, list->next, list_type, PONY_TRACE_MUTABLE);
++}
++
++void ponyint_list_serialise(pony_ctx_t* ctx, void* object, void* buf,
++  size_t offset)
++{
++  list_t* list = (list_t*)object;
++  list_t* dst = (list_t*)((uintptr_t)buf + offset);
++
++  dst->data = (void*)pony_serialise_offset(ctx, list->data);
++  dst->next = (list_t*)pony_serialise_offset(ctx, list->next);
++}
++
++void ponyint_list_deserialise(pony_ctx_t* ctx, void* object,
++  pony_type_t* list_type, pony_type_t* elem_type)
++{
++  list_t* list = (list_t*)object;
++
++  list->data = pony_deserialise_offset(ctx, elem_type, (uintptr_t)list->data);
++  list->next = (list_t*)pony_deserialise_offset(ctx, list_type,
++    (uintptr_t)list->next);
++}
+diff --git a/src/libponyrt/ds/list.h b/src/libponyrt/ds/list.h
+index 402a69a886..6d175f41dc 100644
+--- a/src/libponyrt/ds/list.h
++++ b/src/libponyrt/ds/list.h
+@@ -43,6 +43,15 @@ size_t ponyint_list_length(list_t* list);
+ 
+ void ponyint_list_free(list_t* list, free_fn f);
+ 
++void ponyint_list_serialise_trace(pony_ctx_t* ctx, void* object,
++  pony_type_t* list_type, pony_type_t* elem_type);
++
++void ponyint_list_serialise(pony_ctx_t* ctx, void* object, void* buf,
++  size_t offset);
++
++void ponyint_list_deserialise(pony_ctx_t* ctx, void* object,
++  pony_type_t* list_type, pony_type_t* elem_type);
++
+ #define DECLARE_LIST(name, name_t, elem) \
+   typedef struct name_t name_t; \
+   typedef bool (*name##_cmp_fn)(elem* a, elem* b); \
+@@ -63,6 +72,14 @@ void ponyint_list_free(list_t* list, free_fn f);
+   size_t name##_length(name_t* list); \
+   void name##_free(name_t* list); \
+ 
++#define DECLARE_LIST_SERIALISE(name, name_t, type) \
++  DECLARE_LIST(name, name_t, type) \
++  void name##_serialise_trace(pony_ctx_t* ctx, void* object); \
++  void name##_serialise(pony_ctx_t* ctx, void* object, void* buf, \
++    size_t offset, int mutability); \
++  void name##_deserialise(pony_ctx_t* ctx, void* object); \
++  const pony_type_t* name##_pony_type(); \
++
+ #define DEFINE_LIST(name, name_t, elem, cmpf, freef) \
+   struct name_t {list_t contents;}; \
+   \
+@@ -128,6 +145,47 @@ void ponyint_list_free(list_t* list, free_fn f);
+     ponyint_list_free((list_t*)list, (free_fn)free); \
+   } \
+ 
++#define DEFINE_LIST_SERIALISE(name, name_t, elem, cmpf, freef, elem_type) \
++  DEFINE_LIST(name, name_t, elem, cmpf, freef) \
++  void name##_serialise_trace(pony_ctx_t* ctx, void* object) \
++  { \
++    ponyint_list_serialise_trace(ctx, object, name##_pony_type(), elem_type); \
++  } \
++  void name##_serialise(pony_ctx_t* ctx, void* object, void* buf, \
++    size_t offset, int mutability) \
++  { \
++    (void)mutability; \
++    ponyint_list_serialise(ctx, object, buf, offset); \
++  } \
++  void name##_deserialise(pony_ctx_t* ctx, void* object) \
++  { \
++    ponyint_list_deserialise(ctx, object, name##_pony_type(), elem_type); \
++  } \
++  static pony_type_t name##_pony = \
++  { \
++    0, \
++    sizeof(name_t), \
++    0, \
++    0, \
++    NULL, \
++    NULL, \
++    name##_serialise_trace, \
++    name##_serialise, \
++    name##_deserialise, \
++    NULL, \
++    NULL, \
++    NULL, \
++    NULL, \
++    0, \
++    NULL, \
++    NULL, \
++    NULL, \
++  }; \
++  const pony_type_t* name##_pony_type() \
++  { \
++    return &name##_pony; \
++  } \
++
+ PONY_EXTERN_C_END
+ 
+ #endif
+diff --git a/src/libponyrt/gc/serialise.c b/src/libponyrt/gc/serialise.c
+index 1fb04ef16a..b7ab1e4ce4 100644
+--- a/src/libponyrt/gc/serialise.c
++++ b/src/libponyrt/gc/serialise.c
+@@ -24,14 +24,6 @@ static pony_type_t** desc_table = NULL;
+ 
+ PONY_EXTERN_C_END
+ 
+-typedef struct
+-{
+-  pony_type_t* t;
+-  size_t size;
+-  size_t alloc;
+-  char* ptr;
+-} ponyint_array_t;
+-
+ struct serialise_t
+ {
+   uintptr_t key;
+@@ -214,7 +206,8 @@ PONY_API size_t pony_serialise_offset(pony_ctx_t* ctx, void* p)
+ }
+ 
+ PONY_API void pony_serialise(pony_ctx_t* ctx, void* p, pony_type_t* t,
+-  void* out, serialise_alloc_fn alloc_fn, serialise_throw_fn throw_fn)
++  ponyint_array_t* out, serialise_alloc_fn alloc_fn,
++  serialise_throw_fn throw_fn)
+ {
+   // This can raise an error.
+   pony_assert(ctx->stack == NULL);
+@@ -231,10 +224,9 @@ PONY_API void pony_serialise(pony_ctx_t* ctx, void* p, pony_type_t* t,
+ 
+   ponyint_gc_handlestack(ctx);
+ 
+-  ponyint_array_t* r = (ponyint_array_t*)out;
+-  r->size = ctx->serialise_size;
+-  r->alloc = r->size;
+-  r->ptr = (char*)alloc_fn(ctx, r->size);
++  out->size = ctx->serialise_size;
++  out->alloc = out->size;
++  out->ptr = (char*)alloc_fn(ctx, out->size);
+ 
+   size_t i = HASHMAP_BEGIN;
+   serialise_t* s;
+@@ -242,7 +234,7 @@ PONY_API void pony_serialise(pony_ctx_t* ctx, void* p, pony_type_t* t,
+   while((s = ponyint_serialise_next(&ctx->serialise, &i)) != NULL)
+   {
+     if(!(s->block) && s->t != NULL && s->t->serialise != NULL)
+-      s->t->serialise(ctx, (void*)s->key, r->ptr, s->value, s->mutability);
++      s->t->serialise(ctx, (void*)s->key, out->ptr, s->value, s->mutability);
+   }
+ 
+   serialise_cleanup(ctx);
+@@ -388,14 +380,13 @@ PONY_API void* pony_deserialise_raw(pony_ctx_t* ctx, uintptr_t offset,
+   return object;
+ }
+ 
+-PONY_API void* pony_deserialise(pony_ctx_t* ctx, pony_type_t* t, void* in,
+-  serialise_alloc_fn alloc_fn, serialise_alloc_fn alloc_final_fn,
+-  serialise_throw_fn throw_fn)
++PONY_API void* pony_deserialise(pony_ctx_t* ctx, pony_type_t* t,
++  ponyint_array_t* in, serialise_alloc_fn alloc_fn,
++  serialise_alloc_fn alloc_final_fn, serialise_throw_fn throw_fn)
+ {
+   // This can raise an error.
+-  ponyint_array_t* r = (ponyint_array_t*)in;
+-  ctx->serialise_buffer = r->ptr;
+-  ctx->serialise_size = r->size;
++  ctx->serialise_buffer = in->ptr;
++  ctx->serialise_size = in->size;
+   ctx->serialise_alloc = alloc_fn;
+   ctx->serialise_alloc_final = alloc_final_fn;
+   ctx->serialise_throw = throw_fn;
+diff --git a/src/libponyrt/gc/serialise.h b/src/libponyrt/gc/serialise.h
+index 37527c89dc..8b244fa59e 100644
+--- a/src/libponyrt/gc/serialise.h
++++ b/src/libponyrt/gc/serialise.h
+@@ -5,6 +5,14 @@
+ 
+ PONY_EXTERN_C_BEGIN
+ 
++typedef struct
++{
++  pony_type_t* t;
++  size_t size;
++  size_t alloc;
++  char* ptr;
++} ponyint_array_t;
++
+ typedef void* (*serialise_alloc_fn)(pony_ctx_t* ctx, size_t size);
+ 
+ typedef void (*serialise_throw_fn)();
+@@ -23,13 +31,14 @@ void ponyint_serialise_object(pony_ctx_t* ctx, void* p, pony_type_t* t,
+ void ponyint_serialise_actor(pony_ctx_t* ctx, pony_actor_t* actor);
+ 
+ PONY_API void pony_serialise(pony_ctx_t* ctx, void* p, pony_type_t* t,
+-  void* out, serialise_alloc_fn alloc_fn, serialise_throw_fn throw_fn);
++  ponyint_array_t* out, serialise_alloc_fn alloc_fn,
++  serialise_throw_fn throw_fn);
+ PONY_API size_t pony_serialise_offset(pony_ctx_t* ctx, void* p);
+ PONY_API void pony_serialise_reserve(pony_ctx_t* ctx, void* p, size_t size);
+ 
+-PONY_API void* pony_deserialise(pony_ctx_t* ctx, pony_type_t* t, void* in,
+-  serialise_alloc_fn alloc_fn, serialise_alloc_fn alloc_final_fn,
+-  serialise_throw_fn throw_fn);
++PONY_API void* pony_deserialise(pony_ctx_t* ctx, pony_type_t* t,
++  ponyint_array_t* in, serialise_alloc_fn alloc_fn,
++  serialise_alloc_fn alloc_final_fn, serialise_throw_fn throw_fn);
+ PONY_API void* pony_deserialise_block(pony_ctx_t* ctx, uintptr_t offset,
+   size_t size);
+ PONY_API void* pony_deserialise_offset(pony_ctx_t* ctx, pony_type_t* t,
+diff --git a/wscript b/wscript
+index 4fd539da94..ba1fc98933 100644
+--- a/wscript
++++ b/wscript
+@@ -259,6 +259,13 @@ def build(ctx):
+         includes = [ 'lib/gbenchmark/include' ],
+         defines  = [ 'HAVE_STD_REGEX' ]
+     )
++    
++    # blake2
++    ctx(
++        features = 'c seq',
++        target   = 'blake2',
++        source   = ctx.path.ant_glob('lib/blake2/*.c'),
++    )
+ 
+     # libponyc
+     ctx(
+@@ -266,7 +273,8 @@ def build(ctx):
+         target    = 'libponyc',
+         source    = ctx.path.ant_glob('src/libponyc/**/*.c') + \
+                     ctx.path.ant_glob('src/libponyc/**/*.cc'),
+-        includes  = [ 'src/common' ] + llvmIncludes + sslIncludes
++        includes  = [ 'src/common', 'lib/blake2' ] + llvmIncludes + sslIncludes,
++        use       = [ 'blake2' ]
+     )
+ 
+     # libponyc.benchmarks

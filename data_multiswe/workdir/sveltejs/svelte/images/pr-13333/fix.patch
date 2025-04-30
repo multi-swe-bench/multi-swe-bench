@@ -1,0 +1,82 @@
+diff --git a/.changeset/old-spoons-pull.md b/.changeset/old-spoons-pull.md
+new file mode 100644
+index 000000000000..15de7e6e6c08
+--- /dev/null
++++ b/.changeset/old-spoons-pull.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++feat: deprecate `<svelte:self>` in runes mode
+diff --git a/packages/svelte/messages/compile-warnings/template.md b/packages/svelte/messages/compile-warnings/template.md
+index 194bd1087da9..5e198c2d5522 100644
+--- a/packages/svelte/messages/compile-warnings/template.md
++++ b/packages/svelte/messages/compile-warnings/template.md
+@@ -97,3 +97,7 @@ A derived value may be used in other contexts:
+ ## svelte_element_invalid_this
+ 
+ > `this` should be an `{expression}`. Using a string attribute value will cause an error in future versions of Svelte
++
++## svelte_self_deprecated
++
++> `<svelte:self>` is deprecated — use self-imports (e.g. `import %name% from './%basename%'`) instead
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteSelf.js b/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteSelf.js
+index 18696e0c552a..b87f082de0ea 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteSelf.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/visitors/SvelteSelf.js
+@@ -2,6 +2,8 @@
+ /** @import { Context } from '../types' */
+ import { visit_component } from './shared/component.js';
+ import * as e from '../../../errors.js';
++import * as w from '../../../warnings.js';
++import { filename } from '../../../state.js';
+ 
+ /**
+  * @param {AST.SvelteSelf} node
+@@ -20,5 +22,15 @@ export function SvelteSelf(node, context) {
+ 		e.svelte_self_invalid_placement(node);
+ 	}
+ 
++	if (context.state.analysis.runes) {
++		const name = filename === '(unknown)' ? 'Self' : context.state.analysis.name;
++		const basename =
++			filename === '(unknown)'
++				? 'Self.svelte'
++				: /** @type {string} */ (filename.split(/[/\\]/).pop());
++
++		w.svelte_self_deprecated(node, name, basename);
++	}
++
+ 	visit_component(node, context);
+ }
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 2d7d71028199..bd2895623050 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -121,7 +121,8 @@ export const codes = [
+ 	"script_unknown_attribute",
+ 	"slot_element_deprecated",
+ 	"svelte_component_deprecated",
+-	"svelte_element_invalid_this"
++	"svelte_element_invalid_this",
++	"svelte_self_deprecated"
+ ];
+ 
+ /**
+@@ -809,4 +810,14 @@ export function svelte_component_deprecated(node) {
+  */
+ export function svelte_element_invalid_this(node) {
+ 	w(node, "svelte_element_invalid_this", "`this` should be an `{expression}`. Using a string attribute value will cause an error in future versions of Svelte");
++}
++
++/**
++ * `<svelte:self>` is deprecated — use self-imports (e.g. `import %name% from './%basename%'`) instead
++ * @param {null | NodeLike} node
++ * @param {string} name
++ * @param {string} basename
++ */
++export function svelte_self_deprecated(node, name, basename) {
++	w(node, "svelte_self_deprecated", `\`<svelte:self>\` is deprecated — use self-imports (e.g. \`import ${name} from './${basename}'\`) instead`);
+ }
+\ No newline at end of file

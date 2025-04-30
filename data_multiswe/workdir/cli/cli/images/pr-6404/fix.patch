@@ -1,0 +1,124 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index b8d44d9e0db..524c2dcee66 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -210,6 +210,8 @@ const (
+ 	CodespaceStateShutdown = "Shutdown"
+ 	// CodespaceStateStarting is the state for a starting codespace environment.
+ 	CodespaceStateStarting = "Starting"
++	// CodespaceStateRebuilding is the state for a rebuilding codespace environment.
++	CodespaceStateRebuilding = "Rebuilding"
+ )
+ 
+ type CodespaceConnection struct {
+diff --git a/pkg/cmd/codespace/common.go b/pkg/cmd/codespace/common.go
+index 46e69d97c20..0cdd69dfa06 100644
+--- a/pkg/cmd/codespace/common.go
++++ b/pkg/cmd/codespace/common.go
+@@ -66,6 +66,7 @@ type liveshareSession interface {
+ 	StartSharing(context.Context, string, int) (liveshare.ChannelID, error)
+ 	StartSSHServer(context.Context) (int, string, error)
+ 	StartSSHServerWithOptions(context.Context, liveshare.StartSSHServerOptions) (int, string, error)
++	RebuildContainer(context.Context) error
+ }
+ 
+ // Connects to a codespace using Live Share and returns that session
+diff --git a/pkg/cmd/codespace/rebuild.go b/pkg/cmd/codespace/rebuild.go
+new file mode 100644
+index 00000000000..f2128d6322f
+--- /dev/null
++++ b/pkg/cmd/codespace/rebuild.go
+@@ -0,0 +1,56 @@
++package codespace
++
++import (
++	"context"
++	"fmt"
++
++	"github.com/cli/cli/v2/internal/codespaces/api"
++	"github.com/spf13/cobra"
++)
++
++func newRebuildCmd(app *App) *cobra.Command {
++	var codespace string
++
++	rebuildCmd := &cobra.Command{
++		Use:   "rebuild",
++		Short: "Rebuild a codespace",
++		Args:  cobra.NoArgs,
++		RunE: func(cmd *cobra.Command, args []string) error {
++			return app.Rebuild(cmd.Context(), codespace)
++		},
++	}
++
++	rebuildCmd.Flags().StringVarP(&codespace, "codespace", "c", "", "Name of the codespace")
++
++	return rebuildCmd
++}
++
++func (a *App) Rebuild(ctx context.Context, codespaceName string) (err error) {
++	ctx, cancel := context.WithCancel(ctx)
++	defer cancel()
++
++	codespace, err := getOrChooseCodespace(ctx, a.apiClient, codespaceName)
++	if err != nil {
++		return err
++	}
++
++	// There's no need to rebuild again because users can't modify their codespace while it rebuilds
++	if codespace.State == api.CodespaceStateRebuilding {
++		fmt.Fprintf(a.io.Out, "%s is already rebuilding\n", codespace.Name)
++		return nil
++	}
++
++	session, err := startLiveShareSession(ctx, codespace, a, false, "")
++	if err != nil {
++		return fmt.Errorf("starting Live Share session: %w", err)
++	}
++	defer safeClose(session, &err)
++
++	err = session.RebuildContainer(ctx)
++	if err != nil {
++		return fmt.Errorf("rebuilding codespace via session: %w", err)
++	}
++
++	fmt.Fprintf(a.io.Out, "%s is rebuilding\n", codespace.Name)
++	return nil
++}
+diff --git a/pkg/cmd/codespace/root.go b/pkg/cmd/codespace/root.go
+index d700664b176..8439430aa33 100644
+--- a/pkg/cmd/codespace/root.go
++++ b/pkg/cmd/codespace/root.go
+@@ -22,6 +22,7 @@ func NewRootCmd(app *App) *cobra.Command {
+ 	root.AddCommand(newCpCmd(app))
+ 	root.AddCommand(newStopCmd(app))
+ 	root.AddCommand(newSelectCmd(app))
++	root.AddCommand(newRebuildCmd(app))
+ 
+ 	return root
+ }
+diff --git a/pkg/liveshare/session.go b/pkg/liveshare/session.go
+index f912fa5ea25..40bdf287b0b 100644
+--- a/pkg/liveshare/session.go
++++ b/pkg/liveshare/session.go
+@@ -123,6 +123,20 @@ func (s *Session) StartJupyterServer(ctx context.Context) (int, string, error) {
+ 	return port, response.ServerUrl, nil
+ }
+ 
++func (s *Session) RebuildContainer(ctx context.Context) error {
++	var rebuildSuccess bool
++	err := s.rpc.do(ctx, "IEnvironmentConfigurationService.rebuildContainer", nil, &rebuildSuccess)
++	if err != nil {
++		return fmt.Errorf("invoking rebuild RPC: %w", err)
++	}
++
++	if !rebuildSuccess {
++		return fmt.Errorf("couldn't rebuild codespace")
++	}
++
++	return nil
++}
++
+ // heartbeat runs until context cancellation, periodically checking whether there is a
+ // reason to keep the connection alive, and if so, notifying the Live Share host to do so.
+ // Heartbeat ensures it does not send more than one request every "interval" to ratelimit

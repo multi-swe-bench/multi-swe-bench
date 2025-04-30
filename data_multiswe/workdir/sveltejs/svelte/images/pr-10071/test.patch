@@ -1,0 +1,185 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/_config.js b/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/_config.js
+new file mode 100644
+index 000000000000..8b25b7ad4388
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/_config.js
+@@ -0,0 +1,62 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<button class="red">red</button>
++		<button class="red">red</button>
++		<button class="red">red</button>
++		<button class="red">red</button>
++	`,
++
++	async test({ assert, target }) {
++		const [b1, b2, b3, b4] = target.querySelectorAll('button');
++
++		b1?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button class="blue">blue</button>
++				<button class="red">red</button>
++				<button class="red">red</button>
++				<button class="red">red</button>
++			`
++		);
++
++		b2?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++				<button class="red">red</button>
++				<button class="red">red</button>
++			`
++		);
++
++		b3?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++				<button class="red">red</button>
++			`
++		);
++
++		b4?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++				<button class="blue">blue</button>
++			`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/main.svelte b/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/main.svelte
+new file mode 100644
+index 000000000000..4a239a7e09c8
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-call-expression/main.svelte
+@@ -0,0 +1,24 @@
++<script>
++	let tag = $state('button');
++	let values = $state({ a: 'red', b: 'red', c: 'red', d: 'red' });
++
++	let count = 0;
++	const factory = (name) => {
++		count++;
++		// check that spread effects are isolated from each other
++		if (count > 8) throw new Error('too many calls');
++
++		return {
++			class: values[name],
++			onclick: () => {
++				values[name] = 'blue';
++			}
++		}
++	}
++</script>
++
++<button {...factory('a')}>{values.a}</button>
++<button {...factory('b')}>{values.b}</button>
++
++<svelte:element this={tag} {...factory('c')}>{values.c}</svelte:element>
++<svelte:element this={tag} {...factory('d')}>{values.d}</svelte:element>
+diff --git a/packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/_config.js b/packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/_config.js
+new file mode 100644
+index 000000000000..9baec30b4f08
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/_config.js
+@@ -0,0 +1,24 @@
++import { test } from '../../test';
++
++export default test({
++	html: `
++		<div style="color: red;"></div><div class="red"></div><div class="red"></div>
++		<div style="color: red;"></div><div class="red"></div><div class="red"></div>
++		<button>toggle</button
++	`,
++
++	async test({ assert, target }) {
++		const [b1] = target.querySelectorAll('button');
++
++		b1?.click();
++		await Promise.resolve();
++		assert.htmlEqual(
++			target.innerHTML,
++			`
++				<div class="blue" style="color: blue;"></div><div class="blue"></div><div class="blue"></div>
++				<div class="blue" style="color: blue;"></div><div class="blue"></div><div class="blue"></div>
++				<button>toggle</button
++		`
++		);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/main.svelte b/packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/main.svelte
+similarity index 52%
+rename from packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/main.svelte
+rename to packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/main.svelte
+index 00c337bdfd0d..fc51848f480d 100644
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/attribute-spread-reactivitiy/main.svelte
+@@ -1,5 +1,6 @@
+ <script>
+ 	let value = $state('red');
++	let tag = $state('div');
+ 
+ 	const getValue = () => {
+ 		return value;
+@@ -10,9 +11,19 @@
+ 	const getSpread = () => {
+ 		return { class: value };
+ 	}
++	const props = {
++		get class() {
++			return value;
++		}
++	}
+ </script>
+ 
+ <div class:blue={getClass()} style:color={getValue()}></div>
+ <div {...getSpread()}></div>
+-<button on:click={() => value = 'blue'}>toggle</button>
++<div {...props}></div>
+ 
++<svelte:element this={tag} class:blue={getClass()} style:color={getValue()}></svelte:element>
++<svelte:element this={tag} {...getSpread()}></svelte:element>
++<svelte:element this={tag} {...props}></svelte:element>
++
++<button on:click={() => value = 'blue'}>toggle</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/_config.js b/packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/_config.js
+deleted file mode 100644
+index e9dae162770d..000000000000
+--- a/packages/svelte/tests/runtime-runes/samples/event-attribute-call-expressions/_config.js
++++ /dev/null
+@@ -1,16 +0,0 @@
+-import { test } from '../../test';
+-
+-export default test({
+-	html: `<div style="color: red;"></div><div class="red"></div><button>toggle</button`,
+-
+-	async test({ assert, target }) {
+-		const [b1] = target.querySelectorAll('button');
+-
+-		b1?.click();
+-		await Promise.resolve();
+-		assert.htmlEqual(
+-			target.innerHTML,
+-			'<div class="blue" style="color: blue;"></div><div class="blue"></div><button>toggle</button>'
+-		);
+-	}
+-});

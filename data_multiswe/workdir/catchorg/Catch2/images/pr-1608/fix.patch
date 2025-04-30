@@ -1,0 +1,183 @@
+diff --git a/include/internal/catch_message.cpp b/include/internal/catch_message.cpp
+index fa7e874614..69e48211f6 100644
+--- a/include/internal/catch_message.cpp
++++ b/include/internal/catch_message.cpp
+@@ -9,6 +9,7 @@
+ #include "catch_message.h"
+ #include "catch_interfaces_capture.h"
+ #include "catch_uncaught_exceptions.h"
++#include "catch_enforce.h"
+ 
+ #include <cassert>
+ #include <stack>
+@@ -76,6 +77,15 @@ namespace Catch {
+             }
+             return names.substr(start, end - start + 1);
+         };
++        auto skipq = [&] (size_t start, char quote) {
++            for (auto i = start + 1; i < names.size() ; ++i) {
++                if (names[i] == quote)
++                    return i;
++                if (names[i] == '\\')
++                    ++i;
++            }
++            CATCH_INTERNAL_ERROR("CAPTURE parsing encountered unmatched parentheses");
++        };
+ 
+         size_t start = 0;
+         std::stack<char> openings;
+@@ -96,6 +106,10 @@ namespace Catch {
+ //           case '>':
+                 openings.pop();
+                 break;
++            case '"':
++            case '\'':
++                pos = skipq(pos, c);
++                break;
+             case ',':
+                 if (start != pos && openings.size() == 0) {
+                     m_messages.emplace_back(macroName, lineInfo, resultType);
+diff --git a/projects/SelfTest/Baselines/compact.sw.approved.txt b/projects/SelfTest/Baselines/compact.sw.approved.txt
+index 3755dd955d..259954e4b8 100644
+--- a/projects/SelfTest/Baselines/compact.sw.approved.txt
++++ b/projects/SelfTest/Baselines/compact.sw.approved.txt
+@@ -230,6 +230,7 @@ Tricky.tests.cpp:<line number>: passed: y.v == 0 for: 0 == 0
+ Tricky.tests.cpp:<line number>: passed: 0 == y.v for: 0 == 0
+ Message.tests.cpp:<line number>: passed: with 7 messages: 'a := 1' and 'b := 2' and 'c := 3' and 'a + b := 3' and 'a+b := 3' and 'c > b := true' and 'a == 1 := true'
+ Message.tests.cpp:<line number>: passed: with 7 messages: 'std::vector<int>{1, 2, 3}[0, 1, 2] := 3' and 'std::vector<int>{1, 2, 3}[(0, 1)] := 2' and 'std::vector<int>{1, 2, 3}[0] := 1' and '(helper_1436<int, int>{12, -12}) := { 12, -12 }' and '(helper_1436<int, int>(-12, 12)) := { -12, 12 }' and '(1, 2) := 2' and '(2, 3) := 3'
++Message.tests.cpp:<line number>: passed: with 11 messages: '("comma, in string", "escaped, \", ") := "escaped, ", "' and '"single quote in string,'," := "single quote in string,',"' and '"some escapes, \\,\\\\" := "some escapes, \,\\"' and '"some, ), unmatched, } prenheses {[<" := "some, ), unmatched, } prenheses {[<"' and ''"' := '"'' and ''\'' := '''' and '',' := ','' and ''}' := '}'' and '')' := ')'' and ''(' := '('' and ''{' := '{''
+ ToStringGeneral.tests.cpp:<line number>: passed: true with 1 message: 'i := 2'
+ ToStringGeneral.tests.cpp:<line number>: passed: true with 1 message: '3'
+ ToStringGeneral.tests.cpp:<line number>: passed: tab == '\t' for: '\t' == '\t'
+diff --git a/projects/SelfTest/Baselines/console.std.approved.txt b/projects/SelfTest/Baselines/console.std.approved.txt
+index 8e86cb2eeb..0a4de92369 100644
+--- a/projects/SelfTest/Baselines/console.std.approved.txt
++++ b/projects/SelfTest/Baselines/console.std.approved.txt
+@@ -1299,6 +1299,6 @@ due to unexpected exception with message:
+   Why would you throw a std::string?
+ 
+ ===============================================================================
+-test cases:  265 |  198 passed |  63 failed |  4 failed as expected
+-assertions: 1448 | 1303 passed | 124 failed | 21 failed as expected
++test cases:  266 |  199 passed |  63 failed |  4 failed as expected
++assertions: 1449 | 1304 passed | 124 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/console.sw.approved.txt b/projects/SelfTest/Baselines/console.sw.approved.txt
+index d5c143b256..2b998afc7e 100644
+--- a/projects/SelfTest/Baselines/console.sw.approved.txt
++++ b/projects/SelfTest/Baselines/console.sw.approved.txt
+@@ -1786,6 +1786,27 @@ with messages:
+   (1, 2) := 2
+   (2, 3) := 3
+ 
++-------------------------------------------------------------------------------
++CAPTURE parses string and character constants
++-------------------------------------------------------------------------------
++Message.tests.cpp:<line number>
++...............................................................................
++
++Message.tests.cpp:<line number>: PASSED:
++with messages:
++  ("comma, in string", "escaped, \", ") := "escaped, ", "
++  "single quote in string,'," := "single quote in string,',"
++  "some escapes, \\,\\\\" := "some escapes, \,\\"
++  "some, ), unmatched, } prenheses {[<" := "some, ), unmatched, } prenheses {[
++  <"
++  '"' := '"'
++  '\'' := '''
++  ',' := ','
++  '}' := '}'
++  ')' := ')'
++  '(' := '('
++  '{' := '{'
++
+ -------------------------------------------------------------------------------
+ Capture and info messages
+   Capture should stringify like assertions
+@@ -11368,6 +11389,6 @@ Misc.tests.cpp:<line number>
+ Misc.tests.cpp:<line number>: PASSED:
+ 
+ ===============================================================================
+-test cases:  265 |  182 passed |  79 failed |  4 failed as expected
+-assertions: 1465 | 1303 passed | 141 failed | 21 failed as expected
++test cases:  266 |  183 passed |  79 failed |  4 failed as expected
++assertions: 1466 | 1304 passed | 141 failed | 21 failed as expected
+ 
+diff --git a/projects/SelfTest/Baselines/junit.sw.approved.txt b/projects/SelfTest/Baselines/junit.sw.approved.txt
+index 709171f205..7f4b43dbb1 100644
+--- a/projects/SelfTest/Baselines/junit.sw.approved.txt
++++ b/projects/SelfTest/Baselines/junit.sw.approved.txt
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuitesloose text artifact
+ >
+-  <testsuite name="<exe-name>" errors="17" failures="125" tests="1466" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="125" tests="1467" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <properties>
+       <property name="filters" value="~[!nonportable]~[!benchmark]~[approvals]"/>
+       <property name="random-seed" value="1"/>
+@@ -189,6 +189,7 @@ Exception.tests.cpp:<line number>
+     <testcase classname="<exe-name>.global" name="Bitfields can be captured (#1027)" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="CAPTURE can deal with complex expressions" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="CAPTURE can deal with complex expressions involving commas" time="{duration}"/>
++    <testcase classname="<exe-name>.global" name="CAPTURE parses string and character constants" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Capture and info messages/Capture should stringify like assertions" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Capture and info messages/Info should NOT stringify the way assertions do" time="{duration}"/>
+     <testcase classname="<exe-name>.global" name="Character pretty printing/Specifically escaped" time="{duration}"/>
+diff --git a/projects/SelfTest/Baselines/xml.sw.approved.txt b/projects/SelfTest/Baselines/xml.sw.approved.txt
+index c704406ff7..fa078ac800 100644
+--- a/projects/SelfTest/Baselines/xml.sw.approved.txt
++++ b/projects/SelfTest/Baselines/xml.sw.approved.txt
+@@ -2049,6 +2049,42 @@ Nor would this
+       </Info>
+       <OverallResult success="true"/>
+     </TestCase>
++    <TestCase name="CAPTURE parses string and character constants" tags="[capture][messages]" filename="projects/<exe-name>/UsageTests/Message.tests.cpp" >
++      <Info>
++        ("comma, in string", "escaped, \", ") := "escaped, ", "
++      </Info>
++      <Info>
++        "single quote in string,'," := "single quote in string,',"
++      </Info>
++      <Info>
++        "some escapes, \\,\\\\" := "some escapes, \,\\"
++      </Info>
++      <Info>
++        "some, ), unmatched, } prenheses {[&lt;" := "some, ), unmatched, } prenheses {[&lt;"
++      </Info>
++      <Info>
++        '"' := '"'
++      </Info>
++      <Info>
++        '\'' := '''
++      </Info>
++      <Info>
++        ',' := ','
++      </Info>
++      <Info>
++        '}' := '}'
++      </Info>
++      <Info>
++        ')' := ')'
++      </Info>
++      <Info>
++        '(' := '('
++      </Info>
++      <Info>
++        '{' := '{'
++      </Info>
++      <OverallResult success="true"/>
++    </TestCase>
+     <TestCase name="Capture and info messages" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
+       <Section name="Capture should stringify like assertions" filename="projects/<exe-name>/UsageTests/ToStringGeneral.tests.cpp" >
+         <Info>
+@@ -13692,7 +13728,7 @@ loose text artifact
+       </Section>
+       <OverallResult success="true"/>
+     </TestCase>
+-    <OverallResults successes="1303" failures="142" expectedFailures="21"/>
++    <OverallResults successes="1304" failures="142" expectedFailures="21"/>
+   </Group>
+-  <OverallResults successes="1303" failures="141" expectedFailures="21"/>
++  <OverallResults successes="1304" failures="141" expectedFailures="21"/>
+ </Catch>

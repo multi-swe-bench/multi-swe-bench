@@ -1,0 +1,161 @@
+diff --git a/.changeset/mighty-paws-smash.md b/.changeset/mighty-paws-smash.md
+new file mode 100644
+index 000000000000..56f707e10ef4
+--- /dev/null
++++ b/.changeset/mighty-paws-smash.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++chore: stricter control flow syntax validation in runes mode
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index 2bb4197a1dec..517e5e730fd4 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -88,6 +88,10 @@
+ 
+ > Block was left open
+ 
++## block_unexpected_character
++
++> Expected a `%character%` character immediately following the opening bracket
++
+ ## block_unexpected_close
+ 
+ > Unexpected block closing tag
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index c26586fb1cc5..4684be9e6b92 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -762,6 +762,16 @@ export function block_unclosed(node) {
+ 	e(node, "block_unclosed", "Block was left open");
+ }
+ 
++/**
++ * Expected a `%character%` character immediately following the opening bracket
++ * @param {null | number | NodeLike} node
++ * @param {string} character
++ * @returns {never}
++ */
++export function block_unexpected_character(node, character) {
++	e(node, "block_unexpected_character", `Expected a \`${character}\` character immediately following the opening bracket`);
++}
++
+ /**
+  * Unexpected block closing tag
+  * @param {null | number | NodeLike} node
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/tag.js b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+index 14af03f6f687..f5beb7b79a31 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/tag.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+@@ -39,7 +39,8 @@ export default function tag(parser) {
+ 
+ /** @param {import('../index.js').Parser} parser */
+ function open(parser) {
+-	const start = parser.index - 2;
++	let start = parser.index - 2;
++	while (parser.template[start] !== '{') start -= 1;
+ 
+ 	if (parser.eat('if')) {
+ 		parser.require_whitespace();
+@@ -343,9 +344,12 @@ function next(parser) {
+ 			parser.allow_whitespace();
+ 			parser.eat('}', true);
+ 
++			let elseif_start = start - 1;
++			while (parser.template[elseif_start] !== '{') elseif_start -= 1;
++
+ 			/** @type {ReturnType<typeof parser.append<import('#compiler').IfBlock>>} */
+ 			const child = parser.append({
+-				start: start - 1,
++				start: elseif_start,
+ 				end: -1,
+ 				type: 'IfBlock',
+ 				elseif: true,
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index b2097e60ce24..882b0a0e4654 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -1090,6 +1090,20 @@ function validate_no_const_assignment(node, argument, scope, is_binding) {
+ 	}
+ }
+ 
++/**
++ * Validates that the opening of a control flow block is `{` immediately followed by the expected character.
++ * In legacy mode whitespace is allowed inbetween. TODO remove once legacy mode is gone and move this into parser instead.
++ * @param {{start: number; end: number}} node
++ * @param {import('./types.js').AnalysisState} state
++ * @param {string} expected
++ */
++function validate_opening_tag(node, state, expected) {
++	if (state.analysis.source[node.start + 1] !== expected) {
++		// avoid a sea of red and only mark the first few characters
++		e.block_unexpected_character({ start: node.start, end: node.start + 5 }, expected);
++	}
++}
++
+ /**
+  * @param {import('estree').AssignmentExpression | import('estree').UpdateExpression} node
+  * @param {import('estree').Pattern | import('estree').Expression} argument
+@@ -1217,6 +1231,8 @@ export const validation_runes = merge(validation, a11y_validators, {
+ 		validate_call_expression(node, state.scope, path);
+ 	},
+ 	EachBlock(node, { next, state }) {
++		validate_opening_tag(node, state, '#');
++
+ 		const context = node.context;
+ 		if (
+ 			context.type === 'Identifier' &&
+@@ -1226,6 +1242,51 @@ export const validation_runes = merge(validation, a11y_validators, {
+ 		}
+ 		next({ ...state });
+ 	},
++	IfBlock(node, { state, path }) {
++		const parent = path.at(-1);
++		const expected =
++			path.at(-2)?.type === 'IfBlock' && parent?.type === 'Fragment' && parent.nodes.length === 1
++				? ':'
++				: '#';
++		validate_opening_tag(node, state, expected);
++	},
++	AwaitBlock(node, { state }) {
++		validate_opening_tag(node, state, '#');
++
++		if (node.value) {
++			const start = /** @type {number} */ (node.value.start);
++			const match = state.analysis.source.substring(start - 10, start).match(/{(\s*):then\s+$/);
++			if (match && match[1] !== '') {
++				e.block_unexpected_character({ start: start - 10, end: start }, ':');
++			}
++		}
++
++		if (node.error) {
++			const start = /** @type {number} */ (node.error.start);
++			const match = state.analysis.source.substring(start - 10, start).match(/{(\s*):catch\s+$/);
++			if (match && match[1] !== '') {
++				e.block_unexpected_character({ start: start - 10, end: start }, ':');
++			}
++		}
++	},
++	KeyBlock(node, { state }) {
++		validate_opening_tag(node, state, '#');
++	},
++	SnippetBlock(node, { state }) {
++		validate_opening_tag(node, state, '#');
++	},
++	ConstTag(node, { state }) {
++		validate_opening_tag(node, state, '@');
++	},
++	HtmlTag(node, { state }) {
++		validate_opening_tag(node, state, '@');
++	},
++	DebugTag(node, { state }) {
++		validate_opening_tag(node, state, '@');
++	},
++	RenderTag(node, { state }) {
++		validate_opening_tag(node, state, '@');
++	},
+ 	VariableDeclarator(node, { state }) {
+ 		ensure_no_module_import_conflict(node, state);
+ 

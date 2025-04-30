@@ -1,0 +1,241 @@
+diff --git a/command/issue.go b/command/issue.go
+index 5e1dacd861b..5de86da9147 100644
+--- a/command/issue.go
++++ b/command/issue.go
+@@ -517,7 +517,9 @@ func issueCreate(cmd *cobra.Command, args []string) error {
+ 		} else if len(nonLegacyTemplateFiles) > 1 {
+ 			openURL += "/choose"
+ 		}
+-		cmd.Printf("Opening %s in your browser.\n", displayURL(openURL))
++		if connectedToTerminal(cmd) {
++			cmd.Printf("Opening %s in your browser.\n", displayURL(openURL))
++		}
+ 		return utils.OpenInBrowser(openURL)
+ 	}
+ 
+diff --git a/command/pr.go b/command/pr.go
+index 91ceb11862b..9978d18be0c 100644
+--- a/command/pr.go
++++ b/command/pr.go
+@@ -293,8 +293,9 @@ func prList(cmd *cobra.Command, args []string) error {
+ 	})
+ 
+ 	title := listHeader(ghrepo.FullName(baseRepo), "pull request", len(listResult.PullRequests), listResult.TotalCount, hasFilters)
+-	// TODO: avoid printing header if piped to a script
+-	fmt.Fprintf(colorableErr(cmd), "\n%s\n\n", title)
++	if connectedToTerminal(cmd) {
++		fmt.Fprintf(colorableErr(cmd), "\n%s\n\n", title)
++	}
+ 
+ 	table := utils.NewTablePrinter(cmd.OutOrStdout())
+ 	for _, pr := range listResult.PullRequests {
+@@ -305,6 +306,9 @@ func prList(cmd *cobra.Command, args []string) error {
+ 		table.AddField(prNum, nil, colorFuncForPR(pr))
+ 		table.AddField(replaceExcessiveWhitespace(pr.Title), nil, nil)
+ 		table.AddField(pr.HeadLabel(), nil, utils.Cyan)
++		if !table.IsTTY() {
++			table.AddField(prStateWithDraft(&pr), nil, nil)
++		}
+ 		table.EndRow()
+ 	}
+ 	err = table.Render()
+@@ -364,11 +368,18 @@ func prView(cmd *cobra.Command, args []string) error {
+ 	openURL := pr.URL
+ 
+ 	if web {
+-		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", openURL)
++		if connectedToTerminal(cmd) {
++			fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", openURL)
++		}
+ 		return utils.OpenInBrowser(openURL)
+ 	}
+-	out := colorableOut(cmd)
+-	return printPrPreview(out, pr)
++
++	if connectedToTerminal(cmd) {
++		out := colorableOut(cmd)
++		return printHumanPrPreview(out, pr)
++	}
++
++	return printRawPrPreview(cmd.OutOrStdout(), pr)
+ }
+ 
+ func prClose(cmd *cobra.Command, args []string) error {
+@@ -482,6 +493,9 @@ func prMerge(cmd *cobra.Command, args []string) error {
+ 	}
+ 
+ 	if enabledFlagCount == 0 {
++		if !connectedToTerminal(cmd) {
++			return errors.New("--merge, --rebase, or --squash required when not attached to a tty")
++		}
+ 		isInteractive = true
+ 	} else if enabledFlagCount > 1 {
+ 		return errors.New("expected exactly one of --merge, --rebase, or --squash to be true")
+@@ -513,7 +527,9 @@ func prMerge(cmd *cobra.Command, args []string) error {
+ 		return fmt.Errorf("API call failed: %w", err)
+ 	}
+ 
+-	fmt.Fprintf(colorableOut(cmd), "%s %s pull request #%d (%s)\n", utils.Magenta("✔"), action, pr.Number, pr.Title)
++	if connectedToTerminal(cmd) {
++		fmt.Fprintf(colorableErr(cmd), "%s %s pull request #%d (%s)\n", utils.Magenta("✔"), action, pr.Number, pr.Title)
++	}
+ 
+ 	if deleteBranch {
+ 		branchSwitchString := ""
+@@ -560,7 +576,9 @@ func prMerge(cmd *cobra.Command, args []string) error {
+ 			}
+ 		}
+ 
+-		fmt.Fprintf(colorableOut(cmd), "%s Deleted branch %s%s\n", utils.Red("✔"), utils.Cyan(pr.HeadRefName), branchSwitchString)
++		if connectedToTerminal(cmd) {
++			fmt.Fprintf(colorableErr(cmd), "%s Deleted branch %s%s\n", utils.Red("✔"), utils.Cyan(pr.HeadRefName), branchSwitchString)
++		}
+ 	}
+ 
+ 	return nil
+@@ -620,7 +638,36 @@ func prInteractiveMerge(deleteLocalBranch bool, crossRepoPR bool) (api.PullReque
+ 	return mergeMethod, deleteBranch, nil
+ }
+ 
+-func printPrPreview(out io.Writer, pr *api.PullRequest) error {
++func prStateWithDraft(pr *api.PullRequest) string {
++	if pr.IsDraft && pr.State == "OPEN" {
++		return "DRAFT"
++	}
++
++	return pr.State
++}
++
++func printRawPrPreview(out io.Writer, pr *api.PullRequest) error {
++	reviewers := prReviewerList(*pr)
++	assignees := prAssigneeList(*pr)
++	labels := prLabelList(*pr)
++	projects := prProjectList(*pr)
++
++	fmt.Fprintf(out, "title:\t%s\n", pr.Title)
++	fmt.Fprintf(out, "state:\t%s\n", prStateWithDraft(pr))
++	fmt.Fprintf(out, "author:\t%s\n", pr.Author.Login)
++	fmt.Fprintf(out, "labels:\t%s\n", labels)
++	fmt.Fprintf(out, "assignees:\t%s\n", assignees)
++	fmt.Fprintf(out, "reviewers:\t%s\n", reviewers)
++	fmt.Fprintf(out, "projects:\t%s\n", projects)
++	fmt.Fprintf(out, "milestone:\t%s\n", pr.Milestone.Title)
++
++	fmt.Fprintln(out, "--")
++	fmt.Fprintln(out, pr.Body)
++
++	return nil
++}
++
++func printHumanPrPreview(out io.Writer, pr *api.PullRequest) error {
+ 	// Header (Title and State)
+ 	fmt.Fprintln(out, utils.Bold(pr.Title))
+ 	fmt.Fprintf(out, "%s", prStateTitleWithColor(*pr))
+diff --git a/command/pr_create.go b/command/pr_create.go
+index 15406a27c2e..b66a7ff5d98 100644
+--- a/command/pr_create.go
++++ b/command/pr_create.go
+@@ -205,12 +205,14 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 			message = "\nCreating draft pull request for %s into %s in %s\n\n"
+ 		}
+ 
+-		fmt.Fprintf(colorableErr(cmd), message,
+-			utils.Cyan(headBranch),
+-			utils.Cyan(baseBranch),
+-			ghrepo.FullName(baseRepo))
+-		if (title == "" || body == "") && defaultsErr != nil {
+-			fmt.Fprintf(colorableErr(cmd), "%s warning: could not compute title or body defaults: %s\n", utils.Yellow("!"), defaultsErr)
++		if connectedToTerminal(cmd) {
++			fmt.Fprintf(colorableErr(cmd), message,
++				utils.Cyan(headBranch),
++				utils.Cyan(baseBranch),
++				ghrepo.FullName(baseRepo))
++			if (title == "" || body == "") && defaultsErr != nil {
++				fmt.Fprintf(colorableErr(cmd), "%s warning: could not compute title or body defaults: %s\n", utils.Yellow("!"), defaultsErr)
++			}
+ 		}
+ 	}
+ 
+@@ -223,7 +225,13 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 		Milestones: milestoneTitles,
+ 	}
+ 
+-	interactive := !(cmd.Flags().Changed("title") && cmd.Flags().Changed("body"))
++	if !connectedToTerminal(cmd) {
++		if !isWeb && (!cmd.Flags().Changed("title") && !autofill) {
++			return errors.New("--title or --fill required when not attached to a tty")
++		}
++	}
++
++	interactive := connectedToTerminal(cmd) && !(cmd.Flags().Changed("title") && cmd.Flags().Changed("body"))
+ 
+ 	if !isWeb && !autofill && interactive {
+ 		var nonLegacyTemplateFiles []string
+@@ -357,8 +365,10 @@ func prCreate(cmd *cobra.Command, _ []string) error {
+ 		if err != nil {
+ 			return err
+ 		}
+-		// TODO could exceed max url length for explorer
+-		fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
++		if connectedToTerminal(cmd) {
++			// TODO could exceed max url length for explorer
++			fmt.Fprintf(cmd.ErrOrStderr(), "Opening %s in your browser.\n", displayURL(openURL))
++		}
+ 		return utils.OpenInBrowser(openURL)
+ 	} else {
+ 		panic("Unreachable state")
+diff --git a/command/pr_review.go b/command/pr_review.go
+index 08efc638de1..a9681d61900 100644
+--- a/command/pr_review.go
++++ b/command/pr_review.go
+@@ -72,7 +72,10 @@ func processReviewOpt(cmd *cobra.Command) (*api.PullRequestReviewInput, error) {
+ 	}
+ 
+ 	if found == 0 && body == "" {
+-		return nil, nil // signal interactive mode
++		if connectedToTerminal(cmd) {
++			return nil, nil // signal interactive mode
++		}
++		return nil, errors.New("--approve, --request-changes, or --comment required when not attached to a tty")
+ 	} else if found == 0 && body != "" {
+ 		return nil, errors.New("--body unsupported without --approve, --request-changes, or --comment")
+ 	} else if found > 1 {
+@@ -106,7 +109,7 @@ func prReview(cmd *cobra.Command, args []string) error {
+ 		return fmt.Errorf("did not understand desired review action: %w", err)
+ 	}
+ 
+-	out := colorableOut(cmd)
++	stderr := colorableErr(cmd)
+ 
+ 	if reviewData == nil {
+ 		reviewData, err = reviewSurvey(cmd)
+@@ -114,7 +117,7 @@ func prReview(cmd *cobra.Command, args []string) error {
+ 			return err
+ 		}
+ 		if reviewData == nil && err == nil {
+-			fmt.Fprint(out, "Discarding.\n")
++			fmt.Fprint(stderr, "Discarding.\n")
+ 			return nil
+ 		}
+ 	}
+@@ -124,13 +127,17 @@ func prReview(cmd *cobra.Command, args []string) error {
+ 		return fmt.Errorf("failed to create review: %w", err)
+ 	}
+ 
++	if !connectedToTerminal(cmd) {
++		return nil
++	}
++
+ 	switch reviewData.State {
+ 	case api.ReviewComment:
+-		fmt.Fprintf(out, "%s Reviewed pull request #%d\n", utils.Gray("-"), pr.Number)
++		fmt.Fprintf(stderr, "%s Reviewed pull request #%d\n", utils.Gray("-"), pr.Number)
+ 	case api.ReviewApprove:
+-		fmt.Fprintf(out, "%s Approved pull request #%d\n", utils.Green("✓"), pr.Number)
++		fmt.Fprintf(stderr, "%s Approved pull request #%d\n", utils.Green("✓"), pr.Number)
+ 	case api.ReviewRequestChanges:
+-		fmt.Fprintf(out, "%s Requested changes to pull request #%d\n", utils.Red("+"), pr.Number)
++		fmt.Fprintf(stderr, "%s Requested changes to pull request #%d\n", utils.Red("+"), pr.Number)
+ 	}
+ 
+ 	return nil

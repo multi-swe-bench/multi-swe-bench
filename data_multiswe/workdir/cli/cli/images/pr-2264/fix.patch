@@ -1,0 +1,74 @@
+diff --git a/pkg/cmd/pr/view/view.go b/pkg/cmd/pr/view/view.go
+index 4476a84c0de..860e6bc6554 100644
+--- a/pkg/cmd/pr/view/view.go
++++ b/pkg/cmd/pr/view/view.go
+@@ -31,6 +31,7 @@ type ViewOptions struct {
+ 
+ 	SelectorArg string
+ 	BrowserMode bool
++	UrlOnly     bool
+ }
+ 
+ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Command {
+@@ -74,6 +75,7 @@ func NewCmdView(f *cmdutil.Factory, runF func(*ViewOptions) error) *cobra.Comman
+ 	}
+ 
+ 	cmd.Flags().BoolVarP(&opts.BrowserMode, "web", "w", false, "Open a pull request in the browser")
++	cmd.Flags().BoolVarP(&opts.UrlOnly, "url-only", "u", false, "Display only the URL")
+ 
+ 	return cmd
+ }
+@@ -100,6 +102,15 @@ func viewRun(opts *ViewOptions) error {
+ 		return utils.OpenInBrowser(openURL)
+ 	}
+ 
++	if opts.UrlOnly {
++		url := pr.URL
++		if connectedToTerminal {
++			url = fmt.Sprintf("\n%s\n", url)
++		}
++		fmt.Fprint(opts.IO.Out, utils.Underline(url))
++		return nil
++	}
++
+ 	opts.IO.DetectTerminalTheme()
+ 
+ 	err = opts.IO.StartPager()
+@@ -187,7 +198,8 @@ func printHumanPrPreview(io *iostreams.IOStreams, pr *api.PullRequest) error {
+ 	fmt.Fprintln(out)
+ 
+ 	// Footer
+-	fmt.Fprintf(out, utils.Gray("View this pull request on GitHub: %s\n"), pr.URL)
++	fmt.Fprint(out, utils.Gray("View this pull request on GitHub: "))
++	fmt.Fprint(out, utils.Underline(fmt.Sprintf("%s\n", pr.URL)))
+ 	return nil
+ }
+ 
+diff --git a/utils/color.go b/utils/color.go
+index 3e875acc45f..b3046729d02 100644
+--- a/utils/color.go
++++ b/utils/color.go
+@@ -12,14 +12,15 @@ import (
+ 
+ var (
+ 	// Outputs ANSI color if stdout is a tty
+-	Magenta = makeColorFunc("magenta")
+-	Cyan    = makeColorFunc("cyan")
+-	Red     = makeColorFunc("red")
+-	Yellow  = makeColorFunc("yellow")
+-	Blue    = makeColorFunc("blue")
+-	Green   = makeColorFunc("green")
+-	Gray    = makeColorFunc("black+h")
+-	Bold    = makeColorFunc("default+b")
++	Magenta   = makeColorFunc("magenta")
++	Cyan      = makeColorFunc("cyan")
++	Red       = makeColorFunc("red")
++	Yellow    = makeColorFunc("yellow")
++	Blue      = makeColorFunc("blue")
++	Green     = makeColorFunc("green")
++	Gray      = makeColorFunc("black+h")
++	Bold      = makeColorFunc("default+b")
++	Underline = makeColorFunc("default+u")
+ )
+ 
+ // NewColorable returns an output stream that handles ANSI color sequences on Windows

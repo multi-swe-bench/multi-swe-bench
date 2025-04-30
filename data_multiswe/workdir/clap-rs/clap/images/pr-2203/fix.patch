@@ -1,0 +1,202 @@
+diff --git a/src/build/app/mod.rs b/src/build/app/mod.rs
+index d92795cccad..17f38bb19f1 100644
+--- a/src/build/app/mod.rs
++++ b/src/build/app/mod.rs
+@@ -163,7 +163,7 @@ impl<'help> App<'help> {
+             .map(|a| a.0)
+     }
+ 
+-    /// Iterate through the *visible* short aliases for this subcommand.
++    /// Iterate through the *visible* long aliases for this subcommand.
+     #[inline]
+     pub fn get_visible_long_flag_aliases(&self) -> impl Iterator<Item = &'help str> + '_ {
+         self.long_flag_aliases
+@@ -2090,7 +2090,7 @@ impl<'help> App<'help> {
+                 let p = Path::new(name);
+ 
+                 if let Some(f) = p.file_name() {
+-                    if let Some(s) = f.to_os_string().to_str() {
++                    if let Some(s) = f.to_str() {
+                         if self.bin_name.is_none() {
+                             self.bin_name = Some(s.to_owned());
+                         }
+diff --git a/src/output/usage.rs b/src/output/usage.rs
+index 30be0c3f2fc..c05f372e0c6 100644
+--- a/src/output/usage.rs
++++ b/src/output/usage.rs
+@@ -146,6 +146,7 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+         if self.p.app.has_visible_subcommands() && incl_reqs
+             || self.p.is_set(AS::AllowExternalSubcommands)
+         {
++            let placeholder = self.p.app.subcommand_placeholder.unwrap_or("SUBCOMMAND");
+             if self.p.is_set(AS::SubcommandsNegateReqs) || self.p.is_set(AS::ArgsNegateSubcommands)
+             {
+                 if !self.p.is_set(AS::ArgsNegateSubcommands) {
+@@ -153,25 +154,25 @@ impl<'help, 'app, 'parser> Usage<'help, 'app, 'parser> {
+                     usage.push_str(&*self.create_help_usage(false));
+ 
+                     usage.push_str(" <");
+-                    usage.push_str(self.p.app.subcommand_placeholder.unwrap_or("SUBCOMMAND"));
++                    usage.push_str(placeholder);
+                     usage.push_str(">");
+                 } else {
+                     usage.push_str("\n    ");
+                     usage.push_str(&*name);
+ 
+                     usage.push_str(" <");
+-                    usage.push_str(self.p.app.subcommand_placeholder.unwrap_or("SUBCOMMAND"));
++                    usage.push_str(placeholder);
+                     usage.push_str(">");
+                 }
+             } else if self.p.is_set(AS::SubcommandRequired)
+                 || self.p.is_set(AS::SubcommandRequiredElseHelp)
+             {
+                 usage.push_str(" <");
+-                usage.push_str(self.p.app.subcommand_placeholder.unwrap_or("SUBCOMMAND"));
++                usage.push_str(placeholder);
+                 usage.push_str(">");
+             } else {
+                 usage.push_str(" [");
+-                usage.push_str(self.p.app.subcommand_placeholder.unwrap_or("SUBCOMMAND"));
++                usage.push_str(placeholder);
+                 usage.push_str("]");
+             }
+         }
+diff --git a/src/parse/parser.rs b/src/parse/parser.rs
+index ac75a77f8f7..63324dcfa25 100644
+--- a/src/parse/parser.rs
++++ b/src/parse/parser.rs
+@@ -490,31 +490,6 @@ impl<'help, 'app> Parser<'help, 'app> {
+                     // get the next value from the iterator
+                     continue;
+                 }
+-
+-                if !(self.is_set(AS::ArgsNegateSubcommands) && self.is_set(AS::ValidArgFound)
+-                    || self.is_set(AS::AllowExternalSubcommands)
+-                    || self.is_set(AS::InferSubcommands))
+-                {
+-                    let cands = suggestions::did_you_mean(
+-                        &*arg_os.to_string_lossy(),
+-                        self.app.all_subcommand_names(),
+-                    );
+-                    if !cands.is_empty() {
+-                        let cands: Vec<_> =
+-                            cands.iter().map(|cand| format!("'{}'", cand)).collect();
+-                        return Err(ClapError::invalid_subcommand(
+-                            arg_os.to_string_lossy().to_string(),
+-                            cands.join(" or "),
+-                            self.app
+-                                .bin_name
+-                                .as_ref()
+-                                .unwrap_or(&self.app.name)
+-                                .to_string(),
+-                            Usage::new(self).create_usage_with_title(&[]),
+-                            self.app.color(),
+-                        ));
+-                    }
+-                }
+             }
+ 
+             let positional_count = self
+@@ -672,54 +647,55 @@ impl<'help, 'app> Parser<'help, 'app> {
+                 external_subcommand = true;
+ 
+                 break;
+-            } else if !self.has_args()
+-                || self.is_set(AS::InferSubcommands) && self.has_subcommands()
+-            {
+-                let cands = suggestions::did_you_mean(
+-                    &*arg_os.to_string_lossy(),
+-                    self.app.all_subcommand_names(),
+-                );
+-                if !cands.is_empty() {
+-                    let cands: Vec<_> = cands.iter().map(|cand| format!("'{}'", cand)).collect();
+-                    return Err(ClapError::invalid_subcommand(
+-                        arg_os.to_string_lossy().to_string(),
+-                        cands.join(" or "),
+-                        self.app
+-                            .bin_name
+-                            .as_ref()
+-                            .unwrap_or(&self.app.name)
+-                            .to_string(),
+-                        Usage::new(self).create_usage_with_title(&[]),
+-                        self.app.color(),
+-                    ));
+-                } else {
+-                    return Err(ClapError::unrecognized_subcommand(
+-                        arg_os.to_string_lossy().to_string(),
+-                        self.app
+-                            .bin_name
+-                            .as_ref()
+-                            .unwrap_or(&self.app.name)
+-                            .to_string(),
+-                        self.app.color(),
+-                    ));
+-                }
+-            } else if self.is_set(AS::TrailingValues) {
+-                // If argument followed by a `--`
+-                if self.possible_subcommand(&arg_os).is_some() {
+-                    return Err(ClapError::unnecessary_double_dash(
+-                        arg_os.to_string_lossy().to_string(),
+-                        Usage::new(self).create_usage_with_title(&[]),
+-                        self.app.color(),
+-                    ));
++            } else {
++                // Start error processing
++
++                // If argument follows a `--`
++                if self.is_set(AS::TrailingValues) {
++                    // If the arg matches a subcommand name, or any of its aliases (if defined)
++                    if self.possible_subcommand(&arg_os).is_some() {
++                        return Err(ClapError::unnecessary_double_dash(
++                            arg_os.to_string_lossy().to_string(),
++                            Usage::new(self).create_usage_with_title(&[]),
++                            self.app.color(),
++                        ));
++                    }
+                 } else {
+-                    return Err(ClapError::unknown_argument(
+-                        arg_os.to_string_lossy().to_string(),
+-                        None,
+-                        Usage::new(self).create_usage_with_title(&[]),
+-                        self.app.color(),
+-                    ));
++                    let cands = suggestions::did_you_mean(
++                        &arg_os.to_string_lossy(),
++                        self.app.all_subcommand_names(),
++                    );
++                    // If the argument looks like a subcommand.
++                    if !cands.is_empty() {
++                        let cands: Vec<_> =
++                            cands.iter().map(|cand| format!("'{}'", cand)).collect();
++                        return Err(ClapError::invalid_subcommand(
++                            arg_os.to_string_lossy().to_string(),
++                            cands.join(" or "),
++                            self.app
++                                .bin_name
++                                .as_ref()
++                                .unwrap_or(&self.app.name)
++                                .to_string(),
++                            Usage::new(self).create_usage_with_title(&[]),
++                            self.app.color(),
++                        ));
++                    }
++                    // If the argument must be a subcommand.
++                    if !self.has_args()
++                        || self.is_set(AS::InferSubcommands) && self.has_subcommands()
++                    {
++                        return Err(ClapError::unrecognized_subcommand(
++                            arg_os.to_string_lossy().to_string(),
++                            self.app
++                                .bin_name
++                                .as_ref()
++                                .unwrap_or(&self.app.name)
++                                .to_string(),
++                            self.app.color(),
++                        ));
++                    }
+                 }
+-            } else {
+                 return Err(ClapError::unknown_argument(
+                     arg_os.to_string_lossy().to_string(),
+                     None,

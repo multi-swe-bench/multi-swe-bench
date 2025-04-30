@@ -1,0 +1,127 @@
+diff --git a/ci/test-complete b/ci/test-complete
+index 3143cc490..3793affcc 100755
+--- a/ci/test-complete
++++ b/ci/test-complete
+@@ -19,7 +19,7 @@ get_comp_args() {
+ main() {
+     local diff
+     local  rg="${0:a:h}/../${TARGET_DIR:-target}/release/rg"
+-    local _rg="${0:a:h}/../complete/_rg"
++    local _rg="${0:a:h}/../crates/core/flags/complete/rg.zsh"
+     local -a help_args comp_args
+ 
+     [[ -e $rg ]] || rg=${rg/%\/release\/rg/\/debug\/rg}
+diff --git a/tests/feature.rs b/tests/feature.rs
+index 8021043ea..5321d1100 100644
+--- a/tests/feature.rs
++++ b/tests/feature.rs
+@@ -411,7 +411,8 @@ rgtest!(
+     |dir: Dir, mut cmd: TestCommand| {
+         dir.create("sherlock", SHERLOCK);
+ 
+-        let lines = cmd.arg("--stats").arg("Sherlock").stdout();
++        let lines = cmd.arg("-j1").arg("--stats").arg("Sherlock").stdout();
++        assert!(lines.contains("Sherlock"));
+         assert!(lines.contains("2 matched lines"));
+         assert!(lines.contains("1 files contained matches"));
+         assert!(lines.contains("1 files searched"));
+@@ -423,7 +424,40 @@ rgtest!(f411_parallel_search_stats, |dir: Dir, mut cmd: TestCommand| {
+     dir.create("sherlock_1", SHERLOCK);
+     dir.create("sherlock_2", SHERLOCK);
+ 
+-    let lines = cmd.arg("--stats").arg("Sherlock").stdout();
++    let lines = cmd.arg("-j2").arg("--stats").arg("Sherlock").stdout();
++    dbg!(&lines);
++    assert!(lines.contains("4 matched lines"));
++    assert!(lines.contains("2 files contained matches"));
++    assert!(lines.contains("2 files searched"));
++    assert!(lines.contains("seconds"));
++});
++
++rgtest!(
++    f411_single_threaded_quiet_search_stats,
++    |dir: Dir, mut cmd: TestCommand| {
++        dir.create("sherlock", SHERLOCK);
++
++        let lines = cmd
++            .arg("--quiet")
++            .arg("-j1")
++            .arg("--stats")
++            .arg("Sherlock")
++            .stdout();
++        assert!(!lines.contains("Sherlock"));
++        assert!(lines.contains("2 matched lines"));
++        assert!(lines.contains("1 files contained matches"));
++        assert!(lines.contains("1 files searched"));
++        assert!(lines.contains("seconds"));
++    }
++);
++
++rgtest!(f411_parallel_quiet_search_stats, |dir: Dir, mut cmd: TestCommand| {
++    dir.create("sherlock_1", SHERLOCK);
++    dir.create("sherlock_2", SHERLOCK);
++
++    let lines =
++        cmd.arg("-j2").arg("--quiet").arg("--stats").arg("Sherlock").stdout();
++    assert!(!lines.contains("Sherlock"));
+     assert!(lines.contains("4 matched lines"));
+     assert!(lines.contains("2 files contained matches"));
+     assert!(lines.contains("2 files searched"));
+diff --git a/tests/json.rs b/tests/json.rs
+index ff0b5aae6..86d8518a4 100644
+--- a/tests/json.rs
++++ b/tests/json.rs
+@@ -189,6 +189,19 @@ rgtest!(basic, |dir: Dir, mut cmd: TestCommand| {
+     assert_eq!(msgs[4].unwrap_summary().stats.bytes_printed, 494);
+ });
+ 
++rgtest!(quiet_stats, |dir: Dir, mut cmd: TestCommand| {
++    dir.create("sherlock", SHERLOCK);
++    cmd.arg("--json")
++        .arg("--quiet")
++        .arg("--stats")
++        .arg("Sherlock Holmes")
++        .arg("sherlock");
++
++    let msgs = json_decode(&cmd.stdout());
++    assert_eq!(msgs[0].unwrap_summary().stats.searches_with_match, 1);
++    assert_eq!(msgs[0].unwrap_summary().stats.bytes_searched, 367);
++});
++
+ #[cfg(unix)]
+ rgtest!(notutf8, |dir: Dir, mut cmd: TestCommand| {
+     use std::ffi::OsStr;
+diff --git a/tests/regression.rs b/tests/regression.rs
+index 994006a74..04138fdf7 100644
+--- a/tests/regression.rs
++++ b/tests/regression.rs
+@@ -402,6 +402,7 @@ rgtest!(r428_unrecognized_style, |dir: Dir, mut cmd: TestCommand| {
+     let output = cmd.cmd().output().unwrap();
+     let stderr = String::from_utf8_lossy(&output.stderr);
+     let expected = "\
++error parsing flag --colors: \
+ unrecognized style attribute ''. Choose from: nobold, bold, nointense, \
+ intense, nounderline, underline.
+ ";
+diff --git a/tests/util.rs b/tests/util.rs
+index 4f958eb80..b7fc9f789 100644
+--- a/tests/util.rs
++++ b/tests/util.rs
+@@ -78,7 +78,7 @@ impl Dir {
+             nice_err(&dir, fs::remove_dir_all(&dir));
+         }
+         nice_err(&dir, repeat(|| fs::create_dir_all(&dir)));
+-        Dir { root: root, dir: dir, pcre2: false }
++        Dir { root, dir, pcre2: false }
+     }
+ 
+     /// Use PCRE2 for this test.
+@@ -167,7 +167,7 @@ impl Dir {
+         if self.is_pcre2() {
+             cmd.arg("--pcre2");
+         }
+-        TestCommand { dir: self.clone(), cmd: cmd }
++        TestCommand { dir: self.clone(), cmd }
+     }
+ 
+     /// Returns the path to the ripgrep executable.

@@ -1,0 +1,186 @@
+diff --git a/clap.schema.json b/clap.schema.json
+index 6e442a4c120..0bb28fdd860 100644
+--- a/clap.schema.json
++++ b/clap.schema.json
+@@ -146,6 +146,9 @@
+         "long_about": {
+           "type": "string"
+         },
++        "max_occurrences" : {
++            "type": "integer"
++        },
+         "max_values": {
+           "type": "integer"
+         },
+diff --git a/src/build/arg/mod.rs b/src/build/arg/mod.rs
+index 1ff82c19fc8..1207054eecf 100644
+--- a/src/build/arg/mod.rs
++++ b/src/build/arg/mod.rs
+@@ -103,6 +103,7 @@ pub struct Arg<'help> {
+     pub(crate) possible_vals: Vec<&'help str>,
+     pub(crate) val_names: VecMap<&'help str>,
+     pub(crate) num_vals: Option<usize>,
++    pub(crate) max_occurs: Option<usize>,
+     pub(crate) max_vals: Option<usize>,
+     pub(crate) min_vals: Option<usize>,
+     pub(crate) validator: Option<Arc<Mutex<Validator<'help>>>>,
+@@ -2223,6 +2224,63 @@ impl<'help> Arg<'help> {
+         })
+     }
+ 
++    /// Specifies the *maximum* number of occurrences for this argument. For example, if you had a
++    /// `-v` flag and you wanted up to 3 levels of verbosity you would set `.max_occurrences(3)`, and
++    /// this argument would be satisfied if the user provided it once or twice or thrice.
++    ///
++    /// **NOTE:** This implicitly sets [`Arg::multiple_occurrences(true)`] if the value is greater than 1.
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg};
++    /// Arg::new("verbosity")
++    ///     .short('v')
++    ///     .max_occurrences(3);
++    /// ```
++    ///
++    /// Supplying less than the maximum number of arguments is allowed
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg};
++    /// let res = App::new("prog")
++    ///     .arg(Arg::new("verbosity")
++    ///         .max_occurrences(3)
++    ///         .short('v'))
++    ///     .try_get_matches_from(vec![
++    ///         "prog", "-vvv"
++    ///     ]);
++    ///
++    /// assert!(res.is_ok());
++    /// let m = res.unwrap();
++    /// assert_eq!(m.occurrences_of("verbosity"), 3);
++    /// ```
++    ///
++    /// Supplying more than the maximum number of arguments is an error
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg, ErrorKind};
++    /// let res = App::new("prog")
++    ///     .arg(Arg::new("verbosity")
++    ///         .max_occurrences(2)
++    ///         .short('v'))
++    ///     .try_get_matches_from(vec![
++    ///         "prog", "-vvv"
++    ///     ]);
++    ///
++    /// assert!(res.is_err());
++    /// assert_eq!(res.unwrap_err().kind, ErrorKind::TooManyOccurrences);
++    /// ```
++    /// [`Arg::multiple_occurrences(true)`]: Arg::multiple_occurrences()
++    #[inline]
++    pub fn max_occurrences(mut self, qty: usize) -> Self {
++        self.max_occurs = Some(qty);
++        if qty > 1 {
++            self.multiple_occurrences(true)
++        } else {
++            self
++        }
++    }
++
+     /// Specifies the *maximum* number of values are for this argument. For example, if you had a
+     /// `-f <file>` argument where you wanted up to 3 'files' you would set `.max_values(3)`, and
+     /// this argument would be satisfied if the user provided, 1, 2, or 3 values.
+diff --git a/src/parse/errors.rs b/src/parse/errors.rs
+index 80b22302eae..66462cd7152 100644
+--- a/src/parse/errors.rs
++++ b/src/parse/errors.rs
+@@ -199,6 +199,24 @@ pub enum ErrorKind {
+     /// [`Arg::min_values`]: Arg::min_values()
+     TooFewValues,
+ 
++    /// Occurs when a user provides more occurrences for an argument than were defined by setting
++    /// [`Arg::max_occurrences`].
++    ///
++    /// # Examples
++    ///
++    /// ```rust
++    /// # use clap::{App, Arg, ErrorKind};
++    /// let result = App::new("prog")
++    ///     .arg(Arg::new("verbosity")
++    ///         .short('v')
++    ///         .max_occurrences(2))
++    ///     .try_get_matches_from(vec!["prog", "-vvv"]);
++    /// assert!(result.is_err());
++    /// assert_eq!(result.unwrap_err().kind, ErrorKind::TooManyOccurrences);
++    /// ```
++    /// [`Arg::max_occurrences`]: Arg::max_occurrences()
++    TooManyOccurrences,
++
+     /// Occurs when the user provides a different number of values for an argument than what's
+     /// been defined by setting [`Arg::number_of_values`] or than was implicitly set by
+     /// [`Arg::value_names`].
+@@ -740,6 +758,38 @@ impl Error {
+         }
+     }
+ 
++    pub(crate) fn too_many_occurrences(
++        arg: &Arg,
++        max_occurs: usize,
++        curr_occurs: usize,
++        usage: String,
++        color: ColorChoice,
++    ) -> Self {
++        let mut c = Colorizer::new(true, color);
++        let verb = Error::singular_or_plural(curr_occurs);
++
++        start_error(&mut c, "The argument '");
++        c.warning(arg.to_string());
++        c.none("' allows at most ");
++        c.warning(max_occurs.to_string());
++        c.none(" occurrences, but ");
++        c.warning(curr_occurs.to_string());
++        c.none(format!(" {} provided", verb));
++        put_usage(&mut c, usage);
++        try_help(&mut c);
++
++        Error {
++            message: c,
++            kind: ErrorKind::TooManyOccurrences,
++            info: vec![
++                arg.to_string(),
++                curr_occurs.to_string(),
++                max_occurs.to_string(),
++            ],
++            source: None,
++        }
++    }
++
+     pub(crate) fn too_many_values(
+         val: String,
+         arg: &Arg,
+diff --git a/src/parse/validator.rs b/src/parse/validator.rs
+index 8a584d94446..0d3cb324104 100644
+--- a/src/parse/validator.rs
++++ b/src/parse/validator.rs
+@@ -450,6 +450,23 @@ impl<'help, 'app, 'parser> Validator<'help, 'app, 'parser> {
+                 self.p.app.color(),
+             ));
+         }
++        if let Some(max_occurs) = a.max_occurs {
++            debug!(
++                "Validator::validate_arg_num_occurs: max_occurs set...{}",
++                max_occurs
++            );
++            let occurs = ma.occurs as usize;
++            if occurs > max_occurs {
++                return Err(Error::too_many_occurrences(
++                    a,
++                    max_occurs,
++                    occurs,
++                    Usage::new(self.p).create_usage_with_title(&[]),
++                    self.p.app.color(),
++                ));
++            }
++        }
++
+         Ok(())
+     }
+ 

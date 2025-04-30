@@ -1,0 +1,584 @@
+diff --git a/acceptance/testdata/workflow/run-download-traversal.txtar b/acceptance/testdata/workflow/run-download-traversal.txtar
+new file mode 100644
+index 00000000000..a8a64475216
+--- /dev/null
++++ b/acceptance/testdata/workflow/run-download-traversal.txtar
+@@ -0,0 +1,71 @@
++# Set up env
++env REPO=${SCRIPT_NAME}-${RANDOM_STRING}
++
++# Use gh as a credential helper
++exec gh auth setup-git
++
++# Create a repository with a file so it has a default branch
++exec gh repo create ${ORG}/${REPO} --add-readme --private
++
++# Defer repo cleanup
++defer gh repo delete --yes ${ORG}/${REPO}
++
++# Clone the repo
++exec gh repo clone ${ORG}/${REPO}
++
++# commit the workflow file
++cd ${REPO}
++mkdir .github/workflows
++mv ../workflow.yml .github/workflows/workflow.yml
++exec git add .github/workflows/workflow.yml
++exec git commit -m 'Create workflow file'
++exec git push -u origin main
++
++# Sleep because it takes a second for the workflow to register
++sleep 1
++
++# Check the workflow is indeed created
++exec gh workflow list
++stdout 'Test Workflow Name'
++
++# Run the workflow
++exec gh workflow run 'Test Workflow Name'
++
++# It takes some time for a workflow run to register
++sleep 10
++
++# Get the run ID we want to watch
++exec gh run list --json databaseId --jq '.[0].databaseId'
++stdout2env RUN_ID
++
++# Wait for workflow to complete
++exec gh run watch ${RUN_ID} --exit-status
++
++# Download the artifact and see there is an error
++! exec gh run download ${RUN_ID}
++stderr 'would result in path traversal'
++
++-- workflow.yml --
++# This is a basic workflow to help you get started with Actions
++
++name: Test Workflow Name
++
++# Controls when the workflow will run
++on:
++  # Allows you to run this workflow manually from the Actions tab
++  workflow_dispatch:
++
++# A workflow run is made up of one or more jobs that can run sequentially or in parallel
++jobs:
++  # This workflow contains a single job called "build"
++  build:
++    # The type of runner that the job will run on
++    runs-on: ubuntu-latest
++
++    # Steps represent a sequence of tasks that will be executed as part of the job
++    steps:
++      - run: echo hello > world.txt
++      - uses: actions/upload-artifact@v4
++        with:
++          name: ..
++          path: world.txt
+diff --git a/acceptance/testdata/workflow/run-download.txtar b/acceptance/testdata/workflow/run-download.txtar
+index 653fdbef5fc..8089cf2cd2e 100644
+--- a/acceptance/testdata/workflow/run-download.txtar
++++ b/acceptance/testdata/workflow/run-download.txtar
+@@ -1,17 +1,20 @@
++# Set up env
++env REPO=${SCRIPT_NAME}-${RANDOM_STRING}
++
+ # Use gh as a credential helper
+ exec gh auth setup-git
+ 
+ # Create a repository with a file so it has a default branch
+-exec gh repo create $ORG/$SCRIPT_NAME-$RANDOM_STRING --add-readme --private
++exec gh repo create ${ORG}/${REPO} --add-readme --private
+ 
+ # Defer repo cleanup
+-defer gh repo delete --yes $ORG/$SCRIPT_NAME-$RANDOM_STRING
++defer gh repo delete --yes ${ORG}/${REPO}
+ 
+ # Clone the repo
+-exec gh repo clone $ORG/$SCRIPT_NAME-$RANDOM_STRING
++exec gh repo clone ${ORG}/${REPO}
+ 
+ # commit the workflow file
+-cd $SCRIPT_NAME-$RANDOM_STRING
++cd ${REPO}
+ mkdir .github/workflows
+ mv ../workflow.yml .github/workflows/workflow.yml
+ exec git add .github/workflows/workflow.yml
+@@ -36,13 +39,28 @@ exec gh run list --json databaseId --jq '.[0].databaseId'
+ stdout2env RUN_ID
+ 
+ # Wait for workflow to complete
+-exec gh run watch $RUN_ID --exit-status
++exec gh run watch ${RUN_ID} --exit-status
++
++# Download the artifact to current dir
++exec gh run download ${RUN_ID}
++
++# Check that we downloaded the artifact and extracted into a dir with the name of the artifact
++exists ./my-artifact/child/world.txt
++
++# Remove the artifact
++rm ./my-artifact
++
++# Download the artifact via name to current dir
++exec gh run download -n 'my-artifact' ${RUN_ID}
++
++# Check that we downloaded the artifact and extracted into the current dir
++exists ./child/world.txt
+ 
+-# Download the artifact
+-exec gh run download $RUN_ID
++# Download the artifact via name to a specific dir
++exec gh run download -n 'my-artifact' ${RUN_ID} --dir '..'
+ 
+-# Check if we downloaded the artifact
+-exists ./my-artifact/world.txt
++# Check that we downloaded the artifact and extracted into the specified dir
++exists ../child/world.txt
+ 
+ -- workflow.yml --
+ # This is a basic workflow to help you get started with Actions
+@@ -63,8 +81,10 @@ jobs:
+ 
+     # Steps represent a sequence of tasks that will be executed as part of the job
+     steps:
+-      - run: echo hello > world.txt
++      - run: |
++         mkdir -p ./parent/child
++         echo hello > ./parent/child/world.txt
+       - uses: actions/upload-artifact@v4
+         with:
+           name: my-artifact
+-          path: world.txt
++          path: ./parent
+diff --git a/internal/safepaths/absolute_test.go b/internal/safepaths/absolute_test.go
+new file mode 100644
+index 00000000000..7bda40d8928
+--- /dev/null
++++ b/internal/safepaths/absolute_test.go
+@@ -0,0 +1,137 @@
++package safepaths_test
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"testing"
++
++	"github.com/cli/cli/v2/internal/safepaths"
++	"github.com/stretchr/testify/require"
++)
++
++func TestParseAbsolutePath(t *testing.T) {
++	t.Parallel()
++
++	absolutePath, err := safepaths.ParseAbsolute("/base")
++	require.NoError(t, err)
++
++	require.Equal(t, filepath.Join(rootDir(), "base"), absolutePath.String())
++}
++
++func TestAbsoluteEmptyPathStringPanic(t *testing.T) {
++	t.Parallel()
++
++	absolutePath := safepaths.Absolute{}
++	require.Panics(t, func() {
++		_ = absolutePath.String()
++	})
++}
++
++func TestJoin(t *testing.T) {
++	t.Parallel()
++
++	tests := []struct {
++		name                   string
++		base                   safepaths.Absolute
++		elems                  []string
++		want                   safepaths.Absolute
++		wantPathTraversalError bool
++	}{
++		{
++			name:  "child of base",
++			base:  mustParseAbsolute("/base"),
++			elems: []string{"child"},
++			want:  mustParseAbsolute("/base/child"),
++		},
++		{
++			name:  "grandchild of base",
++			base:  mustParseAbsolute("/base"),
++			elems: []string{"child", "grandchild"},
++			want:  mustParseAbsolute("/base/child/grandchild"),
++		},
++		{
++			name:                   "relative parent of base",
++			base:                   mustParseAbsolute("/base"),
++			elems:                  []string{".."},
++			wantPathTraversalError: true,
++		},
++		{
++			name:                   "relative grandparent of base",
++			base:                   mustParseAbsolute("/base"),
++			elems:                  []string{"..", ".."},
++			wantPathTraversalError: true,
++		},
++		{
++			name:  "relative current dir",
++			base:  mustParseAbsolute("/base"),
++			elems: []string{"."},
++			want:  mustParseAbsolute("/base"),
++		},
++		{
++			name:  "subpath via relative parent",
++			base:  mustParseAbsolute("/child"),
++			elems: []string{"..", "child"},
++			want:  mustParseAbsolute("/child"),
++		},
++		{
++			name:  "empty string",
++			base:  mustParseAbsolute("/base"),
++			elems: []string{""},
++			want:  mustParseAbsolute("/base"),
++		},
++	}
++	for _, tt := range tests {
++		tt := tt
++		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
++			joinedPath, err := tt.base.Join(tt.elems...)
++			if tt.wantPathTraversalError {
++				var pathTraversalError safepaths.PathTraversalError
++				require.ErrorAs(t, err, &pathTraversalError)
++				require.Equal(t, tt.base, pathTraversalError.Base)
++				require.Equal(t, tt.elems, pathTraversalError.Elems)
++				return
++			}
++			require.NoError(t, err)
++			require.Equal(t, tt.want, joinedPath)
++		})
++	}
++}
++
++func TestPathTraversalErrorMessage(t *testing.T) {
++	t.Parallel()
++
++	pathTraversalError := safepaths.PathTraversalError{
++		Base:  mustParseAbsolute("/base"),
++		Elems: []string{".."},
++	}
++	expectedMsg := fmt.Sprintf("joining %s and %s would be a traversal", filepath.Join(rootDir(), "base"), "..")
++	require.EqualError(t, pathTraversalError, expectedMsg)
++}
++
++func mustParseAbsolute(s string) safepaths.Absolute {
++	t, err := safepaths.ParseAbsolute(s)
++	if err != nil {
++		panic(err)
++	}
++	return t
++}
++
++func rootDir() string {
++	// Get the current working directory
++	cwd, err := os.Getwd()
++	if err != nil {
++		panic(err)
++	}
++
++	// For Windows, extract the volume and add back the root
++	if runtime.GOOS == "windows" {
++		volume := filepath.VolumeName(cwd)
++		return volume + "\\"
++	}
++
++	// For Unix-based systems, the root is always "/"
++	return "/"
++}
+diff --git a/pkg/cmd/run/download/download_test.go b/pkg/cmd/run/download/download_test.go
+index 86766123246..e0f5eb781b2 100644
+--- a/pkg/cmd/run/download/download_test.go
++++ b/pkg/cmd/run/download/download_test.go
+@@ -12,6 +12,7 @@ import (
+ 
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/internal/prompter"
++	"github.com/cli/cli/v2/internal/safepaths"
+ 	"github.com/cli/cli/v2/pkg/cmd/run/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+@@ -185,8 +186,8 @@ func (f *fakePlatform) List(runID string) ([]shared.Artifact, error) {
+ 	return artifacts, nil
+ }
+ 
+-func (f *fakePlatform) Download(url string, dir string) error {
+-	if err := os.MkdirAll(dir, 0755); err != nil {
++func (f *fakePlatform) Download(url string, dir safepaths.Absolute) error {
++	if err := os.MkdirAll(dir.String(), 0755); err != nil {
+ 		return err
+ 	}
+ 	// Now to be consistent, we find the artifact with the provided URL.
+@@ -198,7 +199,7 @@ func (f *fakePlatform) Download(url string, dir string) error {
+ 		for _, testArtifact := range run.testArtifacts {
+ 			if testArtifact.artifact.DownloadURL == url {
+ 				for _, file := range testArtifact.files {
+-					path := filepath.Join(dir, file)
++					path := filepath.Join(dir.String(), file)
+ 					return os.WriteFile(path, []byte{}, 0600)
+ 				}
+ 			}
+diff --git a/pkg/cmd/run/download/http_test.go b/pkg/cmd/run/download/http_test.go
+index 2752d88ad78..75b52ae790e 100644
+--- a/pkg/cmd/run/download/http_test.go
++++ b/pkg/cmd/run/download/http_test.go
+@@ -9,6 +9,7 @@ import (
+ 	"testing"
+ 
+ 	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/internal/safepaths"
+ 	"github.com/cli/cli/v2/pkg/httpmock"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+@@ -58,7 +59,8 @@ func Test_List_perRepository(t *testing.T) {
+ 
+ func Test_Download(t *testing.T) {
+ 	tmpDir := t.TempDir()
+-	destDir := filepath.Join(tmpDir, "artifact")
++	destDir, err := safepaths.ParseAbsolute(filepath.Join(tmpDir, "artifact"))
++	require.NoError(t, err)
+ 
+ 	reg := &httpmock.Registry{}
+ 	defer reg.Verify(t)
+@@ -70,8 +72,7 @@ func Test_Download(t *testing.T) {
+ 	api := &apiPlatform{
+ 		client: &http.Client{Transport: reg},
+ 	}
+-	err := api.Download("https://api.github.com/repos/OWNER/REPO/actions/artifacts/12345/zip", destDir)
+-	require.NoError(t, err)
++	require.NoError(t, api.Download("https://api.github.com/repos/OWNER/REPO/actions/artifacts/12345/zip", destDir))
+ 
+ 	var paths []string
+ 	parentPrefix := tmpDir + string(filepath.Separator)
+diff --git a/pkg/cmd/run/download/zip_test.go b/pkg/cmd/run/download/zip_test.go
+index b85122ec57a..2584371b4f8 100644
+--- a/pkg/cmd/run/download/zip_test.go
++++ b/pkg/cmd/run/download/zip_test.go
+@@ -6,12 +6,14 @@ import (
+ 	"path/filepath"
+ 	"testing"
+ 
++	"github.com/cli/cli/v2/internal/safepaths"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ func Test_extractZip(t *testing.T) {
+ 	tmpDir := t.TempDir()
+-	extractPath := filepath.Join(tmpDir, "artifact")
++	extractPath, err := safepaths.ParseAbsolute(filepath.Join(tmpDir, "artifact"))
++	require.NoError(t, err)
+ 
+ 	zipFile, err := zip.OpenReader("./fixtures/myproject.zip")
+ 	require.NoError(t, err)
+@@ -20,202 +22,6 @@ func Test_extractZip(t *testing.T) {
+ 	err = extractZip(&zipFile.Reader, extractPath)
+ 	require.NoError(t, err)
+ 
+-	_, err = os.Stat(filepath.Join(extractPath, "src", "main.go"))
++	_, err = os.Stat(filepath.Join(extractPath.String(), "src", "main.go"))
+ 	require.NoError(t, err)
+ }
+-
+-func Test_filepathDescendsFrom(t *testing.T) {
+-	type args struct {
+-		p   string
+-		dir string
+-	}
+-	tests := []struct {
+-		name string
+-		args args
+-		want bool
+-	}{
+-		{
+-			name: "root child",
+-			args: args{
+-				p:   filepath.FromSlash("/hoi.txt"),
+-				dir: filepath.FromSlash("/"),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "abs descendant",
+-			args: args{
+-				p:   filepath.FromSlash("/var/logs/hoi.txt"),
+-				dir: filepath.FromSlash("/"),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "abs trailing slash",
+-			args: args{
+-				p:   filepath.FromSlash("/var/logs/hoi.txt"),
+-				dir: filepath.FromSlash("/var/logs/"),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "abs mismatch",
+-			args: args{
+-				p:   filepath.FromSlash("/var/logs/hoi.txt"),
+-				dir: filepath.FromSlash("/var/pids"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "abs partial prefix",
+-			args: args{
+-				p:   filepath.FromSlash("/var/logs/hoi.txt"),
+-				dir: filepath.FromSlash("/var/log"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "rel child",
+-			args: args{
+-				p:   filepath.FromSlash("hoi.txt"),
+-				dir: filepath.FromSlash("."),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "rel descendant",
+-			args: args{
+-				p:   filepath.FromSlash("./log/hoi.txt"),
+-				dir: filepath.FromSlash("."),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "mixed rel styles",
+-			args: args{
+-				p:   filepath.FromSlash("./log/hoi.txt"),
+-				dir: filepath.FromSlash("log"),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "rel clean",
+-			args: args{
+-				p:   filepath.FromSlash("cats/../dogs/pug.txt"),
+-				dir: filepath.FromSlash("dogs"),
+-			},
+-			want: true,
+-		},
+-		{
+-			name: "rel mismatch",
+-			args: args{
+-				p:   filepath.FromSlash("dogs/pug.txt"),
+-				dir: filepath.FromSlash("dog"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "rel breakout",
+-			args: args{
+-				p:   filepath.FromSlash("../escape.txt"),
+-				dir: filepath.FromSlash("."),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "rel sneaky breakout",
+-			args: args{
+-				p:   filepath.FromSlash("dogs/../../escape.txt"),
+-				dir: filepath.FromSlash("dogs"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny parent directory filename (`..`) escaping absolute directory",
+-			args: args{
+-				p:   filepath.FromSlash(".."),
+-				dir: filepath.FromSlash("/var/logs/"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny parent directory filename (`..`) escaping current directory",
+-			args: args{
+-				p:   filepath.FromSlash(".."),
+-				dir: filepath.FromSlash("."),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny parent directory filename (`..`) escaping parent directory",
+-			args: args{
+-				p:   filepath.FromSlash(".."),
+-				dir: filepath.FromSlash(".."),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny parent directory filename (`..`) escaping relative directory",
+-			args: args{
+-				p:   filepath.FromSlash(".."),
+-				dir: filepath.FromSlash("relative-dir"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny current directory filename (`.`) in absolute directory",
+-			args: args{
+-				p:   filepath.FromSlash("."),
+-				dir: filepath.FromSlash("/var/logs/"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny current directory filename (`.`) in current directory",
+-			args: args{
+-				p:   filepath.FromSlash("."),
+-				dir: filepath.FromSlash("."),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny current directory filename (`.`) in parent directory",
+-			args: args{
+-				p:   filepath.FromSlash("."),
+-				dir: filepath.FromSlash(".."),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "deny current directory filename (`.`) in relative directory",
+-			args: args{
+-				p:   filepath.FromSlash("."),
+-				dir: filepath.FromSlash("relative-dir"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "relative path, absolute dir",
+-			args: args{
+-				p:   filepath.FromSlash("whatever"),
+-				dir: filepath.FromSlash("/a/b/c"),
+-			},
+-			want: false,
+-		},
+-		{
+-			name: "absolute path, relative dir",
+-			args: args{
+-				p:   filepath.FromSlash("/a/b/c"),
+-				dir: filepath.FromSlash("whatever"),
+-			},
+-			want: false,
+-		},
+-	}
+-	for _, tt := range tests {
+-		t.Run(tt.name, func(t *testing.T) {
+-			if got := filepathDescendsFrom(tt.args.p, tt.args.dir); got != tt.want {
+-				t.Errorf("filepathDescendsFrom() = %v, want %v", got, tt.want)
+-			}
+-		})
+-	}
+-}

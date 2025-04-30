@@ -1,0 +1,212 @@
+diff --git a/api/index.js b/api/index.js
+index 6e9405aa0df41..b09a87fedb068 100644
+--- a/api/index.js
++++ b/api/index.js
+@@ -27,6 +27,7 @@ module.exports = async (req, res) => {
+     bg_color,
+     theme,
+     cache_seconds,
++    custom_title,
+   } = req.query;
+   let stats;
+ 
+@@ -65,6 +66,7 @@ module.exports = async (req, res) => {
+         text_color,
+         bg_color,
+         theme,
++        custom_title,
+       }),
+     );
+   } catch (err) {
+diff --git a/api/top-langs.js b/api/top-langs.js
+index a247f7f95a74c..77bcc19bfd2e1 100644
+--- a/api/top-langs.js
++++ b/api/top-langs.js
+@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
+     layout,
+     langs_count,
+     exclude_repo,
++    custom_title,
+   } = req.query;
+   let topLangs;
+ 
+@@ -51,6 +52,7 @@ module.exports = async (req, res) => {
+ 
+     return res.send(
+       renderTopLanguages(topLangs, {
++        custom_title,
+         hide_title: parseBoolean(hide_title),
+         hide_border: parseBoolean(hide_border),
+         card_width: parseInt(card_width, 10),
+diff --git a/api/wakatime.js b/api/wakatime.js
+index 6e70519191d36..7277c9d9d8dc7 100644
+--- a/api/wakatime.js
++++ b/api/wakatime.js
+@@ -21,6 +21,7 @@ module.exports = async (req, res) => {
+     cache_seconds,
+     hide_title,
+     hide_progress,
++    custom_title,
+   } = req.query;
+ 
+   res.setHeader("Content-Type", "image/svg+xml");
+@@ -42,6 +43,7 @@ module.exports = async (req, res) => {
+ 
+     return res.send(
+       wakatimeCard(last7Days, {
++        custom_title,
+         hide_title: parseBoolean(hide_title),
+         hide_border: parseBoolean(hide_border),
+         line_height,
+diff --git a/docs/readme_es.md b/docs/readme_es.md
+index a4c1efe5944f4..1844f1b289c47 100644
+--- a/docs/readme_es.md
++++ b/docs/readme_es.md
+@@ -146,6 +146,7 @@ Puedes personalizar el aspecto de tu `Stats Card` o `Repo Card` de la manera que
+ - `include_all_commits` - Cuente los commits totales en lugar de solo los commits del año actual _(boolean)_
+ - `count_private` - Cuenta los commits privadas _(boolean)_
+ - `line_height` - Establece el alto de línea entre texto _(number)_
++- `custom_title` - Establece un título personalizado
+ 
+ #### Opciones exclusivas de la tarjeta Repo:
+ 
+diff --git a/readme.md b/readme.md
+index 9ef53d337c274..ae9e26c8adc1c 100644
+--- a/readme.md
++++ b/readme.md
+@@ -156,6 +156,7 @@ You can provide multiple comma-separated values in bg_color option to render a g
+ - `include_all_commits` - Count total commits instead of just the current year commits _(boolean)_
+ - `count_private` - Count private commits _(boolean)_
+ - `line_height` - Sets the line-height between text _(number)_
++- `custom_title` - Sets a custom title for the card
+ 
+ #### Repo Card Exclusive Options:
+ 
+@@ -169,6 +170,7 @@ You can provide multiple comma-separated values in bg_color option to render a g
+ - `card_width` - Set the card's width manually _(number)_
+ - `langs_count` - Show more languages on the card, between 1-10, defaults to 5 _(number)_
+ - `exclude_repo` - Exclude specified repositories _(Comma-separated values)_
++- `custom_title` - Sets a custom title for the card
+ 
+ > :warning: **Important:**
+ > Language names should be uri-escaped, as specified in [Percent Encoding](https://en.wikipedia.org/wiki/Percent-encoding)
+@@ -179,6 +181,7 @@ You can provide multiple comma-separated values in bg_color option to render a g
+ - `hide_title` - _(boolean)_
+ - `line_height` - Sets the line-height between text _(number)_
+ - `hide_progress` - Hides the progress bar and percentage _(boolean)_
++- `custom_title` - Sets a custom title for the card
+ 
+ ---
+ 
+diff --git a/src/cards/repo-card.js b/src/cards/repo-card.js
+index f19d8d112c351..7b021ca051c49 100644
+--- a/src/cards/repo-card.js
++++ b/src/cards/repo-card.js
+@@ -106,7 +106,7 @@ const renderRepoCard = (repo, options = {}) => {
+   }).join("");
+ 
+   const card = new Card({
+-    title: header,
++    defaultTitle: header,
+     titlePrefixIcon: icons.contribs,
+     width: 400,
+     height,
+diff --git a/src/cards/stats-card.js b/src/cards/stats-card.js
+index b69b4b499ca29..4954c719babb5 100644
+--- a/src/cards/stats-card.js
++++ b/src/cards/stats-card.js
+@@ -65,6 +65,7 @@ const renderStatsCard = (stats = {}, options = { hide: [] }) => {
+     text_color,
+     bg_color,
+     theme = "default",
++    custom_title,
+   } = options;
+ 
+   const lheight = parseInt(line_height, 10);
+@@ -167,7 +168,8 @@ const renderStatsCard = (stats = {}, options = { hide: [] }) => {
+ 
+   const apostrophe = ["x", "s"].includes(name.slice(-1)) ? "" : "s";
+   const card = new Card({
+-    title: `${encodeHTML(name)}'${apostrophe} GitHub Stats`,
++    customTitle: custom_title,
++    defaultTitle: `${encodeHTML(name)}'${apostrophe} GitHub Stats`,
+     width: 495,
+     height,
+     colors: {
+diff --git a/src/cards/top-languages-card.js b/src/cards/top-languages-card.js
+index 16a6dc6951a27..8e85b72af6fbe 100644
+--- a/src/cards/top-languages-card.js
++++ b/src/cards/top-languages-card.js
+@@ -69,6 +69,7 @@ const renderTopLanguages = (topLangs, options = {}) => {
+     hide,
+     theme,
+     layout,
++    custom_title,
+   } = options;
+ 
+   let langs = Object.values(topLangs);
+@@ -170,7 +171,8 @@ const renderTopLanguages = (topLangs, options = {}) => {
+   }
+ 
+   const card = new Card({
+-    title: "Most Used Languages",
++    customTitle: custom_title,
++    defaultTitle: "Most Used Languages",
+     width,
+     height,
+     colors: {
+diff --git a/src/cards/wakatime-card.js b/src/cards/wakatime-card.js
+index e0b6dc3f7f9c0..bf103f505b5ce 100644
+--- a/src/cards/wakatime-card.js
++++ b/src/cards/wakatime-card.js
+@@ -59,6 +59,7 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
+     bg_color,
+     theme = "default",
+     hide_progress,
++    custom_title,
+   } = options;
+ 
+   const lheight = parseInt(line_height, 10);
+@@ -99,7 +100,8 @@ const renderWakatimeCard = (stats = {}, options = { hide: [] }) => {
+   });
+ 
+   const card = new Card({
+-    title: "Wakatime Week Stats",
++    customTitle: custom_title,
++    defaultTitle: "Wakatime Week Stats",
+     width: 495,
+     height,
+     colors: {
+diff --git a/src/common/Card.js b/src/common/Card.js
+index 172bd6c56a8ad..41445515eec80 100644
+--- a/src/common/Card.js
++++ b/src/common/Card.js
+@@ -1,4 +1,4 @@
+-const { FlexLayout } = require("../common/utils");
++const { FlexLayout, encodeHTML } = require("../common/utils");
+ const { getAnimations } = require("../getStyles");
+ 
+ class Card {
+@@ -6,7 +6,8 @@ class Card {
+     width = 100,
+     height = 100,
+     colors = {},
+-    title = "",
++    customTitle,
++    defaultTitle = "",
+     titlePrefixIcon,
+   }) {
+     this.width = width;
+@@ -17,7 +18,11 @@ class Card {
+ 
+     // returns theme based colors with proper overrides and defaults
+     this.colors = colors;
+-    this.title = title;
++    this.title =
++      customTitle !== undefined
++        ? encodeHTML(customTitle)
++        : encodeHTML(defaultTitle);
++
+     this.css = "";
+ 
+     this.paddingX = 25;

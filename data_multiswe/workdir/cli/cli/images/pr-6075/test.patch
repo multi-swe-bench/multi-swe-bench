@@ -1,0 +1,41 @@
+diff --git a/pkg/export/filter_test.go b/pkg/export/filter_test.go
+index b432f4ec1ba..2c449f750ca 100644
+--- a/pkg/export/filter_test.go
++++ b/pkg/export/filter_test.go
+@@ -10,6 +10,8 @@ import (
+ )
+ 
+ func Test_filterJSON(t *testing.T) {
++	t.Setenv("CODE", "code_c")
++
+ 	type args struct {
+ 		json  io.Reader
+ 		query string
+@@ -69,6 +71,27 @@ func Test_filterJSON(t *testing.T) {
+ 				Alas, tis' the end	,feature
+ 			`),
+ 		},
++		{
++			name: "with env var",
++			args: args{
++				json: strings.NewReader(heredoc.Doc(`[
++					{
++						"title": "code_a",
++						"labels": [{"name":"bug"}, {"name":"help wanted"}]
++					},
++					{
++						"title": "code_b",
++						"labels": []
++					},
++					{
++						"title": "code_c",
++						"labels": [{}, {"name":"feature"}]
++					}
++				]`)),
++				query: `.[]| select(.title == env.CODE) | .labels`,
++			},
++			wantW: "[{},{\"name\":\"feature\"}]\n",
++		},
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {

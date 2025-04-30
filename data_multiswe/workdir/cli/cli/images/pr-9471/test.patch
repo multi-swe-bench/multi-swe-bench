@@ -1,0 +1,464 @@
+diff --git a/internal/text/text_test.go b/internal/text/text_test.go
+index 46566bbf895..cae9b37c18e 100644
+--- a/internal/text/text_test.go
++++ b/internal/text/text_test.go
+@@ -146,3 +146,38 @@ func TestFormatSlice(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestDisplayURL(t *testing.T) {
++	tests := []struct {
++		name string
++		url  string
++		want string
++	}{
++		{
++			name: "simple",
++			url:  "https://github.com/cli/cli/issues/9470",
++			want: "https://github.com/cli/cli/issues/9470",
++		},
++		{
++			name: "without scheme",
++			url:  "github.com/cli/cli/issues/9470",
++			want: "https://github.com/cli/cli/issues/9470",
++		},
++		{
++			name: "with query param and anchor",
++			url:  "https://github.com/cli/cli/issues/9470?q=is:issue#issue-command",
++			want: "https://github.com/cli/cli/issues/9470",
++		},
++		{
++			name: "preserve http protocol use despite insecure",
++			url:  "http://github.com/cli/cli/issues/9470",
++			want: "http://github.com/cli/cli/issues/9470",
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			assert.Equal(t, tt.want, DisplayURL(tt.url))
++		})
++	}
++}
+diff --git a/pkg/cmd/gist/create/create_test.go b/pkg/cmd/gist/create/create_test.go
+index 40c89c0d8d1..237486eb3c5 100644
+--- a/pkg/cmd/gist/create/create_test.go
++++ b/pkg/cmd/gist/create/create_test.go
+@@ -296,7 +296,7 @@ func Test_createRun(t *testing.T) {
+ 				WebMode:   true,
+ 				Filenames: []string{fixtureFile},
+ 			},
+-			wantOut:    "Opening gist.github.com/aa5a315d61ae9438b18d in your browser.\n",
++			wantOut:    "Opening https://gist.github.com/aa5a315d61ae9438b18d in your browser.\n",
+ 			wantStderr: "- Creating gist fixture.txt\n✓ Created secret gist fixture.txt\n",
+ 			wantErr:    false,
+ 			wantBrowse: "https://gist.github.com/aa5a315d61ae9438b18d",
+diff --git a/pkg/cmd/issue/comment/comment_test.go b/pkg/cmd/issue/comment/comment_test.go
+index 6ab8df050d4..668d758e58c 100644
+--- a/pkg/cmd/issue/comment/comment_test.go
++++ b/pkg/cmd/issue/comment/comment_test.go
+@@ -234,7 +234,7 @@ func Test_commentRun(t *testing.T) {
+ 
+ 				OpenInBrowser: func(string) error { return nil },
+ 			},
+-			stderr: "Opening github.com/OWNER/REPO/issues/123 in your browser.\n",
++			stderr: "Opening https://github.com/OWNER/REPO/issues/123 in your browser.\n",
+ 		},
+ 		{
+ 			name: "non-interactive web with edit last",
+@@ -246,7 +246,7 @@ func Test_commentRun(t *testing.T) {
+ 
+ 				OpenInBrowser: func(string) error { return nil },
+ 			},
+-			stderr: "Opening github.com/OWNER/REPO/issues/123 in your browser.\n",
++			stderr: "Opening https://github.com/OWNER/REPO/issues/123 in your browser.\n",
+ 		},
+ 		{
+ 			name: "non-interactive editor",
+diff --git a/pkg/cmd/issue/create/create_test.go b/pkg/cmd/issue/create/create_test.go
+index 9ae959c5797..b95b5ef6621 100644
+--- a/pkg/cmd/issue/create/create_test.go
++++ b/pkg/cmd/issue/create/create_test.go
+@@ -266,7 +266,7 @@ func Test_createRun(t *testing.T) {
+ 				WebMode: true,
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new in your browser.\n",
+ 		},
+ 		{
+ 			name: "title and body",
+@@ -276,7 +276,7 @@ func Test_createRun(t *testing.T) {
+ 				Body:    "hello cli",
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new?body=hello+cli&title=myissue",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new in your browser.\n",
+ 		},
+ 		{
+ 			name: "assignee",
+@@ -285,7 +285,7 @@ func Test_createRun(t *testing.T) {
+ 				Assignees: []string{"monalisa"},
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new?assignees=monalisa&body=",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new in your browser.\n",
+ 		},
+ 		{
+ 			name: "@me",
+@@ -302,7 +302,7 @@ func Test_createRun(t *testing.T) {
+ 					} }`))
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new?assignees=MonaLisa&body=",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new in your browser.\n",
+ 		},
+ 		{
+ 			name: "project",
+@@ -358,7 +358,7 @@ func Test_createRun(t *testing.T) {
+ 					} } } }`))
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new?body=&projects=OWNER%2FREPO%2F1",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new in your browser.\n",
+ 		},
+ 		{
+ 			name: "has templates",
+@@ -378,7 +378,7 @@ func Test_createRun(t *testing.T) {
+ 				)
+ 			},
+ 			wantsBrowse: "https://github.com/OWNER/REPO/issues/new/choose",
+-			wantsStderr: "Opening github.com/OWNER/REPO/issues/new/choose in your browser.\n",
++			wantsStderr: "Opening https://github.com/OWNER/REPO/issues/new/choose in your browser.\n",
+ 		},
+ 		{
+ 			name: "too long body",
+@@ -763,7 +763,7 @@ func TestIssueCreate_continueInBrowser(t *testing.T) {
+ 
+ 		Creating issue in OWNER/REPO
+ 
+-		Opening github.com/OWNER/REPO/issues/new in your browser.
++		Opening https://github.com/OWNER/REPO/issues/new in your browser.
+ 	`), output.Stderr())
+ 	assert.Equal(t, "https://github.com/OWNER/REPO/issues/new?body=body&title=hello", output.BrowsedURL)
+ }
+diff --git a/pkg/cmd/issue/list/list_test.go b/pkg/cmd/issue/list/list_test.go
+index e45fc76e47b..852f0a46b2e 100644
+--- a/pkg/cmd/issue/list/list_test.go
++++ b/pkg/cmd/issue/list/list_test.go
+@@ -224,7 +224,7 @@ func TestIssueList_web(t *testing.T) {
+ 	}
+ 
+ 	assert.Equal(t, "", stdout.String())
+-	assert.Equal(t, "Opening github.com/OWNER/REPO/issues in your browser.\n", stderr.String())
++	assert.Equal(t, "Opening https://github.com/OWNER/REPO/issues in your browser.\n", stderr.String())
+ 	browser.Verify(t, "https://github.com/OWNER/REPO/issues?q=assignee%3Apeter+author%3Ajohn+label%3Abug+label%3Adocs+mentions%3Afrank+milestone%3Av1.1+type%3Aissue")
+ }
+ 
+diff --git a/pkg/cmd/issue/view/view_test.go b/pkg/cmd/issue/view/view_test.go
+index f77db9abc52..e1798af9f83 100644
+--- a/pkg/cmd/issue/view/view_test.go
++++ b/pkg/cmd/issue/view/view_test.go
+@@ -123,7 +123,7 @@ func TestIssueView_web(t *testing.T) {
+ 	}
+ 
+ 	assert.Equal(t, "", stdout.String())
+-	assert.Equal(t, "Opening github.com/OWNER/REPO/issues/123 in your browser.\n", stderr.String())
++	assert.Equal(t, "Opening https://github.com/OWNER/REPO/issues/123 in your browser.\n", stderr.String())
+ 	browser.Verify(t, "https://github.com/OWNER/REPO/issues/123")
+ }
+ 
+diff --git a/pkg/cmd/label/list_test.go b/pkg/cmd/label/list_test.go
+index 37f4584391a..6f066da32cf 100644
+--- a/pkg/cmd/label/list_test.go
++++ b/pkg/cmd/label/list_test.go
+@@ -296,7 +296,7 @@ func TestListRun(t *testing.T) {
+ 			name:       "web mode",
+ 			tty:        true,
+ 			opts:       &listOptions{WebMode: true},
+-			wantStderr: "Opening github.com/OWNER/REPO/labels in your browser.\n",
++			wantStderr: "Opening https://github.com/OWNER/REPO/labels in your browser.\n",
+ 		},
+ 		{
+ 			name: "order by name ascending",
+diff --git a/pkg/cmd/pr/checks/checks_test.go b/pkg/cmd/pr/checks/checks_test.go
+index cc21043ba01..36ebf9b159d 100644
+--- a/pkg/cmd/pr/checks/checks_test.go
++++ b/pkg/cmd/pr/checks/checks_test.go
+@@ -622,7 +622,7 @@ func TestChecksRun_web(t *testing.T) {
+ 		{
+ 			name:       "tty",
+ 			isTTY:      true,
+-			wantStderr: "Opening github.com/OWNER/REPO/pull/123/checks in your browser.\n",
++			wantStderr: "Opening https://github.com/OWNER/REPO/pull/123/checks in your browser.\n",
+ 			wantStdout: "",
+ 			wantBrowse: "https://github.com/OWNER/REPO/pull/123/checks",
+ 		},
+diff --git a/pkg/cmd/pr/comment/comment_test.go b/pkg/cmd/pr/comment/comment_test.go
+index 8de1be94089..56cf58d2190 100644
+--- a/pkg/cmd/pr/comment/comment_test.go
++++ b/pkg/cmd/pr/comment/comment_test.go
+@@ -254,7 +254,7 @@ func Test_commentRun(t *testing.T) {
+ 
+ 				OpenInBrowser: func(string) error { return nil },
+ 			},
+-			stderr: "Opening github.com/OWNER/REPO/pull/123 in your browser.\n",
++			stderr: "Opening https://github.com/OWNER/REPO/pull/123 in your browser.\n",
+ 		},
+ 		{
+ 			name: "non-interactive web with edit last",
+@@ -266,7 +266,7 @@ func Test_commentRun(t *testing.T) {
+ 
+ 				OpenInBrowser: func(string) error { return nil },
+ 			},
+-			stderr: "Opening github.com/OWNER/REPO/pull/123 in your browser.\n",
++			stderr: "Opening https://github.com/OWNER/REPO/pull/123 in your browser.\n",
+ 		},
+ 		{
+ 			name: "non-interactive editor",
+diff --git a/pkg/cmd/pr/create/create_test.go b/pkg/cmd/pr/create/create_test.go
+index e0347945c38..cba5521011d 100644
+--- a/pkg/cmd/pr/create/create_test.go
++++ b/pkg/cmd/pr/create/create_test.go
+@@ -1080,7 +1080,7 @@ func Test_createRun(t *testing.T) {
+ 					}
+ 				}
+ 			},
+-			expectedErrOut: "Opening github.com/OWNER/REPO/compare/master...feature in your browser.\n",
++			expectedErrOut: "Opening https://github.com/OWNER/REPO/compare/master...feature in your browser.\n",
+ 			expectedBrowse: "https://github.com/OWNER/REPO/compare/master...feature?body=&expand=1",
+ 		},
+ 		{
+@@ -1113,7 +1113,7 @@ func Test_createRun(t *testing.T) {
+ 					}
+ 				}
+ 			},
+-			expectedErrOut: "Opening github.com/OWNER/REPO/compare/master...feature in your browser.\n",
++			expectedErrOut: "Opening https://github.com/OWNER/REPO/compare/master...feature in your browser.\n",
+ 			expectedBrowse: "https://github.com/OWNER/REPO/compare/master...feature?body=&expand=1&projects=ORG%2F1",
+ 		},
+ 		{
+diff --git a/pkg/cmd/pr/diff/diff_test.go b/pkg/cmd/pr/diff/diff_test.go
+index be8c48428b3..28a83bfc42a 100644
+--- a/pkg/cmd/pr/diff/diff_test.go
++++ b/pkg/cmd/pr/diff/diff_test.go
+@@ -218,7 +218,7 @@ func Test_diffRun(t *testing.T) {
+ 				BrowserMode: true,
+ 			},
+ 			wantFields:     []string{"url"},
+-			wantStderr:     "Opening github.com/OWNER/REPO/pull/123/files in your browser.\n",
++			wantStderr:     "Opening https://github.com/OWNER/REPO/pull/123/files in your browser.\n",
+ 			wantBrowsedURL: "https://github.com/OWNER/REPO/pull/123/files",
+ 		},
+ 	}
+diff --git a/pkg/cmd/pr/list/list_test.go b/pkg/cmd/pr/list/list_test.go
+index 869db9c3872..ecd0326b508 100644
+--- a/pkg/cmd/pr/list/list_test.go
++++ b/pkg/cmd/pr/list/list_test.go
+@@ -318,7 +318,7 @@ func TestPRList_web(t *testing.T) {
+ 			}
+ 
+ 			assert.Equal(t, "", output.String())
+-			assert.Equal(t, "Opening github.com/OWNER/REPO/pulls in your browser.\n", output.Stderr())
++			assert.Equal(t, "Opening https://github.com/OWNER/REPO/pulls in your browser.\n", output.Stderr())
+ 			assert.Equal(t, test.expectedBrowserURL, output.BrowsedURL)
+ 		})
+ 	}
+diff --git a/pkg/cmd/pr/view/view_test.go b/pkg/cmd/pr/view/view_test.go
+index 2b99df9315a..470e3bd27f9 100644
+--- a/pkg/cmd/pr/view/view_test.go
++++ b/pkg/cmd/pr/view/view_test.go
+@@ -640,7 +640,7 @@ func TestPRView_web_currentBranch(t *testing.T) {
+ 	}
+ 
+ 	assert.Equal(t, "", output.String())
+-	assert.Equal(t, "Opening github.com/OWNER/REPO/pull/10 in your browser.\n", output.Stderr())
++	assert.Equal(t, "Opening https://github.com/OWNER/REPO/pull/10 in your browser.\n", output.Stderr())
+ 	assert.Equal(t, "https://github.com/OWNER/REPO/pull/10", output.BrowsedURL)
+ }
+ 
+diff --git a/pkg/cmd/repo/view/view_test.go b/pkg/cmd/repo/view/view_test.go
+index a8361e9ef69..53ec93d138e 100644
+--- a/pkg/cmd/repo/view/view_test.go
++++ b/pkg/cmd/repo/view/view_test.go
+@@ -108,7 +108,7 @@ func Test_RepoView_Web(t *testing.T) {
+ 		{
+ 			name:       "tty",
+ 			stdoutTTY:  true,
+-			wantStderr: "Opening github.com/OWNER/REPO in your browser.\n",
++			wantStderr: "Opening https://github.com/OWNER/REPO in your browser.\n",
+ 			wantBrowse: "https://github.com/OWNER/REPO",
+ 		},
+ 		{
+diff --git a/pkg/cmd/ruleset/check/check_test.go b/pkg/cmd/ruleset/check/check_test.go
+index 2d9dffae47c..b24e084c4d9 100644
+--- a/pkg/cmd/ruleset/check/check_test.go
++++ b/pkg/cmd/ruleset/check/check_test.go
+@@ -162,7 +162,7 @@ func Test_checkRun(t *testing.T) {
+ 				Branch:  "my-branch",
+ 				WebMode: true,
+ 			},
+-			wantStdout: "Opening github.com/my-org/repo-name/rules in your browser.\n",
++			wantStdout: "Opening https://github.com/my-org/repo-name/rules in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/my-org/repo-name/rules?ref=refs%2Fheads%2Fmy-branch",
+ 		},
+@@ -173,7 +173,7 @@ func Test_checkRun(t *testing.T) {
+ 				Branch:  "my-feature/my-branch",
+ 				WebMode: true,
+ 			},
+-			wantStdout: "Opening github.com/my-org/repo-name/rules in your browser.\n",
++			wantStdout: "Opening https://github.com/my-org/repo-name/rules in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/my-org/repo-name/rules?ref=refs%2Fheads%2Fmy-feature%2Fmy-branch",
+ 		},
+diff --git a/pkg/cmd/ruleset/list/list_test.go b/pkg/cmd/ruleset/list/list_test.go
+index 1c370fcfbac..2b4675b2f16 100644
+--- a/pkg/cmd/ruleset/list/list_test.go
++++ b/pkg/cmd/ruleset/list/list_test.go
+@@ -255,7 +255,7 @@ func Test_listRun(t *testing.T) {
+ 			opts: ListOptions{
+ 				WebMode: true,
+ 			},
+-			wantStdout: "Opening github.com/OWNER/REPO/rules in your browser.\n",
++			wantStdout: "Opening https://github.com/OWNER/REPO/rules in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/OWNER/REPO/rules",
+ 		},
+@@ -266,7 +266,7 @@ func Test_listRun(t *testing.T) {
+ 				WebMode:      true,
+ 				Organization: "my-org",
+ 			},
+-			wantStdout: "Opening github.com/organizations/my-org/settings/rules in your browser.\n",
++			wantStdout: "Opening https://github.com/organizations/my-org/settings/rules in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/organizations/my-org/settings/rules",
+ 		},
+diff --git a/pkg/cmd/ruleset/view/view_test.go b/pkg/cmd/ruleset/view/view_test.go
+index 5e2846441ff..e463a9ac40b 100644
+--- a/pkg/cmd/ruleset/view/view_test.go
++++ b/pkg/cmd/ruleset/view/view_test.go
+@@ -317,7 +317,7 @@ func Test_viewRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/rulesetViewRepo.json"),
+ 				)
+ 			},
+-			wantStdout: "Opening github.com/my-owner/repo-name/rules/42 in your browser.\n",
++			wantStdout: "Opening https://github.com/my-owner/repo-name/rules/42 in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/my-owner/repo-name/rules/42",
+ 		},
+@@ -352,7 +352,7 @@ func Test_viewRun(t *testing.T) {
+ 					httpmock.FileResponse("./fixtures/rulesetViewOrg.json"),
+ 				)
+ 			},
+-			wantStdout: "Opening github.com/organizations/my-owner/settings/rules/74 in your browser.\n",
++			wantStdout: "Opening https://github.com/organizations/my-owner/settings/rules/74 in your browser.\n",
+ 			wantStderr: "",
+ 			wantBrowse: "https://github.com/organizations/my-owner/settings/rules/74",
+ 		},
+diff --git a/pkg/cmd/run/view/view_test.go b/pkg/cmd/run/view/view_test.go
+index 44ca69fa689..60762c531af 100644
+--- a/pkg/cmd/run/view/view_test.go
++++ b/pkg/cmd/run/view/view_test.go
+@@ -1183,7 +1183,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.JSONResponse(shared.TestWorkflow))
+ 			},
+ 			browsedURL: "https://github.com/runs/3",
+-			wantOut:    "Opening github.com/runs/3 in your browser.\n",
++			wantOut:    "Opening https://github.com/runs/3 in your browser.\n",
+ 		},
+ 		{
+ 			name: "web job",
+@@ -1204,7 +1204,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.JSONResponse(shared.TestWorkflow))
+ 			},
+ 			browsedURL: "https://github.com/jobs/10?check_suite_focus=true",
+-			wantOut:    "Opening github.com/jobs/10 in your browser.\n",
++			wantOut:    "Opening https://github.com/jobs/10 in your browser.\n",
+ 		},
+ 		{
+ 			name: "hide job header, failure",
+diff --git a/pkg/cmd/search/code/code_test.go b/pkg/cmd/search/code/code_test.go
+index 253bd288960..4b493c6d5c4 100644
+--- a/pkg/cmd/search/code/code_test.go
++++ b/pkg/cmd/search/code/code_test.go
+@@ -304,7 +304,7 @@ func TestCodeRun(t *testing.T) {
+ 				WebMode: true,
+ 			},
+ 			tty:        true,
+-			wantStderr: "Opening github.com/search in your browser.\n",
++			wantStderr: "Opening https://github.com/search in your browser.\n",
+ 		},
+ 		{
+ 			name: "opens browser for web mode notty",
+diff --git a/pkg/cmd/search/commits/commits_test.go b/pkg/cmd/search/commits/commits_test.go
+index efe022f32f4..d78599cbe0b 100644
+--- a/pkg/cmd/search/commits/commits_test.go
++++ b/pkg/cmd/search/commits/commits_test.go
+@@ -273,7 +273,7 @@ func TestCommitsRun(t *testing.T) {
+ 				WebMode: true,
+ 			},
+ 			tty:        true,
+-			wantStderr: "Opening github.com/search in your browser.\n",
++			wantStderr: "Opening https://github.com/search in your browser.\n",
+ 		},
+ 		{
+ 			name: "opens browser for web mode notty",
+diff --git a/pkg/cmd/search/repos/repos_test.go b/pkg/cmd/search/repos/repos_test.go
+index 85e2547f183..3b725b04901 100644
+--- a/pkg/cmd/search/repos/repos_test.go
++++ b/pkg/cmd/search/repos/repos_test.go
+@@ -249,7 +249,7 @@ func TestReposRun(t *testing.T) {
+ 				WebMode: true,
+ 			},
+ 			tty:        true,
+-			wantStderr: "Opening github.com/search in your browser.\n",
++			wantStderr: "Opening https://github.com/search in your browser.\n",
+ 		},
+ 		{
+ 			name: "opens browser for web mode notty",
+diff --git a/pkg/cmd/search/shared/shared_test.go b/pkg/cmd/search/shared/shared_test.go
+index 689459d399d..0700a688e9b 100644
+--- a/pkg/cmd/search/shared/shared_test.go
++++ b/pkg/cmd/search/shared/shared_test.go
+@@ -171,7 +171,7 @@ func TestSearchIssues(t *testing.T) {
+ 				WebMode: true,
+ 			},
+ 			tty:        true,
+-			wantStderr: "Opening github.com/search in your browser.\n",
++			wantStderr: "Opening https://github.com/search in your browser.\n",
+ 		},
+ 		{
+ 			name: "opens browser for web mode notty",
+diff --git a/pkg/cmd/workflow/view/view_test.go b/pkg/cmd/workflow/view/view_test.go
+index c706da48f3c..e5df52478be 100644
+--- a/pkg/cmd/workflow/view/view_test.go
++++ b/pkg/cmd/workflow/view/view_test.go
+@@ -222,7 +222,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.JSONResponse(aWorkflow),
+ 				)
+ 			},
+-			wantOut: "Opening github.com/OWNER/REPO/actions/workflows/flow.yml in your browser.\n",
++			wantOut: "Opening https://github.com/OWNER/REPO/actions/workflows/flow.yml in your browser.\n",
+ 		},
+ 		{
+ 			name: "web notty",
+@@ -257,7 +257,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.StringResponse(`{ "data": { "repository": { "defaultBranchRef": { "name": "trunk" } } } }`),
+ 				)
+ 			},
+-			wantOut: "Opening github.com/OWNER/REPO/blob/trunk/.github/workflows/flow.yml in your browser.\n",
++			wantOut: "Opening https://github.com/OWNER/REPO/blob/trunk/.github/workflows/flow.yml in your browser.\n",
+ 		},
+ 		{
+ 			name: "web with yaml and ref",
+@@ -274,7 +274,7 @@ func TestViewRun(t *testing.T) {
+ 					httpmock.JSONResponse(aWorkflow),
+ 				)
+ 			},
+-			wantOut: "Opening github.com/OWNER/REPO/blob/base/.github/workflows/flow.yml in your browser.\n",
++			wantOut: "Opening https://github.com/OWNER/REPO/blob/base/.github/workflows/flow.yml in your browser.\n",
+ 		},
+ 		{
+ 			name: "workflow with yaml",

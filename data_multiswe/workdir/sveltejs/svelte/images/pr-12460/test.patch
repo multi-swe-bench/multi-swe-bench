@@ -1,0 +1,129 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/_config.js b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/_config.js
+new file mode 100644
+index 000000000000..a41766b25a5c
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/_config.js
+@@ -0,0 +1,27 @@
++import { test } from '../../test';
++
++export default test({
++	get props() {
++		return { visible: false };
++	},
++
++	test({ assert, component, target, raf, logs }) {
++		component.visible = true;
++		const span = /** @type {HTMLSpanElement & { foo: number }} */ (target.querySelector('span'));
++
++		raf.tick(50);
++		assert.equal(span.foo, 0.5);
++
++		component.visible = false;
++		assert.equal(span.foo, 0.5);
++
++		raf.tick(75);
++		assert.equal(span.foo, 0.25);
++
++		component.visible = true;
++		raf.tick(100);
++		assert.equal(span.foo, 0.5);
++
++		assert.deepEqual(logs, ['transition']); // should only run once
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/main.svelte b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/main.svelte
+new file mode 100644
+index 000000000000..7766fdfa7717
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-bidi/main.svelte
+@@ -0,0 +1,18 @@
++<script>
++	export let visible;
++
++	function foo(node) {
++		console.log('transition');
++
++		return {
++			duration: 100,
++			tick: (t) => {
++				node.foo = t;
++			}
++		};
++	}
++</script>
++
++{#if visible}
++	<span transition:foo>hello</span>
++{/if}
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/_config.js b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/_config.js
+new file mode 100644
+index 000000000000..efb17426981d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/_config.js
+@@ -0,0 +1,31 @@
++import { test } from '../../test';
++
++export default test({
++	get props() {
++		return { visible: false };
++	},
++
++	test({ assert, component, target, raf, logs }) {
++		component.visible = true;
++		const span = /** @type {HTMLSpanElement & { foo: number, bar: number }} */ (
++			target.querySelector('span')
++		);
++
++		raf.tick(50);
++		assert.equal(span.foo, 0.5);
++
++		component.visible = false;
++		assert.equal(span.foo, 0.5);
++
++		raf.tick(75);
++		assert.equal(span.foo, 0.75);
++		assert.equal(span.bar, 0.75);
++
++		component.visible = true;
++		raf.tick(100);
++		assert.equal(span.foo, 0.25);
++		assert.equal(span.bar, 1);
++
++		assert.deepEqual(logs, ['in', 'out', 'in']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/main.svelte b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/main.svelte
+new file mode 100644
+index 000000000000..942eec968eab
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/transition-js-aborted-intro-outro/main.svelte
+@@ -0,0 +1,29 @@
++<script>
++	export let visible;
++
++	function foo(node) {
++		console.log('in');
++
++		return {
++			duration: 100,
++			tick: (t) => {
++				node.foo = t;
++			}
++		};
++	}
++
++	function bar(node) {
++		console.log('out');
++
++		return {
++			duration: 100,
++			tick: (t) => {
++				node.bar = t;
++			}
++		};
++	}
++</script>
++
++{#if visible}
++	<span in:foo out:bar>hello</span>
++{/if}

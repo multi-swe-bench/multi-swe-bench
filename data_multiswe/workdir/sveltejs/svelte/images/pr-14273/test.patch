@@ -1,0 +1,78 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/_config.js
+new file mode 100644
+index 000000000000..a6d79c05ed31
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/_config.js
+@@ -0,0 +1,24 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	compileOptions: {
++		dev: true
++	},
++
++	html: `<button>items: null</button>`,
++
++	test({ assert, target, warnings }) {
++		const btn = target.querySelector('button');
++
++		flushSync(() => btn?.click());
++		assert.htmlEqual(target.innerHTML, `<button>items: []</button>`);
++
++		flushSync(() => btn?.click());
++		assert.htmlEqual(target.innerHTML, `<button>items: [0]</button>`);
++
++		assert.deepEqual(warnings, [
++			'Assignment to `items` property (main.svelte:5:24) will evaluate to the right-hand side, not the value of `items` following the assignment. This may result in unexpected behaviour.'
++		]);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/main.svelte
+new file mode 100644
+index 000000000000..f151336046f1
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment-warning/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let object = $state({ items: null });
++</script>
++
++<button onclick={() => (object.items ??= []).push(object.items.length)}>
++	items: {JSON.stringify(object.items)}
++</button>
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/_config.js b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/_config.js
+new file mode 100644
+index 000000000000..99d957e980fe
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/_config.js
+@@ -0,0 +1,16 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	html: `<button>items: null</button>`,
++
++	test({ assert, target }) {
++		const [btn1, btn2] = target.querySelectorAll('button');
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>items: [0]</button>`);
++
++		flushSync(() => btn1.click());
++		assert.htmlEqual(target.innerHTML, `<button>items: [0,1]</button>`);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/main.svelte b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/main.svelte
+new file mode 100644
+index 000000000000..84c1c32c5cc8
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/proxy-nullish-coalescing-assignment/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++	let items = $state(null);
++</script>
++
++<button onclick={() => (items ??= []).push(items.length)}>
++	items: {JSON.stringify(items)}
++</button>

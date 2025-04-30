@@ -1,0 +1,338 @@
+diff --git a/packages/mui-joy/src/Button/Button.test.js b/packages/mui-joy/src/Button/Button.test.js
+index 29b110ff47766b..f90484573aab82 100644
+--- a/packages/mui-joy/src/Button/Button.test.js
++++ b/packages/mui-joy/src/Button/Button.test.js
+@@ -14,7 +14,6 @@ describe('Joy <Button />', () => {
+     refInstanceof: window.HTMLButtonElement,
+     muiName: 'MuiButton',
+     testVariantProps: { variant: 'contained', fullWidth: true },
+-    testStateOverrides: { prop: 'size', value: 'sm', styleKey: 'sizeSm' },
+     skip: ['propsSpread', 'componentsProp', 'classesRoot'],
+   }));
+ 
+diff --git a/packages/mui-joy/src/Switch/Switch.test.js b/packages/mui-joy/src/Switch/Switch.test.js
+index 53478b34da225c..35a2e8579df2b6 100644
+--- a/packages/mui-joy/src/Switch/Switch.test.js
++++ b/packages/mui-joy/src/Switch/Switch.test.js
+@@ -15,6 +15,7 @@ describe('<Switch />', () => {
+     testDeepOverrides: [
+       { slotName: 'track', slotClassName: classes.track },
+       { slotName: 'input', slotClassName: classes.input },
++      { slotName: 'thumb', slotClassName: classes.thumb },
+     ],
+     refInstanceof: window.HTMLSpanElement,
+     skip: [
+diff --git a/packages/mui-joy/src/Typography/Typography.test.js b/packages/mui-joy/src/Typography/Typography.test.js
+index a7d7e2907ec02f..93a3e42f8048eb 100644
+--- a/packages/mui-joy/src/Typography/Typography.test.js
++++ b/packages/mui-joy/src/Typography/Typography.test.js
+@@ -14,7 +14,6 @@ describe('<Typography />', () => {
+     render,
+     refInstanceof: window.HTMLParagraphElement,
+     muiName: 'MuiTypography',
+-    testStateOverrides: { prop: 'level', value: 'h2', styleKey: 'h2' },
+     skip: ['componentsProp', 'classesRoot', 'themeVariants'],
+   }));
+ 
+diff --git a/packages/mui-joy/test/typescript/moduleAugmentation/CssVarsProvider.spec.tsx b/packages/mui-joy/test/typescript/moduleAugmentation/CssVarsProvider.spec.tsx
+index 834d06a2fc9d63..fcc4631bd1d29c 100644
+--- a/packages/mui-joy/test/typescript/moduleAugmentation/CssVarsProvider.spec.tsx
++++ b/packages/mui-joy/test/typescript/moduleAugmentation/CssVarsProvider.spec.tsx
+@@ -112,5 +112,36 @@ declare module '@mui/joy/styles' {
+         lineHeight: 1,
+       },
+     },
++    components: {
++      MuiButton: {
++        styleOverrides: {
++          root: ({ ownerState, theme }) => {
++            const { color, variant } = ownerState;
++            const styles = [];
++            if (color === 'primary') {
++              styles.push({
++                width: 120,
++                height: 48,
++              });
++            }
++            if (variant === 'contained') {
++              styles.push(theme.typography.body1);
++            }
++            return styles;
++          },
++        },
++      },
++      MuiSwitch: {
++        styleOverrides: {
++          thumb: ({ ownerState, theme }) => [
++            ownerState.color === 'primary' && {
++              '&:hover': {
++                backgroundColor: theme.vars.palette.primary.containedHoverBg,
++              },
++            },
++          ],
++        },
++      },
++    },
+   }}
+ />;
+diff --git a/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.spec.tsx b/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.spec.tsx
+new file mode 100644
+index 00000000000000..f06290de5c3648
+--- /dev/null
++++ b/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.spec.tsx
+@@ -0,0 +1,48 @@
++import * as React from 'react';
++import Chip from '@mui/material/Chip';
++import { createTheme } from '@mui/material/styles';
++
++// Update the Chip's extendable props options
++declare module '@mui/material/Chip' {
++  interface ChipPropsVariantOverrides {
++    dashed: true;
++    outlined: false;
++  }
++  interface ChipPropsColorOverrides {
++    success: true;
++  }
++  interface ChipPropsSizeOverrides {
++    extraLarge: true;
++  }
++}
++
++// theme typings should work as expected
++const finalTheme = createTheme({
++  components: {
++    MuiChip: {
++      styleOverrides: {
++        root: ({ ownerState, theme }) => ({
++          ...(ownerState.variant &&
++            {
++              dashed: {
++                border: '1px dashed',
++              },
++              filled: {
++                backgroundColor: ownerState.color === 'success' ? 'lime' : theme.palette.grey[100],
++              },
++            }[ownerState.variant]),
++        }),
++        label: ({ ownerState }) => [
++          ownerState.color === 'success' && {
++            color: 'lime',
++          },
++        ],
++      },
++    },
++  },
++});
++
++<Chip variant="dashed" color="success" size="extraLarge" label="Content" />;
++
++// @ts-expect-error The contained variant was disabled
++<Chip variant="outlined" color="primary" label="Content" />;
+diff --git a/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.tsconfig.json b/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.tsconfig.json
+new file mode 100644
+index 00000000000000..11e671f45f81a4
+--- /dev/null
++++ b/packages/mui-material/test/typescript/moduleAugmentation/styleOverridesCallback.tsconfig.json
+@@ -0,0 +1,4 @@
++{
++  "extends": "../../../../../tsconfig",
++  "files": ["styleOverridesCallback.spec.tsx"]
++}
+diff --git a/packages/mui-system/src/createStyled.test.js b/packages/mui-system/src/createStyled.test.js
+index 58369457a25694..39be9742a592f6 100644
+--- a/packages/mui-system/src/createStyled.test.js
++++ b/packages/mui-system/src/createStyled.test.js
+@@ -3,6 +3,7 @@ import { expect } from 'chai';
+ import { ThemeProvider, createTheme } from '@mui/material/styles';
+ import { createRenderer } from 'test/utils';
+ import createStyled from './createStyled';
++import sx from './sx';
+ 
+ describe('createStyled', () => {
+   const { render } = createRenderer();
+@@ -100,4 +101,184 @@ describe('createStyled', () => {
+       });
+     });
+   });
++
++  describe('styleOverrides callback', () => {
++    const styled = createStyled({});
++    const ButtonRoot = styled('button', {
++      name: 'MuiButton',
++      slot: 'Root',
++      overridesResolver: (props, styles) => [
++        styles.root,
++        { [`& .MuiButton-avatar`]: styles.avatar },
++      ],
++    })({});
++    const ButtonIcon = styled('span', {
++      name: 'MuiButton',
++      slot: 'Icon',
++      overridesResolver: (props, styles) => styles.icon,
++    })({});
++    const Button = ({ children, startIcon, endIcon, color = 'primary', ...props }) => {
++      const ownerState = { startIcon, endIcon, color, ...props };
++      return (
++        <ButtonRoot ownerState={ownerState}>
++          {startIcon && <ButtonIcon ownerState={ownerState}>{startIcon}</ButtonIcon>}
++          {children}
++          {endIcon && <ButtonIcon ownerState={ownerState}>{endIcon}</ButtonIcon>}
++        </ButtonRoot>
++      );
++    };
++
++    it('spread ownerState as props to the slot styleOverrides', () => {
++      const finalTheme = createTheme({
++        components: {
++          MuiButton: {
++            styleOverrides: {
++              avatar: () => {
++                return {
++                  width: '100px',
++                };
++              },
++            },
++          },
++        },
++      });
++      const { container } = render(
++        <ThemeProvider theme={finalTheme}>
++          <Button>
++            <div className="MuiButton-avatar" data-testid="button-avatar" />
++            Hello
++          </Button>
++        </ThemeProvider>,
++      );
++      expect(container.firstChild.firstChild).toHaveComputedStyle({
++        width: '100px',
++      });
++    });
++
++    it('support slot as nested class', () => {
++      const finalTheme = createTheme({
++        typography: {
++          button: {
++            fontSize: '20px',
++          },
++        },
++        components: {
++          MuiButton: {
++            styleOverrides: {
++              root: ({ ownerState, theme }) => {
++                const { color, variant } = ownerState;
++                const styles = [];
++                if (color === 'primary') {
++                  styles.push({
++                    width: 120,
++                    height: 48,
++                  });
++                }
++                if (variant === 'contained') {
++                  styles.push(theme.typography.button);
++                }
++                return styles;
++              },
++              icon: ({ ownerState }) => [
++                ownerState.startIcon && { marginRight: 8 },
++                ownerState.endIcon && { marginLeft: 8 },
++              ],
++            },
++          },
++        },
++      });
++      const { container } = render(
++        <ThemeProvider theme={finalTheme}>
++          <Button color="primary" variant="contained" startIcon="foo">
++            Hello
++          </Button>
++        </ThemeProvider>,
++      );
++      expect(container.firstChild).toHaveComputedStyle({
++        width: '120px',
++        height: '48px',
++        fontSize: '20px',
++      });
++      expect(
++        container.firstChild.firstChild, // startIcon
++      ).toHaveComputedStyle({
++        marginRight: '8px',
++      });
++    });
++
++    it('support object return from the callback', () => {
++      const finalTheme = createTheme({
++        components: {
++          MuiButton: {
++            styleOverrides: {
++              root: () => ({
++                width: '300px',
++              }),
++            },
++          },
++        },
++      });
++      const { container } = render(
++        <ThemeProvider theme={finalTheme}>
++          <Button>Hello</Button>
++        </ThemeProvider>,
++      );
++      expect(container.firstChild).toHaveComputedStyle({
++        width: '300px',
++      });
++    });
++
++    it('support template string return from the callback', () => {
++      const finalTheme = createTheme({
++        components: {
++          MuiButton: {
++            styleOverrides: {
++              root: () => `
++                width: 300px;
++              `,
++            },
++          },
++        },
++      });
++      const { container } = render(
++        <ThemeProvider theme={finalTheme}>
++          <Button>Hello</Button>
++        </ThemeProvider>,
++      );
++      expect(container.firstChild).toHaveComputedStyle({
++        width: '300px',
++      });
++    });
++
++    it('works with sx', () => {
++      const finalTheme = createTheme({
++        components: {
++          MuiButton: {
++            styleOverrides: {
++              root: sx({
++                pt: 10,
++              }),
++              icon: ({ ownerState }) => [
++                ownerState.color === 'primary' &&
++                  sx({
++                    mr: 10,
++                  }),
++              ],
++            },
++          },
++        },
++      });
++      const { container } = render(
++        <ThemeProvider theme={finalTheme}>
++          <Button startIcon="✅">Hello</Button>
++        </ThemeProvider>,
++      );
++      expect(container.firstChild).toHaveComputedStyle({
++        paddingTop: '80px',
++      });
++      expect(container.firstChild.firstChild).toHaveComputedStyle({
++        marginRight: '80px',
++      });
++    });
++  });
+ });

@@ -1,0 +1,47 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/element-is-attribute/_config.js b/packages/svelte/tests/runtime-runes/samples/element-is-attribute/_config.js
+new file mode 100644
+index 000000000000..6b9fd130e470
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/element-is-attribute/_config.js
+@@ -0,0 +1,17 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	mode: ['client'],
++	test({ assert, target, logs }) {
++		const [b1, b2] = target.querySelectorAll('button');
++
++		b1.click();
++		flushSync();
++		assert.deepEqual(logs, ['works']);
++
++		b2.click();
++		flushSync();
++		assert.deepEqual(logs, ['works', 'works']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/element-is-attribute/main.svelte b/packages/svelte/tests/runtime-runes/samples/element-is-attribute/main.svelte
+new file mode 100644
+index 000000000000..76aca5fa325f
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/element-is-attribute/main.svelte
+@@ -0,0 +1,18 @@
++<script lang="ts" context="module">
++	if (!customElements.get('x-button')) {
++		class XButton extends HTMLButtonElement {
++			connectedCallback() {
++				this.addEventListener('click', () => console.log('works'));
++			}
++		}
++
++		customElements.define('x-button', XButton, { extends: 'button' });
++	}
++</script>
++
++<script lang="ts">
++	let { ...props } = $props();
++</script>
++
++<button is="x-button">click me</button>
++<button {...props} is="x-button">click me</button>

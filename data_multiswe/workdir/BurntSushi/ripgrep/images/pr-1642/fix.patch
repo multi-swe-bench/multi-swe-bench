@@ -1,0 +1,67 @@
+diff --git a/crates/printer/src/json.rs b/crates/printer/src/json.rs
+index 1b3bc4f15..836c60e69 100644
+--- a/crates/printer/src/json.rs
++++ b/crates/printer/src/json.rs
+@@ -644,6 +644,14 @@ impl<'p, 's, M: Matcher, W: io::Write> JSONSink<'p, 's, M, W> {
+         self.after_context_remaining == 0
+     }
+ 
++    fn match_more_than_limit(&self) -> bool {
++        let limit = match self.json.config.max_matches {
++            None => return false,
++            Some(limit) => limit,
++        };
++        self.match_count > limit
++    }
++
+     /// Write the "begin" message.
+     fn write_begin_message(&mut self) -> io::Result<()> {
+         if self.begin_printed {
+@@ -667,7 +675,13 @@ impl<'p, 's, M: Matcher, W: io::Write> Sink for JSONSink<'p, 's, M, W> {
+         self.write_begin_message()?;
+ 
+         self.match_count += 1;
+-        self.after_context_remaining = searcher.after_context() as u64;
++        if self.match_more_than_limit() {
++            self.after_context_remaining =
++                self.after_context_remaining.saturating_sub(1);
++        } else {
++            self.after_context_remaining = searcher.after_context() as u64;
++        }
++
+         self.record_matches(mat.bytes())?;
+         self.stats.add_matches(self.json.matches.len() as u64);
+         self.stats.add_matched_lines(mat.lines().count() as u64);
+diff --git a/crates/printer/src/standard.rs b/crates/printer/src/standard.rs
+index a0e9668af..893fe3a83 100644
+--- a/crates/printer/src/standard.rs
++++ b/crates/printer/src/standard.rs
+@@ -722,6 +722,14 @@ impl<'p, 's, M: Matcher, W: WriteColor> StandardSink<'p, 's, M, W> {
+         }
+         self.after_context_remaining == 0
+     }
++
++    fn match_more_than_limit(&self) -> bool {
++        let limit = match self.standard.config.max_matches {
++            None => return false,
++            Some(limit) => limit,
++        };
++        self.match_count > limit
++    }
+ }
+ 
+ impl<'p, 's, M: Matcher, W: WriteColor> Sink for StandardSink<'p, 's, M, W> {
+@@ -733,7 +741,12 @@ impl<'p, 's, M: Matcher, W: WriteColor> Sink for StandardSink<'p, 's, M, W> {
+         mat: &SinkMatch,
+     ) -> Result<bool, io::Error> {
+         self.match_count += 1;
+-        self.after_context_remaining = searcher.after_context() as u64;
++        if self.match_more_than_limit() {
++            self.after_context_remaining =
++                self.after_context_remaining.saturating_sub(1);
++        } else {
++            self.after_context_remaining = searcher.after_context() as u64;
++        }
+ 
+         self.record_matches(mat.bytes())?;
+         self.replace(mat.bytes())?;

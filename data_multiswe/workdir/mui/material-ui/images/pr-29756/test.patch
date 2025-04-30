@@ -1,0 +1,69 @@
+diff --git a/packages/mui-system/src/breakpoints.test.js b/packages/mui-system/src/breakpoints.test.js
+index 0cb0b209bfa08f..83430dd1445533 100644
+--- a/packages/mui-system/src/breakpoints.test.js
++++ b/packages/mui-system/src/breakpoints.test.js
+@@ -1,5 +1,9 @@
+ import { expect } from 'chai';
+-import breakpoints, { computeBreakpointsBase, resolveBreakpointValues } from './breakpoints';
++import breakpoints, {
++  computeBreakpointsBase,
++  resolveBreakpointValues,
++  removeUnusedBreakpoints,
++} from './breakpoints';
+ import style from './style';
+ 
+ const textColor = style({
+@@ -210,4 +214,32 @@ describe('breakpoints', () => {
+       });
+     });
+   });
++
++  describe('function: removeUnusedBreakpoints', () => {
++    it('allow value to be null', () => {
++      const result = removeUnusedBreakpoints(
++        ['@media (min-width:0px)', '@media (min-width:600px)', '@media (min-width:960px)'],
++        {
++          '@media (min-width:0px)': {
++            fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
++            fontSize: '0.875rem',
++            letterSpacing: '0.01071em',
++            fontWeight: 400,
++            lineHeight: 1.43,
++          },
++          '@media (min-width:600px)': null,
++          '@media (min-width:960px)': {},
++        },
++      );
++      expect(result).to.deep.equal({
++        '@media (min-width:0px)': {
++          fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
++          fontSize: '0.875rem',
++          letterSpacing: '0.01071em',
++          fontWeight: 400,
++          lineHeight: 1.43,
++        },
++      });
++    });
++  });
+ });
+diff --git a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
+index 64eec7422127d9..99c969dcc4578f 100644
+--- a/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
++++ b/packages/mui-system/src/styleFunctionSx/styleFunctionSx.test.js
+@@ -112,6 +112,16 @@ describe('styleFunctionSx', () => {
+         },
+       });
+     });
++
++    it('allow values to be `null` or `undefined`', () => {
++      const result = styleFunctionSx({
++        theme,
++        sx: { typography: null, m: 0, p: null, transform: null },
++      });
++      expect(result).to.deep.equal({
++        margin: '0px',
++      });
++    });
+   });
+ 
+   it('resolves non system CSS properties if specified', () => {

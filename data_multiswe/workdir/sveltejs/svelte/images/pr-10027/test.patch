@@ -1,0 +1,88 @@
+diff --git a/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/main.svelte b/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/main.svelte
+index 2d2a6538d5b7..0e3eec9d9e4e 100644
+--- a/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/main.svelte
++++ b/packages/svelte/tests/runtime-runes/samples/destructure-async-assignments/main.svelte
+@@ -34,6 +34,10 @@
+         return Promise.resolve([24, 25]);
+     }
+ 
++    const some = {
++        fn: () => {}
++    }
++
+     const update = async () => {
+         [a, b] = [1, await Promise.resolve(2)];
+         ({ c = await Promise.resolve(3), d } = { d: 4 });
+@@ -49,7 +53,7 @@
+         [l = obj[await Promise.resolve("prop")] + 1] = [];
+         [m] = [`${1}${await Promise.resolve("3")}`];
+         [n] = [-(await Promise.resolve(-14))];
+-        [o] = [(console.log(15), await Promise.resolve(15))];
++        [o] = [(some.fn(), await Promise.resolve(15))];
+         ({ anotherprop: p = await Promise.resolve(16) } = obj);
+         let val1, val2;
+         ({ val1 = (async function (x) { return await x; })(Promise.resolve(18)), r = await val1 }
+diff --git a/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/Wrapper.svelte b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/Wrapper.svelte
+new file mode 100644
+index 000000000000..41f3f38fa85a
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/Wrapper.svelte
+@@ -0,0 +1,13 @@
++<text x="0" y=14>outside</text>
++
++{#if true}
++  <text x="0" y="26">true</text>
++{:else}
++  <text x="0" y="26">false</text>
++{/if}
++
++{#each  Array(3).fill(0) as item, idx}
++  <text x={idx * 10} y={42}>{idx}</text>
++{/each}
++
++<!-- comment should not set infer html namespace -->
+diff --git a/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/_config.js b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/_config.js
+new file mode 100644
+index 000000000000..46118026af8d
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/_config.js
+@@ -0,0 +1,26 @@
++import { test, ok } from '../../test';
++
++export default test({
++	html: `
++	<svg>
++		<text x="0" y="14">outside</text>
++		<text x="0" y="26">true</text>
++		<text x="0" y="42">0</text>
++		<text x="10" y="42">1</text>
++		<text x="20" y="42">2</text>
++	</svg>
++`,
++	test({ assert, target }) {
++		const svg = target.querySelector('svg');
++		ok(svg);
++
++		assert.equal(svg.namespaceURI, 'http://www.w3.org/2000/svg');
++
++		const text_elements = target.querySelectorAll('text');
++
++		assert.equal(text_elements.length, 5);
++
++		for (const { namespaceURI } of text_elements)
++			assert.equal(namespaceURI, 'http://www.w3.org/2000/svg');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/main.svelte b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/main.svelte
+new file mode 100644
+index 000000000000..7c1253ea7e4f
+--- /dev/null
++++ b/packages/svelte/tests/runtime-runes/samples/svg-namespace-infer/main.svelte
+@@ -0,0 +1,7 @@
++<script>
++  import Wrapper from "./Wrapper.svelte";
++</script>
++
++<svg>
++  <Wrapper />
++</svg>

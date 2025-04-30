@@ -1,0 +1,278 @@
+diff --git a/pkg/cmd/repo/autolink/autolink.go b/pkg/cmd/repo/autolink/autolink.go
+index 09b766b8513..b4f7c6839f1 100644
+--- a/pkg/cmd/repo/autolink/autolink.go
++++ b/pkg/cmd/repo/autolink/autolink.go
+@@ -3,6 +3,7 @@ package autolink
+ import (
+ 	"github.com/MakeNowJust/heredoc"
+ 	cmdCreate "github.com/cli/cli/v2/pkg/cmd/repo/autolink/create"
++	cmdDelete "github.com/cli/cli/v2/pkg/cmd/repo/autolink/delete"
+ 	cmdList "github.com/cli/cli/v2/pkg/cmd/repo/autolink/list"
+ 	cmdView "github.com/cli/cli/v2/pkg/cmd/repo/autolink/view"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+@@ -26,6 +27,7 @@ func NewCmdAutolink(f *cmdutil.Factory) *cobra.Command {
+ 	cmd.AddCommand(cmdList.NewCmdList(f, nil))
+ 	cmd.AddCommand(cmdCreate.NewCmdCreate(f, nil))
+ 	cmd.AddCommand(cmdView.NewCmdView(f, nil))
++	cmd.AddCommand(cmdDelete.NewCmdDelete(f, nil))
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/repo/autolink/create/create.go b/pkg/cmd/repo/autolink/create/create.go
+index aad71a9414f..f06ad5cf969 100644
+--- a/pkg/cmd/repo/autolink/create/create.go
++++ b/pkg/cmd/repo/autolink/create/create.go
+@@ -112,7 +112,7 @@ func createRun(opts *createOptions) error {
+ 		"%s Created repository autolink %s on %s\n",
+ 		cs.SuccessIconWithColor(cs.Green),
+ 		cs.Cyanf("%d", autolink.ID),
+-		ghrepo.FullName(repo))
++		cs.Bold(ghrepo.FullName(repo)))
+ 
+ 	return nil
+ }
+diff --git a/pkg/cmd/repo/autolink/create/http.go b/pkg/cmd/repo/autolink/create/http.go
+index d7ee940b907..5f187319f88 100644
+--- a/pkg/cmd/repo/autolink/create/http.go
++++ b/pkg/cmd/repo/autolink/create/http.go
+@@ -45,10 +45,6 @@ func (a *AutolinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRe
+ 
+ 	defer resp.Body.Close()
+ 
+-	// if resp.StatusCode != http.StatusCreated {
+-	// 	return nil, api.HandleHTTPError(resp)
+-	// }
+-
+ 	err = handleAutolinkCreateError(resp)
+ 
+ 	if err != nil {
+diff --git a/pkg/cmd/repo/autolink/delete/delete.go b/pkg/cmd/repo/autolink/delete/delete.go
+new file mode 100644
+index 00000000000..e5cd874fb05
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/delete/delete.go
+@@ -0,0 +1,107 @@
++package delete
++
++import (
++	"fmt"
++
++	"github.com/cli/cli/v2/internal/browser"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/internal/prompter"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/view"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/spf13/cobra"
++)
++
++type deleteOptions struct {
++	BaseRepo             func() (ghrepo.Interface, error)
++	Browser              browser.Browser
++	AutolinkDeleteClient AutolinkDeleteClient
++	AutolinkViewClient   view.AutolinkViewClient
++	IO                   *iostreams.IOStreams
++
++	ID        string
++	Confirmed bool
++	Prompter  prompter.Prompter
++}
++
++type AutolinkDeleteClient interface {
++	Delete(repo ghrepo.Interface, id string) error
++}
++
++func NewCmdDelete(f *cmdutil.Factory, runF func(*deleteOptions) error) *cobra.Command {
++	opts := &deleteOptions{
++		Browser:  f.Browser,
++		IO:       f.IOStreams,
++		Prompter: f.Prompter,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "delete <id>",
++		Short: "Delete an autolink reference",
++		Long:  "Delete an autolink reference for a repository.",
++		Args:  cobra.ExactArgs(1),
++		RunE: func(cmd *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++
++			httpClient, err := f.HttpClient()
++			if err != nil {
++				return err
++			}
++
++			opts.AutolinkDeleteClient = &AutolinkDeleter{HTTPClient: httpClient}
++			opts.AutolinkViewClient = &view.AutolinkViewer{HTTPClient: httpClient}
++			opts.ID = args[0]
++
++			if !opts.IO.CanPrompt() && !opts.Confirmed {
++				return cmdutil.FlagErrorf("--yes required when not running interactively")
++			}
++
++			if runF != nil {
++				return runF(opts)
++			}
++
++			return deleteRun(opts)
++		},
++	}
++
++	cmd.Flags().BoolVar(&opts.Confirmed, "yes", false, "Confirm deletion without prompting")
++
++	return cmd
++}
++
++func deleteRun(opts *deleteOptions) error {
++	repo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	out := opts.IO.Out
++	cs := opts.IO.ColorScheme()
++
++	autolink, err := opts.AutolinkViewClient.View(repo, opts.ID)
++
++	if err != nil {
++		return fmt.Errorf("%s %w", cs.Red("error deleting autolink:"), err)
++	}
++
++	if opts.IO.CanPrompt() && !opts.Confirmed {
++		fmt.Fprintf(out, "Autolink %s has key prefix %s.\n", cs.Cyan(opts.ID), autolink.KeyPrefix)
++
++		err := opts.Prompter.ConfirmDeletion(autolink.KeyPrefix)
++
++		if err != nil {
++			return err
++		}
++	}
++
++	err = opts.AutolinkDeleteClient.Delete(repo, opts.ID)
++	if err != nil {
++		return err
++	}
++
++	if opts.IO.IsStdoutTTY() {
++		fmt.Fprintf(out, "%s Autolink %s deleted from %s\n", cs.SuccessIcon(), cs.Cyan(opts.ID), cs.Bold(ghrepo.FullName(repo)))
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/autolink/delete/http.go b/pkg/cmd/repo/autolink/delete/http.go
+new file mode 100644
+index 00000000000..d6bc53e840f
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/delete/http.go
+@@ -0,0 +1,37 @@
++package delete
++
++import (
++	"fmt"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++)
++
++type AutolinkDeleter struct {
++	HTTPClient *http.Client
++}
++
++func (a *AutolinkDeleter) Delete(repo ghrepo.Interface, id string) error {
++	path := fmt.Sprintf("repos/%s/%s/autolinks/%s", repo.RepoOwner(), repo.RepoName(), id)
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++	req, err := http.NewRequest(http.MethodDelete, url, nil)
++	if err != nil {
++		return err
++	}
++
++	resp, err := a.HTTPClient.Do(req)
++	if err != nil {
++		return err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode == http.StatusNotFound {
++		return fmt.Errorf("error deleting autolink: HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/%s)", path)
++	} else if resp.StatusCode > 299 {
++		return api.HandleHTTPError(resp)
++	}
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/autolink/list/list.go b/pkg/cmd/repo/autolink/list/list.go
+index 402479c44cb..fb726d36954 100644
+--- a/pkg/cmd/repo/autolink/list/list.go
++++ b/pkg/cmd/repo/autolink/list/list.go
+@@ -89,8 +89,14 @@ func listRun(opts *listOptions) error {
+ 		return err
+ 	}
+ 
++	cs := opts.IO.ColorScheme()
++
+ 	if len(autolinks) == 0 {
+-		return cmdutil.NewNoResultsError(fmt.Sprintf("no autolinks found in %s", ghrepo.FullName(repo)))
++		return cmdutil.NewNoResultsError(
++			fmt.Sprintf(
++				"no autolinks found in %s",
++				cs.Bold(ghrepo.FullName(repo))),
++		)
+ 	}
+ 
+ 	if opts.Exporter != nil {
+@@ -98,14 +104,16 @@ func listRun(opts *listOptions) error {
+ 	}
+ 
+ 	if opts.IO.IsStdoutTTY() {
+-		title := listHeader(ghrepo.FullName(repo), len(autolinks))
++		title := fmt.Sprintf(
++			"Showing %s in %s",
++			text.Pluralize(len(autolinks), "autolink reference"),
++			cs.Bold(ghrepo.FullName(repo)),
++		)
+ 		fmt.Fprintf(opts.IO.Out, "\n%s\n\n", title)
+ 	}
+ 
+ 	tp := tableprinter.New(opts.IO, tableprinter.WithHeader("ID", "KEY PREFIX", "URL TEMPLATE", "ALPHANUMERIC"))
+ 
+-	cs := opts.IO.ColorScheme()
+-
+ 	for _, autolink := range autolinks {
+ 		tp.AddField(cs.Cyanf("%d", autolink.ID))
+ 		tp.AddField(autolink.KeyPrefix)
+@@ -116,7 +124,3 @@ func listRun(opts *listOptions) error {
+ 
+ 	return tp.Render()
+ }
+-
+-func listHeader(repoName string, count int) string {
+-	return fmt.Sprintf("Showing %s in %s", text.Pluralize(count, "autolink reference"), repoName)
+-}
+diff --git a/pkg/cmd/repo/autolink/view/http.go b/pkg/cmd/repo/autolink/view/http.go
+index 8dd6dc12df2..cc5638613e4 100644
+--- a/pkg/cmd/repo/autolink/view/http.go
++++ b/pkg/cmd/repo/autolink/view/http.go
+@@ -30,7 +30,7 @@ func (a *AutolinkViewer) View(repo ghrepo.Interface, id string) (*shared.Autolin
+ 	defer resp.Body.Close()
+ 
+ 	if resp.StatusCode == http.StatusNotFound {
+-		return nil, fmt.Errorf("HTTP 404: Either no autolink with this ID exists for this repository or you are missing admin rights to the repository. (https://api.github.com/%s)", path)
++		return nil, fmt.Errorf("HTTP 404: Perhaps you are missing admin rights to the repository? (https://api.github.com/%s)", path)
+ 	} else if resp.StatusCode > 299 {
+ 		return nil, api.HandleHTTPError(resp)
+ 	}
+diff --git a/pkg/cmd/repo/autolink/view/view.go b/pkg/cmd/repo/autolink/view/view.go
+index 0b212aece9e..f146cd25b3d 100644
+--- a/pkg/cmd/repo/autolink/view/view.go
++++ b/pkg/cmd/repo/autolink/view/view.go
+@@ -78,7 +78,7 @@ func viewRun(opts *viewOptions) error {
+ 		return opts.Exporter.Write(opts.IO, autolink)
+ 	}
+ 
+-	fmt.Fprintf(out, "Autolink in %s\n\n", ghrepo.FullName(repo))
++	fmt.Fprintf(out, "Autolink in %s\n\n", cs.Bold(ghrepo.FullName(repo)))
+ 
+ 	fmt.Fprint(out, cs.Bold("ID: "))
+ 	fmt.Fprintln(out, cs.Cyanf("%d", autolink.ID))

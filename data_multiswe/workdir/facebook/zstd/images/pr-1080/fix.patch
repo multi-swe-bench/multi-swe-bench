@@ -1,0 +1,118 @@
+diff --git a/lib/decompress/zstd_decompress.c b/lib/decompress/zstd_decompress.c
+index 3ec6a1cb328..103dcc6483c 100644
+--- a/lib/decompress/zstd_decompress.c
++++ b/lib/decompress/zstd_decompress.c
+@@ -298,20 +298,21 @@ static size_t ZSTD_frameHeaderSize_internal(const void* src, size_t srcSize, ZST
+ 
+ /** ZSTD_frameHeaderSize() :
+  *  srcSize must be >= ZSTD_frameHeaderSize_prefix.
+- * @return : size of the Frame Header */
++ * @return : size of the Frame Header,
++ *           or an error code (if srcSize is too small) */
+ size_t ZSTD_frameHeaderSize(const void* src, size_t srcSize)
+ {
+     return ZSTD_frameHeaderSize_internal(src, srcSize, ZSTD_f_zstd1);
+ }
+ 
+ 
+-/** ZSTD_getFrameHeader_internal() :
++/** ZSTD_getFrameHeader_advanced() :
+  *  decode Frame Header, or require larger `srcSize`.
+  *  note : only works for formats ZSTD_f_zstd1 and ZSTD_f_zstd1_magicless
+  * @return : 0, `zfhPtr` is correctly filled,
+  *          >0, `srcSize` is too small, value is wanted `srcSize` amount,
+  *           or an error code, which can be tested using ZSTD_isError() */
+-static size_t ZSTD_getFrameHeader_internal(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize, ZSTD_format_e format)
++size_t ZSTD_getFrameHeader_advanced(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize, ZSTD_format_e format)
+ {
+     const BYTE* ip = (const BYTE*)src;
+     size_t const minInputSize = ZSTD_startingInputLength(format);
+@@ -394,7 +395,7 @@ static size_t ZSTD_getFrameHeader_internal(ZSTD_frameHeader* zfhPtr, const void*
+  *           or an error code, which can be tested using ZSTD_isError() */
+ size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize)
+ {
+-    return ZSTD_getFrameHeader_internal(zfhPtr, src, srcSize, ZSTD_f_zstd1);
++    return ZSTD_getFrameHeader_advanced(zfhPtr, src, srcSize, ZSTD_f_zstd1);
+ }
+ 
+ 
+@@ -491,7 +492,7 @@ unsigned long long ZSTD_getDecompressedSize(const void* src, size_t srcSize)
+ *   @return : 0 if success, or an error code, which can be tested using ZSTD_isError() */
+ static size_t ZSTD_decodeFrameHeader(ZSTD_DCtx* dctx, const void* src, size_t headerSize)
+ {
+-    size_t const result = ZSTD_getFrameHeader_internal(&(dctx->fParams), src, headerSize, dctx->format);
++    size_t const result = ZSTD_getFrameHeader_advanced(&(dctx->fParams), src, headerSize, dctx->format);
+     if (ZSTD_isError(result)) return result;    /* invalid header */
+     if (result>0) return ERROR(srcSize_wrong);  /* headerSize too small */
+     if (dctx->fParams.dictID && (dctx->dictID != dctx->fParams.dictID))
+@@ -2767,7 +2768,7 @@ size_t ZSTD_decompressStream(ZSTD_DStream* zds, ZSTD_outBuffer* output, ZSTD_inB
+                     return hint;
+             }   }
+ #endif
+-            {   size_t const hSize = ZSTD_getFrameHeader_internal(&zds->fParams, zds->headerBuffer, zds->lhSize, zds->format);
++            {   size_t const hSize = ZSTD_getFrameHeader_advanced(&zds->fParams, zds->headerBuffer, zds->lhSize, zds->format);
+                 DEBUGLOG(5, "header size : %u", (U32)hSize);
+                 if (ZSTD_isError(hSize)) {
+ #if defined(ZSTD_LEGACY_SUPPORT) && (ZSTD_LEGACY_SUPPORT>=1)
+diff --git a/lib/zstd.h b/lib/zstd.h
+index 6405da602e8..90000eca123 100644
+--- a/lib/zstd.h
++++ b/lib/zstd.h
+@@ -479,10 +479,10 @@ ZSTDLIB_API size_t ZSTD_findFrameCompressedSize(const void* src, size_t srcSize)
+  *            however it does mean that all frame data must be present and valid. */
+ ZSTDLIB_API unsigned long long ZSTD_findDecompressedSize(const void* src, size_t srcSize);
+ 
+-/*! ZSTD_frameHeaderSize() :
+-*   `src` should point to the start of a ZSTD frame
+-*   `srcSize` must be >= ZSTD_frameHeaderSize_prefix.
+-*   @return : size of the Frame Header */
++/** ZSTD_frameHeaderSize() :
++ *  srcSize must be >= ZSTD_frameHeaderSize_prefix.
++ * @return : size of the Frame Header,
++ *           or an error code (if srcSize is too small) */
+ ZSTDLIB_API size_t ZSTD_frameHeaderSize(const void* src, size_t srcSize);
+ 
+ 
+@@ -880,6 +880,11 @@ typedef struct {
+     unsigned dictID;
+     unsigned checksumFlag;
+ } ZSTD_frameHeader;
++/** ZSTD_getFrameHeader() :
++ *  decode Frame Header, or requires larger `srcSize`.
++ * @return : 0, `zfhPtr` is correctly filled,
++ *          >0, `srcSize` is too small, value is wanted `srcSize` amount,
++ *           or an error code, which can be tested using ZSTD_isError() */
+ ZSTDLIB_API size_t ZSTD_getFrameHeader(ZSTD_frameHeader* zfhPtr, const void* src, size_t srcSize);   /**< doesn't consume input */
+ ZSTDLIB_API size_t ZSTD_decodingBufferSize_min(unsigned long long windowSize, unsigned long long frameContentSize);  /**< when frame content size is not known, pass in frameContentSize == ZSTD_CONTENTSIZE_UNKNOWN */
+ 
+@@ -1246,10 +1251,13 @@ ZSTDLIB_API size_t ZSTD_CCtx_setParametersUsingCCtxParams(
+         ZSTD_CCtx* cctx, const ZSTD_CCtx_params* params);
+ 
+ 
+-/*===   Advanced parameters for decompression API  ===*/
++/* ==================================== */
++/*===   Advanced decompression API   ===*/
++/* ==================================== */
+ 
+-/* The following parameters must be set after creating a ZSTD_DCtx* (or ZSTD_DStream*) object,
+- * but before starting decompression of a frame.
++/* The following API works the same way as the advanced compression API :
++ * a context is created, parameters are pushed into it one by one,
++ * then the context can be used to decompress data using an interface similar to the straming API.
+  */
+ 
+ /*! ZSTD_DCtx_loadDictionary() :
+@@ -1318,6 +1326,13 @@ ZSTDLIB_API size_t ZSTD_DCtx_setMaxWindowSize(ZSTD_DCtx* dctx, size_t maxWindowS
+ ZSTDLIB_API size_t ZSTD_DCtx_setFormat(ZSTD_DCtx* dctx, ZSTD_format_e format);
+ 
+ 
++/** ZSTD_getFrameHeader_advanced() :
++ *  same as ZSTD_getFrameHeader(),
++ *  with added capability to select a format (like ZSTD_f_zstd1_magicless) */
++ZSTDLIB_API size_t ZSTD_getFrameHeader_advanced(ZSTD_frameHeader* zfhPtr,
++                        const void* src, size_t srcSize, ZSTD_format_e format);
++
++
+ /*! ZSTD_decompress_generic() :
+  *  Behave the same as ZSTD_decompressStream.
+  *  Decompression parameters cannot be changed once decompression is started.

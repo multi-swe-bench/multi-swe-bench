@@ -1,0 +1,51 @@
+diff --git a/pkg/cmd/label/list/list.go b/pkg/cmd/label/list/list.go
+index 5adf56ecd59..99b5babfc2a 100644
+--- a/pkg/cmd/label/list/list.go
++++ b/pkg/cmd/label/list/list.go
+@@ -8,6 +8,7 @@ import (
+ 	"github.com/cli/cli/v2/pkg/cmd/label/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/cli/cli/v2/pkg/text"
+ 	"github.com/cli/cli/v2/utils"
+ 	"github.com/spf13/cobra"
+ )
+@@ -101,15 +102,9 @@ func printLabels(io *iostreams.IOStreams, labels []shared.Label) error {
+ 	table := utils.NewTablePrinter(io)
+ 
+ 	for _, label := range labels {
+-		labelName := ""
+-		if table.IsTTY() {
+-			labelName = cs.HexToRGB(label.Color, label.Name)
+-		} else {
+-			labelName = label.Name
+-		}
+-
+-		table.AddField(labelName, nil, nil)
+-		table.AddField(label.Description, nil, nil)
++		table.AddField(label.Name, nil, cs.ColorFromRGB(label.Color))
++		table.AddField(label.Description, text.Truncate, nil)
++		table.AddField("#"+label.Color, nil, nil)
+ 
+ 		table.EndRow()
+ 	}
+diff --git a/pkg/iostreams/color.go b/pkg/iostreams/color.go
+index 73fb5aa3c26..e2c2c1c9cf8 100644
+--- a/pkg/iostreams/color.go
++++ b/pkg/iostreams/color.go
+@@ -210,6 +210,15 @@ func (c *ColorScheme) ColorFromString(s string) func(string) string {
+ 	return fn
+ }
+ 
++// ColorFromRGB returns a function suitable for TablePrinter.AddField
++// that calls HexToRGB, coloring text if supported by the terminal.
++func (c *ColorScheme) ColorFromRGB(hex string) func(string) string {
++	return func(s string) string {
++		return c.HexToRGB(hex, s)
++	}
++}
++
++// HexToRGB uses the given hex to color x if supported by the terminal.
+ func (c *ColorScheme) HexToRGB(hex string, x string) string {
+ 	if !c.enabled || !c.hasTrueColor || len(hex) != 6 {
+ 		return x

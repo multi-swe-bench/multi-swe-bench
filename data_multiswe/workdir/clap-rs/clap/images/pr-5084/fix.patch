@@ -1,0 +1,47 @@
+diff --git a/clap_builder/src/builder/styled_str.rs b/clap_builder/src/builder/styled_str.rs
+index d856a301516..df0f1b03b7c 100644
+--- a/clap_builder/src/builder/styled_str.rs
++++ b/clap_builder/src/builder/styled_str.rs
+@@ -1,3 +1,5 @@
++#![cfg_attr(not(feature = "usage"), allow(dead_code))]
++
+ /// Terminal-styling container
+ ///
+ /// Styling may be encoded as [ANSI Escape Code](https://en.wikipedia.org/wiki/ANSI_escape_code)
+@@ -47,6 +49,19 @@ impl StyledStr {
+         self.0 = self.0.trim().to_owned()
+     }
+ 
++    pub(crate) fn trim_start_lines(&mut self) {
++        if let Some(pos) = self.0.find('\n') {
++            let (leading, help) = self.0.split_at(pos + 1);
++            if leading.trim().is_empty() {
++                self.0 = help.to_owned()
++            }
++        }
++    }
++
++    pub(crate) fn trim_end(&mut self) {
++        self.0 = self.0.trim_end().to_owned()
++    }
++
+     #[cfg(feature = "help")]
+     pub(crate) fn replace_newline_var(&mut self) {
+         self.0 = self.0.replace("{n}", "\n");
+diff --git a/clap_builder/src/output/help.rs b/clap_builder/src/output/help.rs
+index 410616eb1b8..a5073a9e4b6 100644
+--- a/clap_builder/src/output/help.rs
++++ b/clap_builder/src/output/help.rs
+@@ -30,8 +30,10 @@ pub(crate) fn write_help(writer: &mut StyledStr, cmd: &Command, usage: &Usage<'_
+         }
+     }
+ 
+-    // Remove any extra lines caused by book keeping
+-    writer.trim();
++    // Remove any lines from unused sections
++    writer.trim_start_lines();
++    // Remove any whitespace caused by book keeping
++    writer.trim_end();
+     // Ensure there is still a trailing newline
+     writer.push_str("\n");
+ }

@@ -1,0 +1,165 @@
+diff --git a/clap_builder/src/builder/mod.rs b/clap_builder/src/builder/mod.rs
+index ec7d6059bbd..ff3c6151d2a 100644
+--- a/clap_builder/src/builder/mod.rs
++++ b/clap_builder/src/builder/mod.rs
+@@ -59,6 +59,7 @@ pub use value_parser::RangedU64ValueParser;
+ pub use value_parser::StringValueParser;
+ pub use value_parser::TryMapValueParser;
+ pub use value_parser::TypedValueParser;
++pub use value_parser::UnknownArgumentValueParser;
+ pub use value_parser::ValueParser;
+ pub use value_parser::ValueParserFactory;
+ pub use value_parser::_AnonymousValueParser;
+diff --git a/clap_builder/src/builder/value_parser.rs b/clap_builder/src/builder/value_parser.rs
+index c7c7e61eb5d..ab06ae5a432 100644
+--- a/clap_builder/src/builder/value_parser.rs
++++ b/clap_builder/src/builder/value_parser.rs
+@@ -1,6 +1,8 @@
+ use std::convert::TryInto;
+ use std::ops::RangeBounds;
+ 
++use crate::builder::Str;
++use crate::builder::StyledStr;
+ use crate::util::AnyValue;
+ use crate::util::AnyValueId;
+ 
+@@ -2086,6 +2088,105 @@ where
+     }
+ }
+ 
++/// When encountered, report [ErrorKind::UnknownArgument][crate::error::ErrorKind::UnknownArgument]
++///
++/// Useful to help users migrate, either from old versions or similar tools.
++///
++/// # Examples
++///
++/// ```rust
++/// # use clap_builder as clap;
++/// # use clap::Command;
++/// # use clap::Arg;
++/// let cmd = Command::new("mycmd")
++///     .args([
++///         Arg::new("current-dir")
++///             .short('C'),
++///         Arg::new("current-dir-unknown")
++///             .long("cwd")
++///             .aliases(["current-dir", "directory", "working-directory", "root"])
++///             .value_parser(clap::builder::UnknownArgumentValueParser::suggest_arg("-C"))
++///             .hide(true),
++///     ]);
++///
++/// // Use a supported version of the argument
++/// let matches = cmd.clone().try_get_matches_from(["mycmd", "-C", ".."]).unwrap();
++/// assert!(matches.contains_id("current-dir"));
++/// assert_eq!(
++///     matches.get_many::<String>("current-dir").unwrap_or_default().map(|v| v.as_str()).collect::<Vec<_>>(),
++///     vec![".."]
++/// );
++///
++/// // Use one of the invalid versions
++/// let err = cmd.try_get_matches_from(["mycmd", "--cwd", ".."]).unwrap_err();
++/// assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
++/// ```
++#[derive(Clone, Debug)]
++pub struct UnknownArgumentValueParser {
++    arg: Option<Str>,
++    suggestions: Vec<StyledStr>,
++}
++
++impl UnknownArgumentValueParser {
++    /// Suggest an alternative argument
++    pub fn suggest_arg(arg: impl Into<Str>) -> Self {
++        Self {
++            arg: Some(arg.into()),
++            suggestions: Default::default(),
++        }
++    }
++
++    /// Provide a general suggestion
++    pub fn suggest(text: impl Into<StyledStr>) -> Self {
++        Self {
++            arg: Default::default(),
++            suggestions: vec![text.into()],
++        }
++    }
++
++    /// Extend the suggestions
++    pub fn and_suggest(mut self, text: impl Into<StyledStr>) -> Self {
++        self.suggestions.push(text.into());
++        self
++    }
++}
++
++impl TypedValueParser for UnknownArgumentValueParser {
++    type Value = String;
++
++    fn parse_ref(
++        &self,
++        cmd: &crate::Command,
++        arg: Option<&crate::Arg>,
++        _value: &std::ffi::OsStr,
++    ) -> Result<Self::Value, crate::Error> {
++        let arg = match arg {
++            Some(arg) => arg.to_string(),
++            None => "..".to_owned(),
++        };
++        let err = crate::Error::unknown_argument(
++            cmd,
++            arg,
++            self.arg.as_ref().map(|s| (s.as_str().to_owned(), None)),
++            false,
++            crate::output::Usage::new(cmd).create_usage_with_title(&[]),
++        );
++        #[cfg(feature = "error-context")]
++        let err = {
++            debug_assert_eq!(
++                err.get(crate::error::ContextKind::Suggested),
++                None,
++                "Assuming `Error::unknown_argument` doesn't apply any `Suggested` so we can without caution"
++            );
++            err.insert_context_unchecked(
++                crate::error::ContextKind::Suggested,
++                crate::error::ContextValue::StyledStrs(self.suggestions.clone()),
++            )
++        };
++        Err(err)
++    }
++}
++
+ /// Register a type with [value_parser!][crate::value_parser!]
+ ///
+ /// # Example
+diff --git a/clap_builder/src/error/mod.rs b/clap_builder/src/error/mod.rs
+index 772058a5fe9..af90e2756f1 100644
+--- a/clap_builder/src/error/mod.rs
++++ b/clap_builder/src/error/mod.rs
+@@ -718,7 +718,7 @@ impl<F: ErrorFormatter> Error<F> {
+                     let mut styled_suggestion = StyledStr::new();
+                     let _ = write!(
+                         styled_suggestion,
+-                        "'{}{sub} --{flag}{}' exists",
++                        "'{}{sub} {flag}{}' exists",
+                         valid.render(),
+                         valid.render_reset()
+                     );
+@@ -727,7 +727,7 @@ impl<F: ErrorFormatter> Error<F> {
+                 Some((flag, None)) => {
+                     err = err.insert_context_unchecked(
+                         ContextKind::SuggestedArg,
+-                        ContextValue::String(format!("--{flag}")),
++                        ContextValue::String(flag),
+                     );
+                 }
+                 None => {}
+diff --git a/clap_builder/src/parser/parser.rs b/clap_builder/src/parser/parser.rs
+index d6d8e8da436..81eddc9fd61 100644
+--- a/clap_builder/src/parser/parser.rs
++++ b/clap_builder/src/parser/parser.rs
+@@ -1521,6 +1521,7 @@ impl<'cmd> Parser<'cmd> {
+                 self.start_custom_arg(matcher, arg, ValueSource::CommandLine);
+             }
+         }
++        let did_you_mean = did_you_mean.map(|(arg, cmd)| (format!("--{arg}"), cmd));
+ 
+         let required = self.cmd.required_graph();
+         let used: Vec<Id> = matcher

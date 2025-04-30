@@ -1,0 +1,151 @@
+diff --git a/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/ImmutableTodo.svelte b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/ImmutableTodo.svelte
+new file mode 100644
+index 000000000000..7b88730481c4
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/ImmutableTodo.svelte
+@@ -0,0 +1,24 @@
++<svelte:options immutable />
++
++<script>
++	import { afterUpdate, beforeUpdate } from 'svelte';
++
++	export let todo;
++
++	let btn;
++
++	$: console.log('$:'+ todo.id);
++
++	beforeUpdate(() => {
++		console.log('beforeUpdate:'+ todo.id);
++	})
++
++	afterUpdate(() => {
++		console.log('afterUpdate:'+ todo.id);
++	});
++</script>
++
++<button bind:this={btn} on:click>
++	{todo.done ? 'X' : ''}
++	{todo.id}
++</button>
+diff --git a/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/_config.js b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/_config.js
+new file mode 100644
+index 000000000000..ed4b49ec1bda
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/_config.js
+@@ -0,0 +1,45 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	immutable: true,
++
++	html: '<button>1</button> <button>2</button> <button>3</button>',
++
++	test({ assert, target, logs }) {
++		assert.deepEqual(logs, [
++			'$:1',
++			'beforeUpdate:1',
++			'$:2',
++			'beforeUpdate:2',
++			'$:3',
++			'beforeUpdate:3',
++			'afterUpdate:1',
++			'afterUpdate:2',
++			'afterUpdate:3',
++			'beforeUpdate:1',
++			'beforeUpdate:2',
++			'beforeUpdate:3'
++		]);
++
++		const [button1, button2] = target.querySelectorAll('button');
++
++		logs.length = 0;
++		button1.click();
++		flushSync();
++		assert.htmlEqual(
++			target.innerHTML,
++			'<button>X 1</button> <button>2</button> <button>3</button>'
++		);
++		assert.deepEqual(logs, ['$:1', 'beforeUpdate:1', 'afterUpdate:1']);
++
++		logs.length = 0;
++		button2.click();
++		flushSync();
++		assert.htmlEqual(
++			target.innerHTML,
++			'<button>X 1</button> <button>X 2</button> <button>3</button>'
++		);
++		assert.deepEqual(logs, ['$:2', 'beforeUpdate:2', 'afterUpdate:2']);
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/main.svelte b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/main.svelte
+new file mode 100644
+index 000000000000..d24abfd113f8
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/immutable-before-after-update/main.svelte
+@@ -0,0 +1,26 @@
++<script>
++	import ImmutableTodo from './ImmutableTodo.svelte';
++
++	let todos = [
++		{ id: 1, done: false },
++		{ id: 2, done: false },
++		{ id: 3, done: false }
++	];
++
++	function toggle(id) {
++		todos = todos.map((todo) => {
++			if (todo.id === id) {
++				return {
++					id,
++					done: !todo.done
++				};
++			}
++
++			return todo;
++		});
++	}
++</script>
++
++{#each todos as todo}
++	<ImmutableTodo {todo} on:click={() => toggle(todo.id)} />
++{/each}
+diff --git a/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/_config.js b/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/_config.js
+new file mode 100644
+index 000000000000..e3cbd48d755e
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/_config.js
+@@ -0,0 +1,20 @@
++import { flushSync } from 'svelte';
++import { test } from '../../test';
++
++export default test({
++	immutable: true,
++
++	html: '<button>0</button> <button>0</button>',
++
++	test({ assert, target }) {
++		const [button1, button2] = target.querySelectorAll('button');
++
++		button1.click();
++		flushSync();
++		assert.htmlEqual(target.innerHTML, '<button>0</button> <button>0</button>');
++
++		button2.click();
++		flushSync();
++		assert.htmlEqual(target.innerHTML, '<button>2</button> <button>2</button>');
++	}
++});
+diff --git a/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/main.svelte b/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/main.svelte
+new file mode 100644
+index 000000000000..8a086c5db3fb
+--- /dev/null
++++ b/packages/svelte/tests/runtime-legacy/samples/immutable-mutate-object/main.svelte
+@@ -0,0 +1,6 @@
++<script>
++	let name = { value: 0 };
++</script>
++
++<button onclick={() => name.value++}>{name.value}</button>
++<button onclick={() => (name = { value: name.value + 1 })}>{name.value}</button>

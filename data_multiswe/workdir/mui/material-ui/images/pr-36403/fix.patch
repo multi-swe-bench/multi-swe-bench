@@ -1,0 +1,64 @@
+diff --git a/packages/mui-styled-engine-sc/src/index.js b/packages/mui-styled-engine-sc/src/index.js
+index c3abf854c79360..b08dd27847bdcf 100644
+--- a/packages/mui-styled-engine-sc/src/index.js
++++ b/packages/mui-styled-engine-sc/src/index.js
+@@ -36,6 +36,10 @@ export default function styled(tag, options) {
+   return stylesFactory;
+ }
+ 
++Object.keys(scStyled).forEach((tag) => {
++  styled[tag] = scStyled[tag];
++});
++
+ // eslint-disable-next-line @typescript-eslint/naming-convention
+ export const internal_processStyles = (tag, processor) => {
+   // Styled-components attaches an instance to `componentStyle`.
+diff --git a/packages/mui-styled-engine/src/index.d.ts b/packages/mui-styled-engine/src/index.d.ts
+index 1130164844f7b0..2e24d2b6d4700f 100644
+--- a/packages/mui-styled-engine/src/index.d.ts
++++ b/packages/mui-styled-engine/src/index.d.ts
+@@ -1,5 +1,5 @@
+ import * as CSS from 'csstype';
+-import { StyledComponent, StyledOptions } from '@emotion/styled';
++import { StyledComponent, StyledOptions, StyledTags as EmotionStyledTags } from '@emotion/styled';
+ import { PropsOf } from '@emotion/react';
+ 
+ export * from '@emotion/styled';
+@@ -136,11 +136,21 @@ export interface CreateStyledComponent<
+   ): StyledComponent<ComponentProps & AdditionalProps, SpecificComponentProps, JSXProps>;
+ }
+ 
++export type StyledTags<Theme> = {
++  [Tag in keyof JSX.IntrinsicElements]: CreateStyledComponent<
++    {
++      theme?: Theme;
++      as?: React.ElementType;
++    },
++    JSX.IntrinsicElements[Tag]
++  >;
++};
++
+ export interface CreateMUIStyled<
+   MUIStyledCommonProps extends {},
+   MuiStyledOptions,
+   Theme extends object,
+-> {
++> extends StyledTags<Theme> {
+   <
+     C extends React.ComponentClass<React.ComponentProps<C>>,
+     ForwardedProps extends keyof React.ComponentProps<C> = keyof React.ComponentProps<C>,
+diff --git a/packages/mui-styled-engine/src/index.js b/packages/mui-styled-engine/src/index.js
+index 2eb9a86b75674d..bb5c474726535a 100644
+--- a/packages/mui-styled-engine/src/index.js
++++ b/packages/mui-styled-engine/src/index.js
+@@ -26,6 +26,10 @@ export default function styled(tag, options) {
+   return stylesFactory;
+ }
+ 
++Object.keys(emStyled).forEach((tag) => {
++  styled[tag] = emStyled[tag];
++});
++
+ // eslint-disable-next-line @typescript-eslint/naming-convention
+ export const internal_processStyles = (tag, processor) => {
+   // Emotion attaches all the styles as `__emotion_styles`.

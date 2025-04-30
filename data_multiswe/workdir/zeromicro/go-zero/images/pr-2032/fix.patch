@@ -1,0 +1,77 @@
+diff --git a/rest/engine.go b/rest/engine.go
+index 5209693c5f7c..1b3336e06564 100644
+--- a/rest/engine.go
++++ b/rest/engine.go
+@@ -95,7 +95,7 @@ func (ng *engine) bindRoute(fr featuredRoutes, router httpx.Router, metrics *sta
+ 			handler.MaxConns(ng.conf.MaxConns),
+ 			handler.BreakerHandler(route.Method, route.Path, metrics),
+ 			handler.SheddingHandler(ng.getShedder(fr.priority), metrics),
+-			handler.TimeoutHandler(ng.checkedTimeout(fr.timeout)),
++			handler.TimeoutHandler(ng.checkedTimeout(fr.timeout, fr.ignoreTimeout)),
+ 			handler.RecoverHandler,
+ 			handler.MetricHandler(metrics),
+ 			handler.MaxBytesHandler(ng.checkedMaxBytes(fr.maxBytes)),
+@@ -133,7 +133,12 @@ func (ng *engine) checkedMaxBytes(bytes int64) int64 {
+ 	return ng.conf.MaxBytes
+ }
+ 
+-func (ng *engine) checkedTimeout(timeout time.Duration) time.Duration {
++func (ng *engine) checkedTimeout(timeout time.Duration, ignoreTimeout bool) time.Duration {
++	if ignoreTimeout {
++		// ignore timeout
++		return 0
++	}
++
+ 	if timeout > 0 {
+ 		return timeout
+ 	}
+diff --git a/rest/server.go b/rest/server.go
+index b0debcacdacc..a6cb4fa36bb4 100644
+--- a/rest/server.go
++++ b/rest/server.go
+@@ -88,7 +88,7 @@ func (s *Server) Start() {
+ 
+ // Stop stops the Server.
+ func (s *Server) Stop() {
+-	logx.Close()
++	_ = logx.Close()
+ }
+ 
+ // Use adds the given middleware in the Server.
+@@ -129,6 +129,13 @@ func WithCustomCors(middlewareFn func(header http.Header), notAllowedFn func(htt
+ 	}
+ }
+ 
++// WithIgnoreTimeout returns a RunOption to ignore the timeout.
++func WithIgnoreTimeout() RouteOption {
++	return func(r *featuredRoutes) {
++		r.ignoreTimeout = true
++	}
++}
++
+ // WithJwt returns a func to enable jwt authentication in given route.
+ func WithJwt(secret string) RouteOption {
+ 	return func(r *featuredRoutes) {
+diff --git a/rest/types.go b/rest/types.go
+index f7be7996432b..b7ebf7302c22 100644
+--- a/rest/types.go
++++ b/rest/types.go
+@@ -31,11 +31,12 @@ type (
+ 	}
+ 
+ 	featuredRoutes struct {
+-		timeout   time.Duration
+-		priority  bool
+-		jwt       jwtSetting
+-		signature signatureSetting
+-		routes    []Route
+-		maxBytes  int64
++		timeout       time.Duration
++		priority      bool
++		jwt           jwtSetting
++		signature     signatureSetting
++		routes        []Route
++		maxBytes      int64
++		ignoreTimeout bool
+ 	}
+ )

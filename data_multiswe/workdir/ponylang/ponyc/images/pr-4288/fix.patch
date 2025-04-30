@@ -1,0 +1,26 @@
+diff --git a/.release-notes/4287.md b/.release-notes/4287.md
+new file mode 100644
+index 0000000000..9fcd123e6d
+--- /dev/null
++++ b/.release-notes/4287.md
+@@ -0,0 +1,5 @@
++## Fix compiler crash when attempting to mutate a val field
++
++In Pony 0.52.4 we fixed an unsoundness bug that had been introduced over the summer. While fixing that bug, an error case was missed and as a result, a compiler crash was created where an error message should have been generated.
++
++We've fixed the crash and it now displays a "left side is immutable" error message.
+diff --git a/src/libponyc/type/safeto.c b/src/libponyc/type/safeto.c
+index dbaddb19da..cd61ee2836 100644
+--- a/src/libponyc/type/safeto.c
++++ b/src/libponyc/type/safeto.c
+@@ -216,6 +216,10 @@ bool safe_to_mutate(ast_t* ast)
+       AST_GET_CHILDREN(ast, left, right);
+       ast_t* l_type = ast_type(left);
+ 
++      // Any viewpoint adapted type will not be safe to write to.
++      if(ast_id(l_type) != TK_NOMINAL)
++        return false;
++
+       token_id l_cap = cap_single(l_type);
+       return cap_mutable(l_cap);
+     }

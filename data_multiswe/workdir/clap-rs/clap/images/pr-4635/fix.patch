@@ -1,0 +1,126 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index c495ae77c70..dceb6a30ff2 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -69,7 +69,7 @@ default = [
+   "suggestions",
+ ]
+ debug = ["clap_derive?/debug", "dep:backtrace"] # Enables debug messages
+-unstable-doc = ["derive", "cargo", "wrap_help", "env", "unicode", "string", "unstable-replace", "unstable-grouped"] # for docs.rs
++unstable-doc = ["derive", "cargo", "wrap_help", "env", "unicode", "string", "unstable-replace"] # for docs.rs
+ 
+ # Used in default
+ std = [] # support for no_std in a backwards-compatible way
+diff --git a/Makefile b/Makefile
+index a6edd91d6df..e97ca9040d8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,8 +15,8 @@ MSRV?=1.64.0
+ _FEATURES = minimal default wasm full debug release
+ _FEATURES_minimal = --no-default-features --features "std"
+ _FEATURES_default =
+-_FEATURES_wasm = --no-default-features --features "std help usage error-context suggestions" --features "deprecated derive cargo env unicode string unstable-replace unstable-grouped"
+-_FEATURES_full = --features "deprecated derive cargo env unicode string unstable-replace unstable-grouped wrap_help"
++_FEATURES_wasm = --no-default-features --features "std help usage error-context suggestions" --features "deprecated derive cargo env unicode string unstable-replace"
++_FEATURES_full = --features "deprecated derive cargo env unicode string unstable-replace wrap_help"
+ _FEATURES_next = ${_FEATURES_full} --features unstable-v5
+ _FEATURES_debug = ${_FEATURES_full} --features debug --features clap_complete/debug
+ _FEATURES_release = ${_FEATURES_full} --release
+diff --git a/src/_features.rs b/src/_features.rs
+index 10d6163c1f3..2f551e79261 100644
+--- a/src/_features.rs
++++ b/src/_features.rs
+@@ -26,5 +26,4 @@
+ //! **Warning:** These may contain breaking changes between minor releases.
+ //!
+ //! * **unstable-replace**: Enable [`Command::replace`](https://github.com/clap-rs/clap/issues/2836)
+-//! * **unstable-grouped**: Enable [`ArgMatches::grouped_values_of`](https://github.com/clap-rs/clap/issues/2924)
+ //! * **unstable-v5**: Preview features which will be stable on the v5.0 release
+diff --git a/src/parser/matches/arg_matches.rs b/src/parser/matches/arg_matches.rs
+index 000ee77d3b3..3171cbcf568 100644
+--- a/src/parser/matches/arg_matches.rs
++++ b/src/parser/matches/arg_matches.rs
+@@ -246,7 +246,6 @@ impl ArgMatches {
+     /// assert_eq!(vals, [["a", "b"], ["c", "d"]]);
+     /// ```
+     #[cfg_attr(debug_assertions, track_caller)]
+-    #[cfg(feature = "unstable-grouped")]
+     pub fn get_occurrences<T: Any + Clone + Send + Sync + 'static>(
+         &self,
+         id: &str,
+@@ -348,7 +347,6 @@ impl ArgMatches {
+     /// [`OsStr`]: std::ffi::OsStr
+     /// [values]: OsValues
+     /// [`String`]: std::string::String
+-    #[cfg(feature = "unstable-grouped")]
+     #[cfg_attr(debug_assertions, track_caller)]
+     pub fn get_raw_occurrences(&self, id: &str) -> Option<RawOccurrences<'_>> {
+         MatchesError::unwrap(id, self.try_get_raw_occurrences(id))
+@@ -460,7 +458,6 @@ impl ArgMatches {
+     /// let vals: Vec<Vec<String>> = m.remove_occurrences("x").unwrap().map(Iterator::collect).collect();
+     /// assert_eq!(vals, [["a", "b"], ["c", "d"]]);
+     /// ```
+-    #[cfg(feature = "unstable-grouped")]
+     #[cfg_attr(debug_assertions, track_caller)]
+     pub fn remove_occurrences<T: Any + Clone + Send + Sync + 'static>(
+         &mut self,
+@@ -1110,7 +1107,6 @@ impl ArgMatches {
+     }
+ 
+     /// Non-panicking version of [`ArgMatches::get_occurrences`]
+-    #[cfg(feature = "unstable-grouped")]
+     pub fn try_get_occurrences<T: Any + Clone + Send + Sync + 'static>(
+         &self,
+         id: &str,
+@@ -1143,7 +1139,6 @@ impl ArgMatches {
+     }
+ 
+     /// Non-panicking version of [`ArgMatches::get_raw_occurrences`]
+-    #[cfg(feature = "unstable-grouped")]
+     pub fn try_get_raw_occurrences(
+         &self,
+         id: &str,
+@@ -1196,7 +1191,6 @@ impl ArgMatches {
+     }
+ 
+     /// Non-panicking version of [`ArgMatches::remove_occurrences`]
+-    #[cfg(feature = "unstable-grouped")]
+     pub fn try_remove_occurrences<T: Any + Clone + Send + Sync + 'static>(
+         &mut self,
+         id: &str,
+@@ -1868,9 +1862,9 @@ impl<'a> Default for Indices<'a> {
+     }
+ }
+ 
+-#[cfg(feature = "unstable-grouped")]
+ #[cfg_attr(debug_assertions, track_caller)]
+ #[inline]
++#[cfg(feature = "unstable-grouped")]
+ fn unwrap_string(value: &AnyValue) -> &str {
+     match value.downcast_ref::<String>() {
+         Some(value) => value,
+diff --git a/src/parser/matches/matched_arg.rs b/src/parser/matches/matched_arg.rs
+index 188f82e6144..901990cfb92 100644
+--- a/src/parser/matches/matched_arg.rs
++++ b/src/parser/matches/matched_arg.rs
+@@ -75,12 +75,10 @@ impl MatchedArg {
+         self.indices.push(index)
+     }
+ 
+-    #[cfg(feature = "unstable-grouped")]
+     pub(crate) fn vals(&self) -> Iter<Vec<AnyValue>> {
+         self.vals.iter()
+     }
+ 
+-    #[cfg(feature = "unstable-grouped")]
+     pub(crate) fn into_vals(self) -> Vec<Vec<AnyValue>> {
+         self.vals
+     }
+@@ -93,7 +91,6 @@ impl MatchedArg {
+         self.vals.into_iter().flatten()
+     }
+ 
+-    #[cfg(feature = "unstable-grouped")]
+     pub(crate) fn raw_vals(&self) -> Iter<Vec<OsString>> {
+         self.raw_vals.iter()
+     }

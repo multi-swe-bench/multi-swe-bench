@@ -1,0 +1,1269 @@
+diff --git a/.gitignore b/.gitignore
+index a3ea8cff59..fbfe6ac6b7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,6 +2,7 @@
+ **/*.rs.bk
+ 
+ # Generated files
++/assets/completions/_bat.ps1
+ /assets/completions/bat.bash
+ /assets/completions/bat.fish
+ /assets/completions/bat.zsh
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 1dd80c485a..fdbbf86703 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -9,6 +9,7 @@
+ - Syntax highlighting for JavaScript files that start with `#!/usr/bin/env bun` #2913 (@sharunkumar)
+ - `bat --strip-ansi={never,always,auto}` to remove ANSI escape sequences from bat's input, see #2999 (@eth-p)
+ - Add or remove individual style components without replacing all styles #2929 (@eth-p)
++- Automatically choose theme based on the terminal's color scheme, see #2896 (@bash)
+ - Add option `--binary=as-text` for printing binary content, see issue #2974 and PR #2976 (@einfachIrgendwer0815)
+ 
+ ## Bugfixes
+@@ -78,6 +79,9 @@
+   - [BREAKING] `SyntaxMapping::mappings` is replaced by `SyntaxMapping::{builtin,custom,all}_mappings`
+ - Make `Controller::run_with_error_handler`'s error handler `FnMut`, see #2831 (@rhysd)
+ - Improve compile time by 20%, see #2815 (@dtolnay)
++- Add `theme::theme` for choosing an appropriate theme based on the
++  terminal's color scheme, see #2896 (@bash)
++  - [BREAKING] Remove `HighlightingAssets::default_theme`. Use `theme::default_theme` instead.
+ 
+ # v0.24.0
+ 
+diff --git a/Cargo.lock b/Cargo.lock
+index 0f24284554..a6d47a198e 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -149,6 +149,7 @@ dependencies = [
+  "shell-words",
+  "syntect",
+  "tempfile",
++ "terminal-colorsaurus",
+  "thiserror",
+  "toml",
+  "unicode-width",
+@@ -625,6 +626,12 @@ version = "0.14.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "7dfda62a12f55daeae5015f81b0baea145391cb4520f86c248fc615d72640d12"
+ 
++[[package]]
++name = "hermit-abi"
++version = "0.3.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
++
+ [[package]]
+ name = "home"
+ version = "0.5.9"
+@@ -751,9 +758,9 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+ 
+ [[package]]
+ name = "memchr"
+-version = "2.6.4"
++version = "2.7.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
++checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+ 
+ [[package]]
+ name = "miniz_oxide"
+@@ -764,6 +771,18 @@ dependencies = [
+  "adler2",
+ ]
+ 
++[[package]]
++name = "mio"
++version = "1.0.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "4929e1f84c5e54c3ec6141cd5d8b5a5c055f031f80cf78f2072920173cb4d880"
++dependencies = [
++ "hermit-abi",
++ "libc",
++ "wasi",
++ "windows-sys 0.52.0",
++]
++
+ [[package]]
+ name = "nix"
+ version = "0.29.0"
+@@ -1308,6 +1327,30 @@ dependencies = [
+  "winapi-util",
+ ]
+ 
++[[package]]
++name = "terminal-colorsaurus"
++version = "0.4.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5f99bb1dc5cde9eada5a8f466641240f9d5b9f55291d675df4160b097fbfa42e"
++dependencies = [
++ "cfg-if",
++ "libc",
++ "memchr",
++ "mio",
++ "terminal-trx",
++]
++
++[[package]]
++name = "terminal-trx"
++version = "0.2.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6d4c86910e10c782a02d3b7606de43cf7ebd80e1fafdca8e49a0db2b0d4611f0"
++dependencies = [
++ "cfg-if",
++ "libc",
++ "windows-sys 0.52.0",
++]
++
+ [[package]]
+ name = "terminal_size"
+ version = "0.3.0"
+diff --git a/Cargo.toml b/Cargo.toml
+index 67327460b2..f0a80346f0 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -68,6 +68,7 @@ bytesize = { version = "1.3.0" }
+ encoding_rs = "0.8.35"
+ os_str_bytes = { version = "~7.0", optional = true }
+ run_script = { version = "^0.10.1", optional = true}
++terminal-colorsaurus = "0.4"
+ 
+ [dependencies.git2]
+ version = "0.19"
+diff --git a/README.md b/README.md
+index 4ffd7fe986..d45d555b3c 100644
+--- a/README.md
++++ b/README.md
+@@ -482,8 +482,10 @@ the following command (you need [`fzf`](https://github.com/junegunn/fzf) for thi
+ bat --list-themes | fzf --preview="bat --theme={} --color=always /path/to/file"
+ ```
+ 
+-`bat` looks good on a dark background by default. However, if your terminal uses a
+-light background, some themes like `GitHub` or `OneHalfLight` will work better for you.
++`bat` automatically picks a fitting theme depending on your terminal's background color.
++You can use the `--theme-light` / `--theme-light` options or the `BAT_THEME_DARK` / `BAT_THEME_LIGHT` environment variables
++to customize the themes used. This is especially useful if you frequently switch between dark and light mode.
++
+ You can also use a custom theme by following the
+ ['Adding new themes' section below](https://github.com/sharkdp/bat#adding-new-themes).
+ 
+diff --git a/assets/completions/_bat.ps1.in b/assets/completions/_bat.ps1.in
+index c0c151e1ed..b6f62aae67 100644
+--- a/assets/completions/_bat.ps1.in
++++ b/assets/completions/_bat.ps1.in
+@@ -37,6 +37,8 @@ Register-ArgumentCompleter -Native -CommandName '{{PROJECT_EXECUTABLE}}' -Script
+             [CompletionResult]::new('-m', 'm', [CompletionResultType]::ParameterName, 'Use the specified syntax for files matching the glob pattern (''*.cpp:C++'').')
+             [CompletionResult]::new('--map-syntax', 'map-syntax', [CompletionResultType]::ParameterName, 'Use the specified syntax for files matching the glob pattern (''*.cpp:C++'').')
+             [CompletionResult]::new('--theme', 'theme', [CompletionResultType]::ParameterName, 'Set the color theme for syntax highlighting.')
++            [CompletionResult]::new('--theme-dark', 'theme', [CompletionResultType]::ParameterName, 'Set the color theme for syntax highlighting for dark backgrounds.')
++            [CompletionResult]::new('--theme-light', 'theme', [CompletionResultType]::ParameterName, 'Set the color theme for syntax highlighting for light backgrounds.')
+             [CompletionResult]::new('--style', 'style', [CompletionResultType]::ParameterName, 'Comma-separated list of style elements to display (*default*, auto, full, plain, changes, header, header-filename, header-filesize, grid, rule, numbers, snip).')
+             [CompletionResult]::new('-r', 'r', [CompletionResultType]::ParameterName, 'Only print the lines from N to M.')
+             [CompletionResult]::new('--line-range', 'line-range', [CompletionResultType]::ParameterName, 'Only print the lines from N to M.')
+diff --git a/assets/completions/bat.bash.in b/assets/completions/bat.bash.in
+index f314bb2529..90931f2450 100644
+--- a/assets/completions/bat.bash.in
++++ b/assets/completions/bat.bash.in
+@@ -113,6 +113,13 @@ _bat() {
+ 		return 0
+ 		;;
+ 	--theme)
++    	local IFS=$'\n'
++    	COMPREPLY=($(compgen -W "auto${IFS}auto:always${IFS}auto:system${IFS}dark${IFS}light${IFS}$("$1" --list-themes)" -- "$cur"))
++                    __bat_escape_completions
++    	return 0
++    	;;
++	--theme-dark | \
++	--theme-light)
+ 		local IFS=$'\n'
+ 		COMPREPLY=($(compgen -W "$("$1" --list-themes)" -- "$cur"))
+                 __bat_escape_completions
+@@ -170,6 +177,8 @@ _bat() {
+ 			--map-syntax
+ 			--ignored-suffix
+ 			--theme
++			--theme-dark
++			--theme-light
+ 			--list-themes
+ 			--squeeze-blank
+ 			--squeeze-limit
+diff --git a/assets/completions/bat.fish.in b/assets/completions/bat.fish.in
+index 788f71b093..e27127064e 100644
+--- a/assets/completions/bat.fish.in
++++ b/assets/completions/bat.fish.in
+@@ -129,6 +129,14 @@ set -l tabs_opts '
+     8\t
+ '
+ 
++set -l special_themes '
++    auto\tdefault,\ Choose\ a\ theme\ based\ on\ dark\ or\ light\ mode
++    auto:always\tChoose\ a\ theme\ based\ on\ dark\ or\ light\ mode
++    auto:system\tChoose\ a\ theme\ based\ on\ dark\ or\ light\ mode
++    dark\tUse\ the\ theme\ specified\ by\ --theme-dark
++    light\tUse\ the\ theme\ specified\ by\ --theme-light
++'
++
+ # Completions:
+ 
+ complete -c $bat -l acknowledgements -d "Print acknowledgements" -n __fish_is_first_arg
+@@ -203,7 +211,11 @@ complete -c $bat -l tabs -x -a "$tabs_opts" -d "Set tab width" -n __bat_no_excl_
+ 
+ complete -c $bat -l terminal-width -x -d "Set terminal <width>, +<offset>, or -<offset>" -n __bat_no_excl_args
+ 
+-complete -c $bat -l theme -x -a "(command $bat --list-themes | command cat)" -d "Set the syntax highlighting theme" -n __bat_no_excl_args
++complete -c $bat -l theme -x -a "$special_themes(command $bat --list-themes | command cat)" -d "Set the syntax highlighting theme" -n __bat_no_excl_args
++
++complete -c $bat -l theme-dark -x -a "(command $bat --list-themes | command cat)" -d "Set the syntax highlighting theme for dark backgrounds" -n __bat_no_excl_args
++
++complete -c $bat -l theme-light -x -a "(command $bat --list-themes | command cat)" -d "Set the syntax highlighting theme for light backgrounds" -n __bat_no_excl_args
+ 
+ complete -c $bat -s V -l version -f -d "Show version information" -n __fish_is_first_arg
+ 
+diff --git a/assets/completions/bat.zsh.in b/assets/completions/bat.zsh.in
+index 7d03abb3b2..76b981b69b 100644
+--- a/assets/completions/bat.zsh.in
++++ b/assets/completions/bat.zsh.in
+@@ -42,7 +42,9 @@ _{{PROJECT_EXECUTABLE}}_main() {
+         --decorations='[specify when to show the decorations]:when:(auto never always)'
+         --paging='[specify when to use the pager]:when:(auto never always)'
+         '(-m --map-syntax)'{-m+,--map-syntax=}'[map a glob pattern to an existing syntax name]: :->syntax-maps'
+-        '(--theme)'--theme='[set the color theme for syntax highlighting]:theme:->themes'
++        '(--theme)'--theme='[set the color theme for syntax highlighting]:theme:->theme_preferences'
++        '(--theme-dark)'--theme-dark='[set the color theme for syntax highlighting for dark backgrounds]:theme:->themes'
++        '(--theme-light)'--theme-light='[set the color theme for syntax highlighting for light backgrounds]:theme:->themes'
+         '(: --list-themes --list-languages -L)'--list-themes'[show all supported highlighting themes]'
+         --style='[comma-separated list of style elements to display]: : _values "style [default]"
+             default auto full plain changes header header-filename header-filesize grid rule numbers snip'
+@@ -82,7 +84,13 @@ _{{PROJECT_EXECUTABLE}}_main() {
+ 
+         themes)
+             local -a themes expl
+-            themes=( ${(f)"$(_call_program themes {{PROJECT_EXECUTABLE}} --list-themes)"} )
++            themes=(${(f)"$(_call_program themes {{PROJECT_EXECUTABLE}} --list-themes)"} )
++
++            _wanted themes expl 'theme' compadd -a themes && ret=0
++        ;;
++        theme_preferences)
++            local -a themes expl
++            themes=(auto dark light auto:always auto:system ${(f)"$(_call_program themes {{PROJECT_EXECUTABLE}} --list-themes)"} )
+ 
+             _wanted themes expl 'theme' compadd -a themes && ret=0
+         ;;
+diff --git a/assets/manual/bat.1.in b/assets/manual/bat.1.in
+index 2bc0a3a534..ccc7062910 100644
+--- a/assets/manual/bat.1.in
++++ b/assets/manual/bat.1.in
+@@ -152,9 +152,38 @@ will use JSON syntax, and ignore '.dev'
+ .HP
+ \fB\-\-theme\fR <theme>
+ .IP
+-Set the theme for syntax highlighting. Use '\-\-list\-themes' to see all available themes.
+-To set a default theme, add the '\-\-theme="..."' option to the configuration file or
+-export the BAT_THEME environment variable (e.g.: export BAT_THEME="...").
++Set the theme for syntax highlighting. Use \fB\-\-list\-themes\fP to see all available themes.
++To set a default theme, add the \fB\-\-theme="..."\fP option to the configuration file or
++export the \fBBAT_THEME\fP environment variable (e.g.: \fBexport BAT_THEME="..."\fP).
++
++Special values:
++.RS
++.IP "auto (\fIdefault\fR)"
++Picks a dark or light theme depending on the terminal's colors.
++Use \fB-\-theme\-light\fR and \fB-\-theme\-dark\fR to customize the selected theme.
++.IP "auto:always"
++Variation of \fBauto\fR where where the terminal's colors are detected even when the output is redirected.
++.IP "auto:system (macOS only)"
++Variation of \fBauto\fR where the color scheme is detected from the system-wide preference instead.
++.IP "dark"
++Use the dark theme specified by \fB-\-theme-dark\fR.
++.IP "light"
++Use the light theme specified by \fB-\-theme-light\fR.
++.RE
++.HP
++\fB\-\-theme\-dark\fR <theme>
++.IP
++Sets the theme name for syntax highlighting used when the terminal uses a dark background.
++To set a default theme, add the \fB\-\-theme-dark="..."\fP option to the configuration file or
++export the \fBBAT_THEME_DARK\fP environment variable (e.g. \fBexport BAT_THEME_DARK="..."\fP).
++This option only has an effect when \fB\-\-theme\fP option is set to \fBauto\fR or \fBdark\fR.
++.HP
++\fB\-\-theme\-light\fR <theme>
++.IP
++Sets the theme name for syntax highlighting used when the terminal uses a dark background.
++To set a default theme, add the \fB\-\-theme-dark="..."\fP option to the configuration file or
++export the \fBBAT_THEME_LIGHT\fP environment variable (e.g. \fBexport BAT_THEME_LIGHT="..."\fP).
++This option only has an effect when \fB\-\-theme\fP option is set to \fBauto\fR or \fBlight\fR.
+ .HP
+ \fB\-\-list\-themes\fR
+ .IP
+@@ -307,7 +336,7 @@ To use the preprocessor, call:
+ 
+ \fB{{PROJECT_EXECUTABLE}} --lessopen\fR
+ 
+-Alternatively, the preprocessor may be enabled by default by adding the '\-\-lessopen' option to the configuration file. 
++Alternatively, the preprocessor may be enabled by default by adding the '\-\-lessopen' option to the configuration file.
+ 
+ To temporarily disable the preprocessor if it is enabled by default, call:
+ 
+@@ -323,7 +352,7 @@ Enable the $LESSOPEN preprocessor.
+ .IP
+ Disable the $LESSOPEN preprocessor if enabled (overrides --lessopen)
+ .PP
+-For more information, see the "INPUT PREPROCESSOR" section of less(1).  
++For more information, see the "INPUT PREPROCESSOR" section of less(1).
+ 
+ .SH "MORE INFORMATION"
+ 
+diff --git a/doc/long-help.txt b/doc/long-help.txt
+index 87fb5d9663..85d595b980 100644
+--- a/doc/long-help.txt
++++ b/doc/long-help.txt
+@@ -119,6 +119,27 @@ Options:
+           Set the theme for syntax highlighting. Use '--list-themes' to see all available themes. To
+           set a default theme, add the '--theme="..."' option to the configuration file or export
+           the BAT_THEME environment variable (e.g.: export BAT_THEME="...").
++          
++          Special values:
++          
++            * auto: Picks a dark or light theme depending on the terminal's colors (default).
++                    Use '--theme-light' and '--theme-dark' to customize the selected theme.
++              * auto:always: Detect the terminal's colors even when the output is redirected.
++              * auto:system: Detect the color scheme from the system-wide preference (macOS only).
++            * dark: Use the dark theme specified by '--theme-dark'.
++            * light: Use the light theme specified by '--theme-light'.
++
++      --theme-light <theme>
++          Sets the theme name for syntax highlighting used when the terminal uses a light
++          background. Use '--list-themes' to see all available themes. To set a default theme, add
++          the '--theme-light="..." option to the configuration file or export the BAT_THEME_LIGHT
++          environment variable (e.g. export BAT_THEME_LIGHT="...").
++
++      --theme-dark <theme>
++          Sets the theme name for syntax highlighting used when the terminal uses a dark background.
++          Use '--list-themes' to see all available themes. To set a default theme, add the
++          '--theme-dark="..." option to the configuration file or export the BAT_THEME_DARK
++          environment variable (e.g. export BAT_THEME_DARK="...").
+ 
+       --list-themes
+           Display a list of supported themes for syntax highlighting.
+diff --git a/doc/short-help.txt b/doc/short-help.txt
+index 16b9eb05c0..ba06ef3065 100644
+--- a/doc/short-help.txt
++++ b/doc/short-help.txt
+@@ -43,6 +43,10 @@ Options:
+           Use the specified syntax for files matching the glob pattern ('*.cpp:C++').
+       --theme <theme>
+           Set the color theme for syntax highlighting.
++      --theme-light <theme>
++          Sets the color theme for syntax highlighting used for light backgrounds.
++      --theme-dark <theme>
++          Sets the color theme for syntax highlighting used for dark backgrounds.
+       --list-themes
+           Display all supported highlighting themes.
+   -s, --squeeze-blank
+diff --git a/src/assets.rs b/src/assets.rs
+index 9655553d62..d32ccbd403 100644
+--- a/src/assets.rs
++++ b/src/assets.rs
+@@ -13,6 +13,7 @@ use crate::error::*;
+ use crate::input::{InputReader, OpenedInput};
+ use crate::syntax_mapping::ignored_suffixes::IgnoredSuffixes;
+ use crate::syntax_mapping::MappingTarget;
++use crate::theme::{default_theme, ColorScheme};
+ use crate::{bat_warning, SyntaxMapping};
+ 
+ use lazy_theme_set::LazyThemeSet;
+@@ -69,57 +70,6 @@ impl HighlightingAssets {
+         }
+     }
+ 
+-    /// The default theme.
+-    ///
+-    /// ### Windows and Linux
+-    ///
+-    /// Windows and most Linux distributions has a dark terminal theme by
+-    /// default. On these platforms, this function always returns a theme that
+-    /// looks good on a dark background.
+-    ///
+-    /// ### macOS
+-    ///
+-    /// On macOS the default terminal background is light, but it is common that
+-    /// Dark Mode is active, which makes the terminal background dark. On this
+-    /// platform, the default theme depends on
+-    /// ```bash
+-    /// defaults read -globalDomain AppleInterfaceStyle
+-    /// ```
+-    /// To avoid the overhead of the check on macOS, simply specify a theme
+-    /// explicitly via `--theme`, `BAT_THEME`, or `~/.config/bat`.
+-    ///
+-    /// See <https://github.com/sharkdp/bat/issues/1746> and
+-    /// <https://github.com/sharkdp/bat/issues/1928> for more context.
+-    pub fn default_theme() -> &'static str {
+-        #[cfg(not(target_os = "macos"))]
+-        {
+-            Self::default_dark_theme()
+-        }
+-        #[cfg(target_os = "macos")]
+-        {
+-            if macos_dark_mode_active() {
+-                Self::default_dark_theme()
+-            } else {
+-                Self::default_light_theme()
+-            }
+-        }
+-    }
+-
+-    /**
+-     * The default theme that looks good on a dark background.
+-     */
+-    fn default_dark_theme() -> &'static str {
+-        "Monokai Extended"
+-    }
+-
+-    /**
+-     * The default theme that looks good on a light background.
+-     */
+-    #[cfg(target_os = "macos")]
+-    fn default_light_theme() -> &'static str {
+-        "Monokai Extended Light"
+-    }
+-
+     pub fn from_cache(cache_path: &Path) -> Result<Self> {
+         Ok(HighlightingAssets::new(
+             SerializedSyntaxSet::FromFile(cache_path.join("syntaxes.bin")),
+@@ -248,7 +198,10 @@ impl HighlightingAssets {
+                     bat_warning!("Unknown theme '{}', using default.", theme)
+                 }
+                 self.get_theme_set()
+-                    .get(self.fallback_theme.unwrap_or_else(Self::default_theme))
++                    .get(
++                        self.fallback_theme
++                            .unwrap_or_else(|| default_theme(ColorScheme::Dark)),
++                    )
+                     .expect("something is very wrong if the default theme is missing")
+             }
+         }
+@@ -399,26 +352,6 @@ fn asset_from_cache<T: serde::de::DeserializeOwned>(
+         .map_err(|_| format!("Could not parse cached {description}").into())
+ }
+ 
+-#[cfg(target_os = "macos")]
+-fn macos_dark_mode_active() -> bool {
+-    const PREFERENCES_FILE: &str = "Library/Preferences/.GlobalPreferences.plist";
+-    const STYLE_KEY: &str = "AppleInterfaceStyle";
+-
+-    let preferences_file = home::home_dir()
+-        .map(|home| home.join(PREFERENCES_FILE))
+-        .expect("Could not get home directory");
+-
+-    match plist::Value::from_file(preferences_file).map(|file| file.into_dictionary()) {
+-        Ok(Some(preferences)) => match preferences.get(STYLE_KEY).and_then(|val| val.as_string()) {
+-            Some(value) => value == "Dark",
+-            // If the key does not exist, then light theme is currently in use.
+-            None => false,
+-        },
+-        // Unreachable, in theory. All macOS users have a home directory and preferences file setup.
+-        Ok(None) | Err(_) => true,
+-    }
+-}
+-
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+diff --git a/src/bin/bat/app.rs b/src/bin/bat/app.rs
+index c7262aa3b6..8f69870f0a 100644
+--- a/src/bin/bat/app.rs
++++ b/src/bin/bat/app.rs
+@@ -9,6 +9,7 @@ use crate::{
+     config::{get_args_from_config_file, get_args_from_env_opts_var, get_args_from_env_vars},
+ };
+ use bat::style::StyleComponentList;
++use bat::theme::{theme, ThemeName, ThemeOptions, ThemePreference};
+ use bat::BinaryBehavior;
+ use bat::StripAnsiMode;
+ use clap::ArgMatches;
+@@ -17,7 +18,6 @@ use console::Term;
+ 
+ use crate::input::{new_file_input, new_stdin_input};
+ use bat::{
+-    assets::HighlightingAssets,
+     bat_warning,
+     config::{Config, VisibleLines},
+     error::*,
+@@ -278,18 +278,7 @@ impl App {
+                 Some("auto") => StripAnsiMode::Auto,
+                 _ => unreachable!("other values for --strip-ansi are not allowed"),
+             },
+-            theme: self
+-                .matches
+-                .get_one::<String>("theme")
+-                .map(String::from)
+-                .map(|s| {
+-                    if s == "default" {
+-                        String::from(HighlightingAssets::default_theme())
+-                    } else {
+-                        s
+-                    }
+-                })
+-                .unwrap_or_else(|| String::from(HighlightingAssets::default_theme())),
++            theme: theme(self.theme_options()).to_string(),
+             visible_lines: match self.matches.try_contains_id("diff").unwrap_or_default()
+                 && self.matches.get_flag("diff")
+             {
+@@ -448,4 +437,25 @@ impl App {
+ 
+         Ok(styled_components)
+     }
++
++    fn theme_options(&self) -> ThemeOptions {
++        let theme = self
++            .matches
++            .get_one::<String>("theme")
++            .map(|t| ThemePreference::from_str(t).unwrap())
++            .unwrap_or_default();
++        let theme_dark = self
++            .matches
++            .get_one::<String>("theme-dark")
++            .map(|t| ThemeName::from_str(t).unwrap());
++        let theme_light = self
++            .matches
++            .get_one::<String>("theme-light")
++            .map(|t| ThemeName::from_str(t).unwrap());
++        ThemeOptions {
++            theme,
++            theme_dark,
++            theme_light,
++        }
++    }
+ }
+diff --git a/src/bin/bat/clap_app.rs b/src/bin/bat/clap_app.rs
+index ac1f400733..f5e3948e97 100644
+--- a/src/bin/bat/clap_app.rs
++++ b/src/bin/bat/clap_app.rs
+@@ -393,9 +393,40 @@ pub fn build_app(interactive_output: bool) -> Command {
+                      see all available themes. To set a default theme, add the \
+                      '--theme=\"...\"' option to the configuration file or export the \
+                      BAT_THEME environment variable (e.g.: export \
+-                     BAT_THEME=\"...\").",
++                     BAT_THEME=\"...\").\n\n\
++                     Special values:\n\n  \
++                     * auto: Picks a dark or light theme depending on the terminal's colors (default).\n          \
++                     Use '--theme-light' and '--theme-dark' to customize the selected theme.\n    \
++                     * auto:always: Detect the terminal's colors even when the output is redirected.\n    \
++                     * auto:system: Detect the color scheme from the system-wide preference (macOS only).\n  \
++                     * dark: Use the dark theme specified by '--theme-dark'.\n  \
++                     * light: Use the light theme specified by '--theme-light'.",
+                 ),
+         )
++        .arg(
++            Arg::new("theme-light")
++                .long("theme-light")
++                .overrides_with("theme-light")
++                .value_name("theme")
++                .help("Sets the color theme for syntax highlighting used for light backgrounds.")
++                .long_help(
++                    "Sets the theme name for syntax highlighting used when the terminal uses a light background. \
++                    Use '--list-themes' to see all available themes. To set a default theme, add the \
++                    '--theme-light=\"...\" option to the configuration file or export the BAT_THEME_LIGHT \
++                    environment variable (e.g. export BAT_THEME_LIGHT=\"...\")."),
++        )
++        .arg(
++            Arg::new("theme-dark")
++                .long("theme-dark")
++                .overrides_with("theme-dark")
++                .value_name("theme")
++                .help("Sets the color theme for syntax highlighting used for dark backgrounds.")
++                .long_help(
++                    "Sets the theme name for syntax highlighting used when the terminal uses a dark background. \
++                    Use '--list-themes' to see all available themes. To set a default theme, add the \
++                    '--theme-dark=\"...\" option to the configuration file or export the BAT_THEME_DARK \
++                    environment variable (e.g. export BAT_THEME_DARK=\"...\")."),
++        )
+         .arg(
+             Arg::new("list-themes")
+                 .long("list-themes")
+diff --git a/src/bin/bat/config.rs b/src/bin/bat/config.rs
+index 6fa18f0958..a0ee7ba302 100644
+--- a/src/bin/bat/config.rs
++++ b/src/bin/bat/config.rs
+@@ -140,7 +140,9 @@ fn get_args_from_str(content: &str) -> Result<Vec<OsString>, shell_words::ParseE
+ pub fn get_args_from_env_vars() -> Vec<OsString> {
+     [
+         ("--tabs", "BAT_TABS"),
+-        ("--theme", "BAT_THEME"),
++        ("--theme", bat::theme::env::BAT_THEME),
++        ("--theme-dark", bat::theme::env::BAT_THEME_DARK),
++        ("--theme-light", bat::theme::env::BAT_THEME_LIGHT),
+         ("--pager", "BAT_PAGER"),
+         ("--paging", "BAT_PAGING"),
+         ("--style", "BAT_STYLE"),
+diff --git a/src/bin/bat/main.rs b/src/bin/bat/main.rs
+index 3b74ec7589..7b7bafe600 100644
+--- a/src/bin/bat/main.rs
++++ b/src/bin/bat/main.rs
+@@ -14,6 +14,7 @@ use std::io::{BufReader, Write};
+ use std::path::Path;
+ use std::process;
+ 
++use bat::theme::DetectColorScheme;
+ use nu_ansi_term::Color::Green;
+ use nu_ansi_term::Style;
+ 
+@@ -30,12 +31,12 @@ use directories::PROJECT_DIRS;
+ use globset::GlobMatcher;
+ 
+ use bat::{
+-    assets::HighlightingAssets,
+     config::Config,
+     controller::Controller,
+     error::*,
+     input::Input,
+     style::{StyleComponent, StyleComponents},
++    theme::{color_scheme, default_theme, ColorScheme},
+     MappingTarget, PagingMode,
+ };
+ 
+@@ -189,7 +190,12 @@ fn theme_preview_file<'a>() -> Input<'a> {
+     Input::from_reader(Box::new(BufReader::new(THEME_PREVIEW_DATA)))
+ }
+ 
+-pub fn list_themes(cfg: &Config, config_dir: &Path, cache_dir: &Path) -> Result<()> {
++pub fn list_themes(
++    cfg: &Config,
++    config_dir: &Path,
++    cache_dir: &Path,
++    detect_color_scheme: DetectColorScheme,
++) -> Result<()> {
+     let assets = assets_from_cache_or_binary(cfg.use_custom_assets, cache_dir)?;
+     let mut config = cfg.clone();
+     let mut style = HashSet::new();
+@@ -200,10 +206,14 @@ pub fn list_themes(cfg: &Config, config_dir: &Path, cache_dir: &Path) -> Result<
+     let stdout = io::stdout();
+     let mut stdout = stdout.lock();
+ 
+-    let default_theme = HighlightingAssets::default_theme();
++    let default_theme_name = default_theme(color_scheme(detect_color_scheme).unwrap_or_default());
+     for theme in assets.themes() {
+-        let default_theme_info = if !config.loop_through && default_theme == theme {
++        let default_theme_info = if !config.loop_through && default_theme_name == theme {
+             " (default)"
++        } else if default_theme(ColorScheme::Dark) == theme {
++            " (default dark)"
++        } else if default_theme(ColorScheme::Light) == theme {
++            " (default light)"
+         } else {
+             ""
+         };
+@@ -371,7 +381,7 @@ fn run() -> Result<bool> {
+                 };
+                 run_controller(inputs, &plain_config, cache_dir)
+             } else if app.matches.get_flag("list-themes") {
+-                list_themes(&config, config_dir, cache_dir)?;
++                list_themes(&config, config_dir, cache_dir, DetectColorScheme::default())?;
+                 Ok(true)
+             } else if app.matches.get_flag("config-file") {
+                 println!("{}", config_file().to_string_lossy());
+diff --git a/src/lib.rs b/src/lib.rs
+index a015913e40..502427a774 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -49,6 +49,7 @@ pub(crate) mod printer;
+ pub mod style;
+ pub(crate) mod syntax_mapping;
+ mod terminal;
++pub mod theme;
+ mod vscreen;
+ pub(crate) mod wrapping;
+ 
+diff --git a/src/pretty_printer.rs b/src/pretty_printer.rs
+index eb123ea339..51c9af80c4 100644
+--- a/src/pretty_printer.rs
++++ b/src/pretty_printer.rs
+@@ -245,7 +245,9 @@ impl<'a> PrettyPrinter<'a> {
+         self
+     }
+ 
+-    /// Specify the highlighting theme
++    /// Specify the highlighting theme.
++    /// You can use [`crate::theme::theme`] to pick a theme based on user preferences
++    /// and the terminal's background color.
+     pub fn theme(&mut self, theme: impl AsRef<str>) -> &mut Self {
+         self.config.theme = theme.as_ref().to_owned();
+         self
+diff --git a/src/theme.rs b/src/theme.rs
+new file mode 100644
+index 0000000000..9fbef23886
+--- /dev/null
++++ b/src/theme.rs
+@@ -0,0 +1,571 @@
++//! Utilities for choosing an appropriate theme for syntax highlighting.
++
++use std::convert::Infallible;
++use std::fmt;
++use std::io::IsTerminal as _;
++use std::str::FromStr;
++
++/// Environment variable names.
++pub mod env {
++    /// See [`crate::theme::ThemeOptions::theme`].
++    pub const BAT_THEME: &str = "BAT_THEME";
++    /// See [`crate::theme::ThemeOptions::theme_dark`].
++    pub const BAT_THEME_DARK: &str = "BAT_THEME";
++    /// See [`crate::theme::ThemeOptions::theme_light`].
++    pub const BAT_THEME_LIGHT: &str = "BAT_THEME";
++}
++
++/// Chooses an appropriate theme or falls back to a default theme
++/// based on the user-provided options and the color scheme of the terminal.
++///
++/// Intentionally returns a [`ThemeResult`] instead of a simple string so
++/// that downstream consumers such as `delta` can easily apply their own
++/// default theme and can use the detected color scheme elsewhere.
++pub fn theme(options: ThemeOptions) -> ThemeResult {
++    theme_impl(options, &TerminalColorSchemeDetector)
++}
++
++/// The default theme, suitable for the given color scheme.
++/// Use [`theme`] if you want to automatically detect the color scheme from the terminal.
++pub const fn default_theme(color_scheme: ColorScheme) -> &'static str {
++    match color_scheme {
++        ColorScheme::Dark => "Monokai Extended",
++        ColorScheme::Light => "Monokai Extended Light",
++    }
++}
++
++/// Detects the color scheme from the terminal.
++pub fn color_scheme(when: DetectColorScheme) -> Option<ColorScheme> {
++    color_scheme_impl(when, &TerminalColorSchemeDetector)
++}
++
++/// Options for configuring the theme used for syntax highlighting.
++/// Used together with [`theme`].
++#[derive(Debug, Clone, Default, PartialEq, Eq)]
++pub struct ThemeOptions {
++    /// Configures how the theme is chosen. If set to a [`ThemePreference::Fixed`] value,
++    /// then the given theme is used regardless of the terminal's background color.
++    /// This corresponds with the `BAT_THEME` environment variable and the `--theme` option.
++    pub theme: ThemePreference,
++    /// The theme to use in case the terminal uses a dark background with light text.
++    /// This corresponds with the `BAT_THEME_DARK` environment variable and the `--theme-dark` option.
++    pub theme_dark: Option<ThemeName>,
++    /// The theme to use in case the terminal uses a light background with dark text.
++    /// This corresponds with the `BAT_THEME_LIGHT` environment variable and the `--theme-light` option.
++    pub theme_light: Option<ThemeName>,
++}
++
++/// What theme should `bat` use?
++///
++/// The easiest way to construct this is from a string:
++/// ```
++/// # use bat::theme::{ThemePreference, DetectColorScheme};
++/// let preference = ThemePreference::new("auto:system");
++/// assert_eq!(ThemePreference::Auto(DetectColorScheme::System), preference);
++/// ```
++#[derive(Debug, Clone, PartialEq, Eq, Hash)]
++pub enum ThemePreference {
++    /// Choose between [`ThemeOptions::theme_dark`] and [`ThemeOptions::theme_light`]
++    /// based on the terminal's color scheme.
++    Auto(DetectColorScheme),
++    /// Always use the same theme regardless of the terminal's color scheme.
++    Fixed(ThemeName),
++    /// Use a dark theme.
++    Dark,
++    /// Use a light theme.
++    Light,
++}
++
++impl Default for ThemePreference {
++    fn default() -> Self {
++        ThemePreference::Auto(Default::default())
++    }
++}
++
++impl ThemePreference {
++    /// Creates a theme preference from a string.
++    pub fn new(s: impl Into<String>) -> Self {
++        use ThemePreference::*;
++        let s = s.into();
++        match s.as_str() {
++            "auto" => Auto(Default::default()),
++            "auto:always" => Auto(DetectColorScheme::Always),
++            "auto:system" => Auto(DetectColorScheme::System),
++            "dark" => Dark,
++            "light" => Light,
++            _ => Fixed(ThemeName::new(s)),
++        }
++    }
++}
++
++impl FromStr for ThemePreference {
++    type Err = Infallible;
++
++    fn from_str(s: &str) -> Result<Self, Self::Err> {
++        Ok(ThemePreference::new(s))
++    }
++}
++
++impl fmt::Display for ThemePreference {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        use ThemePreference::*;
++        match self {
++            Auto(DetectColorScheme::Auto) => f.write_str("auto"),
++            Auto(DetectColorScheme::Always) => f.write_str("auto:always"),
++            Auto(DetectColorScheme::System) => f.write_str("auto:system"),
++            Fixed(theme) => theme.fmt(f),
++            Dark => f.write_str("dark"),
++            Light => f.write_str("light"),
++        }
++    }
++}
++
++/// The name of a theme or the default theme.
++///
++/// ```
++/// # use bat::theme::ThemeName;
++/// assert_eq!(ThemeName::Default, ThemeName::new("default"));
++/// assert_eq!(ThemeName::Named("example".to_string()), ThemeName::new("example"));
++/// ```
++#[derive(Debug, Clone, PartialEq, Eq, Hash)]
++pub enum ThemeName {
++    Named(String),
++    Default,
++}
++
++impl ThemeName {
++    /// Creates a theme name from a string.
++    pub fn new(s: impl Into<String>) -> Self {
++        let s = s.into();
++        if s == "default" {
++            ThemeName::Default
++        } else {
++            ThemeName::Named(s)
++        }
++    }
++}
++
++impl FromStr for ThemeName {
++    type Err = Infallible;
++
++    fn from_str(s: &str) -> Result<Self, Self::Err> {
++        Ok(ThemeName::new(s))
++    }
++}
++
++impl fmt::Display for ThemeName {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        match self {
++            ThemeName::Named(t) => f.write_str(t),
++            ThemeName::Default => f.write_str("default"),
++        }
++    }
++}
++
++#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
++pub enum DetectColorScheme {
++    /// Only query the terminal for its colors when appropriate (i.e. when the the output is not redirected).
++    #[default]
++    Auto,
++    /// Always query the terminal for its colors.
++    Always,
++    /// Detect the system-wide dark/light preference (macOS only).
++    System,
++}
++
++/// The color scheme used to pick a fitting theme. Defaults to [`ColorScheme::Dark`].
++#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
++pub enum ColorScheme {
++    #[default]
++    Dark,
++    Light,
++}
++
++/// The resolved theme and the color scheme as determined from
++/// the terminal, OS or fallback.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct ThemeResult {
++    /// The theme selected according to the [`ThemeOptions`].
++    pub theme: ThemeName,
++    /// Either the user's chosen color scheme, the terminal's color scheme, the OS's
++    /// color scheme or `None` if the color scheme was not detected because the user chose a fixed theme.
++    pub color_scheme: Option<ColorScheme>,
++}
++
++impl fmt::Display for ThemeResult {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match &self.theme {
++            ThemeName::Named(name) => f.write_str(name),
++            ThemeName::Default => f.write_str(default_theme(self.color_scheme.unwrap_or_default())),
++        }
++    }
++}
++
++fn theme_impl(options: ThemeOptions, detector: &dyn ColorSchemeDetector) -> ThemeResult {
++    // Implementation note: This function is mostly pure (i.e. it has no side effects) for the sake of testing.
++    // All the side effects (e.g. querying the terminal for its colors) are performed in the detector.
++    match options.theme {
++        ThemePreference::Fixed(theme) => ThemeResult {
++            theme,
++            color_scheme: None,
++        },
++        ThemePreference::Dark => choose_theme_opt(Some(ColorScheme::Dark), options),
++        ThemePreference::Light => choose_theme_opt(Some(ColorScheme::Light), options),
++        ThemePreference::Auto(when) => choose_theme_opt(color_scheme_impl(when, detector), options),
++    }
++}
++
++fn choose_theme_opt(color_scheme: Option<ColorScheme>, options: ThemeOptions) -> ThemeResult {
++    ThemeResult {
++        color_scheme,
++        theme: color_scheme
++            .and_then(|c| choose_theme(options, c))
++            .unwrap_or(ThemeName::Default),
++    }
++}
++
++fn choose_theme(options: ThemeOptions, color_scheme: ColorScheme) -> Option<ThemeName> {
++    match color_scheme {
++        ColorScheme::Dark => options.theme_dark,
++        ColorScheme::Light => options.theme_light,
++    }
++}
++
++fn color_scheme_impl(
++    when: DetectColorScheme,
++    detector: &dyn ColorSchemeDetector,
++) -> Option<ColorScheme> {
++    let should_detect = match when {
++        DetectColorScheme::Auto => detector.should_detect(),
++        DetectColorScheme::Always => true,
++        DetectColorScheme::System => return color_scheme_from_system(),
++    };
++    should_detect.then(|| detector.detect()).flatten()
++}
++
++trait ColorSchemeDetector {
++    fn should_detect(&self) -> bool;
++
++    fn detect(&self) -> Option<ColorScheme>;
++}
++
++struct TerminalColorSchemeDetector;
++
++impl ColorSchemeDetector for TerminalColorSchemeDetector {
++    fn should_detect(&self) -> bool {
++        // Querying the terminal for its colors via OSC 10 / OSC 11 requires "exclusive" access
++        // since we read/write from the terminal and enable/disable raw mode.
++        // This causes race conditions with pagers such as less when they are attached to the
++        // same terminal as us.
++        //
++        // This is usually only an issue when the output is manually piped to a pager.
++        // For example: `bat Cargo.toml | less`.
++        // Otherwise, if we start the pager ourselves, then there's no race condition
++        // since the pager is started *after* the color is detected.
++        std::io::stdout().is_terminal()
++    }
++
++    fn detect(&self) -> Option<ColorScheme> {
++        use terminal_colorsaurus::{color_scheme, ColorScheme as ColorsaurusScheme, QueryOptions};
++        match color_scheme(QueryOptions::default()).ok()? {
++            ColorsaurusScheme::Dark => Some(ColorScheme::Dark),
++            ColorsaurusScheme::Light => Some(ColorScheme::Light),
++        }
++    }
++}
++
++#[cfg(not(target_os = "macos"))]
++fn color_scheme_from_system() -> Option<ColorScheme> {
++    crate::bat_warning!(
++        "Theme 'auto:system' is only supported on macOS, \
++        using default."
++    );
++    None
++}
++
++#[cfg(target_os = "macos")]
++fn color_scheme_from_system() -> Option<ColorScheme> {
++    const PREFERENCES_FILE: &str = "Library/Preferences/.GlobalPreferences.plist";
++    const STYLE_KEY: &str = "AppleInterfaceStyle";
++
++    let preferences_file = home::home_dir()
++        .map(|home| home.join(PREFERENCES_FILE))
++        .expect("Could not get home directory");
++
++    match plist::Value::from_file(preferences_file).map(|file| file.into_dictionary()) {
++        Ok(Some(preferences)) => match preferences.get(STYLE_KEY).and_then(|val| val.as_string()) {
++            Some("Dark") => Some(ColorScheme::Dark),
++            // If the key does not exist, then light theme is currently in use.
++            Some(_) | None => Some(ColorScheme::Light),
++        },
++        // Unreachable, in theory. All macOS users have a home directory and preferences file setup.
++        Ok(None) | Err(_) => None,
++    }
++}
++
++#[cfg(test)]
++impl ColorSchemeDetector for Option<ColorScheme> {
++    fn should_detect(&self) -> bool {
++        true
++    }
++
++    fn detect(&self) -> Option<ColorScheme> {
++        *self
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::ColorScheme::*;
++    use super::*;
++    use std::cell::Cell;
++    use std::iter;
++
++    mod color_scheme_detection {
++        use super::*;
++
++        #[test]
++        fn not_called_for_dark_or_light() {
++            for theme in [ThemePreference::Dark, ThemePreference::Light] {
++                let detector = DetectorStub::should_detect(Some(Dark));
++                let options = ThemeOptions {
++                    theme,
++                    ..Default::default()
++                };
++                _ = theme_impl(options, &detector);
++                assert!(!detector.was_called.get());
++            }
++        }
++
++        #[test]
++        fn called_for_always() {
++            let detectors = [
++                DetectorStub::should_detect(Some(Dark)),
++                DetectorStub::should_not_detect(),
++            ];
++            for detector in detectors {
++                let options = ThemeOptions {
++                    theme: ThemePreference::Auto(DetectColorScheme::Always),
++                    ..Default::default()
++                };
++                _ = theme_impl(options, &detector);
++                assert!(detector.was_called.get());
++            }
++        }
++
++        #[test]
++        fn called_for_auto_if_should_detect() {
++            let detector = DetectorStub::should_detect(Some(Dark));
++            _ = theme_impl(ThemeOptions::default(), &detector);
++            assert!(detector.was_called.get());
++        }
++
++        #[test]
++        fn not_called_for_auto_if_not_should_detect() {
++            let detector = DetectorStub::should_not_detect();
++            _ = theme_impl(ThemeOptions::default(), &detector);
++            assert!(!detector.was_called.get());
++        }
++    }
++
++    mod precedence {
++        use super::*;
++
++        #[test]
++        fn theme_is_preferred_over_light_or_dark_themes() {
++            for color_scheme in optional(color_schemes()) {
++                for options in [
++                    ThemeOptions {
++                        theme: ThemePreference::Fixed(ThemeName::Named("Theme".to_string())),
++                        ..Default::default()
++                    },
++                    ThemeOptions {
++                        theme: ThemePreference::Fixed(ThemeName::Named("Theme".to_string())),
++                        theme_dark: Some(ThemeName::Named("Dark Theme".to_string())),
++                        theme_light: Some(ThemeName::Named("Light Theme".to_string())),
++                        ..Default::default()
++                    },
++                ] {
++                    let detector = ConstantDetector(color_scheme);
++                    assert_eq!("Theme", theme_impl(options, &detector).to_string());
++                }
++            }
++        }
++
++        #[test]
++        fn detector_is_not_called_if_theme_is_present() {
++            let options = ThemeOptions {
++                theme: ThemePreference::Fixed(ThemeName::Named("Theme".to_string())),
++                ..Default::default()
++            };
++            let detector = DetectorStub::should_detect(Some(Dark));
++            _ = theme_impl(options, &detector);
++            assert!(!detector.was_called.get());
++        }
++    }
++
++    mod default_theme {
++        use super::*;
++
++        #[test]
++        fn default_dark_if_unable_to_detect_color_scheme() {
++            let detector = ConstantDetector(None);
++            assert_eq!(
++                default_theme(ColorScheme::Dark),
++                theme_impl(ThemeOptions::default(), &detector).to_string()
++            );
++        }
++
++        // For backwards compatibility, if the default theme is requested
++        // explicitly through BAT_THEME, we always pick the default dark theme.
++        #[test]
++        fn default_dark_if_requested_explicitly_through_theme() {
++            for color_scheme in optional(color_schemes()) {
++                let options = ThemeOptions {
++                    theme: ThemePreference::Fixed(ThemeName::Default),
++                    ..Default::default()
++                };
++                let detector = ConstantDetector(color_scheme);
++                assert_eq!(
++                    default_theme(ColorScheme::Dark),
++                    theme_impl(options, &detector).to_string()
++                );
++            }
++        }
++
++        #[test]
++        fn varies_depending_on_color_scheme() {
++            for color_scheme in color_schemes() {
++                for options in [
++                    ThemeOptions::default(),
++                    ThemeOptions {
++                        theme_dark: Some(ThemeName::Default),
++                        theme_light: Some(ThemeName::Default),
++                        ..Default::default()
++                    },
++                ] {
++                    let detector = ConstantDetector(Some(color_scheme));
++                    assert_eq!(
++                        default_theme(color_scheme),
++                        theme_impl(options, &detector).to_string()
++                    );
++                }
++            }
++        }
++    }
++
++    mod choosing {
++        use super::*;
++
++        #[test]
++        fn chooses_default_theme_if_unknown() {
++            let options = ThemeOptions {
++                theme_dark: Some(ThemeName::Named("Dark".to_string())),
++                theme_light: Some(ThemeName::Named("Light".to_string())),
++                ..Default::default()
++            };
++            let detector = ConstantDetector(None);
++            assert_eq!(
++                default_theme(ColorScheme::default()),
++                theme_impl(options, &detector).to_string()
++            );
++        }
++
++        #[test]
++        fn chooses_dark_theme_if_dark_or_unknown() {
++            let options = ThemeOptions {
++                theme_dark: Some(ThemeName::Named("Dark".to_string())),
++                theme_light: Some(ThemeName::Named("Light".to_string())),
++                ..Default::default()
++            };
++            let detector = ConstantDetector(Some(ColorScheme::Dark));
++            assert_eq!("Dark", theme_impl(options, &detector).to_string());
++        }
++
++        #[test]
++        fn chooses_light_theme_if_light() {
++            let options = ThemeOptions {
++                theme_dark: Some(ThemeName::Named("Dark".to_string())),
++                theme_light: Some(ThemeName::Named("Light".to_string())),
++                ..Default::default()
++            };
++            let detector = ConstantDetector(Some(ColorScheme::Light));
++            assert_eq!("Light", theme_impl(options, &detector).to_string());
++        }
++    }
++
++    mod theme_preference {
++        use super::*;
++
++        #[test]
++        fn values_roundtrip_via_display() {
++            let prefs = [
++                ThemePreference::Auto(DetectColorScheme::Auto),
++                ThemePreference::Auto(DetectColorScheme::Always),
++                ThemePreference::Auto(DetectColorScheme::System),
++                ThemePreference::Fixed(ThemeName::Default),
++                ThemePreference::Fixed(ThemeName::new("foo")),
++                ThemePreference::Dark,
++                ThemePreference::Light,
++            ];
++            for pref in prefs {
++                assert_eq!(pref, ThemePreference::new(&pref.to_string()));
++            }
++        }
++    }
++
++    struct DetectorStub {
++        should_detect: bool,
++        color_scheme: Option<ColorScheme>,
++        was_called: Cell<bool>,
++    }
++
++    impl DetectorStub {
++        fn should_detect(color_scheme: Option<ColorScheme>) -> Self {
++            DetectorStub {
++                should_detect: true,
++                color_scheme,
++                was_called: Cell::default(),
++            }
++        }
++
++        fn should_not_detect() -> Self {
++            DetectorStub {
++                should_detect: false,
++                color_scheme: None,
++                was_called: Cell::default(),
++            }
++        }
++    }
++
++    impl ColorSchemeDetector for DetectorStub {
++        fn should_detect(&self) -> bool {
++            self.should_detect
++        }
++
++        fn detect(&self) -> Option<ColorScheme> {
++            self.was_called.set(true);
++            self.color_scheme
++        }
++    }
++
++    struct ConstantDetector(Option<ColorScheme>);
++
++    impl ColorSchemeDetector for ConstantDetector {
++        fn should_detect(&self) -> bool {
++            true
++        }
++
++        fn detect(&self) -> Option<ColorScheme> {
++            self.0
++        }
++    }
++
++    fn optional<T>(value: impl Iterator<Item = T>) -> impl Iterator<Item = Option<T>> {
++        value.map(Some).chain(iter::once(None))
++    }
++
++    fn color_schemes() -> impl Iterator<Item = ColorScheme> {
++        [Dark, Light].into_iter()
++    }
++}

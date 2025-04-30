@@ -1,0 +1,80 @@
+diff --git a/.gitignore b/.gitignore
+index 951f55934..9b99c9ee0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -19,6 +19,7 @@ coverage
+ /dayjs.min.js
+ /esm
+ /index.d.ts
++locale.json
+ 
+ #dev
+ demo.js
+diff --git a/build/index.js b/build/index.js
+index 683170df5..4651dd61e 100644
+--- a/build/index.js
++++ b/build/index.js
+@@ -8,17 +8,34 @@ const { ncp } = require('ncp')
+ const { promisify } = util
+ 
+ const promisifyReadDir = promisify(fs.readdir)
++const promisifyReadFile = promisify(fs.readFile)
++const promisifyWriteFile = promisify(fs.writeFile)
+ 
++const localeNameRegex = /\/\/ (.*) \[/
+ const formatName = n => n.replace(/\.js/, '').replace('-', '_')
+ 
++const localePath = path.join(__dirname, '../src/locale')
++
+ async function build(option) {
+   const bundle = await rollup.rollup(option.input)
+   await bundle.write(option.output)
+ }
+ 
++async function listLocaleJson(localeArr) {
++  const localeListArr = []
++  await Promise.all(localeArr.map(async (l) => {
++    const localeData = await promisifyReadFile(path.join(localePath, l), 'utf-8')
++    localeListArr.push({
++      key: l.slice(0, -3),
++      name: localeData.match(localeNameRegex)[1]
++    })
++  }))
++  promisifyWriteFile(path.join(__dirname, '../locale.json'), JSON.stringify(localeListArr), 'utf8')
++}
++
+ (async () => {
+   try {
+-    const locales = await promisifyReadDir(path.join(__dirname, '../src/locale'))
++    const locales = await promisifyReadDir(localePath)
+     locales.forEach((l) => {
+       build(configFactory({
+         input: `./src/locale/${l}`,
+@@ -42,6 +59,9 @@ async function build(option) {
+     }))
+ 
+     await promisify(ncp)('./types/', './')
++
++    // list locales
++    await listLocaleJson(locales)
+   } catch (e) {
+     console.error(e) // eslint-disable-line no-console
+   }
+diff --git a/src/locale/bi.js b/src/locale/bi.js
+index 7f6cbecba..8dbb0a56d 100644
+--- a/src/locale/bi.js
++++ b/src/locale/bi.js
+@@ -1,3 +1,4 @@
++// Bislama [bi]
+ import dayjs from 'dayjs'
+ 
+ const locale = {
+diff --git a/src/locale/en.js b/src/locale/en.js
+index a9eb16369..71c2f226e 100644
+--- a/src/locale/en.js
++++ b/src/locale/en.js
+@@ -1,3 +1,4 @@
++// English [en]
+ // We don't need weekdaysShort, weekdaysMin, monthsShort in en.js locale
+ export default {
+   name: 'en',

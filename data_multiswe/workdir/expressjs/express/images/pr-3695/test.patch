@@ -1,0 +1,96 @@
+diff --git a/test/Route.js b/test/Route.js
+index 8f90152d8c..3f70f23de7 100644
+--- a/test/Route.js
++++ b/test/Route.js
+@@ -1,6 +1,7 @@
+ 
+ var after = require('after');
+ var should = require('should');
++var asyncFunctionsSupported = require('./support/utils').asyncFunctionsSupported;
+ var express = require('../')
+   , Route = express.Route
+   , methods = require('methods')
+@@ -187,6 +188,53 @@ describe('Route', function(){
+         done();
+       });
+     });
++    if (asyncFunctionsSupported()) {
++      it('should handle throws in asyncFunction', function (done) {
++        var req = {order: '', method: 'GET', url: '/'};
++        var route = new Route('');
++
++        route.all(new Function([], "return async function(req, res, next) { throw new Error('foobar') }")());
++
++        route.all(function (req, res, next) {
++          req.order += '0';
++          next();
++        });
++
++        route.all(function (err, req, res, next) {
++          req.order += 'a';
++          next(err);
++        });
++
++        route.dispatch(req, {}, function (err) {
++          should(err).be.ok()
++          should(err.message).equal('foobar');
++          req.order.should.equal('a');
++          done();
++        });
++      });
++
++      it('should handle throwing inside async error handlers', function (done) {
++        var req = {method: 'GET', url: '/'};
++        var route = new Route('');
++
++        route.get(function (req, res, next) {
++          throw new Error('boom!');
++        });
++
++        route.get(new Function([], "return async function(err, req, res, next) { throw new Error('oops') }")());
++
++        route.get(function (err, req, res, next) {
++          req.message = err.message;
++          next();
++        });
++
++        route.dispatch(req, {}, function (err) {
++          if (err) return done(err);
++          should(req.message).equal('oops');
++          done();
++        });
++      });
++    }
+ 
+     it('should handle throwing inside error handlers', function(done) {
+       var req = { method: 'GET', url: '/' };
+diff --git a/test/support/utils.js b/test/support/utils.js
+index ec6b801bc0..f7b5caa89e 100644
+--- a/test/support/utils.js
++++ b/test/support/utils.js
+@@ -10,6 +10,7 @@ var assert = require('assert');
+  * @public
+  */
+ exports.shouldNotHaveHeader = shouldNotHaveHeader;
++exports.asyncFunctionsSupported = asyncFunctionsSupported;
+ 
+ /**
+  * Assert that a supertest response does not have a header.
+@@ -22,3 +23,17 @@ function shouldNotHaveHeader(header) {
+     assert.ok(!(header.toLowerCase() in res.headers), 'should not have header ' + header);
+   };
+ }
++
++/**
++ * Determines whether or not current environment supports async/await
++ *
++ * @returns {boolean}
++ */
++function asyncFunctionsSupported() {
++  try {
++    new Function([],"return async function(){}");
++    return true
++  } catch(e) {
++    return false
++  }
++}

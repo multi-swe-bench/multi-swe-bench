@@ -1,0 +1,40 @@
+diff --git a/pkg/cmd/api/api_test.go b/pkg/cmd/api/api_test.go
+index a565312cd55..321f7b7c075 100644
+--- a/pkg/cmd/api/api_test.go
++++ b/pkg/cmd/api/api_test.go
+@@ -1234,6 +1234,35 @@ func Test_apiRun_DELETE(t *testing.T) {
+ 	}
+ }
+ 
++func Test_apiRun_HEAD(t *testing.T) {
++	ios, _, _, _ := iostreams.Test()
++
++	err := apiRun(&ApiOptions{
++		IO: ios,
++		Config: func() (gh.Config, error) {
++			return config.NewBlankConfig(), nil
++		},
++		HttpClient: func() (*http.Client, error) {
++			var tr roundTripper = func(req *http.Request) (*http.Response, error) {
++				return &http.Response{
++					StatusCode: 422,
++					Request:    req,
++					Header: map[string][]string{
++						"Content-Type": {"application/json"},
++					}}, nil
++			}
++			return &http.Client{Transport: tr}, nil
++		},
++		MagicFields:         []string(nil),
++		RawFields:           []string(nil),
++		RequestMethod:       "HEAD",
++		RequestMethodPassed: true,
++	})
++	if err != cmdutil.SilentError {
++		t.Fatalf("got error %v", err)
++	}
++}
++
+ func Test_apiRun_inputFile(t *testing.T) {
+ 	tests := []struct {
+ 		name          string

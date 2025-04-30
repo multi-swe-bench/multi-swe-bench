@@ -1,0 +1,32 @@
+diff --git a/.release-notes/3758.md b/.release-notes/3758.md
+new file mode 100644
+index 0000000000..36e46bc716
+--- /dev/null
++++ b/.release-notes/3758.md
+@@ -0,0 +1,3 @@
++## Fix type constraint check against NullablePointer being omitted in FFI declarations
++
++This release fixes an issue where the compiler would not perform some type checks against FFI declarations. Specifically, the compiler would fail to validate that the type parameter to the `NullablePointer` type had to be a struct type. This check is important since a program that used a non-struct type in a `NullablePointer` could theoretically segfault at runtime.
+diff --git a/src/libponyc/pass/expr.c b/src/libponyc/pass/expr.c
+index b1a9eef735..30c7ebfaec 100644
+--- a/src/libponyc/pass/expr.c
++++ b/src/libponyc/pass/expr.c
+@@ -524,10 +524,14 @@ ast_result_t pass_pre_expr(ast_t** astp, pass_opt_t* options)
+   switch(ast_id(ast))
+   {
+     case TK_ARRAY: return expr_pre_array(options, astp);
+-    case TK_USE:
+-      // Don't look in use commands to avoid false type errors from the guard
+-      return AST_IGNORE;
+-
++    case TK_IFDEFNOT:
++    case TK_IFDEFAND:
++    case TK_IFDEFOR:
++    case TK_IFDEFFLAG:
++      // Don't look in guards for use commands to avoid false type errors
++      if((ast_parent(ast) != NULL) && (ast_id(ast_parent(ast)) == TK_USE))
++        return AST_IGNORE;
++      break;
+     default: {}
+   }
+ 

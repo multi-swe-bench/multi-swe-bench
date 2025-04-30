@@ -1,0 +1,847 @@
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 14a68e3494..74017c3884 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -78,6 +78,7 @@ endif(MSVC) #Temporary workaround
+ set(TEST_SOURCES
+         ${SELF_TEST_DIR}/TestRegistrations.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/Algorithms.tests.cpp
++        ${SELF_TEST_DIR}/IntrospectiveTests/AssertionHandler.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/Clara.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/CmdLine.tests.cpp
+         ${SELF_TEST_DIR}/IntrospectiveTests/CmdLineHelpers.tests.cpp
+diff --git a/tests/SelfTest/Baselines/automake.sw.approved.txt b/tests/SelfTest/Baselines/automake.sw.approved.txt
+index 6b5938a67b..cfddf2171d 100644
+--- a/tests/SelfTest/Baselines/automake.sw.approved.txt
++++ b/tests/SelfTest/Baselines/automake.sw.approved.txt
+@@ -166,6 +166,7 @@ Nor would this
+ :test-result: FAIL INFO gets logged on failure
+ :test-result: FAIL INFO gets logged on failure, even if captured before successful assertions
+ :test-result: FAIL INFO is reset for each loop
++:test-result: XFAIL Incomplete AssertionHandler
+ :test-result: XFAIL Inequality checks that should fail
+ :test-result: PASS Inequality checks that should succeed
+ :test-result: PASS Lambdas in assertions
+@@ -265,6 +266,8 @@ Message from section two
+ :test-result: PASS Testing checked-if
+ :test-result: XFAIL Testing checked-if 2
+ :test-result: XFAIL Testing checked-if 3
++:test-result: XFAIL Testing checked-if 4
++:test-result: XFAIL Testing checked-if 5
+ :test-result: FAIL The NO_FAIL macro reports a failure but does not fail the test
+ :test-result: PASS The default listing implementation write to provided stream
+ :test-result: FAIL This test 'should' fail but doesn't
+diff --git a/tests/SelfTest/Baselines/automake.sw.multi.approved.txt b/tests/SelfTest/Baselines/automake.sw.multi.approved.txt
+index cd56e64871..80ed132566 100644
+--- a/tests/SelfTest/Baselines/automake.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/automake.sw.multi.approved.txt
+@@ -164,6 +164,7 @@
+ :test-result: FAIL INFO gets logged on failure
+ :test-result: FAIL INFO gets logged on failure, even if captured before successful assertions
+ :test-result: FAIL INFO is reset for each loop
++:test-result: XFAIL Incomplete AssertionHandler
+ :test-result: XFAIL Inequality checks that should fail
+ :test-result: PASS Inequality checks that should succeed
+ :test-result: PASS Lambdas in assertions
+@@ -258,6 +259,8 @@
+ :test-result: PASS Testing checked-if
+ :test-result: XFAIL Testing checked-if 2
+ :test-result: XFAIL Testing checked-if 3
++:test-result: XFAIL Testing checked-if 4
++:test-result: XFAIL Testing checked-if 5
+ :test-result: FAIL The NO_FAIL macro reports a failure but does not fail the test
+ :test-result: PASS The default listing implementation write to provided stream
+ :test-result: FAIL This test 'should' fail but doesn't
+diff --git a/tests/SelfTest/Baselines/compact.sw.approved.txt b/tests/SelfTest/Baselines/compact.sw.approved.txt
+index be7a412035..cac5fc0383 100644
+--- a/tests/SelfTest/Baselines/compact.sw.approved.txt
++++ b/tests/SelfTest/Baselines/compact.sw.approved.txt
+@@ -961,6 +961,7 @@ Message.tests.cpp:<line number>: passed: i < 10 for: 7 < 10 with 2 messages: 'cu
+ Message.tests.cpp:<line number>: passed: i < 10 for: 8 < 10 with 2 messages: 'current counter 8' and 'i := 8'
+ Message.tests.cpp:<line number>: passed: i < 10 for: 9 < 10 with 2 messages: 'current counter 9' and 'i := 9'
+ Message.tests.cpp:<line number>: failed: i < 10 for: 10 < 10 with 2 messages: 'current counter 10' and 'i := 10'
++AssertionHandler.tests.cpp:<line number>: failed: unexpected exception with message: 'Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE'; expression was: Dummy
+ Condition.tests.cpp:<line number>: failed: data.int_seven != 7 for: 7 != 7
+ Condition.tests.cpp:<line number>: failed: data.float_nine_point_one != Approx( 9.1f ) for: 9.1f != Approx( 9.1000003815 )
+ Condition.tests.cpp:<line number>: failed: data.double_pi != Approx( 3.1415926535 ) for: 3.1415926535 != Approx( 3.1415926535 )
+@@ -1750,6 +1751,10 @@ Misc.tests.cpp:<line number>: passed: true
+ Misc.tests.cpp:<line number>: failed: explicitly
+ Misc.tests.cpp:<line number>: failed - but was ok: false
+ Misc.tests.cpp:<line number>: failed: explicitly
++Misc.tests.cpp:<line number>: passed: true
++Misc.tests.cpp:<line number>: failed: unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
++Misc.tests.cpp:<line number>: failed - but was ok: false
++Misc.tests.cpp:<line number>: failed: unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
+ Message.tests.cpp:<line number>: failed - but was ok: 1 == 2
+ Reporters.tests.cpp:<line number>: passed: listingString, ContainsSubstring("[fakeTag]"s) for: "All available tags:
+    1  [fakeTag]
+@@ -2538,7 +2543,7 @@ InternalBenchmark.tests.cpp:<line number>: passed: med == 18. for: 18.0 == 18.0
+ InternalBenchmark.tests.cpp:<line number>: passed: q3 == 23. for: 23.0 == 23.0
+ Misc.tests.cpp:<line number>: passed:
+ Misc.tests.cpp:<line number>: passed:
+-test cases:  409 |  308 passed |  84 failed | 6 skipped | 11 failed as expected
+-assertions: 2225 | 2048 passed | 145 failed | 32 failed as expected
++test cases:  412 |  308 passed |  84 failed | 6 skipped | 14 failed as expected
++assertions: 2229 | 2049 passed | 145 failed | 35 failed as expected
+ 
+ 
+diff --git a/tests/SelfTest/Baselines/compact.sw.multi.approved.txt b/tests/SelfTest/Baselines/compact.sw.multi.approved.txt
+index 6c48ab917f..e3e3fe25c8 100644
+--- a/tests/SelfTest/Baselines/compact.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/compact.sw.multi.approved.txt
+@@ -959,6 +959,7 @@ Message.tests.cpp:<line number>: passed: i < 10 for: 7 < 10 with 2 messages: 'cu
+ Message.tests.cpp:<line number>: passed: i < 10 for: 8 < 10 with 2 messages: 'current counter 8' and 'i := 8'
+ Message.tests.cpp:<line number>: passed: i < 10 for: 9 < 10 with 2 messages: 'current counter 9' and 'i := 9'
+ Message.tests.cpp:<line number>: failed: i < 10 for: 10 < 10 with 2 messages: 'current counter 10' and 'i := 10'
++AssertionHandler.tests.cpp:<line number>: failed: unexpected exception with message: 'Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE'; expression was: Dummy
+ Condition.tests.cpp:<line number>: failed: data.int_seven != 7 for: 7 != 7
+ Condition.tests.cpp:<line number>: failed: data.float_nine_point_one != Approx( 9.1f ) for: 9.1f != Approx( 9.1000003815 )
+ Condition.tests.cpp:<line number>: failed: data.double_pi != Approx( 3.1415926535 ) for: 3.1415926535 != Approx( 3.1415926535 )
+@@ -1743,6 +1744,10 @@ Misc.tests.cpp:<line number>: passed: true
+ Misc.tests.cpp:<line number>: failed: explicitly
+ Misc.tests.cpp:<line number>: failed - but was ok: false
+ Misc.tests.cpp:<line number>: failed: explicitly
++Misc.tests.cpp:<line number>: passed: true
++Misc.tests.cpp:<line number>: failed: unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
++Misc.tests.cpp:<line number>: failed - but was ok: false
++Misc.tests.cpp:<line number>: failed: unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
+ Message.tests.cpp:<line number>: failed - but was ok: 1 == 2
+ Reporters.tests.cpp:<line number>: passed: listingString, ContainsSubstring("[fakeTag]"s) for: "All available tags:
+    1  [fakeTag]
+@@ -2527,7 +2532,7 @@ InternalBenchmark.tests.cpp:<line number>: passed: med == 18. for: 18.0 == 18.0
+ InternalBenchmark.tests.cpp:<line number>: passed: q3 == 23. for: 23.0 == 23.0
+ Misc.tests.cpp:<line number>: passed:
+ Misc.tests.cpp:<line number>: passed:
+-test cases:  409 |  308 passed |  84 failed | 6 skipped | 11 failed as expected
+-assertions: 2225 | 2048 passed | 145 failed | 32 failed as expected
++test cases:  412 |  308 passed |  84 failed | 6 skipped | 14 failed as expected
++assertions: 2229 | 2049 passed | 145 failed | 35 failed as expected
+ 
+ 
+diff --git a/tests/SelfTest/Baselines/console.std.approved.txt b/tests/SelfTest/Baselines/console.std.approved.txt
+index 0945f0dfb8..52a1b3a9a0 100644
+--- a/tests/SelfTest/Baselines/console.std.approved.txt
++++ b/tests/SelfTest/Baselines/console.std.approved.txt
+@@ -659,6 +659,17 @@ with messages:
+   current counter 10
+   i := 10
+ 
++-------------------------------------------------------------------------------
++Incomplete AssertionHandler
++-------------------------------------------------------------------------------
++AssertionHandler.tests.cpp:<line number>
++...............................................................................
++
++AssertionHandler.tests.cpp:<line number>: FAILED:
++  REQUIRE( Dummy )
++due to unexpected exception with message:
++  Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++
+ -------------------------------------------------------------------------------
+ Inequality checks that should fail
+ -------------------------------------------------------------------------------
+@@ -997,6 +1008,28 @@ Misc.tests.cpp:<line number>
+ 
+ Misc.tests.cpp:<line number>: FAILED:
+ 
++-------------------------------------------------------------------------------
++Testing checked-if 4
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
++-------------------------------------------------------------------------------
++Testing checked-if 5
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
+ -------------------------------------------------------------------------------
+ Thrown string literals are translated
+ -------------------------------------------------------------------------------
+@@ -1543,6 +1576,6 @@ due to unexpected exception with message:
+   Why would you throw a std::string?
+ 
+ ===============================================================================
+-test cases:  409 |  322 passed |  69 failed | 7 skipped | 11 failed as expected
+-assertions: 2208 | 2048 passed | 128 failed | 32 failed as expected
++test cases:  412 |  322 passed |  69 failed | 7 skipped | 14 failed as expected
++assertions: 2212 | 2049 passed | 128 failed | 35 failed as expected
+ 
+diff --git a/tests/SelfTest/Baselines/console.sw.approved.txt b/tests/SelfTest/Baselines/console.sw.approved.txt
+index 150980e82f..80317f5bda 100644
+--- a/tests/SelfTest/Baselines/console.sw.approved.txt
++++ b/tests/SelfTest/Baselines/console.sw.approved.txt
+@@ -7143,6 +7143,17 @@ with messages:
+   current counter 10
+   i := 10
+ 
++-------------------------------------------------------------------------------
++Incomplete AssertionHandler
++-------------------------------------------------------------------------------
++AssertionHandler.tests.cpp:<line number>
++...............................................................................
++
++AssertionHandler.tests.cpp:<line number>: FAILED:
++  REQUIRE( Dummy )
++due to unexpected exception with message:
++  Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++
+ -------------------------------------------------------------------------------
+ Inequality checks that should fail
+ -------------------------------------------------------------------------------
+@@ -12522,6 +12533,34 @@ Misc.tests.cpp:<line number>: FAILED - but was ok:
+ 
+ Misc.tests.cpp:<line number>: FAILED:
+ 
++-------------------------------------------------------------------------------
++Testing checked-if 4
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: PASSED:
++  CHECKED_ELSE( true )
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
++-------------------------------------------------------------------------------
++Testing checked-if 5
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: FAILED - but was ok:
++  CHECKED_ELSE( false )
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
+ -------------------------------------------------------------------------------
+ The NO_FAIL macro reports a failure but does not fail the test
+ -------------------------------------------------------------------------------
+@@ -18232,6 +18271,6 @@ Misc.tests.cpp:<line number>
+ Misc.tests.cpp:<line number>: PASSED:
+ 
+ ===============================================================================
+-test cases:  409 |  308 passed |  84 failed | 6 skipped | 11 failed as expected
+-assertions: 2225 | 2048 passed | 145 failed | 32 failed as expected
++test cases:  412 |  308 passed |  84 failed | 6 skipped | 14 failed as expected
++assertions: 2229 | 2049 passed | 145 failed | 35 failed as expected
+ 
+diff --git a/tests/SelfTest/Baselines/console.sw.multi.approved.txt b/tests/SelfTest/Baselines/console.sw.multi.approved.txt
+index 4cc942dd49..fb55a0c4a4 100644
+--- a/tests/SelfTest/Baselines/console.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/console.sw.multi.approved.txt
+@@ -7141,6 +7141,17 @@ with messages:
+   current counter 10
+   i := 10
+ 
++-------------------------------------------------------------------------------
++Incomplete AssertionHandler
++-------------------------------------------------------------------------------
++AssertionHandler.tests.cpp:<line number>
++...............................................................................
++
++AssertionHandler.tests.cpp:<line number>: FAILED:
++  REQUIRE( Dummy )
++due to unexpected exception with message:
++  Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++
+ -------------------------------------------------------------------------------
+ Inequality checks that should fail
+ -------------------------------------------------------------------------------
+@@ -12515,6 +12526,34 @@ Misc.tests.cpp:<line number>: FAILED - but was ok:
+ 
+ Misc.tests.cpp:<line number>: FAILED:
+ 
++-------------------------------------------------------------------------------
++Testing checked-if 4
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: PASSED:
++  CHECKED_ELSE( true )
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
++-------------------------------------------------------------------------------
++Testing checked-if 5
++-------------------------------------------------------------------------------
++Misc.tests.cpp:<line number>
++...............................................................................
++
++Misc.tests.cpp:<line number>: FAILED - but was ok:
++  CHECKED_ELSE( false )
++
++Misc.tests.cpp:<line number>: FAILED:
++  {Unknown expression after the reported line}
++due to unexpected exception with message:
++  Uncaught exception should fail!
++
+ -------------------------------------------------------------------------------
+ The NO_FAIL macro reports a failure but does not fail the test
+ -------------------------------------------------------------------------------
+@@ -18221,6 +18260,6 @@ Misc.tests.cpp:<line number>
+ Misc.tests.cpp:<line number>: PASSED:
+ 
+ ===============================================================================
+-test cases:  409 |  308 passed |  84 failed | 6 skipped | 11 failed as expected
+-assertions: 2225 | 2048 passed | 145 failed | 32 failed as expected
++test cases:  412 |  308 passed |  84 failed | 6 skipped | 14 failed as expected
++assertions: 2229 | 2049 passed | 145 failed | 35 failed as expected
+ 
+diff --git a/tests/SelfTest/Baselines/junit.sw.approved.txt b/tests/SelfTest/Baselines/junit.sw.approved.txt
+index c992154c41..7fb79463ed 100644
+--- a/tests/SelfTest/Baselines/junit.sw.approved.txt
++++ b/tests/SelfTest/Baselines/junit.sw.approved.txt
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuitesloose text artifact
+ >
+-  <testsuite name="<exe-name>" errors="17" failures="128" skipped="12" tests="2237" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="128" skipped="12" tests="2241" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <properties>
+       <property name="random-seed" value="1"/>
+       <property name="filters" value="&quot;*&quot; ~[!nonportable] ~[!benchmark] ~[approvals]"/>
+@@ -796,6 +796,15 @@ i := 10
+ at Message.tests.cpp:<line number>
+       </failure>
+     </testcase>
++    <testcase classname="<exe-name>.global" name="Incomplete AssertionHandler" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="Dummy" type="REQUIRE">
++FAILED:
++  REQUIRE( Dummy )
++Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++at AssertionHandler.tests.cpp:<line number>
++      </error>
++    </testcase>
+     <testcase classname="<exe-name>.global" name="Inequality checks that should fail" time="{duration}" status="run">
+       <skipped message="TEST_CASE tagged with !mayfail"/>
+       <failure message="data.int_seven != 7" type="CHECK">
+@@ -1360,6 +1369,24 @@ FAILED:
+ at Misc.tests.cpp:<line number>
+       </failure>
+     </testcase>
++    <testcase classname="<exe-name>.global" name="Testing checked-if 4" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="{Unknown expression after the reported line}">
++FAILED:
++  {Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </error>
++    </testcase>
++    <testcase classname="<exe-name>.global" name="Testing checked-if 5" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="{Unknown expression after the reported line}">
++FAILED:
++  {Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </error>
++    </testcase>
+     <testcase classname="<exe-name>.global" name="The NO_FAIL macro reports a failure but does not fail the test" time="{duration}" status="run"/>
+     <testcase classname="<exe-name>.global" name="The default listing implementation write to provided stream/Listing tags" time="{duration}" status="run"/>
+     <testcase classname="<exe-name>.global" name="The default listing implementation write to provided stream/Listing reporters" time="{duration}" status="run"/>
+diff --git a/tests/SelfTest/Baselines/junit.sw.multi.approved.txt b/tests/SelfTest/Baselines/junit.sw.multi.approved.txt
+index 79c3236506..4fee867f72 100644
+--- a/tests/SelfTest/Baselines/junit.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/junit.sw.multi.approved.txt
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <testsuites>
+-  <testsuite name="<exe-name>" errors="17" failures="128" skipped="12" tests="2237" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
++  <testsuite name="<exe-name>" errors="17" failures="128" skipped="12" tests="2241" hostname="tbd" time="{duration}" timestamp="{iso8601-timestamp}">
+     <properties>
+       <property name="random-seed" value="1"/>
+       <property name="filters" value="&quot;*&quot; ~[!nonportable] ~[!benchmark] ~[approvals]"/>
+@@ -795,6 +795,15 @@ i := 10
+ at Message.tests.cpp:<line number>
+       </failure>
+     </testcase>
++    <testcase classname="<exe-name>.global" name="Incomplete AssertionHandler" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="Dummy" type="REQUIRE">
++FAILED:
++  REQUIRE( Dummy )
++Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++at AssertionHandler.tests.cpp:<line number>
++      </error>
++    </testcase>
+     <testcase classname="<exe-name>.global" name="Inequality checks that should fail" time="{duration}" status="run">
+       <skipped message="TEST_CASE tagged with !mayfail"/>
+       <failure message="data.int_seven != 7" type="CHECK">
+@@ -1359,6 +1368,24 @@ FAILED:
+ at Misc.tests.cpp:<line number>
+       </failure>
+     </testcase>
++    <testcase classname="<exe-name>.global" name="Testing checked-if 4" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="{Unknown expression after the reported line}">
++FAILED:
++  {Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </error>
++    </testcase>
++    <testcase classname="<exe-name>.global" name="Testing checked-if 5" time="{duration}" status="run">
++      <skipped message="TEST_CASE tagged with !mayfail"/>
++      <error message="{Unknown expression after the reported line}">
++FAILED:
++  {Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </error>
++    </testcase>
+     <testcase classname="<exe-name>.global" name="The NO_FAIL macro reports a failure but does not fail the test" time="{duration}" status="run"/>
+     <testcase classname="<exe-name>.global" name="The default listing implementation write to provided stream/Listing tags" time="{duration}" status="run"/>
+     <testcase classname="<exe-name>.global" name="The default listing implementation write to provided stream/Listing reporters" time="{duration}" status="run"/>
+diff --git a/tests/SelfTest/Baselines/sonarqube.sw.approved.txt b/tests/SelfTest/Baselines/sonarqube.sw.approved.txt
+index 592887f9c4..6cbb7c7b3c 100644
+--- a/tests/SelfTest/Baselines/sonarqube.sw.approved.txt
++++ b/tests/SelfTest/Baselines/sonarqube.sw.approved.txt
+@@ -2,6 +2,16 @@
+ <!-- filters='"*" ~[!nonportable] ~[!benchmark] ~[approvals]' rng-seed=1 -->
+ <testExecutions version="1"loose text artifact
+ >
++  <file path="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp">
++    <testCase name="Incomplete AssertionHandler" duration="{duration}">
++      <skipped message="REQUIRE(Dummy)">
++FAILED:
++	REQUIRE( Dummy )
++Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++at AssertionHandler.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++  </file>
+   <file path="tests/<exe-name>/IntrospectiveTests/Clara.tests.cpp">
+     <testCase name="Clara::Arg supports single-arg parse the way Opt does" duration="{duration}"/>
+     <testCase name="Clara::Opt supports accept-many lambdas/Parsing fails on multiple options without accept_many" duration="{duration}"/>
+@@ -1727,6 +1737,22 @@ at Misc.tests.cpp:<line number>
+     <testCase name="Testing checked-if 3" duration="{duration}">
+       <skipped message="FAIL()">
+ FAILED:
++at Misc.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++    <testCase name="Testing checked-if 4" duration="{duration}">
++      <skipped message="({Unknown expression after the reported line})">
++FAILED:
++	{Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++    <testCase name="Testing checked-if 5" duration="{duration}">
++      <skipped message="({Unknown expression after the reported line})">
++FAILED:
++	{Unknown expression after the reported line}
++Uncaught exception should fail!
+ at Misc.tests.cpp:<line number>
+       </skipped>
+     </testCase>
+diff --git a/tests/SelfTest/Baselines/sonarqube.sw.multi.approved.txt b/tests/SelfTest/Baselines/sonarqube.sw.multi.approved.txt
+index 3509287f78..ba9504cb47 100644
+--- a/tests/SelfTest/Baselines/sonarqube.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/sonarqube.sw.multi.approved.txt
+@@ -1,6 +1,16 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!-- filters='"*" ~[!nonportable] ~[!benchmark] ~[approvals]' rng-seed=1 -->
+ <testExecutions version="1">
++  <file path="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp">
++    <testCase name="Incomplete AssertionHandler" duration="{duration}">
++      <skipped message="REQUIRE(Dummy)">
++FAILED:
++	REQUIRE( Dummy )
++Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++at AssertionHandler.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++  </file>
+   <file path="tests/<exe-name>/IntrospectiveTests/Clara.tests.cpp">
+     <testCase name="Clara::Arg supports single-arg parse the way Opt does" duration="{duration}"/>
+     <testCase name="Clara::Opt supports accept-many lambdas/Parsing fails on multiple options without accept_many" duration="{duration}"/>
+@@ -1726,6 +1736,22 @@ at Misc.tests.cpp:<line number>
+     <testCase name="Testing checked-if 3" duration="{duration}">
+       <skipped message="FAIL()">
+ FAILED:
++at Misc.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++    <testCase name="Testing checked-if 4" duration="{duration}">
++      <skipped message="({Unknown expression after the reported line})">
++FAILED:
++	{Unknown expression after the reported line}
++Uncaught exception should fail!
++at Misc.tests.cpp:<line number>
++      </skipped>
++    </testCase>
++    <testCase name="Testing checked-if 5" duration="{duration}">
++      <skipped message="({Unknown expression after the reported line})">
++FAILED:
++	{Unknown expression after the reported line}
++Uncaught exception should fail!
+ at Misc.tests.cpp:<line number>
+       </skipped>
+     </testCase>
+diff --git a/tests/SelfTest/Baselines/tap.sw.approved.txt b/tests/SelfTest/Baselines/tap.sw.approved.txt
+index acd0a1c149..59bd2054da 100644
+--- a/tests/SelfTest/Baselines/tap.sw.approved.txt
++++ b/tests/SelfTest/Baselines/tap.sw.approved.txt
+@@ -1830,6 +1830,8 @@ ok {test-number} - i < 10 for: 8 < 10 with 2 messages: 'current counter 8' and '
+ ok {test-number} - i < 10 for: 9 < 10 with 2 messages: 'current counter 9' and 'i := 9'
+ # INFO is reset for each loop
+ not ok {test-number} - i < 10 for: 10 < 10 with 2 messages: 'current counter 10' and 'i := 10'
++# Incomplete AssertionHandler
++not ok {test-number} - unexpected exception with message: 'Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE'; expression was: Dummy
+ # Inequality checks that should fail
+ not ok {test-number} - data.int_seven != 7 for: 7 != 7
+ # Inequality checks that should fail
+@@ -3067,6 +3069,14 @@ not ok {test-number} - explicitly
+ ok {test-number} - false  # TODO
+ # Testing checked-if 3
+ not ok {test-number} - explicitly
++# Testing checked-if 4
++ok {test-number} - true
++# Testing checked-if 4
++not ok {test-number} - unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
++# Testing checked-if 5
++ok {test-number} - false  # TODO
++# Testing checked-if 5
++not ok {test-number} - unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
+ # The NO_FAIL macro reports a failure but does not fail the test
+ ok {test-number} - 1 == 2  # TODO
+ # The default listing implementation write to provided stream
+@@ -4477,5 +4487,5 @@ ok {test-number} - q3 == 23. for: 23.0 == 23.0
+ ok {test-number} -
+ # xmlentitycheck
+ ok {test-number} -
+-1..2237
++1..2241
+ 
+diff --git a/tests/SelfTest/Baselines/tap.sw.multi.approved.txt b/tests/SelfTest/Baselines/tap.sw.multi.approved.txt
+index 033290497d..3b1a4d852e 100644
+--- a/tests/SelfTest/Baselines/tap.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/tap.sw.multi.approved.txt
+@@ -1828,6 +1828,8 @@ ok {test-number} - i < 10 for: 8 < 10 with 2 messages: 'current counter 8' and '
+ ok {test-number} - i < 10 for: 9 < 10 with 2 messages: 'current counter 9' and 'i := 9'
+ # INFO is reset for each loop
+ not ok {test-number} - i < 10 for: 10 < 10 with 2 messages: 'current counter 10' and 'i := 10'
++# Incomplete AssertionHandler
++not ok {test-number} - unexpected exception with message: 'Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE'; expression was: Dummy
+ # Inequality checks that should fail
+ not ok {test-number} - data.int_seven != 7 for: 7 != 7
+ # Inequality checks that should fail
+@@ -3060,6 +3062,14 @@ not ok {test-number} - explicitly
+ ok {test-number} - false  # TODO
+ # Testing checked-if 3
+ not ok {test-number} - explicitly
++# Testing checked-if 4
++ok {test-number} - true
++# Testing checked-if 4
++not ok {test-number} - unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
++# Testing checked-if 5
++ok {test-number} - false  # TODO
++# Testing checked-if 5
++not ok {test-number} - unexpected exception with message: 'Uncaught exception should fail!'; expression was: {Unknown expression after the reported line}
+ # The NO_FAIL macro reports a failure but does not fail the test
+ ok {test-number} - 1 == 2  # TODO
+ # The default listing implementation write to provided stream
+@@ -4466,5 +4476,5 @@ ok {test-number} - q3 == 23. for: 23.0 == 23.0
+ ok {test-number} -
+ # xmlentitycheck
+ ok {test-number} -
+-1..2237
++1..2241
+ 
+diff --git a/tests/SelfTest/Baselines/teamcity.sw.approved.txt b/tests/SelfTest/Baselines/teamcity.sw.approved.txt
+index a298633a16..1f215c1e66 100644
+--- a/tests/SelfTest/Baselines/teamcity.sw.approved.txt
++++ b/tests/SelfTest/Baselines/teamcity.sw.approved.txt
+@@ -405,6 +405,9 @@
+ ##teamcity[testStarted name='INFO is reset for each loop']
+ ##teamcity[testFailed name='INFO is reset for each loop' message='Message.tests.cpp:<line number>|n...............................................................................|n|nMessage.tests.cpp:<line number>|nexpression failed with messages:|n  "current counter 10"|n  "i := 10"|n  REQUIRE( i < 10 )|nwith expansion:|n  10 < 10|n']
+ ##teamcity[testFinished name='INFO is reset for each loop' duration="{duration}"]
++##teamcity[testStarted name='Incomplete AssertionHandler']
++##teamcity[testIgnored name='Incomplete AssertionHandler' message='AssertionHandler.tests.cpp:<line number>|n...............................................................................|n|nAssertionHandler.tests.cpp:<line number>|nunexpected exception with message:|n  "Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE"|n  REQUIRE( Dummy )|nwith expansion:|n  Dummy|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Incomplete AssertionHandler' duration="{duration}"]
+ ##teamcity[testStarted name='Inequality checks that should fail']
+ ##teamcity[testIgnored name='Inequality checks that should fail' message='Condition.tests.cpp:<line number>|n...............................................................................|n|nCondition.tests.cpp:<line number>|nexpression failed|n  CHECK( data.int_seven != 7 )|nwith expansion:|n  7 != 7|n- failure ignore as test marked as |'ok to fail|'|n']
+ ##teamcity[testIgnored name='Inequality checks that should fail' message='Condition.tests.cpp:<line number>|nexpression failed|n  CHECK( data.float_nine_point_one != Approx( 9.1f ) )|nwith expansion:|n  9.1f != Approx( 9.1000003815 )|n- failure ignore as test marked as |'ok to fail|'|n']
+@@ -639,6 +642,12 @@
+ ##teamcity[testStarted name='Testing checked-if 3']
+ ##teamcity[testIgnored name='Testing checked-if 3' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nexplicit failure- failure ignore as test marked as |'ok to fail|'|n']
+ ##teamcity[testFinished name='Testing checked-if 3' duration="{duration}"]
++##teamcity[testStarted name='Testing checked-if 4']
++##teamcity[testIgnored name='Testing checked-if 4' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nunexpected exception with message:|n  "Uncaught exception should fail!"|n  {Unknown expression after the reported line}|nwith expansion:|n  {Unknown expression after the reported line}|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Testing checked-if 4' duration="{duration}"]
++##teamcity[testStarted name='Testing checked-if 5']
++##teamcity[testIgnored name='Testing checked-if 5' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nunexpected exception with message:|n  "Uncaught exception should fail!"|n  {Unknown expression after the reported line}|nwith expansion:|n  {Unknown expression after the reported line}|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Testing checked-if 5' duration="{duration}"]
+ ##teamcity[testStarted name='The NO_FAIL macro reports a failure but does not fail the test']
+ ##teamcity[testFinished name='The NO_FAIL macro reports a failure but does not fail the test' duration="{duration}"]
+ ##teamcity[testStarted name='The default listing implementation write to provided stream']
+diff --git a/tests/SelfTest/Baselines/teamcity.sw.multi.approved.txt b/tests/SelfTest/Baselines/teamcity.sw.multi.approved.txt
+index 861d64715b..1f557c8f3a 100644
+--- a/tests/SelfTest/Baselines/teamcity.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/teamcity.sw.multi.approved.txt
+@@ -405,6 +405,9 @@
+ ##teamcity[testStarted name='INFO is reset for each loop']
+ ##teamcity[testFailed name='INFO is reset for each loop' message='Message.tests.cpp:<line number>|n...............................................................................|n|nMessage.tests.cpp:<line number>|nexpression failed with messages:|n  "current counter 10"|n  "i := 10"|n  REQUIRE( i < 10 )|nwith expansion:|n  10 < 10|n']
+ ##teamcity[testFinished name='INFO is reset for each loop' duration="{duration}"]
++##teamcity[testStarted name='Incomplete AssertionHandler']
++##teamcity[testIgnored name='Incomplete AssertionHandler' message='AssertionHandler.tests.cpp:<line number>|n...............................................................................|n|nAssertionHandler.tests.cpp:<line number>|nunexpected exception with message:|n  "Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE"|n  REQUIRE( Dummy )|nwith expansion:|n  Dummy|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Incomplete AssertionHandler' duration="{duration}"]
+ ##teamcity[testStarted name='Inequality checks that should fail']
+ ##teamcity[testIgnored name='Inequality checks that should fail' message='Condition.tests.cpp:<line number>|n...............................................................................|n|nCondition.tests.cpp:<line number>|nexpression failed|n  CHECK( data.int_seven != 7 )|nwith expansion:|n  7 != 7|n- failure ignore as test marked as |'ok to fail|'|n']
+ ##teamcity[testIgnored name='Inequality checks that should fail' message='Condition.tests.cpp:<line number>|nexpression failed|n  CHECK( data.float_nine_point_one != Approx( 9.1f ) )|nwith expansion:|n  9.1f != Approx( 9.1000003815 )|n- failure ignore as test marked as |'ok to fail|'|n']
+@@ -639,6 +642,12 @@
+ ##teamcity[testStarted name='Testing checked-if 3']
+ ##teamcity[testIgnored name='Testing checked-if 3' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nexplicit failure- failure ignore as test marked as |'ok to fail|'|n']
+ ##teamcity[testFinished name='Testing checked-if 3' duration="{duration}"]
++##teamcity[testStarted name='Testing checked-if 4']
++##teamcity[testIgnored name='Testing checked-if 4' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nunexpected exception with message:|n  "Uncaught exception should fail!"|n  {Unknown expression after the reported line}|nwith expansion:|n  {Unknown expression after the reported line}|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Testing checked-if 4' duration="{duration}"]
++##teamcity[testStarted name='Testing checked-if 5']
++##teamcity[testIgnored name='Testing checked-if 5' message='Misc.tests.cpp:<line number>|n...............................................................................|n|nMisc.tests.cpp:<line number>|nunexpected exception with message:|n  "Uncaught exception should fail!"|n  {Unknown expression after the reported line}|nwith expansion:|n  {Unknown expression after the reported line}|n- failure ignore as test marked as |'ok to fail|'|n']
++##teamcity[testFinished name='Testing checked-if 5' duration="{duration}"]
+ ##teamcity[testStarted name='The NO_FAIL macro reports a failure but does not fail the test']
+ ##teamcity[testFinished name='The NO_FAIL macro reports a failure but does not fail the test' duration="{duration}"]
+ ##teamcity[testStarted name='The default listing implementation write to provided stream']
+diff --git a/tests/SelfTest/Baselines/xml.sw.approved.txt b/tests/SelfTest/Baselines/xml.sw.approved.txt
+index bf9cf2053f..7f4e8d3aaa 100644
+--- a/tests/SelfTest/Baselines/xml.sw.approved.txt
++++ b/tests/SelfTest/Baselines/xml.sw.approved.txt
+@@ -8619,6 +8619,20 @@ C
+     </Expression>
+     <OverallResult success="false" skips="0"/>
+   </TestCase>
++  <TestCase name="Incomplete AssertionHandler" tags="[!shouldfail][assertion-handler]" filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++    <Expression success="false" type="REQUIRE" filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++      <Original>
++        Dummy
++      </Original>
++      <Expanded>
++        Dummy
++      </Expanded>
++      <Exception filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++        Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
+   <TestCase name="Inequality checks that should fail" tags="[!shouldfail][.][failing]" filename="tests/<exe-name>/UsageTests/Condition.tests.cpp" >
+     <Expression success="false" type="CHECK" filename="tests/<exe-name>/UsageTests/Condition.tests.cpp" >
+       <Original>
+@@ -14547,6 +14561,50 @@ Message from section two
+     <Failure filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" />
+     <OverallResult success="true" skips="0"/>
+   </TestCase>
++  <TestCase name="Testing checked-if 4" tags="[!shouldfail][checked-if]" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++    <Expression success="true" type="CHECKED_ELSE" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        true
++      </Original>
++      <Expanded>
++        true
++      </Expanded>
++    </Expression>
++    <Expression success="false" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        {Unknown expression after the reported line}
++      </Original>
++      <Expanded>
++        {Unknown expression after the reported line}
++      </Expanded>
++      <Exception filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++        Uncaught exception should fail!
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
++  <TestCase name="Testing checked-if 5" tags="[!shouldfail][checked-if]" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++    <Expression success="false" type="CHECKED_ELSE" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        false
++      </Original>
++      <Expanded>
++        false
++      </Expanded>
++    </Expression>
++    <Expression success="false" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        {Unknown expression after the reported line}
++      </Original>
++      <Expanded>
++        {Unknown expression after the reported line}
++      </Expanded>
++      <Exception filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++        Uncaught exception should fail!
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
+   <TestCase name="The NO_FAIL macro reports a failure but does not fail the test" tags="[messages]" filename="tests/<exe-name>/UsageTests/Message.tests.cpp" >
+     <Expression success="false" type="CHECK_NOFAIL" filename="tests/<exe-name>/UsageTests/Message.tests.cpp" >
+       <Original>
+@@ -21198,6 +21256,6 @@ b1!
+     </Section>
+     <OverallResult success="true" skips="0"/>
+   </TestCase>
+-  <OverallResults successes="2048" failures="145" expectedFailures="32" skips="12"/>
+-  <OverallResultsCases successes="308" failures="84" expectedFailures="11" skips="6"/>
++  <OverallResults successes="2049" failures="145" expectedFailures="35" skips="12"/>
++  <OverallResultsCases successes="308" failures="84" expectedFailures="14" skips="6"/>
+ </Catch2TestRun>
+diff --git a/tests/SelfTest/Baselines/xml.sw.multi.approved.txt b/tests/SelfTest/Baselines/xml.sw.multi.approved.txt
+index 41dc8cb315..53afdef42e 100644
+--- a/tests/SelfTest/Baselines/xml.sw.multi.approved.txt
++++ b/tests/SelfTest/Baselines/xml.sw.multi.approved.txt
+@@ -8619,6 +8619,20 @@ C
+     </Expression>
+     <OverallResult success="false" skips="0"/>
+   </TestCase>
++  <TestCase name="Incomplete AssertionHandler" tags="[!shouldfail][assertion-handler]" filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++    <Expression success="false" type="REQUIRE" filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++      <Original>
++        Dummy
++      </Original>
++      <Expanded>
++        Dummy
++      </Expanded>
++      <Exception filename="tests/<exe-name>/IntrospectiveTests/AssertionHandler.tests.cpp" >
++        Exception translation was disabled by CATCH_CONFIG_FAST_COMPILE
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
+   <TestCase name="Inequality checks that should fail" tags="[!shouldfail][.][failing]" filename="tests/<exe-name>/UsageTests/Condition.tests.cpp" >
+     <Expression success="false" type="CHECK" filename="tests/<exe-name>/UsageTests/Condition.tests.cpp" >
+       <Original>
+@@ -14547,6 +14561,50 @@ Message from section two
+     <Failure filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" />
+     <OverallResult success="true" skips="0"/>
+   </TestCase>
++  <TestCase name="Testing checked-if 4" tags="[!shouldfail][checked-if]" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++    <Expression success="true" type="CHECKED_ELSE" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        true
++      </Original>
++      <Expanded>
++        true
++      </Expanded>
++    </Expression>
++    <Expression success="false" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        {Unknown expression after the reported line}
++      </Original>
++      <Expanded>
++        {Unknown expression after the reported line}
++      </Expanded>
++      <Exception filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++        Uncaught exception should fail!
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
++  <TestCase name="Testing checked-if 5" tags="[!shouldfail][checked-if]" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++    <Expression success="false" type="CHECKED_ELSE" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        false
++      </Original>
++      <Expanded>
++        false
++      </Expanded>
++    </Expression>
++    <Expression success="false" filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++      <Original>
++        {Unknown expression after the reported line}
++      </Original>
++      <Expanded>
++        {Unknown expression after the reported line}
++      </Expanded>
++      <Exception filename="tests/<exe-name>/UsageTests/Misc.tests.cpp" >
++        Uncaught exception should fail!
++      </Exception>
++    </Expression>
++    <OverallResult success="true" skips="0"/>
++  </TestCase>
+   <TestCase name="The NO_FAIL macro reports a failure but does not fail the test" tags="[messages]" filename="tests/<exe-name>/UsageTests/Message.tests.cpp" >
+     <Expression success="false" type="CHECK_NOFAIL" filename="tests/<exe-name>/UsageTests/Message.tests.cpp" >
+       <Original>
+@@ -21197,6 +21255,6 @@ b1!
+     </Section>
+     <OverallResult success="true" skips="0"/>
+   </TestCase>
+-  <OverallResults successes="2048" failures="145" expectedFailures="32" skips="12"/>
+-  <OverallResultsCases successes="308" failures="84" expectedFailures="11" skips="6"/>
++  <OverallResults successes="2049" failures="145" expectedFailures="35" skips="12"/>
++  <OverallResultsCases successes="308" failures="84" expectedFailures="14" skips="6"/>
+ </Catch2TestRun>
+diff --git a/tests/SelfTest/IntrospectiveTests/AssertionHandler.tests.cpp b/tests/SelfTest/IntrospectiveTests/AssertionHandler.tests.cpp
+new file mode 100644
+index 0000000000..ab09607450
+--- /dev/null
++++ b/tests/SelfTest/IntrospectiveTests/AssertionHandler.tests.cpp
+@@ -0,0 +1,17 @@
++
++//              Copyright Catch2 Authors
++// Distributed under the Boost Software License, Version 1.0.
++//   (See accompanying file LICENSE.txt or copy at
++//        https://www.boost.org/LICENSE_1_0.txt)
++
++// SPDX-License-Identifier: BSL-1.0
++
++#include <catch2/catch_test_macros.hpp>
++
++TEST_CASE( "Incomplete AssertionHandler", "[assertion-handler][!shouldfail]" ) {
++    Catch::AssertionHandler catchAssertionHandler(
++        "REQUIRE"_catch_sr,
++        CATCH_INTERNAL_LINEINFO,
++        "Dummy",
++        Catch::ResultDisposition::Normal );
++}
+diff --git a/tests/SelfTest/UsageTests/Misc.tests.cpp b/tests/SelfTest/UsageTests/Misc.tests.cpp
+index 6c1fd68f44..7f06704b41 100644
+--- a/tests/SelfTest/UsageTests/Misc.tests.cpp
++++ b/tests/SelfTest/UsageTests/Misc.tests.cpp
+@@ -217,6 +217,18 @@ TEST_CASE("Testing checked-if 3", "[checked-if][!shouldfail]") {
+     SUCCEED();
+ }
+ 
++[[noreturn]]
++TEST_CASE("Testing checked-if 4", "[checked-if][!shouldfail]") {
++    CHECKED_ELSE(true) {}
++    throw std::runtime_error("Uncaught exception should fail!");
++}
++
++[[noreturn]]
++TEST_CASE("Testing checked-if 5", "[checked-if][!shouldfail]") {
++    CHECKED_ELSE(false) {}
++    throw std::runtime_error("Uncaught exception should fail!");
++}
++
+ TEST_CASE( "xmlentitycheck" ) {
+     SECTION( "embedded xml: <test>it should be possible to embed xml characters, such as <, \" or &, or even whole <xml>documents</xml> within an attribute</test>" ) {
+         SUCCEED(); // We need this here to stop it failing due to no tests

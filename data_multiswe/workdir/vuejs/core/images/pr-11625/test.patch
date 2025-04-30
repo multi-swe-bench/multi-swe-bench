@@ -1,0 +1,62 @@
+diff --git a/packages/runtime-core/__tests__/apiWatch.spec.ts b/packages/runtime-core/__tests__/apiWatch.spec.ts
+index 67f0bc160e3..7ccf7fbdffd 100644
+--- a/packages/runtime-core/__tests__/apiWatch.spec.ts
++++ b/packages/runtime-core/__tests__/apiWatch.spec.ts
+@@ -1801,7 +1801,7 @@ describe('api: watch', () => {
+     expect(foo.value.a).toBe(2)
+   })
+ 
+-  test('watch immediate error in effect scope should be catched by onErrorCaptured', async () => {
++  test('watch immediate error in effect scope should be caught by onErrorCaptured', async () => {
+     const warn = vi.spyOn(console, 'warn')
+     warn.mockImplementation(() => {})
+     const ERROR_IN_SCOPE = 'ERROR_IN_SCOPE'
+@@ -1857,6 +1857,48 @@ describe('api: watch', () => {
+     warn.mockRestore()
+   })
+ 
++  test('watch + computed error should be caught by onErrorCaptured', async () => {
++    const warn = vi.spyOn(console, 'warn')
++    warn.mockImplementation(() => {})
++    const ERROR_IN_COMPUTED = 'ERROR_IN_COMPUTED'
++
++    const trigger = ref(false)
++    const errors = ref<string[]>([])
++    const Comp = {
++      setup() {
++        const foo = computed(() => {
++          if (trigger.value) {
++            throw new Error(ERROR_IN_COMPUTED)
++          }
++        })
++        watch(foo, () => {})
++        return () => ''
++      },
++    }
++
++    const App = {
++      setup() {
++        onErrorCaptured(e => {
++          errors.value.push(e.message)
++          return false
++        })
++
++        return () => h(Comp)
++      },
++    }
++    const root = nodeOps.createElement('div')
++    render(h(App), root)
++    await nextTick()
++
++    trigger.value = true
++    await nextTick()
++
++    expect(errors.value).toHaveLength(1)
++    expect(errors.value[0]).toBe(ERROR_IN_COMPUTED)
++
++    warn.mockRestore()
++  })
++
+   it('should be executed correctly', () => {
+     const v = ref(1)
+     let foo = ''

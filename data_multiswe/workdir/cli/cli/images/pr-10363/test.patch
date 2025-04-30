@@ -1,0 +1,160 @@
+diff --git a/pkg/cmd/repo/edit/edit_test.go b/pkg/cmd/repo/edit/edit_test.go
+index 868e300facd..ed4aa68c188 100644
+--- a/pkg/cmd/repo/edit/edit_test.go
++++ b/pkg/cmd/repo/edit/edit_test.go
+@@ -91,6 +91,145 @@ func TestNewCmdEdit(t *testing.T) {
+ 				},
+ 			},
+ 		},
++		{
++			name: "enable merge commit",
++			args: "--enable-merge-commit=true",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					EnableMergeCommit: bp(true),
++				},
++			},
++		},
++		{
++			name: "disable merge commit",
++			args: "--enable-merge-commit=false",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					EnableMergeCommit: bp(false),
++				},
++			},
++		},
++		{
++			name: "set merge commit default commit message (default message)",
++			args: "--merge-commit-title=MERGE_MESSAGE --merge-commit-message=PR_TITLE",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					MergeCommitTitle:   "MERGE_MESSAGE",
++					MergeCommitMessage: "PR_TITLE",
++				},
++			},
++		},
++		{
++			name: "set merge commit default commit message (pull request title)",
++			args: "--merge-commit-title=PR_TITLE --merge-commit-message=BLANK",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					MergeCommitTitle:   "PR_TITLE",
++					MergeCommitMessage: "BLANK",
++				},
++			},
++		},
++		{
++			name: "set merge commit default commit message (pull request title and description)",
++			args: "--merge-commit-title=PR_TITLE --merge-commit-message=PR_BODY",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					MergeCommitTitle:   "PR_TITLE",
++					MergeCommitMessage: "PR_BODY",
++				},
++			},
++		},
++		{
++			name: "set merge commit default commit message (message flag only)",
++			args: "--merge-commit-message=BLANK",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					MergeCommitMessage: "BLANK",
++				},
++			},
++			wantErr: "`--merge-commit-message` must be used in conjunction with `--merge-commit-title`",
++		},
++		{
++			name: "enable squash merge commit",
++			args: "--enable-squash-merge=true",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					EnableSquashMerge: bp(true),
++				},
++			},
++		},
++		{
++			name: "disable squash merge commit",
++			args: "--enable-squash-merge=false",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					EnableSquashMerge: bp(false),
++				},
++			},
++		},
++		{
++			name: "set squash merge commit default commit message (default message)",
++			args: "--squash-merge-commit-title=COMMIT_OR_PR_TITLE --squash-merge-commit-message=COMMIT_MESSAGES",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					SquashMergeCommitTitle:   "COMMIT_OR_PR_TITLE",
++					SquashMergeCommitMessage: "COMMIT_MESSAGES",
++				},
++			},
++		},
++		{
++			name: "set squash merge commit default commit message (pull request title)",
++			args: "--squash-merge-commit-title=PR_TITLE --squash-merge-commit-message=BLANK",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					SquashMergeCommitTitle:   "PR_TITLE",
++					SquashMergeCommitMessage: "BLANK",
++				},
++			},
++		},
++		{
++			name: "set squash merge commit default commit message (pull request title and description)",
++			args: "--squash-merge-commit-title=PR_TITLE --squash-merge-commit-message=PR_BODY",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					SquashMergeCommitTitle:   "PR_TITLE",
++					SquashMergeCommitMessage: "PR_BODY",
++				},
++			},
++		},
++		{
++			name: "set squash merge commit default commit message (pull request title and commit details)",
++			args: "--squash-merge-commit-title=PR_TITLE --squash-merge-commit-message=COMMIT_MESSAGES",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					SquashMergeCommitTitle:   "PR_TITLE",
++					SquashMergeCommitMessage: "COMMIT_MESSAGES",
++				},
++			},
++		},
++		{
++			name: "set squash merge commit default commit message (message flag only)",
++			args: "--squash-merge-commit-message=COMMIT_MESSAGES",
++			wantOpts: EditOptions{
++				Repository: ghrepo.NewWithHost("OWNER", "REPO", "github.com"),
++				Edits: EditRepositoryInput{
++					SquashMergeCommitMessage: "COMMIT_MESSAGES",
++				},
++			},
++			wantErr: "`--squash-merge-commit-message` must be used in conjunction with `--squash-merge-commit-title`",
++		},
+ 	}
+ 
+ 	for _, tt := range tests {
+@@ -300,7 +439,8 @@ func Test_editRun_interactive(t *testing.T) {
+ 		"Template Repository",
+ 		"Topics",
+ 		"Visibility",
+-		"Wikis"}
++		"Wikis",
++	}
+ 
+ 	tests := []struct {
+ 		name        string

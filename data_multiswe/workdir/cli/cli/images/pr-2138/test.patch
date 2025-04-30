@@ -1,0 +1,30 @@
+diff --git a/internal/config/config_type_test.go b/internal/config/config_type_test.go
+index c9f33b45cd2..46b9016f49c 100644
+--- a/internal/config/config_type_test.go
++++ b/internal/config/config_type_test.go
+@@ -28,6 +28,7 @@ func Test_fileConfig_Set(t *testing.T) {
+ example.com:
+     editor: vim
+ `, hostsBuf.String())
++	assert.EqualError(t, c.Set("github.com", "git_protocol", "sshpps"), "invalid value")
+ }
+ 
+ func Test_defaultConfig(t *testing.T) {
+@@ -68,3 +69,17 @@ func Test_defaultConfig(t *testing.T) {
+ 	expansion, _ := aliases.Get("co")
+ 	assert.Equal(t, expansion, "pr checkout")
+ }
++
++func Test_validateConfigEntry(t *testing.T) {
++	err := validateConfigEntry("git_protocol", "sshpps")
++	assert.EqualError(t, err, "invalid value")
++
++	err = validateConfigEntry("git_protocol", "ssh")
++	assert.Nil(t, err)
++
++	err = validateConfigEntry("editor", "vim")
++	assert.Nil(t, err)
++
++	err = validateConfigEntry("got", "123")
++	assert.Nil(t, err)
++}

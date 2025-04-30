@@ -1,0 +1,59 @@
+diff --git a/.changeset/beige-lamps-ring.md b/.changeset/beige-lamps-ring.md
+new file mode 100644
+index 000000000000..f647921060f7
+--- /dev/null
++++ b/.changeset/beige-lamps-ring.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: always return true from `deleteProperty` trap
+diff --git a/.changeset/green-windows-tap.md b/.changeset/green-windows-tap.md
+new file mode 100644
+index 000000000000..964d6373bc10
+--- /dev/null
++++ b/.changeset/green-windows-tap.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: handle deletions of previously-unread state proxy properties
+diff --git a/packages/svelte/src/internal/client/proxy.js b/packages/svelte/src/internal/client/proxy.js
+index 333cd20b5888..2a81a3cd530f 100644
+--- a/packages/svelte/src/internal/client/proxy.js
++++ b/packages/svelte/src/internal/client/proxy.js
+@@ -19,7 +19,7 @@ import * as e from './errors.js';
+  * @param {T} value
+  * @param {ProxyMetadata | null} [parent]
+  * @param {Source<T>} [prev] dev mode only
+- * @returns {ProxyStateObject<T> | T}
++ * @returns {T}
+  */
+ export function proxy(value, parent = null, prev) {
+ 	// if non-proxyable, or is already a proxy, return `value`
+@@ -91,17 +91,17 @@ export function proxy(value, parent = null, prev) {
+ 
+ 		deleteProperty(target, prop) {
+ 			var s = sources.get(prop);
+-			var exists = s !== undefined ? s.v !== UNINITIALIZED : prop in target;
+ 
+-			if (s !== undefined) {
++			if (s === undefined) {
++				if (prop in target) {
++					sources.set(prop, source(UNINITIALIZED));
++				}
++			} else {
+ 				set(s, UNINITIALIZED);
+-			}
+-
+-			if (exists) {
+ 				update_version(version);
+ 			}
+ 
+-			return exists;
++			return true;
+ 		},
+ 
+ 		get(target, prop, receiver) {

@@ -1,0 +1,68 @@
+diff --git a/complete/_rg b/complete/_rg
+index f7315c00b..d7dcfd64a 100644
+--- a/complete/_rg
++++ b/complete/_rg
+@@ -104,6 +104,10 @@ _rg() {
+     '*'{-g+,--glob=}'[include/exclude files matching specified glob]:glob'
+     '*--iglob=[include/exclude files matching specified case-insensitive glob]:glob'
+ 
++    + '(glob-case-insensitive)' # File-glob case sensitivity options
++    '--glob-case-insensitive[treat -g/--glob patterns case insensitively]'
++    $no'--no-glob-case-insensitive[treat -g/--glob patterns case sensitively]'
++
+     + '(heading)' # Heading options
+     '(pretty-vimgrep)--heading[show matches grouped by file name]'
+     "(pretty-vimgrep)--no-heading[don't show matches grouped by file name]"
+diff --git a/src/app.rs b/src/app.rs
+index 92f908e4c..484433cdc 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -571,6 +571,7 @@ pub fn all_args_and_flags() -> Vec<RGArg> {
+     flag_fixed_strings(&mut args);
+     flag_follow(&mut args);
+     flag_glob(&mut args);
++    flag_glob_case_insensitive(&mut args);
+     flag_heading(&mut args);
+     flag_hidden(&mut args);
+     flag_iglob(&mut args);
+@@ -1218,6 +1219,25 @@ it.
+     args.push(arg);
+ }
+ 
++fn flag_glob_case_insensitive(args: &mut Vec<RGArg>) {
++    const SHORT: &str = "Process all glob patterns case insensitively.";
++    const LONG: &str = long!("\
++Process glob patterns given with the -g/--glob flag case insensitively. This
++effectively treats --glob as --iglob.
++
++This flag can be disabled with the --no-glob-case-insensitive flag.
++");
++    let arg = RGArg::switch("glob-case-insensitive")
++        .help(SHORT).long_help(LONG)
++        .overrides("no-glob-case-insensitive");
++    args.push(arg);
++
++    let arg = RGArg::switch("no-glob-case-insensitive")
++        .hidden()
++        .overrides("glob-case-insensitive");
++    args.push(arg);
++}
++
+ fn flag_heading(args: &mut Vec<RGArg>) {
+     const SHORT: &str = "Print matches grouped by each file.";
+     const LONG: &str = long!("\
+diff --git a/src/args.rs b/src/args.rs
+index cd217b4b0..09f924dc3 100644
+--- a/src/args.rs
++++ b/src/args.rs
+@@ -1268,6 +1268,10 @@ impl ArgMatches {
+     /// Builds the set of glob overrides from the command line flags.
+     fn overrides(&self) -> Result<Override> {
+         let mut builder = OverrideBuilder::new(env::current_dir()?);
++        // Make all globs case insensitive with --glob-case-insensitive.
++        if self.is_present("glob-case-insensitive") {
++            builder.case_insensitive(true).unwrap();
++        }
+         for glob in self.values_of_lossy_vec("glob") {
+             builder.add(&glob)?;
+         }

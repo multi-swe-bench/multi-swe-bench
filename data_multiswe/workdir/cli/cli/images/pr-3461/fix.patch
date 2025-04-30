@@ -1,0 +1,75 @@
+diff --git a/api/client.go b/api/client.go
+index 5d8265ab528..21cb3febc9e 100644
+--- a/api/client.go
++++ b/api/client.go
+@@ -194,8 +194,7 @@ func graphQLClient(h *http.Client, hostname string) *graphql.Client {
+ 
+ // REST performs a REST request and parses the response.
+ func (c Client) REST(hostname string, method string, p string, body io.Reader, data interface{}) error {
+-	url := ghinstance.RESTPrefix(hostname) + p
+-	req, err := http.NewRequest(method, url, body)
++	req, err := http.NewRequest(method, restURL(hostname, p), body)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -230,6 +229,13 @@ func (c Client) REST(hostname string, method string, p string, body io.Reader, d
+ 	return nil
+ }
+ 
++func restURL(hostname string, pathOrURL string) string {
++	if strings.HasPrefix(pathOrURL, "https://") || strings.HasPrefix(pathOrURL, "http://") {
++		return pathOrURL
++	}
++	return ghinstance.RESTPrefix(hostname) + pathOrURL
++}
++
+ func handleResponse(resp *http.Response, data interface{}) error {
+ 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
+ 
+diff --git a/pkg/cmd/run/shared/shared.go b/pkg/cmd/run/shared/shared.go
+index 9ca0c48f88f..ea03aef6ff1 100644
+--- a/pkg/cmd/run/shared/shared.go
++++ b/pkg/cmd/run/shared/shared.go
+@@ -243,13 +243,7 @@ type JobsPayload struct {
+ 
+ func GetJobs(client *api.Client, repo ghrepo.Interface, run Run) ([]Job, error) {
+ 	var result JobsPayload
+-	parsed, err := url.Parse(run.JobsURL)
+-	if err != nil {
+-		return nil, err
+-	}
+-
+-	err = client.REST(repo.RepoHost(), "GET", parsed.Path[1:], nil, &result)
+-	if err != nil {
++	if err := client.REST(repo.RepoHost(), "GET", run.JobsURL, nil, &result); err != nil {
+ 		return nil, err
+ 	}
+ 	return result.Jobs, nil
+diff --git a/pkg/cmd/secret/list/list.go b/pkg/cmd/secret/list/list.go
+index d331482b888..e8694c62c91 100644
+--- a/pkg/cmd/secret/list/list.go
++++ b/pkg/cmd/secret/list/list.go
+@@ -3,7 +3,6 @@ package list
+ import (
+ 	"fmt"
+ 	"net/http"
+-	"net/url"
+ 	"strings"
+ 	"time"
+ 
+@@ -160,14 +159,8 @@ func getOrgSecrets(client *api.Client, host, orgName string) ([]*Secret, error)
+ 		if secret.SelectedReposURL == "" {
+ 			continue
+ 		}
+-		u, err := url.Parse(secret.SelectedReposURL)
+-		if err != nil {
+-			return nil, fmt.Errorf("failed determining selected repositories for %s: %w", secret.Name, err)
+-		}
+-
+ 		var result responseData
+-		err = client.REST(u.Host, "GET", u.Path[1:], nil, &result)
+-		if err != nil {
++		if err := client.REST(host, "GET", secret.SelectedReposURL, nil, &result); err != nil {
+ 			return nil, fmt.Errorf("failed determining selected repositories for %s: %w", secret.Name, err)
+ 		}
+ 		secret.NumSelectedRepos = result.TotalCount

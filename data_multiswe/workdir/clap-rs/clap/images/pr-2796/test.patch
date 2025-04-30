@@ -1,0 +1,94 @@
+diff --git a/tests/help.rs b/tests/help.rs
+index 2f688b53861..7dbe83c8b85 100644
+--- a/tests/help.rs
++++ b/tests/help.rs
+@@ -2638,3 +2638,34 @@ USAGE:
+         true
+     ));
+ }
++
++#[test]
++fn override_help_subcommand() {
++    let app = App::new("bar")
++        .subcommand(App::new("help").arg(Arg::new("arg").takes_value(true)))
++        .subcommand(App::new("not_help").arg(Arg::new("arg").takes_value(true)))
++        .setting(AppSettings::DisableHelpSubcommand);
++    let matches = app.get_matches_from(&["bar", "help", "foo"]);
++    assert_eq!(
++        matches.subcommand_matches("help").unwrap().value_of("arg"),
++        Some("foo")
++    );
++}
++
++#[test]
++fn override_help_flag_using_long() {
++    let app = App::new("foo")
++        .subcommand(App::new("help").long_flag("help"))
++        .setting(AppSettings::DisableHelpFlag);
++    let matches = app.get_matches_from(&["foo", "--help"]);
++    assert!(matches.subcommand_matches("help").is_some());
++}
++
++#[test]
++fn override_help_flag_using_short() {
++    let app = App::new("foo")
++        .setting(AppSettings::DisableHelpFlag)
++        .subcommand(App::new("help").short_flag('h'));
++    let matches = app.get_matches_from(&["foo", "-h"]);
++    assert!(matches.subcommand_matches("help").is_some());
++}
+diff --git a/tests/version.rs b/tests/version.rs
+index d5264a41690..7b1077e1e91 100644
+--- a/tests/version.rs
++++ b/tests/version.rs
+@@ -2,7 +2,7 @@ mod utils;
+ 
+ use std::str;
+ 
+-use clap::{App, Arg, ErrorKind};
++use clap::{App, AppSettings, Arg, ErrorKind};
+ 
+ static VERSION: &str = "clap-test v1.4.8\n";
+ 
+@@ -273,3 +273,41 @@ fn version_about_multi_subcmd_override() {
+         false
+     ));
+ }
++
++#[test]
++fn disabled_version_long() {
++    let app = App::new("foo").setting(AppSettings::DisableVersionFlag);
++    let res = app.try_get_matches_from(&["foo", "--version"]);
++    assert!(res.is_err());
++    let err = res.unwrap_err();
++    assert_eq!(err.kind, clap::ErrorKind::UnknownArgument);
++    assert_eq!(err.info, ["--version"]);
++}
++
++#[test]
++fn disabled_version_short() {
++    let app = App::new("foo").setting(AppSettings::DisableVersionFlag);
++    let res = app.try_get_matches_from(&["foo", "-V"]);
++    assert!(res.is_err());
++    let err = res.unwrap_err();
++    assert_eq!(err.kind, clap::ErrorKind::UnknownArgument);
++    assert_eq!(err.info, ["-V"]);
++}
++
++#[test]
++fn override_version_using_long() {
++    let app = App::new("foo")
++        .setting(AppSettings::DisableVersionFlag)
++        .arg(Arg::new("version").long("version"));
++    let matches = app.get_matches_from(&["foo", "--version"]);
++    assert!(matches.is_present("version"));
++}
++
++#[test]
++fn override_version_using_short() {
++    let app = App::new("foo")
++        .arg(Arg::new("version").short('V'))
++        .setting(AppSettings::DisableVersionFlag);
++    let matches = app.get_matches_from(&["foo", "-V"]);
++    assert!(matches.is_present("version"));
++}

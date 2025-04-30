@@ -1,0 +1,60 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5ef3b185e..0c7551de7 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,7 +10,7 @@
+ 
+ 
+ ## Changes
+-
++- Changed `-u` flag to be equivalent to `-HI`. Multiple `-u` flags still allowed but do nothing, see #840 (@jacksontheel)
+ 
+ ## Other
+ 
+diff --git a/doc/fd.1 b/doc/fd.1
+index 620af8b2b..314b0a13b 100644
+--- a/doc/fd.1
++++ b/doc/fd.1
+@@ -58,7 +58,7 @@ The global fd ignore file (usually
+ The flag can be overridden with '--ignore'.
+ .TP
+ .B \-u, \-\-unrestricted
+-Alias for '--no-ignore'. Can be repeated; '-uu' is an alias for '--no-ignore --hidden'.
++Perform an unrestricted search, including ignored and hidden files. This is an alias for '--hidden --no-ignore'.
+ .TP
+ .B \-\-no\-ignore\-vcs
+ Show search results from files and directories that would otherwise be ignored by gitignore files
+diff --git a/src/app.rs b/src/app.rs
+index 01ddc1d45..d7cdc3f51 100644
+--- a/src/app.rs
++++ b/src/app.rs
+@@ -102,12 +102,12 @@ pub fn build_app() -> Command<'static> {
+                 .short('u')
+                 .long("unrestricted")
+                 .overrides_with_all(&["ignore", "no-hidden"])
+-                .multiple_occurrences(true)
++                .multiple_occurrences(true) // Allowed for historical reasons
+                 .hide_short_help(true)
+-                .help("Alias for '--no-ignore', and '--hidden' when given twice")
++                .help("Unrestricted search, alias for '--no-ignore --hidden'")
+                 .long_help(
+-                    "Alias for '--no-ignore'. Can be repeated. '-uu' is an alias for \
+-                         '--no-ignore --hidden'.",
++                    "Perform an unrestricted search, including ignored and hidden files. This is \
++                    an alias for '--no-ignore --hidden'."
+                 ),
+         )
+         .arg(
+diff --git a/src/main.rs b/src/main.rs
+index 8bcd05e31..6909ebf5c 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -256,7 +256,7 @@ fn construct_config(matches: clap::ArgMatches, pattern_regex: &str) -> Result<Co
+         case_sensitive,
+         search_full_path: matches.is_present("full-path"),
+         ignore_hidden: !(matches.is_present("hidden")
+-            || matches.occurrences_of("rg-alias-hidden-ignore") >= 2),
++            || matches.is_present("rg-alias-hidden-ignore")),
+         read_fdignore: !(matches.is_present("no-ignore")
+             || matches.is_present("rg-alias-hidden-ignore")),
+         read_vcsignore: !(matches.is_present("no-ignore")

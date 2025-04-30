@@ -1,0 +1,58 @@
+diff --git a/.changeset/loud-walls-wave.md b/.changeset/loud-walls-wave.md
+new file mode 100644
+index 000000000000..4293d070850b
+--- /dev/null
++++ b/.changeset/loud-walls-wave.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: do no rerun the each block when array change from empty to empty
+diff --git a/packages/svelte/src/internal/client/dom/blocks/each.js b/packages/svelte/src/internal/client/dom/blocks/each.js
+index d09d2dac5cfe..2ccce6f72f74 100644
+--- a/packages/svelte/src/internal/client/dom/blocks/each.js
++++ b/packages/svelte/src/internal/client/dom/blocks/each.js
+@@ -132,6 +132,8 @@ export function each(node, flags, get_collection, get_key, render_fn, fallback_f
+ 	/** @type {Effect | null} */
+ 	var fallback = null;
+ 
++	var was_empty = false;
++
+ 	block(() => {
+ 		var collection = get_collection();
+ 
+@@ -143,6 +145,13 @@ export function each(node, flags, get_collection, get_key, render_fn, fallback_f
+ 
+ 		var length = array.length;
+ 
++		if (was_empty && length === 0) {
++			// ignore updates if the array is empty,
++			// and it already was empty on previous run
++			return;
++		}
++		was_empty = length === 0;
++
+ 		/** `true` if there was a hydration mismatch. Needs to be a `let` or else it isn't treeshaken out */
+ 		let mismatch = false;
+ 
+diff --git a/packages/svelte/src/internal/server/index.js b/packages/svelte/src/internal/server/index.js
+index 5d0355b043c5..07f3e815ae9c 100644
+--- a/packages/svelte/src/internal/server/index.js
++++ b/packages/svelte/src/internal/server/index.js
+@@ -507,9 +507,12 @@ export { await_block as await };
+ 
+ /** @param {any} array_like_or_iterator */
+ export function ensure_array_like(array_like_or_iterator) {
+-	return array_like_or_iterator?.length !== undefined
+-		? array_like_or_iterator
+-		: Array.from(array_like_or_iterator);
++	if (array_like_or_iterator) {
++		return array_like_or_iterator.length !== undefined
++			? array_like_or_iterator
++			: Array.from(array_like_or_iterator);
++	}
++	return [];
+ }
+ 
+ /**

@@ -1,0 +1,79 @@
+diff --git a/gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java b/gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java
+index 13a7bb7ebe..d75e4ee04a 100644
+--- a/gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java
++++ b/gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java
+@@ -55,6 +55,7 @@ TypeAdapter<?> getTypeAdapter(ConstructorConstructor constructorConstructor, Gso
+     Object instance = constructorConstructor.get(TypeToken.get(annotation.value())).construct();
+ 
+     TypeAdapter<?> typeAdapter;
++    boolean nullSafe = annotation.nullSafe();
+     if (instance instanceof TypeAdapter) {
+       typeAdapter = (TypeAdapter<?>) instance;
+     } else if (instance instanceof TypeAdapterFactory) {
+@@ -66,7 +67,8 @@ TypeAdapter<?> getTypeAdapter(ConstructorConstructor constructorConstructor, Gso
+       JsonDeserializer<?> deserializer = instance instanceof JsonDeserializer
+           ? (JsonDeserializer) instance
+           : null;
+-      typeAdapter = new TreeTypeAdapter(serializer, deserializer, gson, type, null);
++      typeAdapter = new TreeTypeAdapter(serializer, deserializer, gson, type, null, nullSafe);
++      nullSafe = false;
+     } else {
+       throw new IllegalArgumentException("Invalid attempt to bind an instance of "
+           + instance.getClass().getName() + " as a @JsonAdapter for " + type.toString()
+@@ -74,7 +76,7 @@ TypeAdapter<?> getTypeAdapter(ConstructorConstructor constructorConstructor, Gso
+           + " JsonSerializer or JsonDeserializer.");
+     }
+ 
+-    if (typeAdapter != null && annotation.nullSafe()) {
++    if (typeAdapter != null && nullSafe) {
+       typeAdapter = typeAdapter.nullSafe();
+     }
+ 
+diff --git a/gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java b/gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java
+index a5c6c5dcda..a216c06aca 100644
+--- a/gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java
++++ b/gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java
+@@ -45,17 +45,24 @@ public final class TreeTypeAdapter<T> extends TypeAdapter<T> {
+   private final TypeToken<T> typeToken;
+   private final TypeAdapterFactory skipPast;
+   private final GsonContextImpl context = new GsonContextImpl();
++  private final boolean nullSafe;
+ 
+   /** The delegate is lazily created because it may not be needed, and creating it may fail. */
+   private TypeAdapter<T> delegate;
+ 
+   public TreeTypeAdapter(JsonSerializer<T> serializer, JsonDeserializer<T> deserializer,
+-      Gson gson, TypeToken<T> typeToken, TypeAdapterFactory skipPast) {
++      Gson gson, TypeToken<T> typeToken, TypeAdapterFactory skipPast, boolean nullSafe) {
+     this.serializer = serializer;
+     this.deserializer = deserializer;
+     this.gson = gson;
+     this.typeToken = typeToken;
+     this.skipPast = skipPast;
++    this.nullSafe = nullSafe;
++  }
++
++  public TreeTypeAdapter(JsonSerializer<T> serializer, JsonDeserializer<T> deserializer,
++                         Gson gson, TypeToken<T> typeToken, TypeAdapterFactory skipPast) {
++    this(serializer, deserializer, gson, typeToken, skipPast, true);
+   }
+ 
+   @Override public T read(JsonReader in) throws IOException {
+@@ -63,7 +70,7 @@ public TreeTypeAdapter(JsonSerializer<T> serializer, JsonDeserializer<T> deseria
+       return delegate().read(in);
+     }
+     JsonElement value = Streams.parse(in);
+-    if (value.isJsonNull()) {
++    if (nullSafe && value.isJsonNull()) {
+       return null;
+     }
+     return deserializer.deserialize(value, typeToken.getType(), context);
+@@ -74,7 +81,7 @@ public TreeTypeAdapter(JsonSerializer<T> serializer, JsonDeserializer<T> deseria
+       delegate().write(out, value);
+       return;
+     }
+-    if (value == null) {
++    if (nullSafe && value == null) {
+       out.nullValue();
+       return;
+     }

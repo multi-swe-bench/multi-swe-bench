@@ -1,0 +1,69 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index 8a6f0f0d364..8bdae6056d0 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -184,6 +184,7 @@ type Codespace struct {
+ 	PendingOperation               bool                `json:"pending_operation"`
+ 	PendingOperationDisabledReason string              `json:"pending_operation_disabled_reason"`
+ 	IdleTimeoutNotice              string              `json:"idle_timeout_notice"`
++	WebURL                         string              `json:"web_url"`
+ }
+ 
+ type CodespaceGitStatus struct {
+diff --git a/pkg/cmd/codespace/code.go b/pkg/cmd/codespace/code.go
+index 0942d15d3d0..429b5ce7170 100644
+--- a/pkg/cmd/codespace/code.go
++++ b/pkg/cmd/codespace/code.go
+@@ -12,6 +12,7 @@ func newCodeCmd(app *App) *cobra.Command {
+ 	var (
+ 		codespace   string
+ 		useInsiders bool
++		useWeb      bool
+ 	)
+ 
+ 	codeCmd := &cobra.Command{
+@@ -19,25 +20,40 @@ func newCodeCmd(app *App) *cobra.Command {
+ 		Short: "Open a codespace in Visual Studio Code",
+ 		Args:  noArgsConstraint,
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+-			return app.VSCode(cmd.Context(), codespace, useInsiders)
++			return app.VSCode(cmd.Context(), codespace, useInsiders, useWeb)
+ 		},
+ 	}
+ 
+ 	codeCmd.Flags().StringVarP(&codespace, "codespace", "c", "", "Name of the codespace")
+ 	codeCmd.Flags().BoolVar(&useInsiders, "insiders", false, "Use the insiders version of Visual Studio Code")
++	codeCmd.Flags().BoolVarP(&useWeb, "web", "w", false, "Use the web version of Visual Studio Code")
+ 
+ 	return codeCmd
+ }
+ 
+ // VSCode opens a codespace in the local VS VSCode application.
+-func (a *App) VSCode(ctx context.Context, codespaceName string, useInsiders bool) error {
++func (a *App) VSCode(ctx context.Context, codespaceName string, useInsiders bool, useWeb bool) error {
+ 	codespace, err := getOrChooseCodespace(ctx, a.apiClient, codespaceName)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	url := vscodeProtocolURL(codespace.Name, useInsiders)
+-	if err := a.browser.Browse(url); err != nil {
++	browseURL := vscodeProtocolURL(codespace.Name, useInsiders)
++	if useWeb {
++		browseURL = codespace.WebURL
++		if useInsiders {
++			u, err := url.Parse(browseURL)
++			if err != nil {
++				return err
++			}
++			q := u.Query()
++			q.Set("vscodeChannel", "insiders")
++			u.RawQuery = q.Encode()
++			browseURL = u.String()
++		}
++	}
++
++	if err := a.browser.Browse(browseURL); err != nil {
+ 		return fmt.Errorf("error opening Visual Studio Code: %w", err)
+ 	}
+ 

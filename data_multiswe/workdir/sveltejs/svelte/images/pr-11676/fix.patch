@@ -1,0 +1,115 @@
+diff --git a/.changeset/plenty-elephants-fry.md b/.changeset/plenty-elephants-fry.md
+new file mode 100644
+index 000000000000..06e05496d6d7
+--- /dev/null
++++ b/.changeset/plenty-elephants-fry.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: check for invalid bindings on window and document
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 4c14f2b4dcde..067c5a4d9550 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -393,6 +393,23 @@ const validation = {
+ 					);
+ 				}
+ 
++				if (property.invalid_elements && property.invalid_elements.includes(parent.name)) {
++					const valid_bindings = Object.entries(binding_properties)
++						.filter(([_, binding_property]) => {
++							return (
++								binding_property.valid_elements?.includes(parent.name) ||
++								(!binding_property.valid_elements &&
++									!binding_property.invalid_elements?.includes(parent.name))
++							);
++						})
++						.map(([property_name]) => property_name);
++					e.bind_invalid_name(
++						node,
++						node.name,
++						`Possible bindings for <${parent.name}> are ${valid_bindings.join(', ')}`
++					);
++				}
++
+ 				if (parent.name === 'input' && node.name !== 'this') {
+ 					const type = /** @type {import('#compiler').Attribute | undefined} */ (
+ 						parent.attributes.find((a) => a.type === 'Attribute' && a.name === 'type')
+diff --git a/packages/svelte/src/compiler/phases/bindings.js b/packages/svelte/src/compiler/phases/bindings.js
+index 9a6f1c316b2f..6ffbb2363dea 100644
+--- a/packages/svelte/src/compiler/phases/bindings.js
++++ b/packages/svelte/src/compiler/phases/bindings.js
+@@ -5,6 +5,7 @@
+  * @property {string} [type] Set this to `set` if updates are written to the dom property
+  * @property {boolean} [omit_in_ssr] Set this to true if the binding should not be included in SSR
+  * @property {string[]} [valid_elements] If this is set, the binding is only valid on the given elements
++ * @property {string[]} [invalid_elements] If this is set, the binding is invalid on the given elements
+  */
+ 
+ /**
+@@ -131,28 +132,36 @@ export const binding_properties = {
+ 	},
+ 	// dimensions
+ 	clientWidth: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	clientHeight: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	offsetWidth: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	offsetHeight: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	contentRect: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	contentBoxSize: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	borderBoxSize: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	devicePixelContentBoxSize: {
+-		omit_in_ssr: true
++		omit_in_ssr: true,
++		invalid_elements: ['svelte:window', 'svelte:document']
+ 	},
+ 	// checkbox/radio
+ 	indeterminate: {
+@@ -171,9 +180,15 @@ export const binding_properties = {
+ 	this: {
+ 		omit_in_ssr: true
+ 	},
+-	innerText: {},
+-	innerHTML: {},
+-	textContent: {},
++	innerText: {
++		invalid_elements: ['svelte:window', 'svelte:document']
++	},
++	innerHTML: {
++		invalid_elements: ['svelte:window', 'svelte:document']
++	},
++	textContent: {
++		invalid_elements: ['svelte:window', 'svelte:document']
++	},
+ 	open: {
+ 		event: 'toggle',
+ 		type: 'set',

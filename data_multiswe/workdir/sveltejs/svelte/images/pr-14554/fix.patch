@@ -1,0 +1,179 @@
+diff --git a/.changeset/clean-planets-rush.md b/.changeset/clean-planets-rush.md
+new file mode 100644
+index 000000000000..d8500d431524
+--- /dev/null
++++ b/.changeset/clean-planets-rush.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++fix: handle default values in object destructuring within "each" blocks when using characters like "}" and "]"
+diff --git a/documentation/docs/98-reference/.generated/compile-errors.md b/documentation/docs/98-reference/.generated/compile-errors.md
+index 298363f78d38..c4989200075d 100644
+--- a/documentation/docs/98-reference/.generated/compile-errors.md
++++ b/documentation/docs/98-reference/.generated/compile-errors.md
+@@ -1012,6 +1012,12 @@ Unexpected end of input
+ '%word%' is a reserved word in JavaScript and cannot be used here
+ ```
+ 
++### unterminated_string_constant
++
++```
++Unterminated string constant
++```
++
+ ### void_element_invalid_content
+ 
+ ```
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index 02961b61fccc..287178ef8799 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -418,6 +418,10 @@ See https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-ele
+ 
+ > '%word%' is a reserved word in JavaScript and cannot be used here
+ 
++## unterminated_string_constant
++
++> Unterminated string constant
++
+ ## void_element_invalid_content
+ 
+ > Void elements cannot have children or closing tags
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 9ea13e811e5f..870cd9ac093d 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -1574,6 +1574,15 @@ export function unexpected_reserved_word(node, word) {
+ 	e(node, "unexpected_reserved_word", `'${word}' is a reserved word in JavaScript and cannot be used here\nhttps://svelte.dev/e/unexpected_reserved_word`);
+ }
+ 
++/**
++ * Unterminated string constant
++ * @param {null | number | NodeLike} node
++ * @returns {never}
++ */
++export function unterminated_string_constant(node) {
++	e(node, "unterminated_string_constant", `Unterminated string constant\nhttps://svelte.dev/e/unterminated_string_constant`);
++}
++
+ /**
+  * Void elements cannot have children or closing tags
+  * @param {null | number | NodeLike} node
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/context.js b/packages/svelte/src/compiler/phases/1-parse/read/context.js
+index e20670150085..f4c73dcf403a 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/context.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/context.js
+@@ -37,33 +37,11 @@ export default function read_pattern(parser) {
+ 		e.expected_pattern(i);
+ 	}
+ 
+-	/** @type {string[]} */
+-	const bracket_stack = [];
+-
+-	while (i < parser.template.length) {
+-		const char = parser.template[i];
+-
+-		if (is_bracket_open(char)) {
+-			bracket_stack.push(char);
+-		} else if (is_bracket_close(char)) {
+-			const popped = /** @type {string} */ (bracket_stack.pop());
+-			const expected = /** @type {string} */ (get_bracket_close(popped));
+-
+-			if (char !== expected) {
+-				e.expected_token(i, expected);
+-			}
+-
+-			if (bracket_stack.length === 0) {
+-				i += 1;
+-				break;
+-			}
+-		}
+-		i += 1;
+-	}
+-
++	i = match_bracket(parser, start);
+ 	parser.index = i;
+ 
+ 	const pattern_string = parser.template.slice(start, i);
++
+ 	try {
+ 		// the length of the `space_with_newline` has to be start - 1
+ 		// because we added a `(` in front of the pattern_string,
+@@ -93,6 +71,75 @@ export default function read_pattern(parser) {
+ 	}
+ }
+ 
++/**
++ * @param {Parser} parser
++ * @param {number} start
++ */
++function match_bracket(parser, start) {
++	const bracket_stack = [];
++
++	let i = start;
++
++	while (i < parser.template.length) {
++		let char = parser.template[i++];
++
++		if (char === "'" || char === '"' || char === '`') {
++			i = match_quote(parser, i, char);
++			continue;
++		}
++
++		if (is_bracket_open(char)) {
++			bracket_stack.push(char);
++		} else if (is_bracket_close(char)) {
++			const popped = /** @type {string} */ (bracket_stack.pop());
++			const expected = /** @type {string} */ (get_bracket_close(popped));
++
++			if (char !== expected) {
++				e.expected_token(i - 1, expected);
++			}
++
++			if (bracket_stack.length === 0) {
++				return i;
++			}
++		}
++	}
++
++	e.unexpected_eof(parser.template.length);
++}
++
++/**
++ * @param {Parser} parser
++ * @param {number} start
++ * @param {string} quote
++ */
++function match_quote(parser, start, quote) {
++	let is_escaped = false;
++	let i = start;
++
++	while (i < parser.template.length) {
++		const char = parser.template[i++];
++
++		if (is_escaped) {
++			is_escaped = false;
++			continue;
++		}
++
++		if (char === quote) {
++			return i;
++		}
++
++		if (char === '\\') {
++			is_escaped = true;
++		}
++
++		if (quote === '`' && char === '$' && parser.template[i] === '{') {
++			i = match_bracket(parser, i);
++		}
++	}
++
++	e.unterminated_string_constant(start);
++}
++
+ /**
+  * @param {Parser} parser
+  * @returns {any}

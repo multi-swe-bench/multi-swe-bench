@@ -1,0 +1,282 @@
+diff --git a/tests/builder/help.rs b/tests/builder/help.rs
+index a09e8152831..4c41af6ce89 100644
+--- a/tests/builder/help.rs
++++ b/tests/builder/help.rs
+@@ -2727,7 +2727,7 @@ fn disable_help_flag_affects_help_subcommand() {
+         .find_subcommand("help")
+         .unwrap()
+         .get_arguments()
+-        .map(|a| a.get_name())
++        .map(|a| a.get_id())
+         .collect::<Vec<_>>();
+     assert!(
+         !args.contains(&"help"),
+@@ -2768,10 +2768,7 @@ fn help_without_short() {
+         .arg(arg!(--help));
+ 
+     app._build_all();
+-    let help = app
+-        .get_arguments()
+-        .find(|a| a.get_name() == "help")
+-        .unwrap();
++    let help = app.get_arguments().find(|a| a.get_id() == "help").unwrap();
+     assert_eq!(help.get_short(), None);
+ 
+     let m = app.try_get_matches_from(["test", "-h", "0x100"]).unwrap();
+diff --git a/tests/builder/tests.rs b/tests/builder/tests.rs
+index 1f01341c9c3..4e2b334a861 100644
+--- a/tests/builder/tests.rs
++++ b/tests/builder/tests.rs
+@@ -400,7 +400,7 @@ fn mut_arg_all() {
+     let mut app = utils::complex_app();
+     let arg_names = app
+         .get_arguments()
+-        .map(|a| a.get_name())
++        .map(|a| a.get_id())
+         .filter(|a| *a != "version" && *a != "help")
+         .collect::<Vec<_>>();
+ 
+diff --git a/tests/derive/help.rs b/tests/derive/help.rs
+index 54fca8a07f1..2f26b9e357d 100644
+--- a/tests/derive/help.rs
++++ b/tests/derive/help.rs
+@@ -16,13 +16,13 @@ fn arg_help_heading_applied() {
+ 
+     let should_be_in_section_a = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-section-a")
++        .find(|a| a.get_id() == "should-be-in-section-a")
+         .unwrap();
+     assert_eq!(should_be_in_section_a.get_help_heading(), Some("HEADING A"));
+ 
+     let should_be_in_section_b = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "no-section")
++        .find(|a| a.get_id() == "no-section")
+         .unwrap();
+     assert_eq!(should_be_in_section_b.get_help_heading(), None);
+ }
+@@ -44,13 +44,13 @@ fn app_help_heading_applied() {
+ 
+     let should_be_in_section_a = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-section-a")
++        .find(|a| a.get_id() == "should-be-in-section-a")
+         .unwrap();
+     assert_eq!(should_be_in_section_a.get_help_heading(), Some("HEADING A"));
+ 
+     let should_be_in_default_section = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-default-section")
++        .find(|a| a.get_id() == "should-be-in-default-section")
+         .unwrap();
+     assert_eq!(
+         should_be_in_default_section.get_help_heading(),
+@@ -121,19 +121,19 @@ fn app_help_heading_flattened() {
+ 
+     let should_be_in_section_a = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-section-a")
++        .find(|a| a.get_id() == "should-be-in-section-a")
+         .unwrap();
+     assert_eq!(should_be_in_section_a.get_help_heading(), Some("HEADING A"));
+ 
+     let should_be_in_section_b = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-section-b")
++        .find(|a| a.get_id() == "should-be-in-section-b")
+         .unwrap();
+     assert_eq!(should_be_in_section_b.get_help_heading(), Some("HEADING B"));
+ 
+     let should_be_in_default_section = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-default-section")
++        .find(|a| a.get_id() == "should-be-in-default-section")
+         .unwrap();
+     assert_eq!(should_be_in_default_section.get_help_heading(), None);
+ 
+@@ -141,7 +141,7 @@ fn app_help_heading_flattened() {
+ 
+     let should_be_in_sub_a = sub_a_two
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-sub-a")
++        .find(|a| a.get_id() == "should-be-in-sub-a")
+         .unwrap();
+     assert_eq!(should_be_in_sub_a.get_help_heading(), Some("SUB A"));
+ 
+@@ -149,7 +149,7 @@ fn app_help_heading_flattened() {
+ 
+     let should_be_in_sub_b = sub_b_one
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-sub-b")
++        .find(|a| a.get_id() == "should-be-in-sub-b")
+         .unwrap();
+     assert_eq!(should_be_in_sub_b.get_help_heading(), Some("SUB B"));
+ 
+@@ -158,7 +158,7 @@ fn app_help_heading_flattened() {
+ 
+     let should_be_in_sub_c = sub_c_one
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-sub-c")
++        .find(|a| a.get_id() == "should-be-in-sub-c")
+         .unwrap();
+     assert_eq!(should_be_in_sub_c.get_help_heading(), Some("SUB C"));
+ }
+@@ -182,7 +182,7 @@ fn flatten_field_with_help_heading() {
+ 
+     let should_be_in_section_a = app
+         .get_arguments()
+-        .find(|a| a.get_name() == "should-be-in-section-a")
++        .find(|a| a.get_id() == "should-be-in-section-a")
+         .unwrap();
+     assert_eq!(should_be_in_section_a.get_help_heading(), Some("HEADING A"));
+ }
+diff --git a/tests/macros.rs b/tests/macros.rs
+index 5b975435e39..f53ddc52573 100644
+--- a/tests/macros.rs
++++ b/tests/macros.rs
+@@ -293,7 +293,7 @@ mod arg {
+     #[test]
+     fn name_explicit() {
+         let arg = clap::arg!(foo: --bar <NUM>);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("bar"));
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(arg.is_required_set());
+@@ -302,7 +302,7 @@ mod arg {
+     #[test]
+     fn name_from_long() {
+         let arg = clap::arg!(--bar <NUM>);
+-        assert_eq!(arg.get_name(), "bar");
++        assert_eq!(arg.get_id(), "bar");
+         assert_eq!(arg.get_long(), Some("bar"));
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(arg.is_required_set());
+@@ -311,7 +311,7 @@ mod arg {
+     #[test]
+     fn name_from_value() {
+         let arg = clap::arg!(<NUM>);
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_long(), None);
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(arg.is_required_set());
+@@ -332,28 +332,28 @@ mod arg {
+     #[test]
+     fn short() {
+         let arg = clap::arg!(foo: -b);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -'b');
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b ...);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(arg.is_multiple_occurrences_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b "How to use it");
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(!arg.is_required_set());
+@@ -363,7 +363,7 @@ mod arg {
+     #[test]
+     fn short_and_long() {
+         let arg = clap::arg!(foo: -b --hello);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+@@ -371,7 +371,7 @@ mod arg {
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -'b' --hello);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+@@ -379,7 +379,7 @@ mod arg {
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b --hello ...);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(arg.is_multiple_occurrences_set());
+@@ -387,7 +387,7 @@ mod arg {
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: -b --hello "How to use it");
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_long(), Some("hello"));
+         assert_eq!(arg.get_short(), Some('b'));
+         assert!(!arg.is_multiple_occurrences_set());
+@@ -398,42 +398,42 @@ mod arg {
+     #[test]
+     fn positional() {
+         let arg = clap::arg!(<NUM>);
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!([NUM]);
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(!arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM>);
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(foo: <NUM>);
+-        assert_eq!(arg.get_name(), "foo");
++        assert_eq!(arg.get_id(), "foo");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM> ...);
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(arg.is_multiple_occurrences_set());
+         assert!(arg.is_required_set());
+         assert_eq!(arg.get_help(), None);
+ 
+         let arg = clap::arg!(<NUM> "How to use it");
+-        assert_eq!(arg.get_name(), "NUM");
++        assert_eq!(arg.get_id(), "NUM");
+         assert_eq!(arg.get_value_names(), Some(vec!["NUM"].as_slice()));
+         assert!(!arg.is_multiple_occurrences_set());
+         assert!(arg.is_required_set());

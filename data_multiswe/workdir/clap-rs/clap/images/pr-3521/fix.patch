@@ -1,0 +1,66 @@
+diff --git a/src/build/arg.rs b/src/build/arg.rs
+index 6d2c3787563..452880d2649 100644
+--- a/src/build/arg.rs
++++ b/src/build/arg.rs
+@@ -4633,6 +4633,12 @@ impl<'help> Arg<'help> {
+         self.num_vals
+     }
+ 
++    /// Get the delimiter between multiple values
++    #[inline]
++    pub fn get_value_delimiter(&self) -> Option<char> {
++        self.val_delim
++    }
++
+     /// Get the index of this argument, if any
+     #[inline]
+     pub fn get_index(&self) -> Option<usize> {
+diff --git a/src/build/debug_asserts.rs b/src/build/debug_asserts.rs
+index 0e86473e955..e811db01e4c 100644
+--- a/src/build/debug_asserts.rs
++++ b/src/build/debug_asserts.rs
+@@ -1,5 +1,7 @@
+ use std::cmp::Ordering;
+ 
++use os_str_bytes::RawOsStr;
++
+ use crate::build::arg::ArgProvider;
+ use crate::mkeymap::KeyType;
+ use crate::util::Id;
+@@ -686,7 +688,16 @@ fn assert_defaults<'d>(
+ 
+             if let Some(validator) = arg.validator.as_ref() {
+                 let mut validator = validator.lock().unwrap();
+-                if let Err(err) = validator(default_s) {
++                if let Some(delim) = arg.get_value_delimiter() {
++                    for part in default_s.split(delim) {
++                        if let Err(err) = validator(part) {
++                            panic!(
++                                "Argument `{}`'s {}={} failed validation: {}",
++                                arg.name, field, part, err
++                            );
++                        }
++                    }
++                } else if let Err(err) = validator(default_s) {
+                     panic!(
+                         "Argument `{}`'s {}={} failed validation: {}",
+                         arg.name, field, default_s, err
+@@ -697,7 +708,17 @@ fn assert_defaults<'d>(
+ 
+         if let Some(validator) = arg.validator_os.as_ref() {
+             let mut validator = validator.lock().unwrap();
+-            if let Err(err) = validator(default_os) {
++            if let Some(delim) = arg.get_value_delimiter() {
++                let default_os = RawOsStr::new(default_os);
++                for part in default_os.split(delim) {
++                    if let Err(err) = validator(&part.to_os_str()) {
++                        panic!(
++                            "Argument `{}`'s {}={:?} failed validation: {}",
++                            arg.name, field, part, err
++                        );
++                    }
++                }
++            } else if let Err(err) = validator(default_os) {
+                 panic!(
+                     "Argument `{}`'s {}={:?} failed validation: {}",
+                     arg.name, field, default_os, err

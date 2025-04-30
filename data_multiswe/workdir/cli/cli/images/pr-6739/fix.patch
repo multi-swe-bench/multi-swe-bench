@@ -1,0 +1,56 @@
+diff --git a/internal/codespaces/api/api.go b/internal/codespaces/api/api.go
+index c6b2a292f35..30e129de858 100644
+--- a/internal/codespaces/api/api.go
++++ b/internal/codespaces/api/api.go
+@@ -702,6 +702,7 @@ type CreateCodespaceParams struct {
+ 	VSCSTarget             string
+ 	VSCSTargetURL          string
+ 	PermissionsOptOut      bool
++	DisplayName            string
+ }
+ 
+ // CreateCodespace creates a codespace with the given parameters and returns a non-nil error if it
+@@ -752,6 +753,7 @@ type startCreateRequest struct {
+ 	VSCSTarget             string `json:"vscs_target,omitempty"`
+ 	VSCSTargetURL          string `json:"vscs_target_url,omitempty"`
+ 	PermissionsOptOut      bool   `json:"multi_repo_permissions_opt_out"`
++	DisplayName            string `json:"display_name"`
+ }
+ 
+ var errProvisioningInProgress = errors.New("provisioning in progress")
+@@ -785,6 +787,7 @@ func (a *API) startCreate(ctx context.Context, params *CreateCodespaceParams) (*
+ 		VSCSTarget:             params.VSCSTarget,
+ 		VSCSTargetURL:          params.VSCSTargetURL,
+ 		PermissionsOptOut:      params.PermissionsOptOut,
++		DisplayName:            params.DisplayName,
+ 	})
+ 
+ 	if err != nil {
+diff --git a/pkg/cmd/codespace/create.go b/pkg/cmd/codespace/create.go
+index ac886a661f1..fe4e1ccd173 100644
+--- a/pkg/cmd/codespace/create.go
++++ b/pkg/cmd/codespace/create.go
+@@ -67,6 +67,7 @@ type createOptions struct {
+ 	devContainerPath  string
+ 	idleTimeout       time.Duration
+ 	retentionPeriod   NullableDuration
++	displayName       string
+ }
+ 
+ func newCreateCmd(app *App) *cobra.Command {
+@@ -94,6 +95,7 @@ func newCreateCmd(app *App) *cobra.Command {
+ 	createCmd.Flags().DurationVar(&opts.idleTimeout, "idle-timeout", 0, "allowed inactivity before codespace is stopped, e.g. \"10m\", \"1h\"")
+ 	createCmd.Flags().Var(&opts.retentionPeriod, "retention-period", "allowed time after shutting down before the codespace is automatically deleted (maximum 30 days), e.g. \"1h\", \"72h\"")
+ 	createCmd.Flags().StringVar(&opts.devContainerPath, "devcontainer-path", "", "path to the devcontainer.json file to use when creating codespace")
++	createCmd.Flags().StringVarP(&opts.displayName, "display-name", "d", "", "display name for the codespace")
+ 
+ 	return createCmd
+ }
+@@ -248,6 +250,7 @@ func (a *App) Create(ctx context.Context, opts createOptions) error {
+ 		RetentionPeriodMinutes: opts.retentionPeriod.Minutes(),
+ 		DevContainerPath:       devContainerPath,
+ 		PermissionsOptOut:      opts.permissionsOptOut,
++		DisplayName:            opts.displayName,
+ 	}
+ 
+ 	a.StartProgressIndicatorWithLabel("Creating codespace")

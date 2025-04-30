@@ -1,0 +1,106 @@
+diff --git a/acceptance/testdata/pr/pr-view-same-org-fork.txtar b/acceptance/testdata/pr/pr-view-same-org-fork.txtar
+new file mode 100644
+index 00000000000..ca58918a911
+--- /dev/null
++++ b/acceptance/testdata/pr/pr-view-same-org-fork.txtar
+@@ -0,0 +1,39 @@
++# Setup environment variables used for testscript
++env REPO=${SCRIPT_NAME}-${RANDOM_STRING}
++env FORK=${REPO}-fork
++
++# Use gh as a credential helper
++exec gh auth setup-git
++
++# Create a repository to act as upstream with a file so it has a default branch
++exec gh repo create ${ORG}/${REPO} --add-readme --private
++
++# Defer repo cleanup of upstream
++defer gh repo delete --yes ${ORG}/${REPO}
++exec gh repo view ${ORG}/${REPO} --json id --jq '.id'
++stdout2env REPO_ID
++
++# Create a fork in the same org
++exec gh repo fork ${ORG}/${REPO} --org ${ORG} --fork-name ${FORK}
++
++# Defer repo cleanup of fork
++defer gh repo delete --yes ${ORG}/${FORK}
++sleep 1
++exec gh repo view ${ORG}/${FORK} --json id --jq '.id'
++stdout2env FORK_ID
++
++# Clone the fork
++exec gh repo clone ${ORG}/${FORK}
++cd ${FORK}
++
++# Prepare a branch
++exec git checkout -b feature-branch
++exec git commit --allow-empty -m 'Empty Commit'
++exec git push -u origin feature-branch
++
++# Create the PR spanning upstream and fork repositories, gh pr create does not support headRepositoryId needed for private forks
++exec gh api graphql -F repositoryId="${REPO_ID}" -F headRepositoryId="${FORK_ID}" -F query='mutation CreatePullRequest($headRepositoryId: ID!, $repositoryId: ID!) { createPullRequest(input:{ baseRefName: "main", body: "Feature Body", draft: false, headRefName: "feature-branch", headRepositoryId: $headRepositoryId, repositoryId: $repositoryId, title:"Feature Title" }){ pullRequest{ id url } } }'
++
++# View the PR
++exec gh pr view
++stdout 'Feature Title'
+diff --git a/pkg/cmd/pr/shared/finder_test.go b/pkg/cmd/pr/shared/finder_test.go
+index 6df8d300048..258ef01e829 100644
+--- a/pkg/cmd/pr/shared/finder_test.go
++++ b/pkg/cmd/pr/shared/finder_test.go
+@@ -347,7 +347,7 @@ func TestFind(t *testing.T) {
+ 			wantRepo: "https://github.com/OWNER/REPO",
+ 		},
+ 		{
+-			name: "current branch with upstream configuration",
++			name: "current branch with upstream RemoteURL configuration",
+ 			args: args{
+ 				selector: "",
+ 				fields:   []string{"id", "number"},
+@@ -384,6 +384,47 @@ func TestFind(t *testing.T) {
+ 			wantPR:   13,
+ 			wantRepo: "https://github.com/OWNER/REPO",
+ 		},
++		{
++			name: "current branch with upstream and fork in same org",
++			args: args{
++				selector: "",
++				fields:   []string{"id", "number"},
++				baseRepoFn: func() (ghrepo.Interface, error) {
++					return ghrepo.FromFullName("OWNER/REPO")
++				},
++				branchFn: func() (string, error) {
++					return "blueberries", nil
++				},
++				branchConfig: func(branch string) (c git.BranchConfig) {
++					c.RemoteName = "origin"
++					return
++				},
++				remotesFn: func() (context.Remotes, error) {
++					return context.Remotes{{
++						Remote: &git.Remote{Name: "origin"},
++						Repo:   ghrepo.New("OWNER", "REPO-FORK"),
++					}}, nil
++				},
++			},
++			httpStub: func(r *httpmock.Registry) {
++				r.Register(
++					httpmock.GraphQL(`query PullRequestForBranch\b`),
++					httpmock.StringResponse(`{"data":{"repository":{
++						"pullRequests":{"nodes":[
++							{
++								"number": 13,
++								"state": "OPEN",
++								"baseRefName": "main",
++								"headRefName": "blueberries",
++								"isCrossRepository": true,
++								"headRepositoryOwner": {"login":"OWNER"}
++							}
++						]}
++					}}}`))
++			},
++			wantPR:   13,
++			wantRepo: "https://github.com/OWNER/REPO",
++		},
+ 		{
+ 			name: "current branch made by pr checkout",
+ 			args: args{

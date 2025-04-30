@@ -1,0 +1,237 @@
+diff --git a/docs/data/material/components/popover/VirtualElementPopover.js b/docs/data/material/components/popover/VirtualElementPopover.js
+new file mode 100644
+index 00000000000000..e23439e684ba40
+--- /dev/null
++++ b/docs/data/material/components/popover/VirtualElementPopover.js
+@@ -0,0 +1,58 @@
++import * as React from 'react';
++import Popover from '@mui/material/Popover';
++import Typography from '@mui/material/Typography';
++import Paper from '@mui/material/Paper';
++
++export default function VirtualElementPopover() {
++  const [open, setOpen] = React.useState(false);
++  const [anchorEl, setAnchorEl] = React.useState(null);
++
++  const handleClose = () => {
++    setOpen(false);
++  };
++
++  const handleMouseUp = () => {
++    const selection = window.getSelection();
++
++    // Skip if selection has a length of 0
++    if (!selection || selection.anchorOffset === selection.focusOffset) {
++      return;
++    }
++
++    const getBoundingClientRect = () => {
++      return selection.getRangeAt(0).getBoundingClientRect();
++    };
++
++    setOpen(true);
++
++    setAnchorEl({ getBoundingClientRect, nodeType: 1 });
++  };
++
++  const id = open ? 'virtual-element-popover' : undefined;
++
++  return (
++    <div>
++      <Typography aria-describedby={id} onMouseUp={handleMouseUp}>
++        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ipsum purus,
++        bibendum sit amet vulputate eget, porta semper ligula. Donec bibendum
++        vulputate erat, ac fringilla mi finibus nec. Donec ac dolor sed dolor
++        porttitor blandit vel vel purus. Fusce vel malesuada ligula. Nam quis
++        vehicula ante, eu finibus est. Proin ullamcorper fermentum orci, quis finibus
++        massa. Nunc lobortis, massa ut rutrum ultrices, metus metus finibus ex, sit
++        amet facilisis neque enim sed neque. Quisque accumsan metus vel maximus
++        consequat. Suspendisse lacinia tellus a libero volutpat maximus.
++      </Typography>
++      <Popover
++        id={id}
++        open={open}
++        anchorEl={anchorEl}
++        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
++        onClose={handleClose}
++      >
++        <Paper>
++          <Typography sx={{ p: 2 }}>The content of the Popover.</Typography>
++        </Paper>
++      </Popover>
++    </div>
++  );
++}
+diff --git a/docs/data/material/components/popover/VirtualElementPopover.tsx b/docs/data/material/components/popover/VirtualElementPopover.tsx
+new file mode 100644
+index 00000000000000..4bbb773036aa65
+--- /dev/null
++++ b/docs/data/material/components/popover/VirtualElementPopover.tsx
+@@ -0,0 +1,58 @@
++import * as React from 'react';
++import Popover, { PopoverProps } from '@mui/material/Popover';
++import Typography from '@mui/material/Typography';
++import Paper from '@mui/material/Paper';
++
++export default function VirtualElementPopover() {
++  const [open, setOpen] = React.useState(false);
++  const [anchorEl, setAnchorEl] = React.useState<PopoverProps['anchorEl']>(null);
++
++  const handleClose = () => {
++    setOpen(false);
++  };
++
++  const handleMouseUp = () => {
++    const selection = window.getSelection();
++
++    // Skip if selection has a length of 0
++    if (!selection || selection.anchorOffset === selection.focusOffset) {
++      return;
++    }
++
++    const getBoundingClientRect = () => {
++      return selection.getRangeAt(0).getBoundingClientRect();
++    };
++
++    setOpen(true);
++
++    setAnchorEl({ getBoundingClientRect, nodeType: 1 });
++  };
++
++  const id = open ? 'virtual-element-popover' : undefined;
++
++  return (
++    <div>
++      <Typography aria-describedby={id} onMouseUp={handleMouseUp}>
++        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam ipsum purus,
++        bibendum sit amet vulputate eget, porta semper ligula. Donec bibendum
++        vulputate erat, ac fringilla mi finibus nec. Donec ac dolor sed dolor
++        porttitor blandit vel vel purus. Fusce vel malesuada ligula. Nam quis
++        vehicula ante, eu finibus est. Proin ullamcorper fermentum orci, quis finibus
++        massa. Nunc lobortis, massa ut rutrum ultrices, metus metus finibus ex, sit
++        amet facilisis neque enim sed neque. Quisque accumsan metus vel maximus
++        consequat. Suspendisse lacinia tellus a libero volutpat maximus.
++      </Typography>
++      <Popover
++        id={id}
++        open={open}
++        anchorEl={anchorEl}
++        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
++        onClose={handleClose}
++      >
++        <Paper>
++          <Typography sx={{ p: 2 }}>The content of the Popover.</Typography>
++        </Paper>
++      </Popover>
++    </div>
++  );
++}
+diff --git a/docs/data/material/components/popover/popover.md b/docs/data/material/components/popover/popover.md
+index e3790c005680b9..9e6d08156feb89 100644
+--- a/docs/data/material/components/popover/popover.md
++++ b/docs/data/material/components/popover/popover.md
+@@ -36,6 +36,33 @@ This demo demonstrates how to use the `Popover` component and the mouseover even
+ 
+ {{"demo": "MouseOverPopover.js"}}
+ 
++## Virtual element
++
++The value of the `anchorEl` prop can be a reference to a fake DOM element.
++You need to provide an object with the following interface:
++
++```ts
++interface PopoverVirtualElement {
++  nodeType: 1;
++  getBoundingClientRect: () => DOMRect;
++}
++```
++
++Highlight part of the text to see the popover:
++
++{{"demo": "VirtualElementPopover.js"}}
++
++For more information on the virtual element's properties, see the following resources:
++
++- [getBoundingClientRect](https://developer.mozilla.org/docs/Web/API/Element/getBoundingClientRect)
++- [DOMRect](https://drafts.fxtf.org/geometry-1/#domrectreadonly)
++- [Node types](https://developer.mozilla.org/docs/Web/API/Node/nodeType)
++
++:::warning
++The usage of a virtual element for the Popover component requires the `nodeType` property.
++This is different from virtual elements used for the [`Popper`](/material-ui/react-popper/#virtual-element) or [`Tooltip`](/material-ui/react-tooltip/#virtual-element) components, both of which don't require the property.
++:::
++
+ ## Complementary projects
+ 
+ For more advanced use cases, you might be able to take advantage of:
+diff --git a/docs/translations/api-docs/popover/popover.json b/docs/translations/api-docs/popover/popover.json
+index a2dfd5653313de..f4d5e598a8a7f9 100644
+--- a/docs/translations/api-docs/popover/popover.json
++++ b/docs/translations/api-docs/popover/popover.json
+@@ -2,7 +2,7 @@
+   "componentDescription": "",
+   "propDescriptions": {
+     "action": "A ref for imperative actions. It currently only supports updatePosition() action.",
+-    "anchorEl": "An HTML element, or a function that returns one. It&#39;s used to set the position of the popover.",
++    "anchorEl": "An HTML element, <a href=\"/material-ui/react-popover/#virtual-element\">PopoverVirtualElement</a>, or a function that returns either. It&#39;s used to set the position of the popover.",
+     "anchorOrigin": "This is the point on the anchor where the popover&#39;s <code>anchorEl</code> will attach to. This is not used when the anchorReference is &#39;anchorPosition&#39;.<br>Options: vertical: [top, center, bottom]; horizontal: [left, center, right].",
+     "anchorPosition": "This is the position that may be used to set the position of the popover. The coordinates are relative to the application&#39;s client area.",
+     "anchorReference": "This determines which anchor prop to refer to when setting the position of the popover.",
+diff --git a/packages/mui-material/src/Popover/Popover.d.ts b/packages/mui-material/src/Popover/Popover.d.ts
+index 3efa1773cd57dc..3c532098b404f5 100644
+--- a/packages/mui-material/src/Popover/Popover.d.ts
++++ b/packages/mui-material/src/Popover/Popover.d.ts
+@@ -20,6 +20,11 @@ export interface PopoverPosition {
+ 
+ export type PopoverReference = 'anchorEl' | 'anchorPosition' | 'none';
+ 
++interface PopoverVirtualElement {
++  getBoundingClientRect: () => DOMRect;
++  nodeType: Node['ELEMENT_NODE'];
++}
++
+ export interface PopoverProps
+   extends StandardProps<Omit<ModalProps, 'slots' | 'slotProps'>, 'children'> {
+   /**
+@@ -28,10 +33,16 @@ export interface PopoverProps
+    */
+   action?: React.Ref<PopoverActions>;
+   /**
+-   * An HTML element, or a function that returns one.
++   * An HTML element, [PopoverVirtualElement](/material-ui/react-popover/#virtual-element),
++   * or a function that returns either.
+    * It's used to set the position of the popover.
+    */
+-  anchorEl?: null | Element | ((element: Element) => Element);
++  anchorEl?:
++    | null
++    | Element
++    | (() => Element)
++    | PopoverVirtualElement
++    | (() => PopoverVirtualElement);
+   /**
+    * This is the point on the anchor where the popover's
+    * `anchorEl` will attach to. This is not used when the
+diff --git a/packages/mui-material/src/Popover/Popover.js b/packages/mui-material/src/Popover/Popover.js
+index ef7c8a9fb0f146..6983421b17f25e 100644
+--- a/packages/mui-material/src/Popover/Popover.js
++++ b/packages/mui-material/src/Popover/Popover.js
+@@ -428,7 +428,8 @@ Popover.propTypes /* remove-proptypes */ = {
+    */
+   action: refType,
+   /**
+-   * An HTML element, or a function that returns one.
++   * An HTML element, [PopoverVirtualElement](/material-ui/react-popover/#virtual-element),
++   * or a function that returns either.
+    * It's used to set the position of the popover.
+    */
+   anchorEl: chainPropTypes(PropTypes.oneOfType([HTMLElementType, PropTypes.func]), (props) => {
+@@ -457,7 +458,7 @@ Popover.propTypes /* remove-proptypes */ = {
+         return new Error(
+           [
+             'MUI: The `anchorEl` prop provided to the component is invalid.',
+-            `It should be an Element instance but it's \`${resolvedAnchorEl}\` instead.`,
++            `It should be an Element or PopoverVirtualElement instance but it's \`${resolvedAnchorEl}\` instead.`,
+           ].join('\n'),
+         );
+       }

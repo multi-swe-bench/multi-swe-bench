@@ -1,0 +1,366 @@
+diff --git a/pkg/cmd/repo/autolink/autolink.go b/pkg/cmd/repo/autolink/autolink.go
+index d9430f562d4..1fd2183543a 100644
+--- a/pkg/cmd/repo/autolink/autolink.go
++++ b/pkg/cmd/repo/autolink/autolink.go
+@@ -2,6 +2,7 @@ package autolink
+ 
+ import (
+ 	"github.com/MakeNowJust/heredoc"
++	cmdCreate "github.com/cli/cli/v2/pkg/cmd/repo/autolink/create"
+ 	cmdList "github.com/cli/cli/v2/pkg/cmd/repo/autolink/list"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/spf13/cobra"
+@@ -12,18 +13,17 @@ func NewCmdAutolink(f *cmdutil.Factory) *cobra.Command {
+ 		Use:   "autolink <command>",
+ 		Short: "Manage autolink references",
+ 		Long: heredoc.Docf(`
+-		Work with GitHub autolink references.
+-		
+-		GitHub autolinks require admin access to configure and can be found at
+-		https://github.com/{owner}/{repo}/settings/key_links.
+-		Use %[1]sgh repo autolink list --web%[1]s to open this page for the current repository.
+-		
+-		For more information about GitHub autolinks, see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/configuring-autolinks-to-reference-external-resources
+-	`, "`"),
++			Autolinks link issues, pull requests, commit messages, and release descriptions to external third-party services.
++
++			Autolinks require %[1]sadmin%[1]s role to view or manage.
++
++			For more information, see <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/configuring-autolinks-to-reference-external-resources>
++		`, "`"),
+ 	}
+ 	cmdutil.EnableRepoOverride(cmd, f)
+ 
+ 	cmd.AddCommand(cmdList.NewCmdList(f, nil))
++	cmd.AddCommand(cmdCreate.NewCmdCreate(f, nil))
+ 
+ 	return cmd
+ }
+diff --git a/pkg/cmd/repo/autolink/create/create.go b/pkg/cmd/repo/autolink/create/create.go
+new file mode 100644
+index 00000000000..ac3035c79e9
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/create/create.go
+@@ -0,0 +1,118 @@
++package create
++
++import (
++	"fmt"
++
++	"github.com/MakeNowJust/heredoc"
++	"github.com/cli/cli/v2/internal/browser"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/shared"
++	"github.com/cli/cli/v2/pkg/cmdutil"
++	"github.com/cli/cli/v2/pkg/iostreams"
++	"github.com/spf13/cobra"
++)
++
++type createOptions struct {
++	BaseRepo       func() (ghrepo.Interface, error)
++	Browser        browser.Browser
++	AutolinkClient AutolinkCreateClient
++	IO             *iostreams.IOStreams
++	Exporter       cmdutil.Exporter
++
++	KeyPrefix   string
++	URLTemplate string
++	Numeric     bool
++}
++
++type AutolinkCreateClient interface {
++	Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error)
++}
++
++func NewCmdCreate(f *cmdutil.Factory, runF func(*createOptions) error) *cobra.Command {
++	opts := &createOptions{
++		Browser: f.Browser,
++		IO:      f.IOStreams,
++	}
++
++	cmd := &cobra.Command{
++		Use:   "create <keyPrefix> <urlTemplate>",
++		Short: "Create a new autolink reference",
++		Long: heredoc.Docf(`
++			Create a new autolink reference for a repository.
++
++			The %[1]skeyPrefix%[1]s argument specifies the prefix that will generate a link when it is appended by certain characters.
++
++			The %[1]surlTemplate%[1]s argument specifies the target URL that will be generated when the keyPrefix is found, which
++			must contain %[1]s<num>%[1]s variable for the reference number.
++
++			By default, autolinks are alphanumeric with %[1]s--numeric%[1]s flag used to create a numeric autolink.
++
++			The %[1]s<num>%[1]s variable behavior differs depending on whether the autolink is alphanumeric or numeric:
++
++			- alphanumeric: matches %[1]sA-Z%[1]s (case insensitive), %[1]s0-9%[1]s, and %[1]s-%[1]s
++			- numeric: matches %[1]s0-9%[1]s
++
++			If the template contains multiple instances of %[1]s<num>%[1]s, only the first will be replaced.
++		`, "`"),
++		Example: heredoc.Doc(`
++			# Create an alphanumeric autolink to example.com for the key prefix "TICKET-".
++			# Generates https://example.com/TICKET?query=123abc from "TICKET-123abc".
++			$ gh repo autolink create TICKET- "https://example.com/TICKET?query=<num>"
++
++			# Create a numeric autolink to example.com for the key prefix "STORY-".
++			# Generates https://example.com/STORY?id=123 from "STORY-123".
++			$ gh repo autolink create STORY- "https://example.com/STORY?id=<num>" --numeric
++		`),
++		Args:    cmdutil.ExactArgs(2, "Cannot create autolink: keyPrefix and urlTemplate arguments are both required"),
++		Aliases: []string{"new"},
++		RunE: func(c *cobra.Command, args []string) error {
++			opts.BaseRepo = f.BaseRepo
++
++			httpClient, err := f.HttpClient()
++			if err != nil {
++				return err
++			}
++
++			opts.AutolinkClient = &AutolinkCreator{HTTPClient: httpClient}
++			opts.KeyPrefix = args[0]
++			opts.URLTemplate = args[1]
++
++			if runF != nil {
++				return runF(opts)
++			}
++
++			return createRun(opts)
++		},
++	}
++
++	cmd.Flags().BoolVarP(&opts.Numeric, "numeric", "n", false, "Mark autolink as numeric")
++
++	return cmd
++}
++
++func createRun(opts *createOptions) error {
++	repo, err := opts.BaseRepo()
++	if err != nil {
++		return err
++	}
++
++	request := AutolinkCreateRequest{
++		KeyPrefix:      opts.KeyPrefix,
++		URLTemplate:    opts.URLTemplate,
++		IsAlphanumeric: !opts.Numeric,
++	}
++
++	autolink, err := opts.AutolinkClient.Create(repo, request)
++	if err != nil {
++		return fmt.Errorf("error creating autolink: %w", err)
++	}
++
++	cs := opts.IO.ColorScheme()
++	fmt.Fprintf(opts.IO.Out,
++		"%s Created repository autolink %d on %s\n",
++		cs.SuccessIconWithColor(cs.Green),
++		autolink.ID,
++		ghrepo.FullName(repo))
++
++	return nil
++}
+diff --git a/pkg/cmd/repo/autolink/create/http.go b/pkg/cmd/repo/autolink/create/http.go
+new file mode 100644
+index 00000000000..d7ee940b907
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/create/http.go
+@@ -0,0 +1,83 @@
++package create
++
++import (
++	"bytes"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"net/http"
++
++	"github.com/cli/cli/v2/api"
++	"github.com/cli/cli/v2/internal/ghinstance"
++	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/shared"
++)
++
++type AutolinkCreator struct {
++	HTTPClient *http.Client
++}
++
++type AutolinkCreateRequest struct {
++	IsAlphanumeric bool   `json:"is_alphanumeric"`
++	KeyPrefix      string `json:"key_prefix"`
++	URLTemplate    string `json:"url_template"`
++}
++
++func (a *AutolinkCreator) Create(repo ghrepo.Interface, request AutolinkCreateRequest) (*shared.Autolink, error) {
++	path := fmt.Sprintf("repos/%s/%s/autolinks", repo.RepoOwner(), repo.RepoName())
++	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
++
++	requestByte, err := json.Marshal(request)
++	if err != nil {
++		return nil, err
++	}
++	requestBody := bytes.NewReader(requestByte)
++
++	req, err := http.NewRequest(http.MethodPost, url, requestBody)
++	if err != nil {
++		return nil, err
++	}
++
++	resp, err := a.HTTPClient.Do(req)
++	if err != nil {
++		return nil, err
++	}
++
++	defer resp.Body.Close()
++
++	// if resp.StatusCode != http.StatusCreated {
++	// 	return nil, api.HandleHTTPError(resp)
++	// }
++
++	err = handleAutolinkCreateError(resp)
++
++	if err != nil {
++		return nil, err
++	}
++
++	var autolink shared.Autolink
++
++	err = json.NewDecoder(resp.Body).Decode(&autolink)
++	if err != nil {
++		return nil, err
++	}
++
++	return &autolink, nil
++}
++
++func handleAutolinkCreateError(resp *http.Response) error {
++	switch resp.StatusCode {
++	case http.StatusCreated:
++		return nil
++	case http.StatusNotFound:
++		err := api.HandleHTTPError(resp)
++		var httpErr api.HTTPError
++		if errors.As(err, &httpErr) {
++			httpErr.Message = "Must have admin rights to Repository."
++			return httpErr
++		}
++		return err
++	default:
++		return api.HandleHTTPError(resp)
++	}
++}
+diff --git a/pkg/cmd/repo/autolink/list/http.go b/pkg/cmd/repo/autolink/list/http.go
+index 70d913d70e5..cdb8e621c61 100644
+--- a/pkg/cmd/repo/autolink/list/http.go
++++ b/pkg/cmd/repo/autolink/list/http.go
+@@ -8,16 +8,17 @@ import (
+ 	"github.com/cli/cli/v2/api"
+ 	"github.com/cli/cli/v2/internal/ghinstance"
+ 	"github.com/cli/cli/v2/internal/ghrepo"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/shared"
+ )
+ 
+ type AutolinkLister struct {
+ 	HTTPClient *http.Client
+ }
+ 
+-func (a *AutolinkLister) List(repo ghrepo.Interface) ([]autolink, error) {
++func (a *AutolinkLister) List(repo ghrepo.Interface) ([]shared.Autolink, error) {
+ 	path := fmt.Sprintf("repos/%s/%s/autolinks", repo.RepoOwner(), repo.RepoName())
+ 	url := ghinstance.RESTPrefix(repo.RepoHost()) + path
+-	req, err := http.NewRequest("GET", url, nil)
++	req, err := http.NewRequest(http.MethodGet, url, nil)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -33,7 +34,7 @@ func (a *AutolinkLister) List(repo ghrepo.Interface) ([]autolink, error) {
+ 	} else if resp.StatusCode > 299 {
+ 		return nil, api.HandleHTTPError(resp)
+ 	}
+-	var autolinks []autolink
++	var autolinks []shared.Autolink
+ 	err = json.NewDecoder(resp.Body).Decode(&autolinks)
+ 	if err != nil {
+ 		return nil, err
+diff --git a/pkg/cmd/repo/autolink/list/list.go b/pkg/cmd/repo/autolink/list/list.go
+index d8a9c9f1292..a68c03f3c94 100644
+--- a/pkg/cmd/repo/autolink/list/list.go
++++ b/pkg/cmd/repo/autolink/list/list.go
+@@ -9,6 +9,7 @@ import (
+ 	"github.com/cli/cli/v2/internal/ghrepo"
+ 	"github.com/cli/cli/v2/internal/tableprinter"
+ 	"github.com/cli/cli/v2/internal/text"
++	"github.com/cli/cli/v2/pkg/cmd/repo/autolink/shared"
+ 	"github.com/cli/cli/v2/pkg/cmdutil"
+ 	"github.com/cli/cli/v2/pkg/iostreams"
+ 	"github.com/spf13/cobra"
+@@ -21,29 +22,18 @@ var autolinkFields = []string{
+ 	"urlTemplate",
+ }
+ 
+-type autolink struct {
+-	ID             int    `json:"id"`
+-	IsAlphanumeric bool   `json:"is_alphanumeric"`
+-	KeyPrefix      string `json:"key_prefix"`
+-	URLTemplate    string `json:"url_template"`
+-}
+-
+-func (s *autolink) ExportData(fields []string) map[string]interface{} {
+-	return cmdutil.StructExportData(s, fields)
+-}
+-
+ type listOptions struct {
+ 	BaseRepo       func() (ghrepo.Interface, error)
+ 	Browser        browser.Browser
+-	AutolinkClient AutolinkClient
++	AutolinkClient AutolinkListClient
+ 	IO             *iostreams.IOStreams
+ 
+ 	Exporter cmdutil.Exporter
+ 	WebMode  bool
+ }
+ 
+-type AutolinkClient interface {
+-	List(repo ghrepo.Interface) ([]autolink, error)
++type AutolinkListClient interface {
++	List(repo ghrepo.Interface) ([]shared.Autolink, error)
+ }
+ 
+ func NewCmdList(f *cmdutil.Factory, runF func(*listOptions) error) *cobra.Command {
+diff --git a/pkg/cmd/repo/autolink/shared/autolink.go b/pkg/cmd/repo/autolink/shared/autolink.go
+new file mode 100644
+index 00000000000..d79537c3184
+--- /dev/null
++++ b/pkg/cmd/repo/autolink/shared/autolink.go
+@@ -0,0 +1,14 @@
++package shared
++
++import "github.com/cli/cli/v2/pkg/cmdutil"
++
++type Autolink struct {
++	ID             int    `json:"id"`
++	IsAlphanumeric bool   `json:"is_alphanumeric"`
++	KeyPrefix      string `json:"key_prefix"`
++	URLTemplate    string `json:"url_template"`
++}
++
++func (a *Autolink) ExportData(fields []string) map[string]interface{} {
++	return cmdutil.StructExportData(a, fields)
++}
+diff --git a/pkg/httpmock/stub.go b/pkg/httpmock/stub.go
+index 196a047d889..4e61d12f44f 100644
+--- a/pkg/httpmock/stub.go
++++ b/pkg/httpmock/stub.go
+@@ -188,7 +188,11 @@ func RESTPayload(responseStatus int, responseBody string, cb func(payload map[st
+ 			return nil, err
+ 		}
+ 		cb(bodyData)
+-		return httpResponse(responseStatus, req, bytes.NewBufferString(responseBody)), nil
++
++		header := http.Header{
++			"Content-Type": []string{"application/json"},
++		}
++		return httpResponseWithHeader(responseStatus, req, bytes.NewBufferString(responseBody), header), nil
+ 	}
+ }
+ 

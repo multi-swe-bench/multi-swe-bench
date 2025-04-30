@@ -1,0 +1,63 @@
+diff --git a/.changeset/orange-masks-exercise.md b/.changeset/orange-masks-exercise.md
+new file mode 100644
+index 000000000000..76fdc4aab815
+--- /dev/null
++++ b/.changeset/orange-masks-exercise.md
+@@ -0,0 +1,5 @@
++---
++"svelte": patch
++---
++
++fix: disallow sequence expressions in `@const` tags
+diff --git a/packages/svelte/messages/compile-errors/template.md b/packages/svelte/messages/compile-errors/template.md
+index c1b8c5f3c3be..d9365a51fbac 100644
+--- a/packages/svelte/messages/compile-errors/template.md
++++ b/packages/svelte/messages/compile-errors/template.md
+@@ -94,7 +94,7 @@
+ 
+ ## const_tag_invalid_expression
+ 
+-> {@const ...} must be an assignment
++> {@const ...} must consist of a single variable declaration
+ 
+ ## const_tag_invalid_placement
+ 
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index a00a2cd593b6..5596d9dfd4c9 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -729,12 +729,12 @@ export function component_invalid_directive(node) {
+ }
+ 
+ /**
+- * {@const ...} must be an assignment
++ * {@const ...} must consist of a single variable declaration
+  * @param {null | number | NodeLike} node
+  * @returns {never}
+  */
+ export function const_tag_invalid_expression(node) {
+-	e(node, "const_tag_invalid_expression", "{@const ...} must be an assignment");
++	e(node, "const_tag_invalid_expression", "{@const ...} must consist of a single variable declaration");
+ }
+ 
+ /**
+diff --git a/packages/svelte/src/compiler/phases/1-parse/state/tag.js b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+index bf6adccccfcf..c7308a7bce6a 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/state/tag.js
++++ b/packages/svelte/src/compiler/phases/1-parse/state/tag.js
+@@ -551,7 +551,15 @@ function special(parser) {
+ 		parser.eat('=', true);
+ 		parser.allow_whitespace();
+ 
++		const expression_start = parser.index;
+ 		const init = read_expression(parser);
++		if (
++			init.type === 'SequenceExpression' &&
++			!parser.template.substring(expression_start, init.start).includes('(')
++		) {
++			// const a = (b, c) is allowed but a = b, c = d is not;
++			e.const_tag_invalid_expression(init);
++		}
+ 		parser.allow_whitespace();
+ 
+ 		parser.eat('}', true);

@@ -1,0 +1,995 @@
+diff --git a/.changeset/gentle-sheep-hug.md b/.changeset/gentle-sheep-hug.md
+new file mode 100644
+index 000000000000..a2a852449c3c
+--- /dev/null
++++ b/.changeset/gentle-sheep-hug.md
+@@ -0,0 +1,5 @@
++---
++'svelte': patch
++---
++
++chore: more validation errors
+diff --git a/packages/svelte/src/compiler/errors.js b/packages/svelte/src/compiler/errors.js
+index 700ec21e19e0..a4000fb1115c 100644
+--- a/packages/svelte/src/compiler/errors.js
++++ b/packages/svelte/src/compiler/errors.js
+@@ -132,9 +132,12 @@ const special_elements = {
+ 	'invalid-customElement-shadow-attribute': () => '"shadow" must be either "open" or "none"',
+ 	'unknown-svelte-option-attribute': /** @param {string} name */ (name) =>
+ 		`<svelte:options> unknown attribute '${name}'`,
++	'illegal-svelte-head-attribute': () => '<svelte:head> cannot have attributes nor directives',
+ 	'invalid-svelte-fragment-attribute': () =>
+ 		`<svelte:fragment> can only have a slot attribute and (optionally) a let: directive`,
+ 	'invalid-svelte-fragment-slot': () => `<svelte:fragment> slot attribute must have a static value`,
++	'invalid-svelte-fragment-placement': () =>
++		`<svelte:fragment> must be the direct child of a component`,
+ 	/** @param {string} name */
+ 	'invalid-svelte-element-placement': (name) =>
+ 		`<${name}> tags cannot be inside elements or blocks`,
+@@ -211,12 +214,14 @@ const elements = {
+ 	 * @param {string} node
+ 	 * @param {string} parent
+ 	 */
+-	'invalid-node-placement': (node, parent) => `${node} is invalid inside <${parent}>`
++	'invalid-node-placement': (node, parent) => `${node} is invalid inside <${parent}>`,
++	'illegal-title-attribute': () => '<title> cannot have attributes nor directives',
++	'invalid-title-content': () => '<title> can only contain text and {tags}'
+ };
+ 
+ /** @satisfies {Errors} */
+ const components = {
+-	'invalid-component-directive': () => `Directive is not valid on components`
++	'invalid-component-directive': () => `This type of directive is not valid on components`
+ };
+ 
+ /** @satisfies {Errors} */
+@@ -224,18 +229,60 @@ const attributes = {
+ 	'empty-attribute-shorthand': () => `Attribute shorthand cannot be empty`,
+ 	'duplicate-attribute': () => `Attributes need to be unique`,
+ 	'invalid-event-attribute-value': () =>
+-		`Event attribute must be a JavaScript expression, not a string`
++		`Event attribute must be a JavaScript expression, not a string`,
++	/** @param {string} name */
++	'invalid-attribute-name': (name) => `'${name}' is not a valid attribute name`,
++	/** @param {'no-each' | 'each-key' | 'child'} type */
++	'invalid-animation': (type) =>
++		type === 'no-each'
++			? `An element that uses the animate directive must be the immediate child of a keyed each block`
++			: type === 'each-key'
++			? `An element that uses the animate directive must be used inside a keyed each block. Did you forget to add a key to your each block?`
++			: `An element that uses the animate directive must be the sole child of a keyed each block`,
++	'duplicate-animation': () => `An element can only have one 'animate' directive`,
++	/** @param {string[] | undefined} [modifiers] */
++	'invalid-event-modifier': (modifiers) =>
++		modifiers
++			? `Valid event modifiers are ${modifiers.slice(0, -1).join(', ')} or ${modifiers.slice(-1)}`
++			: `Event modifiers other than 'once' can only be used on DOM elements`,
++	/**
++	 * @param {string} modifier1
++	 * @param {string} modifier2
++	 */
++	'invalid-event-modifier-combination': (modifier1, modifier2) =>
++		`The '${modifier1}' and '${modifier2}' modifiers cannot be used together`,
++	/**
++	 * @param {string} directive1
++	 * @param {string} directive2
++	 */
++	'duplicate-transition': (directive1, directive2) => {
++		/** @param {string} _directive */
++		function describe(_directive) {
++			return _directive === 'transition' ? "a 'transition'" : `an '${_directive}'`;
++		}
++
++		return directive1 === directive2
++			? `An element can only have one '${directive1}' directive`
++			: `An element cannot have both ${describe(directive1)} directive and ${describe(
++					directive2
++			  )} directive`;
++	},
++	'invalid-let-directive-placement': () => 'let directive at invalid position'
+ };
+ 
+ /** @satisfies {Errors} */
+ const slots = {
+ 	'invalid-slot-element-attribute': () => `<slot> can only receive attributes, not directives`,
+ 	'invalid-slot-attribute': () => `slot attribute must be a static value`,
+-	'invalid-slot-name': () => `slot attribute must be a static value`,
++	/** @param {boolean} is_default */
++	'invalid-slot-name': (is_default) =>
++		is_default
++			? `default is a reserved word — it cannot be used as a slot name`
++			: `slot attribute must be a static value`,
+ 	'invalid-slot-placement': () =>
+ 		`Element with a slot='...' attribute must be a child of a component or a descendant of a custom element`,
+-	'duplicate-slot-name': /** @param {string} name @param {string} component */ (name, component) =>
+-		`Duplicate slot name '${name}' in <${component}>`,
++	/** @param {string} name @param {string} component */
++	'duplicate-slot-name': (name, component) => `Duplicate slot name '${name}' in <${component}>`,
+ 	'invalid-default-slot-content': () =>
+ 		`Found default slot content alongside an explicit slot="default"`
+ };
+@@ -256,13 +303,20 @@ const bindings = {
+ 	'invalid-type-attribute': () =>
+ 		`'type' attribute must be a static text value if input uses two-way binding`,
+ 	'invalid-multiple-attribute': () =>
+-		`'multiple' attribute must be static if select uses two-way binding`
++		`'multiple' attribute must be static if select uses two-way binding`,
++	'missing-contenteditable-attribute': () =>
++		`'contenteditable' attribute is required for textContent, innerHTML and innerText two-way bindings`,
++	'dynamic-contenteditable-attribute': () =>
++		`'contenteditable' attribute cannot be dynamic if element uses two-way binding`
+ };
+ 
+ /** @satisfies {Errors} */
+ const variables = {
+ 	'illegal-global': /** @param {string} name */ (name) =>
+-		`${name} is an illegal variable name. To reference a global variable called ${name}, use globalThis.${name}`
++		`${name} is an illegal variable name. To reference a global variable called ${name}, use globalThis.${name}`,
++	/** @param {string} name */
++	'duplicate-declaration': (name) => `'${name}' has already been declared`,
++	'default-export': () => `A component cannot have a default export`
+ };
+ 
+ /** @satisfies {Errors} */
+@@ -279,6 +333,12 @@ const compiler_options = {
+ 	'removed-compiler-option': (msg) => `Invalid compiler option: ${msg}`
+ };
+ 
++/** @satisfies {Errors} */
++const const_tag = {
++	'invalid-const-placement': () =>
++		`{@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>`
++};
++
+ /** @satisfies {Errors} */
+ const errors = {
+ 	...internal,
+@@ -293,7 +353,8 @@ const errors = {
+ 	...bindings,
+ 	...variables,
+ 	...compiler_options,
+-	...legacy_reactivity
++	...legacy_reactivity,
++	...const_tag
+ 
+ 	// missing_contenteditable_attribute: {
+ 	// 	code: 'missing-contenteditable-attribute',
+@@ -304,34 +365,11 @@ const errors = {
+ 	// 	code: 'dynamic-contenteditable-attribute',
+ 	// 	message: "'contenteditable' attribute cannot be dynamic if element uses two-way binding"
+ 	// },
+-	// invalid_event_modifier_combination: /**
+-	//  * @param {string} modifier1
+-	//  * @param {string} modifier2
+-	//  */ (modifier1, modifier2) => ({
+-	// 	code: 'invalid-event-modifier',
+-	// 	message: `The '${modifier1}' and '${modifier2}' modifiers cannot be used together`
+-	// }),
+-	// invalid_event_modifier_legacy: /** @param {string} modifier */ (modifier) => ({
+-	// 	code: 'invalid-event-modifier',
+-	// 	message: `The '${modifier}' modifier cannot be used in legacy mode`
+-	// }),
+-	// invalid_event_modifier: /** @param {string} valid */ (valid) => ({
+-	// 	code: 'invalid-event-modifier',
+-	// 	message: `Valid event modifiers are ${valid}`
+-	// }),
+-	// invalid_event_modifier_component: {
+-	// 	code: 'invalid-event-modifier',
+-	// 	message: "Event modifiers other than 'once' can only be used on DOM elements"
+-	// },
+ 	// textarea_duplicate_value: {
+ 	// 	code: 'textarea-duplicate-value',
+ 	// 	message:
+ 	// 		'A <textarea> can have either a value attribute or (equivalently) child content, but not both'
+ 	// },
+-	// illegal_attribute: /** @param {string} name */ (name) => ({
+-	// 	code: 'illegal-attribute',
+-	// 	message: `'${name}' is not a valid attribute name`
+-	// }),
+ 	// invalid_attribute_head: {
+ 	// 	code: 'invalid-attribute',
+ 	// 	message: '<svelte:head> should not have any attributes or directives'
+@@ -340,10 +378,6 @@ const errors = {
+ 	// 	code: 'invalid-action',
+ 	// 	message: 'Actions can only be applied to DOM elements, not components'
+ 	// },
+-	// invalid_animation: {
+-	// 	code: 'invalid-animation',
+-	// 	message: 'Animations can only be applied to DOM elements, not components'
+-	// },
+ 	// invalid_class: {
+ 	// 	code: 'invalid-class',
+ 	// 	message: 'Classes can only be applied to DOM elements, not components'
+@@ -364,22 +398,10 @@ const errors = {
+ 	// 	code: 'dynamic-slot-name',
+ 	// 	message: '<slot> name cannot be dynamic'
+ 	// },
+-	// invalid_slot_name: {
+-	// 	code: 'invalid-slot-name',
+-	// 	message: 'default is a reserved word — it cannot be used as a slot name'
+-	// },
+ 	// invalid_slot_attribute_value_missing: {
+ 	// 	code: 'invalid-slot-attribute',
+ 	// 	message: 'slot attribute value is missing'
+ 	// },
+-	// invalid_slotted_content_fragment: {
+-	// 	code: 'invalid-slotted-content',
+-	// 	message: '<svelte:fragment> must be a child of a component'
+-	// },
+-	// illegal_attribute_title: {
+-	// 	code: 'illegal-attribute',
+-	// 	message: '<title> cannot have attributes'
+-	// },
+ 	// illegal_structure_title: {
+ 	// 	code: 'illegal-structure',
+ 	// 	message: '<title> can only contain text and {tags}'
+@@ -428,10 +450,6 @@ const errors = {
+ 	// 	code: 'illegal-variable-declaration',
+ 	// 	message: 'Cannot declare same variable name which is imported inside <script context="module">'
+ 	// },
+-	// css_invalid_global: {
+-	// 	code: 'css-invalid-global',
+-	// 	message: ':global(...) can be at the start or end of a selector sequence, but not in the middle'
+-	// },
+ 	// css_invalid_global_selector: {
+ 	// 	code: 'css-invalid-global-selector',
+ 	// 	message: ':global(...) must contain a single selector'
+@@ -445,55 +463,15 @@ const errors = {
+ 	// 	code: 'css-invalid-selector',
+ 	// 	message: `Invalid selector "${selector}"`
+ 	// }),
+-	// duplicate_animation: {
+-	// 	code: 'duplicate-animation',
+-	// 	message: "An element can only have one 'animate' directive"
+-	// },
+-	// invalid_animation_immediate: {
+-	// 	code: 'invalid-animation',
+-	// 	message:
+-	// 		'An element that uses the animate directive must be the immediate child of a keyed each block'
+-	// },
+-	// invalid_animation_key: {
+-	// 	code: 'invalid-animation',
+-	// 	message:
+-	// 		'An element that uses the animate directive must be used inside a keyed each block. Did you forget to add a key to your each block?'
+-	// },
+-	// invalid_animation_sole: {
+-	// 	code: 'invalid-animation',
+-	// 	message:
+-	// 		'An element that uses the animate directive must be the sole child of a keyed each block'
+-	// },
+-	// invalid_animation_dynamic_element: {
+-	// 	code: 'invalid-animation',
+-	// 	message: '<svelte:element> cannot have a animate directive'
+-	// },
+ 	// invalid_directive_value: {
+ 	// 	code: 'invalid-directive-value',
+ 	// 	message:
+ 	// 		'Can only bind to an identifier (e.g. `foo`) or a member expression (e.g. `foo.bar` or `foo[baz]`)'
+ 	// },
+-	// invalid_const_placement: {
+-	// 	code: 'invalid-const-placement',
+-	// 	message:
+-	// 		'{@const} must be the immediate child of {#if}, {:else if}, {:else}, {#each}, {:then}, {:catch}, <svelte:fragment> or <Component>'
+-	// },
+-	// invalid_const_declaration: /** @param {string} name */ (name) => ({
+-	// 	code: 'invalid-const-declaration',
+-	// 	message: `'${name}' has already been declared`
+-	// }),
+-	// invalid_const_update: /** @param {string} name */ (name) => ({
+-	// 	code: 'invalid-const-update',
+-	// 	message: `'${name}' is declared using {@const ...} and is read-only`
+-	// }),
+ 	// cyclical_const_tags: /** @param {string[]} cycle */ (cycle) => ({
+ 	// 	code: 'cyclical-const-tags',
+ 	// 	message: `Cyclical dependency detected: ${cycle.join(' → ')}`
+ 	// }),
+-	// invalid_component_style_directive: {
+-	// 	code: 'invalid-component-style-directive',
+-	// 	message: 'Style directives cannot be used on components'
+-	// },
+ 	// invalid_var_declaration: {
+ 	// 	code: 'invalid_var_declaration',
+ 	// 	message: '"var" scope should not extend outside the reactive block'
+diff --git a/packages/svelte/src/compiler/phases/1-parse/index.js b/packages/svelte/src/compiler/phases/1-parse/index.js
+index 8c1bb174f8ad..5199ad596005 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/index.js
++++ b/packages/svelte/src/compiler/phases/1-parse/index.js
+@@ -156,7 +156,13 @@ export class Parser {
+ 
+ 	/** @param {string} str */
+ 	match(str) {
+-		return this.template.slice(this.index, this.index + str.length) === str;
++		const length = str.length;
++		if (length === 1) {
++			// more performant than slicing
++			return this.template[this.index] === str;
++		}
++
++		return this.template.slice(this.index, this.index + length) === str;
+ 	}
+ 
+ 	/**
+diff --git a/packages/svelte/src/compiler/phases/1-parse/read/style.js b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+index 34d22bc7c3fd..0cc56ff8ea78 100644
+--- a/packages/svelte/src/compiler/phases/1-parse/read/style.js
++++ b/packages/svelte/src/compiler/phases/1-parse/read/style.js
+@@ -1,7 +1,7 @@
+ import { error } from '../../../errors.js';
+ 
+ const REGEX_MATCHER = /^[~^$*|]?=/;
+-const REGEX_CLOSING_PAREN = /\)/;
++const REGEX_CLOSING_PAREN = /(?<!\\)\)/; // \) is a way of escaping a closing paren, so we need to exclude it
+ const REGEX_CLOSING_BRACKET = /[\s\]]/;
+ const REGEX_ATTRIBUTE_FLAGS = /^[a-zA-Z]+/; // only `i` and `s` are valid today, but make it future-proof
+ const REGEX_COMBINATOR_WHITESPACE = /^\s*(\+|~|>|\|\|)\s*/;
+@@ -145,22 +145,23 @@ function read_rule(parser) {
+ 
+ /**
+  * @param {import('../index.js').Parser} parser
++ * @param {boolean} [inside_pseudo_class]
+  * @returns {import('#compiler').Css.SelectorList}
+  */
+-function read_selector_list(parser) {
++function read_selector_list(parser, inside_pseudo_class = false) {
+ 	/** @type {import('#compiler').Css.Selector[]} */
+ 	const children = [];
+ 
+ 	const start = parser.index;
+ 
+ 	while (parser.index < parser.template.length) {
+-		children.push(read_selector(parser));
++		children.push(read_selector(parser, inside_pseudo_class));
+ 
+ 		const end = parser.index;
+ 
+ 		parser.allow_whitespace();
+ 
+-		if (parser.match('{')) {
++		if (parser.match('{') || (inside_pseudo_class && parser.match(')'))) {
+ 			return {
+ 				type: 'SelectorList',
+ 				start,
+@@ -178,9 +179,10 @@ function read_selector_list(parser) {
+ 
+ /**
+  * @param {import('../index.js').Parser} parser
++ * @param {boolean} [inside_pseudo_class]
+  * @returns {import('#compiler').Css.Selector}
+  */
+-function read_selector(parser) {
++function read_selector(parser, inside_pseudo_class = false) {
+ 	const list_start = parser.index;
+ 
+ 	/** @type {Array<import('#compiler').Css.SimpleSelector | import('#compiler').Css.Combinator>} */
+@@ -190,9 +192,16 @@ function read_selector(parser) {
+ 		const start = parser.index;
+ 
+ 		if (parser.eat('*')) {
++			let name = '*';
++			if (parser.match('|')) {
++				// * is the namespace (which we ignore)
++				parser.index++;
++				name = read_identifier(parser);
++			}
++
+ 			children.push({
+ 				type: 'TypeSelector',
+-				name: '*',
++				name,
+ 				start,
+ 				end: parser.index
+ 			});
+@@ -220,11 +229,11 @@ function read_selector(parser) {
+ 		} else if (parser.eat(':')) {
+ 			const name = read_identifier(parser);
+ 
+-			/** @type {string | null} */
++			/** @type {null | import('#compiler').Css.SelectorList} */
+ 			let args = null;
+ 
+ 			if (parser.eat('(')) {
+-				args = parser.read_until(REGEX_CLOSING_PAREN);
++				args = read_selector_list(parser, true);
+ 				parser.eat(')', true);
+ 			}
+ 
+@@ -284,9 +293,15 @@ function read_selector(parser) {
+ 				end: parser.index
+ 			});
+ 		} else {
++			let name = read_identifier(parser);
++			if (parser.match('|')) {
++				// we ignore the namespace when trying to find matching element classes
++				parser.index++;
++				name = read_identifier(parser);
++			}
+ 			children.push({
+ 				type: 'TypeSelector',
+-				name: read_identifier(parser),
++				name,
+ 				start,
+ 				end: parser.index
+ 			});
+@@ -295,7 +310,7 @@ function read_selector(parser) {
+ 		const index = parser.index;
+ 		parser.allow_whitespace();
+ 
+-		if (parser.match('{') || parser.match(',')) {
++		if (parser.match('{') || parser.match(',') || (inside_pseudo_class && parser.match(')'))) {
+ 			parser.index = index;
+ 
+ 			return {
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+index 25e44b4e4025..fcddaf2df643 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/css/Selector.js
+@@ -17,7 +17,6 @@ const whitelist_attribute_selector = new Map([
+ 	['details', new Set(['open'])],
+ 	['dialog', new Set(['open'])]
+ ]);
+-const regex_is_single_css_selector = /[^\\],(?!([^([]+[^\\]|[^([\\])[)\]])/;
+ 
+ export default class Selector {
+ 	/** @type {import('#compiler').Css.Selector} */
+@@ -157,11 +156,10 @@ export default class Selector {
+ 				if (
+ 					selector.type === 'PseudoClassSelector' &&
+ 					selector.name === 'global' &&
+-					selector.args !== null
++					selector.args !== null &&
++					selector.args.children.length > 1
+ 				) {
+-					if (regex_is_single_css_selector.test(selector.args)) {
+-						error(selector, 'invalid-css-global-selector');
+-					}
++					error(selector, 'invalid-css-global-selector');
+ 				}
+ 			}
+ 		}
+@@ -179,11 +177,14 @@ export default class Selector {
+ 
+ 	validate_global_compound_selector() {
+ 		for (const block of this.blocks) {
+-			for (const selector of block.selectors) {
++			for (let i = 0; i < block.selectors.length; i++) {
++				const selector = block.selectors[i];
+ 				if (
+ 					selector.type === 'PseudoClassSelector' &&
+ 					selector.name === 'global' &&
+-					block.selectors.length !== 1
++					block.selectors.length !== 1 &&
++					(i === block.selectors.length - 1 ||
++						block.selectors.slice(i + 1).some((s) => s.type !== 'PseudoElementSelector'))
+ 				) {
+ 					error(selector, 'invalid-css-global-selector-list');
+ 				}
+diff --git a/packages/svelte/src/compiler/phases/2-analyze/validation.js b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+index 99cc8137d6c8..60aaf060f36a 100644
+--- a/packages/svelte/src/compiler/phases/2-analyze/validation.js
++++ b/packages/svelte/src/compiler/phases/2-analyze/validation.js
+@@ -8,9 +8,13 @@ import {
+ import { warn } from '../../warnings.js';
+ import fuzzymatch from '../1-parse/utils/fuzzymatch.js';
+ import { binding_properties } from '../bindings.js';
+-import { SVGElements } from '../constants.js';
++import { ContentEditableBindings, EventModifiers, SVGElements } from '../constants.js';
+ import { is_custom_element_node } from '../nodes.js';
+-import { regex_not_whitespace, regex_only_whitespaces } from '../patterns.js';
++import {
++	regex_illegal_attribute_character,
++	regex_not_whitespace,
++	regex_only_whitespaces
++} from '../patterns.js';
+ import { Scope, get_rune } from '../scope.js';
+ import { merge } from '../visitors.js';
+ import { a11y_validators } from './a11y.js';
+@@ -30,6 +34,13 @@ function validate_component(node, context) {
+ 		) {
+ 			error(attribute, 'invalid-component-directive');
+ 		}
++
++		if (
++			attribute.type === 'OnDirective' &&
++			(attribute.modifiers.length > 1 || attribute.modifiers.some((m) => m !== 'once'))
++		) {
++			error(attribute, 'invalid-event-modifier');
++		}
+ 	}
+ 
+ 	context.next({
+@@ -44,17 +55,79 @@ function validate_component(node, context) {
+  * @param {import('zimmerframe').Context<import('#compiler').SvelteNode, import('./types.js').AnalysisState>} context
+  */
+ function validate_element(node, context) {
++	let has_animate_directive = false;
++	let has_in_transition = false;
++	let has_out_transition = false;
++
+ 	for (const attribute of node.attributes) {
+-		if (
+-			attribute.type === 'Attribute' &&
+-			attribute.name === 'is' &&
+-			context.state.options.namespace !== 'foreign'
+-		) {
+-			warn(context.state.analysis.warnings, attribute, context.path, 'avoid-is');
+-		}
+-		if (attribute.type === 'Attribute' && attribute.name === 'slot') {
+-			/** @type {import('#compiler').RegularElement | import('#compiler').SvelteElement | import('#compiler').Component | import('#compiler').SvelteComponent | import('#compiler').SvelteSelf | undefined} */
+-			validate_slot_attribute(context, attribute);
++		if (attribute.type === 'Attribute') {
++			if (regex_illegal_attribute_character.test(attribute.name)) {
++				error(attribute, 'invalid-attribute-name', attribute.name);
++			}
++
++			if (attribute.name === 'is' && context.state.options.namespace !== 'foreign') {
++				warn(context.state.analysis.warnings, attribute, context.path, 'avoid-is');
++			} else if (attribute.name === 'slot') {
++				/** @type {import('#compiler').RegularElement | import('#compiler').SvelteElement | import('#compiler').Component | import('#compiler').SvelteComponent | import('#compiler').SvelteSelf | undefined} */
++				validate_slot_attribute(context, attribute);
++			}
++		} else if (attribute.type === 'AnimateDirective') {
++			const parent = context.path.at(-2);
++			if (parent?.type !== 'EachBlock') {
++				error(attribute, 'invalid-animation', 'no-each');
++			} else if (!parent.key) {
++				error(attribute, 'invalid-animation', 'each-key');
++			} else if (
++				parent.body.nodes.filter(
++					(n) =>
++						n.type !== 'Comment' &&
++						n.type !== 'ConstTag' &&
++						(n.type !== 'Text' || n.data.trim() !== '')
++				).length > 1
++			) {
++				error(attribute, 'invalid-animation', 'child');
++			}
++
++			if (has_animate_directive) {
++				error(attribute, 'duplicate-animation');
++			} else {
++				has_animate_directive = true;
++			}
++		} else if (attribute.type === 'TransitionDirective') {
++			if ((attribute.outro && has_out_transition) || (attribute.intro && has_in_transition)) {
++				/** @param {boolean} _in @param {boolean} _out */
++				const type = (_in, _out) => (_in && _out ? 'transition' : _in ? 'in' : 'out');
++				error(
++					attribute,
++					'duplicate-transition',
++					type(has_in_transition, has_out_transition),
++					type(attribute.intro, attribute.outro)
++				);
++			}
++
++			has_in_transition = has_in_transition || attribute.intro;
++			has_out_transition = has_out_transition || attribute.outro;
++		} else if (attribute.type === 'OnDirective') {
++			let has_passive_modifier = false;
++			let conflicting_passive_modifier = '';
++			for (const modifier of attribute.modifiers) {
++				if (!EventModifiers.includes(modifier)) {
++					error(attribute, 'invalid-event-modifier', EventModifiers);
++				}
++				if (modifier === 'passive') {
++					has_passive_modifier = true;
++				} else if (modifier === 'nonpassive' || modifier === 'preventDefault') {
++					conflicting_passive_modifier = modifier;
++				}
++				if (has_passive_modifier && conflicting_passive_modifier) {
++					error(
++						attribute,
++						'invalid-event-modifier-combination',
++						'passive',
++						conflicting_passive_modifier
++					);
++				}
++			}
+ 		}
+ 	}
+ }
+@@ -361,6 +434,17 @@ export const validation = {
+ 						`non-<svg> elements. Use 'clientWidth' for <svg> instead`
+ 					);
+ 				}
++
++				if (ContentEditableBindings.includes(node.name)) {
++					const contenteditable = /** @type {import('#compiler').Attribute} */ (
++						parent.attributes.find((a) => a.type === 'Attribute' && a.name === 'contenteditable')
++					);
++					if (!contenteditable) {
++						error(node, 'missing-contenteditable-attribute');
++					} else if (!is_text_attribute(contenteditable)) {
++						error(contenteditable, 'dynamic-contenteditable-attribute');
++					}
++				}
+ 			} else {
+ 				const match = fuzzymatch(node.name, Object.keys(binding_properties));
+ 				if (match) {
+@@ -373,6 +457,40 @@ export const validation = {
+ 			}
+ 		}
+ 	},
++	ExportDefaultDeclaration(node) {
++		error(node, 'default-export');
++	},
++	ConstTag(node, context) {
++		const parent = context.path.at(-1);
++		const grand_parent = context.path.at(-2);
++		if (
++			parent?.type !== 'Fragment' ||
++			(grand_parent?.type !== 'IfBlock' &&
++				grand_parent?.type !== 'SvelteFragment' &&
++				grand_parent?.type !== 'Component' &&
++				grand_parent?.type !== 'SvelteComponent' &&
++				grand_parent?.type !== 'EachBlock' &&
++				grand_parent?.type !== 'AwaitBlock' &&
++				((grand_parent?.type !== 'RegularElement' && grand_parent?.type !== 'SvelteElement') ||
++					!grand_parent.attributes.some((a) => a.type === 'Attribute' && a.name === 'slot')))
++		) {
++			error(node, 'invalid-const-placement');
++		}
++	},
++	LetDirective(node, context) {
++		const parent = context.path.at(-1);
++		if (
++			parent === undefined ||
++			(parent.type !== 'Component' &&
++				parent.type !== 'RegularElement' &&
++				parent.type !== 'SvelteElement' &&
++				parent.type !== 'SvelteComponent' &&
++				parent.type !== 'SvelteSelf' &&
++				parent.type !== 'SvelteFragment')
++		) {
++			error(node, 'invalid-let-directive-placement');
++		}
++	},
+ 	RegularElement(node, context) {
+ 		if (node.name === 'textarea' && node.fragment.nodes.length > 0) {
+ 			for (const attribute of node.attributes) {
+@@ -382,6 +500,21 @@ export const validation = {
+ 			}
+ 		}
+ 
++		const binding = context.state.scope.get(node.name);
++		if (
++			binding !== null &&
++			binding.declaration_kind === 'import' &&
++			binding.references.length === 0
++		) {
++			warn(
++				context.state.analysis.warnings,
++				node,
++				context.path,
++				'component-name-lowercase',
++				node.name
++			);
++		}
++
+ 		validate_element(node, context);
+ 
+ 		if (context.state.parent_element) {
+@@ -395,6 +528,12 @@ export const validation = {
+ 			parent_element: node.name
+ 		});
+ 	},
++	SvelteHead(node) {
++		const attribute = node.attributes[0];
++		if (attribute) {
++			error(attribute, 'illegal-svelte-head-attribute');
++		}
++	},
+ 	SvelteElement(node, context) {
+ 		validate_element(node, context);
+ 		context.next({
+@@ -403,6 +542,11 @@ export const validation = {
+ 		});
+ 	},
+ 	SvelteFragment(node, context) {
++		const parent = context.path.at(-2);
++		if (parent?.type !== 'Component' && parent?.type !== 'SvelteComponent') {
++			error(node, 'invalid-svelte-fragment-placement');
++		}
++
+ 		for (const attribute of node.attributes) {
+ 			if (attribute.type === 'Attribute') {
+ 				if (attribute.name === 'slot') {
+@@ -418,7 +562,11 @@ export const validation = {
+ 			if (attribute.type === 'Attribute') {
+ 				if (attribute.name === 'name') {
+ 					if (!is_text_attribute(attribute)) {
+-						error(attribute, 'invalid-slot-name');
++						error(attribute, 'invalid-slot-name', false);
++					}
++					const slot_name = attribute.value[0].data;
++					if (slot_name === 'default') {
++						error(attribute, 'invalid-slot-name', true);
+ 					}
+ 				}
+ 			} else if (attribute.type !== 'SpreadAttribute') {
+@@ -437,6 +585,17 @@ export const validation = {
+ 			}
+ 		}
+ 	},
++	TitleElement(node) {
++		const attribute = node.attributes[0];
++		if (attribute) {
++			error(attribute, 'illegal-title-attribute');
++		}
++
++		const child = node.fragment.nodes.find((n) => n.type !== 'Text' && n.type !== 'ExpressionTag');
++		if (child) {
++			error(child, 'invalid-title-content');
++		}
++	},
+ 	ExpressionTag(node, context) {
+ 		if (!node.parent) return;
+ 		if (context.state.parent_element) {
+@@ -468,6 +627,15 @@ export const validation_legacy = merge(validation, a11y_validators, {
+ 		if (parent && parent.type === 'ConstTag') return;
+ 		validate_assignment(node, node.left, state);
+ 	},
++	LabeledStatement(node, { path, state }) {
++		if (
++			node.label.name === '$' &&
++			(state.ast_type !== 'instance' ||
++				/** @type {import('#compiler').SvelteNode} */ (path.at(-1)).type !== 'Program')
++		) {
++			warn(state.analysis.warnings, node, path, 'no-reactive-declaration');
++		}
++	},
+ 	UpdateExpression(node, { state }) {
+ 		validate_assignment(node, node.argument, state);
+ 	}
+@@ -628,7 +796,19 @@ export const validation_runes_js = {
+  * @param {boolean} is_binding
+  */
+ function validate_no_const_assignment(node, argument, scope, is_binding) {
+-	if (argument.type === 'Identifier') {
++	if (argument.type === 'ArrayPattern') {
++		for (const element of argument.elements) {
++			if (element) {
++				validate_no_const_assignment(node, element, scope, is_binding);
++			}
++		}
++	} else if (argument.type === 'ObjectPattern') {
++		for (const element of argument.properties) {
++			if (element.type === 'Property') {
++				validate_no_const_assignment(node, element.value, scope, is_binding);
++			}
++		}
++	} else if (argument.type === 'Identifier') {
+ 		const binding = scope.get(argument.name);
+ 		if (binding?.declaration_kind === 'const' && binding.kind !== 'each') {
+ 			error(
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
+index 218756ad8c42..bfc7998b866e 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/javascript-legacy.js
+@@ -104,15 +104,16 @@ export const javascript_visitors_legacy = {
+ 		if (context.path.length > 1) return;
+ 		if (node.label.name !== '$') return;
+ 		const state = context.state;
+-
+-		// TODO bail out if we're in module context
+-
+ 		// To recreate Svelte 4 behaviour, we track the dependencies
+ 		// the compiler can 'see', but we untrack the effect itself
+-		const { dependencies } = /** @type {import('#compiler').ReactiveStatement} */ (
++		const reactive_stmt = /** @type {import('#compiler').ReactiveStatement} */ (
+ 			state.analysis.reactive_statements.get(node)
+ 		);
+ 
++		if (!reactive_stmt) return; // not the instance context
++
++		const { dependencies } = reactive_stmt;
++
+ 		let serialized_body = /** @type {import('estree').Statement} */ (context.visit(node.body));
+ 
+ 		if (serialized_body.type !== 'BlockStatement') {
+diff --git a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+index 855a7952844d..0f9f0689ae56 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
++++ b/packages/svelte/src/compiler/phases/3-transform/client/visitors/template.js
+@@ -2753,19 +2753,9 @@ export const template_visitors = {
+ 			serialize_event_attribute(node, context);
+ 		}
+ 	},
+-	LetDirective(node, { state, path }) {
++	LetDirective(node, { state }) {
+ 		// let:x        -->  const x = $.derived(() => $.unwrap($$slotProps).x);
+ 		// let:x={{y, z}}  -->  const derived_x = $.derived(() => { const { y, z } = $.unwrap($$slotProps).x; return { y, z }));
+-		const parent = path.at(-1);
+-		if (
+-			parent === undefined ||
+-			(parent.type !== 'Component' &&
+-				parent.type !== 'RegularElement' &&
+-				parent.type !== 'SvelteFragment')
+-		) {
+-			error(node, 'INTERNAL', 'let directive at invalid position');
+-		}
+-
+ 		if (node.expression && node.expression.type !== 'Identifier') {
+ 			const name = state.scope.generate(node.name);
+ 			const bindings = state.scope.get_bindings(node);
+diff --git a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+index 37f4cc757f8a..b4415e9a3be6 100644
+--- a/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
++++ b/packages/svelte/src/compiler/phases/3-transform/server/transform-server.js
+@@ -1495,17 +1495,7 @@ const template_visitors = {
+ 		state.template.push(t_statement(call));
+ 		state.template.push(t_expression(id));
+ 	},
+-	LetDirective(node, { state, path }) {
+-		const parent = path.at(-1);
+-		if (
+-			parent === undefined ||
+-			(parent.type !== 'Component' &&
+-				parent.type !== 'RegularElement' &&
+-				parent.type !== 'SvelteFragment')
+-		) {
+-			error(node, 'INTERNAL', 'let directive at invalid position');
+-		}
+-
++	LetDirective(node, { state }) {
+ 		if (node.expression && node.expression.type !== 'Identifier') {
+ 			const name = state.scope.generate(node.name);
+ 			const bindings = state.scope.get_bindings(node);
+diff --git a/packages/svelte/src/compiler/phases/constants.js b/packages/svelte/src/compiler/phases/constants.js
+index 9c4af5514575..d31a30f05192 100644
+--- a/packages/svelte/src/compiler/phases/constants.js
++++ b/packages/svelte/src/compiler/phases/constants.js
+@@ -184,3 +184,15 @@ export const SVGElements = [
+ 	'view',
+ 	'vkern'
+ ];
++
++export const EventModifiers = [
++	'preventDefault',
++	'stopPropagation',
++	'stopImmediatePropagation',
++	'capture',
++	'once',
++	'passive',
++	'nonpassive',
++	'self',
++	'trusted'
++];
+diff --git a/packages/svelte/src/compiler/phases/patterns.js b/packages/svelte/src/compiler/phases/patterns.js
+index c6abc94d5c6a..880296dd597c 100644
+--- a/packages/svelte/src/compiler/phases/patterns.js
++++ b/packages/svelte/src/compiler/phases/patterns.js
+@@ -20,3 +20,4 @@ export const regex_special_chars = /[\d+`!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~]/;
+ 
+ export const regex_starts_with_vowel = /^[aeiou]/;
+ export const regex_heading_tags = /^h[1-6]$/;
++export const regex_illegal_attribute_character = /(^[0-9-.])|[\^$@%&#?!|()[\]{}^*+~;]/;
+diff --git a/packages/svelte/src/compiler/phases/scope.js b/packages/svelte/src/compiler/phases/scope.js
+index 4f836f8f7a4e..f4b1265550a7 100644
+--- a/packages/svelte/src/compiler/phases/scope.js
++++ b/packages/svelte/src/compiler/phases/scope.js
+@@ -87,6 +87,11 @@ export class Scope {
+ 			}
+ 		}
+ 
++		if (this.declarations.has(node.name)) {
++			// This also errors on var/function types, but that's arguably a good thing
++			error(node, 'duplicate-declaration', node.name);
++		}
++
+ 		/** @type {import('#compiler').Binding} */
+ 		const binding = {
+ 			node,
+@@ -170,6 +175,7 @@ export class Scope {
+ 	 * @param {import('#compiler').SvelteNode[]} path
+ 	 */
+ 	reference(node, path) {
++		path = [...path]; // ensure that mutations to path afterwards don't affect this reference
+ 		let references = this.references.get(node.name);
+ 		if (!references) this.references.set(node.name, (references = []));
+ 
+@@ -596,18 +602,6 @@ export function create_scopes(ast, root, allow_reactive_declarations, parent) {
+ 				)
+ 			]);
+ 			context.next();
+-		},
+-
+-		ConstTag(node, { state, next }) {
+-			const declaration = node.declaration.declarations[0];
+-			for (const identifier of extract_identifiers(declaration.id)) {
+-				state.scope.declare(
+-					/** @type {import('estree').Identifier} */ (identifier),
+-					'derived',
+-					'const'
+-				);
+-			}
+-			next();
+ 		}
+ 
+ 		// TODO others
+diff --git a/packages/svelte/src/compiler/types/css.d.ts b/packages/svelte/src/compiler/types/css.d.ts
+index e4d587ef6585..7d936207ac93 100644
+--- a/packages/svelte/src/compiler/types/css.d.ts
++++ b/packages/svelte/src/compiler/types/css.d.ts
+@@ -59,7 +59,7 @@ export interface PseudoElementSelector extends BaseNode {
+ export interface PseudoClassSelector extends BaseNode {
+ 	type: 'PseudoClassSelector';
+ 	name: string;
+-	args: string | null;
++	args: SelectorList | null;
+ }
+ 
+ export interface Percentage extends BaseNode {
+diff --git a/packages/svelte/src/compiler/types/template.d.ts b/packages/svelte/src/compiler/types/template.d.ts
+index 621e8092b2e5..6343b7ae323b 100644
+--- a/packages/svelte/src/compiler/types/template.d.ts
++++ b/packages/svelte/src/compiler/types/template.d.ts
+@@ -132,7 +132,7 @@ export interface Comment extends BaseNode {
+ export interface ConstTag extends BaseNode {
+ 	type: 'ConstTag';
+ 	declaration: VariableDeclaration & {
+-		declarations: [VariableDeclarator & { id: Identifier; init: Expression }];
++		declarations: [VariableDeclarator & { id: Pattern; init: Expression }];
+ 	};
+ }
+ 
+diff --git a/packages/svelte/src/compiler/warnings.js b/packages/svelte/src/compiler/warnings.js
+index 6c38b1e052a7..f9e74786e308 100644
+--- a/packages/svelte/src/compiler/warnings.js
++++ b/packages/svelte/src/compiler/warnings.js
+@@ -201,6 +201,18 @@ const performance = {
+ 	'avoid-nested-class': () => `Avoid declaring classes below the top level scope`
+ };
+ 
++/** @satisfies {Warnings} */
++const components = {
++	/** @param {string} name */
++	'component-name-lowercase': (name) =>
++		`<${name}> will be treated as an HTML element unless it begins with a capital letter`
++};
++
++const legacy = {
++	'no-reactive-declaration': () =>
++		`Reactive declarations only exist at the top level of the instance script`
++};
++
+ /** @satisfies {Warnings} */
+ const warnings = {
+ 	...css,
+@@ -208,7 +220,9 @@ const warnings = {
+ 	...runes,
+ 	...a11y,
+ 	...performance,
+-	...state
++	...state,
++	...components,
++	...legacy
+ };
+ 
+ /** @typedef {typeof warnings} AllWarnings */
+diff --git a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+index 848ac5320fcf..a92d5d68d4f8 100644
+--- a/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
++++ b/sites/svelte-5-preview/src/routes/docs/content/03-appendix/02-breaking-changes.md
+@@ -74,10 +74,22 @@ Content inside component tags becomes a [snippet prop](/docs/snippets) called `c
+ 
+ Assignments to destructured parts of a `@const` declaration are no longer allowed. It was an oversight that this was ever allowed.
+ 
++### Stricter CSS `:global` selector validation
++
++Previously, a selector like `.foo :global(bar).baz` was valid. In Svelte 5, this is a validation error instead. The reason is that in this selector the resulting CSS would be equivalent to one without `:global` - in other words, `:global` is ignored in this case.
++
+ ### CSS hash position no longer deterministic
+ 
+ Previously Svelte would always insert the CSS hash last. This is no longer guaranteed in Svelte 5. This is only breaking if you [have very weird css selectors](https://stackoverflow.com/questions/15670631/does-the-order-of-classes-listed-on-an-item-affect-the-css).
+ 
++### Renames of various error/warning codes
++
++Various error and warning codes have been renamed slightly.
++
++### Reduced number of namespaces
++
++The number of valid namespaces you can pass to the compiler option `namespace` has been reduced to `html` (the default), `svg` and `foreign`.
++
+ ### beforeUpdate change
+ 
+ `beforeUpdate` no longer runs twice on initial render if it modifies a variable referenced in the template.
