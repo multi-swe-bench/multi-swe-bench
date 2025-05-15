@@ -7,9 +7,8 @@ import pandas as pd
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# rawdata_dir= Path("")
-base_dir = Path("data_multiswe/workdir")
-output_dir = Path("data_multiswe/envbench/")
+base_dir = Path("/home/aoyanli.722/new_multi_swe_bench/multi-swe-bench/data_multiswe/workdir")
+output_dir = Path("/home/aoyanli.722/new_multi_swe_bench/multi-swe-bench/data_multiswe/envbench/")
 
 
 def build_docker_image(dockerfile_path, org, repo, pr_name):
@@ -143,22 +142,35 @@ def select_prs():
     for base_id, pr_list in image_to_pr.items():
         selected_prs.append(pr_list[0])
     
-    # selected_tuple = [f"{org}__{repo}_{path.name}" for org, repo, path in selected_prs]
-    # dataset_dir= output_dir / 'dataset'
-    # dataset_dir.mkdir(parents=True, exist_ok=True)
-    # with open(dataset_dir / 'dataset.jsonl', 'w', encoding='utf-8') as f:
-    #     for jsonl_file in rawdata_dir.glob('*.jsonl'):
-    #         with open(jsonl_file, 'r', encoding='utf-8') as infile:
-    #             for line in infile:
-    #                 record = json.loads(line)
-    #                 if f"{record['org']}__{record['repo']}_pr-{record['number']}" in selected_tuple:
-    #                     json.dump(record, f)
-    #                     f.write('\n') 
+    selected_tuple = [f"{org}__{repo}_{path.name}" for org, repo, path in selected_prs]
+    dataset_dir= output_dir / 'dataset'
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    with open(dataset_dir / 'dataset.jsonl', 'w', encoding='utf-8') as f:
+        for jsonl_file in rawdata_dir.glob('*.jsonl'):
+            with open(jsonl_file, 'r', encoding='utf-8') as infile:
+                for line in infile:
+                    record = json.loads(line)
+                    if f"{record['org']}__{record['repo']}_pr-{record['number']}" in selected_tuple:
+                        json.dump(record, f)
+                        f.write('\n') 
 
     return selected_prs
 
 def main():
-    selected_prs = select_prs()
+    filepath='data_multiswe/envbench/dataset/dataset.jsonl'
+    if os.path.exists(filepath):
+        selected_prs = []
+        with open(filepath, 'r', encoding='utf-8') as f:
+            for line in f:
+                record = json.loads(line)
+                org = record['org']
+                repo = record['repo']
+                pr_number = record['number']
+                pr_dir_name = f"pr-{pr_number}"
+                pr_dir = Path(base_dir) / org / repo / "images" / pr_dir_name
+                selected_prs.append((org, repo, pr_dir))
+    else:
+        selected_prs = select_prs()
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(gen_dockerfile_image, args) for args in selected_prs]
       
