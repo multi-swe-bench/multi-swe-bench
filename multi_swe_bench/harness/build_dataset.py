@@ -528,12 +528,6 @@ class CliArgs:
             raise ValueError("Check commit hashes failed, please check the logs.")
 
     def build_image(self, image: Image):
-        if not self.force_build and docker_util.exists(image.image_full_name()):
-            self.logger.debug(
-                f"Image {image.image_full_name()} already exists, skipping..."
-            )
-            return
-
         workdir = self.workdir / image.pr.org / image.pr.repo / BUILD_IMAGE_WORKDIR
         image_dir = workdir / image.workdir()
         image_dir.mkdir(parents=True, exist_ok=True)
@@ -551,6 +545,12 @@ class CliArgs:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(file.content)
+        
+        if not self.force_build and docker_util.exists(image.image_full_name()):
+            self.logger.debug(
+                f"Image {image.image_full_name()} already exists, skipping..."
+            )
+            return
 
         self.logger.info(f"Building image {image.image_full_name()}...")
         docker_util.build(

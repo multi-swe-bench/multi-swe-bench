@@ -49,6 +49,7 @@ class spyderImageBase(Image):
 WORKDIR /home/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
+
 RUN apt update && apt install -y \
     wget \
     git \
@@ -65,6 +66,52 @@ RUN apt update && apt install -y \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y --fix-missing \
+  libgl1-mesa-glx \
+  libglib2.0-0 \
+  libx11-xcb1 \
+  libxcb-xinerama0 \
+  libxcomposite1 \
+  libxcursor1 \
+  libxdamage1 \
+  libxi6 \
+  libxtst6 \
+  libxrandr2 \
+  libxss1 \
+  libxkbcommon-x11-0 \
+  libasound2 \
+  x11-utils \
+  xterm \
+  xvfb \
+  libnss3 \
+  libatk1.0-0 \
+  libatk-bridge2.0-0 \
+  libcups2 \
+  lsof \
+  curl \
+  dbus-x11 \
+  ca-certificates \
+  fonts-liberation \
+  libxshmfence1 \
+  libxext6 \
+  qt5ct \
+  libqt5widgets5 \
+  libqt5gui5 \
+  libqt5core5a \
+  qtbase5-dev \
+  libqt5multimedia5 \
+  libqt5multimediawidgets5 \
+  libqt5network5 \
+  libqt5sql5 \
+  libqt5sql5-sqlite \
+  libqt5webenginecore5 \
+  libqt5webenginewidgets5 \
+  qml-module-qtquick2 \
+  qml-module-qtquick-controls \
+  qml-module-qtgraphicaleffects \
+  qml-module-qtwebengine \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+  
 RUN apt update && apt install -y pyqt5-dev-tools libxcb-xinerama0 xterm xvfb
 RUN wget "https://repo.anaconda.com/miniconda/Miniconda3-py39_23.11.0-1-Linux-x86_64.sh" -O miniconda.sh \
     && bash miniconda.sh -b -p /opt/miniconda3 \
@@ -157,7 +204,7 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-conda create -n testenv python=3.9 -y
+conda create -n testenv python=3.8 -y
 conda activate testenv
 pip install -e .[test] || true
 

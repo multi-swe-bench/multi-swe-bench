@@ -6,7 +6,7 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-class highchartsImageBase(Image):
+class openmctImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -68,7 +68,7 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | b
 
 
 
-class highchartsImageDefault(Image):
+class openmctImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -83,9 +83,9 @@ class highchartsImageDefault(Image):
 
     def dependency(self) -> Image | None:
         # if self.pr.number <= 958:
-        #     return highchartsImageBaseCpp7(self.pr, self._config)
+        #     return openmctImageBaseCpp7(self.pr, self._config)
 
-        return highchartsImageBase(self.pr, self._config)
+        return openmctImageBase(self.pr, self._config)
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
@@ -141,10 +141,12 @@ git reset --hard
 bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
-nvm install 22
-nvm use 22
+nvm install || true
+nvm use || true
 npm install || true
-
+apt-get update --fix-missing || true
+npx playwright install-deps chromium || true
+npx playwright install chromium || true
 """.format(
                     pr=self.pr
                 ),
@@ -159,13 +161,17 @@ export NVM_DIR="$HOME/.nvm"
 
 cd /home/{pr.repo}
 
-nvm use 22
+nvm use || true
 npm install || true
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
+apt-get update --fix-missing || true
+npx playwright install-deps chromium || true
+npx playwright install chromium || true
 CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test-node || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npx gulp test --single-run --ts --splitbrowsers ChromeHeadless || true
+CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test:e2e:ci || true
+
+
 """.format(
                     pr=self.pr
                 ),
@@ -181,13 +187,15 @@ export NVM_DIR="$HOME/.nvm"
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 
-nvm use 22
+nvm use || true
 npm install || true
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
+apt-get update --fix-missing || true
+npx playwright install-deps chromium || true
+npx playwright install chromium || true
 CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test-node || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npx gulp test --single-run --ts --splitbrowsers ChromeHeadless || true
+CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test:e2e:ci || true
 """.format(
                     pr=self.pr
                 ),
@@ -203,13 +211,15 @@ export NVM_DIR="$HOME/.nvm"
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
-nvm use 22
+nvm use || true
 npm install || true
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
+apt-get update --fix-missing || true
+npx playwright install-deps chromium || true
+npx playwright install chromium || true
 CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test-node || true
-CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npx gulp test --single-run --ts --splitbrowsers ChromeHeadless || true
+CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/google-chrome --no-sandbox "$@"' >> $CHROME_BIN && chmod +x $CHROME_BIN && CHROME_BIN=$CHROME_BIN npm run test:e2e:ci || true
 """.format(
                     pr=self.pr
                 ),
@@ -275,8 +285,8 @@ CHROME_BIN=$(mktemp) && echo '#!/bin/bash' > $CHROME_BIN && echo 'exec /usr/bin/
 """
 
 
-@Instance.register("highcharts", "highcharts")
-class highcharts(Instance):
+@Instance.register("nasa", "openmct")
+class openmct(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -287,7 +297,7 @@ class highcharts(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return highchartsImageDefault(self.pr, self._config)
+        return openmctImageDefault(self.pr, self._config)
 
     def run(self, run_cmd: str = "") -> str:
         if run_cmd:

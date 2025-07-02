@@ -13,3 +13,4 @@ from multi_swe_bench.harness.repos.javascript.vuejs import *
 from multi_swe_bench.harness.repos.javascript.swaggerapi import *
 from multi_swe_bench.harness.repos.javascript.facebook import *
 from multi_swe_bench.harness.repos.javascript.KateX import *
+from multi_swe_bench.harness.repos.javascript.nasa import *

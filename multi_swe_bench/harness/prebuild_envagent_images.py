@@ -29,12 +29,10 @@ from multi_swe_bench.harness.constant import (
     BUILD_IMAGE_LOG_FILE,
     BUILD_IMAGE_WORKDIR,
     EVALUATION_WORKDIR,
-    FIX_PATCH_RUN_LOG_FILE,
     REPORT_FILE,
     RUN_EVALUATION_LOG_FILE,
 )
 from multi_swe_bench.harness.dataset import Dataset
-from multi_swe_bench.harness.gen_report import CliArgs as ReportBuilder
 from multi_swe_bench.harness.image import Config, Image
 from multi_swe_bench.harness.instance import Instance
 from multi_swe_bench.harness.pull_request import PullRequestBase, Repository
@@ -237,7 +235,7 @@ class CliArgs:
     log_level: str
     log_to_console: bool
     human_mode: bool = True
-
+    
     def __post_init__(self):
         self._check_mode()
         self._check_workdir()
@@ -599,7 +597,7 @@ class CliArgs:
         docker_util.build(
             image_dir,
             image.dockerfile_name(),
-            image.image_full_name(),
+            image.image_full_name() + "_v1",
             get_non_propagate_logger(
                 image_dir,
                 BUILD_IMAGE_LOG_FILE,
@@ -703,45 +701,15 @@ class CliArgs:
             )
             return
 
-        def run_and_save_output(
-            image_full_name: str, run_command: str, output_path: Path
-        ):
-            self.logger.info(
-                f"Running {image_full_name} with command: {run_command}..."
-            )
-            output = docker_util.run(
-                image_full_name,
-                run_command,
-                output_path,
-                self.global_env,
-                volumes={
-                    fix_patch_path: {
-                        "bind": instance.dependency().fix_patch_path(),
-                        "mode": "rw",
-                    }
-                },
-            )
-            return output
-
-        if not self.human_mode:
-            from multi_swe_bench.utils.session_util import run_and_save_logs
-            prepare_script_path= self.workdir / instance.pr.org / instance.pr.repo / "images"  /f"pr-{instance.pr.number}"/ "prepare.sh" 
-            output_fix = asyncio.run(run_and_save_logs(
-                "fix", 
-                instance.name(), 
-                f"{instance.fix_patch_run(self.fix_patch_run_cmd)} >> /home/fix_msb.log 2>&1", 
-                self.logger,
-                instance_dir / FIX_PATCH_RUN_LOG_FILE, 
-                "/home/fix_msb.log", 
-                prepare_script_path=prepare_script_path,
-                global_env=self.global_env
-            ))
-        else:
-            output_fix = run_and_save_output(
-                instance.name(),
-                instance.fix_patch_run(self.fix_patch_run_cmd),
-                instance_dir / FIX_PATCH_RUN_LOG_FILE,
-            )
+        from multi_swe_bench.utils.session_util import run_and_build_dockerfile
+        prepare_script_path= self.workdir / instance.pr.org / instance.pr.repo / "images"  /f"pr-{instance.pr.number}"/ "prepare.sh" 
+        asyncio.run(run_and_build_dockerfile(
+            "fix", 
+            instance.name() + "_v1", 
+            self.logger, 
+            prepare_script_path=prepare_script_path,
+            global_env=self.global_env
+        ))
 
     def run_mode_instance_only(self):
         self.logger.info("Running instances...")
@@ -775,38 +743,12 @@ class CliArgs:
         self.run_mode_image()
         self.run_mode_instance_only()
 
-    def run_mode_evaluation(self):
-        self.run_mode_instance()
-        self.logger.info("Running evaluation...")
-        ReportBuilder(
-            mode="evaluation",
-            workdir=self.workdir,
-            output_dir=self.output_dir,
-            specifics=self.specifics,
-            skips=self.skips,
-            raw_dataset_files=None,
-            dataset_files=self.dataset_files,
-            max_workers=self.max_workers,
-            log_dir=self.log_dir,
-            log_level=self.log_level,
-            log_to_console=self.log_to_console,
-        ).run()
-
     def run(self):
-        if self.mode == "image":
-            self.run_mode_image()
-        elif self.mode == "instance_only":
-            self.run_mode_instance_only()
-        elif self.mode == "instance":
-            self.run_mode_instance()
-        elif self.mode == "evaluation":
-            self.run_mode_evaluation()
-        else:
-            raise ValueError(f"Invalid mode: {self.mode}")
+        self.run_mode_instance()
 
 
 if __name__ == "__main__":
-    # Ensure nix_swe container is runningAdd commentMore actions
+    # Ensure nix_swe container is running
     try:
         client = docker.from_env()
         try:
