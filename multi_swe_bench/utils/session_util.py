@@ -243,7 +243,7 @@ async def run_and_build_dockerfile(
             content = f.read()
             install_cmds = [cmd.strip() for cmd in content.split("###ACTION_DELIMITER###") if cmd.strip()]
         logger.info(f"{image_name}/{name}: replay prepare.sh")
-        await run_prepare_cmds(deployment, install_cmds, session_name="eval")
+        await run_prepare_cmds(deployment, install_cmds, session_name="eval", timeout=1800)
         post_env_output = await communicate_async(deployment, look_env_cod, session_name="eval", timeout=60)
 
         post_image_name = image_name.replace("_v1", "_v2")
