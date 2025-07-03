@@ -22,3 +22,4 @@ from multi_swe_bench.harness.repos.python.dssg import *
 from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.falconry import *
 from multi_swe_bench.harness.repos.python.Pyomo import *
+from multi_swe_bench.harness.repos.python.CS_SI import *
