@@ -47,9 +47,8 @@ class ImageBase(Image):
 
 WORKDIR /home/
 
-{code}
-
 {self.global_env}
+
 RUN apt-get update && apt-get install -y \
     git unzip libicu-dev libxml2-dev libzip-dev libonig-dev libpq-dev libjpeg-dev libpng-dev libcurl4-openssl-dev \
     libfreetype6-dev libssl-dev libxslt1-dev zlib1g-dev libpq-dev redis-server libtidy-dev \
@@ -60,6 +59,8 @@ RUN apt-get update && \
     docker-php-ext-install pdo pdo_mysql pdo_pgsql pdo_sqlite mysqli
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+{code}
 
 {self.clear_env}
 
@@ -208,7 +209,7 @@ php -d memory_limit=512M  vendor/bin/phpunit --testdox
 
 
 @Instance.register("doctrine", "dbal")
-class rector(Instance):
+class dbal(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr

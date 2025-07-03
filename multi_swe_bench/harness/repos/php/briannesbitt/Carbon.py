@@ -47,9 +47,8 @@ class ImageBase(Image):
 
 WORKDIR /home/
 
-{code}
-
 {self.global_env}
+
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -67,6 +66,8 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
+
+{code}
 {self.clear_env}
 
 """

@@ -119,10 +119,10 @@ async def communicate_async(
     return r.output
 
 
-async def run_prepare_cmds(deployment: MultiSweBenchDockerDeployment, install_cmds: list[str], session_name: str):
+async def run_prepare_cmds(deployment: MultiSweBenchDockerDeployment, install_cmds: list[str], session_name: str, timeout: int):
     for cmd in install_cmds:
         try:
-            await communicate_async(deployment, cmd, session_name, timeout=7200)
+            await communicate_async(deployment, cmd, session_name, timeout=timeout)
         except Exception as e:
             print(f"Command failed: {cmd}")
             print(f"Error: {e!s}")
@@ -144,7 +144,8 @@ async def run_and_save_logs(
         save_file: Path, 
         inD_save_file: Path,  
         prepare_script_path: Path,
-        global_env: list[str] = None):
+        global_env: list[str] = None,
+        timeout: int = 1800):
     """name: Type of operation (run/test/fix)
     - Start container and initialize swe-rex service
     - Install dependencies from prepare.sh
@@ -161,7 +162,7 @@ async def run_and_save_logs(
         image=image_name,
         port=None,
         docker_args=docker_args,
-        startup_timeout=1800.0,  # 30 minutes
+        startup_timeout=timeout,  
         pull="never", # never pull image
         remove_images=False, # stop container and remove image
         python_standalone_dir=None,
@@ -173,16 +174,16 @@ async def run_and_save_logs(
         logger.info(f"{image_name}/{name}: start container and swe-rex service")
         await deployment.start()
         logger.info(f"{image_name}/{name}: create sessions")
-        await deployment.runtime.create_session(CreateBashSessionRequest(session="eval", startup_source=["/root/.bashrc"], startup_timeout=1200))
+        await deployment.runtime.create_session(CreateBashSessionRequest(session="eval", startup_source=["/root/.bashrc"], startup_timeout=timeout))
         if prepare_script_path is not None:
             logger.info(f"{image_name}/{name}: download prepare.sh")
             with open(prepare_script_path) as f:
                 content = f.read()
                 install_cmds = [cmd.strip() for cmd in content.split("###ACTION_DELIMITER###") if cmd.strip()]
             logger.info(f"{image_name}/{name}: replay prepare.sh")
-            await run_prepare_cmds(deployment, install_cmds, session_name="eval")
+            await run_prepare_cmds(deployment, install_cmds, session_name="eval", timeout=timeout)
         logger.info(f"{image_name}/{name}: run logs")
-        await communicate_async(deployment, test_cmd, session_name="eval", timeout=14400)  # 4h
+        await communicate_async(deployment, test_cmd, session_name="eval", timeout=timeout)  
         logger.info(f"{image_name}/{name}: download logs")
         output = await download_log(deployment, inD_save_file, save_file)
     except Exception as e:

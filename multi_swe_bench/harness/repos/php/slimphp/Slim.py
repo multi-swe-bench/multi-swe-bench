@@ -47,9 +47,8 @@ class ImageBase(Image):
 
 WORKDIR /home/
 
-{code}
-
 {self.global_env}
+
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -62,7 +61,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-
+{code}
 {self.clear_env}
 
 """
@@ -212,7 +211,7 @@ php -d memory_limit=512M  vendor/bin/phpunit --testdox --verbose
 
 
 @Instance.register("slimphp", "Slim")
-class rector(Instance):
+class Slim(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
