@@ -20,3 +20,4 @@ from multi_swe_bench.harness.repos.python.pre_commit import *
 from multi_swe_bench.harness.repos.python.mantidproject import *
 from multi_swe_bench.harness.repos.python.dssg import *
 from multi_swe_bench.harness.repos.python.dask import *
+from multi_swe_bench.harness.repos.python.falconry import *
