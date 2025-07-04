@@ -14,7 +14,13 @@ from multi_swe_bench.harness.repos.python.spyderide import *
 from multi_swe_bench.harness.repos.python.napari import *
 from multi_swe_bench.harness.repos.python.mnetools import *
 from multi_swe_bench.harness.repos.python.facebookresearch import *
-from multi_swe_bench.harness.repos.python.pandas_dev import *
-from multi_swe_bench.harness.repos.python.omry import *
-from multi_swe_bench.harness.repos.python.edgedb import *
+from multi_swe_bench.harness.repos.python.getmoto import *
+from multi_swe_bench.harness.repos.python.pre_commit import *
+from multi_swe_bench.harness.repos.python.mantidproject import *
+from multi_swe_bench.harness.repos.python.dssg import *
 from multi_swe_bench.harness.repos.python.dask import *
+from multi_swe_bench.harness.repos.python.falconry import *
+from multi_swe_bench.harness.repos.python.Pyomo import *
+from multi_swe_bench.harness.repos.python.CS_SI import *
+from multi_swe_bench.harness.repos.python.geopandas import *
+from multi_swe_bench.harness.repos.python.omry import *
