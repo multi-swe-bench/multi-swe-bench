@@ -16,6 +16,7 @@ from multi_swe_bench.harness.repos.python.mnetools import *
 from multi_swe_bench.harness.repos.python.facebookresearch import *
 from multi_swe_bench.harness.repos.python.getmoto import *
 from multi_swe_bench.harness.repos.python.pre_commit import *
+from multi_swe_bench.harness.repos.python.pydantic import *
 from multi_swe_bench.harness.repos.python.mantidproject import *
 from multi_swe_bench.harness.repos.python.dssg import *
 from multi_swe_bench.harness.repos.python.dask import *
