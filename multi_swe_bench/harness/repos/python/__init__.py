@@ -43,7 +43,6 @@ from multi_swe_bench.harness.repos.python.debrief import *
 from multi_swe_bench.harness.repos.python.vprusso import *
 from multi_swe_bench.harness.repos.python.twisted import *
 from multi_swe_bench.harness.repos.python.pydicom import *
-from multi_swe_bench.harness.repos.python.mne_tools import *
 from multi_swe_bench.harness.repos.python.RDFLib import *
 from multi_swe_bench.harness.repos.python.wemake_services import *
 from multi_swe_bench.harness.repos.python.sdv_dev import *
@@ -57,3 +56,5 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.MongoEngine import *
+from multi_swe_bench.harness.repos.python.narwhals_dev import *
