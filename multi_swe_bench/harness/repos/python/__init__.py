@@ -1,4 +1,3 @@
-from multi_swe_bench.harness.repos.python.astropy import *
 from multi_swe_bench.harness.repos.python.django import *
 from multi_swe_bench.harness.repos.python.matplotlib import *
 from multi_swe_bench.harness.repos.python.mwaskom import *
@@ -57,3 +56,6 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.aws import *
+from multi_swe_bench.harness.repos.python.beetbox import *
+from multi_swe_bench.harness.repos.python.aws import *
