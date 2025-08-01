@@ -57,3 +57,11 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.statsmodels import *
+from multi_swe_bench.harness.repos.python.tefra import *
+from multi_swe_bench.harness.repos.python.tefra import *
+from multi_swe_bench.harness.repos.python.statsmodels import *
+from multi_swe_bench.harness.repos.python.tefra import *
+from multi_swe_bench.harness.repos.python.tefra import *
+from multi_swe_bench.harness.repos.python.sunpy import *
+from multi_swe_bench.harness.repos.python.SwissDataScienceCenter import *
