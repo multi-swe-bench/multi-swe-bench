@@ -57,3 +57,7 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.tornadoweb import *
+from multi_swe_bench.harness.repos.python.Unidata import *
+from multi_swe_bench.harness.repos.python.Textualize import *
+from multi_swe_bench.harness.repos.python.uncscode import *
