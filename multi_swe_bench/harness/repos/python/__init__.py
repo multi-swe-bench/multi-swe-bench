@@ -38,7 +38,6 @@ from multi_swe_bench.harness.repos.python.PennyLaneAI import *
 from multi_swe_bench.harness.repos.python.NeurodataWithoutBorders import *
 from multi_swe_bench.harness.repos.python.ubclaunchpad import *
 from multi_swe_bench.harness.repos.python.repobee import *
-from multi_swe_bench.harness.repos.python.microsoft import *
 from multi_swe_bench.harness.repos.python.debrief import *
 from multi_swe_bench.harness.repos.python.vprusso import *
 from multi_swe_bench.harness.repos.python.twisted import *
