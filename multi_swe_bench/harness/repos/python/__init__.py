@@ -59,3 +59,5 @@ from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
+from multi_swe_bench.harness.repos.python.reframe_hpc import *
+from multi_swe_bench.harness.repos.python.reframe_hpc import *
