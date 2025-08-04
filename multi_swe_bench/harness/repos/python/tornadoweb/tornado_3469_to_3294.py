@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,13 +47,17 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip python3-dev
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-pip install -e ".[dev]"
+echo 'python -m tornado.test.runtests -v' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
+cat test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'python -m tornado.test.runtests --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
@@ -64,7 +68,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider
+python -m tornado.test.runtests --verbose
 
 """.format(
                     pr=self.pr
@@ -79,7 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider
+python -m tornado.test.runtests --verbose
 
 """.format(
                     pr=self.pr
@@ -94,7 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider
+python -m tornado.test.runtests --verbose
 
 """.format(
                     pr=self.pr
@@ -113,7 +117,7 @@ pytest --no-header -rA --tb=no -p no:cacheprovider
 
 # Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -130,9 +134,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/uncscode/particula.git /home/particula
+RUN git clone https://github.com/tornadoweb/tornado.git /home/tornado
 
-WORKDIR /home/particula
+WORKDIR /home/tornado
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -142,8 +146,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("uncscode", "particula_600_to_388")
-class PARTICULA_600_TO_388(Instance):
+@Instance.register("tornadoweb", "tornado_3469_to_3294")
+class TORNADO_3469_TO_3294(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -177,33 +181,45 @@ class PARTICULA_600_TO_388(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()
-        failed_tests = set[str]()
-        skipped_tests = set[str]()
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # TODO: Implement the log parsing logic here
-        # Regex patterns for test statuses
-        passed_pattern = re.compile(r'PASSED (.*)')
-        failed_pattern = re.compile(r'FAILED (.*)')
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (.*?):')
-        for line in log.split('\n'):
+        lines = log.split('\n')
+        for i, line in enumerate(lines):
             line = line.strip()
             # Check for passed tests
-            passed_match = passed_pattern.search(line)
-            if passed_match:
-                test_name = passed_match.group(1).strip()
-                passed_tests.add(test_name)
+            if re.search(r'\.\.\.\s*ok$', line):
+                # Check previous line for test name
+                if i > 0:
+                    prev_line = lines[i-1].strip()
+                    prev_match = re.match(r'^\[\s*\d+\]\s*(.*)$', prev_line)
+                    if prev_match:
+                        prev_test = prev_match.group(1).strip()
+                        passed_tests.add(prev_test)
+                        continue
+                # Extract test part from current line if previous line is not a test name
+                current_match = re.match(r'^(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*ok$', line)
+                if current_match:
+                    current_test = current_match.group(1).strip()
+                    passed_tests.add(current_test)
             # Check for failed tests
-            failed_match = failed_pattern.search(line)
-            if failed_match:
-                test_name = failed_match.group(1).strip()
-                failed_tests.add(test_name)
-            # Check for skipped tests
-            skipped_match = skipped_pattern.search(line)
-            if skipped_match:
-                test_name = skipped_match.group(1).strip().split(':')[0]
-                skipped_tests.add(test_name)
+            elif 'FAIL:' in line:
+                fail_match = re.search(r'FAIL:\s*(.*)', line)
+                if fail_match:
+                    test_name = fail_match.group(1).strip()
+                    failed_tests.add(test_name)
+            # Check for skipped tests (lines containing ... skipped)
+            elif re.search(r'\.\.\. skipped', line):
+                test_part = re.sub(r'^\[\s*\d+\]\s*', '', line)
+                test_part = test_part.rsplit('... skipped', 1)[0].strip()
+                if i > 0:
+                    prev_line = lines[i-1].strip()
+                    prev_test_part = re.sub(r'^\[\s*\d+\]\s*', '', prev_line)
+                    if not prev_line.endswith('...'):
+                        skipped_tests.add(prev_test_part)
+                        continue
+                skipped_tests.add(test_part)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

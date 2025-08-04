@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,36 +47,26 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+pip install .
 ###ACTION_DELIMITER###
-pip install -e ".[dev]"
-###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
-###ACTION_DELIMITER###
-cat test_commands.sh
+echo "./runtests.sh -v" > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip list
-###ACTION_DELIMITER###
-pip install numpy==1.26.4
+echo "./runtests.sh --verbose" > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install scipy==1.7.3
-###ACTION_DELIMITER###
-echo 'pytest -v --tb=short' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --tb=short
+./runtests.sh --verbose
 
 """.format(
                     pr=self.pr
@@ -91,7 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --tb=short
+./runtests.sh --verbose
 
 """.format(
                     pr=self.pr
@@ -106,7 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --tb=short
+./runtests.sh --verbose
 
 """.format(
                     pr=self.pr
@@ -123,9 +113,9 @@ pytest -v --tb=short
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:22.04 with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -142,9 +132,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/uncscode/particula.git /home/particula
+RUN git clone https://github.com/tornadoweb/tornado.git /home/tornado
 
-WORKDIR /home/particula
+WORKDIR /home/tornado
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -154,8 +144,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("uncscode", "particula_271_to_unknown")
-class PARTICULA_271_TO_UNKNOWN(Instance):
+@Instance.register("tornadoweb", "tornado_2307_to_2251")
+class TORNADO_2307_TO_2251(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -189,24 +179,19 @@ class PARTICULA_271_TO_UNKNOWN(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
-        for line in lines:
-            # Check for passed tests
-            passed_match = re.match(r'^PASSED (.*?)\s*$', line)
-            if passed_match:
-                passed_tests.add(passed_match.group(1))
-            # Check for failed tests
-            failed_match = re.match(r'^FAILED (.*?)(?: - |$)', line)
-            if failed_match:
-                failed_tests.add(failed_match.group(1))
-            # Check for skipped tests
-            skipped_match = re.match(r'^SKIPPED (.*?)\s*$', line)
-            if skipped_match:
-                skipped_tests.add(skipped_match.group(1))
+        # Parse passed tests (allow leading/trailing spaces)
+        passed_matches = re.findall(r'^\s*(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*ok\s*$', log, re.MULTILINE)
+        passed_tests.update(match.strip() for match in passed_matches)
+        # Parse failed tests (allow leading/trailing spaces)
+        failed_matches = re.findall(r'^\s*(?:\[\s*\d+\]\s*)?(?:FAIL|ERROR):\s*(.*?)\s*$', log, re.MULTILINE)
+        failed_tests.update(match.strip() for match in failed_matches)
+        # Parse skipped tests (allow leading/trailing spaces)
+        skipped_matches = re.findall(r'^\s*(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*skipped', log, re.MULTILINE)
+        skipped_tests.update(match.strip() for match in skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
