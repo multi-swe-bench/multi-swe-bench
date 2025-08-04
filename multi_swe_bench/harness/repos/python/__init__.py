@@ -1,4 +1,3 @@
-from multi_swe_bench.harness.repos.python.astropy import *
 from multi_swe_bench.harness.repos.python.django import *
 from multi_swe_bench.harness.repos.python.matplotlib import *
 from multi_swe_bench.harness.repos.python.mwaskom import *
@@ -63,3 +62,4 @@ from multi_swe_bench.harness.repos.python.agronholm import *
 from multi_swe_bench.harness.repos.python.canonical import *
 from multi_swe_bench.harness.repos.python.googleapis import *
 from multi_swe_bench.harness.repos.python.tefra import *
+from multi_swe_bench.harness.repos.python.beetbox import *
