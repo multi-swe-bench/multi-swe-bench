@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.9-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,48 +47,96 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """sed -i 's/gevent==1.2.2/gevent==21.1.2/' requirements.txt
+                """ls -la
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y build-essential python3-dev libffi-dev libicu-dev
+apt-get update && apt-get install -y python2.7 python-virtualenv python-dev
 ###ACTION_DELIMITER###
-pip3 install -r requirements.txt
+apt-get update && apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa -y && apt-get update && apt-get install -y python2.7 python2.7-dev
 ###ACTION_DELIMITER###
-apt-get install -y pkg-config
+apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python3-openssl git
 ###ACTION_DELIMITER###
-pip3 install -r requirements.txt
+wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz
 ###ACTION_DELIMITER###
-pip3 install Jinja2==2.11.3
+tar xzf Python-2.7.18.tgz
 ###ACTION_DELIMITER###
-echo 'pytest -v tests/' > test_commands.sh && chmod +x test_commands.sh
+cd Python-2.7.18 && ./configure --enable-optimizations
 ###ACTION_DELIMITER###
-bash test_commands.sh
+make
 ###ACTION_DELIMITER###
-pip3 install pytest
+make install
 ###ACTION_DELIMITER###
-bash test_commands.sh
+cd /home/codalab-worksheets
 ###ACTION_DELIMITER###
-pip3 install MarkupSafe==2.0.1
+./setup.sh server
 ###ACTION_DELIMITER###
-pip3 install Werkzeug==0.12.5
+wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
 ###ACTION_DELIMITER###
-pip3 install Werkzeug==0.12.2
+python2.7 get-pip.py
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip2.7 install virtualenv
 ###ACTION_DELIMITER###
-pip3 install freezegun
+./setup.sh server
 ###ACTION_DELIMITER###
-bash test_commands.sh
+ln -s /usr/local/bin/python2.7 /usr/bin/python2.7
 ###ACTION_DELIMITER###
-pip3 install mock
+./setup.sh server
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update && apt-get install -y libmysqlclient-dev
+###ACTION_DELIMITER###
+./setup.sh server
+###ACTION_DELIMITER###
+ln -s /usr/include/mysql/mysql_config.h /usr/include/mysql/my_config.h
+###ACTION_DELIMITER###
+./setup.sh server
+###ACTION_DELIMITER###
+ln -sf /usr/include/mysql/mysql_config.h /usr/include/mysql/my_config.h
+###ACTION_DELIMITER###
+./setup.sh server
+###ACTION_DELIMITER###
+ls /usr/include/mysql
+###ACTION_DELIMITER###
+./venv/bin/pip install MySQL-python==1.2.5 --global-option=build_ext --global-option="-I/usr/include/mysql"
+###ACTION_DELIMITER###
+export CFLAGS="-I/usr/include/mysql" && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+apt-get reinstall -y libmysqlclient-dev && export CFLAGS="-I/usr/include/mysql" && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+cp /usr/include/mysql/mysql_config.h /usr/include/mysql/my_config.h && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+ls /usr/include/mysql
+###ACTION_DELIMITER###
+export CFLAGS="-I/usr/include/mysql" && ./venv/bin/pip install MySQL-python==1.2.5 -v
+###ACTION_DELIMITER###
+apt-get install -y mysql-client && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+find / -name my_config.h 2>/dev/null && export CFLAGS="-I$(dirname $(find / -name my_config.h 2>/dev/null))" && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+mysql_config --include
+###ACTION_DELIMITER###
+./venv/bin/pip install MySQL-python==1.2.5 --global-option=build_ext --global-option="-I/usr/include/mysql"
+###ACTION_DELIMITER###
+ls -l /usr/include/mysql/my_config.h && cat /usr/include/mysql/my_config.h | head -n 10 && echo 'Test compilation...' && echo '#include "my_config.h"' > test.c && gcc -I/usr/include/mysql test.c -o test && echo 'Compilation successful' || echo 'Compilation failed'
+###ACTION_DELIMITER###
+find / -name mysql_config.h 2>/dev/null && ln -sf $(find / -name mysql_config.h 2>/dev/null | head -n 1) /usr/include/mysql/my_config.h
+###ACTION_DELIMITER###
+dpkg -L libmysqlclient-dev | grep mysql_config.h
+###ACTION_DELIMITER###
+echo '#define MYSQL_CONFIG_H' > /usr/include/mysql/my_config.h && ./venv/bin/pip install MySQL-python==1.2.5
+###ACTION_DELIMITER###
+./setup.sh server
+###ACTION_DELIMITER###
+./venv/bin/pip install -r requirements-tests.txt
+###ACTION_DELIMITER###
+echo './venv/bin/nosetests -v tests/' > test_commands.sh
+###ACTION_DELIMITER###
+chmod +x test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v tests/
+./venv/bin/nosetests -v tests/
 
 """.format(
                     pr=self.pr
@@ -103,7 +151,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v tests/
+./venv/bin/nosetests -v tests/
 
 """.format(
                     pr=self.pr
@@ -118,7 +166,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v tests/
+./venv/bin/nosetests -v tests/
 
 """.format(
                     pr=self.pr
@@ -135,9 +183,9 @@ pytest -v tests/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.9-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -154,9 +202,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/CTFd/CTFd.git /home/CTFd
+RUN git clone https://github.com/codalab/codalab-worksheets.git /home/codalab-worksheets
 
-WORKDIR /home/CTFd
+WORKDIR /home/codalab-worksheets
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -166,8 +214,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("CTFd", "CTFd_591_to_unknown")
-class CTFD_591_TO_UNKNOWN(Instance):
+@Instance.register("codalab", "codalab-worksheets_574_to_unknown")
+class CODALAB_WORKSHEETS_574_TO_529(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -201,22 +249,23 @@ class CTFD_591_TO_UNKNOWN(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        # Parse passed tests from execution lines
-        passed_pattern = re.compile(r'(tests/[\w/-]+\.py::[\w-]+)\s+PASSED')
-        passed_matches = passed_pattern.findall(log)
-        passed_tests.update(passed_matches)
-        # Parse failed tests from summary
-        failed_pattern = re.compile(r'FAILED\s+(tests/[\w/-]+\.py::[\w-]+)')
-        failed_matches = failed_pattern.findall(log)
-        failed_tests.update(failed_matches)
-        # Parse skipped tests (if any)
-        skipped_pattern = re.compile(r'(tests/[\w/-]+\.py::[\w-]+)\s+SKIPPED')
-        skipped_matches = skipped_pattern.findall(log)
-        skipped_tests.update(skipped_matches)
+        # Implement the log parsing logic here
+        pattern = re.compile(r'^\s*(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*(\w+)\s*$', re.MULTILINE)  # Handle optional [number] prefix
+        matches = pattern.findall(log)
+        for test_name, status in matches:
+            test_name = test_name.strip()
+            status_lower = status.lower()  # Case-insensitive check
+            if status_lower == 'ok':
+                passed_tests.add(test_name)
+            elif status_lower in ['error', 'failed']:  # Handle ERROR/FAILED
+                failed_tests.add(test_name)
+            elif status_lower in ['skipped', 'skip']:  # Handle skipped tests
+                skipped_tests.add(test_name)
+            # Add handling for other statuses if needed
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
