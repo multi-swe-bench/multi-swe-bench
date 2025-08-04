@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.10-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,65 +49,27 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-apt-get update
+ls requirements
 ###ACTION_DELIMITER###
-apt-get install -y python3 python3-pip
+pip install -r requirements/requirements.txt
 ###ACTION_DELIMITER###
-pip install -r requirements.txt
+find . -name 'tests'
 ###ACTION_DELIMITER###
-python3 -m venv venv
+pip install pytest
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+pytest -v
 ###ACTION_DELIMITER###
-python3 -m venv venv
+pip uninstall -y astropy && pip install astropy==5.3.4
 ###ACTION_DELIMITER###
-source venv/bin/activate
+pytest -v
 ###ACTION_DELIMITER###
-pip install -r requirements.txt
+pip install -e .
 ###ACTION_DELIMITER###
-echo 'venv/bin/pytest -v -rA tests/' > test_commands.sh
+apt-get update && apt-get install -y gcc
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install pytest
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install matplotlib==3.5.3
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install scipy==1.7.3
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install scipy==1.9.3
-###ACTION_DELIMITER###
-apt-get install -y gfortran
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install scipy==1.11.0
-###ACTION_DELIMITER###
-apt-get install -y libopenblas-dev
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install scipy==1.11.0
-###ACTION_DELIMITER###
-apt-get install -y pkg-config
-###ACTION_DELIMITER###
-source venv/bin/activate && export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig/ && pip install scipy==1.11.0
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install scipy==1.12.0
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install porespy
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install chemicals==1.2.0
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install thermo==0.3.0
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-source venv/bin/activate && pip install ipython
+echo 'pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -116,7 +78,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/pytest -v -rA tests/
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -131,7 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/pytest -v -rA tests/
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -146,7 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/pytest -v -rA tests/
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -163,9 +125,9 @@ venv/bin/pytest -v -rA tests/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.10-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -182,9 +144,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/PMEAL/OpenPNM.git /home/OpenPNM
+RUN git clone https://github.com/PlasmaPy/PlasmaPy.git /home/PlasmaPy
 
-WORKDIR /home/OpenPNM
+WORKDIR /home/PlasmaPy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -194,8 +156,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("PMEAL", "OpenPNM_2798_to_2615")
-class OPENPNM_2798_TO_2615(Instance):
+@Instance.register("PlasmaPy", "PlasmaPy_468_to_243")
+class PLASMAPY_468_TO_243(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -233,25 +195,29 @@ class OPENPNM_2798_TO_2615(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Pattern 1: test name followed by status (PASSED, FAILED, ERROR)
-        pattern1 = re.compile(r'(tests/.*?\.py::\w+::\w+) (PASSED|FAILED|ERROR)')
-        # Pattern 2: status (FAILED, ERROR) followed by test name
-        pattern2 = re.compile(r'(FAILED|ERROR) (tests/.*?\.py::\w+::\w+)')
-        # Pattern 3: SKIPPED followed by test name (file or test case)
-        pattern3 = re.compile(r'SKIPPED .*? (tests/.*?\.py(?:::\w+::\w+)?)')
-        # Process pattern1 matches
-        for test_name, status in pattern1.findall(log):
+        # Define regex patterns for test cases
+        pattern1 = re.compile(r'^(.+?)\s+(FAILED|PASSED|SKIPPED)\s+\[\s*\d+%\]$')
+        pattern2 = re.compile(r'^(FAILED|PASSED|SKIPPED)\s+(.+?)(?:\s+-.*)?$')
+        # Split log into lines and process each line
+        for line in log.splitlines():
+            line = line.strip()
+            match1 = pattern1.match(line)
+            match2 = pattern2.match(line)
+            if match1:
+                test_name = match1.group(1).strip()
+                status = match1.group(2)
+            elif match2:
+                status = match2.group(1)
+                test_name = match2.group(2).strip()
+            else:
+                continue
+            # Categorize the test based on status
             if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status in ['FAILED', 'ERROR']:
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
-        # Process pattern2 matches
-        for status, test_name in pattern2.findall(log):
-            if status in ['FAILED', 'ERROR']:
-                failed_tests.add(test_name)
-        # Process pattern3 matches
-        for test_name in pattern3.findall(log):
-            skipped_tests.add(test_name)
+            elif status == 'SKIPPED':
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
