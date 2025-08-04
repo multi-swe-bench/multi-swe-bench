@@ -84,3 +84,4 @@ from multi_swe_bench.harness.repos.python.qiboteam import *
 from multi_swe_bench.harness.repos.python.uncscode import *
 from multi_swe_bench.harness.repos.python.MongoEngine import *
 from multi_swe_bench.harness.repos.python.PMEAL import *
+from multi_swe_bench.harness.repos.python.onicagroup import *

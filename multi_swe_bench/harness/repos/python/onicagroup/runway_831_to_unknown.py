@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,60 +47,77 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """apt-get update && apt-get install -y libopenblas-dev cython3
+                """ls
 ###ACTION_DELIMITER###
-pip install -e .[test]
+python3 --version
 ###ACTION_DELIMITER###
-apt-get install -y python3-pip
+apt-get update && apt-get install -y python3 python3-pip python3-dev
 ###ACTION_DELIMITER###
-pip install -e .[test]
+python3 --version
 ###ACTION_DELIMITER###
-pip install --upgrade cython
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-pip install -e .[test]
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-pip install --upgrade numpy
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-apt-get install -y g++ cmake mpich libhdf5-dev libopenblas-dev
+export PATH="/root/.local/bin:$PATH"
 ###ACTION_DELIMITER###
-mkdir -p build && cd build && cmake .. && make
+poetry install
 ###ACTION_DELIMITER###
-pip install -e .[test]
+apt-get install -y libffi-dev
 ###ACTION_DELIMITER###
-cd ..
+poetry install
 ###ACTION_DELIMITER###
-pip install -e .[test]
+poetry run pip install cython
 ###ACTION_DELIMITER###
-apt remove -y cython3
+sed -i 's/pyyaml = "^5"/pyyaml = "^6.0.1"/' pyproject.toml && poetry lock && poetry install
 ###ACTION_DELIMITER###
-pip install cython==0.29.36
+sed -i 's/troposphere = "^2.4"/troposphere = ">=3.0.0"/' pyproject.toml && poetry lock && poetry install
 ###ACTION_DELIMITER###
-pip install -e .[test]
-###ACTION_DELIMITER###
-./tools/ci/download-xs.sh
-###ACTION_DELIMITER###
-apt-get install -y wget
-###ACTION_DELIMITER###
-./tools/ci/download-xs.sh
-###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
-###ACTION_DELIMITER###
-
-###ACTION_DELIMITER###
-cat test_commands.sh
+echo 'poetry run pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install scipy==1.9.3
-###ACTION_DELIMITER###
-echo 'export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
-pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
+sed -i 's/pytest = "^6.2"/pytest = "^7.4"/' pyproject.toml && poetry lock && poetry install
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
-export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
-pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
+sed -i '/\[tool.poetry.dev-dependencies\]/a py = "^1.11.0"' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i '/\[tool.poetry.dev-dependencies\]/a apipkg = "^3.0.0"' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/py = "^1.11.0"/py = "^1.12.0"/' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+rm -rf .venv && poetry install
+###ACTION_DELIMITER###
+poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/py = "^1.12.0"/py = "^1.11.0"/' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i '/apipkg = "^3.0.0"/d' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/\[tool.poetry.dev-dependencies\]/\[tool.poetry.group.dev.dependencies\]/' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/py = "^1.11.0"/py = "^1.12.0"/' pyproject.toml && rm -f poetry.lock && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/py = "^1.12.0"/py = "^1.11.0"/' pyproject.toml && rm -f poetry.lock && poetry lock && poetry install
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/jinja2 = "^2.7"/jinja2 = "^3.0"/' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i '/\[tool.poetry.group.dev.dependencies\]/a testfixtures = "^6.18.0"' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i 's/testfixtures = ".*"/testfixtures = "^6.18.0"/' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+sed -i -e '/\[tool.poetry.group.dev.dependencies\]/,/^\[.*\]/ s/^testfixtures = .*//' -e '/\[tool.poetry.group.dev.dependencies\]/a testfixtures = "^6.18.0"' pyproject.toml && poetry lock && poetry install
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/moto = { version = "^2.0"/moto = { version = "^4.0"/' pyproject.toml && poetry lock && poetry install
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -109,9 +126,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
-export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
-pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
+poetry run pytest -v
 
 """.format(
                     pr=self.pr
@@ -126,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
-export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
-pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
+poetry run pytest -v
 
 """.format(
                     pr=self.pr
@@ -143,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
-export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
-pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
+poetry run pytest -v
 
 """.format(
                     pr=self.pr
@@ -162,9 +173,9 @@ pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:22.04 with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -181,9 +192,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/openmc-dev/openmc.git /home/openmc
+RUN git clone https://github.com/onicagroup/runway.git /home/runway
 
-WORKDIR /home/openmc
+WORKDIR /home/runway
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -193,8 +204,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("openmc-dev", "openmc_1232_to_1042")
-class OPENMC_1232_TO_1042(Instance):
+@Instance.register("onicagroup", "runway_831_to_unknown")
+class RUNWAY_831_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -228,37 +239,25 @@ class OPENMC_1232_TO_1042(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        # Split log into lines
-        lines = log.splitlines()
-        # Regex patterns to match test cases
-        pattern1 = re.compile(r'(tests/[^ ]+) (PASSED|FAILED|SKIPPED)\b')
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\b (tests/[^ ]+)')
-        for line in lines:
-            # Check pattern 1: test name followed by status
-            match = pattern1.search(line)
-            if match:
-                test_name = match.group(1).strip()
-                status = match.group(2)
-            else:
-                # Check pattern 2: status followed by test name
-                match = pattern2.search(line)
-                if match:
-                    status = match.group(1)
-                    test_name = match.group(2).strip()
-                else:
-                    continue  # No match, skip line
-            # Add test to the appropriate set
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # TODO: Implement the parse_log function
+        # Implement the log parsing logic here
+        # Permissive regex with positive lookahead
+        passed_pattern = re.compile(r'(tests/.+?)(?=\s+PASSED)', re.MULTILINE)
+        failed_pattern = re.compile(r'(tests/.+?)(?=\s+FAILED)', re.MULTILINE)
+        error_pattern = re.compile(r'ERROR\s+(tests/.+?)(?=\s+-)', re.MULTILINE)
+        skipped_pattern = re.compile(r'(tests/.+?)(?=\s+SKIPPED)', re.MULTILINE)
+        # Extract test names for each status
+        passed_tests = set(passed_pattern.findall(log))
+        failed_tests = set(failed_pattern.findall(log))
+        error_tests = set(error_pattern.findall(log))
+        skipped_tests = set(skipped_pattern.findall(log))
+        # Combine error tests into failed_tests
+        failed_tests.update(error_tests)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
