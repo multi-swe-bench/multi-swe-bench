@@ -47,28 +47,24 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """pip install -e .
 ###ACTION_DELIMITER###
-bash scripts/ci/install
-###ACTION_DELIMITER###
-python scripts/ci/install
-###ACTION_DELIMITER###
-python scripts/ci/run-tests
+apt-get update && apt-get install -y gcc python3-dev
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-python scripts/ci/run-tests
+python setup.py test --offline
 ###ACTION_DELIMITER###
-echo 'python scripts/ci/run-tests' > test_commands.sh
+echo 'python setup.py test --offline' > /home/biopython/test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python scripts/ci/run-tests
+python setup.py test --offline
 
 """.format(
                     pr=self.pr
@@ -83,7 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python scripts/ci/run-tests
+python setup.py test --offline
 
 """.format(
                     pr=self.pr
@@ -98,7 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python scripts/ci/run-tests
+python setup.py test --offline
 
 """.format(
                     pr=self.pr
@@ -115,7 +111,7 @@ python scripts/ci/run-tests
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -134,9 +130,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/aws/aws-cli.git /home/aws-cli
+RUN git clone https://github.com/biopython/biopython.git /home/biopython
 
-WORKDIR /home/aws-cli
+WORKDIR /home/biopython
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -146,8 +142,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("aws", "aws-cli_7796_to_unknown")
-class AWS_CLI_7796_TO_UNKNOWN(Instance):
+@Instance.register("biopython", "biopython_4560_to_4014")
+class BIOPYTHON_4560_TO_4014(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -181,40 +177,25 @@ class AWS_CLI_7796_TO_UNKNOWN(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
+        import re
         # Split log into lines and process each line
-        for line in log.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            # Split line into parts (handles multiple spaces)
-            parts = line.split()
-            # Look for status in parts
-            status = None
-            test_name_parts = []
-            # Check if first part is a status (summary line)
-            if parts[0].startswith(('PASSED', 'FAILED', 'SKIPPED')):
-                status = parts[0].split('[')[0]
-                test_name_parts = parts[1:]
-            else:
-                # Look for status in subsequent parts (regular line)
-                for i, part in enumerate(parts):
-                    if part.startswith(('PASSED', 'FAILED', 'SKIPPED')):
-                        status = part.split('[')[0]
-                        test_name_parts = parts[:i]
-                        break
-            if status:
-                test_name = ' '.join(test_name_parts).strip()
-                if status == 'PASSED':
+        for line in log.splitlines():
+            if '...' in line:
+                # Split line into test part (before ...) and status part (after ...)
+                test_part, status_part = line.split('...', 1)
+                # Extract test name by removing line number prefix
+                test_name = re.sub(r'^\[\s*\d+\]\s*', '', test_part).strip()
+                # Extract status
+                status = status_part.strip()
+                if status == 'ok':
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == 'FAIL':
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif 'skip' in status.lower():
                     skipped_tests.add(test_name)
-            else:
-                print("No status found in line")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

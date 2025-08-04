@@ -91,3 +91,5 @@ from multi_swe_bench.harness.repos.python.codalab import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
 from multi_swe_bench.harness.repos.python.PlasmaPy import *
 from multi_swe_bench.harness.repos.python.aesara_devs import *
+from multi_swe_bench.harness.repos.python.biopython import *
+
