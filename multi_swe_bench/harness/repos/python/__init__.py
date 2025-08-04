@@ -61,3 +61,4 @@ from multi_swe_bench.harness.repos.python.reframe_hpc import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
 from multi_swe_bench.harness.repos.python.reframe_hpc import *
+from multi_swe_bench.harness.repos.python.rigetti import *
