@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,20 +49,26 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[test]
+bash scripts/ci/install
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y build-essential
+python scripts/ci/install
 ###ACTION_DELIMITER###
-pip install -e .[test]
+python scripts/ci/run-tests
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh"""
+pip install -e .
+###ACTION_DELIMITER###
+python scripts/ci/run-tests
+###ACTION_DELIMITER###
+echo 'python scripts/ci/run-tests' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v
+python scripts/ci/run-tests
 
 """.format(
                     pr=self.pr
@@ -77,7 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v
+python scripts/ci/run-tests
 
 """.format(
                     pr=self.pr
@@ -92,7 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v
+python scripts/ci/run-tests
 
 """.format(
                     pr=self.pr
@@ -109,9 +115,9 @@ pytest -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -128,9 +134,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/beetbox/beets.git /home/beets
+RUN git clone https://github.com/aws/aws-cli.git /home/aws-cli
 
-WORKDIR /home/beets
+WORKDIR /home/aws-cli
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,8 +146,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("beetbox", "beets_4374_to_3844")
-class BEETS_4374_TO_3844(Instance):
+@Instance.register("aws", "aws-cli_7796_to_unknown")
+class AWS_CLI_7796_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -175,42 +181,40 @@ class BEETS_4374_TO_3844(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
-        import re
-        import json
-        # Regex patterns to match test lines
-        # Pattern for execution lines (test name followed by status)
-        execution_pattern = re.compile(
-            r'^(test/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[.*?\]',
-            re.MULTILINE
-        )
-        # Pattern for summary lines (status followed by test name)
-        summary_pattern = re.compile(
-            r'^(FAILED|SKIPPED|PASSED)\s+(test/.*?)(?:\s+-.*)?$',
-            re.MULTILINE
-        )
-        # Extract matches from execution lines
-        execution_matches = execution_pattern.findall(log)
-        for test_name, status in execution_matches:
-            status = status.upper()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-        # Extract matches from summary lines
-        summary_matches = summary_pattern.findall(log)
-        for status, test_name in summary_matches:
-            status = status.upper()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        passed_tests = set() # Tests that passed successfully
+        failed_tests = set() # Tests that failed
+        skipped_tests = set() # Tests that were skipped
+        # Split log into lines and process each line
+        for line in log.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            # Split line into parts (handles multiple spaces)
+            parts = line.split()
+            # Look for status in parts
+            status = None
+            test_name_parts = []
+            # Check if first part is a status (summary line)
+            if parts[0].startswith(('PASSED', 'FAILED', 'SKIPPED')):
+                status = parts[0].split('[')[0]
+                test_name_parts = parts[1:]
+            else:
+                # Look for status in subsequent parts (regular line)
+                for i, part in enumerate(parts):
+                    if part.startswith(('PASSED', 'FAILED', 'SKIPPED')):
+                        status = part.split('[')[0]
+                        test_name_parts = parts[:i]
+                        break
+            if status:
+                test_name = ' '.join(test_name_parts).strip()
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'FAILED':
+                    failed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
+            else:
+                print("No status found in line")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,64 +47,40 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """apt-get update
+                """ls -l
 ###ACTION_DELIMITER###
-ls
+ls tests
 ###ACTION_DELIMITER###
-pip install .
+echo -e '#!/bin/bash
+cd tests && nosetests --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml -v unit/ functional/' > test_commands.sh
 ###ACTION_DELIMITER###
-pip install nose mock pylast flask responses pyechonest rarfile
+chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-echo 'nosetests -v' > test_commands.sh
+./test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh
+sed -i 's/git:\/\/github.com/https:\/\/github.com/g' requirements.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh
+./scripts/ci/install
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -v' > test_commands.sh
+sed -i 's/git:\/\/github.com/git+https:\/\/github.com/g' requirements.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh
+./scripts/ci/install
 ###ACTION_DELIMITER###
-ls test
+sed -i 's/https:\/\/github.com/git+https:\/\/github.com/g' requirements.txt
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -s test -t . -v' > test_commands.sh
+grep github.com requirements.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh
+./scripts/ci/install
 ###ACTION_DELIMITER###
-echo 'PYTHONPATH=test python -m unittest discover -s test -t . -v' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-apt-get install -y python2.7 python2.7-dev
-###ACTION_DELIMITER###
-apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
-###ACTION_DELIMITER###
-git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-###ACTION_DELIMITER###
-export PYENV_ROOT="$HOME/.pyenv" && export PATH="$PYENV_ROOT/bin:$PATH" && eval "$(pyenv init -)"
-###ACTION_DELIMITER###
-pyenv install 2.7.18
-###ACTION_DELIMITER###
-pyenv local 2.7.18
-###ACTION_DELIMITER###
-pip install .
-###ACTION_DELIMITER###
-pip install nose mock pylast flask responses pyechonest rarfile
-###ACTION_DELIMITER###
-echo 'nosetests -v' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip uninstall -y munkres && pip install munkres==1.0.12
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+./test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-nosetests -v
+#!/bin/bash
+cd tests && nosetests --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml -v unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -119,7 +95,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-nosetests -v
+#!/bin/bash
+cd tests && nosetests --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml -v unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -134,7 +111,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-nosetests -v
+#!/bin/bash
+cd tests && nosetests --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml -v unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -151,9 +129,9 @@ nosetests -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -170,9 +148,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/beetbox/beets.git /home/beets
+RUN git clone https://github.com/aws/aws-cli.git /home/aws-cli
 
-WORKDIR /home/beets
+WORKDIR /home/aws-cli
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -182,8 +160,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("beetbox", "beets_918_to_579")
-class BEETS_918_TO_579(Instance):
+@Instance.register("aws", "aws-cli_3684_to_unknown")
+class AWS_CLI_3684_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -217,28 +195,34 @@ class BEETS_918_TO_579(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        # Parse the log content using regex
-        pattern = re.compile(r'^\s*(?:\[\s*\d+\s*\]\s*)?([^\(]+?)(?:\s*\(.*?\))?\s*\.\.\.\s*(\w+).*$')
-        test_status = {}
-        for line in log.splitlines():
-            line = line.strip()
-            match = pattern.match(line)
-            if match:
-                test_name = match.group(1).strip().split('(')[0].strip()
-                status = match.group(2)
-                test_status[test_name] = status  # Track latest status
-        for test_name, status in test_status.items():
-            status_lower = status.lower()
-            if status_lower in ('ok', 'passed'):
+        # TODO: Implement the parse_log function
+        # Implement the log parsing logic here
+        # Regex pattern to match test lines in two formats:
+        # 1. 'test_name ... status'
+        # 2. 'status: test_name'
+        pattern = r'^(test_.+?)\s+\.\.\.\s+(\w+)(?::.*)?|(\w+):\s+(test_.+)$'
+        matches = re.findall(pattern, log, re.MULTILINE)
+        for match in matches:
+            test_name = ""
+            status = ""
+            if match[0] and match[1]:
+                test_name = match[0].strip()
+                status = match[1].upper()
+            elif match[2] and match[3]:
+                test_name = match[3].strip()
+                status = match[2].upper()
+            else:
+                continue
+            if status == 'OK':
                 passed_tests.add(test_name)
-            elif status_lower in ('failed', 'error', 'fail'):
+            elif status in ('ERROR', 'FAIL'):
                 failed_tests.add(test_name)
-            elif status_lower in ('skip', 'skipped'):
+            elif status == 'SKIP':
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,

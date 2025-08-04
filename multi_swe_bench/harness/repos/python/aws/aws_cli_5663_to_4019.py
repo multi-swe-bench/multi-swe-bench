@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,38 +47,30 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y curl
+python scripts/ci/install
 ###ACTION_DELIMITER###
-curl -sSL https://install.python-poetry.org | python3 -
+sed -i 's/git:\/\/github.com\/boto\//https:\/\/github.com\/boto\//g' requirements.txt
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH"
+python scripts/ci/install
 ###ACTION_DELIMITER###
-poetry install
+sed -i 's/https:\/\/github.com\/boto\//git+https:\/\/github.com\/boto\//g' requirements.txt
 ###ACTION_DELIMITER###
-echo 'poetry run poe test' > test_commands.sh
+python scripts/ci/install
 ###ACTION_DELIMITER###
-bash test_commands.sh
+echo -e 'cd tests
+nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/' > test_commands.sh
 ###ACTION_DELIMITER###
-poetry add --dev poethepoet
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-poetry add langdetect
-###ACTION_DELIMITER###
-poetry install
-###ACTION_DELIMITER###
-poetry add --dev langdetect
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-poetry run poe test
+cd tests
+nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -93,7 +85,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run poe test
+cd tests
+nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -108,7 +101,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run poe test
+cd tests
+nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
 """.format(
                     pr=self.pr
@@ -125,9 +119,9 @@ poetry run poe test
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -144,9 +138,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/beetbox/beets.git /home/beets
+RUN git clone https://github.com/aws/aws-cli.git /home/aws-cli
 
-WORKDIR /home/beets
+WORKDIR /home/aws-cli
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -156,8 +150,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("beetbox", "beets_5791_to_5457")
-class BEETS_5791_TO_5457(Instance):
+@Instance.register("aws", "aws-cli_5663_to_unknown")
+class AWS_CLI_5663_TO_4019(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -191,33 +185,33 @@ class BEETS_5791_TO_5457(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set() # Tests that passed successfully
+        failed_tests = set() # Tests that failed
+        skipped_tests = set() # Tests that were skipped
         import re
-        # TODO: Implement the parse_log function
-        # Extract test results from progress lines (each char represents a test)
-        progress_pattern = re.compile(r'(test/.*?\.py) ([\.sFx]+)', re.MULTILINE)
-        for match in progress_pattern.finditer(log):
-            test_file = match.group(1)
-            results = match.group(2)
-            for i, char in enumerate(results, start=1):
-                test_name = f"{test_file}::test_{i}"
-                if char == '.':
+        # Parse log lines to extract test names and statuses
+        for line in log.splitlines():
+            line = line.strip()
+            # Split into test part and status part using flexible spacing around ...
+            split_result = re.split(r'\s*\.\.\.\s*', line, 1)
+            if len(split_result) == 2:
+                test_part, status_part = split_result
+                # Extract test name by removing the leading [number] prefix
+                test_name = re.sub(r'^\[\s*\d+\s*\]\s*', '', test_part)
+                # Extract status (first word in status part)
+                # Extract status keyword from status_part
+                status_match = re.search(r'(ok|skip|skipped|failed|failure|error|errors|fail)', status_part.lower())
+                if not status_match:
+                    continue
+                status = status_match.group(0)
+                if status == 'ok':
                     passed_tests.add(test_name)
-                elif char == 's':
+                # Handle skipped/skip statuses
+                elif status in ['skip', 'skipped']:
                     skipped_tests.add(test_name)
-                elif char == 'F':
+                # Handle failed/failure/error statuses
+                elif status in ['failed', 'failure', 'error', 'errors', 'fail']:
                     failed_tests.add(test_name)
-                elif char == 'x':
-                    failed_tests.add(test_name)
-        # Refine with explicit failure/skip/xfail details (overwrite generated names if needed)
-        explicit_skipped_pattern = re.compile(r'SKIPPED \[\d+\] (test/.*?):', re.MULTILINE)
-        skipped_tests.update(explicit_skipped_pattern.findall(log))
-        explicit_failed_pattern = re.compile(r'FAILED (test/.*?) - ', re.MULTILINE)
-        failed_tests.update(explicit_failed_pattern.findall(log))
-        explicit_xfail_pattern = re.compile(r'XFAIL (test/.*?) -', re.MULTILINE)
-        failed_tests.update(explicit_xfail_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

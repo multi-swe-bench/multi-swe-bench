@@ -86,3 +86,4 @@ from multi_swe_bench.harness.repos.python.MongoEngine import *
 from multi_swe_bench.harness.repos.python.PMEAL import *
 from multi_swe_bench.harness.repos.python.onicagroup import *
 from multi_swe_bench.harness.repos.python.tornadoweb import *
+from multi_swe_bench.harness.repos.python.aws import *
