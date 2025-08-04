@@ -62,3 +62,4 @@ from multi_swe_bench.harness.repos.python.cekit import *
 from multi_swe_bench.harness.repos.python.agronholm import *
 from multi_swe_bench.harness.repos.python.canonical import *
 from multi_swe_bench.harness.repos.python.googleapis import *
+from multi_swe_bench.harness.repos.python.tefra import *
