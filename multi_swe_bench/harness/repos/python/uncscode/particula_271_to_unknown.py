@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "ubuntu:22.04"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,15 +49,25 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -la
 ###ACTION_DELIMITER###
-ls -la .github
+apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-ls -la .github/workflows
+pip install -e ".[dev]"
 ###ACTION_DELIMITER###
-pip install poetry==1.7.1
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-poetry install --no-interaction --extras syntax
+cat test_commands.sh
 ###ACTION_DELIMITER###
-echo 'poetry run pytest tests -v --cov=./src/textual --cov-report=xml:./coverage.xml --cov-report term-missing' > test_commands.sh
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip list
+###ACTION_DELIMITER###
+pip install numpy==1.26.4
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install scipy==1.7.3
+###ACTION_DELIMITER###
+echo 'pytest -v --tb=short' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -66,7 +76,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-poetry run pytest tests -v --cov=./src/textual --cov-report=xml:./coverage.xml --cov-report term-missing
+pytest -v --tb=short
 
 """.format(
                     pr=self.pr
@@ -81,7 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run pytest tests -v --cov=./src/textual --cov-report=xml:./coverage.xml --cov-report term-missing
+pytest -v --tb=short
 
 """.format(
                     pr=self.pr
@@ -96,7 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run pytest tests -v --cov=./src/textual --cov-report=xml:./coverage.xml --cov-report term-missing
+pytest -v --tb=short
 
 """.format(
                     pr=self.pr
@@ -113,9 +123,9 @@ poetry run pytest tests -v --cov=./src/textual --cov-report=xml:./coverage.xml -
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:22.04 with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -132,9 +142,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/Textualize/textual.git /home/textual
+RUN git clone https://github.com/uncscode/particula.git /home/particula
 
-WORKDIR /home/textual
+WORKDIR /home/particula
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -144,8 +154,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Textualize", "textual_4744_to_3140")
-class TEXTUAL_4744_TO_3140(Instance):
+@Instance.register("uncscode", "particula_271_to_unknown")
+class PARTICULA_271_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -183,35 +193,20 @@ class TEXTUAL_4744_TO_3140(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # Regex patterns to match test lines
-        # Pattern 1: test name followed by status and percentage (e.g., "tests/... PASSED [  0%]")
-        pattern1 = re.compile(r'^\s*(tests/.*?)\s+(PASSED|FAILED|SKIPPED|XFAILED)\s+\[\s*\d+%\]\s*$', re.IGNORECASE)
-        # Pattern 2: status followed by test name (e.g., "FAILED tests/...")
-        pattern2 = re.compile(r'^\s*(PASSED|FAILED|SKIPPED|XFAILED)\s+(tests/[^-]+?)\s*$', re.IGNORECASE)
-        for line in log.split('\n'):
-            line = line.strip()
-            match = pattern1.match(line)
-            if match:
-                test_name = match.group(1).strip()
-                status = match.group(2).upper()
-            else:
-                match = pattern2.match(line)
-                if match:
-                    status = match.group(1).upper()
-                    test_name = match.group(2).strip()
-                else:
-                    continue  # No match, skip
-            # Categorize the test based on status
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-            elif status == 'XFAILED':
-                # Handle XFAILED as needed; here, we'll add to failed_tests
-                failed_tests.add(test_name)
+        lines = log.split('\n')
+        for line in lines:
+            # Check for passed tests
+            passed_match = re.match(r'^PASSED (.*?)\s*$', line)
+            if passed_match:
+                passed_tests.add(passed_match.group(1))
+            # Check for failed tests
+            failed_match = re.match(r'^FAILED (.*?)(?: - |$)', line)
+            if failed_match:
+                failed_tests.add(failed_match.group(1))
+            # Check for skipped tests
+            skipped_match = re.match(r'^SKIPPED (.*?)\s*$', line)
+            if skipped_match:
+                skipped_tests.add(skipped_match.group(1))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

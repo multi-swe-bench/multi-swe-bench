@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "ubuntu:22.04"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,43 +47,15 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install "textual[dev]"
+apt-get update && apt-get install -y python3 python3-pip python3-dev
 ###ACTION_DELIMITER###
-echo 'pytest --cov-report term-missing --cov=textual tests/ -vv' > test_commands.sh
+pip install -e ".[dev]"
+###ACTION_DELIMITER###
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install pytest
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install pytest-cov
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install click jinja2
-###ACTION_DELIMITER###
-pip install -e .
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install aiohttp syrupy
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install msgpack
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install time-machine
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install pytest-asyncio
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -92,7 +64,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --cov-report term-missing --cov=textual tests/ -vv
+pytest --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -107,7 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --cov-report term-missing --cov=textual tests/ -vv
+pytest --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -122,7 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --cov-report term-missing --cov=textual tests/ -vv
+pytest --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -139,9 +111,9 @@ pytest --cov-report term-missing --cov=textual tests/ -vv
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -158,9 +130,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/Textualize/textual.git /home/textual
+RUN git clone https://github.com/uncscode/particula.git /home/particula
 
-WORKDIR /home/textual
+WORKDIR /home/particula
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -170,8 +142,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Textualize", "textual_1659_to_88")
-class TEXTUAL_1659_TO_88(Instance):
+@Instance.register("uncscode", "particula_600_to_388")
+class PARTICULA_600_TO_388(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -205,28 +177,33 @@ class TEXTUAL_1659_TO_88(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set[str]()
+        failed_tests = set[str]()
+        skipped_tests = set[str]()
         import re
         import json
-        # Regex pattern to match test lines with status
-        pattern = r'(tests/[^:]+::[^\s]+)\s+(PASSED|FAILED|ERROR|SKIPPED)|(PASSED|FAILED|ERROR|SKIPPED)\s+(tests/[^:]+::[^\s]+)'
-        for line in log.splitlines():
-            match = re.search(pattern, line)
-            if not match:
-                continue
-            test = match.group(1) or match.group(4)
-            status = match.group(2) or match.group(3)
-            if not (test and status):
-                continue  # no match
-            # Normalize status to determine which set to add to
-            if status == 'PASSED':
-                passed_tests.add(test)
-            elif status in ['FAILED', 'ERROR']:
-                failed_tests.add(test)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test)
+        # TODO: Implement the log parsing logic here
+        # Regex patterns for test statuses
+        passed_pattern = re.compile(r'PASSED (.*)')
+        failed_pattern = re.compile(r'FAILED (.*)')
+        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (.*?):')
+        for line in log.split('\n'):
+            line = line.strip()
+            # Check for passed tests
+            passed_match = passed_pattern.search(line)
+            if passed_match:
+                test_name = passed_match.group(1).strip()
+                passed_tests.add(test_name)
+            # Check for failed tests
+            failed_match = failed_pattern.search(line)
+            if failed_match:
+                test_name = failed_match.group(1).strip()
+                failed_tests.add(test_name)
+            # Check for skipped tests
+            skipped_match = skipped_pattern.search(line)
+            if skipped_match:
+                test_name = skipped_match.group(1).strip().split(':')[0]
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

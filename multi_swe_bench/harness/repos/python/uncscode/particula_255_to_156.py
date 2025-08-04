@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "ubuntu:22.04"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,30 +47,34 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y curl
+apt-get update && apt-get install -y build-essential python3-dev libopenblas-dev
 ###ACTION_DELIMITER###
-curl -sSL https://install.python-poetry.org | python3 -
+ls -la particula
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH"
+pip install -e ".[dev]"
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y make
+pip3 install -e ".[dev]"
 ###ACTION_DELIMITER###
-make setup
+apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-make test
+pip3 install -e ".[dev]"
 ###ACTION_DELIMITER###
-echo 'poetry run pytest tests/ -v -n 16 --dist=loadgroup' > test_commands.sh
+echo 'pytest -v particula/tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/alpha=cutoff/cutoff/' particula/util/radius_cutoff.py
+###ACTION_DELIMITER###
+bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-poetry run pytest tests/ -v -n 16 --dist=loadgroup
+pytest -v particula/tests
 
 """.format(
                     pr=self.pr
@@ -85,7 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run pytest tests/ -v -n 16 --dist=loadgroup
+pytest -v particula/tests
 
 """.format(
                     pr=self.pr
@@ -100,7 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run pytest tests/ -v -n 16 --dist=loadgroup
+pytest -v particula/tests
 
 """.format(
                     pr=self.pr
@@ -117,9 +121,9 @@ poetry run pytest tests/ -v -n 16 --dist=loadgroup
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -136,9 +140,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/Textualize/textual.git /home/textual
+RUN git clone https://github.com/uncscode/particula.git /home/particula
 
-WORKDIR /home/textual
+WORKDIR /home/particula
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -148,8 +152,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Textualize", "textual_5828_to_4772")
-class TEXTUAL_5828_TO_4772(Instance):
+@Instance.register("uncscode", "particula_255_to_156")
+class PARTICULA_255_TO_156(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -183,20 +187,25 @@ class TEXTUAL_5828_TO_4772(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Use regex to find all test results
-        pattern = re.compile(r' (PASSED|FAILED|SKIPPED) (tests/[^ ]+)')
-        matches = pattern.findall(log)
-        for status, test_name in matches:
+        # Parse test lines with status
+        test_pattern = re.compile(r'^(particula/tests/[\w/]+?\.py::\w+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%]', re.MULTILINE)
+        matches = test_pattern.findall(log)
+        for test_name, status in matches:
             if status == 'PASSED':
                 passed_tests.add(test_name)
             elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
+        # Parse summary for failed tests
+        summary_pattern = re.compile(r'FAILED (particula/tests/[\w/]+?\.py::\w+)', re.MULTILINE)
+        failed_matches = summary_pattern.findall(log)
+        for test_name in failed_matches:
+            failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
