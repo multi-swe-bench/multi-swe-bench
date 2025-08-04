@@ -47,32 +47,22 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -r requirements.txt
+pip install -e .
 ###ACTION_DELIMITER###
-pip install behave docker future lxml mock pytest pytest-cov pytest-mock
+pip install -e ".[testing]" pytest pytest-xdist typing_extensions jsonpatch
 ###ACTION_DELIMITER###
-echo 'pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml' > test_commands.sh
+echo 'pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native' > test_commands.sh
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-mkdir -p target
-pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml' > test_commands.sh
-###ACTION_DELIMITER###
-cat test_commands.sh
-###ACTION_DELIMITER###
-chmod +x test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-mkdir -p target
-pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
+pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
 """.format(
                     pr=self.pr
@@ -87,9 +77,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-mkdir -p target
-pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
+pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
 """.format(
                     pr=self.pr
@@ -104,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-mkdir -p target
-pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
+pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
 """.format(
                     pr=self.pr
@@ -142,9 +128,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/cekit/cekit.git /home/cekit
+RUN git clone https://github.com/canonical/operator.git /home/operator
 
-WORKDIR /home/cekit
+WORKDIR /home/operator
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -154,8 +140,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("cekit", "cekit_178_to_1")
-class CEKIT_178_TO_1(Instance):
+@Instance.register("canonical", "operator_1624_to_1326")
+class OPERATOR_1624_TO_1326(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -189,34 +175,22 @@ class CEKIT_178_TO_1(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
-        import sys
-        # Extract passed tests from execution lines
-        passed_pattern = re.compile(r'(tests/.*?) PASSED\s+\[')
-        passed_tests = set(passed_pattern.findall(log))
-        # Extract failed tests from summary lines
-        failed_pattern = re.compile(r'FAILED (tests/.*?) -')
-        failed_tests = set(failed_pattern.findall(log))
-        # Extract skipped tests from both execution and summary lines
-        skipped_pattern_exec = re.compile(r'(tests/.*?) SKIPPED \[')
-        skipped_pattern_sum = re.compile(r'SKIPPED (tests/.*?) -')
-        skipped_tests = set(skipped_pattern_exec.findall(log) + skipped_pattern_sum.findall(log))
-        # Validate parsed counts against summary
-        summary_pattern = re.compile(r'(\d+) failed, (\d+) passed(?:, (\d+) skipped)?')
-        summary_match = summary_pattern.search(log)
-        if summary_match:
-            expected_failed = int(summary_match.group(1))
-            expected_passed = int(summary_match.group(2))
-            expected_skipped = int(summary_match.group(3)) if summary_match.group(3) else 0
-            if len(failed_tests) != expected_failed:
-                print(f"Warning: Parsed {len(failed_tests)} failed tests, expected {expected_failed}", file=sys.stderr)
-            if len(passed_tests) != expected_passed:
-                print(f"Warning: Parsed {len(passed_tests)} passed tests, expected {expected_passed}", file=sys.stderr)
-            if len(skipped_tests) != expected_skipped:
-                print(f"Warning: Parsed {len(skipped_tests)} skipped tests, expected {expected_skipped}", file=sys.stderr)
+        # Extract passed tests
+        passed_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] PASSED (.*)', log)
+        passed_tests.update(passed_matches)
+        # Extract failed tests from FAILED lines
+        failed_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] FAILED (.*)', log)
+        failed_tests.update(failed_matches)
+        # Extract failed tests from ERROR lines
+        error_matches = re.findall(r'\[\d+\]\s+ERROR\s+(.*?)(?:\s+-|$)', log)
+        failed_tests.update(error_matches)
+        # Extract skipped tests
+        skipped_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] SKIPPED (.*)', log)
+        skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

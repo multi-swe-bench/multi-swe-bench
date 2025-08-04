@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:20.04"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,24 +49,26 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -la
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+apt-get update
 ###ACTION_DELIMITER###
-pip3 install pipenv
+apt-get install -y libyaml-dev
 ###ACTION_DELIMITER###
-pipenv install --dev --ignore-pipfile --skip-lock
+apt-get install -y python3-pip
 ###ACTION_DELIMITER###
-echo 'pipenv run pytest -vv --junit-xml test-results.xml tests/' > test_commands.sh
+pip install --force-reinstall --no-cache-dir pyyaml
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pip install --force-reinstall --no-cache-dir pyyaml --break-system-packages
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+pip install tox --break-system-packages
+###ACTION_DELIMITER###
+echo 'tox -v' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pipenv run pytest -vv --junit-xml test-results.xml tests/
+tox -v
 
 """.format(
                     pr=self.pr
@@ -81,7 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pipenv run pytest -vv --junit-xml test-results.xml tests/
+tox -v
 
 """.format(
                     pr=self.pr
@@ -96,7 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pipenv run pytest -vv --junit-xml test-results.xml tests/
+tox -v
 
 """.format(
                     pr=self.pr
@@ -113,9 +115,9 @@ pipenv run pytest -vv --junit-xml test-results.xml tests/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:20.04
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -132,9 +134,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/cekit/cekit.git /home/cekit
+RUN git clone https://github.com/canonical/operator.git /home/operator
 
-WORKDIR /home/cekit
+WORKDIR /home/operator
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -144,8 +146,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("cekit", "cekit_425_to_311")
-class CEKIT_425_TO_311(Instance):
+@Instance.register("canonical", "operator_723_to_603")
+class OPERATOR_723_TO_603(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -179,33 +181,20 @@ class CEKIT_425_TO_311(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set[str] # Tests that passed successfully
+        failed_tests = set[str] # Tests that failed
+        skipped_tests = set[str] # Tests that were skipped
         import re
-        # Define regex patterns to match test cases and statuses
-        pattern1 = re.compile(r'^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\b', re.MULTILINE)
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)\b', re.MULTILINE)
-        # Extract tests from pattern1 matches
-        for match in pattern1.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-        # Extract tests from pattern2 matches
-        for match in pattern2.finditer(log):
-            status = match.group(1)
-            test_name = match.group(2)
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        import json
+        # Parse passed tests
+        passed_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[32mPASSED\x1b\[0m')
+        passed_tests = set(passed_pattern.findall(log))
+        # Parse failed tests
+        failed_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[31mFAILED\x1b\[0m')
+        failed_tests = set(failed_pattern.findall(log))
+        # Parse skipped tests
+        skipped_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[33mSKIPPED\x1b\[0m')
+        skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
