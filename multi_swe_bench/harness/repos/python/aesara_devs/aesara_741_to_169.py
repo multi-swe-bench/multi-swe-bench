@@ -49,27 +49,53 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[test]
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh
+echo 'pytest -v tests/ aesara/ --cov=aesara/ --cov-report=xml --html=testing-report.html --self-contained-html' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install pytest pytest-mock coverage hypothesis psutil trustme
+pip install pytest-html
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install -e .[trio]
+echo 'pytest -v tests/ --cov=aesara/ --cov-report=xml --html=testing-report.html --self-contained-html' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider -k "not ipv6" ./tests' > test_commands.sh
+python -c 'import aesara; print("Aesara imported successfully")'
+###ACTION_DELIMITER###
+pip install scipy==1.8.0
+###ACTION_DELIMITER###
+python -c 'import aesara; print("Aesara imported successfully")'
+###ACTION_DELIMITER###
+pip install scipy==1.7.3
+###ACTION_DELIMITER###
+pip install scipy==1.6.3
+###ACTION_DELIMITER###
+pip uninstall -y jax jaxlib
+###ACTION_DELIMITER###
+python -c 'import aesara; print("Aesara imported successfully")'
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider -k "not ipv6 and not link_local" ./tests' > test_commands.sh
+pip install llvmlite==0.38.0
+###ACTION_DELIMITER###
+pip install numba==0.55.0
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'pytest -v tests/' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+
+###ACTION_DELIMITER###
+pip install pytest-xdist
+###ACTION_DELIMITER###
+echo 'pytest -v -n auto tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -78,7 +104,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --no-header -rA --tb=no -p no:cacheprovider -k "not ipv6 and not link_local" ./tests
+pytest -v -n auto tests/
 
 """.format(
                     pr=self.pr
@@ -93,7 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=no -p no:cacheprovider -k "not ipv6 and not link_local" ./tests
+pytest -v -n auto tests/
 
 """.format(
                     pr=self.pr
@@ -108,7 +134,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=no -p no:cacheprovider -k "not ipv6 and not link_local" ./tests
+pytest -v -n auto tests/
 
 """.format(
                     pr=self.pr
@@ -144,9 +170,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/agronholm/anyio.git /home/anyio
+RUN git clone https://github.com/aesara-devs/aesara.git /home/aesara
 
-WORKDIR /home/anyio
+WORKDIR /home/aesara
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -156,8 +182,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("agronholm", "anyio_929_to_777")
-class ANYIO_929_TO_777(Instance):
+@Instance.register("aesara-devs", "aesara_741_to_169")
+class AESARA_741_TO_169(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -195,24 +221,13 @@ class ANYIO_929_TO_777(Instance):
         failed_tests = set[str]() # Tests that failed
         skipped_tests = set[str]() # Tests that were skipped
         import re
-        pattern = re.compile(
-            r'(tests/[\w/\.]+(?:::[\w\[\]+-]+)+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+.*?(tests/[\w/\.]+(?:::[\w\[\]+-]+)+)'
-        )
-        for line in log.split('\n'):
-            match = pattern.search(line)
-            if match:
-                if match.group(1) and match.group(2):
-                    test_name = match.group(1)
-                    status = match.group(2)
-                else:
-                    status = match.group(3)
-                    test_name = match.group(4)
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status == 'FAILED':
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
+        # Use regex to find test names based on status
+        passed_pattern = re.compile(r'PASSED (tests/.*?)(?= - |\s|$)')
+        failed_pattern = re.compile(r'FAILED (tests/.*?)(?= - |\s|$)')
+        skipped_pattern = re.compile(r'SKIPPED (tests/.*?)(?= - |\s|$)')
+        passed_tests.update(passed_pattern.findall(log))
+        failed_tests.update(failed_pattern.findall(log))
+        skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

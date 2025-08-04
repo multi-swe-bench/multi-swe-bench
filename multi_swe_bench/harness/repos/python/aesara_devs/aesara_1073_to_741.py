@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,36 +49,36 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-apt-get update
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-apt-get install -y python3 python3-pip
+pytest -v tests/ aesara/ --cov=aesara --cov-report=xml --html=testing-report.html --self-contained-html
 ###ACTION_DELIMITER###
-pip3 install -e '.[test]'
+pip install pytest-html
 ###ACTION_DELIMITER###
-python3 -m venv venv
+pytest -v tests/ aesara/ --cov=aesara --cov-report=xml --html=testing-report.html --self-contained-html
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+pip install numpy==1.23.5
 ###ACTION_DELIMITER###
-python3 -m venv venv
+pytest -v tests/ aesara/ --cov=aesara --cov-report=xml --html=testing-report.html --self-contained-html
 ###ACTION_DELIMITER###
-source venv/bin/activate
+pip install llvmlite==0.39.0
 ###ACTION_DELIMITER###
-pip install -e ".[test]"
+pip install numba==0.56.0 llvmlite==0.39.0
 ###ACTION_DELIMITER###
-export SCM_VERSION=4.0.0.dev0 && pip install -e ".[test]"
+pytest -v tests/ aesara/ --cov=aesara --cov-report=xml --html=testing-report.html --self-contained-html
 ###ACTION_DELIMITER###
-SCM_VERSION=4.0.0.dev0 pip install -e ".[test]"
+pip install pytest-xdist
 ###ACTION_DELIMITER###
-SETUPTOOLS_SCM_PRETEND_VERSION=4.0.0.dev0 pip install -e ".[test]"
+pytest -v -n auto tests/ aesara/ --cov=aesara --cov-report=xml --html=testing-report.html --self-contained-html
 ###ACTION_DELIMITER###
-echo 'pytest -v -rA' > test_commands.sh"""
+echo 'pytest -v -n auto tests/ aesara/' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v -rA
+pytest -v -n auto tests/ aesara/
 
 """.format(
                     pr=self.pr
@@ -93,7 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v -rA
+pytest -v -n auto tests/ aesara/
 
 """.format(
                     pr=self.pr
@@ -108,7 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v -rA
+pytest -v -n auto tests/ aesara/
 
 """.format(
                     pr=self.pr
@@ -125,9 +125,9 @@ pytest -v -rA
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -144,9 +144,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/agronholm/anyio.git /home/anyio
+RUN git clone https://github.com/aesara-devs/aesara.git /home/aesara
 
-WORKDIR /home/anyio
+WORKDIR /home/aesara
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -156,8 +156,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("agronholm", "anyio_595_to_421")
-class ANYIO_595_TO_421(Instance):
+@Instance.register("aesara-devs", "aesara_1073_to_741")
+class AESARA_1073_TO_741(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -191,35 +191,17 @@ class ANYIO_595_TO_421(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        # Compile regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'(tests/[\w/\.::\[\]+-]+) (PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED) (tests/[\w/\.::\[\]+-]+)')
-        # Split log content into lines for processing
-        lines = log.split('\n')
-        for line in lines:
-            # Check for pattern where status is at the end (e.g., "test_name PASSED [0%]")
-            match1 = pattern1.search(line)
-            if match1:
-                test_name = match1.group(1)
-                status = match1.group(2)
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status == 'FAILED':
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
-                continue  # Skip to next line to avoid duplicate processing
-            # Check for pattern where status is at the start (e.g., "FAILED test_name - ...")
-            match2 = pattern2.search(line)
-            if match2:
-                status = match2.group(1)
-                test_name = match2.group(2)
-                # Clean up test name by removing any trailing whitespace or hyphens
-                test_name = test_name.rstrip(' -')
+        # Parse log content by lines to capture test statuses and names
+        pattern = r'(?:\[\w+\]\s+\[\s*\d+%\]\s+)?(PASSED|FAILED|SKIPPED)\s+(.+?)(?:\s+-|$)'
+        for line in log.split('\n'):
+            match = re.search(pattern, line)
+            if match:
+                status = match.group(1)
+                test_name = match.group(2).strip()
                 if status == 'PASSED':
                     passed_tests.add(test_name)
                 elif status == 'FAILED':
