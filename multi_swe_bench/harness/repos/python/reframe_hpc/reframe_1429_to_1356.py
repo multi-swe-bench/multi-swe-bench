@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,60 +49,42 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -r requirements.txt
+./bootstrap.sh
 ###ACTION_DELIMITER###
-pip install -r requirements-dev.txt
+apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-pytest -v utest
-robot atest' > test_commands.sh && chmod +x test_commands.sh
+./bootstrap.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh
+apt-get install -y python3-ensurepip
 ###ACTION_DELIMITER###
-bash test_commands.sh
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py
 ###ACTION_DELIMITER###
-pip install -e .
+apt-get install -y curl
 ###ACTION_DELIMITER###
-bash test_commands.sh
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py
 ###ACTION_DELIMITER###
-pip install webdrivermanager && webdrivermanager chrome firefox --linkpath /usr/local/bin
+python3 get-pip.py --break-system-packages
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y chromium firefox
+python3 -m venv reframe-venv
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y chromium firefox-esr
+apt-get install -y python3.12-venv
 ###ACTION_DELIMITER###
-bash test_commands.sh
+python3 -m venv reframe-venv
 ###ACTION_DELIMITER###
-pip install selenium==3.8.1
+source reframe-venv/bin/activate
 ###ACTION_DELIMITER###
-bash test_commands.sh
+./bootstrap.sh
 ###ACTION_DELIMITER###
-pip install robotframework-selenium2library
+echo "./test_reframe.py -v" > test_commands.sh
 ###ACTION_DELIMITER###
-pip install robotframework-seleniumlibrary==3.0.0
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install -e .
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-export PYTHONPATH=src
-pytest -v utest
-robot atest' > test_commands.sh && chmod +x test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-"""
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-export PYTHONPATH=src
-pytest -v utest
-robot atest
+./test_reframe.py -v
 
 """.format(
                     pr=self.pr
@@ -117,10 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-export PYTHONPATH=src
-pytest -v utest
-robot atest
+./test_reframe.py -v
 
 """.format(
                     pr=self.pr
@@ -135,10 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-export PYTHONPATH=src
-pytest -v utest
-robot atest
+./test_reframe.py -v
 
 """.format(
                     pr=self.pr
@@ -155,9 +131,9 @@ robot atest
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.10-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -174,9 +150,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/robotframework/SeleniumLibrary.git /home/SeleniumLibrary
+RUN git clone https://github.com/reframe-hpc/reframe.git /home/reframe
 
-WORKDIR /home/SeleniumLibrary
+WORKDIR /home/reframe
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -186,8 +162,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("robotframework", "SeleniumLibrary_1439_to_1357")
-class SELENIUMLIBRARY_1439_TO_1357(Instance):
+@Instance.register("reframe-hpc", "reframe_1429_to_1356")
+class REFRAME_1429_TO_1356(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -221,39 +197,34 @@ class SELENIUMLIBRARY_1439_TO_1357(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(.+?)\s+\|\s*(PASSED|FAILED|SKIPPED|FAIL)\s*\|$')
-        for line in log.split('\n'):
+        # Pattern 1: test_name followed by status (e.g., "test.py::test PASSED [ 0%]")
+        pattern1 = re.compile(r'^(.+?::.+?)\s+(PASSED|FAILED|SKIPPED)\s+.*$')
+        # Pattern 2: status followed by test_name (e.g., "FAILED test.py::test - error")
+        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.+?::.+?)\s+.*$')
+        for line in log.splitlines():
             line = line.strip()
-            # Check pattern 1: e.g., "test_name PASSED [ 0%]"
             match1 = pattern1.match(line)
             if match1:
                 test_name = match1.group(1).strip()
-                status = match1.group(2)
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status == 'FAILED':
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
-                continue
-            # Check pattern 2: e.g., "test_name | FAIL |"
-            match2 = pattern2.match(line)
-            if match2:
-                test_name = match2.group(1).strip()
-                status = match2.group(2)
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status in ('FAILED', 'FAIL'):
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
-                continue
+                status = match1.group(2).strip()
+            else:
+                match2 = pattern2.match(line)
+                if match2:
+                    status = match2.group(1).strip()
+                    test_name = match2.group(2).strip()
+                else:
+                    continue
+            if status == 'PASSED':
+                passed_tests.add(test_name)
+            elif status == 'FAILED':
+                failed_tests.add(test_name)
+            elif status == 'SKIPPED':
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
