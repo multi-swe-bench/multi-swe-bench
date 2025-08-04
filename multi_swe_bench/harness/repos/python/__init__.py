@@ -66,3 +66,4 @@ from multi_swe_bench.harness.repos.python.beetbox import *
 from multi_swe_bench.harness.repos.python.planetlabs import *
 from multi_swe_bench.harness.repos.python.canonical import *
 from multi_swe_bench.harness.repos.python.Textualize import *
+from multi_swe_bench.harness.repos.python.pints_team import *

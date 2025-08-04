@@ -49,20 +49,26 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+pip install -e .[dev,docs]
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+./run-tests.py
 ###ACTION_DELIMITER###
-cat test_commands.sh
+./run-tests.py --quick
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+./run-tests.py --unit
+###ACTION_DELIMITER###
+pip install 'numpy<2.0'
+###ACTION_DELIMITER###
+./run-tests.py --unit
+###ACTION_DELIMITER###
+echo "./run-tests.py --unit" > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+./run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -77,7 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+./run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -92,7 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+./run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -109,7 +115,7 @@ pytest --no-header -rA --tb=no -p no:cacheprovider -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -128,9 +134,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pints-team/pints.git /home/pints
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pints
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,8 +146,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("planetlabs", "planet-client-python_641_to_unknown")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pints-team", "pints_1424_to_759")
+class PINTS_1424_TO_759(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -175,30 +181,59 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+        current_test_name = None
+        # Regex patterns for standard test lines and summary lines
+        statuses = {'ok', 'PASSED', 'FAIL', 'FAILED', 'SKIPPED', 'ERROR'}
+        for line in log.split('\n'):
+            line = line.rstrip('\r').strip()
+            if '...' in line:
+                # Split into test part and status part
+                test_part, status_part = line.split('...', 1)
+                # Extract test name (remove line number)
+                if ']' in test_part:
+                    test_name = test_part.split(']', 1)[1].strip()
+                else:
+                    test_name = test_part.strip()
+                status_part = status_part.strip()
+                # Check if status is on the same line
+                if status_part in statuses:
+                    if status_part in {'ok', 'PASSED'}:
+                        passed_tests.add(test_name)
+                    elif status_part in {'FAIL', 'FAILED', 'ERROR'}:
+                        failed_tests.add(test_name)
+                    elif status_part in {'SKIPPED'}:
+                        skipped_tests.add(test_name)
+                else:
+                    # Track test name for status on subsequent lines
+                    current_test_name = test_name
+                continue
+            # Handle summary lines (e.g., [971] FAIL: test_name)
+            elif 'FAIL:' in line or 'ERROR:' in line:
+                if ']' in line:
+                    part = line.split(']', 1)[1].strip()
+                    if part.startswith(('FAIL:', 'ERROR:')):
+                        test_name = part.split(':', 1)[1].strip()
+                        failed_tests.add(test_name)
+                continue
+            # Handle multi-line statuses
+            elif current_test_name is not None:
+                # Check if current line contains the status (with or without line number)
+                if ']' in line:
+                    status_part = line.split(']', 1)[1].strip()
+                else:
+                    status_part = line.strip()
+                if status_part in statuses:
+                    if status_part in {'ok', 'PASSED'}:
+                        passed_tests.add(current_test_name)
+                    elif status_part in {'FAIL', 'FAILED', 'ERROR'}:
+                        failed_tests.add(current_test_name)
+                    elif status_part in {'SKIPPED'}:
+                        skipped_tests.add(current_test_name)
+                    current_test_name = None
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

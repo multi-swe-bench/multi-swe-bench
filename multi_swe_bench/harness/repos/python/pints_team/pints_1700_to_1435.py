@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.9-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,26 +47,29 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-pip install -U setuptools
+pip install -e .[dev,stan]
 ###ACTION_DELIMITER###
-pip install -e ".[test]"
+pip install -e .[dev,stan] --break-system-packages
 ###ACTION_DELIMITER###
-echo 'python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std' > test_commands.sh
+echo -e '#!/bin/bash
+python run-tests.py --unit' > /home/pints/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh
+bash /home/pints/test_commands.sh
 ###ACTION_DELIMITER###
-echo 'python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning' > test_commands.sh
+echo -e '#!/bin/bash
+python3 run-tests.py --unit' > /home/pints/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash /home/pints/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
+#!/bin/bash
+python3 run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -81,7 +84,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
+#!/bin/bash
+python3 run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -96,7 +100,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
+#!/bin/bash
+python3 run-tests.py --unit
 
 """.format(
                     pr=self.pr
@@ -113,9 +118,9 @@ python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.9-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -132,9 +137,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pints-team/pints.git /home/pints
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pints
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -144,8 +149,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("planetlabs", "planet-client-python_984_to_unknown")
-class PLANET_CLIENT_PYTHON_984_TO_701(Instance):
+@Instance.register("pints-team", "pints_1700_to_1435")
+class PINTS_1700_TO_1435(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -183,16 +188,16 @@ class PLANET_CLIENT_PYTHON_984_TO_701(Instance):
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test cases with their statuses
-        pattern = re.compile(r'tests/.*?::([^\s]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?', re.MULTILINE)
-        matches = pattern.findall(log)
-        for test_name, status in matches:
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        import json
+        # Pattern for passed tests (status 'ok')
+        passed_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s*ok', re.MULTILINE)
+        passed_tests = set(passed_pattern.findall(log))
+        # Pattern for failed tests (status 'ERROR')
+        failed_pattern = re.compile(r'ERROR:.*?\(([^)]+)\)', re.MULTILINE)
+        failed_tests = set(failed_pattern.findall(log))
+        # Pattern for skipped tests (status 'skipped')
+        skipped_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s+skipped', re.MULTILINE)
+        skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
