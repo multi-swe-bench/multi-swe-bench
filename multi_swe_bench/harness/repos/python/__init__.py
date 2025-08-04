@@ -72,3 +72,4 @@ from multi_swe_bench.harness.repos.python.getsentry import *
 from multi_swe_bench.harness.repos.python.python_cmd2 import *
 from multi_swe_bench.harness.repos.python.UXARRAY import *
 from multi_swe_bench.harness.repos.python.asdf_format import *
+from multi_swe_bench.harness.repos.python.scikit_hep import *
