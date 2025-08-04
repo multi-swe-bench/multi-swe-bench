@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,16 +49,36 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e . -r requirements-dev.txt
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+which mongod
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y mongodb
+###ACTION_DELIMITER###
+apt search mongodb
+###ACTION_DELIMITER###
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget gnupg
+###ACTION_DELIMITER###
+wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org
+###ACTION_DELIMITER###
+mkdir -p /data/db
+###ACTION_DELIMITER###
+mongod --fork --logpath /var/log/mongodb.log
+###ACTION_DELIMITER###
+pytest -v tests/
+###ACTION_DELIMITER###
+echo 'pytest -v tests/' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
+pytest -v tests/
 
 """.format(
                     pr=self.pr
@@ -73,7 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
+pytest -v tests/
 
 """.format(
                     pr=self.pr
@@ -88,7 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
+pytest -v tests/
 
 """.format(
                     pr=self.pr
@@ -105,9 +125,9 @@ pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -124,9 +144,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/narwhals-dev/narwhals.git /home/narwhals
+RUN git clone https://github.com/MongoEngine/mongoengine.git /home/mongoengine
 
-WORKDIR /home/narwhals
+WORKDIR /home/mongoengine
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -136,8 +156,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("narwhals-dev", "narwhals_1571_to_134")
-class NARWHALS_1571_TO_134(Instance):
+@Instance.register("MongoEngine", "mongoengine_2863_to_2846")
+class MONGOENGINE_2863_TO_2846(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -171,26 +191,20 @@ class NARWHALS_1571_TO_134(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines with status
-        pattern = re.compile(
-            r'(?:(tests/.+?)\s+(PASSED|FAILED|XFAIL|SKIPPED)\s+\[\s*\d+%\s*\])|(?:(PASSED|FAILED|XFAIL|SKIPPED)\s+(tests/.+))'
-        )
-        for match in pattern.finditer(log):
-            test1, status1, status2, test2 = match.groups()
-            test = test1 if test1 else test2
-            status = status1 if status1 else status2
-            if status == 'PASSED':
-                passed_tests.add(test)
-            elif status == 'FAILED':
-                failed_tests.add(test)
-            elif status == 'XFAIL':
-                skipped_tests.add(test)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test)
+        # Parse test names and statuses using regex patterns
+        # Pattern for passed tests (e.g., 'tests/... PASSED [  0%]')
+        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED\s+\[\s*\d+%\]')
+        passed_tests.update(passed_pattern.findall(log))
+        # Pattern for failed tests (e.g., 'FAILED tests/...')
+        failed_pattern = re.compile(r'FAILED (tests/.*)')
+        failed_tests.update(failed_pattern.findall(log))
+        # Pattern for skipped tests (e.g., 'tests/... SKIPPED [  0%]')
+        skipped_pattern = re.compile(r'(tests/.*?) SKIPPED \[\s*\d+%\]')
+        skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

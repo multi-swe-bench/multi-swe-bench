@@ -49,15 +49,43 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install uv
+apt-get update && apt-get install -y mongodb
 ###ACTION_DELIMITER###
-uv pip install -e . --group dev-core --group extra
+apt search mongodb
 ###ACTION_DELIMITER###
-uv pip install -e . --group dev-core --group extra --system
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-echo 'pytest tests --verbose --runslow -rA --tb=short' > test_commands.sh
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 ###ACTION_DELIMITER###
-cat test_commands.sh
+apt-get update && apt-get install -y gnupg
+###ACTION_DELIMITER###
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y mongodb-org
+###ACTION_DELIMITER###
+mongod --fork --logpath /var/log/mongodb.log
+###ACTION_DELIMITER###
+mongod
+###ACTION_DELIMITER###
+ls -ld /data/db || mkdir -p /data/db && chown -R mongodb:mongodb /data/db
+###ACTION_DELIMITER###
+mkdir -p /data/db && chown -R mongodb:mongodb /data/db
+###ACTION_DELIMITER###
+mongod --fork --logpath /var/log/mongodb.log
+###ACTION_DELIMITER###
+pip install -r requirements-dev.txt
+###ACTION_DELIMITER###
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip list | grep pymongo
+###ACTION_DELIMITER###
+pip install 'pymongo>=4.8,<4.9'
+###ACTION_DELIMITER###
+echo 'pytest tests/ -v -rA --tb=short' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -66,7 +94,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest tests --verbose --runslow -rA --tb=short
+export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
 """.format(
                     pr=self.pr
@@ -81,7 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose --runslow -rA --tb=short
+export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
 """.format(
                     pr=self.pr
@@ -96,7 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose --runslow -rA --tb=short
+export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
 """.format(
                     pr=self.pr
@@ -132,9 +160,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/narwhals-dev/narwhals.git /home/narwhals
+RUN git clone https://github.com/MongoEngine/mongoengine.git /home/mongoengine
 
-WORKDIR /home/narwhals
+WORKDIR /home/mongoengine
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -144,8 +172,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("narwhals-dev", "narwhals_2754_to_2325")
-class NARWHALS_2754_TO_2325(Instance):
+@Instance.register("MongoEngine", "mongoengine_2828_to_2519")
+class MONGOENGINE_2828_TO_2519(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -183,28 +211,24 @@ class NARWHALS_2754_TO_2325(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test names and statuses
-        pattern = re.compile(r'(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED|XFAIL)|(PASSED|FAILED|SKIPPED|XFAIL)\s+(tests/[^:]+::[^ ]+)')
-        for line in log.split('\n'):
-            match = pattern.search(line)
-            if match:
-                # Extract test name and status
-                if match.group(1) and match.group(2):
-                    test_name = match.group(1).strip()
-                    status = match.group(2)
-                else:
-                    test_name = match.group(4).strip()
-                    status = match.group(3)
-                # Categorize based on status
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status == 'FAILED':
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
-                elif status == 'XFAIL':
-                    # XFAIL is considered a passed outcome (expected failure)
-                    passed_tests.add(test_name)
+        import json
+        # Parse PASSED tests
+        passed_matches = re.findall(r'(tests/[\w\/.:]+)(?= PASSED)|PASSED (tests/[\w\/.:]+)', log)
+        for match in passed_matches:
+            test = match[0] if match[0] else match[1]
+            passed_tests.add(test.strip())
+        # Parse FAILED tests
+        failed_matches = re.findall(r'FAILED (tests/.*?)(?: |\n)', log)
+        for test in failed_matches:
+            failed_tests.add(test.strip())
+        # Parse XFAIL tests (considered failed)
+        xfail_matches = re.findall(r'XFAIL (tests/.*?) -', log)
+        for test in xfail_matches:
+            failed_tests.add(test.strip())
+        # Parse SKIPPED tests
+        skipped_matches = re.findall(r'SKIPPED \[\d+\] (tests/.*?:\d+):', log)
+        for test in skipped_matches:
+            skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

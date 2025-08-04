@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "python:3.11-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,30 +47,42 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """pip install -r requirements-dev.txt 'pytest<5.0'
 ###ACTION_DELIMITER###
-uv pip install -e . --group dev-core
-###ACTION_DELIMITER###
-pip install uv
-###ACTION_DELIMITER###
-uv pip install -e . --group dev-core
-###ACTION_DELIMITER###
-uv pip install -e . --group dev-core --system
-###ACTION_DELIMITER###
-echo 'pytest tests --verbose --runslow' > test_commands.sh
-###ACTION_DELIMITER###
-echo 'pytest tests --verbose -rA --runslow' > test_commands.sh
+echo 'python setup.py test -a "-v"' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install -r requirements-dev.txt 'pytest<5.0' 'pluggy<1.0'
+###ACTION_DELIMITER###
+rm -rf .eggs && bash test_commands.sh
+###ACTION_DELIMITER###
+rm -rf .eggs && pip install -r requirements-dev.txt 'pytest<5.0' 'pluggy<1.0' pytest-cov coverage blinker 'Pillow>=7.0.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+pip uninstall -y pytest pluggy && pip install -r requirements-dev.txt 'pytest>=6.2.5' 'pluggy>=1.0' && echo 'pytest -v ./tests' > test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y mongodb && service mongodb start && pip install 'pymongo>=3.4,<4.0' -r requirements-dev.txt && bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/main/main non-free/' /etc/apt/sources.list && apt-get update && apt-get install -y mongodb && service mongodb start && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/6.0 main' | tee /etc/apt/sources.list.d/mongodb-org-6.0.list && apt-get update && apt-get install -y mongodb-org && service mongod start && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] http://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main' | tee /etc/apt/sources.list.d/mongodb-org-6.0.list && apt-get update && apt-get install -y mongodb-org && service mongod start && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org && service mongod start
+###ACTION_DELIMITER###
+mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest tests --verbose -rA --runslow
+pytest -v ./tests
 
 """.format(
                     pr=self.pr
@@ -85,7 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose -rA --runslow
+pytest -v ./tests
 
 """.format(
                     pr=self.pr
@@ -100,7 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest tests --verbose -rA --runslow
+pytest -v ./tests
 
 """.format(
                     pr=self.pr
@@ -117,9 +129,9 @@ pytest tests --verbose -rA --runslow
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -136,9 +148,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/narwhals-dev/narwhals.git /home/narwhals
+RUN git clone https://github.com/MongoEngine/mongoengine.git /home/mongoengine
 
-WORKDIR /home/narwhals
+WORKDIR /home/mongoengine
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -148,8 +160,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("narwhals-dev", "narwhals_2322_to_2224")
-class NARWHALS_2322_TO_2224(Instance):
+@Instance.register("MongoEngine", "mongoengine_2495_to_2243")
+class MONGOENGINE_2495_TO_2243(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -183,35 +195,39 @@ class NARWHALS_2322_TO_2224(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # Implement the log parsing logic here
-        # Define regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)$')
-        for line in log.splitlines():
+        # Regex patterns to match test lines
+        # Pattern 1: Test name followed by status (e.g., "tests/...::test_name PASSED [  0%]")
+        pattern1 = re.compile(r'^(tests/.*?\.py::.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\s+')
+        # Pattern 2: Status followed by test name (e.g., "FAILED tests/...::test_name - ...")
+        pattern2 = re.compile(r'^(FAILED|SKIPPED)\s+(tests/.*?\.py::.*?::.*?)\s+-?')
+        for line in log.split('\n'):
             line = line.strip()
-            match1 = pattern1.match(line)
-            if match1:
-                test_name = match1.group(1).strip()
-                status = match1.group(2)
-            else:
-                match2 = pattern2.match(line)
-                if match2:
-                    status = match2.group(1)
-                    test_name = match2.group(2).strip()
-                else:
-                    continue  # Skip lines that don't match
-            # Categorize the test based on status
-            if status == "PASSED":
-                passed_tests.add(test_name)
-            elif status == "FAILED":
-                failed_tests.add(test_name)
-            elif status == "SKIPPED":
-                skipped_tests.add(test_name)
+            # Check pattern 1
+            match = pattern1.match(line)
+            if match:
+                test_name = match.group(1)
+                status = match.group(2)
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'FAILED':
+                    failed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
+                continue  # Move to next line after matching
+            # Check pattern 2
+            match = pattern2.match(line)
+            if match:
+                status = match.group(1)
+                test_name = match.group(2)
+                if status == 'FAILED':
+                    failed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
+                continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
