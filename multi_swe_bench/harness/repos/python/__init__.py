@@ -95,4 +95,4 @@ from multi_swe_bench.harness.repos.python.biopython import *
 from multi_swe_bench.harness.repos.python.sqlalchemy import *
 from multi_swe_bench.harness.repos.python.nipy import *
 from multi_swe_bench.harness.repos.python.BoboTiG import *
-
+from multi_swe_bench.harness.repos.python.hdmf_dev import *
