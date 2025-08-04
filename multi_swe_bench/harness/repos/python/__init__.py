@@ -68,3 +68,4 @@ from multi_swe_bench.harness.repos.python.canonical import *
 from multi_swe_bench.harness.repos.python.Textualize import *
 from multi_swe_bench.harness.repos.python.pints_team import *
 from multi_swe_bench.harness.repos.python.psf import *
+from multi_swe_bench.harness.repos.python.getsentry import *
