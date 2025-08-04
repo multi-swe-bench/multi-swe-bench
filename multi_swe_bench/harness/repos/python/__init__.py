@@ -77,3 +77,4 @@ from multi_swe_bench.harness.repos.python.PennLINC import *
 from multi_swe_bench.harness.repos.python.hhursev import *
 from multi_swe_bench.harness.repos.python.kaiko_ai import *
 from multi_swe_bench.harness.repos.python.spacetelescope import *
+from multi_swe_bench.harness.repos.python.openmc_dev import *
