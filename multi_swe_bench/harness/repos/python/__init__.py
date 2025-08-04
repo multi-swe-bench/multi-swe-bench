@@ -79,3 +79,4 @@ from multi_swe_bench.harness.repos.python.openmc_dev import *
 from multi_swe_bench.harness.repos.python.microsoft import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.CTFd import *
+from multi_swe_bench.harness.repos.python.robotframework import *
