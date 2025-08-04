@@ -93,4 +93,4 @@ from multi_swe_bench.harness.repos.python.PlasmaPy import *
 from multi_swe_bench.harness.repos.python.aesara_devs import *
 from multi_swe_bench.harness.repos.python.biopython import *
 from multi_swe_bench.harness.repos.python.sqlalchemy import *
-
+from multi_swe_bench.harness.repos.python.nipy import *
