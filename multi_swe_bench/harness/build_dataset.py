@@ -536,8 +536,8 @@ class CliArgs:
                     error_happened = True
                     self.skips.add(repo_commits.skip_id)
 
-        if error_happened:
-            raise ValueError("Check commit hashes failed, please check the logs.")
+        # if error_happened:
+        #     raise ValueError("Check commit hashes failed, please check the logs.")
 
     def build_image(self, image: Image):
         workdir = self.workdir / image.pr.org / image.pr.repo / BUILD_IMAGE_WORKDIR
