@@ -57,6 +57,5 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.python_pillow import *
 from multi_swe_bench.harness.repos.python.pytorch import *
-from multi_swe_bench.harness.repos.python.python_pillow import *
-from multi_swe_bench.harness.repos.python.python_pillow import *
