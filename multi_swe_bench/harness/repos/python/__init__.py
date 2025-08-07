@@ -61,4 +61,3 @@ from multi_swe_bench.harness.repos.python.tefra import *
 from multi_swe_bench.harness.repos.python.tefra import *
 from multi_swe_bench.harness.repos.python.tefra import *
 from multi_swe_bench.harness.repos.python.tefra import *
-from multi_swe_bench.harness.repos.python.statsmodels import *
