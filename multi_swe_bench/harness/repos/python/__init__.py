@@ -58,7 +58,6 @@ from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
 from multi_swe_bench.harness.repos.python.psf import *
-from multi_swe_bench.harness.repos.python.pybamm_team import *
 from multi_swe_bench.harness.repos.python.psf import *
-from multi_swe_bench.harness.repos.python.PrefectHQ import *
+from multi_swe_bench.harness.repos.python.pybamm_team import *
 from multi_swe_bench.harness.repos.python.PrefectHQ import *
