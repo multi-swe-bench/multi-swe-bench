@@ -105,3 +105,4 @@ from multi_swe_bench.harness.repos.python.Lightning_AI import *
 from multi_swe_bench.harness.repos.python.pyvista import *
 from multi_swe_bench.harness.repos.python.unionai_oss import *
 from multi_swe_bench.harness.repos.python.postlund import *
+from multi_swe_bench.harness.repos.python.optuna import *
