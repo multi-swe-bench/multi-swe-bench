@@ -124,3 +124,4 @@ from multi_swe_bench.harness.repos.python.aio_libs import *
 from multi_swe_bench.harness.repos.python.Clinical_Genomics import *
 from multi_swe_bench.harness.repos.python.pymc_devs import *
 from multi_swe_bench.harness.repos.python.RasaHQ import *
+from multi_swe_bench.harness.repos.python.pyccel import *
