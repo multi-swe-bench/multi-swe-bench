@@ -19,7 +19,6 @@ from multi_swe_bench.harness.repos.python.pre_commit import *
 from multi_swe_bench.harness.repos.python.pydantic import *
 from multi_swe_bench.harness.repos.python.mantidproject import *
 from multi_swe_bench.harness.repos.python.dssg import *
-from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.falconry import *
 from multi_swe_bench.harness.repos.python.Pyomo import *
 from multi_swe_bench.harness.repos.python.CS_SI import *
@@ -57,3 +56,4 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
+from multi_swe_bench.harness.repos.python.datalad import *
