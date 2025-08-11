@@ -1,6 +1,3 @@
-from multi_swe_bench.harness.repos.python.pypa.cibuildwheel_1588_to_1091 import *
-from multi_swe_bench.harness.repos.python.pypa.cibuildwheel_1072_to_unknown import *
-from multi_swe_bench.harness.repos.python.pypa.cibuildwheel_1072_to_unknown import *
 from multi_swe_bench.harness.repos.python.pypa.pip_12729_to_12308 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_9393_to_9208 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_9393_to_9208 import *

@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,57 +47,27 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-pip3 install -r requirements-dev.txt
-###ACTION_DELIMITER###
-pip3 install -r requirements-dev.txt --break-system-packages
-###ACTION_DELIMITER###
-echo 'nox -v' > test_commands.sh
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip3 list | grep nox
-###ACTION_DELIMITER###
-cat requirements-dev.txt
-###ACTION_DELIMITER###
-cat pyproject.toml
-###ACTION_DELIMITER###
-cat setup.cfg
-###ACTION_DELIMITER###
-cat setup.py
-###ACTION_DELIMITER###
-pip3 install nox --break-system-packages
-###ACTION_DELIMITER###
-nox --version
+pip install numpy==1.24.4
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'nox -v -- tests -- -k "not docker"' > test_commands.sh
-###ACTION_DELIMITER###
-cat test_commands.sh
+pip install numba==0.57.0
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'nox -v -- test unit_test -- -k "not docker"' > test_commands.sh
+echo 'pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-echo 'nox -v -s tests -- -k "not docker"' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-apt-get install -y build-essential libssl-dev patchelf
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-cat noxfile.py
-###ACTION_DELIMITER###
-echo 'nox -v -s tests -- unit_test test -k "not docker"' > test_commands.sh
+pip install pytest-xdist
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -106,7 +76,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-nox -v -s tests -- unit_test test -k "not docker"
+pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
 """.format(
                     pr=self.pr
@@ -121,7 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-nox -v -s tests -- unit_test test -k "not docker"
+pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
 """.format(
                     pr=self.pr
@@ -136,7 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-nox -v -s tests -- unit_test test -k "not docker"
+pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
 """.format(
                     pr=self.pr
@@ -153,9 +123,9 @@ nox -v -s tests -- unit_test test -k "not docker"
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -172,9 +142,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/pypa/cibuildwheel.git /home/cibuildwheel
+RUN git clone https://github.com/aesara-devs/aesara.git /home/aesara
 
-WORKDIR /home/cibuildwheel
+WORKDIR /home/aesara
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -184,8 +154,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("pypa", "cibuildwheel_1072_to_unknown")
-class CIBUILDWHEEL_1072_TO_UNKNOWN(Instance):
+@Instance.register("aesara-devs", "aesara_1501_to_1080")
+class AESARA_1501_TO_1080(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -223,27 +193,21 @@ class CIBUILDWHEEL_1072_TO_UNKNOWN(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # TODO: Implement the parse_log function
-        # Regex pattern to match test lines with status
-        pattern = r'.*?((?:test|unit_test)/[^:]+::[^ ]+)\s+\b(PASSED|FAILED|SKIPPED)\b|.*?\b(PASSED|FAILED|SKIPPED)\b\s+((?:test|unit_test)/[^:]+::[^ ]+)'
-        # Find all matches in the log content
-        matches = re.findall(pattern, log)
-        for match in matches:
-            # Handle both test_name first and status first formats
-            if match[0] and match[1]:
-                test_name, status = match[0], match[1]
-            elif match[2] and match[3]:
-                test_name, status = match[3], match[2]
-            else:
-                continue  # Skip invalid matches
-            # Add to the appropriate set
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # Define regex patterns to match test status lines
+        # Adjust patterns to be more flexible (optional line numbers, ignore case)
+        # Refine patterns to match test name structure (tests/...::...)
+        # Refine patterns to capture test names with parameters
+        passed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?PASSED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?FAILED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$', re.MULTILINE)
+        # Adjust to match skipped tests with flexible separators and positions
+        # Capture test names followed by 'skipped' in the reason
+        # Match skipped tests with same structure as passed/failed
+        # Capture test names followed by 'skipped' in the reason
+        skipped_pattern = re.compile(r'(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)\s+[:-]\s*.*skipped', re.MULTILINE | re.IGNORECASE)
+        # Extract test names using the patterns
+        passed_tests = set(passed_pattern.findall(log))
+        failed_tests = set(failed_pattern.findall(log))
+        skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

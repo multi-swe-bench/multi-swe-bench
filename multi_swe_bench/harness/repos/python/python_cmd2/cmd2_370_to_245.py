@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.11-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,83 +47,24 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-pip install -e .[test]
+pip install -e .
 ###ACTION_DELIMITER###
-echo 'pytest -v unit_test test --durations 0 --timeout=2400' > test_commands.sh
+pip install pytest pytest-forked pytest-xdist
 ###ACTION_DELIMITER###
-cat test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e 'pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --durations 0 --timeout=2400' > test_commands.sh
+echo 'pytest -v -n2 --forked' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-apt-get update && apt-get install -y build-essential libssl-dev podman
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-apt-get install -y ca-certificates && ln -s /usr/bin/podman /usr/bin/docker && bash test_commands.sh
-###ACTION_DELIMITER###
-echo 'nox -s test' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-pip install nox && echo 'nox -s test' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo 'nox -s test-3.11' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-nox -l
-###ACTION_DELIMITER###
-echo 'nox -s tests' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo 'pytest -v unit_test test --run-podman --durations 0 --timeout=2400' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e 'pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e 'export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400' > test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-podman system service --time=0 &
-export CIBW_CONTAINER_ENGINE=podman
-export CIBW_MANYLINUX_X86_64_IMAGE=quay.io/pypa/manylinux2014_x86_64
-export CIBW_MUSLLINUX_X86_64_IMAGE=quay.io/pypa/musllinux_1_1_x86_64
-pytest -v unit_test test --run-podman --durations 0 --timeout=2400' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --durations 0 --timeout=2400' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-pip install nox
-nox -s tests' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pip install nox
-nox -s tests -- --run-podman' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400
+pytest -v -n2 --forked
 
 """.format(
                     pr=self.pr
@@ -138,10 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400
+pytest -v -n2 --forked
 
 """.format(
                     pr=self.pr
@@ -156,10 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-export CIBW_CONTAINER_ENGINE=podman
-pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400
+pytest -v -n2 --forked
 
 """.format(
                     pr=self.pr
@@ -176,9 +111,9 @@ pytest -v test --run-podman --durations 0 --timeout=2400
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.11-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -195,9 +130,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/pypa/cibuildwheel.git /home/cibuildwheel
+RUN git clone https://github.com/python-cmd2/cmd2.git /home/cmd2
 
-WORKDIR /home/cibuildwheel
+WORKDIR /home/cmd2
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -207,8 +142,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("pypa", "cibuildwheel_1588_to_1091")
-class CIBUILDWHEEL_1588_TO_1091(Instance):
+@Instance.register("python-cmd2", "cmd2_370_to_245")
+class CMD2_370_TO_245(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -242,22 +177,21 @@ class CIBUILDWHEEL_1588_TO_1091(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()
-        failed_tests: set[str] = set()
-        skipped_tests: set[str] = set()
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        # Extract passed tests (lines like 'test_name PASSED ...')
-        passed_pattern = re.compile(r'^(.*?) PASSED\b', re.MULTILINE)
+        import json
+        # Implement the log parsing logic here
+        # Extract passed tests
+        passed_pattern = re.compile(r'^.*PASSED\s+(tests/.*?)\s*$', re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
-        # Extract failed tests (lines like 'FAILED test_name - ...')
-        failed_pattern = re.compile(r'^FAILED (.*?)(?: -|$)', re.MULTILINE)
+        # Extract failed tests
+        failed_pattern = re.compile(r'^\[gw\d+\] .*FAILED\s+(tests/.*?)\s*$', re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
-        # Extract skipped tests (lines like 'test_name SKIPPED ...' or 'SKIPPED test_name')
-        skipped_pattern = re.compile(r'^(.*?) SKIPPED\b|^SKIPPED (.*?)(?: -|$)', re.MULTILINE)
-        for match in skipped_pattern.findall(log):
-            test = match[0] if match[0] else match[1]
-            if test:
-                skipped_tests.add(test)
+        # Extract skipped tests
+        skipped_pattern = re.compile(r'^.*SKIPPED\s+(tests/.*)\s*$', re.MULTILINE)
+        skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
