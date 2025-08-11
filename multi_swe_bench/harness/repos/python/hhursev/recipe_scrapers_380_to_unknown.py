@@ -47,20 +47,36 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
 pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -v' > test_commands.sh
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+ls tests
+###ACTION_DELIMITER###
+ls tests/test_data
+###ACTION_DELIMITER###
+pytest -v --online --no-header -rA --tb=no -p no:cacheprovider
+###ACTION_DELIMITER###
+pytest -v --online --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+ls recipe_scrapers
+###ACTION_DELIMITER###
+pytest tests/ -v --online --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+pytest tests/ -v --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+echo 'pytest tests/ -v --no-header -rA -p no:cacheprovider' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m unittest discover -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -75,7 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -90,7 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -138,9 +154,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("hhursev", "recipe_scrapers_1279_to_943")
-class RECIPE_SCRAPERS_1279_TO_943(Instance):
+@Instance.register("hhursev", "recipe-scrapers_380_to_unknown")
+class RECIPE_SCRAPERS_380_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -174,19 +189,33 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        import json
-        # Extract all test names with full structure
-        all_tests = set(re.findall(r'tests/test_data/.*?\.json \(tests\.RecipeTestCase\)', log))
-        # Extract failed test names with full structure
-        failed_tests = set(re.findall(r'FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))', log))
-        # Determine passed tests (all tests not in failed_tests)
-        passed_tests = all_tests - failed_tests
-        # Skipped tests (placeholder; add regex if needed)
-        skipped_tests = set()
+        # Iterate over each line in the log
+        for line in log.splitlines():
+            # Check for passed tests (two patterns: test before PASSED or after)
+            passed_match = re.search(r'(tests/.*?) PASSED|PASSED (tests/.*?)', line)
+            if passed_match:
+                test_name = passed_match.group(1) or passed_match.group(2)
+                passed_tests.add(test_name.strip())  # Remove any leading/trailing whitespace
+            # Check for skipped tests (pattern: SKIPPED [num] tests/...:)
+            skipped_match = re.search(r'SKIPPED \[\d+\] (tests/.*?):', line)
+            if skipped_match:
+                test_name = skipped_match.group(1)
+                skipped_tests.add(test_name.strip())
+            # Check for failed tests (ERROR or FAILED)
+            # Error during collection
+            error_match = re.search(r'ERROR (tests/.*?)', line)
+            if error_match:
+                test_name = error_match.group(1)
+                failed_tests.add(test_name.strip())
+            # Explicit failed tests
+            failed_match = re.search(r'(tests/.*?) FAILED|FAILED (tests/.*?)', line)
+            if failed_match:
+                test_name = failed_match.group(1) or failed_match.group(2)
+                failed_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

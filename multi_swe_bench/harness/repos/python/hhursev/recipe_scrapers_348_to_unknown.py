@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.9-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,9 +49,19 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -la
 ###ACTION_DELIMITER###
-pip install -r requirements-dev.txt
+apt-get update && apt-get install -y python3 python3-venv python3-pip
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -v' > test_commands.sh
+python3 -m venv .venv
+###ACTION_DELIMITER###
+source .venv/bin/activate && pip install -r requirements-dev.txt
+###ACTION_DELIMITER###
+echo 'python -m unittest discover -s tests -v' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh
+###ACTION_DELIMITER###
+echo '.venv/bin/python -m unittest discover -s tests -v' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -60,7 +70,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m unittest discover -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -75,7 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -90,7 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -107,9 +117,9 @@ python -m unittest discover -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.9-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +148,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("hhursev", "recipe_scrapers_1279_to_943")
-class RECIPE_SCRAPERS_1279_TO_943(Instance):
+@Instance.register("hhursev", "recipe-scrapers_348_to_unknown")
+class RECIPE_SCRAPERS_348_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -174,19 +183,36 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        # Extract all test names with full structure
-        all_tests = set(re.findall(r'tests/test_data/.*?\.json \(tests\.RecipeTestCase\)', log))
-        # Extract failed test names with full structure
-        failed_tests = set(re.findall(r'FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))', log))
-        # Determine passed tests (all tests not in failed_tests)
-        passed_tests = all_tests - failed_tests
-        # Skipped tests (placeholder; add regex if needed)
-        skipped_tests = set()
+        # TODO: Implement the parse_log function
+            # Extract error test names (FAILED tests)
+        error_pattern = re.compile(r'ERROR:\s+[^(]+\((tests\.[^)]+)\)')
+        error_tests = error_pattern.findall(log)
+        for test in error_tests:
+            failed_tests.add(test)
+        # Extract all test names and determine their status
+        test_name_pattern = re.compile(r'\((tests\.[^)]+)\)')
+        test_matches = test_name_pattern.finditer(log)
+        for match in test_matches:
+            test_name = match.group(1)
+            if test_name in failed_tests:
+                continue  # Already marked as failed
+            # Search for the next status word after the test name
+            start_pos = match.end()
+            status_pattern = re.compile(r'\b(ok|skipped|failed)\b', re.IGNORECASE)
+            status_match = status_pattern.search(log, start_pos)
+            if status_match:
+                status = status_match.group(1).lower()
+                if status == 'ok':
+                    passed_tests.add(test_name)
+                elif status == 'skipped':
+                    skipped_tests.add(test_name)
+                elif status == 'failed':
+                    failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

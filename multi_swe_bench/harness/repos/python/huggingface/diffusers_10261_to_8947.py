@@ -47,20 +47,24 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-pip install -r requirements-dev.txt
+pip install -e ".[dev,test]"
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -v' > test_commands.sh
+pip install -e ".[test]"
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update && apt-get install -y build-essential
+###ACTION_DELIMITER###
+pip install --only-binary :all: -e ".[test]"
+###ACTION_DELIMITER###
+echo 'make test' > /home/diffusers/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m unittest discover -v
+make test
 
 """.format(
                     pr=self.pr
@@ -75,7 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+make test
 
 """.format(
                     pr=self.pr
@@ -90,7 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+make test
 
 """.format(
                     pr=self.pr
@@ -126,9 +130,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/huggingface/diffusers.git /home/diffusers
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/diffusers
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -138,9 +142,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("hhursev", "recipe_scrapers_1279_to_943")
-class RECIPE_SCRAPERS_1279_TO_943(Instance):
+@Instance.register("huggingface", "diffusers_10261_to_8947")
+class DIFFUSERS_10261_TO_8947(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -174,19 +177,22 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        # Extract all test names with full structure
-        all_tests = set(re.findall(r'tests/test_data/.*?\.json \(tests\.RecipeTestCase\)', log))
-        # Extract failed test names with full structure
-        failed_tests = set(re.findall(r'FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))', log))
-        # Determine passed tests (all tests not in failed_tests)
-        passed_tests = all_tests - failed_tests
-        # Skipped tests (placeholder; add regex if needed)
-        skipped_tests = set()
+        # Use regex to find test cases and their statuses
+        pattern = re.compile(r'\[gw\d+\]\s+(PASSED|SKIPPED|FAILED)\s+(.*?)\s*$', re.MULTILINE)
+        matches = pattern.findall(log)
+        for status, test_name in matches:
+            test_name = test_name.strip()
+            if status == 'PASSED':
+                passed_tests.add(test_name)
+            elif status == 'SKIPPED':
+                skipped_tests.add(test_name)
+            elif status == 'FAILED':
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

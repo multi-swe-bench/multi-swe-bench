@@ -47,20 +47,32 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
 pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'python -m unittest discover -v' > test_commands.sh
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+pytest -v --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+ls recipe_scrapers
+###ACTION_DELIMITER###
+ls templates
+###ACTION_DELIMITER###
+ln -s ../templates/scraper.py recipe_scrapers/template.py
+###ACTION_DELIMITER###
+pytest -v --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+echo 'pytest -v --no-header -rA -p no:cacheprovider' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m unittest discover -v
+pytest -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -75,7 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+pytest -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -90,7 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m unittest discover -v
+pytest -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -138,9 +150,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("hhursev", "recipe_scrapers_1279_to_943")
-class RECIPE_SCRAPERS_1279_TO_943(Instance):
+@Instance.register("hhursev", "recipe-scrapers_364_to_unknown")
+class RECIPE_SCRAPERS_364_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -174,19 +185,37 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
-        import re
-        import json
-        # Extract all test names with full structure
-        all_tests = set(re.findall(r'tests/test_data/.*?\.json \(tests\.RecipeTestCase\)', log))
-        # Extract failed test names with full structure
-        failed_tests = set(re.findall(r'FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))', log))
-        # Determine passed tests (all tests not in failed_tests)
-        passed_tests = all_tests - failed_tests
-        # Skipped tests (placeholder; add regex if needed)
-        skipped_tests = set()
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
+        for line in log.splitlines():
+            # Skip lines without test results
+            if '...' not in line:
+                continue
+            # Split line into test info and status
+            test_part, status_part = line.split('...', 1)
+            status = status_part.strip()
+            # Extract test name and class from test_part
+            test_part = test_part.split(']', 1)[-1].strip()  # Remove [N] prefix
+            if '(' in test_part and ')' in test_part:
+                test_name_part, test_class = test_part.rsplit('(', 1)
+                test_class = test_class.rstrip(')').strip()
+            else:
+                test_name_part = test_part.strip()
+                test_class = ''
+            test_name_part = test_name_part.strip()
+            # Handle special case for failed test modules
+            if test_class.startswith("unittest.loader._FailedTest"):
+                full_test_name = test_name_part
+            else:
+                full_test_name = f"{test_class}.{test_name_part}" if test_class else test_name_part
+            # Categorize tests by status
+            if status == 'ok':
+                passed_tests.add(full_test_name)
+            elif status in ('ERROR', 'FAILED'):
+                failed_tests.add(full_test_name)
+            elif status.lower() == 'skipped':
+                skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
