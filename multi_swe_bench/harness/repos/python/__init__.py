@@ -108,3 +108,4 @@ from multi_swe_bench.harness.repos.python.postlund import *
 from multi_swe_bench.harness.repos.python.optuna import *
 from multi_swe_bench.harness.repos.python.Unidata import *
 from multi_swe_bench.harness.repos.python.mesonbuild import *
+from multi_swe_bench.harness.repos.python.sunpy import *
