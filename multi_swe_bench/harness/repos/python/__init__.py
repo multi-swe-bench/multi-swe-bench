@@ -102,4 +102,4 @@ from multi_swe_bench.harness.repos.python.All_Hands_AI import *
 from multi_swe_bench.harness.repos.python.huggingface import *
 from multi_swe_bench.harness.repos.python.rigetti import *
 from multi_swe_bench.harness.repos.python.Lightning_AI import *
-
+from multi_swe_bench.harness.repos.python.pyvista import *
