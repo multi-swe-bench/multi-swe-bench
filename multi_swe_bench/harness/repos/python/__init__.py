@@ -121,3 +121,5 @@ from multi_swe_bench.harness.repos.python.pypa import *
 from multi_swe_bench.harness.repos.python.vyperlang import *
 from multi_swe_bench.harness.repos.python.sqlfluff import *
 from multi_swe_bench.harness.repos.python.aio_libs import *
+from multi_swe_bench.harness.repos.python.Clinical_Genomics import *
+
