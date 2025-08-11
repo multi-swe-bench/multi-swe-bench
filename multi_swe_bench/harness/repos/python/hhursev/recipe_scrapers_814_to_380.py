@@ -150,7 +150,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe-scrapers_814_to_unknown")
+
+@Instance.register("hhursev", "recipe_scrapers_814_to_380")
 class RECIPE_SCRAPERS_814_TO_380(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
