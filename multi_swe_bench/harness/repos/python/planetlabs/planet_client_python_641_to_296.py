@@ -140,7 +140,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("planetlabs", "planet-client-python_641_to_unknown")
+
+@Instance.register("planetlabs", "planet_client_python_641_to_296")
 class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
