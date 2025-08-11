@@ -40,7 +40,7 @@ class Instance:
     @classmethod
     def create(cls, pr: PullRequest, config: Config, *args, **kwargs):
         if pr.number_interval != "":
-            name = f"{pr.org}/{pr.repo}_{pr.number_interval}"
+            name = f"{pr.org}/{pr.number_interval}"
         else:
             if pr.tag == "":
                 name = f"{pr.org}/{pr.repo}"
