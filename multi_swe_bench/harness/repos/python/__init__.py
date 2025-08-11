@@ -114,3 +114,4 @@ from multi_swe_bench.harness.repos.python.alteryx import *
 from multi_swe_bench.harness.repos.python.ipython import *
 from multi_swe_bench.harness.repos.python.urllib3 import *
 from multi_swe_bench.harness.repos.python.bridgecrewio import *
+from multi_swe_bench.harness.repos.python.pytorch import *
