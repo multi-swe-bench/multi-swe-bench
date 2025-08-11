@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.9-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,20 +49,30 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pip install -r requirements.txt --break-system-packages
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+python setup.py install --break-system-packages
+###ACTION_DELIMITER###
+python3 setup.py install --break-system-packages
+###ACTION_DELIMITER###
+pip install . --break-system-packages
+###ACTION_DELIMITER###
+pytest -v pgmpy
+###ACTION_DELIMITER###
+echo 'pytest -v pgmpy' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -77,7 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -92,7 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -109,9 +119,9 @@ pytest --no-header -rA --tb=no -p no:cacheprovider -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.9-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -128,9 +138,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pgmpy/pgmpy.git /home/pgmpy
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pgmpy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,9 +150,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("planetlabs", "planet_client_python_641_to_296")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pgmpy", "pgmpy_1936_to_1830")
+class PGMPY_1936_TO_1830(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -176,30 +185,24 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+        # Use MULTILINE flag to match line starts
+        flags = re.MULTILINE
+        # Parse passed tests (non-greedy matching for test name)
+        passed_pattern = r'^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+PASSED\s+\[.*\]$'
+        passed_matches = re.findall(passed_pattern, log, flags=flags)
+        passed_tests.update([test.strip() for test in passed_matches])
+        # Parse skipped tests (non-greedy matching for test name)
+        skipped_pattern = r'^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+SKIPPED(?:\s+\[.*\])?$'
+        skipped_matches = re.findall(skipped_pattern, log, flags=flags)
+        skipped_tests.update([test.strip() for test in skipped_matches])
+        # Parse failed tests (lines starting with FAILED in the summary)
+        failed_pattern = r'^\s*FAILED\s+(.*?)(?:\s+-.*)?$'
+        failed_matches = re.findall(failed_pattern, log, flags=flags)
+        failed_tests.update([test.strip() for test in failed_matches])
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

@@ -49,20 +49,58 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+apt-get update && apt-get install -y libopenblas-dev gfortran
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pip install .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+pytest -v
+###ACTION_DELIMITER###
+pip uninstall -y numpy && pip install numpy==1.26.4
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+pip uninstall -y networkx && pip install networkx==2.8.8
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+pip install daft && pip uninstall -y pandas && pip install pandas==1.5.3
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+pip install --force-reinstall daft
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+python -c 'import daft; print(daft.__version__)'
+###ACTION_DELIMITER###
+pip uninstall -y daft && pip install daft==0.4.1
+###ACTION_DELIMITER###
+pip install daft==0.4.7
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+pip install matplotlib
+###ACTION_DELIMITER###
+python -c 'from daft import PGM; print("Success")'
+###ACTION_DELIMITER###
+pip uninstall -y daft && pip install daft-pgm
+###ACTION_DELIMITER###
+pip uninstall -y daft-pgm && pip install daft==0.0.4
+###ACTION_DELIMITER###
+pip uninstall -y daft && pip install daft-pgm && python -c 'from daft import PGM; print("PGM imported successfully")'
+###ACTION_DELIMITER###
+pytest -v
+###ACTION_DELIMITER###
+echo 'pytest -v' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -77,7 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -92,7 +130,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -109,7 +147,7 @@ pytest --no-header -rA --tb=no -p no:cacheprovider -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -128,9 +166,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pgmpy/pgmpy.git /home/pgmpy
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pgmpy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,9 +178,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("planetlabs", "planet_client_python_641_to_296")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pgmpy", "pgmpy_1584_to_1269")
+class PGMPY_1584_TO_1269(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -175,36 +212,38 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
 
     def parse_log(self, log: str) -> TestResult:
-        # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+        # Regex patterns based on log analysis
+        # Updated patterns to match real log format (no sample line numbers)
+        passed_pattern = re.compile(r'^(pgmpy/tests/.*?)\s+PASSED\s+\[\s*\d+%\]$', re.MULTILINE)
+        failed_pattern = re.compile(r'^FAILED\s+(pgmpy/tests/[^\s]+)$', re.MULTILINE)
+        skipped_pattern_exec = re.compile(r'^(pgmpy/tests/.*?)\s+SKIPPED\s+\[\s*\d+%\]$', re.MULTILINE)
+        skipped_pattern_summary = re.compile(r'^SKIPPED\s+(pgmpy/tests/[^\s]+)$', re.MULTILINE)
+        for line in log.split('\n'):
+            # Match passed tests from execution lines
+            passed_match = passed_pattern.search(line)
+            if passed_match:
+                passed_tests.add(passed_match.group(1))
+            # Match skipped tests from execution lines
+            skipped_exec_match = skipped_pattern_exec.search(line)
+            if skipped_exec_match:
+                skipped_tests.add(skipped_exec_match.group(1))
+            # Match failed tests from summary lines
+            failed_match = failed_pattern.search(line)
+            if failed_match:
+                failed_tests.add(failed_match.group(1))
+            # Match skipped tests from summary lines
+            skipped_sum_match = skipped_pattern_summary.search(line)
+            if skipped_sum_match:
+                skipped_tests.add(skipped_sum_match.group(1))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
             "skipped_tests": skipped_tests
-        }
+    }
         
 
         return TestResult(

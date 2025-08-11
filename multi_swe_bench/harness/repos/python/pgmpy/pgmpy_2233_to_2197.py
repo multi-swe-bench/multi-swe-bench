@@ -49,11 +49,64 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+pip install -e .
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+apt-get update
+###ACTION_DELIMITER###
+apt-get install -y python3.10 python3.10-pip
+###ACTION_DELIMITER###
+apt-get install -y python3.10
+###ACTION_DELIMITER###
+echo 'deb http://deb.debian.org/debian bookworm-backports main' >> /etc/apt/sources.list.d/backports.list
+###ACTION_DELIMITER###
+apt-get update
+###ACTION_DELIMITER###
+apt-get install -y -t bookworm-backports python3.10
+###ACTION_DELIMITER###
+rm /etc/apt/sources.list.d/backports.list
+###ACTION_DELIMITER###
+cat /etc/os-release
+###ACTION_DELIMITER###
+apt-get install -y python3.11
+###ACTION_DELIMITER###
+python3.11 --version
+###ACTION_DELIMITER###
+python3.11 -m ensurepip --upgrade
+###ACTION_DELIMITER###
+apt-get install -y python3-pip
+###ACTION_DELIMITER###
+python3.11 -m pip install -e .
+###ACTION_DELIMITER###
+python3.11 -m venv venv
+###ACTION_DELIMITER###
+apt-get install -y python3.11-venv
+###ACTION_DELIMITER###
+python3.11 -m venv venv
+###ACTION_DELIMITER###
+source venv/bin/activate
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+echo -e 'source venv/bin/activate
+pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
+###ACTION_DELIMITER###
+venv/bin/pip install pytest
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+venv/bin/pytest pgmpy/tests/test_estimators/test_ScoreCache.py -v
+###ACTION_DELIMITER###
+venv/bin/pip install mock
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+venv/bin/pip install daft xgboost
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -62,7 +115,8 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+source venv/bin/activate
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -77,7 +131,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+source venv/bin/activate
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -92,7 +147,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+source venv/bin/activate
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -109,7 +165,7 @@ pytest --no-header -rA --tb=no -p no:cacheprovider -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -128,9 +184,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pgmpy/pgmpy.git /home/pgmpy
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pgmpy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,9 +196,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("planetlabs", "planet_client_python_641_to_296")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pgmpy", "pgmpy_2233_to_2197")
+class PGMPY_2233_TO_2197(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -176,30 +231,21 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+        # Regex patterns to match test cases
+        # Pattern for passed tests: matches lines ending with "PASSED [percentage]"
+        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        # Pattern for failed tests: matches lines starting with "FAILED " followed by test name
+        failed_pattern = re.compile(r'^FAILED\s*(.*?)(?:\s*-\s*.*)?$', re.MULTILINE)
+        # Pattern for skipped tests: matches lines ending with "SKIPPED [percentage]"
+        skipped_pattern = re.compile(r'^\[\s*\d+\]\s*([^\s]+)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        # Extract test names
+        passed_tests.update(passed_pattern.findall(log))
+        failed_tests.update(failed_pattern.findall(log))
+        skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

@@ -49,20 +49,54 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+python --version
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+apt-get update && apt-get install -y python3.10 python3.10-dev python3.10-distutils
 ###ACTION_DELIMITER###
-cat test_commands.sh
+echo 'deb http://deb.debian.org/debian bookworm-backports main' >> /etc/apt/sources.list
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update
+###ACTION_DELIMITER###
+apt-get install -y python3.10 python3.10-dev python3.10-distutils
+###ACTION_DELIMITER###
+apt-get install -y -t bookworm-backports python3.10 python3.10-dev python3.10-distutils
+###ACTION_DELIMITER###
+apt-cache search python3.10
+###ACTION_DELIMITER###
+echo 'deb http://deb.debian.org/debian bullseye-backports main' >> /etc/apt/sources.list
+###ACTION_DELIMITER###
+apt-get update
+###ACTION_DELIMITER###
+apt-cache search python3.11
+###ACTION_DELIMITER###
+apt-get install -y python3.11 python3.11-dev python3.11-distutils
+###ACTION_DELIMITER###
+python3.11 -m ensurepip --upgrade
+###ACTION_DELIMITER###
+apt-get install -y python3.11-venv
+###ACTION_DELIMITER###
+python3.11 -m pip install -e .[tests]
+###ACTION_DELIMITER###
+python3.11 -m venv venv
+###ACTION_DELIMITER###
+source venv/bin/activate
+###ACTION_DELIMITER###
+pip install -e .[tests]
+###ACTION_DELIMITER###
+pip install networkx>=3.0 numpy>=2.0 scipy>=1.10 scikit-learn>=1.2 pandas>=1.5 statsmodels>=0.13 tqdm>=4.64 pyparsing>=3.0 joblib>=1.2 opt_einsum>=3.3 pyro-ppl>=1.9.1 torch>=2.5 --extra-index-url https://download.pytorch.org/whl/cpu
+###ACTION_DELIMITER###
+pip install xdoctest>=0.11.0 pytest>=3.3.1 pytest-cov pytest-xdist coverage>=4.3.4 mock black pre-commit
+###ACTION_DELIMITER###
+pytest -v pgmpy
+###ACTION_DELIMITER###
+echo 'pytest -v pgmpy' > /home/pgmpy/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -77,7 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -92,7 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+pytest -v pgmpy
 
 """.format(
                     pr=self.pr
@@ -128,9 +162,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pgmpy/pgmpy.git /home/pgmpy
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pgmpy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,9 +174,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("planetlabs", "planet_client_python_641_to_296")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pgmpy", "pgmpy_2178_to_2093")
+class PGMPY_2178_TO_2093(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -176,30 +209,23 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
+        import json
+        # Compile regex pattern to match test lines
+        pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(?:(.+?)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\])?|(PASSED|FAILED|SKIPPED)\s+([^\s-]+))\s*$', re.MULTILINE)
+        # Find all matches in the log content
+        for match in pattern.finditer(log):
+            test_name = (match.group(1) or match.group(4)).strip()
+            status = match.group(2) or match.group(3)
             if status == 'PASSED':
                 passed_tests.add(test_name)
             elif status == 'FAILED':
                 failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+            elif status == 'SKIPPED':
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

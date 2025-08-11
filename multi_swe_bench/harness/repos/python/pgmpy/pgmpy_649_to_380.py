@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.9-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,20 +49,106 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+python3 --version
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
+apt-get update && apt-get install -y python3 python3-pip
 ###ACTION_DELIMITER###
-cat test_commands.sh
+python3 --version
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+echo -e 'networkx>=3.2.1
+numpy>=1.26.0
+scipy>=1.11.0
+pandas>=2.1.4
+pyparsing>=3.1.1
+mock>=5.1.0
+nose>=1.3.7' > requirements-dev.txt
+###ACTION_DELIMITER###
+pip3 install -r requirements-dev.txt
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y python3.12-venv
+###ACTION_DELIMITER###
+python3.12 -m venv venv
+###ACTION_DELIMITER###
+source venv/bin/activate
+###ACTION_DELIMITER###
+pip3 install -r requirements-dev.txt
+###ACTION_DELIMITER###
+echo -e '#!/bin/bash
+source venv/bin/activate
+nosetests -v' > test_commands.sh
+###ACTION_DELIMITER###
+chmod +x test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+pip3 install pytest pytest-nose
+###ACTION_DELIMITER###
+pip3 install pytest
+###ACTION_DELIMITER###
+echo -e '#!/bin/bash
+source venv/bin/activate
+pytest -v' > test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+pip3 install six
+###ACTION_DELIMITER###
+ls pgmpy/extern
+###ACTION_DELIMITER###
+sed -i 's/from pgmpy.extern.six.moves/from six.moves/' pgmpy/extern/tabulate.py
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/from pgmpy.extern.six.moves/from six.moves/' pgmpy/factors/Factor.py
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/from pgmpy.extern.six.moves/from six.moves/' pgmpy/factors/FactorSet.py
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/from pgmpy.extern.six.moves/from six.moves/' pgmpy/factors/CPD.py
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/from pgmpy.extern.six.moves/from six.moves/' pgmpy/factors/JointProbabilityDistribution.py
+###ACTION_DELIMITER###
+grep -r 'pgmpy.extern.six.moves' pgmpy/
+###ACTION_DELIMITER###
+grep -rl 'pgmpy.extern.six.moves' pgmpy/ | xargs sed -i 's/from pgmpy\.extern\.six\.moves/from six.moves/g'
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+grep -rl 'numpy.product' pgmpy/ | xargs sed -i 's/numpy.product/numpy.prod/g'
+###ACTION_DELIMITER###
+grep -rl 'np.product' pgmpy/ | xargs sed -i 's/np.product/np.prod/g'
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+
+###ACTION_DELIMITER###
+grep -rl '\.node' pgmpy/
+###ACTION_DELIMITER###
+grep -rl '\.node' pgmpy/ | xargs sed -i 's/\.node/\.nodes/g'
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+grep -rl 'nodess' pgmpy/ | xargs sed -i 's/nodess/nodes/g'
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+grep -rl 'numpy\.int' pgmpy/ | xargs sed -i 's/numpy\.int/int/g'
+###ACTION_DELIMITER###
+grep -rl 'np\.int' pgmpy/ | xargs sed -i 's/np\.int/int/g'"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+#!/bin/bash
+source venv/bin/activate
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -77,7 +163,9 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+#!/bin/bash
+source venv/bin/activate
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -92,7 +180,9 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest --no-header -rA --tb=no -p no:cacheprovider -v
+#!/bin/bash
+source venv/bin/activate
+pytest -v
 
 """.format(
                     pr=self.pr
@@ -109,9 +199,9 @@ pytest --no-header -rA --tb=no -p no:cacheprovider -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.9-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -128,9 +218,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/planetlabs/planet-client-python.git /home/planet-client-python
+RUN git clone https://github.com/pgmpy/pgmpy.git /home/pgmpy
 
-WORKDIR /home/planet-client-python
+WORKDIR /home/pgmpy
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -140,9 +230,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("planetlabs", "planet_client_python_641_to_296")
-class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
+@Instance.register("pgmpy", "pgmpy_649_to_380")
+class PGMPY_649_TO_380(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -176,30 +265,41 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]()  # Tests that passed successfully
-        failed_tests = set[str]()  # Tests that failed
-        skipped_tests = set[str]()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
-        matches = re.findall(passed_failed_pattern, log)
-        for match in matches:
-            status1, test1, test2, status2 = match
-            if status1:
-                status = status1
-                test_name = test1.strip()
-            else:
-                status = status2
-                test_name = test2.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-        # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
-        skipped_matches = re.findall(skipped_pattern, log)
-        for test_name in skipped_matches:
-            skipped_tests.add(test_name.strip())
+        lines = log.split('\n')
+        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
+        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.*)$')
+        for line in lines:
+            line = line.strip()
+            # Match lines like 'test_name PASSED [ 0%]'
+            match = pattern1.match(line)
+            if match:
+                test_name = match.group(1).strip()
+                status = match.group(2)
+                if '.py::' in test_name:
+                    if status == 'PASSED':
+                        passed_tests.add(test_name)
+                    elif status == 'FAILED':
+                        failed_tests.add(test_name)
+                    elif status == 'SKIPPED':
+                        skipped_tests.add(test_name)
+                continue
+            # Match lines like 'FAILED test_name'
+            match = pattern2.match(line)
+            if match:
+                status = match.group(1)
+                test_name = match.group(2).strip()
+                if '.py::' in test_name:
+                    if status == 'PASSED':
+                        passed_tests.add(test_name)
+                    elif status == 'FAILED':
+                        failed_tests.add(test_name)
+                    elif status == 'SKIPPED':
+                        skipped_tests.add(test_name)
+                continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
