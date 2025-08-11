@@ -112,4 +112,4 @@ from multi_swe_bench.harness.repos.python.sunpy import *
 from multi_swe_bench.harness.repos.python.pgmpy import *
 from multi_swe_bench.harness.repos.python.alteryx import *
 from multi_swe_bench.harness.repos.python.ipython import *
-
+from multi_swe_bench.harness.repos.python.urllib3 import *
