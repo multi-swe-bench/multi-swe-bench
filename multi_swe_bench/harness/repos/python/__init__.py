@@ -117,3 +117,4 @@ from multi_swe_bench.harness.repos.python.bridgecrewio import *
 from multi_swe_bench.harness.repos.python.pytorch import *
 from multi_swe_bench.harness.repos.python.SwissDataScienceCenter import *
 from multi_swe_bench.harness.repos.python.certbot import *
+from multi_swe_bench.harness.repos.python.pypa import *
