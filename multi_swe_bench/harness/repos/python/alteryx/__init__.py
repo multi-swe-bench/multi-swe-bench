@@ -3,12 +3,6 @@ from multi_swe_bench.harness.repos.python.alteryx.featuretools_2459_to_2130 impo
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_2102_to_1941 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_2102_to_1941 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_1733_to_1456 import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_1382_to_unknown import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_1370_to_unknown import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_1312_to_unknown import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_1290_to_unknown import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_1228_to_unknown import *
-from multi_swe_bench.harness.repos.python.alteryx.featuretools_993_to_unknown import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_749_to_688 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_679_to_587 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_679_to_587 import *

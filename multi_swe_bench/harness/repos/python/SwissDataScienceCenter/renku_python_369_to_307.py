@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -184,7 +182,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("SwissDataScienceCenter", "renku-python_369_to_unknown")
+@Instance.register("SwissDataScienceCenter", "renku_python_369_to_307")
 class RENKU_PYTHON_369_TO_307(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

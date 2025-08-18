@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -207,7 +205,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Lightning-AI", "lightning-thunder_1003_to_unknown")
+@Instance.register("Lightning-AI", "lightning_thunder_1003_to_829")
 class LIGHTNING_THUNDER_1003_TO_829(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
