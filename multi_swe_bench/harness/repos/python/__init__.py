@@ -59,7 +59,4 @@ from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
 from multi_swe_bench.harness.repos.python.zarr_developers import *
 from multi_swe_bench.harness.repos.python.zarr_developers import *
-from multi_swe_bench.harness.repos.python.xonsh import *
 from multi_swe_bench.harness.repos.python.zarr_developers import *
-from multi_swe_bench.harness.repos.python.xonsh import *
-from multi_swe_bench.harness.repos.python.wagtail import *
