@@ -57,4 +57,3 @@ from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
 from multi_swe_bench.harness.repos.python.datalad import *
-from multi_swe_bench.harness.repos.python.DataDog import *
