@@ -57,5 +57,6 @@ from multi_swe_bench.harness.repos.python.qiskit import *
 from multi_swe_bench.harness.repos.python.networkx import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
-from multi_swe_bench.harness.repos.python.scikit_image import *
 from multi_swe_bench.harness.repos.python.sktime import *
+from multi_swe_bench.harness.repos.python.scrapy import *
+from multi_swe_bench.harness.repos.python.scrapy import *
