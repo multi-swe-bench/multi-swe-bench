@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "rust:1.65"
+        return "rust:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,18 +49,28 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -F
 ###ACTION_DELIMITER###
-cargo build
+ls -F ci/
 ###ACTION_DELIMITER###
-cargo test
+cargo build --verbose
 ###ACTION_DELIMITER###
-echo 'cargo test -- --nocapture' > test_commands.sh"""
+apt-get install -y libclang-dev
+###ACTION_DELIMITER###
+cargo build --verbose
+###ACTION_DELIMITER###
+cargo test --verbose
+###ACTION_DELIMITER###
+
+###ACTION_DELIMITER###
+echo "cargo test --verbose" > test_commands.sh
+###ACTION_DELIMITER###
+"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-cargo test -- --nocapture
+cargo test --verbose
 
 """.format(
                     pr=self.pr
@@ -75,7 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-cargo test -- --nocapture
+cargo test --verbose
 
 """.format(
                     pr=self.pr
@@ -90,7 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-cargo test -- --nocapture
+cargo test --verbose
 
 """.format(
                     pr=self.pr
@@ -109,7 +119,7 @@ cargo test -- --nocapture
 
 # Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM rust:1.65
+FROM rust:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,8 +148,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("sharkdp", "bat_1938_to_unknown")
-class BAT_1938_TO_UNKNOWN(Instance):
+@Instance.register("sharkdp", "bat_985_to_985")
+class BAT_985_TO_985(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -174,39 +184,18 @@ class BAT_1938_TO_UNKNOWN(Instance):
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set() 
-        failed_tests = set()
-        skipped_tests = set()
+        failed_tests = set() 
+        skipped_tests = set() 
         import re
-        # Regex patterns
-        passed_pattern = re.compile(r"test (.*) \.\.\. ok")
-        failed_pattern = re.compile(r"    (.*)")
-        skipped_pattern = re.compile(r"test (.*) \.\.\. ignored")
-        in_failures_section = False
+        # TODO: Implement the parse_log function
+        # Implement the log parsing logic here
         for line in log.splitlines():
-            if "failures:" in line:
-                in_failures_section = True
-                continue
-            if in_failures_section:
-                if line.strip() == "":
-                    in_failures_section = False
-                    continue
-                match = failed_pattern.match(line)
-                if match:
-                    failed_tests.add(match.group(1).strip())
-                    continue
-            if "test result: FAILED" in line:
-                in_failures_section = False # Reset after summary line
-                continue
-            match = passed_pattern.match(line)
-            if match:
-                passed_tests.add(match.group(1).strip())
-                continue
-            match = skipped_pattern.match(line)
-            if match:
-                skipped_tests.add(match.group(1).strip())
-                continue
-        # Remove failed tests from passed tests
-        passed_tests = passed_tests - failed_tests
+            passed_match = re.search(r"test (.*) ... ok", line)
+            if passed_match:
+                passed_tests.add(passed_match.group(1).strip())
+            failed_match = re.search(r"test (.*) ... FAILED", line)
+            if failed_match:
+                failed_tests.add(failed_match.group(1).strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
