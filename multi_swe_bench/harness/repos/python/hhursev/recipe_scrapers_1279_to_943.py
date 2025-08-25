@@ -138,6 +138,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
+
 @Instance.register("hhursev", "recipe_scrapers_1279_to_943")
 class RECIPE_SCRAPERS_1279_TO_943(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
