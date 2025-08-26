@@ -6,5 +6,4 @@ from multi_swe_bench.harness.repos.java.fasterxml.jackson_dataformat_xml_126_to_
 from multi_swe_bench.harness.repos.java.fasterxml.jackson_databind_4929_to_4811 import *
 from multi_swe_bench.harness.repos.java.fasterxml.jackson_databind_4587_to_4418 import *
 from multi_swe_bench.harness.repos.java.fasterxml.jackson_databind_3622_to_3570 import *
-from multi_swe_bench.harness.repos.java.fasterxml.jackson_core_1426_to_unknown import *
 from multi_swe_bench.harness.repos.java.fasterxml.jackson_core_1178_to_1171 import *
