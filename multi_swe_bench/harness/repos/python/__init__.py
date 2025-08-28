@@ -125,3 +125,6 @@ from multi_swe_bench.harness.repos.python.Clinical_Genomics import *
 from multi_swe_bench.harness.repos.python.pymc_devs import *
 from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
+from multi_swe_bench.harness.repos.python.amaranth_lang import *
+from multi_swe_bench.harness.repos.python.ansible_collections import *
+from multi_swe_bench.harness.repos.python.ansys import *
