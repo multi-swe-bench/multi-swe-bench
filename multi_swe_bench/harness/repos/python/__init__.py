@@ -128,3 +128,4 @@ from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.encode import *
 from multi_swe_bench.harness.repos.python.enthought import *
 from multi_swe_bench.harness.repos.python.elastic import *
+from multi_swe_bench.harness.repos.python.equinor import *
