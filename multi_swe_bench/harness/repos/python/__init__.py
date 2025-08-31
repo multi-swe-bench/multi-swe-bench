@@ -127,3 +127,4 @@ from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.dstackai import *
 from multi_swe_bench.harness.repos.python.e_valuation import *
+from multi_swe_bench.harness.repos.python.dmwm import *
