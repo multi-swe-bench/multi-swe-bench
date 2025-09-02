@@ -145,3 +145,6 @@ from multi_swe_bench.harness.repos.python.borgbackup import *
 from multi_swe_bench.harness.repos.python.OpenMined import *
 from multi_swe_bench.harness.repos.python.xonsh import *
 from multi_swe_bench.harness.repos.python.jupyter import *
+from multi_swe_bench.harness.repos.python.DataDog import *
+from multi_swe_bench.harness.repos.python.cloud_custodian import *
+
