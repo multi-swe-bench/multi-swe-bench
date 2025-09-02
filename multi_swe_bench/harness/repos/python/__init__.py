@@ -133,3 +133,4 @@ from multi_swe_bench.harness.repos.python.ibis_project import *
 from multi_swe_bench.harness.repos.python.jackdewinter import *
 from multi_swe_bench.harness.repos.python.gammapy import *
 from multi_swe_bench.harness.repos.python.numba import *
+from multi_swe_bench.harness.repos.python.pasqal_io import *
