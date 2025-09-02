@@ -144,3 +144,4 @@ from multi_swe_bench.harness.repos.python.GenericMappingTools import *
 from multi_swe_bench.harness.repos.python.borgbackup import *
 from multi_swe_bench.harness.repos.python.OpenMined import *
 from multi_swe_bench.harness.repos.python.xonsh import *
+from multi_swe_bench.harness.repos.python.jupyter import *
