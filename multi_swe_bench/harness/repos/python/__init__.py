@@ -40,7 +40,6 @@ from multi_swe_bench.harness.repos.python.debrief import *
 from multi_swe_bench.harness.repos.python.vprusso import *
 from multi_swe_bench.harness.repos.python.twisted import *
 from multi_swe_bench.harness.repos.python.pydicom import *
-from multi_swe_bench.harness.repos.python.mne_tools import *
 from multi_swe_bench.harness.repos.python.RDFLib import *
 from multi_swe_bench.harness.repos.python.wemake_services import *
 from multi_swe_bench.harness.repos.python.sdv_dev import *
@@ -137,3 +136,4 @@ from multi_swe_bench.harness.repos.python.pasqal_io import *
 from multi_swe_bench.harness.repos.python.python_pillow import *
 from multi_swe_bench.harness.repos.python.xCDAT import *
 from multi_swe_bench.harness.repos.python.zarr_developers import *
+from multi_swe_bench.harness.repos.python.NCAS_CMS import *
