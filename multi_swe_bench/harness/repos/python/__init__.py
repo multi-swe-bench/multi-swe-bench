@@ -138,3 +138,5 @@ from multi_swe_bench.harness.repos.python.xCDAT import *
 from multi_swe_bench.harness.repos.python.zarr_developers import *
 from multi_swe_bench.harness.repos.python.NCAS_CMS import *
 from multi_swe_bench.harness.repos.python.matrix_org import *
+from multi_swe_bench.harness.repos.python.pdm_project import *
+from multi_swe_bench.harness.repos.python.docker import *
