@@ -136,4 +136,4 @@ from multi_swe_bench.harness.repos.python.numba import *
 from multi_swe_bench.harness.repos.python.pasqal_io import *
 from multi_swe_bench.harness.repos.python.python_pillow import *
 from multi_swe_bench.harness.repos.python.xCDAT import *
-
+from multi_swe_bench.harness.repos.python.zarr_developers import *
