@@ -214,7 +214,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("codalab", "codalab-worksheets_574_to_unknown")
+@Instance.register("codalab", "codalab_worksheets_574_to_529")
 class CODALAB_WORKSHEETS_574_TO_529(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

@@ -12,3 +12,4 @@ from multi_swe_bench.harness.repos.swift import *
 from multi_swe_bench.harness.repos.kotlin import *
 from multi_swe_bench.harness.repos.scala import *
 from multi_swe_bench.harness.repos.csharp import *
+from multi_swe_bench.harness.repos.html import *
