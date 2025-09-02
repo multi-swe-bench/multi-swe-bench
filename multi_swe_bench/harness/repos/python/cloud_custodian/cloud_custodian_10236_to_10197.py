@@ -164,7 +164,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("cloud-custodian", "cloud-custodian_10236_to_unknown")
+@Instance.register("cloud-custodian", "cloud_custodian_10236_to_10197")
 class CLOUD_CUSTODIAN_10236_TO_10197(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

@@ -217,7 +217,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("keras-team", "keras-cv_1841_to_unknown")
+@Instance.register("keras-team", "keras_cv_1841_to_1743")
 class KERAS_CV_1841_TO_1743(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

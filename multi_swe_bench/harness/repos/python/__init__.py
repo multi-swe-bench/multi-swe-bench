@@ -149,7 +149,6 @@ from multi_swe_bench.harness.repos.python.DataDog import *
 from multi_swe_bench.harness.repos.python.cloud_custodian import *
 from multi_swe_bench.harness.repos.python.kedro_org import *
 from multi_swe_bench.harness.repos.python.keras_team import *
-from multi_swe_bench.harness.repos.python.elyra_ai import *
 from multi_swe_bench.harness.repos.python.deepset_ai import *
 from multi_swe_bench.harness.repos.python.dcs4cop import *
 from multi_swe_bench.harness.repos.python.pyscf import *

@@ -1,7 +1,4 @@
-from multi_swe_bench.harness.repos.python.learningequality.kolibri_12590_to_unknown import *
 from multi_swe_bench.harness.repos.python.learningequality.kolibri_9292_to_9230 import *
-from multi_swe_bench.harness.repos.python.learningequality.kolibri_9230_to_unknown import *
-from multi_swe_bench.harness.repos.python.learningequality.kolibri_9222_to_unknown import *
 from multi_swe_bench.harness.repos.python.learningequality.kolibri_7614_to_7319 import *
 from multi_swe_bench.harness.repos.python.learningequality.kolibri_7614_to_7319 import *
 from multi_swe_bench.harness.repos.python.learningequality.kolibri_7311_to_7073 import *

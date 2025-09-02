@@ -164,7 +164,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("zarr-developers", "zarr-python_174_to_unknown")
+@Instance.register("zarr-developers", "zarr_python_174_to_95")
 class ZARR_PYTHON_174_TO_95(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

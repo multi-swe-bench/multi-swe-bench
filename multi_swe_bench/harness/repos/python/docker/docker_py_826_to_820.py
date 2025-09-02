@@ -164,7 +164,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("docker", "docker-py_826_to_unknown")
+@Instance.register("docker", "docker_py_826_to_820")
 class DOCKER_PY_826_TO_820(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()

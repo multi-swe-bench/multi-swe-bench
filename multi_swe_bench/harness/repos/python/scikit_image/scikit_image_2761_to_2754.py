@@ -180,7 +180,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("scikit-image", "scikit-image_2761_to_unknown")
+@Instance.register("scikit-image", "scikit_image_2761_to_2754")
 class SCIKIT_IMAGE_2761_TO_2754(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
