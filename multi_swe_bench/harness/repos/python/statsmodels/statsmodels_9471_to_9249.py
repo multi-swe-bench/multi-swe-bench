@@ -49,44 +49,36 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry install --extras all
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-curl -sSL https://install.python-poetry.org | python3 -
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y curl
+pip install -e .
 ###ACTION_DELIMITER###
-curl -sSL https://install.python-poetry.org | python3 -
+apt-get update && apt-get install -y build-essential python3-dev
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry install --extras all
+pip install -e .
 ###ACTION_DELIMITER###
-sed -i '107s/>=0.8.0<0.9.0/>=0.8.0,<0.9.0/' pyproject.toml
+echo 'pytest -v' > /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry install --extras all
+echo 'pytest -v tests/' > /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry lock
+cat /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry install --extras all
+bash /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-export PATH="/root/.local/bin:$PATH" && poetry run pytest -v -o testpaths="tests renku conftest.py" --ignore=renku/version.py
+ls statsmodels
 ###ACTION_DELIMITER###
-echo 'poetry run pytest -v -n auto tests' > test_commands.sh
+echo 'pytest -v statsmodels/tests/' > /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-echo './run-tests.sh --tests' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-echo 'poetry run ./run-tests.sh --tests' > test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash /home/statsmodels/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-poetry run ./run-tests.sh --tests
+pytest -v statsmodels/tests/
 
 """.format(
                     pr=self.pr
@@ -101,7 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run ./run-tests.sh --tests
+pytest -v statsmodels/tests/
 
 """.format(
                     pr=self.pr
@@ -116,7 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-poetry run ./run-tests.sh --tests
+pytest -v statsmodels/tests/
 
 """.format(
                     pr=self.pr
@@ -133,7 +125,7 @@ poetry run ./run-tests.sh --tests
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -152,9 +144,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/SwissDataScienceCenter/renku-python.git /home/renku-python
+RUN git clone https://github.com/statsmodels/statsmodels.git /home/statsmodels
 
-WORKDIR /home/renku-python
+WORKDIR /home/statsmodels
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -164,8 +156,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("SwissDataScienceCenter", "renku_python_2120_to_2093")
-class RENKU_PYTHON_2120_TO_2093(Instance):
+@Instance.register("statsmodels", "statsmodels_9471_to_9249")
+class STATSMODELS_9471_TO_9249(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -203,18 +195,23 @@ class RENKU_PYTHON_2120_TO_2093(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines with status
-        pattern = re.compile(r'(tests/[^ ]+)\s+(PASSED|SKIPPED|ERROR|FAILED)|(PASSED|SKIPPED|ERROR|FAILED)\s+(tests/[^ ]+)', re.MULTILINE)
+        import json
+        # Implement the log parsing logic here
+        pattern = re.compile(r'(?:(PASSED|SKIPPED|FAILED)\s+([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)|([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)\s+(PASSED|SKIPPED|FAILED))')
         matches = pattern.findall(log)
         for match in matches:
-            # Extract test name and status from either group 1+2 or 4+3
-            test_name = match[0] if match[0] else match[3]
-            status = match[1] if match[1] else match[2]
+            status1, test1, test2, status2 = match
+            if status1 and test1:
+                status, test_name = status1, test1
+            elif test2 and status2:
+                status, test_name = status2, test2
+            else:
+                continue
             if status == 'PASSED':
                 passed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED'):
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,

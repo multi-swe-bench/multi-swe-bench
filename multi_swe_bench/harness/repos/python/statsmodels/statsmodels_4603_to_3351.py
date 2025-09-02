@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,64 +49,86 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e .[tests,docs]
+pip install cython numpy==1.19.5 scipy==1.5.4 pandas==1.1.5 patsy==0.5.2
 ###ACTION_DELIMITER###
-pip install --upgrade pip
+pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-pip install -e .[tests,docs]
+pip install cython==0.29.21
 ###ACTION_DELIMITER###
-pip download ruamel.yaml==0.15.51 --no-deps && tar xzf ruamel.yaml-0.15.51.tar.gz && cd ruamel.yaml-0.15.51 && sed -i 's/Str/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && pip install . && cd ..
+pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-wget https://files.pythonhosted.org/packages/source/r/ruamel.yaml/ruamel.yaml-0.15.51.tar.gz && tar xzf ruamel.yaml-0.15.51.tar.gz && cd ruamel.yaml-0.15.51 && sed -i 's/Str/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && pip install . && cd ..
+apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y wget
+pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-wget https://files.pythonhosted.org/packages/source/r/ruamel.yaml/ruamel.yaml-0.15.51.tar.gz && tar xzf ruamel.yaml-0.15.51.tar.gz && cd ruamel.yaml-0.15.51 && sed -i 's/Str/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && pip install . && cd ..
+echo 'nosetests -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cd ruamel.yaml-0.15.51 && sed -i 's/Str/Constant/g' setup.py && sed -i 's/Bytes/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && pip install . && cd ..
+bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/Str/Constant/g' setup.py && sed -i 's/Bytes/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && pip install .
+pip install nose
 ###ACTION_DELIMITER###
-sed -i 's/Str/Constant/g' setup.py && sed -i 's/Bytes/Constant/g' setup.py && sed -i 's/Num/Constant/g' setup.py && sed -i 's/node.s/node.value/g' setup.py && sed -i 's/node.n/node.value/g' setup.py && pip install .
+bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/NameConstant/Constant/g' setup.py && pip install .
+python setup.py build_ext --inplace
 ###ACTION_DELIMITER###
-cd .. && pip install -e .[tests,docs]
+apt-get update && apt-get install -y libopenblas-dev
 ###ACTION_DELIMITER###
-pip install rdflib-jsonld==0.6.2
+python setup.py build_ext --inplace
 ###ACTION_DELIMITER###
-pip install -e .[tests,docs]
+python setup.py clean && python setup.py build_ext --inplace
 ###ACTION_DELIMITER###
-pip install setuptools<58.0.0 && pip install rdflib-jsonld==0.4.0 && pip install -e .[tests,docs]
+bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install 'setuptools<58.0.0' && pip install rdflib-jsonld==0.4.0 && pip install -e .[tests,docs]
+pip install scipy==1.2.3
 ###ACTION_DELIMITER###
-pytest -v
+apt-get update && apt-get install -y gfortran
 ###ACTION_DELIMITER###
-pip install --upgrade pytest-yapf
+pip install scipy==1.2.3
 ###ACTION_DELIMITER###
-sed -i 's/--yapf//' pytest.ini
+apt-get update && apt-get install -y libarpack2-dev
 ###ACTION_DELIMITER###
-pytest -v
+pip install scipy==1.2.3
 ###ACTION_DELIMITER###
-sed -i 's/--flake8 --pep8 //' pytest.ini
+echo -e 'import scipy.misc\nfrom scipy.special import factorial, comb\nscipy.misc.factorial = factorial\nscipy.misc.comb = comb\nimport nose\nnose.run()' > run_tests.py && echo 'python run_tests.py' > test_commands.sh
 ###ACTION_DELIMITER###
-pip uninstall -y pytest-pep8 pytest-flake8 pytest-yapf
+bash test_commands.sh
 ###ACTION_DELIMITER###
-pytest -v
+pip install pandas==0.24.2 scipy==1.4.1 && pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-pip install attrs==19.3.0
+pip install setuptools==57.5.0 && pip install scipy==1.4.1 pandas==0.24.2 && pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-pytest -v
+sed -i 's/from scipy\.misc import factorial, comb/from scipy.special import factorial, comb/g' $(grep -rl 'from scipy.misc import factorial, comb' statsmodels/) && pip install -e . --no-use-pep517
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh && chmod +x test_commands.sh"""
+grep -rl 'scipy\.misc\.factorial\|scipy\.misc\.comb' statsmodels/ | xargs sed -i 's/scipy\.misc\.factorial/scipy.special.factorial/g; s/scipy\.misc\.comb/scipy.special.comb/g'
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'from scipy\.misc import factorial, comb' statsmodels/ | xargs sed -i 's/from scipy\.misc import factorial, comb/from scipy.special import factorial, comb/g'
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc\.(factorial|comb)' statsmodels/ | xargs sed -i 's/scipy\.misc\.(factorial|comb)/scipy.special.\1/g'
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc\.(factorial|comb)' statsmodels/ | xargs sed -i -E 's/scipy\.misc\.(factorial|comb)/scipy.special.\1/g'
+###ACTION_DELIMITER###
+grep -r 'scipy\.misc' statsmodels/
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc' statsmodels/ | xargs sed -i 's/scipy\.misc\./scipy.special./g'
+###ACTION_DELIMITER###
+echo 'nosetests -v' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc' statsmodels/ | xargs sed -i -E 's/(from scipy\.misc import) (factorial|comb|logsumexp|factorial2)/\1 \2/g; s/scipy\.misc\.(factorial|comb|logsumexp|factorial2)/scipy.special.\1/g'
+###ACTION_DELIMITER###
+grep -r 'scipy\.misc' statsmodels/ && bash test_commands.sh
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc' statsmodels/ | xargs sed -i 's/scipy\.misc/scipy.special/g'
+###ACTION_DELIMITER###
+grep -rl --include='*.py' 'scipy\.misc' statsmodels/ && pip install -e . --no-use-pep517 && bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v
+nosetests -v
 
 """.format(
                     pr=self.pr
@@ -121,7 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v
+nosetests -v
 
 """.format(
                     pr=self.pr
@@ -136,7 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v
+nosetests -v
 
 """.format(
                     pr=self.pr
@@ -153,9 +175,9 @@ pytest -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -172,9 +194,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/SwissDataScienceCenter/renku-python.git /home/renku-python
+RUN git clone https://github.com/statsmodels/statsmodels.git /home/statsmodels
 
-WORKDIR /home/renku-python
+WORKDIR /home/statsmodels
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -184,8 +206,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("SwissDataScienceCenter", "renku_python_369_to_307")
-class RENKU_PYTHON_369_TO_307(Instance):
+@Instance.register("statsmodels", "statsmodels_4603_to_3351")
+class STATSMODELS_4603_TO_3351(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -223,27 +245,40 @@ class RENKU_PYTHON_369_TO_307(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # Extract test cases using regex
-        # Extract test cases where test name comes first
-        pattern1 = re.compile(r'(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAILED)')
-        matches1 = pattern1.findall(log)
-        # Extract test cases where status comes first
-        pattern2 = re.compile(r'(PASSED|FAILED|ERROR|SKIPPED|XFAILED)\s+(tests/[^:]+::[^ ]+)')
-        matches2 = pattern2.findall(log)
-        for test_name, status in matches1:
-            if status == 'PASSED':
+        test_status = {}  # Track the latest status of each test
+        # Regex patterns for additional status lines
+        error_pattern = re.compile(r'(?:(AssertionError|Error|FAILED|ERROR):\s*([\w.]+)|([\w.]+):\s*(AssertionError|Error|FAILED|ERROR)|([\w.]+)\s+(?:failed|error)|test (?:failed|error):\s*([\w.]+)|(?:failed|error) in\s*([\w.]+))', re.IGNORECASE | re.MULTILINE)
+        skip_pattern = re.compile(r'^(SKIP|SKIPPED):\s*([\w.]+)$', re.MULTILINE)
+        # Process lines with '...' (primary status lines)
+        for line in log.split('\n'):
+            line = line.strip()
+            if '...' in line:
+                parts = line.split('...', 1)
+                if len(parts) != 2:
+                    continue
+                test_part = parts[0].strip()
+                status_part = parts[1].strip()
+                # Extract test name (remove line number prefix)
+                test_name = test_part.split(']', 1)[1].strip() if ']' in test_part else test_part
+                # Extract status
+                status = status_part.split()[0].lower() if status_part else ''
+                test_status[test_name] = status  # Update with latest status
+        # Process ERROR lines (update status to 'error')
+        for match in error_pattern.finditer(log):
+            test_name = match.group(2) or match.group(3) or match.group(5) or match.group(6) or match.group(7)
+            if test_name:
+                test_status[test_name.strip()] = 'error'  # Override with error status
+        # Process SKIP/SKIPPED lines (update status to 'skipped')
+        for match in skip_pattern.finditer(log):
+            test_name = match.group(2).strip()
+            test_status[test_name] = 'skipped'  # Override with skipped status
+        # Categorize tests based on latest status
+        for test_name, status in test_status.items():
+            if status == 'ok':
                 passed_tests.add(test_name)
-            elif status in ['FAILED', 'ERROR', 'XFAILED']:
+            elif status.startswith('fail') or status == 'error':
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-        for status, test_name in matches2:
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status in ['FAILED', 'ERROR', 'XFAILED']:
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == 'skipped':
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
