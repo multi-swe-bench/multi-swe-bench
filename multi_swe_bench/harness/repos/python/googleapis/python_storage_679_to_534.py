@@ -194,7 +194,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("googleapis", "python-storage_679_to_unknown")
+@Instance.register("googleapis", "python_storage_679_to_534")
 class PYTHON_STORAGE_679_TO_534(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
