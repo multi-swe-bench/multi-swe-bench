@@ -156,3 +156,4 @@ from multi_swe_bench.harness.repos.python.pyscf import *
 from multi_swe_bench.harness.repos.python.great_expectations import *
 from multi_swe_bench.harness.repos.python.scikit_image import *
 from multi_swe_bench.harness.repos.python.scrapy import *
+from multi_swe_bench.harness.repos.python.learningequality import *
