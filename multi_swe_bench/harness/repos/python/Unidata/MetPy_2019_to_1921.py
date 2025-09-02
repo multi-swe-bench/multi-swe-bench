@@ -1,0 +1,222 @@
+import re
+import json
+from typing import Optional, Union
+
+from multi_swe_bench.harness.image import Config, File, Image
+from multi_swe_bench.harness.instance import Instance, TestResult
+from multi_swe_bench.harness.pull_request import PullRequest
+
+
+class ImageDefault(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> str:
+        return "python:3.9-slim"
+    
+    def image_prefix(self) -> str:
+        return "envagent"
+       
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """apt-get update && apt-get install -y proj-bin libproj-dev libgeos-dev gcc g++
+###ACTION_DELIMITER###
+pip install --upgrade pip && pip install -r ci/requirements.txt -r ci/extra_requirements.txt -r ci/test_requirements.txt && pip install -e .
+###ACTION_DELIMITER###
+pip install setuptools==58.0.0 && pip install --upgrade pip && pip install -r ci/requirements.txt -r ci/extra_requirements.txt -r ci/test_requirements.txt && pip install -e .
+###ACTION_DELIMITER###
+pip install setuptools==58.0.0 && pip install -r ci/requirements.txt -r ci/test_requirements.txt && pip install --no-build-isolation cartopy==0.19.0.post1 && cat ci/extra_requirements.txt | grep -v cartopy > temp_extra.txt && pip install -r temp_extra.txt && rm temp_extra.txt && pip install -e .
+###ACTION_DELIMITER###
+pip install setuptools==42.0.0 && pip install --no-build-isolation https://files.pythonhosted.org/packages/ed/ca/524ce33692df3faeaa56852fb6a33b0b410be94cc288417565b96fef3f64/Cartopy-0.19.0.post1.tar.gz && pip install -r ci/requirements.txt -r ci/test_requirements.txt && cat ci/extra_requirements.txt | grep -v cartopy > temp_extra.txt && pip install -r temp_extra.txt && rm temp_extra.txt && pip install -e .
+###ACTION_DELIMITER###
+pip install setuptools==42.0.0 && wget https://raw.githubusercontent.com/OSGeo/PROJ/4.9.3/src/proj_api.h -O /usr/include/proj_api.h && CFLAGS="-I/usr/include" pip install --no-build-isolation https://files.pythonhosted.org/packages/ed/ca/524ce33692df3faeaa56852fb6a33b0b410be94cc288417565b96fef3f64/Cartopy-0.19.0.post1.tar.gz && pip install -r ci/requirements.txt -r ci/test_requirements.txt && cat ci/extra_requirements.txt | grep -v cartopy > temp_extra.txt && pip install -r temp_extra.txt && rm temp_extra.txt && pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget && pip install setuptools==42.0.0 && wget https://raw.githubusercontent.com/OSGeo/PROJ/4.9.3/src/proj_api.h -O /usr/include/proj_api.h && CFLAGS="-I/usr/include" pip install --no-build-isolation https://files.pythonhosted.org/packages/ed/ca/524ce33692df3faeaa56852fb6a33b0b410be94cc288417565b96fef3f64/Cartopy-0.19.0.post1.tar.gz && pip install -r ci/requirements.txt -r ci/test_requirements.txt && cat ci/extra_requirements.txt | grep -v cartopy > temp_extra.txt && pip install -r temp_extra.txt && rm temp_extra.txt && pip install -e .
+###ACTION_DELIMITER###
+wget https://raw.githubusercontent.com/OSGeo/PROJ/4.9.3/src/proj_api.h -O /usr/include/proj_api.h && CFLAGS="-I/usr/include" pip install --no-build-isolation https://files.pythonhosted.org/packages/ed/ca/524ce33692df3faeaa56852fb6a33b0b410be94cc288417565b96fef3f64/Cartopy-0.19.0.post1.tar.gz && pip install -r ci/requirements.txt -r ci/test_requirements.txt && cat ci/extra_requirements.txt | grep -v cartopy > temp_extra.txt && pip install -r temp_extra.txt && rm temp_extra.txt && pip install -e .
+###ACTION_DELIMITER###
+pytest --version
+###ACTION_DELIMITER###
+echo 'pytest -v' > /home/MetPy/test_commands.sh
+###ACTION_DELIMITER###
+bash /home/MetPy/test_commands.sh
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+bash /home/MetPy/test_commands.sh"""
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+pytest -v
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+pytest -v
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+pytest -v
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        dockerfile_content = """
+# This is a template for creating a Dockerfile to test patches
+# LLM should fill in the appropriate values based on the context
+
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
+FROM python:3.9-slim
+
+## Set noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic requirements
+# For example: RUN apt-get update && apt-get install -y git
+# For example: RUN yum install -y git
+# For example: RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
+
+# Ensure bash is available
+RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then             apk add --no-cache bash;         elif command -v apt-get >/dev/null 2>&1; then             apt-get update && apt-get install -y bash;         elif command -v yum >/dev/null 2>&1; then             yum install -y bash;         else             exit 1;         fi     fi
+
+WORKDIR /home/
+COPY fix.patch /home/
+COPY test.patch /home/
+RUN git clone https://github.com/Unidata/MetPy.git /home/MetPy
+
+WORKDIR /home/MetPy
+RUN git reset --hard
+RUN git checkout {pr.base.sha}
+"""
+        dockerfile_content += f"""
+{copy_commands}
+"""
+        return dockerfile_content.format(pr=self.pr)
+
+
+@Instance.register("Unidata", "MetPy_2019_to_1921")
+class METPY_2019_TO_1921(Instance):
+    def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
+        super().__init__()
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    def dependency(self) -> Optional[Image]:
+        return ImageDefault(self.pr, self._config)
+
+    def run(self, run_cmd: str = "") -> str:
+        if run_cmd:
+            return run_cmd
+
+        return 'bash /home/run.sh'
+
+    def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
+        if test_patch_run_cmd:
+            return test_patch_run_cmd
+
+        return "bash /home/test-run.sh"
+
+    def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
+        if fix_patch_run_cmd:
+            return fix_patch_run_cmd
+
+        return "bash /home/fix-run.sh"
+
+
+    def parse_log(self, log: str) -> TestResult:
+        # Parse the log content and extract test execution results.
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
+        import re
+        # Parse test names and statuses using regex (handles trailing content and line numbers)
+        # Passed tests: Exclude line number, capture test path
+        passed_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+PASSED', log, re.MULTILINE | re.IGNORECASE)
+        passed_tests = set(passed_matches)
+        # Skipped tests: Optional line number, handle optional reason
+        skipped_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+SKIPPED(?:\s*\(.*?\))?', log, re.MULTILINE | re.IGNORECASE)
+        skipped_tests = set(skipped_matches)
+        # Failed tests: Optional line number, handle optional text after hyphen
+        failed_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?FAILED\s+(tests/.*?)(?:\s+-.*|$)', log, re.MULTILINE | re.IGNORECASE)
+        failed_tests = set(failed_matches)
+        parsed_results = {
+            "passed_tests": passed_tests,
+            "failed_tests": failed_tests,
+            "skipped_tests": skipped_tests
+        }
+        
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )

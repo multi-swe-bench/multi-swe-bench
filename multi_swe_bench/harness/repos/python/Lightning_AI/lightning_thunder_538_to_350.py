@@ -210,7 +210,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Lightning-AI", "lightning-thunder_538_to_unknown")
+@Instance.register("Lightning-AI", "lightning_thunder_538_to_350")
 class LIGHTNING_THUNDER_538_TO_350(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
