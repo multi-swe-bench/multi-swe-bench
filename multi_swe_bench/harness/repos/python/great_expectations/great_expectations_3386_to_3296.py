@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "python:3.7-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,74 +47,100 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """apt-get update
 ###ACTION_DELIMITER###
-ls testing
+apt-get install -y build-essential libssl-dev libffi-dev
 ###ACTION_DELIMITER###
-pip install -e .
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-pip install mock pytest pytest-cov
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short tests/unit/' > test_commands.sh
+pip install -r requirements-dev-base.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip install freezegun>=0.3.15
 ###ACTION_DELIMITER###
-pip install six
+pip list | grep freezegun
 ###ACTION_DELIMITER###
-bash test_commands.sh
+echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud import _helpers/from google.cloud.core import _helpers/' google/cloud/storage/batch.py
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-sed -i 's/from google.cloud.core import _helpers/from google.api_core import _helpers/' google/cloud/storage/batch.py
+cat test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install google-api-core
-###ACTION_DELIMITER###
-ls google/cloud/storage/_helpers.py
-###ACTION_DELIMITER###
-sed -i 's/from google.api_core import _helpers/from google.cloud.storage import _helpers/' google/cloud/storage/batch.py
+pip install pytest==5.3.5
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media/' google/cloud/storage/_helpers.py
-###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media as resumable_media/' google/cloud/storage/_helpers.py
+pip install jinja2==3.0.3
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip show -f google-resumable-media
+apt-get install -y locales && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
 ###ACTION_DELIMITER###
-pip uninstall -y google-cloud-storage && pip install .
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install pytz
-###ACTION_DELIMITER###
-sed -i '1i import google.resumable_media as resumable_media' tests/unit/test_blob.py
+sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i '1c from google import resumable_media' tests/unit/test_blob.py
+sed -i 's/ --no-header//' test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-python -c "from google import resumable_media; print('Import successful')"
-###ACTION_DELIMITER###
-sed -i '/^import /i from google import resumable_media' tests/unit/test_blob.py
+sed -i 's/ --tb=no//' test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-head -n 10 tests/unit/test_blob.py"""
+pip install boto3>=1.9
+###ACTION_DELIMITER###
+pip list | grep boto3
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's|./tests|./tests --no-spark|' test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install sqlalchemy
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's|--no-spark|--no-spark --no-sqlalchemy|' test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's|--no-sqlalchemy|--no-sqlalchemy --no-postgresql|' test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install requirements-parser nbformat
+###ACTION_DELIMITER###
+pip install -r requirements-dev-base.txt
+###ACTION_DELIMITER###
+pip install moto s3fs gcsfs
+###ACTION_DELIMITER###
+pip install pyarrow openpyxl xlrd
+###ACTION_DELIMITER###
+pip install azure-identity azure-keyvault-secrets azure-storage-blob google-cloud-secret-manager pypd snapshottest
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install nbconvert
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install pytest-benchmark
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install pytest-benchmark==3.4.1
+###ACTION_DELIMITER###
+bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider ./tests --no-spark --no-sqlalchemy --no-postgresql
 
 """.format(
                     pr=self.pr
@@ -129,7 +155,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider ./tests --no-spark --no-sqlalchemy --no-postgresql
 
 """.format(
                     pr=self.pr
@@ -144,7 +170,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider ./tests --no-spark --no-sqlalchemy --no-postgresql
 
 """.format(
                     pr=self.pr
@@ -161,9 +187,9 @@ pytest -v --no-header -rA --tb=short tests/unit/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.10-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM python:3.7-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -180,9 +206,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/googleapis/python-storage.git /home/python-storage
+RUN git clone https://github.com/great-expectations/great_expectations.git /home/great_expectations
 
-WORKDIR /home/python-storage
+WORKDIR /home/great_expectations
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +217,9 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
-@Instance.register("googleapis", "python_storage_526_to_325")
-class PYTHON_STORAGE_526_TO_325(Instance):
+
+@Instance.register("great-expectations", "great_expectations_3386_to_3296")
+class GREAT_EXPECTATIONS_3386_TO_3296(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -226,24 +253,22 @@ class PYTHON_STORAGE_526_TO_325(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
         import json
         # Implement the log parsing logic here
-        # Split log into lines and process each line
-        lines = log.split('\n')
-        # Regex patterns for test name followed by status or vice versa
-        pattern = re.compile(r'.*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
-        for line in lines:
-            match = pattern.search(line)
-            if not match:
-                continue
-            # Extract test name and status from either group
-            test_name = match.group(1) or match.group(4)
-            status = match.group(2) or match.group(3)
-            if not test_name or not status:
+        pattern = re.compile(r'(PASSED|FAILED|SKIPPED|XFAILED)\s+(tests/.*?\.py::[^\s]+)|(tests/.*?\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAILED)')
+        for match in pattern.finditer(log):
+            status1, test1, test2, status2 = match.groups()
+            if status1 and test1:
+                status = status1.strip()
+                test_name = test1.strip()
+            elif test2 and status2:
+                status = status2.strip()
+                test_name = test2.strip()
+            else:
                 continue
             if status == 'PASSED':
                 passed_tests.add(test_name)

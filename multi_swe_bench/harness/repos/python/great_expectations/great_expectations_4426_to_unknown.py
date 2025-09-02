@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,72 +49,78 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-ls testing
+echo 'pytest-cov<=2.12.1' > constraints-test.txt && cat constraints-dev.txt >> constraints-test.txt
 ###ACTION_DELIMITER###
-pip install -e .
+pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
-pip install mock pytest pytest-cov
-###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short tests/unit/' > test_commands.sh
+echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install six
+echo 'jinja2<=2.11.3' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud import _helpers/from google.cloud.core import _helpers/' google/cloud/storage/batch.py
+echo 'markupsafe<2.0.0' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
+###ACTION_DELIMITER###
+sed -i 's/markupsafe<2.0.0/markupsafe==1.1.1/' constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud.core import _helpers/from google.api_core import _helpers/' google/cloud/storage/batch.py
+apt-get update && apt-get install -y locales && locale-gen en_US.UTF-8 && export LANG=en_US.UTF-8
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install google-api-core
+locale -a && locale-gen en_US.UTF-8 && echo 'export LANG=en_US.UTF-8' > test_commands.sh && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' >> test_commands.sh
 ###ACTION_DELIMITER###
-ls google/cloud/storage/_helpers.py
-###ACTION_DELIMITER###
-sed -i 's/from google.api_core import _helpers/from google.cloud.storage import _helpers/' google/cloud/storage/batch.py
+sed -i 's/^# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && echo 'export LANG=en_US.UTF-8' > test_commands.sh && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' >> test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media/' google/cloud/storage/_helpers.py
-###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media as resumable_media/' google/cloud/storage/_helpers.py
+echo 'pytest -v -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip show -f google-resumable-media
+pip install -r requirements.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
-pip uninstall -y google-cloud-storage && pip install .
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-pip install pytz
-###ACTION_DELIMITER###
-sed -i '1i import google.resumable_media as resumable_media' tests/unit/test_blob.py
+echo 'sqlalchemy<1.4.0' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i '1c from google import resumable_media' tests/unit/test_blob.py
+echo 'pytest -v -rA -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-python -c "from google import resumable_media; print('Import successful')"
+pip install nbformat && bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i '/^import /i from google import resumable_media' tests/unit/test_blob.py
+echo 'pandas<2.0.0' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
+###ACTION_DELIMITER###
+sed -i 's/pandas<2.0.0/pandas==1.4.0/' constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
+###ACTION_DELIMITER###
+sed -i 's/pandas==1.4.0/pandas==1.3.5/' constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-head -n 10 tests/unit/test_blob.py"""
+echo 'numpy<=1.21.6' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install nbconvert && bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'jinja2<=2.11.3' >> constraints-test.txt && echo 'mistune<2.0.0' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt && pip install nbconvert==6.5.4 && bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'jinja2<=2.11.3' >> constraints-test.txt && echo 'mistune<2.0.0' >> constraints-test.txt && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt && pip install nbconvert==6.5.4 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install jinja2==2.11.3 && pip install -e . -r requirements-dev-test.txt -c constraints-test.txt && pip install nbconvert==5.6.1 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install ipython_genutils && bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -129,7 +135,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -144,7 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -161,9 +167,9 @@ pytest -v --no-header -rA --tb=short tests/unit/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.10-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -180,9 +186,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/googleapis/python-storage.git /home/python-storage
+RUN git clone https://github.com/great-expectations/great_expectations.git /home/great_expectations
 
-WORKDIR /home/python-storage
+WORKDIR /home/great_expectations
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +197,9 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
-@Instance.register("googleapis", "python_storage_526_to_325")
-class PYTHON_STORAGE_526_TO_325(Instance):
+
+@Instance.register("great-expectations", "great_expectations_4426_to_unknown")
+class GREAT_EXPECTATIONS_4426_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -231,26 +238,18 @@ class PYTHON_STORAGE_526_TO_325(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        # Implement the log parsing logic here
-        # Split log into lines and process each line
-        lines = log.split('\n')
-        # Regex patterns for test name followed by status or vice versa
-        pattern = re.compile(r'.*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
-        for line in lines:
-            match = pattern.search(line)
-            if not match:
-                continue
-            # Extract test name and status from either group
-            test_name = match.group(1) or match.group(4)
-            status = match.group(2) or match.group(3)
-            if not test_name or not status:
-                continue
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # Extract all test names (lines with line numbers and test cases)
+        # Capture all test names (optional line number brackets)
+        all_tests_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(tests/.*?\.py::(?:\w+::)*test_\w+\[.*?\]|tests/.*?\.py::(?:\w+::)*test_\w+)', re.MULTILINE)
+        all_tests = set(match for match in all_tests_pattern.findall(log))
+        # Extract skipped tests (optional line number brackets)
+        skipped_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(tests/.*?\.py::(?:\w+::)*test_\w+\[.*?\]|tests/.*?\.py::(?:\w+::)*test_\w+)\s+SKIPPED', re.MULTILINE)
+        skipped_tests = set(match for match in skipped_pattern.findall(log))
+        # Extract failed tests (optional line number brackets)
+        failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?FAILED\s+(tests/.*?\.py::(?:\w+::)*test_\w+\[.*?\]|tests/.*?\.py::(?:\w+::)*test_\w+)', re.MULTILINE)
+        failed_tests = set(match for match in failed_pattern.findall(log))
+        # Calculate passed tests (all tests not skipped or failed)
+        passed_tests = all_tests - skipped_tests - failed_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

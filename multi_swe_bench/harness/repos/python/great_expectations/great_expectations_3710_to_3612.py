@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "python:3.7-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,72 +49,80 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-ls testing
+pip install jinja2==3.0.3
+###ACTION_DELIMITER###
+pip install -r requirements-dev-base.txt -c constraints-dev.txt
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-pip install mock pytest pytest-cov
+pytest -v
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short tests/unit/' > test_commands.sh
+locale -a
 ###ACTION_DELIMITER###
-bash test_commands.sh
+apt-get update && apt-get install -y locales && locale-gen en_US.UTF-8
 ###ACTION_DELIMITER###
-pip install six
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ###ACTION_DELIMITER###
-bash test_commands.sh
+locale -a
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud import _helpers/from google.cloud.core import _helpers/' google/cloud/storage/batch.py
+locale-gen en_US.UTF-8
 ###ACTION_DELIMITER###
-bash test_commands.sh
+sed -i 's/^# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud.core import _helpers/from google.api_core import _helpers/' google/cloud/storage/batch.py
+locale-gen
 ###ACTION_DELIMITER###
-bash test_commands.sh
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ###ACTION_DELIMITER###
-pip install google-api-core
+locale -a
 ###ACTION_DELIMITER###
-ls google/cloud/storage/_helpers.py
+export LANG=en_US.utf8 LC_ALL=en_US.utf8
 ###ACTION_DELIMITER###
-sed -i 's/from google.api_core import _helpers/from google.cloud.storage import _helpers/' google/cloud/storage/batch.py
+locale
 ###ACTION_DELIMITER###
-bash test_commands.sh
+cat /etc/default/locale
 ###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media/' google/cloud/storage/_helpers.py
+update-locale LANG=en_US.utf8 LC_ALL=en_US.utf8
 ###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media as resumable_media/' google/cloud/storage/_helpers.py
+pytest -v
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip install -r requirements-dev-spark.txt
 ###ACTION_DELIMITER###
-pip show -f google-resumable-media
+pytest -v
 ###ACTION_DELIMITER###
-pip uninstall -y google-cloud-storage && pip install .
+pip install -r requirements-dev-sqlalchemy.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pytest -v
 ###ACTION_DELIMITER###
-pip install pytz
+pip install -r requirements-dev.txt -c constraints-dev.txt
 ###ACTION_DELIMITER###
-sed -i '1i import google.resumable_media as resumable_media' tests/unit/test_blob.py
+pytest -v -m 'not integration'
 ###ACTION_DELIMITER###
-bash test_commands.sh
+export GE_TEST_BACKENDS='spark,sqlalchemy'
 ###ACTION_DELIMITER###
-sed -i '1c from google import resumable_media' tests/unit/test_blob.py
+GE_TEST_BACKENDS='spark,sqlalchemy' pytest -v
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pytest -v --napoleon-docstrings --ignore=tests/cli --ignore=tests/integration/usage_statistics
 ###ACTION_DELIMITER###
-python -c "from google import resumable_media; print('Import successful')"
+pytest -v --ignore=tests/cli --ignore=tests/integration/usage_statistics
 ###ACTION_DELIMITER###
-sed -i '/^import /i from google import resumable_media' tests/unit/test_blob.py
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip install nbformat
 ###ACTION_DELIMITER###
-head -n 10 tests/unit/test_blob.py"""
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
+###ACTION_DELIMITER###
+pip install nbconvert
+###ACTION_DELIMITER###
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
+###ACTION_DELIMITER###
+echo 'pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
 """.format(
                     pr=self.pr
@@ -129,7 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
 """.format(
                     pr=self.pr
@@ -144,7 +152,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
 """.format(
                     pr=self.pr
@@ -161,9 +169,9 @@ pytest -v --no-header -rA --tb=short tests/unit/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.10-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.7-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM python:3.7-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -180,9 +188,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/googleapis/python-storage.git /home/python-storage
+RUN git clone https://github.com/great-expectations/great_expectations.git /home/great_expectations
 
-WORKDIR /home/python-storage
+WORKDIR /home/great_expectations
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +199,9 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
-@Instance.register("googleapis", "python_storage_526_to_325")
-class PYTHON_STORAGE_526_TO_325(Instance):
+
+@Instance.register("great-expectations", "great_expectations_3710_to_3612")
+class GREAT_EXPECTATIONS_3710_TO_3612(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -226,31 +235,34 @@ class PYTHON_STORAGE_526_TO_325(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
         # Implement the log parsing logic here
-        # Split log into lines and process each line
-        lines = log.split('\n')
-        # Regex patterns for test name followed by status or vice versa
-        pattern = re.compile(r'.*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
-        for line in lines:
-            match = pattern.search(line)
-            if not match:
+        pattern1 = re.compile(r'^(tests/.*\.py::.*)\s+(SKIPPED|PASSED)\s+\[\s*\d+%\s*\]$')
+        pattern2 = re.compile(r'^(FAILED|ERROR)\s+(tests/.*\.py::.*)$')
+        for line in log.split('\n'):
+            line = line.strip()
+            # Match lines with SKIPPED/PASSED at the end (e.g., [...].py::test [...] SKIPPED [  0%])
+            match1 = pattern1.match(line)
+            if match1:
+                test_name = match1.group(1).strip()
+                status = match1.group(2)
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
                 continue
-            # Extract test name and status from either group
-            test_name = match.group(1) or match.group(4)
-            status = match.group(2) or match.group(3)
-            if not test_name or not status:
+            # Match lines with FAILED/ERROR at the start (e.g., [...]) FAILED tests/...)
+            match2 = pattern2.match(line)
+            if match2:
+                status = match2.group(1)
+                test_name = match2.group(2).strip()
+                if status in ('FAILED', 'ERROR'):
+                    failed_tests.add(test_name)
                 continue
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

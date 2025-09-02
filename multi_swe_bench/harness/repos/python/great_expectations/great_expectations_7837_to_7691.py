@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "python:3.10-slim"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,72 +49,93 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-ls testing
+apt-get update && apt-get install -y python3.8 python3.8-venv python3.8-pip
 ###ACTION_DELIMITER###
-pip install -e .
+apt-get update && apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa -y && apt-get update && apt-get install -y python3.8 python3.8-venv python3.8-pip
 ###ACTION_DELIMITER###
-pip install mock pytest pytest-cov
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.8 get-pip.py
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short tests/unit/' > test_commands.sh
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-bash test_commands.sh
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.8 get-pip.py
 ###ACTION_DELIMITER###
-pip install six
+apt-get update && apt-get install -y python3.8
 ###ACTION_DELIMITER###
-bash test_commands.sh
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3.8 get-pip.py
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud import _helpers/from google.cloud.core import _helpers/' google/cloud/storage/batch.py
+curl https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && python3.8 get-pip.py
 ###ACTION_DELIMITER###
-bash test_commands.sh
+apt-get install -y python3.8-distutils
 ###ACTION_DELIMITER###
-sed -i 's/from google.cloud.core import _helpers/from google.api_core import _helpers/' google/cloud/storage/batch.py
+curl https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && python3.8 get-pip.py
 ###ACTION_DELIMITER###
-bash test_commands.sh
+python3.8 -m venv venv
 ###ACTION_DELIMITER###
-pip install google-api-core
+python3.8 -m venv --without-pip venv
 ###ACTION_DELIMITER###
-ls google/cloud/storage/_helpers.py
+source venv/bin/activate
 ###ACTION_DELIMITER###
-sed -i 's/from google.api_core import _helpers/from google.cloud.storage import _helpers/' google/cloud/storage/batch.py
+curl https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && python get-pip.py
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media/' google/cloud/storage/_helpers.py
-###ACTION_DELIMITER###
-sed -i 's/from google import resumable_media/import google.resumable_media as resumable_media/' google/cloud/storage/_helpers.py
+echo './venv/bin/pytest -v --no-header -rA --tb=short -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip show -f google-resumable-media
+grep -r 'import' tests/conftest.py
 ###ACTION_DELIMITER###
-pip uninstall -y google-cloud-storage && pip install .
+python3.8 -c 'from great_expectations.data_context.cloud_constants import GXCloudEnvironmentVariable'
 ###ACTION_DELIMITER###
-bash test_commands.sh
+pip check
 ###ACTION_DELIMITER###
-pip install pytz
+java -version
 ###ACTION_DELIMITER###
-sed -i '1i import google.resumable_media as resumable_media' tests/unit/test_blob.py
-###ACTION_DELIMITER###
-bash test_commands.sh
-###ACTION_DELIMITER###
-sed -i '1c from google import resumable_media' tests/unit/test_blob.py
+apt-get update && apt-get install -y openjdk-11-jdk
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-python -c "from google import resumable_media; print('Import successful')"
+sed -i 's/-v/-vv/' test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i '/^import /i from google import resumable_media' tests/unit/test_blob.py
+echo -e 'source venv/bin/activate
+pytest -vv --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning tests/' > test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+echo -e 'source venv/bin/activate
+pytest -vv --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y locales && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
+###ACTION_DELIMITER###
+echo -e 'source venv/bin/activate
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+pytest -vv --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+echo -e '#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-head -n 10 tests/unit/test_blob.py"""
+echo -e '#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+source venv/bin/activate && pip install pytest-xdist && echo -e '#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-pytest -v --no-header -rA --tb=short tests/unit/
+#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
 """.format(
                     pr=self.pr
@@ -129,7 +150,10 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
 """.format(
                     pr=self.pr
@@ -144,7 +168,10 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v --no-header -rA --tb=short tests/unit/
+#!/bin/bash
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
 """.format(
                     pr=self.pr
@@ -161,9 +188,9 @@ pytest -v --no-header -rA --tb=short tests/unit/
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace python:3.10-slim with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM python:3.10-slim
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -180,9 +207,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/googleapis/python-storage.git /home/python-storage
+RUN git clone https://github.com/great-expectations/great_expectations.git /home/great_expectations
 
-WORKDIR /home/python-storage
+WORKDIR /home/great_expectations
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +218,9 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
-@Instance.register("googleapis", "python_storage_526_to_325")
-class PYTHON_STORAGE_526_TO_325(Instance):
+
+@Instance.register("great-expectations", "great_expectations_7837_to_7691")
+class GREAT_EXPECTATIONS_7837_TO_7691(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -226,31 +254,18 @@ class PYTHON_STORAGE_526_TO_325(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        # Implement the log parsing logic here
-        # Split log into lines and process each line
-        lines = log.split('\n')
-        # Regex patterns for test name followed by status or vice versa
-        pattern = re.compile(r'.*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
-        for line in lines:
-            match = pattern.search(line)
-            if not match:
-                continue
-            # Extract test name and status from either group
-            test_name = match.group(1) or match.group(4)
-            status = match.group(2) or match.group(3)
-            if not test_name or not status:
-                continue
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status == 'FAILED':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # Parse test statuses using regex
+        passed_matches = re.findall(r'PASSED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        passed_tests.update(passed_matches)
+        failed_matches = re.findall(r'FAILED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        failed_tests.update(failed_matches)
+        skipped_matches = re.findall(r'SKIPPED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
