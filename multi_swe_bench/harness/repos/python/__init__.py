@@ -156,3 +156,11 @@ from multi_swe_bench.harness.repos.python.great_expectations import *
 from multi_swe_bench.harness.repos.python.scikit_image import *
 from multi_swe_bench.harness.repos.python.scrapy import *
 from multi_swe_bench.harness.repos.python.learningequality import *
+from multi_swe_bench.harness.repos.python.wagtail import *
+from multi_swe_bench.harness.repos.python.PyCQA import *
+from multi_swe_bench.harness.repos.python.PrefectHQ import *
+from multi_swe_bench.harness.repos.python.Ouranosinc import *
+from multi_swe_bench.harness.repos.python.DataBiosphere import *
+from multi_swe_bench.harness.repos.python.mne_tools import *
+from multi_swe_bench.harness.repos.python.catalystneuro import *
+from multi_swe_bench.harness.repos.python.qiskit import *
