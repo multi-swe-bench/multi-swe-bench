@@ -164,7 +164,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("SwissDataScienceCenter", "renku-python_2120_to_unknown")
+@Instance.register("SwissDataScienceCenter", "renku_python_2120_to_2093")
 class RENKU_PYTHON_2120_TO_2093(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
