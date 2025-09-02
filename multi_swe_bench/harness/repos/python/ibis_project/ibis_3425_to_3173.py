@@ -49,21 +49,67 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+python3 --version
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+apt-get update
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+apt-get install -y python3.10 python3.10-pip python3.10-venv
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get install -y software-properties-common
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+add-apt-repository -y ppa:deadsnakes/ppa
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get update
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+apt-get install -y python3.10 python3.10-pip python3.10-venv
+###ACTION_DELIMITER###
+apt-get install -y python3.10
+###ACTION_DELIMITER###
+python3.10 -m ensurepip --upgrade
+###ACTION_DELIMITER###
+apt-get install -y python3.10-venv
+###ACTION_DELIMITER###
+python3.10 -m ensurepip --upgrade
+###ACTION_DELIMITER###
+python3.10 -m venv venv
+###ACTION_DELIMITER###
+source venv/bin/activate
+###ACTION_DELIMITER###
+pip install poetry
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+pip install 'setuptools>=57,<61'
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+poetry env use venv/bin/python3.10
+###ACTION_DELIMITER###
+poetry update
+###ACTION_DELIMITER###
+echo 'poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+poetry run pip list | grep ibis
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+poetry run python -c 'import ibis; print(ibis.__version__)'
+###ACTION_DELIMITER###
+poetry run pytest --verbose --no-header -rA --tb=full -p no:cacheprovider
+###ACTION_DELIMITER###
+echo 'poetry run pytest --verbose --no-header -rA --tb=long -p no:cacheprovider ./tests' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+ls -l
+###ACTION_DELIMITER###
+ls -l ibis
+###ACTION_DELIMITER###
+echo 'poetry run pytest --verbose --no-header -rA --tb=long -p no:cacheprovider ibis/tests' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -72,7 +118,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --verbose --no-header -rA --tb=long -p no:cacheprovider ibis/tests
 
 """.format(
                     pr=self.pr
@@ -87,7 +133,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --verbose --no-header -rA --tb=long -p no:cacheprovider ibis/tests
 
 """.format(
                     pr=self.pr
@@ -102,7 +148,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --verbose --no-header -rA --tb=long -p no:cacheprovider ibis/tests
 
 """.format(
                     pr=self.pr
@@ -138,9 +184,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +196,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_3425_to_3173")
+class IBIS_3425_TO_3173(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +231,33 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
-                passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        import json
+        # Compile regex patterns
+        passed_pattern = re.compile(r'(ibis/tests/.+?) PASSED|PASSED (ibis/tests/.+)')
+        failed_pattern = re.compile(r'FAILED (ibis/tests/.+?) -')
+        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (ibis/tests/.+?):')
+        lines = log.split('\n')
+        for line in lines:
+            # Check for passed tests
+            passed_match = passed_pattern.search(line)
+            if passed_match:
+                test_name = passed_match.group(1) or passed_match.group(2)
+                if test_name:
+                    passed_tests.add(test_name.strip())
+            # Check for failed tests
+            failed_match = failed_pattern.search(line)
+            if failed_match:
+                test_name = failed_match.group(1)
+                failed_tests.add(test_name.strip())
+            # Check for skipped tests
+            skipped_match = skipped_pattern.search(line)
+            if skipped_match:
+                test_name = skipped_match.group(1)
+                skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

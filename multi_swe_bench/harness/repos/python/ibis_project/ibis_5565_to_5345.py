@@ -49,30 +49,62 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls ci
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+ls -a
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls .github
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+ls .github/workflows
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
-###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
-###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+echo 'poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update && apt-get install -y build-essential graphviz libgeos-dev
+###ACTION_DELIMITER###
+pip install --upgrade pip 'poetry>=1.2'
+###ACTION_DELIMITER###
+apt-get install -y python3-pip
+###ACTION_DELIMITER###
+pip3 install --upgrade pip 'poetry>=1.2'
+###ACTION_DELIMITER###
+pip3 install --upgrade pip 'poetry>=1.2' --break-system-packages
+###ACTION_DELIMITER###
+pip3 install 'poetry>=1.2' --break-system-packages
+###ACTION_DELIMITER###
+poetry install --without dev --without docs --extras visualization
+###ACTION_DELIMITER###
+pip3 install --upgrade setuptools --break-system-packages
+###ACTION_DELIMITER###
+poetry install --without dev --without docs --extras visualization
+###ACTION_DELIMITER###
+pip3 install setuptools==58.0.0 --break-system-packages
+###ACTION_DELIMITER###
+poetry install --without dev --without docs --extras visualization
+###ACTION_DELIMITER###
+apt-get install -y python3.11 python3.11-dev python3.11-venv
+###ACTION_DELIMITER###
+add-apt-repository ppa:deadsnakes/ppa -y && apt-get update
+###ACTION_DELIMITER###
+apt-get install -y software-properties-common
+###ACTION_DELIMITER###
+add-apt-repository ppa:deadsnakes/ppa -y && apt-get update
+###ACTION_DELIMITER###
+apt-get install -y python3.11 python3.11-dev python3.11-venv
+###ACTION_DELIMITER###
+python3.11 -m venv .venv && source .venv/bin/activate
+###ACTION_DELIMITER###
+source .venv/bin/activate && pip install --upgrade setuptools pip
+###ACTION_DELIMITER###
+poetry install --without dev --without docs --extras visualization"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -87,7 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -102,7 +134,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -138,9 +170,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +182,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_5565_to_5345")
+class IBIS_5565_TO_5345(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,20 +217,32 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        import json
+        # Split log into lines
+        lines = log.split('\n')
+        # Regex patterns to match test lines
+        pattern1 = re.compile(r'^(.+?) (PASSED|FAILED|SKIPPED) \[\s*\d+%?\]')
+        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED) (.+?)(?: -|$)')
+        for line in lines:
+            line = line.strip()
+            match = pattern1.match(line)
+            if match:
+                test_name = match.group(1).strip()
+                status = match.group(2)
+            else:
+                match = pattern2.match(line)
+                if match:
+                    status = match.group(1)
+                    test_name = match.group(2).strip()
+                else:
+                    continue
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)

@@ -47,32 +47,38 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls .github/workflows
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+apt-get update && apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa -y && apt-get update && apt-get install -y python3.10 python3.10-venv
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+python3.10 -m venv venv310
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+source venv310/bin/activate
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+pip install --upgrade pip poetry
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+poetry install
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+pip install setuptools==60.0.0
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+poetry install
 ###ACTION_DELIMITER###
-cat test_commands.sh
+poetry env info && pip list | grep setuptools
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+poetry update
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+echo './ci/run_tests.sh ibis/tests' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+./ci/run_tests.sh ibis/tests
 
 """.format(
                     pr=self.pr
@@ -87,7 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+./ci/run_tests.sh ibis/tests
 
 """.format(
                     pr=self.pr
@@ -102,7 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+./ci/run_tests.sh ibis/tests
 
 """.format(
                     pr=self.pr
@@ -138,9 +144,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +156,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_3138_to_unknown")
+class IBIS_3138_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +191,32 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
-                passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # Regex pattern to match test names and statuses (handles both 'test STATUS' and 'STATUS test' formats)
+        pattern = re.compile(r'([\w\/]+\.py::[\w\[\]\-]+(?:\[[^\]]+\])*)\s+.*?(PASSED|FAILED|SKIPPED|XFAIL)|(PASSED|FAILED|SKIPPED|XFAIL)\s+.*?([\w\/]+\.py::[\w\[\]\-]+(?:\[[^\]]+\])*)')
+        for line in log.split('\n'):
+            match = pattern.search(line)
+            if match:
+                # Handle test name followed by status (e.g., 'test.py::name ... PASSED')
+                if match.group(1) and match.group(2):
+                    test_name = match.group(1)
+                    status = match.group(2)
+                # Handle XFAIL followed by test name
+                elif match.group(3) and match.group(4):
+                    test_name = match.group(4)
+                    status = match.group(3)
+                else:
+                    continue
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'FAILED':
+                    failed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
+                # XFAIL is not included in the current categories as per the function signature
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

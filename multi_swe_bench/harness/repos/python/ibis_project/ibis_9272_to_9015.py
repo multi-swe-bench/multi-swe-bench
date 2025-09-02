@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,32 +47,82 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """python --version
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+apt-get update && apt-get install -y python3.10 python3.10-dev python3.10-distutils
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+apt-get update && apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python3-openssl git
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+curl https://pyenv.run | bash
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+export PYENV_ROOT="$HOME/.pyenv" && export PATH="$PYENV_ROOT/bin:$PATH" && eval "$(pyenv init - bash)"
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+pyenv install 3.10.13
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+pyenv local 3.10.13
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+pip install poetry
 ###ACTION_DELIMITER###
-cat test_commands.sh
+poetry install --with test -E duckdb -E polars -E postgres
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update && apt-get install -y libpq-dev
+###ACTION_DELIMITER###
+poetry install --with test -E duckdb -E polars -E postgres
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
+###ACTION_DELIMITER###
+chmod +x test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+poetry install --with test -E duckdb -E polars -E postgres -E bigquery -E clickhouse -E dask -E datafusion -E druid -E exasol -E impala -E mssql -E mysql -E oracle -E pyspark -E snowflake -E trino -E examples -E visualization
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y unixodbc-dev openjdk-11-jre
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y unixodbc-dev openjdk-17-jre
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+poetry run pip install apache-flink
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+poetry run pip install apache-flink==1.17.6
+###ACTION_DELIMITER###
+poetry run pip install apache-flink==1.17.2
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning' > test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto' > test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"' > test_commands.sh
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+poetry add --dev black
+###ACTION_DELIMITER###
+poetry add --dev black==24.10.0
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+
+###ACTION_DELIMITER###
+mkdir -p /home/ibis/ci/ib
+###ACTION_DELIMITER###
+./test_commands.sh
+###ACTION_DELIMITER###
+mkdir -p /home/ibis/ci/ibis"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
 """.format(
                     pr=self.pr
@@ -87,7 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
 """.format(
                     pr=self.pr
@@ -102,7 +152,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
 """.format(
                     pr=self.pr
@@ -119,9 +169,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +188,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +200,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_9272_to_9015")
+class IBIS_9272_TO_9015(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,20 +235,19 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        # Regex pattern to match test status and name (captures test name until first whitespace)
+        # Refined regex to match structured test names (ibis/.../test.py::test_name)
+        # Expanded regex to capture parameterized test names with symbols like <, >, ,, :
+        pattern = re.compile(r'(PASSED|FAILED|ERROR|SKIPPED)\s+(ibis/[\w/.]+\.py::[\w\[\]<>.,:_-]+)')
+        matches = pattern.findall(log)
+        for status, test_name in matches:
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status in ('FAILED', 'ERROR'):
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)

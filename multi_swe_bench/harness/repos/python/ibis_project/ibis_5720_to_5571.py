@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,21 +49,51 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+pip install poetry
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+poetry install --with test
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+echo 'poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v ./...' > test_commands.sh
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+ls
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+bash test_commands.sh
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+echo 'poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+bash test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh
+poetry install --extras "bigquery"
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+poetry install --extras "clickhouse"
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+poetry install --extras "dask"
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+poetry install --extras "datafusion"
+###ACTION_DELIMITER###
+poetry install --extras "all"
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libpq-dev gcc
+###ACTION_DELIMITER###
+poetry install --extras "all"
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+poetry run pytest -v .
+###ACTION_DELIMITER###
+poetry update impyla
+###ACTION_DELIMITER###
+poetry add impyla --update
+###ACTION_DELIMITER###
+poetry add impyla
+###ACTION_DELIMITER###
+poetry add impyla@latest
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -72,7 +102,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
 """.format(
                     pr=self.pr
@@ -87,7 +117,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
 """.format(
                     pr=self.pr
@@ -102,7 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
 """.format(
                     pr=self.pr
@@ -119,9 +149,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +168,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +180,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_5720_to_5571")
+class IBIS_5720_TO_5571(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,20 +215,28 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        import json
+        # Regex patterns to match test cases
+        test_pattern = re.compile(r'([\w/]+\.py::[\w\[\]\-:.<>]+)\s+\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b')
+        status_first_pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b\s+([\w/]+\.py::[\w\[\]\-:.<>]+)')
+        test_status = {}
+        # Find all matches for test name followed by status
+        for match in test_pattern.findall(log):
+            test_name, status = match
+            test_status[test_name] = status  # Overwrite with latest status
+        # Find all matches for status followed by test name
+        for match in status_first_pattern.findall(log):
+            status, test_name = match
+            test_status[test_name] = status  # Overwrite with latest status
+        # Populate the sets based on the final status
+        for test_name, status in test_status.items():
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status in ['FAILED', 'ERROR', 'XFAILED']:
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)

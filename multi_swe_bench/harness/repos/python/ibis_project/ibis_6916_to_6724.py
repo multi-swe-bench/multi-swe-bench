@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,32 +47,34 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls -la .github
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+ls -la .github/workflows
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+apt-get update
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get install -y build-essential graphviz libgeos-dev freetds-dev libkrb5-dev
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get install -y curl
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-cat test_commands.sh
+export PATH="/root/.local/bin:$PATH"
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+poetry install
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -87,7 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -102,7 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml -m "core or benchmark"
 
 """.format(
                     pr=self.pr
@@ -119,9 +121,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +140,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +152,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_6916_to_6724")
+class IBIS_6916_TO_6724(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +187,29 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set() # Tests that passed successfully
+        failed_tests: set[str] = set() # Tests that failed
+        skipped_tests: set[str] = set() # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        # Regex pattern to match test lines with status (PASSED, FAILED, SKIPPED)
+        # Captures test name and status from lines like: [  12] test_name PASSED [  0%]
+        progress_pattern = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]', re.MULTILINE)
+        # Regex pattern to match failed tests in summary lines like: FAILED test_name - error...
+        failed_summary_pattern = re.compile(r'(FAILED)\s+(.*?)\s+-')
+        # Extract tests from progress lines
+        for test_name, status in progress_pattern.findall(log):
+            test_name = test_name.strip()
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
+        # Extract failed tests from summary lines (in case not captured in progress lines)
+        for status, test_name in failed_summary_pattern.findall(log):
+            test_name = test_name.strip()
+            if status == 'FAILED':
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

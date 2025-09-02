@@ -47,21 +47,19 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+apt-get update && apt-get install -y python3 python3-venv python3-pip
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+python3 -m venv .venv
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+source .venv/bin/activate && pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+echo 'python -m unittest discover -s tests -v' > test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+cat test_commands.sh
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
-###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+echo '.venv/bin/python -m unittest discover -s tests -v' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
@@ -72,7 +70,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -87,7 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -102,7 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+.venv/bin/python -m unittest discover -s tests -v
 
 """.format(
                     pr=self.pr
@@ -150,8 +148,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("hhursev", "recipe-scrapers_348_to_unknown")
+class RECIPE_SCRAPERS_348_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +183,36 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
+        import json
+        # TODO: Implement the parse_log function
+            # Extract error test names (FAILED tests)
+        error_pattern = re.compile(r'ERROR:\s+[^(]+\((tests\.[^)]+)\)')
+        error_tests = error_pattern.findall(log)
+        for test in error_tests:
+            failed_tests.add(test)
+        # Extract all test names and determine their status
+        test_name_pattern = re.compile(r'\((tests\.[^)]+)\)')
+        test_matches = test_name_pattern.finditer(log)
+        for match in test_matches:
             test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
-                passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+            if test_name in failed_tests:
+                continue  # Already marked as failed
+            # Search for the next status word after the test name
+            start_pos = match.end()
+            status_pattern = re.compile(r'\b(ok|skipped|failed)\b', re.IGNORECASE)
+            status_match = status_pattern.search(log, start_pos)
+            if status_match:
+                status = status_match.group(1).lower()
+                if status == 'ok':
+                    passed_tests.add(test_name)
+                elif status == 'skipped':
+                    skipped_tests.add(test_name)
+                elif status == 'failed':
+                    failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.10-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,32 +47,80 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls -la .github/workflows
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+apt-get update && apt-get install -y just
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+curl -L https://github.com/casey/just/releases/latest/download/just-linux-x86_64 -o /usr/local/bin/just && chmod +x /usr/local/bin/just
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+curl -L https://github.com/casey/just/releases/latest/download/just-linux-x86_64 -o /usr/local/bin/just && chmod +x /usr/local/bin/just
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+curl -L https://github.com/casey/just/releases/latest/download/just-x86_64-unknown-linux-musl -o /usr/local/bin/just && chmod +x /usr/local/bin/just
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+curl -L https://github.com/casey/just/releases/download/v1.25.2/just-linux-x86_64 -o /usr/local/bin/just && chmod +x /usr/local/bin/just
 ###ACTION_DELIMITER###
-cat test_commands.sh
+curl -L https://github.com/casey/just/releases/download/v1.25.2/just-x86_64-unknown-linux-musl -o /usr/local/bin/just && chmod +x /usr/local/bin/just
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get update && apt-get install -y ca-certificates && curl -L https://github.com/casey/just/releases/download/v1.25.2/just-x86_64-unknown-linux-musl -o /usr/local/bin/just && chmod +x /usr/local/bin/just
+###ACTION_DELIMITER###
+curl -L https://github.com/casey/just/releases/download/v1.25.2/just-x86_64-unknown-linux-gnu -o /usr/local/bin/just && chmod +x /usr/local/bin/just
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget && wget https://github.com/casey/just/releases/download/v1.25.2/just-x86_64-unknown-linux-musl -O /usr/local/bin/just && chmod +x /usr/local/bin/just
+###ACTION_DELIMITER###
+wget https://github.com/casey/just/releases/download/v1.25.2/just-x86_64-unknown-linux-musl.tar.gz -O just.tar.gz && tar -xzf just.tar.gz && mv just-x86_64-unknown-linux-musl/just /usr/local/bin/just && chmod +x /usr/local/bin/just
+###ACTION_DELIMITER###
+pip install --upgrade pip 'poetry<1.4'
+###ACTION_DELIMITER###
+poetry install --with test
+###ACTION_DELIMITER###
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml
+###ACTION_DELIMITER###
+poetry install --with test --extras "bigquery"
+###ACTION_DELIMITER###
+poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml
+###ACTION_DELIMITER###
+poetry install --with test --extras "clickhouse"
+###ACTION_DELIMITER###
+poetry install --with test --extras "all"
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libpq-dev python3-dev
+###ACTION_DELIMITER###
+poetry install --with test --extras "all"
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y build-essential
+###ACTION_DELIMITER###
+poetry install --with test --extras "all"
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v -n auto --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'just check -v' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml --cov=ibis --cov-report=xml:coverage.xml' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'just ci-check -m core -n auto' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'just check -v -n auto' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'just check -v -n auto' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v -n auto --junitxml=junit.xml' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
 """.format(
                     pr=self.pr
@@ -87,7 +135,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
 """.format(
                     pr=self.pr
@@ -102,7 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
 """.format(
                     pr=self.pr
@@ -119,9 +167,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.10-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +186,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +198,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_6138_to_6137")
+class IBIS_6138_TO_6137(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +233,18 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
-                passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        import json
+        # Use regex to find test cases and their statuses
+        passed_pattern = re.compile(r'PASSED (ibis/.*?)(?=\s|$)')
+        failed_pattern = re.compile(r'FAILED (ibis/.*?)(?=\s|$)')
+        skipped_pattern = re.compile(r'SKIPPED (ibis/.*?)(?=\s|$)')
+        passed_tests.update(passed_pattern.findall(log))
+        failed_tests.update(failed_pattern.findall(log))
+        skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

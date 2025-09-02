@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import json
 from typing import Optional, Union
@@ -21,7 +23,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,32 +49,82 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+conda env list
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+ls -la /root/miniconda
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls -la
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+apt-get update && apt-get install -y wget
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+bash Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda
 ###ACTION_DELIMITER###
-cat test_commands.sh
+source /root/miniconda/etc/profile.d/conda.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+conda env create -f environment.yml
+###ACTION_DELIMITER###
+conda install -n base -c conda-forge mamba --yes
+###ACTION_DELIMITER###
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r --yes
+###ACTION_DELIMITER###
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r
+###ACTION_DELIMITER###
+conda install -n base -c conda-forge mamba --yes
+###ACTION_DELIMITER###
+mamba env create -f environment.yml
+###ACTION_DELIMITER###
+mamba env update -n base -f environment.yml --yes
+###ACTION_DELIMITER###
+pip install -r requirements.txt
+###ACTION_DELIMITER###
+pip install sqlalchemy
+###ACTION_DELIMITER###
+pip install pytest
+###ACTION_DELIMITER###
+echo 'pytest -v ibis/tests' > /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+cat /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+bash /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+pip install ibis-sqlite
+###ACTION_DELIMITER###
+python -c 'import sqlite3; print("SQLite3 available")'
+###ACTION_DELIMITER###
+pip install 'sqlalchemy<2.0'
+###ACTION_DELIMITER###
+bash /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+pip install ibis-pandas ibis-sqlalchemy
+###ACTION_DELIMITER###
+pip install 'ibis[pandas,sqlalchemy]'
+###ACTION_DELIMITER###
+pip install .
+###ACTION_DELIMITER###
+echo -e 'python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests' > /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+bash /home/ibis/test_commands.sh
+###ACTION_DELIMITER###
+pytest -v ibis/tests/test_api.py::test_multiple_backends
+###ACTION_DELIMITER###
+pip install pytest-mock
+###ACTION_DELIMITER###
+pytest -v ibis/tests/test_api.py::test_multiple_backends
+###ACTION_DELIMITER###
+bash /home/ibis/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
 """.format(
                     pr=self.pr
@@ -87,7 +139,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
 """.format(
                     pr=self.pr
@@ -102,7 +154,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
 """.format(
                     pr=self.pr
@@ -119,9 +171,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +190,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +202,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_3009_to_2810")
+class IBIS_3009_TO_2810(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +237,32 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        # Implement the log parsing logic here
+        # Regex patterns to match test execution lines and summary lines
+        # Execution lines: e.g., [   9] ibis/tests/expr/test_analysis.py::test_rewrite_join_projection_without_other_ops PASSED [  0%]
+        pattern_execution = r'^\s*(?:\[\s*\d+\s*\]\s*)?([\w\/\-\.]+\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASSED)\s+(?:\[\s*\d+\.?\d*%?\s*\])?'
+        # Summary lines: e.g., FAILED ibis/tests/test_api.py::test_top_level_api - AssertionError...
+        pattern_summary = r'^\s*(?:\[\s*\d+\s*\]\s*)?(FAILED|SKIPPED|XFAIL|XPASSED)\s+([\w\/\-\.]+\.py::[^\s]+)'  # Use multiline flag
+        matches_execution = re.findall(pattern_execution, log, re.MULTILINE)
+        matches_summary = re.findall(pattern_summary, log, re.MULTILINE)
+        matches = matches_execution + [(test, status) for status, test in matches_summary]
+        for test_name, status in matches:
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
+            elif status == 'XFAIL':
+                # XFAIL is expected failure, consider as skipped
+                skipped_tests.add(test_name)
+            elif status == 'XPASSED':
+                # XPASSED is unexpected pass, consider as failed
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

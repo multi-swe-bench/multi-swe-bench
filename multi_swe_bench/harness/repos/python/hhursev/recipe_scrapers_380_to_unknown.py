@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,30 +49,34 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls tests
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+ls tests/test_data
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+pytest -v --online --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+pytest -v --online --no-header -rA -p no:cacheprovider
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+ls recipe_scrapers
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pytest tests/ -v --online --no-header -rA -p no:cacheprovider
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+pytest tests/ -v --no-header -rA -p no:cacheprovider
+###ACTION_DELIMITER###
+echo 'pytest tests/ -v --no-header -rA -p no:cacheprovider' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -87,7 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -102,7 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+pytest tests/ -v --no-header -rA -p no:cacheprovider
 
 """.format(
                     pr=self.pr
@@ -119,9 +123,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -150,8 +154,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("hhursev", "recipe-scrapers_380_to_unknown")
+class RECIPE_SCRAPERS_380_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +189,33 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
-                passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
+        # Iterate over each line in the log
+        for line in log.splitlines():
+            # Check for passed tests (two patterns: test before PASSED or after)
+            passed_match = re.search(r'(tests/.*?) PASSED|PASSED (tests/.*?)', line)
+            if passed_match:
+                test_name = passed_match.group(1) or passed_match.group(2)
+                passed_tests.add(test_name.strip())  # Remove any leading/trailing whitespace
+            # Check for skipped tests (pattern: SKIPPED [num] tests/...:)
+            skipped_match = re.search(r'SKIPPED \[\d+\] (tests/.*?):', line)
+            if skipped_match:
+                test_name = skipped_match.group(1)
+                skipped_tests.add(test_name.strip())
+            # Check for failed tests (ERROR or FAILED)
+            # Error during collection
+            error_match = re.search(r'ERROR (tests/.*?)', line)
+            if error_match:
+                test_name = error_match.group(1)
+                failed_tests.add(test_name.strip())
+            # Explicit failed tests
+            failed_match = re.search(r'(tests/.*?) FAILED|FAILED (tests/.*?)', line)
+            if failed_match:
+                test_name = failed_match.group(1) or failed_match.group(2)
+                failed_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

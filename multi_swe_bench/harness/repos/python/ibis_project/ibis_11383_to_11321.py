@@ -49,21 +49,59 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls ci
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+ls -a
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls .github
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+ls .github/workflows
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+echo 'uv run pytest -v --no-header -rA --tb=no -p no:cacheprovider --junitxml=junit.xml -m "core or benchmark" --numprocesses auto' > test_commands.sh
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ###ACTION_DELIMITER###
-cat test_commands.sh
+apt-get install -y just
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+export PATH="$HOME/.local/bin:$PATH"
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+apt-get install -y python3.9 python3.9-dev python3-pip
+###ACTION_DELIMITER###
+uv config set python.downloads allow
+###ACTION_DELIMITER###
+uv venv --python 3.9
+###ACTION_DELIMITER###
+export UV_PYTHON_DOWNLOADS=allow
+###ACTION_DELIMITER###
+uv venv --python 3.9
+###ACTION_DELIMITER###
+export UV_PYTHON_DOWNLOADS=true
+###ACTION_DELIMITER###
+uv venv --python 3.9
+###ACTION_DELIMITER###
+source .venv/bin/activate
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+apt-get install -y pkg-config libmysqlclient-dev
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+apt-get install -y libpq-dev
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+apt-get install -y build-essential
+###ACTION_DELIMITER###
+just sync
+###ACTION_DELIMITER###
+chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -72,7 +110,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+uv run pytest -v --no-header -rA --tb=no -p no:cacheprovider --junitxml=junit.xml -m "core or benchmark" --numprocesses auto
 
 """.format(
                     pr=self.pr
@@ -87,7 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+uv run pytest -v --no-header -rA --tb=no -p no:cacheprovider --junitxml=junit.xml -m "core or benchmark" --numprocesses auto
 
 """.format(
                     pr=self.pr
@@ -102,7 +140,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+uv run pytest -v --no-header -rA --tb=no -p no:cacheprovider --junitxml=junit.xml -m "core or benchmark" --numprocesses auto
 
 """.format(
                     pr=self.pr
@@ -138,9 +176,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +188,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_11383_to_11321")
+class IBIS_11383_TO_11321(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -189,18 +227,16 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        import json
+        # Regex pattern to match test status and name
+        pattern = r"(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+([\w\/]+\.py::[\w\[\]\-]+)"
+        matches = re.findall(pattern, log)
+        for status, test_name in matches:
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status in ("FAILED", "XFAIL", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,

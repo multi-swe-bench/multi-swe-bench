@@ -49,30 +49,40 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls ci
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+ls -a
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls .github
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+ls .github/workflows
+###ACTION_DELIMITER###
+apt-get update
+###ACTION_DELIMITER###
+apt-get install -y build-essential graphviz libgeos-dev freetds-dev
+###ACTION_DELIMITER###
+apt-get install -y python3 python3-pip
+###ACTION_DELIMITER###
+pip install 'poetry==1.8.3'
+###ACTION_DELIMITER###
+python3 -m venv venv && venv/bin/pip install 'poetry==1.8.3'
 ###ACTION_DELIMITER###
 apt-get install -y python3.12-venv
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+python3 -m venv venv && venv/bin/pip install 'poetry==1.8.3'
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+venv/bin/poetry install --without dev --without docs --extras 'visualization decompiler'
 ###ACTION_DELIMITER###
-cat test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+echo -e '#!/bin/bash
+venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs' > test_commands.sh && chmod +x test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+#!/bin/bash
+venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
 """.format(
                     pr=self.pr
@@ -87,7 +97,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+#!/bin/bash
+venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
 """.format(
                     pr=self.pr
@@ -102,7 +113,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+#!/bin/bash
+venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
 """.format(
                     pr=self.pr
@@ -138,9 +150,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +162,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_10079_to_9868")
+class IBIS_10079_TO_9868(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,23 +197,24 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        import json
+        # TODO: Implement the parse_log function
+        # Implement the log parsing logic here
+        # Regex pattern to match test result lines with [gw...], percentage, status, and test name
+        pattern = r'(?:\[\d+\]\s+)?\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|SKIPPED|FAILED)\s+([^\n]+)'
+        matches = re.findall(pattern, log)
+        for status, test_name in matches:
+            test_name = test_name.strip()
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
-                failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
+            elif status == 'FAILED':
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

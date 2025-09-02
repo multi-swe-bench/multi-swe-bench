@@ -128,4 +128,4 @@ from multi_swe_bench.harness.repos.python.statsmodels import *
 from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.pybamm_team import *
 from multi_swe_bench.harness.repos.python.nilearn import *
-
+from multi_swe_bench.harness.repos.python.ibis_project import *

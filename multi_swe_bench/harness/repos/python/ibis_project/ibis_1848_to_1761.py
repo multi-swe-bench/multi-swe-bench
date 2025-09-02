@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:latest"
+        return "python:3.10-slim-bullseye"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,32 +47,98 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """ls -la
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+make develop
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+apt-get update && apt-get install -y make
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+make develop
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+pip install numpy
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+pip install multipledispatch python-dateutil tzdata
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+make develop
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+pip install pre-commit
 ###ACTION_DELIMITER###
-cat test_commands.sh
+make develop
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+make init
+###ACTION_DELIMITER###
+pip install docker-compose
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libyaml-dev gcc
+###ACTION_DELIMITER###
+pip install docker-compose
+###ACTION_DELIMITER###
+pip install cython
+###ACTION_DELIMITER###
+pip install docker-compose
+###ACTION_DELIMITER###
+pip install PyYAML==5.3.1
+###ACTION_DELIMITER###
+pip install PyYAML==5.3.1 --only-binary=:all:
+###ACTION_DELIMITER###
+pip install --upgrade pip
+###ACTION_DELIMITER###
+pip install docker-compose
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y docker-compose
+###ACTION_DELIMITER###
+make init
+###ACTION_DELIMITER###
+service docker start
+###ACTION_DELIMITER###
+make init
+###ACTION_DELIMITER###
+service docker status
+###ACTION_DELIMITER###
+journalctl -u docker
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip install pytest
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip install pytest-xdist
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip uninstall -y pandas && pip install pandas==1.5.3
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip uninstall -y numpy && pip install numpy==1.24.4
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip install sqlalchemy
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip uninstall -y sqlalchemy && pip install sqlalchemy==1.4.49
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+pip uninstall -y sqlalchemy && pip cache purge && pip install sqlalchemy==1.4.49
+###ACTION_DELIMITER###
+pip uninstall -y sqlalchemy && pip install sqlalchemy==1.3.24
+###ACTION_DELIMITER###
+make testlocal
+###ACTION_DELIMITER###
+echo 'pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"' > test_commands.sh
+###ACTION_DELIMITER###
+echo 'PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
 """.format(
                     pr=self.pr
@@ -87,7 +153,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
 """.format(
                     pr=self.pr
@@ -102,7 +168,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
 """.format(
                     pr=self.pr
@@ -119,9 +185,9 @@ venv/bin/python -m unittest_parallel --level test -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:latest
+FROM python:3.10-slim-bullseye
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -138,9 +204,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +216,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_1848_to_1761")
+class IBIS_1848_TO_1761(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,20 +251,19 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        # Define regex pattern to match test status and name
+        pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED)\b\s+(ibis/.*?)\s*$', re.MULTILINE)
+        # Find all matches in the log content
+        matches = pattern.findall(log)
+        # Categorize test names into respective sets
+        for status, test_name in matches:
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)

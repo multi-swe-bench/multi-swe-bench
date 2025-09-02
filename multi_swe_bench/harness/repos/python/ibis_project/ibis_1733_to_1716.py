@@ -47,32 +47,100 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls
+                """cat README.md
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+ls
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y python3 python3-pip
+cat Makefile
 ###ACTION_DELIMITER###
-pip install -e '.[tests]'
+cat requirements.txt
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+make develop
 ###ACTION_DELIMITER###
-apt-get install -y python3.12-venv
+apt-get update && apt-get install -y make
 ###ACTION_DELIMITER###
-python3 -m venv venv && source venv/bin/activate && pip install -e '.[tests]'
+make develop
 ###ACTION_DELIMITER###
-echo 'venv/bin/python -m unittest_parallel --level test -v' > test_commands.sh
+apt-get update && apt-get install -y python3 python3-pip python3-dev python-is-python3
 ###ACTION_DELIMITER###
-cat test_commands.sh
+make develop
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+sed -i 's/SafeConfigParser/ConfigParser/g' versioneer.py
+###ACTION_DELIMITER###
+make develop
+###ACTION_DELIMITER###
+sed -i 's/readfp/read_file/g' versioneer.py
+###ACTION_DELIMITER###
+make develop
+###ACTION_DELIMITER###
+pip install pre-commit
+###ACTION_DELIMITER###
+pip install pre-commit --break-system-packages
+###ACTION_DELIMITER###
+make develop
+###ACTION_DELIMITER###
+make test
+###ACTION_DELIMITER###
+cat ci/test.sh
+###ACTION_DELIMITER###
+pip install pytest --break-system-packages && pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/from collections import Iterable/from collections.abc import Iterable/g' {} +
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+grep -r 'from collections import.*Iterable' ibis/
+###ACTION_DELIMITER###
+sed -i 's/from collections import deque, Iterable/from collections import deque; from collections.abc import Iterable/' ibis/expr/lineage.py
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+sed -i 's/from pandas.core.tools.datetimes import to_time, to_datetime/from pandas.core.tools.datetimes import to_datetime/' ibis/compat.py && sed -i 's/from pandas.tseries.tools import to_time, to_datetime/from pandas.core.tools.datetimes import to_datetime/' ibis/compat.py
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+sed -i 's/from ibis.compat import to_time, to_date/from ibis.compat import to_date/' ibis/expr/api.py
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+grep -r 'collections.Mapping' ibis/ && grep -r 'from collections import Mapping' ibis/
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/collections.Mapping/collections.abc.Mapping/g' {} +
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+grep -r 'import pandas.util.testing' ibis/
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/pandas.util.testing/pandas.testing/g' {} +
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/from pandas.util import testing as tm/import pandas.testing as tm/g' {} +
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/collections.Sequence/collections.abc.Sequence/g' {} +
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+grep -r 'iteritems()' ibis/
+###ACTION_DELIMITER###
+sed -i 's/iteritems()/items()/g' ibis/pandas/client.py
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+grep -r 'from collections import.*Iterable' ibis/ && grep -r 'collections.Iterable' ibis/
+###ACTION_DELIMITER###
+find ibis/ -type f -name '*.py' -exec sed -i 's/collections.Iterable/collections.abc.Iterable/g' {} +
+###ACTION_DELIMITER###
+pytest -v --doctest-modules --doctest-ignore-import-errors
+###ACTION_DELIMITER###
+echo 'pytest -v --doctest-modules --doctest-ignore-import-errors' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-venv/bin/python -m unittest_parallel --level test -v
+pytest -v --doctest-modules --doctest-ignore-import-errors
 
 """.format(
                     pr=self.pr
@@ -87,7 +155,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+pytest -v --doctest-modules --doctest-ignore-import-errors
 
 """.format(
                     pr=self.pr
@@ -102,7 +170,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-venv/bin/python -m unittest_parallel --level test -v
+pytest -v --doctest-modules --doctest-ignore-import-errors
 
 """.format(
                     pr=self.pr
@@ -138,9 +206,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/hhursev/recipe-scrapers.git /home/recipe-scrapers
+RUN git clone https://github.com/ibis-project/ibis.git /home/ibis
 
-WORKDIR /home/recipe-scrapers
+WORKDIR /home/ibis
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -150,8 +218,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("hhursev", "recipe_scrapers_1605_to_1422")
-class RECIPE_SCRAPERS_1605_TO_1422(Instance):
+@Instance.register("ibis-project", "ibis_1733_to_1716")
+class IBIS_1733_TO_1716(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -185,20 +253,33 @@ class RECIPE_SCRAPERS_1605_TO_1422(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        # Regex pattern to match test lines and extract test name + status
-        # Matches lines like: (tests.RecipeTestCase.tests/...) ... ok
-        test_pattern = re.compile(r'\((tests\.[^)]+)\).*? ... (ok|FAIL|SKIPPED)$', re.MULTILINE)
-        # Parse each test line
-        for match in test_pattern.finditer(log):
-            test_name = match.group(1)
-            status = match.group(2)
-            if status == 'ok':
+        import json
+        # Regular expression pattern to match test names and their statuses
+        pattern = re.compile(
+            r'(ibis/[\w/:.\[\]-]+)\s+(PASSED|FAILED|SKIPPED)|'
+            r'(PASSED|FAILED|SKIPPED)\s+(ibis/[\w/:.\[\]-]+)'
+        )
+        # Find all matches in the log content
+        matches = pattern.findall(log)
+        for match in matches:
+            # Check if the first part of the pattern matched (test name followed by status)
+            if match[0] and match[1]:
+                test_name = match[0]
+                status = match[1]
+            # Check if the second part of the pattern matched (status followed by test name)
+            elif match[2] and match[3]:
+                test_name = match[3]
+                status = match[2]
+            else:
+                continue  # skip invalid matches
+            # Add the test name to the appropriate set
+            if status == 'PASSED':
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == 'FAILED':
                 failed_tests.add(test_name)
             elif status == 'SKIPPED':
                 skipped_tests.add(test_name)
