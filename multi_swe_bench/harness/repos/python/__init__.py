@@ -18,7 +18,6 @@ from multi_swe_bench.harness.repos.python.pre_commit import *
 from multi_swe_bench.harness.repos.python.pydantic import *
 from multi_swe_bench.harness.repos.python.mantidproject import *
 from multi_swe_bench.harness.repos.python.dssg import *
-from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.falconry import *
 from multi_swe_bench.harness.repos.python.Pyomo import *
 from multi_swe_bench.harness.repos.python.CS_SI import *
@@ -51,7 +50,7 @@ from multi_swe_bench.harness.repos.python.scverse import *
 from multi_swe_bench.harness.repos.python.JrGoodle import *
 from multi_swe_bench.harness.repos.python.kornia import *
 from multi_swe_bench.harness.repos.python.pythonpillow import *
-from multi_swe_bench.harness.repos.python.qiskit import *
+from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.plotly import *
 from multi_swe_bench.harness.repos.python.vega import *
 from multi_swe_bench.harness.repos.python.narwhals_dev import *
@@ -125,4 +124,5 @@ from multi_swe_bench.harness.repos.python.Clinical_Genomics import *
 from multi_swe_bench.harness.repos.python.pymc_devs import *
 from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
+from multi_swe_bench.harness.repos.python.statsmodels import *
 from multi_swe_bench.harness.repos.python.statsmodels import *
