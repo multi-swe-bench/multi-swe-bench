@@ -154,3 +154,4 @@ from multi_swe_bench.harness.repos.python.deepset_ai import *
 from multi_swe_bench.harness.repos.python.dcs4cop import *
 from multi_swe_bench.harness.repos.python.pyscf import *
 from multi_swe_bench.harness.repos.python.great_expectations import *
+from multi_swe_bench.harness.repos.python.scikit_image import *
