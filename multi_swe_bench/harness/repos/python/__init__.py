@@ -132,4 +132,4 @@ from multi_swe_bench.harness.repos.python.nilearn import *
 from multi_swe_bench.harness.repos.python.ibis_project import *
 from multi_swe_bench.harness.repos.python.jackdewinter import *
 from multi_swe_bench.harness.repos.python.gammapy import *
-from multi_swe_bench.harness.repos.python.PyCQA import *
+from multi_swe_bench.harness.repos.python.numba import *
