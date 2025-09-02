@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.11-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,39 +49,41 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -la
 ###ACTION_DELIMITER###
-ls -la .github/workflows
+pip install -r requirements.d/development.txt
 ###ACTION_DELIMITER###
-apt-get update
-###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y software-properties-common
-###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
-###ACTION_DELIMITER###
-apt-get update
-###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y python3.11
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
+echo 'pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y pkg-config
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libssl-dev
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y liblz4-dev
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libzstd-dev zlib1g-dev liblzma-dev
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libxxhash-dev
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libacl1-dev
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y gcc
+###ACTION_DELIMITER###
+pip install -e .
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -90,11 +92,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -109,11 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -128,11 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -151,7 +141,7 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
 # Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +158,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/borgbackup/borg.git /home/borg
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/borg
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +170,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("borgbackup", "borg_8847_to_8751")
+class BORG_8847_TO_8751(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -220,16 +209,15 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
-        failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        skipped_tests.update(skipped_pattern.findall(log))
+        # Implement the log parsing logic here
+        # Regex patterns to match test status lines
+        passed_pattern = r'\[gw\d+\] \[\s*\d+%\] PASSED (src/.*?)\s*$'
+        skipped_pattern = r'SKIPPED.*?(src/[^:]+::[^\s]+|src/[^:]+)\b'
+        failed_pattern = r'\[gw\d+\] \[\s*\d+%\] FAILED (src/[^ ]+)\s*$'
+        # Find all matches for each status
+        passed_tests = set(re.findall(passed_pattern, log, re.MULTILINE))
+        skipped_tests = set(re.findall(skipped_pattern, log, re.MULTILINE))
+        failed_tests = set(re.findall(failed_pattern, log, re.MULTILINE))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

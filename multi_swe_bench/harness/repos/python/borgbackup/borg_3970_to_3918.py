@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,41 +47,19 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """apt-get update && apt-get install -y build-essential libssl-dev liblz4-dev libzstd-dev python3-dev libfuse-dev pkg-config libacl1-dev libattr1-dev
 ###ACTION_DELIMITER###
-ls -la .github/workflows
+pip install -e .
 ###ACTION_DELIMITER###
-apt-get update
+pip install --upgrade setuptools cython
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+pip install -e .
 ###ACTION_DELIMITER###
-apt-get install -y software-properties-common
+echo 'pytest --no-header -v -rA -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite' > test_commands.sh
 ###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
+bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update
-###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y python3.11
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
-###ACTION_DELIMITER###
-cat test_commands.sh
-###ACTION_DELIMITER###
-chmod +x test_commands.sh
+pip install -r requirements.d/development.txt
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -90,11 +68,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest --no-header -v -rA -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -109,11 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest --no-header -v -rA -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -128,11 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest --no-header -v -rA -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -151,7 +117,7 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
 # Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +134,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/borgbackup/borg.git /home/borg
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/borg
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +146,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("borgbackup", "borg_3970_to_3918")
+class BORG_3970_TO_3918(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -216,20 +181,23 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
-        import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
-        failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        skipped_tests.update(skipped_pattern.findall(log))
+        # Use regex to find test status and names
+        pattern = re.compile(r'\b(PASSED|SKIPPED|FAILED)\b.*?(src/[^:]+::[^:]+(?:::[^:]+)*)')
+        for line in log.split('\n'):
+            match = pattern.search(line)
+            if match:
+                status = match.group(1)
+                test_name = match.group(2).rstrip(':')  # Remove trailing colon if present
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
+                elif status == 'FAILED':
+                    failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

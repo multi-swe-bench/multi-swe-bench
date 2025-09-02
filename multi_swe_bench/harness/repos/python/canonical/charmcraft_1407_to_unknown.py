@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.10"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -49,52 +49,24 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls -la
 ###ACTION_DELIMITER###
-ls -la .github/workflows
-###ACTION_DELIMITER###
 apt-get update
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+apt-get install -y libffi-dev libapt-pkg-dev libssl-dev
 ###ACTION_DELIMITER###
-apt-get install -y software-properties-common
+pip install https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/python-apt/2.2.1/python-apt_2.2.1.tar.xz
 ###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
+pip install -r requirements.txt
 ###ACTION_DELIMITER###
-apt-get update
+pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y python3.11
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
-###ACTION_DELIMITER###
-cat test_commands.sh
-###ACTION_DELIMITER###
-chmod +x test_commands.sh
-###ACTION_DELIMITER###
-bash test_commands.sh"""
+echo './run_tests' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+./run_tests
 
 """.format(
                     pr=self.pr
@@ -109,11 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+./run_tests
 
 """.format(
                     pr=self.pr
@@ -128,11 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+./run_tests
 
 """.format(
                     pr=self.pr
@@ -149,9 +113,9 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.10 with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.10
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +132,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/canonical/charmcraft.git /home/charmcraft
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/charmcraft
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +144,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("canonical", "charmcraft_1407_to_unknown")
+class CHARMCRAFT_1407_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -216,20 +179,24 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        # Regex patterns to match test cases and their statuses
+        # Passed tests: test name followed by 'PASSED'
+        passed_pattern = re.compile(r'(tests/[\w/.-]+\.py::[\w\[\]-]+)\s+PASSED', re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
+        # Failed tests: 'FAILED' followed by test name
+        failed_pattern = re.compile(r'FAILED\s+(tests/[\w/.-]+\.py::test[^\s]+)', re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        skipped_tests.update(skipped_pattern.findall(log))
+        # Skipped tests: either 'SKIPPED' followed by test name or test name followed by 'SKIPPED'
+        skipped_pattern = re.compile(r'^(tests/[\w/.-]+\.py::test[\w\[\]-]+)\s+SKIPPED|^SKIPPED\s+(tests/[\w/.-]+\.py::test[\w\[\]-]+)', re.MULTILINE)
+        skipped_matches = skipped_pattern.findall(log)
+        for match in skipped_matches:
+            test = match[0] if match[0] else match[1]
+            skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

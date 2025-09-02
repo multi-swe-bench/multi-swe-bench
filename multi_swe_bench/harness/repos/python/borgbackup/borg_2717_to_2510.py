@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "ubuntu:latest"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,54 +47,70 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-ls -la .github/workflows
-###ACTION_DELIMITER###
-apt-get update
-###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+apt-get update && apt-get install -y python3.6 python3.6-venv python3.6-dev
 ###ACTION_DELIMITER###
 apt-get install -y software-properties-common
 ###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
+add-apt-repository ppa:deadsnakes/ppa -y
 ###ACTION_DELIMITER###
 apt-get update
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+apt-get install -y python3.6 python3.6-venv python3.6-dev
 ###ACTION_DELIMITER###
-apt-get install -y python3.11
+apt-get install -y python3.7 python3.7-venv python3.7-dev
 ###ACTION_DELIMITER###
-python3.11 -m ensurepip
+python3.7 -m venv venv37
 ###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
+source venv37/bin/activate
 ###ACTION_DELIMITER###
-python3.11 -m ensurepip
+export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
+apt-get install -y libssl-dev && export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
+apt-get install -y pkg-config && export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-cat test_commands.sh
+apt-get install -y libfuse-dev && export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh
+apt-get install -y build-essential && export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10000000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
+###ACTION_DELIMITER###
+export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/attic.txt -r requirements.d/fuse.txt
+###ACTION_DELIMITER###
+export CFLAGS="-I/usr/include/openssl -DOPENSSL_API_COMPAT=0x10002000L" && export CPPFLAGS="$CFLAGS" && export LDFLAGS="-lcrypto" && pip install -r requirements.d/development.txt -r requirements.d/fuse.txt
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --benchmark-skip --pyargs borg.testsuite' > test_commands.sh
+###ACTION_DELIMITER###
+pip install 'pytest<5.0' && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install pytest==5.4.3 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install pytest==5.3.5 pytest-xdist==1.34.0 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install pytest==4.6.11 pytest-xdist==1.34.0 && bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --benchmark-skip --pyargs borg.testsuite --noconfig' > test_commands.sh && bash test_commands.sh
+###ACTION_DELIMITER###
+sed -i 's/\[pytest\]/\[tool:pytest\]/g' setup.cfg && pip install pytest>=6.0 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip uninstall -y pytest-benchmark && pip install pytest==6.2.5 && bash test_commands.sh
+###ACTION_DELIMITER###
+pip install -e . && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get install -y liblz4-dev && pip install -e . && bash test_commands.sh
+###ACTION_DELIMITER###
+apt-get install -y libacl1-dev && pip install -e . && bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --pyargs borg.testsuite' > test_commands.sh && bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -109,11 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -128,11 +140,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -149,9 +157,9 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace ubuntu:latest with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM ubuntu:latest
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +176,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/borgbackup/borg.git /home/borg
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/borg
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +188,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("borgbackup", "borg_2717_to_2510")
+class BORG_2717_TO_2510(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -216,20 +223,26 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
-        failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        skipped_tests.update(skipped_pattern.findall(log))
+        # Pattern to match test lines with status (PASSED, FAILED, SKIPPED)
+        # Pattern for PASSED/FAILED tests in execution lines (with line numbers)
+        test_exec_pattern = re.compile(r'(borg/[\w/:.\[\]]+)\s+(PASSED|FAILED|SKIPPED)\b', re.IGNORECASE)
+        # Split log into lines and process each line
+        for line in log.split('\n'):
+            exec_match = test_exec_pattern.search(line)
+            if exec_match:
+                test_name = exec_match.group(1)
+                status = exec_match.group(2)
+                if status == 'PASSED':
+                    passed_tests.add(test_name)
+                elif status == 'FAILED':
+                    failed_tests.add(test_name)
+                elif status == 'SKIPPED':
+                    skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

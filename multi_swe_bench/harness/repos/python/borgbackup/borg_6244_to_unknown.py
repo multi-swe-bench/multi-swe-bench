@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,54 +47,52 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-ls -la .github/workflows
+apt-get update && apt-get install -y build-essential python3-dev libssl-dev libacl1-dev liblz4-dev libzstd-dev libxxhash-dev
 ###ACTION_DELIMITER###
-apt-get update
+pip install -r requirements.d/development.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+apt-get install -y pkg-config
 ###ACTION_DELIMITER###
-apt-get install -y software-properties-common
+pip install -r requirements.d/development.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
+apt-get install -y libfuse-dev
 ###ACTION_DELIMITER###
-apt-get update
+pip install -r requirements.d/development.txt -r requirements.d/fuse.txt
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
+echo 'pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite' > /home/borg/test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y python3.11
+chmod +x /home/borg/test_commands.sh
 ###ACTION_DELIMITER###
-python3.11 -m ensurepip
+bash /home/borg/test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
+pip install -e .
 ###ACTION_DELIMITER###
-python3.11 -m ensurepip
+pip install --upgrade setuptools
 ###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
+pip install -e .
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
+pip install --upgrade Cython && pip install -e .
 ###ACTION_DELIMITER###
-cat test_commands.sh
+pip install --force-reinstall Cython && pip install -e .
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh
+pip install .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+apt-get install -y libmsgpack-dev
+###ACTION_DELIMITER###
+python setup.py install
+###ACTION_DELIMITER###
+pip install Cython==0.29.36 && python setup.py install
+###ACTION_DELIMITER###
+bash /home/borg/test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -109,11 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -128,11 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -n 4 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
 """.format(
                     pr=self.pr
@@ -151,7 +141,7 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
 # Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +158,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/borgbackup/borg.git /home/borg
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/borg
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +170,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("borgbackup", "borg_6244_to_unknown")
+class BORG_6244_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -216,20 +205,49 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set() # Tests that passed successfully
+        failed_tests = set() # Tests that failed
+        skipped_tests = set() # Tests that were skipped
         import re
-        import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
-        failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        skipped_tests.update(skipped_pattern.findall(log))
+        # Compile regex patterns for test statuses
+        passed_pattern = re.compile(r'.*?PASSED\s+([^\s]+)')
+        skipped_pattern1 = re.compile(r'.*?SKIPPED\s+([^\s]+)')
+        failed_pattern = re.compile(r'.*?FAILED\s+([^\s]+)')
+        failed_pattern2 = re.compile(r'.*?FAILED\s+\[\d+\]\s+(.*?):\s*')
+        skipped_pattern2 = re.compile(r'.*?SKIPPED\s+\[\d+\]\s+(.*?):\s*')
+        # Iterate through log lines to extract test results
+        for line in log.split('\n'):
+            line = line.strip()
+            # Check for passed tests
+            match = passed_pattern.search(line)
+            if match:
+                test_name = match.group(1).strip()
+                passed_tests.add(test_name)
+                continue
+            # Check for skipped tests (worker-based)
+            match = skipped_pattern1.search(line)
+            if match:
+                test_name = match.group(1).strip()
+                skipped_tests.add(test_name)
+                continue
+            # Check for skipped tests (reason-based)
+            match = skipped_pattern2.search(line)
+            if match:
+                test_name = match.group(1).strip()
+                skipped_tests.add(test_name)
+                continue
+            # Check for failed tests (worker-based)
+            match = failed_pattern.search(line)
+            if match:
+                test_name = match.group(1).strip()
+                failed_tests.add(test_name)
+                continue
+            # Check for failed tests (reason-based)
+            match = failed_pattern2.search(line)
+            if match:
+                test_name = match.group(1).strip()
+                failed_tests.add(test_name)
+                continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

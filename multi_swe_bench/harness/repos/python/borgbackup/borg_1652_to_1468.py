@@ -21,7 +21,7 @@ class ImageDefault(Image):
         return self._config
 
     def dependency(self) -> str:
-        return "ubuntu:22.04"
+        return "python:3.9-slim"
     
     def image_prefix(self) -> str:
         return "envagent"
@@ -47,41 +47,43 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """sed -i '/\[pytest\]/,/^$/d' setup.cfg
 ###ACTION_DELIMITER###
-ls -la .github/workflows
+apt-get update && apt-get install -y python3-dev python3-pip python3-virtualenv libssl-dev openssl libacl1-dev libacl1 liblz4-dev liblz4-1 build-essential
 ###ACTION_DELIMITER###
-apt-get update
+pip install -r requirements.d/development.txt
 ###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y software-properties-common
-###ACTION_DELIMITER###
-add-apt-repository -y ppa:deadsnakes/ppa
-###ACTION_DELIMITER###
-apt-get update
-###ACTION_DELIMITER###
-apt-get install -y python3.11 python3.11-pip
-###ACTION_DELIMITER###
-apt-get install -y python3.11
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-apt-get install -y python3.11-venv
-###ACTION_DELIMITER###
-python3.11 -m ensurepip
-###ACTION_DELIMITER###
-python3.11 -m pip install -r requirements-tests.txt
-###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict' > test_commands.sh
+echo 'pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install --upgrade pytest-cov
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+pip install -e .
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip testsuite/' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+ls -l
+###ACTION_DELIMITER###
+ls -l src
+###ACTION_DELIMITER###
+ls -l src/borg
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip src/borg/testsuite/' > test_commands.sh
+###ACTION_DELIMITER###
+bash test_commands.sh
+###ACTION_DELIMITER###
+ls -l src/borg/testsuite/
+###ACTION_DELIMITER###
+echo 'pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh"""
             ),
@@ -90,11 +92,7 @@ bash test_commands.sh"""
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
 """.format(
                     pr=self.pr
@@ -109,11 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
 """.format(
                     pr=self.pr
@@ -128,11 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-python3.11 -m black --check --diff wikidict tests
-python3.11 -m flake8 wikidict tests
-python3.11 -m mypy wikidict
-python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
+pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
 """.format(
                     pr=self.pr
@@ -149,9 +139,9 @@ python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
-FROM ubuntu:22.04
+FROM python:3.9-slim
 
 ## Set noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -168,9 +158,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/BoboTiG/ebook-reader-dict.git /home/ebook-reader-dict
+RUN git clone https://github.com/borgbackup/borg.git /home/borg
 
-WORKDIR /home/ebook-reader-dict
+WORKDIR /home/borg
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -180,9 +170,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
-@Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
-class EBOOK_READER_DICT_1840_TO_1641(Instance):
+@Instance.register("borgbackup", "borg_1652_to_1468")
+class BORG_1652_TO_1468(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -216,19 +205,17 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        # Regex patterns to match test names and their statuses
+        passed_pattern = re.compile(r'(src/.*?)\s+PASSED')
+        failed_pattern = re.compile(r'(src/.*?)\s+FAILED')
+        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (src/[^:]+(?::\d+)?):')
+        # Extract test names for each status
         passed_tests.update(passed_pattern.findall(log))
-        # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
