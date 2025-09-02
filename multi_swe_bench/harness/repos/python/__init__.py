@@ -125,4 +125,5 @@ from multi_swe_bench.harness.repos.python.pymc_devs import *
 from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.statsmodels import *
-from multi_swe_bench.harness.repos.python.statsmodels import *
+from multi_swe_bench.harness.repos.python.dask import *
+from multi_swe_bench.harness.repos.python.pybamm_team import *
