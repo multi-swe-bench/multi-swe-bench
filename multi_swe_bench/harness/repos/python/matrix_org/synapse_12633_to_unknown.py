@@ -47,73 +47,50 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-pip install -r requirements/devel.txt
+
 ###ACTION_DELIMITER###
-pip install -r requirements/test.txt
+apt-get update && apt-get install -y build-essential python3-dev libffi-dev python3-pip python3-setuptools sqlite3 libssl-dev virtualenv libjpeg-dev libxslt1-dev
 ###ACTION_DELIMITER###
-pytest thunder/tests -v
+poetry install --extras "all test"
 ###ACTION_DELIMITER###
-pip install looseversion
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-pytest thunder/tests -v
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-python3 --version
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-apt-get update
+export PATH="/root/.local/bin:$PATH"
 ###ACTION_DELIMITER###
-apt-get install -y python3.10
+poetry install --extras "all test"
 ###ACTION_DELIMITER###
-python3.10 --version
+apt-get install -y libpq-dev
 ###ACTION_DELIMITER###
-apt-get install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget
+poetry install --extras "all test"
 ###ACTION_DELIMITER###
-wget https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz && tar -xzf Python-3.10.12.tgz && cd Python-3.10.12 && ./configure --enable-optimizations && make -j $(nproc) && make altinstall
+poetry run trial -v tests
 ###ACTION_DELIMITER###
-python3.10 --version
+poetry run trial --help
 ###ACTION_DELIMITER###
-cd ..
+poetry run trial tests
 ###ACTION_DELIMITER###
-pip3.10 install -e .
+poetry add setuptools
 ###ACTION_DELIMITER###
-pip3.10 install -r requirements/test.txt
+poetry add 'setuptools<60.0.0'
 ###ACTION_DELIMITER###
-python3.10 -m pytest thunder/tests -v
+poetry run trial tests
 ###ACTION_DELIMITER###
-apt-get install -y libsqlite3-dev
+poetry install --extras "url_preview"
 ###ACTION_DELIMITER###
-cd Python-3.10.12 && make && make altinstall
-###ACTION_DELIMITER###
-python3.10 -c 'import sqlite3; print("sqlite3 module loaded successfully")'
-###ACTION_DELIMITER###
-cd ..
-###ACTION_DELIMITER###
-python3.10 -m pytest thunder/tests -v
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -m pytest thunder/tests -v
-###ACTION_DELIMITER###
-pip3.10 install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -c 'import thunder; print("Active drivers:", thunder.active_drivers())'
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -c 'import torch; import thunder; def foo(a, b): return a + b; jfoo = thunder.jit(foo); print(jfoo(torch.tensor(1), torch.tensor(2)))'
-###ACTION_DELIMITER###
-echo -e 'import torch
-import thunder
-def foo(a, b):
-    return a + b
-jfoo = thunder.jit(foo)
-print(jfoo(torch.tensor(1), torch.tensor(2)))' > test_driver.py && THUNDER_DRIVER=nvfuser python3.10 test_driver.py
-###ACTION_DELIMITER###
-echo 'THUNDER_DRIVER=nvfuser pytest thunder/tests -v' > test_commands.sh"""
+echo 'poetry run trial tests' > test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -128,7 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -143,7 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -160,7 +137,7 @@ THUNDER_DRIVER=nvfuser pytest thunder/tests -v
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -179,9 +156,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/Lightning-AI/lightning-thunder.git /home/lightning-thunder
+RUN git clone https://github.com/matrix-org/synapse.git /home/synapse
 
-WORKDIR /home/lightning-thunder
+WORKDIR /home/synapse
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +168,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Lightning-AI", "lightning_thunder_802_to_577")
-class LIGHTNING_THUNDER_802_TO_577(Instance):
+@Instance.register("matrix-org", "synapse_12633_to_unknown")
+class SYNAPSE_12633_TO_UNKNOWN(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -226,36 +203,43 @@ class LIGHTNING_THUNDER_802_TO_577(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set()  # Tests that passed successfully
-        failed_tests = set()  # Tests that failed
-        skipped_tests = set()  # Tests that were skipped
+        passed_tests = set[str]() # Tests that passed successfully
+        failed_tests = set[str]() # Tests that failed
+        skipped_tests = set[str]() # Tests that were skipped
         import re
-        # Remove ANSI color codes (handles complex codes like \x1b[31m, \x1b[0m)
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
-        # Pattern to match test execution lines (timestamp + test name + status)
-        exec_pattern = r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)'
-        # Pattern to match summary lines (flexible capture)
-        summary_pattern = r'\[\d+\]\s+.*?(FAILED|XFAIL)\s+(thunder/.*?)\s+-'
-        # Extract from execution lines
-        exec_matches = re.findall(exec_pattern, log_clean)
-        # Extract from summary lines
-        summary_matches = re.findall(summary_pattern, log_clean)
-        for test_name, status in exec_matches:
-            test_name = test_name.strip()
-            status = status.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status in ['FAILED', 'XFAIL']:
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-            elif status == 'XPASSED':
-                passed_tests.add(test_name)
-        # Handle summary lines (e.g., failed tests not captured in execution lines)
-        for status, test_name in summary_matches:
-            test_name = test_name.strip()
-            if status in ['FAILED', 'XFAIL']:
-                failed_tests.add(test_name)
+        import json
+        # Regex pattern to match test lines with status
+        current_module = ''
+        current_test_case = ''
+        in_summary = False
+        for line in log.split('\n'):
+            # Remove line number prefix (e.g., [   2] )
+            content = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            # Detect start of summary section
+            if re.match(r'^-{50,}$', content) or re.match(r'^Ran \d+ tests', content):
+                in_summary = True
+            # Match module (e.g., tests.api.test_auth) - no leading spaces
+            if re.match(r'^tests\.[\w.]+\.test_\w+$', content):
+                current_module = content
+                current_test_case = ''
+            # Match test case (e.g., AuthTestCase, URLPreviewTests) - 2 leading spaces
+            elif re.match(r'^  [^\s]+(TestCase|Tests)$', content):
+                current_test_case = content.strip()
+            # Match full test names (likely failed tests)
+            elif re.match(r'^tests\.[\w.]+\.\w+\.\w+\s*$', content):
+                failed_tests.add(content.strip())
+            # Match test method (e.g., test_blocking_mau ... [OK], test_failure ... ERROR)
+            method_match = re.match(r'^\s{4,}(.+?)\s+\.\.\.\s*\[?(\w+)\]?$', content)
+            if method_match and current_module and current_test_case:
+                    method_name = method_match.group(1).strip()
+                    status = method_match.group(2).upper()
+                    full_test_name = f'{current_module}.{current_test_case}.{method_name}'
+                    if status == 'OK':
+                        passed_tests.add(full_test_name)
+                    elif status == 'SKIPPED':
+                        skipped_tests.add(full_test_name)
+                    elif status in ('FAILED', 'ERROR', 'FAIL', 'FAILURE'):
+                        failed_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

@@ -47,73 +47,44 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """ls -la
+                """ls
 ###ACTION_DELIMITER###
-pip install -r requirements/devel.txt
+pip install poetry
 ###ACTION_DELIMITER###
-pip install -r requirements/test.txt
+poetry install
 ###ACTION_DELIMITER###
-pytest thunder/tests -v
+echo 'poetry run trial -v tests' > test_commands.sh
 ###ACTION_DELIMITER###
-pip install looseversion
+cat test_commands.sh
 ###ACTION_DELIMITER###
-pytest thunder/tests -v
+bash test_commands.sh
 ###ACTION_DELIMITER###
-python3 --version
+echo 'poetry run trial --verbose tests' > test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update
+cat test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y python3.10
+bash test_commands.sh
 ###ACTION_DELIMITER###
-python3.10 --version
+poetry run trial --help
 ###ACTION_DELIMITER###
-apt-get install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget
+echo 'poetry run trial tests' > test_commands.sh
 ###ACTION_DELIMITER###
-wget https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz && tar -xzf Python-3.10.12.tgz && cd Python-3.10.12 && ./configure --enable-optimizations && make -j $(nproc) && make altinstall
+bash test_commands.sh
 ###ACTION_DELIMITER###
-python3.10 --version
+poetry add setuptools
 ###ACTION_DELIMITER###
-cd ..
+poetry add setuptools@^67.9.0
 ###ACTION_DELIMITER###
-pip3.10 install -e .
+poetry run pip install setuptools
 ###ACTION_DELIMITER###
-pip3.10 install -r requirements/test.txt
-###ACTION_DELIMITER###
-python3.10 -m pytest thunder/tests -v
-###ACTION_DELIMITER###
-apt-get install -y libsqlite3-dev
-###ACTION_DELIMITER###
-cd Python-3.10.12 && make && make altinstall
-###ACTION_DELIMITER###
-python3.10 -c 'import sqlite3; print("sqlite3 module loaded successfully")'
-###ACTION_DELIMITER###
-cd ..
-###ACTION_DELIMITER###
-python3.10 -m pytest thunder/tests -v
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -m pytest thunder/tests -v
-###ACTION_DELIMITER###
-pip3.10 install --pre 'nvfuser-cu121[torch]' --extra-index-url https://pypi.nvidia.com
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -c 'import thunder; print("Active drivers:", thunder.active_drivers())'
-###ACTION_DELIMITER###
-THUNDER_DRIVER=nvfuser python3.10 -c 'import torch; import thunder; def foo(a, b): return a + b; jfoo = thunder.jit(foo); print(jfoo(torch.tensor(1), torch.tensor(2)))'
-###ACTION_DELIMITER###
-echo -e 'import torch
-import thunder
-def foo(a, b):
-    return a + b
-jfoo = thunder.jit(foo)
-print(jfoo(torch.tensor(1), torch.tensor(2)))' > test_driver.py && THUNDER_DRIVER=nvfuser python3.10 test_driver.py
-###ACTION_DELIMITER###
-echo 'THUNDER_DRIVER=nvfuser pytest thunder/tests -v' > test_commands.sh"""
+bash test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -128,7 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -143,7 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-THUNDER_DRIVER=nvfuser pytest thunder/tests -v
+poetry run trial tests
 
 """.format(
                     pr=self.pr
@@ -179,9 +150,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/Lightning-AI/lightning-thunder.git /home/lightning-thunder
+RUN git clone https://github.com/matrix-org/synapse.git /home/synapse
 
-WORKDIR /home/lightning-thunder
+WORKDIR /home/synapse
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -191,8 +162,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("Lightning-AI", "lightning_thunder_802_to_577")
-class LIGHTNING_THUNDER_802_TO_577(Instance):
+@Instance.register("matrix-org", "synapse_13292_to_12650")
+class SYNAPSE_13292_TO_12650(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -230,32 +201,69 @@ class LIGHTNING_THUNDER_802_TO_577(Instance):
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Remove ANSI color codes (handles complex codes like \x1b[31m, \x1b[0m)
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
-        # Pattern to match test execution lines (timestamp + test name + status)
-        exec_pattern = r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)'
-        # Pattern to match summary lines (flexible capture)
-        summary_pattern = r'\[\d+\]\s+.*?(FAILED|XFAIL)\s+(thunder/.*?)\s+-'
-        # Extract from execution lines
-        exec_matches = re.findall(exec_pattern, log_clean)
-        # Extract from summary lines
-        summary_matches = re.findall(summary_pattern, log_clean)
-        for test_name, status in exec_matches:
-            test_name = test_name.strip()
-            status = status.strip()
-            if status == 'PASSED':
-                passed_tests.add(test_name)
-            elif status in ['FAILED', 'XFAIL']:
-                failed_tests.add(test_name)
-            elif status == 'SKIPPED':
-                skipped_tests.add(test_name)
-            elif status == 'XPASSED':
-                passed_tests.add(test_name)
-        # Handle summary lines (e.g., failed tests not captured in execution lines)
-        for status, test_name in summary_matches:
-            test_name = test_name.strip()
-            if status in ['FAILED', 'XFAIL']:
-                failed_tests.add(test_name)
+        lines = log.split('\n')
+        current_module = None
+        current_class = None
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            # Check for module line (e.g., tests.api.test_auth)
+            if re.match(r'^tests(\.\w+)+$', stripped_line):
+                current_module = stripped_line
+                current_class = None
+                continue
+            # Check for class line (e.g., "  AuthTestCase")
+            class_match = re.match(r'^\s+(\w+)$', line)
+            if class_match:
+                current_class = class_match.group(1)
+                continue
+            # Check for test method line with status (e.g., "    test_blocking_mau ... [OK]")
+            method_match = re.match(r'^\s+(\w+)\s+[\.\s]+\[(\w+)\]$', line)
+            if method_match:
+                method_name = method_match.group(1)
+                status = method_match.group(2)
+                if current_module and current_class:
+                    full_test_name = f"{current_module}.{current_class}.{method_name}"
+                else:
+                    full_test_name = method_name  # Fallback if module/class not found
+                # Determine status
+                if status == 'OK':
+                    passed_tests.add(full_test_name)
+                elif status == 'FAIL':
+                    failed_tests.add(full_test_name)
+                elif status in ['SKIP', 'SKIPPED']:
+                    skipped_tests.add(full_test_name)
+                continue
+            # Check for full test name followed by FAIL (e.g., "tests.storage.test_state.StateStoreTestCase.test_get_state_for_event")
+            full_test_match = re.match(r'^tests(\.\w+)+$', stripped_line)
+            if full_test_match:
+                # Check next two lines for separator and [FAIL]
+                if i + 2 < len(lines):
+                    next_line = lines[i+1].strip()
+                    next_next_line = lines[i+2].strip()
+                    if next_line.startswith(('=', '-')) and next_next_line == '[FAIL]':
+                        full_test_name = stripped_line
+                        failed_tests.add(full_test_name)
+                continue
+            # Check for FailTest in traceback to capture failed tests
+            if 'FailTest' in line:
+                # Look back up to 10 lines to find the traceback line with the test method
+                for j in range(i-1, max(i-10, 0), -1):
+                    traceback_line = lines[j]
+                    if 'File "' in traceback_line and ' in test_' in traceback_line:
+                        # Extract module and method from the traceback line
+                        file_pattern = r'File ".*tests/((?:\w+/)*)test_(\w+)\.py", line \d+, in (test_\w+)'
+                        file_match = re.search(file_pattern, traceback_line)
+                        if file_match:
+                            module_parts = file_match.group(1).rstrip('/').split('/') if file_match.group(1) else []
+                            module = 'tests.' + '.'.join(module_parts) + 'test_' + file_match.group(2)
+                            method = file_match.group(3)
+                            # Look forward up to 10 lines to find the full test name
+                            for k in range(i+1, min(i+10, len(lines))):
+                                full_test_line = lines[k].strip()
+                                if re.match(r'^tests(\.\w+)+$', full_test_line) and module in full_test_line and method in full_test_line:
+                                    failed_tests.add(full_test_line)
+                                    break
+                            break
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
