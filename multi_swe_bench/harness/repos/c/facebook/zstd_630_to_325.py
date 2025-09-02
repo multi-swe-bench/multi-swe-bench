@@ -1,0 +1,254 @@
+import re
+import json
+from typing import Optional, Union
+
+from multi_swe_bench.harness.image import Config, File, Image
+from multi_swe_bench.harness.instance import Instance, TestResult
+from multi_swe_bench.harness.pull_request import PullRequest
+
+
+class ImageDefault(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> str:
+        return "ubuntu:20.04"
+    
+    def image_prefix(self) -> str:
+        return "envagent"
+       
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """ls -F
+###ACTION_DELIMITER###
+make
+###ACTION_DELIMITER###
+apt-get install -y make
+###ACTION_DELIMITER###
+make
+###ACTION_DELIMITER###
+apt-get install -y gcc
+###ACTION_DELIMITER###
+make
+###ACTION_DELIMITER###
+make test
+###ACTION_DELIMITER###
+apt-get install -y file
+###ACTION_DELIMITER###
+make test
+###ACTION_DELIMITER###
+echo 'make -C tests test' > test_commands.sh"""
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+make -C tests test
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+make -C tests test
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+make -C tests test
+
+""".format(
+                    pr=self.pr
+                ),
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        dockerfile_content = """
+# This is a template for creating a Dockerfile to test patches
+# LLM should fill in the appropriate values based on the context
+
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
+FROM ubuntu:20.04
+
+## Set noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic requirements
+# For example: RUN apt-get update && apt-get install -y git
+# For example: RUN yum install -y git
+# For example: RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
+
+# Ensure bash is available
+RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then             apk add --no-cache bash;         elif command -v apt-get >/dev/null 2>&1; then             apt-get update && apt-get install -y bash;         elif command -v yum >/dev/null 2>&1; then             yum install -y bash;         else             exit 1;         fi     fi
+
+WORKDIR /home/
+COPY fix.patch /home/
+COPY test.patch /home/
+RUN git clone https://github.com/facebook/zstd.git /home/zstd
+
+WORKDIR /home/zstd
+RUN git reset --hard
+RUN git checkout {pr.base.sha}
+"""
+        dockerfile_content += f"""
+{copy_commands}
+"""
+        return dockerfile_content.format(pr=self.pr)
+
+
+@Instance.register("facebook", "zstd_630_to_325")
+class ZSTD_630_TO_325(Instance):
+    def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
+        super().__init__()
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    def dependency(self) -> Optional[Image]:
+        return ImageDefault(self.pr, self._config)
+
+    def run(self, run_cmd: str = "") -> str:
+        if run_cmd:
+            return run_cmd
+
+        return 'bash /home/run.sh'
+
+    def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
+        if test_patch_run_cmd:
+            return test_patch_run_cmd
+
+        return "bash /home/test-run.sh"
+
+    def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
+        if fix_patch_run_cmd:
+            return fix_patch_run_cmd
+
+        return "bash /home/fix-run.sh"
+
+
+    def parse_log(self, log: str) -> TestResult:
+        # Parse the log content and extract test execution results.
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
+        import re
+        # Handle cases where all tests pass
+        if "tests completed: OK" in log:
+            test_run_pattern = re.compile(r"test : (.+)")
+            for test_name in test_run_pattern.findall(log):
+                passed_tests.add(test_name.strip())
+            # Add PASS: tests as well
+            pass_pattern = re.compile(r"PASS: (\w+)")
+            for test_name in pass_pattern.findall(log):
+                passed_tests.add(test_name)
+        else:
+            # Handle cases with failures
+            # Define patterns for failed tests
+            failed_test_patterns = [
+                re.compile(r"test : (.+?) \n.*?Error"),
+                re.compile(r"test : (.+?) \n.*?make: \*\*\*")
+            ]
+            # Assume all tests are passed initially
+            test_run_pattern = re.compile(r"test : (.+)")
+            for test_name in test_run_pattern.findall(log):
+                # Strip and check for '(must fail)'
+                cleaned_name = test_name.strip()
+                if "(must fail)" in cleaned_name:
+                    passed_tests.add(cleaned_name)
+                else:
+                    passed_tests.add(cleaned_name) # Temporarily add, will be moved if failed
+            # Check for failures and move tests from passed to failed
+            for line in log.splitlines():
+                if "Error" in line or "make: ***" in line:
+                    # Find the test associated with this error
+                    # This is a simplification; we assume the error is associated with the last run test
+                    # A more robust solution would require parsing the log in sections.
+                    # Naive approach: if errors, find all non-"must fail" tests and mark them failed.
+                    # This is close to the original logic, let's refine it.
+                    # For now, let's stick to a simple logic: if errors are found, the tests that are not
+                    # explicitly "(must fail)" are considered failed.
+                    tests_to_move = set()
+                    for test in passed_tests:
+                        if "(must fail)" not in test:
+                            tests_to_move.add(test)
+                    for test in tests_to_move:
+                        passed_tests.remove(test)
+                        failed_tests.add(test)
+            # Add PASS: tests regardless of other failures
+            pass_pattern = re.compile(r"PASS: (\w+)")
+            for test_name in pass_pattern.findall(log):
+                if test_name in failed_tests:
+                    failed_tests.remove(test_name)
+                passed_tests.add(test_name)
+        parsed_results = {
+            "passed_tests": passed_tests,
+            "failed_tests": failed_tests,
+            "skipped_tests": skipped_tests
+        }
+        
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
