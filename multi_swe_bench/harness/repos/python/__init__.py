@@ -174,3 +174,4 @@ from multi_swe_bench.harness.repos.python.aws_cloudformation import *
 from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
 from multi_swe_bench.harness.repos.python.dstackai import *
 from multi_swe_bench.harness.repos.python.elastic import *
+from multi_swe_bench.harness.repos.python.camel_ai import *
