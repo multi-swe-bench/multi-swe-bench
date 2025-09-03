@@ -164,3 +164,4 @@ from multi_swe_bench.harness.repos.python.DataBiosphere import *
 from multi_swe_bench.harness.repos.python.mne_tools import *
 from multi_swe_bench.harness.repos.python.catalystneuro import *
 from multi_swe_bench.harness.repos.python.qiskit import *
+from multi_swe_bench.harness.repos.python.amaranth_lang import *
