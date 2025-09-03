@@ -1,0 +1,296 @@
+import re
+import json
+from typing import Optional, Union
+
+from multi_swe_bench.harness.image import Config, File, Image
+from multi_swe_bench.harness.instance import Instance, TestResult
+from multi_swe_bench.harness.pull_request import PullRequest
+
+
+class ImageDefault(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> str:
+        return "python:3.9-slim"
+    
+    def image_prefix(self) -> str:
+        return "envagent"
+       
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        repo_name= self.pr.repo
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """ls -la
+###ACTION_DELIMITER###
+pip install -e ".[test]"
+###ACTION_DELIMITER###
+tox -e ci -- -v
+###ACTION_DELIMITER###
+pip install tox
+###ACTION_DELIMITER###
+tox -e ci -- -v
+###ACTION_DELIMITER###
+pip install rich==11.2.0
+###ACTION_DELIMITER###
+tox -e ci -- -v
+###ACTION_DELIMITER###
+sed -i 's/bandit~=1.6/bandit<1.7/' tox.ini
+###ACTION_DELIMITER###
+sed -i '/ci: install_deps/ s/$/ rich<12.0.0/' tox.ini
+###ACTION_DELIMITER###
+tox -e ci -- -v
+###ACTION_DELIMITER###
+sed -i '/ci: install_deps/ s/$/ bandit<1.7 rich<12.0.0/' tox.ini
+###ACTION_DELIMITER###
+sed -i '/\[testenv:ci\]/a install_deps = bandit<1.7 rich<12.0.0' tox.ini
+###ACTION_DELIMITER###
+sed -i 's/bandit~=1.6/bandit==1.6.2/' tox.ini
+###ACTION_DELIMITER###
+sed -i '/ci: install_deps/ s/bandit~=1.6/bandit==1.6.2/' tox.ini
+###ACTION_DELIMITER###
+pytest -v test/unit test/integration --cov=pudl --cov-report=term
+###ACTION_DELIMITER###
+pip install markupsafe==2.0.1
+###ACTION_DELIMITER###
+pytest -v test/unit test/integration
+###ACTION_DELIMITER###
+pip install marshmallow==2.21.0
+###ACTION_DELIMITER###
+pip install marshmallow==3.15.0
+###ACTION_DELIMITER###
+pytest -v test/unit test/integration
+###ACTION_DELIMITER###
+pudl_init --clobber
+###ACTION_DELIMITER###
+pip install -e ".[test]"
+###ACTION_DELIMITER###
+pudl_init --clobber
+###ACTION_DELIMITER###
+pudl_setup --clobber
+###ACTION_DELIMITER###
+pip install referencing==0.29.0
+###ACTION_DELIMITER###
+pudl_setup --clobber
+###ACTION_DELIMITER###
+pip install jsonschema-specifications==2023.7.1
+###ACTION_DELIMITER###
+pip install jsonschema==4.18.0
+###ACTION_DELIMITER###
+pudl_setup --clobber
+###ACTION_DELIMITER###
+pytest -v test/unit test/integration
+###ACTION_DELIMITER###
+pudl_datastore download --sources ferc1 eia860 eia923 epacems
+###ACTION_DELIMITER###
+pudl_datastore -h
+###ACTION_DELIMITER###
+pudl_datastore --dataset ferc1 --dataset eia860 --dataset eia923 --dataset epacems
+###ACTION_DELIMITER###
+pudl_datastore --sandbox --dataset ferc1 --dataset eia860 --dataset eia923 --dataset epacems
+###ACTION_DELIMITER###
+pudl_datastore
+###ACTION_DELIMITER###
+echo 'pytest -v test/unit test/integration' > /home/pudl/test_commands.sh
+###ACTION_DELIMITER###
+chmod +x /home/pudl/test_commands.sh"""
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+pytest -v test/unit test/integration
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+pytest -v test/unit test/integration
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+pytest -v test/unit test/integration
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        dockerfile_content = """
+# This is a template for creating a Dockerfile to test patches
+# LLM should fill in the appropriate values based on the context
+
+# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
+FROM python:3.9-slim
+
+## Set noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic requirements
+# For example: RUN apt-get update && apt-get install -y git
+# For example: RUN yum install -y git
+# For example: RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
+
+# Ensure bash is available
+RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then             apk add --no-cache bash;         elif command -v apt-get >/dev/null 2>&1; then             apt-get update && apt-get install -y bash;         elif command -v yum >/dev/null 2>&1; then             yum install -y bash;         else             exit 1;         fi     fi
+
+WORKDIR /home/
+COPY fix.patch /home/
+COPY test.patch /home/
+RUN git clone https://github.com/catalyst-cooperative/pudl.git /home/pudl
+
+WORKDIR /home/pudl
+RUN git reset --hard
+RUN git checkout {pr.base.sha}
+"""
+        dockerfile_content += f"""
+{copy_commands}
+"""
+        return dockerfile_content.format(pr=self.pr)
+
+
+@Instance.register("catalyst-cooperative", "pudl_1125_to_670")
+class PUDL_1125_TO_670(Instance):
+    def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
+        super().__init__()
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    def dependency(self) -> Optional[Image]:
+        return ImageDefault(self.pr, self._config)
+
+    def run(self, run_cmd: str = "") -> str:
+        if run_cmd:
+            return run_cmd
+
+        return 'bash /home/run.sh'
+
+    def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
+        if test_patch_run_cmd:
+            return test_patch_run_cmd
+
+        return "bash /home/test-run.sh"
+
+    def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
+        if fix_patch_run_cmd:
+            return fix_patch_run_cmd
+
+        return "bash /home/fix-run.sh"
+
+
+    def parse_log(self, log: str) -> TestResult:
+        # Parse the log content and extract test execution results.
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
+        import re
+        lines = log.split('\n')
+        current_test = None
+        for line in lines:
+            line = line.strip()
+            # Capture test name using regex to exclude trailing log info
+            # Capture test name up to the first space (handles brackets, hyphens, etc.)
+            test_match = re.match(r'^(test/.*?)\s', line)
+            if test_match:
+                current_test = test_match.group(1)
+            # Check for PASSED status
+            if 'PASSED' in line:
+                if current_test:
+                    passed_tests.add(current_test)
+                    current_test = None
+                # Check same-line pattern (test name followed by PASSED)
+                match = re.match(r'(test/.*?) PASSED', line)
+                if match:
+                    passed_tests.add(match.group(1))
+            # Check for FAILED status
+            if 'FAILED' in line:
+                if current_test:
+                    failed_tests.add(current_test)
+                    current_test = None
+                # Check same-line pattern (test name followed by FAILED)
+                match = re.match(r'(test/.*?) FAILED', line)
+                if match:
+                    failed_tests.add(match.group(1))
+            # Check for SKIPPED status
+            if 'SKIPPED' in line:
+                if current_test:
+                    skipped_tests.add(current_test)
+                    current_test = None
+                # Check same-line pattern (test name followed by SKIPPED)
+                match = re.match(r'(test/.*?) SKIPPED', line)
+                if match:
+                    skipped_tests.add(match.group(1))
+            # Check for ERROR status (considered failed)
+            if 'ERROR' in line:
+                match = re.match(r'^ERROR (test/.*)$', line)
+                if match:
+                    failed_tests.add(match.group(1))
+        parsed_results = {
+            "passed_tests": passed_tests,
+            "failed_tests": failed_tests,
+            "skipped_tests": skipped_tests
+        }
+        
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
