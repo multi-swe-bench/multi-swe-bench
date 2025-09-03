@@ -186,3 +186,4 @@ from multi_swe_bench.harness.repos.python.e_valuation import *
 from multi_swe_bench.harness.repos.python.F5Networks import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.Ericsson import *
+from multi_swe_bench.harness.repos.python.fecgov import *
