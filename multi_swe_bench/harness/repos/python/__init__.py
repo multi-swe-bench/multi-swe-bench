@@ -127,3 +127,5 @@ from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.django_cms import *
 from multi_swe_bench.harness.repos.python.dlt_hub import *
+from multi_swe_bench.harness.repos.python.frictionlessdata import *
+from multi_swe_bench.harness.repos.python.feast_dev import *
