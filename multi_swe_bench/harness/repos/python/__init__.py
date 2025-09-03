@@ -181,3 +181,4 @@ from multi_swe_bench.harness.repos.python.enthought import *
 from multi_swe_bench.harness.repos.python.databrickslabs import *
 from multi_swe_bench.harness.repos.python.bigchaindb import *
 from multi_swe_bench.harness.repos.python.DiamondLightSource import *
+from multi_swe_bench.harness.repos.python.dagster_io import *
