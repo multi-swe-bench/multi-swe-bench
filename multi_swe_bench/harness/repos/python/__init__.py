@@ -194,3 +194,14 @@ from multi_swe_bench.harness.repos.python.jazzband import *
 from multi_swe_bench.harness.repos.python.griptape_ai import *
 from multi_swe_bench.harness.repos.python.chainer import *
 from multi_swe_bench.harness.repos.python.keephq import *
+from multi_swe_bench.harness.repos.python.distributed_system_analysis import *
+from multi_swe_bench.harness.repos.python.bcgov import *
+from multi_swe_bench.harness.repos.python.ethyca import *
+from multi_swe_bench.harness.repos.python.fetchai import *
+from multi_swe_bench.harness.repos.python.cogent3 import *
+from multi_swe_bench.harness.repos.python.aeon_toolkit import *
+from multi_swe_bench.harness.repos.python.dandi import *
+from multi_swe_bench.harness.repos.python.celery import *
+from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
+from multi_swe_bench.harness.repos.python.allenai import *
+from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
