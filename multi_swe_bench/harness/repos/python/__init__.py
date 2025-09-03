@@ -127,3 +127,4 @@ from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.Ericsson import *
 from multi_swe_bench.harness.repos.python.ethyca import *
+from multi_swe_bench.harness.repos.python.kids_first import *
