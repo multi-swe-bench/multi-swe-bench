@@ -168,3 +168,4 @@ from multi_swe_bench.harness.repos.python.amaranth_lang import *
 from multi_swe_bench.harness.repos.python.cal_itp import *
 from multi_swe_bench.harness.repos.python.beeware import *
 from multi_swe_bench.harness.repos.python.buildbot import *
+from multi_swe_bench.harness.repos.python.exercism import *
