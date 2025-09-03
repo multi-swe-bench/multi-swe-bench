@@ -184,3 +184,4 @@ from multi_swe_bench.harness.repos.python.DiamondLightSource import *
 from multi_swe_bench.harness.repos.python.dagster_io import *
 from multi_swe_bench.harness.repos.python.e_valuation import *
 from multi_swe_bench.harness.repos.python.F5Networks import *
+from multi_swe_bench.harness.repos.python.freedomofpress import *
