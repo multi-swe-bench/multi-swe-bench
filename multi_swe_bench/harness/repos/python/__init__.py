@@ -170,3 +170,4 @@ from multi_swe_bench.harness.repos.python.beeware import *
 from multi_swe_bench.harness.repos.python.buildbot import *
 from multi_swe_bench.harness.repos.python.exercism import *
 from multi_swe_bench.harness.repos.python.fonttools import *
+from multi_swe_bench.harness.repos.python.aws_cloudformation import *
