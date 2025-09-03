@@ -178,3 +178,4 @@ from multi_swe_bench.harness.repos.python.camel_ai import *
 from multi_swe_bench.harness.repos.python.cobbler import *
 from multi_swe_bench.harness.repos.python.alteryx import *
 from multi_swe_bench.harness.repos.python.enthought import *
+from multi_swe_bench.harness.repos.python.databrickslabs import *
