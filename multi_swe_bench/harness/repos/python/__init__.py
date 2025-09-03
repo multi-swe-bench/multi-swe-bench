@@ -189,3 +189,4 @@ from multi_swe_bench.harness.repos.python.Ericsson import *
 from multi_swe_bench.harness.repos.python.fecgov import *
 from multi_swe_bench.harness.repos.python.django_cms import *
 from multi_swe_bench.harness.repos.python.griptape_ai import *
+from multi_swe_bench.harness.repos.python.conda import *
