@@ -126,3 +126,4 @@ from multi_swe_bench.harness.repos.python.pymc_devs import *
 from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.fecgov import *
+from multi_swe_bench.harness.repos.python.kserve import *
