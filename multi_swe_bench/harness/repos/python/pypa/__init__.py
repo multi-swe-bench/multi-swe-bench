@@ -5,3 +5,5 @@ from multi_swe_bench.harness.repos.python.pypa.pip_8026_to_7704 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_7704_to_7500 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_6723_to_6402 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_5764_to_5457 import *
+from multi_swe_bench.harness.repos.python.pypa.cibuildwheel_342_to_315 import *
+from multi_swe_bench.harness.repos.python.pypa.cibuildwheel_1588_to_1091 import *

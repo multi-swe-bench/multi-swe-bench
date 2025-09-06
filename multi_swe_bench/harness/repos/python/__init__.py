@@ -205,3 +205,4 @@ from multi_swe_bench.harness.repos.python.celery import *
 from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
 from multi_swe_bench.harness.repos.python.allenai import *
 from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
+from multi_swe_bench.harness.repos.python.databricks import *
