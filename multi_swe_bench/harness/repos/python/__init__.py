@@ -129,3 +129,4 @@ from multi_swe_bench.harness.repos.python.aeon_toolkit import *
 from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
 from multi_swe_bench.harness.repos.python.aiidateam import *
 from multi_swe_bench.harness.repos.python.airbytehq import *
+from multi_swe_bench.harness.repos.python.litestar_org import *
