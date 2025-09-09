@@ -19,3 +19,14 @@ from multi_swe_bench.harness.repos.python.alteryx.woodwork_588_to_unknown import
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_434_to_401 import *
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_190_to_105 import *
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_105_to_39 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_3309_to_unknown import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_2892_to_2820 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_2126_to_2050 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_1916_to_1748 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_1651_to_1566 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_1566_to_1511 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_1429_to_1270 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_904_to_745 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_741_to_653 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_650_to_578 import *
+from multi_swe_bench.harness.repos.python.alteryx.evalml_413_to_42 import *
