@@ -24,3 +24,5 @@ from multi_swe_bench.harness.repos.typescript.jestjs import *
 from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
+from multi_swe_bench.harness.repos.typescript.Azure import *
+from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
