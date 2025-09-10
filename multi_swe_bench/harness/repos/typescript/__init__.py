@@ -24,3 +24,6 @@ from multi_swe_bench.harness.repos.typescript.jestjs import *
 from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
+from multi_swe_bench.harness.repos.typescript.Safe_DS import *
+from multi_swe_bench.harness.repos.typescript.SAP import *
+from multi_swe_bench.harness.repos.typescript.Sage import *
