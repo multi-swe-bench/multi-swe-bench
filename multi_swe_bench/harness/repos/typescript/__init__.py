@@ -26,3 +26,4 @@ from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
 from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
 from multi_swe_bench.harness.repos.typescript.HospitalRun import *
+from multi_swe_bench.harness.repos.typescript.HoudiniGraphql import *
