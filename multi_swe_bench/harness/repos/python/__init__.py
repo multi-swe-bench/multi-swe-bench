@@ -127,3 +127,4 @@ from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.fonttools import *
 from multi_swe_bench.harness.repos.python.fetchai import *
+from multi_swe_bench.harness.repos.python.opensafely_core import *
