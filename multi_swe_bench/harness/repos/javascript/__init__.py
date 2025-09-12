@@ -27,4 +27,3 @@ from multi_swe_bench.harness.repos.javascript.alibabafusion import *
 from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
 from multi_swe_bench.harness.repos.javascript.GoogleForCreators import *
-from multi_swe_bench.harness.repos.javascript.HabitRPG import *
