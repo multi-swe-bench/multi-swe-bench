@@ -45,3 +45,4 @@ from multi_swe_bench.harness.repos.typescript.DanielXMoore import *
 from multi_swe_bench.harness.repos.typescript.CoderLine import *
 from multi_swe_bench.harness.repos.typescript.GMOD import *
 from multi_swe_bench.harness.repos.typescript.HoudiniGraphql import *
+from multi_swe_bench.harness.repos.typescript.NomicFoundation import *
