@@ -129,3 +129,6 @@ from multi_swe_bench.harness.repos.python.celery import *
 from multi_swe_bench.harness.repos.python.camel_ai import *
 from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
 from multi_swe_bench.harness.repos.python.jazzband import *
+from multi_swe_bench.harness.repos.python.mitmproxy import *
+from multi_swe_bench.harness.repos.python.mitodl import *
+from multi_swe_bench.harness.repos.python.mindsdb import *
