@@ -28,3 +28,5 @@ from multi_swe_bench.harness.repos.typescript.PrismJS import *
 from multi_swe_bench.harness.repos.typescript.ParabolInc import *
 from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
 from multi_swe_bench.harness.repos.typescript.HospitalRun import *
+from multi_swe_bench.harness.repos.typescript.Altinn import *
+from multi_swe_bench.harness.repos.typescript.Azure import *
