@@ -180,6 +180,7 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
+
 @Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
 class EBOOK_READER_DICT_1840_TO_1641(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
