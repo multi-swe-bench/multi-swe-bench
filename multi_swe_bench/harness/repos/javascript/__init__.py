@@ -39,3 +39,4 @@ from multi_swe_bench.harness.repos.javascript.RaspberryPiFoundation import *
 from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
 from multi_swe_bench.harness.repos.javascript.ProjectMirador import *
 from multi_swe_bench.harness.repos.javascript.CraveFood import *
+from multi_swe_bench.harness.repos.javascript.IgniteUI import *
