@@ -33,3 +33,5 @@ from multi_swe_bench.harness.repos.typescript.Azure import *
 from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
 from multi_swe_bench.harness.repos.typescript.RocketChat import *
 from multi_swe_bench.harness.repos.typescript.RooCodeInc import *
+from multi_swe_bench.harness.repos.typescript.League_of_Foundry_Developers import *
+from multi_swe_bench.harness.repos.typescript.KittyCAD import *
