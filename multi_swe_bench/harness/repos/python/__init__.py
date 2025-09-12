@@ -130,3 +130,6 @@ from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
 from multi_swe_bench.harness.repos.python.aiidateam import *
 from multi_swe_bench.harness.repos.python.airbytehq import *
 from multi_swe_bench.harness.repos.python.litestar_org import *
+from multi_swe_bench.harness.repos.python.privacyidea import *
+from multi_swe_bench.harness.repos.python.PyGithub import *
+from multi_swe_bench.harness.repos.python.polarsource import *
