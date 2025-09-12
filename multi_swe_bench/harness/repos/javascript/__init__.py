@@ -30,4 +30,5 @@ from multi_swe_bench.harness.repos.javascript.Accenture import *
 from multi_swe_bench.harness.repos.javascript.Agoric import *
 from multi_swe_bench.harness.repos.javascript.COVID19Tracking import *
 from multi_swe_bench.harness.repos.javascript.BlakeGuilloud import *
-
+from multi_swe_bench.harness.repos.javascript.Seneca_CDOT import *
+from multi_swe_bench.harness.repos.javascript.Semantic_Org import *
