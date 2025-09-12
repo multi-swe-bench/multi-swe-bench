@@ -35,3 +35,6 @@ from multi_swe_bench.harness.repos.javascript.Semantic_Org import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore import *
 from multi_swe_bench.harness.repos.javascript.LD4P import *
 from multi_swe_bench.harness.repos.javascript.KaTeX import *
+from multi_swe_bench.harness.repos.javascript.RaspberryPiFoundation import *
+from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
+from multi_swe_bench.harness.repos.javascript.ProjectMirador import *
