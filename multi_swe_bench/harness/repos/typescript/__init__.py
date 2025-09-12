@@ -38,3 +38,5 @@ from multi_swe_bench.harness.repos.typescript.KittyCAD import *
 from multi_swe_bench.harness.repos.typescript.Safe_DS import *
 from multi_swe_bench.harness.repos.typescript.SAP import *
 from multi_swe_bench.harness.repos.typescript.Sage import *
+from multi_swe_bench.harness.repos.typescript.Siteimprove import *
+from multi_swe_bench.harness.repos.typescript.Shopify import *
