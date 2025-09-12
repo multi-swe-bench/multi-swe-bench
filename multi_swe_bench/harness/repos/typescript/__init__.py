@@ -30,3 +30,4 @@ from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
 from multi_swe_bench.harness.repos.typescript.HospitalRun import *
 from multi_swe_bench.harness.repos.typescript.Altinn import *
 from multi_swe_bench.harness.repos.typescript.Azure import *
+from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
