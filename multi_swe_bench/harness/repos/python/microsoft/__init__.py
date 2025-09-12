@@ -6,3 +6,8 @@ from multi_swe_bench.harness.repos.python.microsoft.torchgeo_2840_to_2432 import
 from multi_swe_bench.harness.repos.python.microsoft.torchgeo_1985_to_1441 import *
 from multi_swe_bench.harness.repos.python.microsoft.torchgeo_1985_to_1441 import *
 from multi_swe_bench.harness.repos.python.microsoft.torchgeo_1441_to_928 import *
+from multi_swe_bench.harness.repos.python.microsoft.autogen_6071_to_5839 import *
+from multi_swe_bench.harness.repos.python.microsoft.autogen_5183_to_4847 import *
+from multi_swe_bench.harness.repos.python.microsoft.autogen_4400_to_4053 import *
+from multi_swe_bench.harness.repos.python.microsoft.autogen_3557_to_3481 import *
+from multi_swe_bench.harness.repos.python.microsoft.autogen_1963_to_1569 import *
