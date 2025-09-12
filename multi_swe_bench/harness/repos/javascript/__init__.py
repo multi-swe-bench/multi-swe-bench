@@ -33,3 +33,5 @@ from multi_swe_bench.harness.repos.javascript.BlakeGuilloud import *
 from multi_swe_bench.harness.repos.javascript.Seneca_CDOT import *
 from multi_swe_bench.harness.repos.javascript.Semantic_Org import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore import *
+from multi_swe_bench.harness.repos.javascript.LD4P import *
+from multi_swe_bench.harness.repos.javascript.KaTeX import *
