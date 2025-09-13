@@ -128,4 +128,4 @@ from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.DiamondLightSource import *
 from multi_swe_bench.harness.repos.python.distributed_system_analysis import *
 from multi_swe_bench.harness.repos.python.networktocode import *
-from multi_swe_bench.harness.repos.python.nautobot import *
+from multi_swe_bench.harness.repos.python.pvlib import *
