@@ -129,3 +129,4 @@ from multi_swe_bench.harness.repos.python.databricks import *
 from multi_swe_bench.harness.repos.python.databrickslabs import *
 from multi_swe_bench.harness.repos.python.dandi import *
 from multi_swe_bench.harness.repos.python.keephq import *
+from multi_swe_bench.harness.repos.python.natcap import *
