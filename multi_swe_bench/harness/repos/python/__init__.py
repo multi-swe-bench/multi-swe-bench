@@ -129,3 +129,4 @@ from multi_swe_bench.harness.repos.python.cogent3 import *
 from multi_swe_bench.harness.repos.python.cobbler import *
 from multi_swe_bench.harness.repos.python.JustFixNYC import *
 from multi_swe_bench.harness.repos.python.mitodl import *
+from multi_swe_bench.harness.repos.python.pyinstaller import *
