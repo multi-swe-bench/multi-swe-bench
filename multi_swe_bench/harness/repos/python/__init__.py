@@ -130,3 +130,4 @@ from multi_swe_bench.harness.repos.python.dlt_hub import *
 from multi_swe_bench.harness.repos.python.frictionlessdata import *
 from multi_swe_bench.harness.repos.python.feast_dev import *
 from multi_swe_bench.harness.repos.python.nextstrain import *
+from multi_swe_bench.harness.repos.python.pyodide import *
