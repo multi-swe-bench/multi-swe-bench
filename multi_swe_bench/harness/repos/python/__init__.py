@@ -127,3 +127,5 @@ from multi_swe_bench.harness.repos.python.RasaHQ import *
 from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.freqtrade import *
 from multi_swe_bench.harness.repos.python.galaxyproject import *
+from multi_swe_bench.harness.repos.python.Opentrons import *
+from multi_swe_bench.harness.repos.python.PolicyEngine import *
