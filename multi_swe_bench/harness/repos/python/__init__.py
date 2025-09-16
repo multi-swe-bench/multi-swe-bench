@@ -130,3 +130,4 @@ from multi_swe_bench.harness.repos.python.enthought import *
 from multi_swe_bench.harness.repos.python.elastic import *
 from multi_swe_bench.harness.repos.python.equinor import *
 from multi_swe_bench.harness.repos.python.oceanprotocol import *
+from multi_swe_bench.harness.repos.python.pytroll import *
