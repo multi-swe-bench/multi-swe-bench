@@ -27,3 +27,6 @@ from multi_swe_bench.harness.repos.typescript.highcharts import *
 from multi_swe_bench.harness.repos.typescript.PrismJS import *
 from multi_swe_bench.harness.repos.typescript.ParabolInc import *
 from multi_swe_bench.harness.repos.typescript.abaplint import *
+from multi_swe_bench.harness.repos.typescript.apify import *
+from multi_swe_bench.harness.repos.typescript.antvis import *
+from multi_swe_bench.harness.repos.typescript.aws_powertools import *
