@@ -132,3 +132,5 @@ from multi_swe_bench.harness.repos.python.airbytehq import *
 from multi_swe_bench.harness.repos.python.litestar_org import *
 from multi_swe_bench.harness.repos.python.privacyidea import *
 from multi_swe_bench.harness.repos.python.PyGithub import *
+from multi_swe_bench.harness.repos.python.pywbem import *
+from multi_swe_bench.harness.repos.python.ReliaQualAssociates import *
