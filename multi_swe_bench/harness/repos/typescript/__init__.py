@@ -28,3 +28,5 @@ from multi_swe_bench.harness.repos.typescript.Safe_DS import *
 from multi_swe_bench.harness.repos.typescript.SAP import *
 from multi_swe_bench.harness.repos.typescript.Sage import *
 from multi_swe_bench.harness.repos.typescript.angular_eslint import *
+from multi_swe_bench.harness.repos.typescript.arco_design import *
+from multi_swe_bench.harness.repos.typescript.betagouv import *
