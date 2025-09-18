@@ -129,3 +129,5 @@ from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.opensafely_core import *
 from multi_swe_bench.harness.repos.python.OpenSlides import *
+from multi_swe_bench.harness.repos.python.pyproj4 import *
+from multi_swe_bench.harness.repos.python.Qiskit import *
