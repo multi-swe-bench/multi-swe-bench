@@ -129,3 +129,4 @@ from multi_swe_bench.harness.repos.python.ICTU import *
 from multi_swe_bench.harness.repos.python.HypothesisWorks import *
 from multi_swe_bench.harness.repos.python.idaholab import *
 from multi_swe_bench.harness.repos.python.paperless_ngx import *
+from multi_swe_bench.harness.repos.python.randovania import *
