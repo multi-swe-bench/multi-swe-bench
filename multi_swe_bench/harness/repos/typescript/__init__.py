@@ -28,3 +28,4 @@ from multi_swe_bench.harness.repos.typescript.ONEARMY import *
 from multi_swe_bench.harness.repos.typescript.angular import *
 from multi_swe_bench.harness.repos.typescript.PalisadoesFoundation import *
 from multi_swe_bench.harness.repos.typescript.Northeastern_Electric_Racing import *
+from multi_swe_bench.harness.repos.typescript.betagouv import *
