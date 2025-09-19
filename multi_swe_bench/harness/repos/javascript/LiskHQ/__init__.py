@@ -19,3 +19,4 @@ from multi_swe_bench.harness.repos.javascript.LiskHQ.lisk_mobile_1294_to_1040 im
 from multi_swe_bench.harness.repos.javascript.LiskHQ.lisk_mobile_715_to_703 import *
 from multi_swe_bench.harness.repos.javascript.LiskHQ.lisk_mobile_287_to_235 import *
 from multi_swe_bench.harness.repos.javascript.LiskHQ.lisk_desktop_4513_to_4481 import *
+from multi_swe_bench.harness.repos.javascript.LiskHQ.lisk_desktop_4185_to_4150 import *
