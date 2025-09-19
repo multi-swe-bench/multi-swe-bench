@@ -128,3 +128,4 @@ from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.HyphaApp import *
 from multi_swe_bench.harness.repos.python.LiberTEM import *
 from multi_swe_bench.harness.repos.python.hyperspy import *
+from multi_swe_bench.harness.repos.python.pantsbuild import *
