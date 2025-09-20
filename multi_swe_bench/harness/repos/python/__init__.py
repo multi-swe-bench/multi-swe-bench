@@ -131,3 +131,4 @@ from multi_swe_bench.harness.repos.python.opensafely_core import *
 from multi_swe_bench.harness.repos.python.OpenSlides import *
 from multi_swe_bench.harness.repos.python.pyproj4 import *
 from multi_swe_bench.harness.repos.python.Qiskit import *
+from multi_swe_bench.harness.repos.python.secdev import *
