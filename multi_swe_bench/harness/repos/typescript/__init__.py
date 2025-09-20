@@ -26,3 +26,4 @@ from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
 from multi_swe_bench.harness.repos.typescript.apache import *
 from multi_swe_bench.harness.repos.typescript.artifacthub import *
+from multi_swe_bench.harness.repos.typescript.capricorn86 import *
