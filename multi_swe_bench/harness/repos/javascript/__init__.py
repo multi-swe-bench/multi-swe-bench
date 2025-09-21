@@ -30,3 +30,4 @@ from multi_swe_bench.harness.repos.javascript.RaspberryPiFoundation import *
 from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
 from multi_swe_bench.harness.repos.javascript.ProjectMirador import *
 from multi_swe_bench.harness.repos.javascript.accordproject import *
+from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
