@@ -25,4 +25,4 @@ from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
 from multi_swe_bench.harness.repos.typescript.League_of_Foundry_Developers import *
-from multi_swe_bench.harness.repos.typescript.KittyCAD import *
+from multi_swe_bench.harness.repos.typescript.VKCOM import *
