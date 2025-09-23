@@ -28,3 +28,4 @@ from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
 from multi_swe_bench.harness.repos.javascript.LD4P import *
 from multi_swe_bench.harness.repos.javascript.KaTeX import *
+from multi_swe_bench.harness.repos.javascript.commercetools import *
