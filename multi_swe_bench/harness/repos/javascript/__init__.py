@@ -28,3 +28,4 @@ from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
 from multi_swe_bench.harness.repos.javascript.ProcessMaker import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
+from multi_swe_bench.harness.repos.javascript.codeceptjs import *
