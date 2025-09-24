@@ -29,3 +29,4 @@ from multi_swe_bench.harness.repos.javascript.quartodev import *
 from multi_swe_bench.harness.repos.javascript.Seneca_CDOT import *
 from multi_swe_bench.harness.repos.javascript.Semantic_Org import *
 from multi_swe_bench.harness.repos.javascript.aodn import *
+from multi_swe_bench.harness.repos.javascript.cfpb import *
