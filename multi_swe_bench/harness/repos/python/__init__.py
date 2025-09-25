@@ -131,3 +131,4 @@ from multi_swe_bench.harness.repos.python.bigchaindb import *
 from multi_swe_bench.harness.repos.python.MDAnalysis import *
 from multi_swe_bench.harness.repos.python.materialsproject import *
 from multi_swe_bench.harness.repos.python.SatelliteQE import *
+from multi_swe_bench.harness.repos.python.sql_machine_learning import *
