@@ -128,3 +128,4 @@ from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.fecgov import *
 from multi_swe_bench.harness.repos.python.kserve import *
 from multi_swe_bench.harness.repos.python.OpenMDAO import *
+from multi_swe_bench.harness.repos.python.saleor import *
