@@ -130,3 +130,4 @@ from multi_swe_bench.harness.repos.python.F5Networks import *
 from multi_swe_bench.harness.repos.python.explosion import *
 from multi_swe_bench.harness.repos.python.open_telemetry import *
 from multi_swe_bench.harness.repos.python.python import *
+from multi_swe_bench.harness.repos.python.silx_kit import *
