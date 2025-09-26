@@ -136,3 +136,4 @@ from multi_swe_bench.harness.repos.python.pywbem import *
 from multi_swe_bench.harness.repos.python.ReliaQualAssociates import *
 from multi_swe_bench.harness.repos.python.SciTools import *
 from multi_swe_bench.harness.repos.python.sourmash_bio import *
+from multi_swe_bench.harness.repos.python.sul_dlss import *
