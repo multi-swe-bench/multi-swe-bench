@@ -129,3 +129,4 @@ from multi_swe_bench.harness.repos.python.aws_cloudformation import *
 from multi_swe_bench.harness.repos.python.bcgov import *
 from multi_swe_bench.harness.repos.python.mars_project import *
 from multi_swe_bench.harness.repos.python.marimo_team import *
+from multi_swe_bench.harness.repos.python.rotki import *
