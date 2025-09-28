@@ -27,3 +27,5 @@ from multi_swe_bench.harness.repos.typescript.highcharts import *
 from multi_swe_bench.harness.repos.typescript.Siteimprove import *
 from multi_swe_bench.harness.repos.typescript.Shopify import *
 from multi_swe_bench.harness.repos.typescript.alibaba import *
+from multi_swe_bench.harness.repos.typescript.apache import *
+from multi_swe_bench.harness.repos.typescript.cypress_io import *
