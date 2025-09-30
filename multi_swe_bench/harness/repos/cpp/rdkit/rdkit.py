@@ -78,14 +78,12 @@ RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \\
 
 {code}
 
-{clear_env}
         """
         
         file_text = template.format(
             image_name=image_name,
             global_env=self.global_env,
-            code=code,
-            clear_env=self.clear_env,
+            code=code
         )
         
         return file_text
@@ -242,7 +240,6 @@ ctest --output-on-failure
 
 {prepare_commands}
 
-{self.clear_env}
 
 """
 
