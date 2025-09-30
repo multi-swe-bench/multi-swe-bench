@@ -41,9 +41,11 @@ We are extremely delighted to release **Multi-SWE-bench**! Multi-SWE-bench addre
 We aim to accelerate progress in automated issue resolution and RL, bridging the gap toward AGI. Let's join the **Multi-SWE-RL community** to expand datasets, tools, and research collaboration!
 
 ## 📢 News
-[2025/07/15] 🔥 We are excited to announce the release of [Multi-SWE-bench flash](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-bench-flash)! This collection features 300 carefully selected multilingual evaluation instances, designed for rapid evaluation and efficient agent rollouts.
+[2025/09/19] 🎉 Multi-SWE-bench has been accepted to the NeurIPS 2025 Datasets and Benchmarks track!
 
-[2025/05/10]📢 Our EnvAgent is coming soon! It uses LLMs to automate multilingual environment setup, taking Multi-SWE-RL to the next level. Stay tuned!⏰
+[2025/09/18] 🔧 We have added a `hints` field to all instances in Multi-SWE-bench, describing the newly defined variables in `test.patch` and `fix.patch`, making the tasks more complete. Please feel free to use [it](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-bench)!
+
+[2025/07/15] 🔥 We are excited to announce the release of [Multi-SWE-bench flash](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-bench-flash)! This collection features 300 carefully selected multilingual evaluation instances, designed for rapid evaluation and efficient agent rollouts.
 
 [2025/04/15]🔥We released [Multi-SWE-bench mini](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-bench_mini)! A lightweight version of the full benchmark — 400 instances in total, covering 8 languages, designed to reduce compute cost and make evaluation faster and easier.
 
