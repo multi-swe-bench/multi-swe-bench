@@ -29,3 +29,4 @@ from multi_swe_bench.harness.repos.javascript.quartodev import *
 from multi_swe_bench.harness.repos.javascript.camunda import *
 from multi_swe_bench.harness.repos.javascript.chartjs import *
 from multi_swe_bench.harness.repos.javascript.compasjs import *
+from multi_swe_bench.harness.repos.javascript.decred import *
