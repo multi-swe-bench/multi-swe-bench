@@ -131,3 +131,4 @@ from multi_swe_bench.harness.repos.python.hyperspy import *
 from multi_swe_bench.harness.repos.python.pantsbuild import *
 from multi_swe_bench.harness.repos.python.shakenfist import *
 from multi_swe_bench.harness.repos.python.stac_utils import *
+from multi_swe_bench.harness.repos.python.streamlit import *
