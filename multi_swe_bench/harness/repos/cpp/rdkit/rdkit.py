@@ -238,8 +238,6 @@ conda run -n rdkit-dev cmake .. \
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -274,7 +272,6 @@ conda run -n rdkit-dev cmake .. \
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 
 export RDBASE=/home/rdkit
@@ -394,8 +391,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -412,9 +407,7 @@ git apply --whitespace=nowarn /home/test.patch
 cd build
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
-
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 
 export RDBASE=/home/rdkit
@@ -435,7 +428,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 
 export RDBASE=/home/rdkit
@@ -726,7 +718,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -745,7 +736,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -763,7 +753,6 @@ cd build
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 export RDBASE=/home/rdkit
 ctest --output-on-failure
@@ -884,7 +873,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -903,7 +891,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -921,7 +908,6 @@ cd build
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 export RDBASE=/home/rdkit
 ctest --output-on-failure
@@ -1042,7 +1028,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -1061,7 +1046,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -1079,7 +1063,6 @@ cd build
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 export RDBASE=/home/rdkit
 ctest --output-on-failure
