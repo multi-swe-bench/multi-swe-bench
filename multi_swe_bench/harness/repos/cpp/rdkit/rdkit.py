@@ -201,7 +201,6 @@ conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLD
 conda run -n rdkit-dev cmake --build . --target all -j2
 
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
