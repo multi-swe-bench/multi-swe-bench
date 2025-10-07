@@ -197,6 +197,7 @@ conda run -n rdkit-dev cmake .. \
   -DCMAKE_C_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS" \
   -DCMAKE_CXX_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS"
 
+conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
 
@@ -233,9 +234,8 @@ conda run -n rdkit-dev cmake .. \
   -DCMAKE_C_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS" \
   -DCMAKE_CXX_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS"
 
-
+conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
-
 
 export RDBASE=/home/rdkit
 ctest --output-on-failure
@@ -269,7 +269,7 @@ conda run -n rdkit-dev cmake .. \
   -DCMAKE_C_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS" \
   -DCMAKE_CXX_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS"
 
-
+conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
 
@@ -390,7 +390,6 @@ cd build
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
 conda run -n rdkit-dev cmake --build . --target all -j2
 
-
 export RDBASE=/home/rdkit
 ctest --output-on-failure
 
@@ -407,7 +406,6 @@ git apply --whitespace=nowarn /home/test.patch
 cd build
 
 conda run -n rdkit-dev cmake .. -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_MOLDRAW2D=OFF -DRDK_INSTALL_COMIC_FONTS=OFF
-
 conda run -n rdkit-dev cmake --build . --target all -j2
 
 
@@ -1091,7 +1089,7 @@ ctest --output-on-failure
 
 {prepare_commands}
 
-{self.clear_env}
+
 
 """
 
@@ -1170,4 +1168,3 @@ class RDkit(Instance):
             failed_tests=failed_tests,
             skipped_tests=skipped_tests,
         )
-
