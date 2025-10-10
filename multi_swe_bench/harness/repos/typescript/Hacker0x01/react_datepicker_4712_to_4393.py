@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -174,13 +172,17 @@ class REACT_DATEPICKER_4712_TO_4393(Instance):
         import re
         import json
         # Extract passed tests
-        passed_matches = re.findall(r'✓ (.*?) \(\d+ ms\)', log)
+        #修改前 passed_matches = re.findall(r'✓ (.*?) \(\d+ ms\)', log)
+        passed_matches = re.findall(r'✓ (.*?)(?: \(\d+ ms\))?$', log, re.MULTILINE) #修改后
         passed_tests.update(passed_matches)
         # Extract failed tests
         # Extract failed tests from error traces
-        failed_matches = re.findall(r'✕ (.*?) \(\d+ ms\)', log)
+        #修改前 failed_matches = re.findall(r'✕ (.*?) \(\d+ ms\)', log)
+        failed_matches = re.findall(r'✕ (.*?)(?: \(\d+ ms\))?$', log, re.MULTILINE) #修改后
         failed_tests.update(failed_matches)
         # TODO: Extract skipped tests if pattern is identified
+        error_matches = re.findall(r'ERROR - Invalid \S+: missing (.+)', log) #修改后
+        failed_tests.update([m.strip() for m in error_matches]) #修改后
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,

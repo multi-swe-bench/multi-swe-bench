@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -173,10 +171,14 @@ class UI5_WEBCOMPONENTS_REACT_2657_TO_1176(Instance):
         from collections import defaultdict
         test_status = defaultdict(str)
         # Patterns
-        pass_pattern = re.compile(r'^\s*✓\s+([^\(]+?)\s*\(\d+ (?:ms|s)\)\s*$')
-        fail_pattern = re.compile(r'^\s*✕\s+([^\(]+?)\s*\(\d+ (?:ms|s)\)\s*$')
+        #修改前 pass_pattern = re.compile(r'^\s*✓\s+([^\(]+?)\s*\(\d+ (?:ms|s)\)\s*$')
+        #修改前 fail_pattern = re.compile(r'^\s*✕\s+([^\(]+?)\s*\(\d+ (?:ms|s)\)\s*$')
+        pass_pattern = re.compile(r'^\s*✓\s+([^\(]+?)(?:\s*\(\d+ (?:ms|s)\))?\s*$')#修改后
+        fail_pattern = re.compile(r'^\s*✕\s+([^\(]+?)(?:\s*\(\d+ (?:ms|s)\))?\s*$')#修改后
         skip_pattern = re.compile(r'^\s*○\s*skipped\s+(.*?)\s*$')
+        error_missing_pattern = re.compile(r'ERROR - Invalid \S+: missing (.+)')#修改后
         for line in log.split('\n'):
+            line = line.strip()
             pass_match = pass_pattern.match(line)
             if pass_match:
                 test_name = pass_match.group(1).strip()
@@ -192,6 +194,14 @@ class UI5_WEBCOMPONENTS_REACT_2657_TO_1176(Instance):
                 test_name = skip_match.group(1).strip()
                 test_status[test_name] = 'skipped'
                 continue
+
+            # Error missing tests修改后
+            error_match = error_missing_pattern.search(line)
+            if error_match:
+                test_name = error_match.group(1).strip()
+                test_status[test_name] = 'failed'
+                continue
+            
         for test_name, status in test_status.items():
             if status == 'passed':
                 passed_tests.add(test_name)

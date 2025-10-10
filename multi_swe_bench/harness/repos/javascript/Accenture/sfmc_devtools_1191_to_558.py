@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -175,7 +173,9 @@ class SFMC_DEVTOOLS_1191_TO_558(Instance):
         import json
         # Implement the log parsing logic here
         # Extract JSON content from the log (handles leading non-JSON lines)
-        json_match = re.search(r'\{.*\}', log, re.DOTALL)
+
+        #修改前 json_match = re.search(r'\{.*\}', log, re.DOTALL)
+        json_match = re.search(r'\{\s*"stats"[\s\S]*\}', log, re.DOTALL) #修改后
         if json_match:
             try:
                 log_data = json.loads(json_match.group())
