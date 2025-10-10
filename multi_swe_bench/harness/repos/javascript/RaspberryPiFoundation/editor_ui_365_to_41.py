@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -176,9 +174,14 @@ class EDITOR_UI_365_TO_41(Instance):
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        passed_pattern = re.compile(r'^\s*✓\s+(.*?)\s+\(\d+\s+ms\)$')
-        failed_pattern = re.compile(r'^\s*✕\s+(.*?)\s+\(\d+\s+ms\)$')
-        skipped_pattern = re.compile(r'^\s*○\s+(.*?)\s+\(\d+\s+ms\)$')
+
+        #修改前 passed_pattern = re.compile(r'^\s*✓\s+(.*?)\s+\(\d+\s+ms\)$')
+        #修改前 failed_pattern = re.compile(r'^\s*✕\s+(.*?)\s+\(\d+\s+ms\)$')
+        #修改前 skipped_pattern = re.compile(r'^\s*○\s+(.*?)\s+\(\d+\s+ms\)$')
+        passed_pattern = re.compile(r'^\s*✓\s+(.*?)\s*(?:\(\d+(?:\.\d+)?\s*\w+\))?\s*$')#修改后
+        failed_pattern = re.compile(r'^\s*✕\s+(.*?)\s*(?:\(\d+(?:\.\d+)?\s*\w+\))?\s*$')#修改后
+        skipped_pattern = re.compile(r'^\s*○\s+(.*?)\s*(?:\(\d+(?:\.\d+)?\s*\w+\))?\s*$')#修改后
+
         for line in log.split('\n'):
             pass_match = passed_pattern.match(line)
             if pass_match:
