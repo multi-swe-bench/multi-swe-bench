@@ -1,1 +1,1 @@
-from multi_swe_bench.harness.repos.javascript.KateX.KaTeX import *
+# from multi_swe_bench.harness.repos.javascript.KateX.KaTeX import *

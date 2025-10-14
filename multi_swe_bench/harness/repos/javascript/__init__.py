@@ -12,7 +12,7 @@ from multi_swe_bench.harness.repos.javascript.tj import *
 from multi_swe_bench.harness.repos.javascript.vuejs import *
 from multi_swe_bench.harness.repos.javascript.swaggerapi import *
 from multi_swe_bench.harness.repos.javascript.facebook import *
-from multi_swe_bench.harness.repos.javascript.KateX import *
+# from multi_swe_bench.harness.repos.javascript.KateX import *
 from multi_swe_bench.harness.repos.javascript.nasa import *
 from multi_swe_bench.harness.repos.javascript.grommet import *
 from multi_swe_bench.harness.repos.javascript.eslint import *
