@@ -287,6 +287,8 @@ from multi_swe_bench.harness.repos.python.JustFixNYC import *
 from multi_swe_bench.harness.repos.python.mitodl import *
 from multi_swe_bench.harness.repos.python.aeon_toolkit import *
 from multi_swe_bench.harness.repos.python.dandi import *
+from multi_swe_bench.harness.repos.python.keephq import *
+from multi_swe_bench.harness.repos.python.natcap import *
 from multi_swe_bench.harness.repos.python.celery import *
 from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
 from multi_swe_bench.harness.repos.python.jazzband import *
