@@ -24,6 +24,7 @@ from multi_swe_bench.harness.repos.typescript.jestjs import *
 from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
+from multi_swe_bench.harness.repos.typescript.Royal_Navy import *
 from multi_swe_bench.harness.repos.typescript.ONEARMY import *
 from multi_swe_bench.harness.repos.typescript.angular import *
 from multi_swe_bench.harness.repos.typescript.PalisadoesFoundation import *
