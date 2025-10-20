@@ -68,6 +68,7 @@ from multi_swe_bench.harness.repos.typescript.defenseunicorns import *
 from multi_swe_bench.harness.repos.typescript.Safe_DS import *
 from multi_swe_bench.harness.repos.typescript.SAP import *
 from multi_swe_bench.harness.repos.typescript.Sage import *
+from multi_swe_bench.harness.repos.typescript.angular_eslint import *
 from multi_swe_bench.harness.repos.typescript.Siteimprove import *
 from multi_swe_bench.harness.repos.typescript.Shopify import *
 from multi_swe_bench.harness.repos.typescript.alibaba import *
