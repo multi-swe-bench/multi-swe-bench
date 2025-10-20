@@ -214,6 +214,13 @@ from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
 from multi_swe_bench.harness.repos.python.aiidateam import *
 from multi_swe_bench.harness.repos.python.airbytehq import *
 from multi_swe_bench.harness.repos.python.litestar_org import *
+from multi_swe_bench.harness.repos.python.privacyidea import *
+from multi_swe_bench.harness.repos.python.PyGithub import *
+from multi_swe_bench.harness.repos.python.pywbem import *
+from multi_swe_bench.harness.repos.python.ReliaQualAssociates import *
+from multi_swe_bench.harness.repos.python.SciTools import *
+from multi_swe_bench.harness.repos.python.sourmash_bio import *
+from multi_swe_bench.harness.repos.python.sul_dlss import *
 from multi_swe_bench.harness.repos.python.dstackai import *
 from multi_swe_bench.harness.repos.python.elastic import *
 from multi_swe_bench.harness.repos.python.camel_ai import *
