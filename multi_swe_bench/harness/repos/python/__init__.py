@@ -241,6 +241,10 @@ from multi_swe_bench.harness.repos.python.dmwm import *
 from multi_swe_bench.harness.repos.python.obspy import *
 from multi_swe_bench.harness.repos.python.spack import *
 from multi_swe_bench.harness.repos.python.F5Networks import *
+from multi_swe_bench.harness.repos.python.explosion import *
+from multi_swe_bench.harness.repos.python.open_telemetry import *
+from multi_swe_bench.harness.repos.python.python import *
+from multi_swe_bench.harness.repos.python.silx_kit import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.Ericsson import *
 from multi_swe_bench.harness.repos.python.ethyca import *
