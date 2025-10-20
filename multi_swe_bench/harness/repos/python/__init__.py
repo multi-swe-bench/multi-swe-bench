@@ -201,6 +201,8 @@ from multi_swe_bench.harness.repos.python.SatelliteQE import *
 from multi_swe_bench.harness.repos.python.sql_machine_learning import *
 from multi_swe_bench.harness.repos.python.theupdateframework import *
 from multi_swe_bench.harness.repos.python.buildbot import *
+from multi_swe_bench.harness.repos.python.cal_itp import *
+from multi_swe_bench.harness.repos.python.meltano import *
 from multi_swe_bench.harness.repos.python.exercism import *
 from multi_swe_bench.harness.repos.python.fonttools import *
 from multi_swe_bench.harness.repos.python.fetchai import *
