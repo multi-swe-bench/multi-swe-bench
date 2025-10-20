@@ -234,4 +234,12 @@ from multi_swe_bench.harness.repos.python.celery import *
 from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
 from multi_swe_bench.harness.repos.python.allenai import *
 from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
+from multi_swe_bench.harness.repos.python.freedomofpress import *
+from multi_swe_bench.harness.repos.python.opensafely_core import *
+from multi_swe_bench.harness.repos.python.OpenSlides import *
+from multi_swe_bench.harness.repos.python.pyproj4 import *
+from multi_swe_bench.harness.repos.python.Qiskit import *
+from multi_swe_bench.harness.repos.python.secdev import *
+from multi_swe_bench.harness.repos.python.silx_kit import *
+from multi_swe_bench.harness.repos.python.Theano import *
 from multi_swe_bench.harness.repos.python.databricks import *
