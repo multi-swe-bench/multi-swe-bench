@@ -24,6 +24,12 @@ from multi_swe_bench.harness.repos.typescript.jestjs import *
 from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
+from multi_swe_bench.harness.repos.typescript.ONEARMY import *
+from multi_swe_bench.harness.repos.typescript.angular import *
+from multi_swe_bench.harness.repos.typescript.PalisadoesFoundation import *
+from multi_swe_bench.harness.repos.typescript.Northeastern_Electric_Racing import *
+from multi_swe_bench.harness.repos.typescript.betagouv import *
+from multi_swe_bench.harness.repos.typescript.cypress_io import *
 from multi_swe_bench.harness.repos.typescript.Effect_TS import *
 from multi_swe_bench.harness.repos.typescript.apollographql import *
 from multi_swe_bench.harness.repos.typescript.Altinn import *
