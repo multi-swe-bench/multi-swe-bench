@@ -188,6 +188,9 @@ from multi_swe_bench.harness.repos.python.exercism import *
 from multi_swe_bench.harness.repos.python.fonttools import *
 from multi_swe_bench.harness.repos.python.aws_cloudformation import *
 from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
+from multi_swe_bench.harness.repos.python.aiidateam import *
+from multi_swe_bench.harness.repos.python.airbytehq import *
+from multi_swe_bench.harness.repos.python.litestar_org import *
 from multi_swe_bench.harness.repos.python.dstackai import *
 from multi_swe_bench.harness.repos.python.elastic import *
 from multi_swe_bench.harness.repos.python.camel_ai import *
