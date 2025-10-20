@@ -26,6 +26,8 @@ from multi_swe_bench.harness.repos.javascript.bpmnio import *
 from multi_swe_bench.harness.repos.javascript.alibabafusion import *
 from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
+from multi_swe_bench.harness.repos.javascript.FlowFuse import *
+from multi_swe_bench.harness.repos.javascript.brave import *
 from multi_swe_bench.harness.repos.javascript.Accenture import *
 from multi_swe_bench.harness.repos.javascript.BlakeGuilloud import *
 from multi_swe_bench.harness.repos.javascript.Seneca_CDOT import *
