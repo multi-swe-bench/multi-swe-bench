@@ -1,0 +1,261 @@
+import re
+import json
+from typing import Optional, Union
+
+from multi_swe_bench.harness.image import Config, File, Image
+from multi_swe_bench.harness.instance import Instance, TestResult
+from multi_swe_bench.harness.pull_request import PullRequest
+
+
+class ImageDefault(Image):
+    def __init__(self, pr: PullRequest, config: Config):
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    def dependency(self) -> str:
+        return "python:3.9-slim"
+    
+    def image_prefix(self) -> str:
+        return "envagent"
+       
+    def image_tag(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def workdir(self) -> str:
+        return f"pr-{self.pr.number}"
+
+    def files(self) -> list[File]:
+        repo_name= self.pr.repo
+        return [
+            File(
+                ".",
+                "fix.patch",
+                f"{self.pr.fix_patch}",
+            ),
+            File(
+                ".",
+                "test.patch",
+                f"{self.pr.test_patch}",
+            ),
+            File(
+                ".",
+                "prepare.sh",
+                """ls -la
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y make openjdk-11-jdk maven golang
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y make default-jdk maven golang
+###ACTION_DELIMITER###
+make install-python-ci-dependencies
+###ACTION_DELIMITER###
+python -m pip install pip-tools
+###ACTION_DELIMITER###
+make install-python-ci-dependencies
+###ACTION_DELIMITER###
+ls sdk/python/requirements/
+###ACTION_DELIMITER###
+make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libmysqlclient-dev
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libmariadb-dev-compat libmariadb-dev
+###ACTION_DELIMITER###
+make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y libarrow-dev
+###ACTION_DELIMITER###
+wget https://apache.jfrog.io/artifactory/arrow/debian/apache-arrow-apt-source-latest-bookworm.deb && dpkg -i apache-arrow-apt-source-latest-bookworm.deb && apt-get update && apt-get install -y libarrow-dev
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y wget
+###ACTION_DELIMITER###
+wget https://apache.jfrog.io/artifactory/arrow/debian/apache-arrow-apt-source-latest-bookworm.deb && dpkg -i apache-arrow-apt-source-latest-bookworm.deb && apt-get update && apt-get install -y libarrow-dev
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y gnupg
+###ACTION_DELIMITER###
+apt --fix-broken install -y
+###ACTION_DELIMITER###
+wget https://apache.jfrog.io/artifactory/arrow/debian/apache-arrow-apt-source-latest-bookworm.deb && dpkg -i apache-arrow-apt-source-latest-bookworm.deb && apt-get update && apt-get install -y libarrow-dev
+###ACTION_DELIMITER###
+make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+export CGO_CFLAGS="-I/usr/include/arrow" && export CGO_LDFLAGS="-larrow" && make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+export CXXFLAGS="-std=c++17 -I/usr/include/arrow" && export CGO_LDFLAGS="-larrow" && make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+apt-get install -y libarrow-dev=10.0.0-1 && make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+apt-get install -y libarrow-dev=10.0.0-1 libarrow1000=10.0.0-1 && make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+apt-get install -y --allow-downgrades libarrow-dev=10.0.0-1 libarrow1000=10.0.0-1 && make install-python-ci-dependencies PYTHON=3.9
+###ACTION_DELIMITER###
+make test-python
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y docker.io && service docker start && make test-python
+###ACTION_DELIMITER###
+service docker start && service docker status && make test-python
+###ACTION_DELIMITER###
+docker info
+###ACTION_DELIMITER###
+service docker status && ls -l /var/run/docker.sock && cat /var/log/docker.log 2>/dev/null
+###ACTION_DELIMITER###
+service docker start; service docker status; cat /var/log/docker.log 2>/dev/null
+###ACTION_DELIMITER###
+update-alternatives --set iptables /usr/sbin/iptables-legacy && update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy && service docker restart && service docker status
+###ACTION_DELIMITER###
+make test-python
+###ACTION_DELIMITER###
+ls -l /var/run/docker.sock && docker info && cat /var/log/docker.log 2>/dev/null
+###ACTION_DELIMITER###
+service docker restart && service docker status && cat /var/log/docker.log 2>/dev/null
+###ACTION_DELIMITER###
+echo 'FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests' > /home/feast/test_commands.sh && chmod +x /home/feast/test_commands.sh"""
+            ),
+            File(
+                ".",
+                "run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+            File(
+                ".",
+                "test-run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+            File(
+                ".",
+                "fix-run.sh",
+                """#!/bin/bash
+cd /home/[[REPO_NAME]]
+if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+    echo "Error: git apply failed" >&2
+    exit 1  
+fi
+FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
+
+""".replace("[[REPO_NAME]]", repo_name)
+            ),
+        ]
+
+    def dockerfile(self) -> str:
+        copy_commands = ""
+        for file in self.files():
+            copy_commands += f"COPY {file.name} /home/\n"
+
+        dockerfile_content = """
+# This is a template for creating a Dockerfile to test patches
+# LLM should fill in the appropriate values based on the context
+
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
+# For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
+FROM python:3.9-slim
+
+## Set noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic requirements
+# For example: RUN apt-get update && apt-get install -y git
+# For example: RUN yum install -y git
+# For example: RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git
+
+# Ensure bash is available
+RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then             apk add --no-cache bash;         elif command -v apt-get >/dev/null 2>&1; then             apt-get update && apt-get install -y bash;         elif command -v yum >/dev/null 2>&1; then             yum install -y bash;         else             exit 1;         fi     fi
+
+WORKDIR /home/
+COPY fix.patch /home/
+COPY test.patch /home/
+RUN git clone https://github.com/feast-dev/feast.git /home/feast
+
+WORKDIR /home/feast
+RUN git reset --hard
+RUN git checkout {pr.base.sha}
+"""
+        dockerfile_content += f"""
+{copy_commands}
+"""
+        return dockerfile_content.format(pr=self.pr)
+
+
+@Instance.register("feast-dev", "feast_3089_to_2666")
+class FEAST_3089_TO_2666(Instance):
+    def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
+        super().__init__()
+        self._pr = pr
+        self._config = config
+
+    @property
+    def pr(self) -> PullRequest:
+        return self._pr
+
+    def dependency(self) -> Optional[Image]:
+        return ImageDefault(self.pr, self._config)
+
+    def run(self, run_cmd: str = "") -> str:
+        if run_cmd:
+            return run_cmd
+
+        return 'bash /home/run.sh'
+
+    def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
+        if test_patch_run_cmd:
+            return test_patch_run_cmd
+
+        return "bash /home/test-run.sh"
+
+    def fix_patch_run(self, fix_patch_run_cmd: str = "") -> str:
+        if fix_patch_run_cmd:
+            return fix_patch_run_cmd
+
+        return "bash /home/fix-run.sh"
+
+
+    def parse_log(self, log: str) -> TestResult:
+        # Parse the log content and extract test execution results.
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
+        import re
+        import json
+        # Parse passed tests
+        passed_tests = set(re.findall(r'PASSED (sdk/.*?::test_[^\s]+)', log))
+        # Parse failed tests
+        failed_tests = set(re.findall(r'FAILED (sdk/.*?::test_[^\s]+)', log))
+        # Parse error tests and add to failed
+        error_tests = set(re.findall(r'ERROR (sdk/.*?::test_[^\s]+)', log))
+        failed_tests.update(error_tests)
+        # Parse skipped tests (if any)
+        skipped_tests = set(re.findall(r'SKIPPED (sdk/.*?::test_.*?)\s*', log))
+        parsed_results = {
+            "passed_tests": passed_tests,
+            "failed_tests": failed_tests,
+            "skipped_tests": skipped_tests
+        }
+        
+
+        return TestResult(
+            passed_count=len(passed_tests),
+            failed_count=len(failed_tests),
+            skipped_count=len(skipped_tests),
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            skipped_tests=skipped_tests,
+        )
