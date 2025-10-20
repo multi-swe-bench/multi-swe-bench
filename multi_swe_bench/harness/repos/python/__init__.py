@@ -247,6 +247,7 @@ from multi_swe_bench.harness.repos.python.fetchai import *
 from multi_swe_bench.harness.repos.python.cogent3 import *
 from multi_swe_bench.harness.repos.python.cobbler import *
 from multi_swe_bench.harness.repos.python.JustFixNYC import *
+from multi_swe_bench.harness.repos.python.mitodl import *
 from multi_swe_bench.harness.repos.python.aeon_toolkit import *
 from multi_swe_bench.harness.repos.python.dandi import *
 from multi_swe_bench.harness.repos.python.celery import *
