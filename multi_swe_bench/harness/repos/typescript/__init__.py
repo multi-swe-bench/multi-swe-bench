@@ -54,6 +54,10 @@ from multi_swe_bench.harness.repos.typescript.antvis import *
 from multi_swe_bench.harness.repos.typescript.aws_powertools import *
 from multi_swe_bench.harness.repos.typescript.calcom import *
 from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
+from multi_swe_bench.harness.repos.typescript.HospitalRun import *
+from multi_swe_bench.harness.repos.typescript.HoudiniGraphql import *
+from multi_swe_bench.harness.repos.typescript.TypeScriptToLua import *
+from multi_swe_bench.harness.repos.typescript.amplication import *
 from multi_swe_bench.harness.repos.typescript.Azure import *
 from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
 from multi_swe_bench.harness.repos.typescript.RocketChat import *
