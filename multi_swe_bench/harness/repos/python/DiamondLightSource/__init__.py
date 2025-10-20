@@ -1,7 +1,4 @@
 from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_1021_to_872 import *
-from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_868_to_unknown import *
-from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_860_to_unknown import *
-from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_854_to_unknown import *
 from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_626_to_531 import *
 from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_531_to_478 import *
 from multi_swe_bench.harness.repos.python.DiamondLightSource.dodal_333_to_80 import *
