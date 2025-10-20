@@ -1,6 +1,4 @@
 import re
-
-import re
 import json
 from typing import Optional, Union
 
@@ -35,7 +33,6 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
         return [
             File(
                 ".",
@@ -50,132 +47,108 @@ class ImageDefault(Image):
             File(
                 ".",
                 "prepare.sh",
-                """pip install -e .[dev]
+                """ls
+###ACTION_DELIMITER###
+sed -i 's/"pip-shims<=0.3.4"/"pip-shims"/' pyproject.toml
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+curl -sSL https://install.python-poetry.org | python3 -
+###ACTION_DELIMITER###
+apt-get update && apt-get install -y curl
+###ACTION_DELIMITER###
+curl -sSL https://install.python-poetry.org | python3 -
+###ACTION_DELIMITER###
+export PATH="/root/.local/bin:$PATH"
+###ACTION_DELIMITER###
+poetry --version
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+poetry lock
+###ACTION_DELIMITER###
+poetry install
+###ACTION_DELIMITER###
+poetry run pytest -v ./tests
+###ACTION_DELIMITER###
+poetry add typed-ast@1.5.4
+###ACTION_DELIMITER###
+poetry add typed-ast@1.4.3
+###ACTION_DELIMITER###
+poetry run pip install --force-reinstall typed-ast==1.4.3
+###ACTION_DELIMITER###
+poetry run pytest -v ./tests
+###ACTION_DELIMITER###
+poetry run pip install --force-reinstall --no-binary :all: typed-ast==1.4.3
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+poetry run pip install --force-reinstall --no-binary :all: typed-ast==1.4.3
 ###ACTION_DELIMITER###
-pip install line-profiler>=4.0.3
+poetry run pytest -v ./tests
 ###ACTION_DELIMITER###
-pip install -e .[dev]
+poetry add black@^21.0
 ###ACTION_DELIMITER###
-pytest -v
+sed -i 's/black = {version = "^20.08b1", allow-prereleases = true}/black = {version = "^21.7b0", allow-prereleases = true}/' pyproject.toml
 ###ACTION_DELIMITER###
-pip install pytest
+poetry update black
 ###ACTION_DELIMITER###
-pytest -v
+sed -i 's/example_isort_formatting_plugin = "^0.0.2"/example_isort_formatting_plugin = "*"/' pyproject.toml
 ###ACTION_DELIMITER###
-pip uninstall -y pysha3 && pip install pysha3==1.0.2
+sed -i '/example_isort_formatting_plugin/d' pyproject.toml
 ###ACTION_DELIMITER###
-pytest -v
+poetry update black
 ###ACTION_DELIMITER###
-pip install cryptoconditions>=0.5.0
+sed -i 's/python = ">=3.6.1,<4.0"/python = ">=3.6.2,<4.0"/' pyproject.toml
 ###ACTION_DELIMITER###
-pytest -v
+poetry update black
 ###ACTION_DELIMITER###
-pip install python-rapidjson>=0.0.8
+poetry run pytest -v ./tests
 ###ACTION_DELIMITER###
-pytest -v
+echo 'poetry run pytest -v ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-pip uninstall -y cryptoconditions && pip install cryptoconditions==0.6.0
-###ACTION_DELIMITER###
-pip install cryptoconditions==0.7.3
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip uninstall -y cryptoconditions && pip install cryptoconditions==0.5.1
-###ACTION_DELIMITER###
-pip install PyNaCl==1.2.1 && pip install cryptoconditions==0.7.3
-###ACTION_DELIMITER###
-pip uninstall -y cryptoconditions && pip install cryptoconditions==0.6.0.dev1
-###ACTION_DELIMITER###
-apt-get update && apt-get install -y libsodium-dev && pip install cryptoconditions==0.5.0
-###ACTION_DELIMITER###
-pip install PyNaCl==1.4.0 && pip install cryptoconditions==0.8.1
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip uninstall -y cryptoconditions && pip install cryptoconditions==0.5.0
-###ACTION_DELIMITER###
-pip install cryptoconditions==0.5.0
-###ACTION_DELIMITER###
-pip install cryptoconditions==0.5.0 --no-deps
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip install jsonschema~=2.5.1
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip install rethinkdb~=2.3
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip install rethinkdb==2.3.0
-###ACTION_DELIMITER###
-apt-get update && apt-get install -y rethinkdb && service rethinkdb start
-###ACTION_DELIMITER###
-wget -qO- https://download.rethinkdb.com/repository/raw/pubkey.gpg | apt-key add - && echo 'deb https://download.rethinkdb.com/repository/debian-bookworm bookworm main' > /etc/apt/sources.list.d/rethinkdb.list && apt-get update && apt-get install -y rethinkdb && service rethinkdb start
-###ACTION_DELIMITER###
-apt-get update && apt-get install -y wget && wget -qO- https://download.rethinkdb.com/repository/raw/pubkey.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/rethinkdb.gpg && echo 'deb https://download.rethinkdb.com/repository/debian-bookworm bookworm main' > /etc/apt/sources.list.d/rethinkdb.list && apt-get update && apt-get install -y rethinkdb && service rethinkdb start
-###ACTION_DELIMITER###
-rethinkdb --daemon
-###ACTION_DELIMITER###
-
-###ACTION_DELIMITER###
-ps aux | grep rethinkdb
-###ACTION_DELIMITER###
-pytest -v
-###ACTION_DELIMITER###
-pip install pymongo~=3.4
-###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > /home/bigchaindb/test_commands.sh
-###ACTION_DELIMITER###
-echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider' > /home/bigchaindb/test_commands.sh
-###ACTION_DELIMITER###
-
-###ACTION_DELIMITER###
-pip install pytest-xdist
-###ACTION_DELIMITER###
-chmod +x /home/bigchaindb/test_commands.sh
-###ACTION_DELIMITER###
-"""
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider
+cd /home/{pr.repo}
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
             File(
                 ".",
                 "test-run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
             File(
                 ".",
                 "fix-run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
         ]
 
@@ -188,7 +161,7 @@ pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -207,9 +180,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/bigchaindb/bigchaindb.git /home/bigchaindb
+RUN git clone https://github.com/PyCQA/isort.git /home/isort
 
-WORKDIR /home/bigchaindb
+WORKDIR /home/isort
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -219,8 +192,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("bigchaindb", "bigchaindb_1088_to_unknown")
-class BIGCHAINDB_1088_TO_UNKNOWN(Instance):
+@Instance.register("PyCQA", "isort_1775_to_1749")
+class ISORT_1775_TO_1749(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -253,22 +226,21 @@ class BIGCHAINDB_1088_TO_UNKNOWN(Instance):
 
 
     def parse_log(self, log: str) -> TestResult:
-        passed_tests = set()
-        failed_tests = set()
-        skipped_tests = set()
-        # Pattern to match test results (PASSED/FAILED/ERROR/SKIPPED)
-        pattern = r'(PASSED|FAILED|ERROR|SKIPPED) (tests/.*?::.*?)( |$)'
-        for line in log.split('\n'):
-            match = re.search(pattern, line)
-            if match:
-                status = match.group(1)
-                test_name = match.group(2)
-                if status == 'PASSED':
-                    passed_tests.add(test_name)
-                elif status in ['FAILED', 'ERROR']:
-                    failed_tests.add(test_name)
-                elif status == 'SKIPPED':
-                    skipped_tests.add(test_name)
+        # Parse the log content and extract test execution results.
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
+        import re
+        # Define regex pattern to match test lines
+        test_pattern = re.compile(r"^(tests/.*?) (PASSED|FAILED|SKIPPED)\s+\[.*\]$", re.MULTILINE)
+        matches = test_pattern.findall(log)
+        for test_name, status in matches:
+            if status == "PASSED":
+                passed_tests.add(test_name)
+            elif status == "FAILED":
+                failed_tests.add(test_name)
+            elif status == "SKIPPED":
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
