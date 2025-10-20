@@ -5,3 +5,7 @@ from multi_swe_bench.harness.repos.python.googleapis.python_storage_679_to_534 i
 from multi_swe_bench.harness.repos.python.googleapis.python_storage_679_to_534 import *
 from multi_swe_bench.harness.repos.python.googleapis.python_storage_526_to_325 import *
 from multi_swe_bench.harness.repos.python.googleapis.python_storage_325_to_41 import *
+from multi_swe_bench.harness.repos.python.googleapis.python_ndb_882_to_714 import *
+from multi_swe_bench.harness.repos.python.googleapis.python_ndb_702_to_665 import *
+from multi_swe_bench.harness.repos.python.googleapis.python_ndb_665_to_560 import *
+from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_11311_to_10219 import *
