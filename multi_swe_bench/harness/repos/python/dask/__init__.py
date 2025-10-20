@@ -17,3 +17,8 @@ from multi_swe_bench.harness.repos.python.dask.dask_0_19_4 import *
 from multi_swe_bench.harness.repos.python.dask.dask_1_1_3 import *
 from multi_swe_bench.harness.repos.python.dask.dask_2_25_0 import *
 from multi_swe_bench.harness.repos.python.dask.dask_0_20_2 import *
+from multi_swe_bench.harness.repos.python.dask.distributed_8261_to_7933 import *
+from multi_swe_bench.harness.repos.python.dask.distributed_6697_to_6650 import *
+from multi_swe_bench.harness.repos.python.dask.distributed_5593_to_5208 import *
+from multi_swe_bench.harness.repos.python.dask.distributed_5033_to_4799 import *
+from multi_swe_bench.harness.repos.python.dask.distributed_3729_to_3684 import *
