@@ -140,6 +140,8 @@ from multi_swe_bench.harness.repos.python.PlasmaControl import *
 from multi_swe_bench.harness.repos.python.popsim_consortium import *
 from multi_swe_bench.harness.repos.python.freqtrade import *
 from multi_swe_bench.harness.repos.python.galaxyproject import *
+from multi_swe_bench.harness.repos.python.Opentrons import *
+from multi_swe_bench.harness.repos.python.PolicyEngine import *
 from multi_swe_bench.harness.repos.python.ICTU import *
 from multi_swe_bench.harness.repos.python.HypothesisWorks import *
 from multi_swe_bench.harness.repos.python.idaholab import *
