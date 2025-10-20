@@ -204,6 +204,10 @@ from multi_swe_bench.harness.repos.python.buildbot import *
 from multi_swe_bench.harness.repos.python.exercism import *
 from multi_swe_bench.harness.repos.python.fonttools import *
 from multi_swe_bench.harness.repos.python.aws_cloudformation import *
+from multi_swe_bench.harness.repos.python.bcgov import *
+from multi_swe_bench.harness.repos.python.mars_project import *
+from multi_swe_bench.harness.repos.python.marimo_team import *
+from multi_swe_bench.harness.repos.python.rotki import *
 from multi_swe_bench.harness.repos.python.AgnostiqHQ import *
 from multi_swe_bench.harness.repos.python.aiidateam import *
 from multi_swe_bench.harness.repos.python.airbytehq import *
