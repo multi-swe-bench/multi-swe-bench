@@ -34,6 +34,13 @@ from multi_swe_bench.harness.repos.typescript.Effect_TS import *
 from multi_swe_bench.harness.repos.typescript.apollographql import *
 from multi_swe_bench.harness.repos.typescript.Altinn import *
 from multi_swe_bench.harness.repos.typescript.Azure import *
+from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
+from multi_swe_bench.harness.repos.typescript.SwissDataScienceCenter import *
+from multi_swe_bench.harness.repos.typescript.atlassian_labs import *
+from multi_swe_bench.harness.repos.typescript.canonical import *
+from multi_swe_bench.harness.repos.typescript.better_auth import *
+from multi_swe_bench.harness.repos.typescript.comixed import *
+from multi_swe_bench.harness.repos.typescript.decaffeinate import *
 from multi_swe_bench.harness.repos.typescript.allure_framework import *
 from multi_swe_bench.harness.repos.typescript.PrismJS import *
 from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
