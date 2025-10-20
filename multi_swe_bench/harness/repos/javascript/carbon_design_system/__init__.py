@@ -1,3 +1,5 @@
+from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_security_682_to_244 import *
+from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_security_196_to_6 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.carbon_19427_to_16169 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_products_7830_to_7681 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_products_7666_to_6829 import *
