@@ -203,6 +203,8 @@ from multi_swe_bench.harness.repos.python.theupdateframework import *
 from multi_swe_bench.harness.repos.python.buildbot import *
 from multi_swe_bench.harness.repos.python.exercism import *
 from multi_swe_bench.harness.repos.python.fonttools import *
+from multi_swe_bench.harness.repos.python.fetchai import *
+from multi_swe_bench.harness.repos.python.opensafely_core import *
 from multi_swe_bench.harness.repos.python.aws_cloudformation import *
 from multi_swe_bench.harness.repos.python.bcgov import *
 from multi_swe_bench.harness.repos.python.mars_project import *
