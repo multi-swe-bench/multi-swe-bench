@@ -26,6 +26,10 @@ from multi_swe_bench.harness.repos.javascript.bpmnio import *
 from multi_swe_bench.harness.repos.javascript.alibabafusion import *
 from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
+from multi_swe_bench.harness.repos.javascript.LD4P import *
+from multi_swe_bench.harness.repos.javascript.KaTeX import *
+from multi_swe_bench.harness.repos.javascript.commercetools import *
+from multi_swe_bench.harness.repos.javascript.cylc import *
 from multi_swe_bench.harness.repos.javascript.camunda import *
 from multi_swe_bench.harness.repos.javascript.chartjs import *
 from multi_swe_bench.harness.repos.javascript.compasjs import *
