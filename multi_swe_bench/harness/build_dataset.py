@@ -502,6 +502,11 @@ class CliArgs:
         return False
 
     def check_commit_hashes(self):
+        # Skip commit verification if need_clone is false (for non-git repos)
+        if not self.need_clone:
+            self.logger.info("Skipping commit hash verification (need_clone=false)")
+            return
+        
         error_happened = False
         for repo, repo_commits in tqdm(
             self.repo_commits.items(), desc="Checking commit hashes"

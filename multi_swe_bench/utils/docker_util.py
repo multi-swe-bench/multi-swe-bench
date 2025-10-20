@@ -77,6 +77,15 @@ def run(
 ) -> str:
     container = None
     try:
+        # Convert list of "KEY=VALUE" strings to dict for docker
+        env_dict = None
+        if global_env:
+            env_dict = {}
+            for item in global_env:
+                if '=' in item:
+                    key, value = item.split('=', 1)
+                    env_dict[key] = value
+        
         container = docker_client.containers.run(
             image=image_full_name,
             command=run_command,
@@ -84,7 +93,7 @@ def run(
             detach=True,
             stdout=True,
             stderr=True,
-            environment=global_env,
+            environment=env_dict,
             volumes=volumes,
         )
 
