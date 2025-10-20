@@ -237,6 +237,7 @@ from multi_swe_bench.harness.repos.python.dstackai import *
 from multi_swe_bench.harness.repos.python.elastic import *
 from multi_swe_bench.harness.repos.python.equinor import *
 from multi_swe_bench.harness.repos.python.oceanprotocol import *
+from multi_swe_bench.harness.repos.python.pytroll import *
 from multi_swe_bench.harness.repos.python.camel_ai import *
 from multi_swe_bench.harness.repos.python.cobbler import *
 from multi_swe_bench.harness.repos.python.alteryx import *
