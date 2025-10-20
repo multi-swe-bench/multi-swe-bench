@@ -239,6 +239,9 @@ from multi_swe_bench.harness.repos.python.kids_first import *
 from multi_swe_bench.harness.repos.python.OCR_D import *
 from multi_swe_bench.harness.repos.python.Open_MSS import *
 from multi_swe_bench.harness.repos.python.fecgov import *
+from multi_swe_bench.harness.repos.python.kserve import *
+from multi_swe_bench.harness.repos.python.OpenMDAO import *
+from multi_swe_bench.harness.repos.python.saleor import *
 from multi_swe_bench.harness.repos.python.django_cms import *
 from multi_swe_bench.harness.repos.python.dlt_hub import *
 from multi_swe_bench.harness.repos.python.frictionlessdata import *
