@@ -228,6 +228,9 @@ from multi_swe_bench.harness.repos.python.networktocode import *
 from multi_swe_bench.harness.repos.python.nautobot import *
 from multi_swe_bench.harness.repos.python.dagster_io import *
 from multi_swe_bench.harness.repos.python.e_valuation import *
+from multi_swe_bench.harness.repos.python.dmwm import *
+from multi_swe_bench.harness.repos.python.obspy import *
+from multi_swe_bench.harness.repos.python.spack import *
 from multi_swe_bench.harness.repos.python.F5Networks import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.Ericsson import *
