@@ -24,6 +24,9 @@ from multi_swe_bench.harness.repos.typescript.jestjs import *
 from multi_swe_bench.harness.repos.typescript.reacthookform import *
 from multi_swe_bench.harness.repos.typescript.vuetifyjs import *
 from multi_swe_bench.harness.repos.typescript.highcharts import *
+from multi_swe_bench.harness.repos.typescript.Joystream import *
+from multi_swe_bench.harness.repos.typescript.IgniteUI import *
+from multi_swe_bench.harness.repos.typescript.JoshuaKGoldberg import *
 from multi_swe_bench.harness.repos.typescript.apache import *
 from multi_swe_bench.harness.repos.typescript.artifacthub import *
 from multi_swe_bench.harness.repos.typescript.capricorn86 import *
