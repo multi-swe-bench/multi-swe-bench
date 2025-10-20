@@ -39,6 +39,7 @@ from multi_swe_bench.harness.repos.javascript.DataDog import *
 from multi_swe_bench.harness.repos.javascript.bpmn_io import *
 from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
 from multi_swe_bench.harness.repos.javascript.adobe import *
+from multi_swe_bench.harness.repos.javascript.avajs import *
 from multi_swe_bench.harness.repos.javascript.ManifoldScholar import *
 from multi_swe_bench.harness.repos.javascript.GoogleForCreators import *
 from multi_swe_bench.harness.repos.javascript.ProcessMaker import *
