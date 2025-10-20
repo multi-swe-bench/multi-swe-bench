@@ -127,6 +127,8 @@ from multi_swe_bench.harness.repos.python.pyccel import *
 from multi_swe_bench.harness.repos.python.kubeflow import *
 from multi_swe_bench.harness.repos.python.OSInside import *
 from multi_swe_bench.harness.repos.python.packit import *
+from multi_swe_bench.harness.repos.python.python_poetry import *
+from multi_swe_bench.harness.repos.python.python_telegram_bot import *
 from multi_swe_bench.harness.repos.python.allenai import *
 from multi_swe_bench.harness.repos.python.mabel_dev import *
 from multi_swe_bench.harness.repos.python.mandiant import *
