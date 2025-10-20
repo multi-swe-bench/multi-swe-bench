@@ -1,3 +1,5 @@
+from multi_swe_bench.harness.repos.javascript.carbon_design_system.carbon_addons_iot_react_3770_to_unknown import *
+from multi_swe_bench.harness.repos.javascript.carbon_design_system.carbon_addons_iot_react_3764_to_3699 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_security_682_to_244 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.ibm_security_196_to_6 import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system.carbon_19427_to_16169 import *
