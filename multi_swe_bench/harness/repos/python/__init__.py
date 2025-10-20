@@ -134,6 +134,10 @@ from multi_swe_bench.harness.repos.python.kserve import *
 from multi_swe_bench.harness.repos.python.HyphaApp import *
 from multi_swe_bench.harness.repos.python.LiberTEM import *
 from multi_swe_bench.harness.repos.python.hyperspy import *
+from multi_swe_bench.harness.repos.python.pantsbuild import *
+from multi_swe_bench.harness.repos.python.shakenfist import *
+from multi_swe_bench.harness.repos.python.stac_utils import *
+from multi_swe_bench.harness.repos.python.streamlit import *
 from multi_swe_bench.harness.repos.python.statsmodels import *
 from multi_swe_bench.harness.repos.python.dask import *
 from multi_swe_bench.harness.repos.python.pybamm_team import *
