@@ -43,6 +43,12 @@ from multi_swe_bench.harness.repos.typescript.comixed import *
 from multi_swe_bench.harness.repos.typescript.decaffeinate import *
 from multi_swe_bench.harness.repos.typescript.allure_framework import *
 from multi_swe_bench.harness.repos.typescript.PrismJS import *
+from multi_swe_bench.harness.repos.typescript.ParabolInc import *
+from multi_swe_bench.harness.repos.typescript.abaplint import *
+from multi_swe_bench.harness.repos.typescript.apify import *
+from multi_swe_bench.harness.repos.typescript.antvis import *
+from multi_swe_bench.harness.repos.typescript.aws_powertools import *
+from multi_swe_bench.harness.repos.typescript.calcom import *
 from multi_swe_bench.harness.repos.typescript.Hacker0x01 import *
 from multi_swe_bench.harness.repos.typescript.Azure import *
 from multi_swe_bench.harness.repos.typescript.BetterThanTomorrow import *
