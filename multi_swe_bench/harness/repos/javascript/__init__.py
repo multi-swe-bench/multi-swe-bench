@@ -26,3 +26,13 @@ from multi_swe_bench.harness.repos.javascript.bpmnio import *
 from multi_swe_bench.harness.repos.javascript.alibabafusion import *
 from multi_swe_bench.harness.repos.javascript.carbondesignsystem import *
 from multi_swe_bench.harness.repos.javascript.quartodev import *
+from multi_swe_bench.harness.repos.javascript.Accenture import *
+from multi_swe_bench.harness.repos.javascript.BlakeGuilloud import *
+from multi_swe_bench.harness.repos.javascript.Seneca_CDOT import *
+from multi_swe_bench.harness.repos.javascript.SchemaStore import *
+from multi_swe_bench.harness.repos.javascript.KaTeX import *
+from multi_swe_bench.harness.repos.javascript.RaspberryPiFoundation import *
+from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
+from multi_swe_bench.harness.repos.javascript.CraveFood import *
+from multi_swe_bench.harness.repos.javascript.IgniteUI import *
+from multi_swe_bench.harness.repos.javascript.CVEProject import *
