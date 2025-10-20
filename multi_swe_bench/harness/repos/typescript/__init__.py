@@ -35,6 +35,11 @@ from multi_swe_bench.harness.repos.typescript.Safe_DS import *
 from multi_swe_bench.harness.repos.typescript.SAP import *
 from multi_swe_bench.harness.repos.typescript.Sage import *
 from multi_swe_bench.harness.repos.typescript.Siteimprove import *
+from multi_swe_bench.harness.repos.typescript.Shopify import *
+from multi_swe_bench.harness.repos.typescript.alibaba import *
+from multi_swe_bench.harness.repos.typescript.apache import *
+from multi_swe_bench.harness.repos.typescript.cypress_io import *
+from multi_swe_bench.harness.repos.typescript.deephaven import *
 from multi_swe_bench.harness.repos.typescript.CommunitySolidServer import *
 from multi_swe_bench.harness.repos.typescript.DanielXMoore import *
 from multi_swe_bench.harness.repos.typescript.GMOD import *
