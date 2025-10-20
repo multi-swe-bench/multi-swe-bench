@@ -223,6 +223,8 @@ from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.Ericsson import *
 from multi_swe_bench.harness.repos.python.ethyca import *
 from multi_swe_bench.harness.repos.python.kids_first import *
+from multi_swe_bench.harness.repos.python.OCR_D import *
+from multi_swe_bench.harness.repos.python.Open_MSS import *
 from multi_swe_bench.harness.repos.python.fecgov import *
 from multi_swe_bench.harness.repos.python.django_cms import *
 from multi_swe_bench.harness.repos.python.dlt_hub import *
