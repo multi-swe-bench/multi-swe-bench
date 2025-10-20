@@ -7,3 +7,5 @@ from multi_swe_bench.harness.repos.python.pytorch.ignite_1238_to_1105 import *
 from multi_swe_bench.harness.repos.python.pytorch.ignite_563_to_43 import *
 from multi_swe_bench.harness.repos.python.pytorch.vision_8227_to_6883 import *
 from multi_swe_bench.harness.repos.python.pytorch.vision_6830_to_6521 import *
+from multi_swe_bench.harness.repos.python.pytorch.rl_443_to_295 import *
+from multi_swe_bench.harness.repos.python.pytorch.rl_295_to_148 import *
