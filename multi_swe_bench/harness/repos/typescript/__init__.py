@@ -77,6 +77,8 @@ from multi_swe_bench.harness.repos.typescript.cypress_io import *
 from multi_swe_bench.harness.repos.typescript.deephaven import *
 from multi_swe_bench.harness.repos.typescript.CommunitySolidServer import *
 from multi_swe_bench.harness.repos.typescript.DanielXMoore import *
+from multi_swe_bench.harness.repos.typescript.Tencent import *
+from multi_swe_bench.harness.repos.typescript.TanStack import *
 from multi_swe_bench.harness.repos.typescript.GMOD import *
 from multi_swe_bench.harness.repos.typescript.HoudiniGraphql import *
 from multi_swe_bench.harness.repos.typescript.NomicFoundation import *
