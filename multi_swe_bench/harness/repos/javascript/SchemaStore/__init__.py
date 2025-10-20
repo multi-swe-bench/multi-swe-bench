@@ -1,4 +1,3 @@
-from multi_swe_bench.harness.repos.javascript.SchemaStore.schemastore_4787_to_unknown import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore.schemastore_4648_to_4288 import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore.schemastore_4288_to_3890 import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore.schemastore_3833_to_3771 import *
