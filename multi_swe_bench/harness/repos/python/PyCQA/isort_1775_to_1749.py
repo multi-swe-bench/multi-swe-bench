@@ -33,7 +33,6 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
         return [
             File(
                 ".",
@@ -50,98 +49,106 @@ class ImageDefault(Image):
                 "prepare.sh",
                 """ls
 ###ACTION_DELIMITER###
-pip install -e ".[all_extras]"
+sed -i 's/"pip-shims<=0.3.4"/"pip-shims"/' pyproject.toml
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash
-rm -rf testdir
-mkdir -p testdir
-cp .coveragerc testdir
-cp setup.cfg testdir
-python -m pytest -v --matrixdesign=True' > test_commands.sh
+poetry install
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-bash test_commands.sh
+apt-get update && apt-get install -y curl
 ###ACTION_DELIMITER###
-pip install pytest
+curl -sSL https://install.python-poetry.org | python3 -
 ###ACTION_DELIMITER###
-bash test_commands.sh
+export PATH="/root/.local/bin:$PATH"
 ###ACTION_DELIMITER###
-pip install pytest-xdist pytest-timeout
+poetry --version
 ###ACTION_DELIMITER###
-bash test_commands.sh
+poetry install
 ###ACTION_DELIMITER###
-pip install mlflow
+poetry lock
 ###ACTION_DELIMITER###
-bash test_commands.sh
+poetry install
 ###ACTION_DELIMITER###
-pip install -e ".[all_extras,dev]"
+poetry run pytest -v ./tests
 ###ACTION_DELIMITER###
-bash test_commands.sh
+poetry add typed-ast@1.5.4
 ###ACTION_DELIMITER###
-pip install pmdarima>=1.8.0,<3.0.0
+poetry add typed-ast@1.4.3
 ###ACTION_DELIMITER###
-pip install 'pmdarima>=1.8.0,<3.0.0'
+poetry run pip install --force-reinstall typed-ast==1.4.3
 ###ACTION_DELIMITER###
-bash test_commands.sh
+poetry run pytest -v ./tests
 ###ACTION_DELIMITER###
-pip install tensorflow-probability
+poetry run pip install --force-reinstall --no-binary :all: typed-ast==1.4.3
 ###ACTION_DELIMITER###
-mkdir -p ./Temp
+apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
-bash test_commands.sh
+poetry run pip install --force-reinstall --no-binary :all: typed-ast==1.4.3
 ###ACTION_DELIMITER###
-pip install 'tensorflow-probability<0.21.0'"""
+poetry run pytest -v ./tests
+###ACTION_DELIMITER###
+poetry add black@^21.0
+###ACTION_DELIMITER###
+sed -i 's/black = {version = "^20.08b1", allow-prereleases = true}/black = {version = "^21.7b0", allow-prereleases = true}/' pyproject.toml
+###ACTION_DELIMITER###
+poetry update black
+###ACTION_DELIMITER###
+sed -i 's/example_isort_formatting_plugin = "^0.0.2"/example_isort_formatting_plugin = "*"/' pyproject.toml
+###ACTION_DELIMITER###
+sed -i '/example_isort_formatting_plugin/d' pyproject.toml
+###ACTION_DELIMITER###
+poetry update black
+###ACTION_DELIMITER###
+sed -i 's/python = ">=3.6.1,<4.0"/python = ">=3.6.2,<4.0"/' pyproject.toml
+###ACTION_DELIMITER###
+poetry update black
+###ACTION_DELIMITER###
+poetry run pytest -v ./tests
+###ACTION_DELIMITER###
+echo 'poetry run pytest -v ./tests' > test_commands.sh
+###ACTION_DELIMITER###
+cat test_commands.sh"""
             ),
             File(
                 ".",
                 "run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-#!/bin/bash
-rm -rf testdir
-mkdir -p testdir
-cp .coveragerc testdir
-cp setup.cfg testdir
-python -m pytest -v --matrixdesign=True
+cd /home/{pr.repo}
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
             File(
                 ".",
                 "test-run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-rm -rf testdir
-mkdir -p testdir
-cp .coveragerc testdir
-cp setup.cfg testdir
-python -m pytest -v --matrixdesign=True
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
             File(
                 ".",
                 "fix-run.sh",
                 """#!/bin/bash
-cd /home/[[REPO_NAME]]
-if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
+cd /home/{pr.repo}
+if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fix.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-#!/bin/bash
-rm -rf testdir
-mkdir -p testdir
-cp .coveragerc testdir
-cp setup.cfg testdir
-python -m pytest -v --matrixdesign=True
+poetry run pytest -v ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".format(
+                    pr=self.pr
+                ),
             ),
         ]
 
@@ -154,7 +161,7 @@ python -m pytest -v --matrixdesign=True
 # This is a template for creating a Dockerfile to test patches
 # LLM should fill in the appropriate values based on the context
 
-# Choose an appropriate base image based on the project's requirements - replace [base image] with actual base image
+# Choose an appropriate base image based on the project's requirements - replace python:3.9-slim with actual base image
 # For example: FROM ubuntu:**, FROM python:**, FROM node:**, FROM centos:**, etc.
 FROM python:3.9-slim
 
@@ -173,9 +180,9 @@ RUN if [ ! -f /bin/bash ]; then         if command -v apk >/dev/null 2>&1; then 
 WORKDIR /home/
 COPY fix.patch /home/
 COPY test.patch /home/
-RUN git clone https://github.com/aeon-toolkit/aeon.git /home/aeon
+RUN git clone https://github.com/PyCQA/isort.git /home/isort
 
-WORKDIR /home/aeon
+WORKDIR /home/isort
 RUN git reset --hard
 RUN git checkout {pr.base.sha}
 """
@@ -185,8 +192,8 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-@Instance.register("aeon-toolkit", "aeon_581_to_unknown")
-class AEON_581_TO_UNKNOWN(Instance):
+@Instance.register("PyCQA", "isort_1775_to_1749")
+class ISORT_1775_TO_1749(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -220,26 +227,20 @@ class AEON_581_TO_UNKNOWN(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set()  # Tests that passed successfully
-        failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set()  # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        import json
-        # Parse passed tests
-        passed_pattern = re.compile(r'\[.*\] PASSED (.*)')
-        passed_tests.update(passed_pattern.findall(log))
-        # Parse skipped tests
-        skipped_pattern = re.compile(r'\[.*\] SKIPPED (.*)')
-        skipped_tests.update(skipped_pattern.findall(log))
-        # Parse failed tests (including ERROR, XFAIL)
-        # Handle both detailed ([...]) and summary lines
-        failed_pattern = re.compile(r'(?:\[.*\] )?(?:FAILED|XFAIL) (.*)')
-        failed_tests.update(failed_pattern.findall(log))
-        error_pattern = re.compile(r'(?:\[.*\] )?ERROR (.*)')
-        failed_tests.update(error_pattern.findall(log))
-        # Parse xpassed tests (unexpected pass)
-        xpass_pattern = re.compile(r'(?:\[.*\] )?XPASS (.*)')
-        passed_tests.update(xpass_pattern.findall(log))
+        # Define regex pattern to match test lines
+        test_pattern = re.compile(r"^(tests/.*?) (PASSED|FAILED|SKIPPED)\s+\[.*\]$", re.MULTILINE)
+        matches = test_pattern.findall(log)
+        for test_name, status in matches:
+            if status == "PASSED":
+                passed_tests.add(test_name)
+            elif status == "FAILED":
+                failed_tests.add(test_name)
+            elif status == "SKIPPED":
+                skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
