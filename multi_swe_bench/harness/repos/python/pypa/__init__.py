@@ -5,6 +5,14 @@ from multi_swe_bench.harness.repos.python.pypa.pip_8026_to_7704 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_7704_to_7500 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_6723_to_6402 import *
 from multi_swe_bench.harness.repos.python.pypa.pip_5764_to_5457 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_6385_to_6240 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_6017_to_5826 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_5826_to_5606 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_5083_to_5026 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_4874_to_4533 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_1767_to_1621 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_1426_to_1097 import *
+from multi_swe_bench.harness.repos.python.pypa.pipenv_233_to_unknown import *
 from multi_swe_bench.harness.repos.python.pypa.setuptools_4985_to_4565 import *
 from multi_swe_bench.harness.repos.python.pypa.setuptools_3212_to_2878 import *
 from multi_swe_bench.harness.repos.python.pypa.setuptools_1520_to_1365 import *

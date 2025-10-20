@@ -135,6 +135,10 @@ from multi_swe_bench.harness.repos.python.galaxyproject import *
 from multi_swe_bench.harness.repos.python.ICTU import *
 from multi_swe_bench.harness.repos.python.HypothesisWorks import *
 from multi_swe_bench.harness.repos.python.idaholab import *
+from multi_swe_bench.harness.repos.python.paperless_ngx import *
+from multi_swe_bench.harness.repos.python.randovania import *
+from multi_swe_bench.harness.repos.python.SciTools import *
+from multi_swe_bench.harness.repos.python.teemtee import *
 from multi_swe_bench.harness.repos.python.intel import *
 from multi_swe_bench.harness.repos.python.intelowlproject import *
 from multi_swe_bench.harness.repos.python.fecgov import *
