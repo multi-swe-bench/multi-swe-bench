@@ -8,3 +8,12 @@ from multi_swe_bench.harness.repos.python.alteryx.featuretools_679_to_587 import
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_679_to_587 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_587_to_511 import *
 from multi_swe_bench.harness.repos.python.alteryx.featuretools_479_to_320 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_1862_to_1843 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_1557_to_1439 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_1439_to_1357 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_1357_to_1253 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_1253_to_806 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_700_to_636 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_434_to_401 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_190_to_105 import *
+from multi_swe_bench.harness.repos.python.alteryx.woodwork_105_to_39 import *
