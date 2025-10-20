@@ -135,6 +135,7 @@ from multi_swe_bench.harness.repos.python.Qiskit import *
 from multi_swe_bench.harness.repos.python.mne_tools import *
 from multi_swe_bench.harness.repos.python.datalad import *
 from multi_swe_bench.harness.repos.python.PlasmaControl import *
+from multi_swe_bench.harness.repos.python.popsim_consortium import *
 from multi_swe_bench.harness.repos.python.freqtrade import *
 from multi_swe_bench.harness.repos.python.galaxyproject import *
 from multi_swe_bench.harness.repos.python.ICTU import *
