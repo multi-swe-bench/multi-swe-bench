@@ -5,7 +5,6 @@ from multi_swe_bench.harness.repos.python.pyccel.pyccel_2065_to_2000 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_1896_to_1797 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_1790_to_1510 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_1278_to_1211 import *
-from multi_swe_bench.harness.repos.python.pyccel.pyccel_1278_to_1211 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_1210_to_845 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_819_to_807 import *
 from multi_swe_bench.harness.repos.python.pyccel.pyccel_422_to_264 import *
