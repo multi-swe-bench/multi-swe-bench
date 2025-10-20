@@ -286,6 +286,10 @@ from multi_swe_bench.harness.repos.python.aeon_toolkit import *
 from multi_swe_bench.harness.repos.python.dandi import *
 from multi_swe_bench.harness.repos.python.celery import *
 from multi_swe_bench.harness.repos.python.catalyst_cooperative import *
+from multi_swe_bench.harness.repos.python.jazzband import *
+from multi_swe_bench.harness.repos.python.mitmproxy import *
+from multi_swe_bench.harness.repos.python.mitodl import *
+from multi_swe_bench.harness.repos.python.mindsdb import *
 from multi_swe_bench.harness.repos.python.allenai import *
 from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
