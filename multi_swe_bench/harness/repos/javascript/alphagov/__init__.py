@@ -1,4 +1,3 @@
-from multi_swe_bench.harness.repos.javascript.alphagov.govuk_frontend_5627_to_unknown import *
 from multi_swe_bench.harness.repos.javascript.alphagov.govuk_frontend_4261_to_3318 import *
 from multi_swe_bench.harness.repos.javascript.alphagov.govuk_frontend_2941_to_2921 import *
 from multi_swe_bench.harness.repos.javascript.alphagov.govuk_frontend_2921_to_2854 import *

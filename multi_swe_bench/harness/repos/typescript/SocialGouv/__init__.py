@@ -1,6 +1,4 @@
 from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_6687_to_6222 import *
 from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_6156_to_5917 import *
-from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_5404_to_unknown import *
-from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_4922_to_unknown import *
 from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_2554_to_2247 import *
 from multi_swe_bench.harness.repos.typescript.SocialGouv.code_du_travail_numerique_1491_to_1286 import *

@@ -17,7 +17,6 @@ from multi_swe_bench.harness.repos.python.alteryx.woodwork_700_to_636 import *
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_434_to_401 import *
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_190_to_105 import *
 from multi_swe_bench.harness.repos.python.alteryx.woodwork_105_to_39 import *
-from multi_swe_bench.harness.repos.python.alteryx.evalml_3309_to_unknown import *
 from multi_swe_bench.harness.repos.python.alteryx.evalml_2892_to_2820 import *
 from multi_swe_bench.harness.repos.python.alteryx.evalml_2126_to_2050 import *
 from multi_swe_bench.harness.repos.python.alteryx.evalml_1916_to_1748 import *

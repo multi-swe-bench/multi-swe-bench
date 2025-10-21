@@ -12,6 +12,5 @@ from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_11311_t
 from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_3514_to_3291 import *
 from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_2375_to_2223 import *
 from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_1787_to_1518 import *
-from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_1508_to_unknown import *
 from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_55_to_20 import *
 from multi_swe_bench.harness.repos.python.googleapis.google_cloud_python_11311_to_10219 import *

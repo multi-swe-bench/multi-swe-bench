@@ -32,7 +32,6 @@ from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
 from multi_swe_bench.harness.repos.javascript.SchemaStore import *
 from multi_swe_bench.harness.repos.javascript.aframevr import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
-from multi_swe_bench.harness.repos.javascript.GoogleForCreators import *
 from multi_swe_bench.harness.repos.javascript.HabitRPG import *
 from multi_swe_bench.harness.repos.javascript.DevExpress import *
 from multi_swe_bench.harness.repos.javascript.DataDog import *
@@ -41,16 +40,12 @@ from multi_swe_bench.harness.repos.javascript.Real_Dev_Squad import *
 from multi_swe_bench.harness.repos.javascript.adobe import *
 from multi_swe_bench.harness.repos.javascript.avajs import *
 from multi_swe_bench.harness.repos.javascript.ManifoldScholar import *
-from multi_swe_bench.harness.repos.javascript.GoogleForCreators import *
 from multi_swe_bench.harness.repos.javascript.ProcessMaker import *
 from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
 from multi_swe_bench.harness.repos.javascript.codeceptjs import *
-from multi_swe_bench.harness.repos.javascript.GoogleForCreators import *
 from multi_swe_bench.harness.repos.javascript.HabitRPG import *
-from multi_swe_bench.harness.repos.javascript.COVID19Tracking import *
 from multi_swe_bench.harness.repos.javascript.BlakeGuilloud import *
 from multi_swe_bench.harness.repos.javascript.alphagov import *
-from multi_swe_bench.harness.repos.javascript.LD4P import *
 from multi_swe_bench.harness.repos.javascript.KaTeX import *
 from multi_swe_bench.harness.repos.javascript.commercetools import *
 from multi_swe_bench.harness.repos.javascript.cylc import *
@@ -76,3 +71,5 @@ from multi_swe_bench.harness.repos.javascript.carbon_design_system import *
 from multi_swe_bench.harness.repos.javascript.CraveFood import *
 from multi_swe_bench.harness.repos.javascript.IgniteUI import *
 from multi_swe_bench.harness.repos.javascript.CVEProject import *
+from multi_swe_bench.harness.repos.javascript.Agoric import *
+from multi_swe_bench.harness.repos.javascript.City_of_Helsinki import *

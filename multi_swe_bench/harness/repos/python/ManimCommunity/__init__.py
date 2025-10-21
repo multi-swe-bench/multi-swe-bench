@@ -4,5 +4,3 @@ from multi_swe_bench.harness.repos.python.ManimCommunity.manim_3423_to_2920 impo
 from multi_swe_bench.harness.repos.python.ManimCommunity.manim_2888_to_2548 import *
 from multi_swe_bench.harness.repos.python.ManimCommunity.manim_2328_to_1596 import *
 from multi_swe_bench.harness.repos.python.ManimCommunity.manim_1193_to_1058 import *
-from multi_swe_bench.harness.repos.python.ManimCommunity.manim_509_to_unknown import *
-from multi_swe_bench.harness.repos.python.ManimCommunity.manim_498_to_unknown import *

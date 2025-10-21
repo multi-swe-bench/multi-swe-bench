@@ -6,6 +6,5 @@ from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_1231_to_1160 import
 from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_1157_to_938 import *
 from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_938_to_816 import *
 from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_815_to_599 import *
-from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_219_to_unknown import *
 from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_218_to_108 import *
 from multi_swe_bench.harness.repos.python.pvlib.pvlib_python_100_to_7 import *
