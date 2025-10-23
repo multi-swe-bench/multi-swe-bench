@@ -1,6 +1,4 @@
-import re
-import json
-from typing import Optional, Union
+from typing import Optional
 
 from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
@@ -180,22 +178,43 @@ class TELESCOPE_3768_TO_3431(Instance):
 
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
+        log_lines = log.splitlines()
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        # Parse passed tests
-        passed_pattern = re.compile(r'@senecacdot/[^:]+:test:\s+✓\s+(.+?)\s+\(\d+ ms\)')
-        passed_tests.update(passed_pattern.findall(log))
-        # Identify services with failed tests via summary lines (allow any characters between lines)
-        failed_services_pattern = re.compile(r'@senecacdot/([^:]+):test:\s+Test Suites:\s+\d+ failed, \d+ total.*?@senecacdot/\1:test:\s+Tests:\s+(\d+) failed', re.DOTALL)
-        failed_services = failed_services_pattern.findall(log)
-        for service, _ in failed_services:
-            # Extract all test names (including both passed and failed) for the service
-            service_tests_pattern = re.compile(rf'@senecacdot/{service}:test:\s+[✓✕]\s+(.+?)\s+\(\d+ ms\)')
-            all_tests = set(service_tests_pattern.findall(log))
-            # Failed tests = total tests in service - passed tests
-            failed_tests.update(all_tests - passed_tests)
+        #修改前 # Parse passed tests
+        # passed_pattern = re.compile(r'@senecacdot/[^:]+:test:\s+✓\s+(.+?)\s+\(\d+ ms\)')
+        # passed_tests.update(passed_pattern.findall(log))
+        # # Identify services with failed tests via summary lines (allow any characters between lines)
+        # failed_services_pattern = re.compile(r'@senecacdot/([^:]+):test:\s+Test Suites:\s+\d+ failed, \d+ total.*?@senecacdot/\1:test:\s+Tests:\s+(\d+) failed', re.DOTALL)
+        # failed_services = failed_services_pattern.findall(log)
+        # for service, _ in failed_services:
+        #     # Extract all test names (including both passed and failed) for the service
+        #     service_tests_pattern = re.compile(rf'@senecacdot/{service}:test:\s+[✓✕]\s+(.+?)\s+\(\d+ ms\)')
+        #     all_tests = set(service_tests_pattern.findall(log))
+        #     # Failed tests = total tests in service - passed tests
+        #     failed_tests.update(all_tests - passed_tests)
+
+        #修改后
+        for line in log_lines:
+            line = line.strip()  # 去掉首尾空格
+            # 通过测试
+            m_passed = re.match(r'@senecacdot/[^:]+:test:\s+✓\s+(.+?)(?:\s+\(\d+ ms\))?$', line)
+            if m_passed:
+                passed_tests.add(m_passed.group(1))
+                continue
+            # 失败测试
+            m_failed = re.match(r'@senecacdot/[^:]+:test:\s+✕\s+(.+?)(?:\s+\(\d+ ms\))?$', line)
+            if m_failed:
+                failed_tests.add(m_failed.group(1))
+                continue
+            # 跳过测试
+            m_skipped = re.match(r'@senecacdot/[^:]+:test:\s+skipped\s+(.+?)$', line)
+            if m_skipped:
+                skipped_tests.add(m_skipped.group(1))
+        #修改到这儿
+
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
