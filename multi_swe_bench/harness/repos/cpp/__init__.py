@@ -8,3 +8,5 @@ from multi_swe_bench.harness.repos.cpp.rootproject import *
 from multi_swe_bench.harness.repos.cpp.simdjson import *
 from multi_swe_bench.harness.repos.cpp.yhirose import *
 from multi_swe_bench.harness.repos.cpp.PrincetonUniversity import *
+
+from multi_swe_bench.harness.repos.cpp.rdkit import *

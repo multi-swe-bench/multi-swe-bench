@@ -180,6 +180,7 @@ class PullRequest(PullRequestBase):
     test_patch: str
     tag: str = ""
     number_interval: str = ""
+    lang: str = ""
 
     def __post_init__(self):
         if not isinstance(self.state, str):
