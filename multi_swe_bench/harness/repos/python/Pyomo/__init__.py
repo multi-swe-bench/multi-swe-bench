@@ -23,3 +23,12 @@ from multi_swe_bench.harness.repos.python.Pyomo.pyomo_6_8_0 import *
 from multi_swe_bench.harness.repos.python.Pyomo.pyomo_6_4_3 import *
 from multi_swe_bench.harness.repos.python.Pyomo.pyomo_5_6 import *
 from multi_swe_bench.harness.repos.python.Pyomo.pyomo_6_4_4 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_3609_to_3433 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_3394_to_3054 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_3054_to_2557 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_2549_to_2543 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_2070_to_2007 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_1999_to_1982 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_1982_to_1936 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_1713_to_1500 import *
+from multi_swe_bench.harness.repos.python.Pyomo.pyomo_1221_to_736 import *
