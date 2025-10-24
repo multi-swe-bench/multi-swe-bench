@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ yarn build:packages
 ###ACTION_DELIMITER###
 echo 'yarn ci-check:tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class IBM_PRODUCTS_7830_TO_7681(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class IBM_PRODUCTS_7830_TO_7681(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -187,31 +186,38 @@ class IBM_PRODUCTS_7830_TO_7681(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes from the log content
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
-        lines = clean_log.split('\n')
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
+        lines = clean_log.split("\n")
         # Regex pattern to match test status lines (PASS/FAIL/SKIPPED)
         # Match ibm-products and web-components with PASS/FAIL/SKIPPED status
         # Adjusted pattern to capture SKIPPED tests and handle varying whitespace
         # Case-insensitive and handles optional parentheses after status
-        test_pattern = re.compile(r'(?i)@carbon/(?:ibm-products|ibm-products-web-components):\s+(PASS|FAIL|SKIPPED)\s+(?:\(.*?\)\s+)?(.*?)(?:\s+\(|\s*$)')
+        test_pattern = re.compile(
+            r"(?i)@carbon/(?:ibm-products|ibm-products-web-components):\s+(PASS|FAIL|SKIPPED)\s+(?:\(.*?\)\s+)?(.*?)(?:\s+\(|\s*$)"
+        )
         # Capture skipped tests from summary lines (extract count, but names may require additional logic)
-        summary_skipped_pattern = re.compile(r'Tests:\s+.*?(\d+)\s+skipped')
+        summary_skipped_pattern = re.compile(r"Tests:\s+.*?(\d+)\s+skipped")
         # Match failed tests from error messages (test name in group 1)
-        error_pattern = re.compile(r'@carbon/(?:ibm-products|ibm-products-web-components):.*?\((src/.*?\.test\.(?:js|ts)):\d+:\d+\)')
+        error_pattern = re.compile(
+            r"@carbon/(?:ibm-products|ibm-products-web-components):.*?\((src/.*?\.test\.(?:js|ts)):\d+:\d+\)"
+        )
         # Match skipped tests from individual lines (if present)
-        skipped_test_pattern = re.compile(r'@carbon/(?:ibm-products|ibm-products-web-components):\s+SKIPPED\s+(.*?)(?:\s+\(|\s*$)')
+        skipped_test_pattern = re.compile(
+            r"@carbon/(?:ibm-products|ibm-products-web-components):\s+SKIPPED\s+(.*?)(?:\s+\(|\s*$)"
+        )
         for line in lines:
             # Extract tests from status lines (PASS/FAIL/SKIPPED)
             test_match = test_pattern.search(line)
             if test_match:
                 status = test_match.group(1).upper()
                 test_name = test_match.group(2).strip()
-                if status == 'PASS':
+                if status == "PASS":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Extract skipped tests from individual lines
             skipped_match = skipped_test_pattern.search(line)
@@ -226,9 +232,8 @@ class IBM_PRODUCTS_7830_TO_7681(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

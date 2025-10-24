@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ npm install -g pnpm@8.6.12
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo "pnpm test" > test_commands.sh"""
+echo "pnpm test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "pnpm test" > test_commands.sh"""
 cd /home/{pr.repo}
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class SVELTE_10356_TO_9615(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,34 +164,33 @@ class SVELTE_10356_TO_9615(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
-        test_file_regex = re.compile(r'(packages/svelte/tests/.*?\.ts)')
+
+        test_file_regex = re.compile(r"(packages/svelte/tests/.*?\.ts)")
         for line in log.splitlines():
             match = test_file_regex.search(line)
             if not match:
                 continue
             test_file = match.group(1)
-            if 'failed' in line or 'FAIL' in line:
+            if "failed" in line or "FAIL" in line:
                 failed_tests.add(test_file)
-            elif 'skipped' in line:
+            elif "skipped" in line:
                 skipped_tests.add(test_file)
-            elif '✓' in line:
+            elif "✓" in line:
                 passed_tests.add(test_file)
         # A test cannot be in multiple categories. The order of precedence is failed > skipped > passed.
-        passed_tests -= (failed_tests | skipped_tests)
+        passed_tests -= failed_tests | skipped_tests
         skipped_tests -= failed_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

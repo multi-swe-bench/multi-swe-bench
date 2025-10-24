@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install 'numpy<2.0'
 ###ACTION_DELIMITER###
 ./run-tests.py --unit
 ###ACTION_DELIMITER###
-echo "./run-tests.py --unit" > test_commands.sh"""
+echo "./run-tests.py --unit" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo "./run-tests.py --unit" > test_commands.sh"""
 cd /home/{pr.repo}
 ./run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class PINTS_1424_TO_759(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,68 +172,67 @@ class PINTS_1424_TO_759(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         current_test_name = None
         # Regex patterns for standard test lines and summary lines
-        statuses = {'ok', 'PASSED', 'FAIL', 'FAILED', 'SKIPPED', 'ERROR'}
-        for line in log.split('\n'):
-            line = line.rstrip('\r').strip()
-            if '...' in line:
+        statuses = {"ok", "PASSED", "FAIL", "FAILED", "SKIPPED", "ERROR"}
+        for line in log.split("\n"):
+            line = line.rstrip("\r").strip()
+            if "..." in line:
                 # Split into test part and status part
-                test_part, status_part = line.split('...', 1)
+                test_part, status_part = line.split("...", 1)
                 # Extract test name (remove line number)
-                if ']' in test_part:
-                    test_name = test_part.split(']', 1)[1].strip()
+                if "]" in test_part:
+                    test_name = test_part.split("]", 1)[1].strip()
                 else:
                     test_name = test_part.strip()
                 status_part = status_part.strip()
                 # Check if status is on the same line
                 if status_part in statuses:
-                    if status_part in {'ok', 'PASSED'}:
+                    if status_part in {"ok", "PASSED"}:
                         passed_tests.add(test_name)
-                    elif status_part in {'FAIL', 'FAILED', 'ERROR'}:
+                    elif status_part in {"FAIL", "FAILED", "ERROR"}:
                         failed_tests.add(test_name)
-                    elif status_part in {'SKIPPED'}:
+                    elif status_part in {"SKIPPED"}:
                         skipped_tests.add(test_name)
                 else:
                     # Track test name for status on subsequent lines
                     current_test_name = test_name
                 continue
             # Handle summary lines (e.g., [971] FAIL: test_name)
-            elif 'FAIL:' in line or 'ERROR:' in line:
-                if ']' in line:
-                    part = line.split(']', 1)[1].strip()
-                    if part.startswith(('FAIL:', 'ERROR:')):
-                        test_name = part.split(':', 1)[1].strip()
+            elif "FAIL:" in line or "ERROR:" in line:
+                if "]" in line:
+                    part = line.split("]", 1)[1].strip()
+                    if part.startswith(("FAIL:", "ERROR:")):
+                        test_name = part.split(":", 1)[1].strip()
                         failed_tests.add(test_name)
                 continue
             # Handle multi-line statuses
             elif current_test_name is not None:
                 # Check if current line contains the status (with or without line number)
-                if ']' in line:
-                    status_part = line.split(']', 1)[1].strip()
+                if "]" in line:
+                    status_part = line.split("]", 1)[1].strip()
                 else:
                     status_part = line.strip()
                 if status_part in statuses:
-                    if status_part in {'ok', 'PASSED'}:
+                    if status_part in {"ok", "PASSED"}:
                         passed_tests.add(current_test_name)
-                    elif status_part in {'FAIL', 'FAILED', 'ERROR'}:
+                    elif status_part in {"FAIL", "FAILED", "ERROR"}:
                         failed_tests.add(current_test_name)
-                    elif status_part in {'SKIPPED'}:
+                    elif status_part in {"SKIPPED"}:
                         skipped_tests.add(current_test_name)
                     current_test_name = None
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "aiidateam/aiida-prerequisites:0.4.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -121,7 +121,7 @@ verdi daemon stop && sudo -u postgres psql -c 'SELECT pg_terminate_backend(pg_st
 ###ACTION_DELIMITER###
 verdi daemon stop && sudo -u postgres psql -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE datname = 'aiida_db' AND pid <> pg_backend_pid();" && verdi profile delete -f test_aiida && verdi quicksetup --non-interactive --test-profile --profile test_aiida --email test@example.com --first-name Test --last-name User --institution Test --db-username aiida --db-name aiida_db --db-password aiida --db-host localhost
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 AIIDA_TEST_PROFILE=test_aiida pytest --cov aiida --verbose tests -m "not nightly"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ fi
 #!/bin/bash
 AIIDA_TEST_PROFILE=test_aiida pytest --cov aiida --verbose tests -m "not nightly"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ fi
 #!/bin/bash
 AIIDA_TEST_PROFILE=test_aiida pytest --cov aiida --verbose tests -m "not nightly"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -221,7 +221,7 @@ class AIIDA_CORE_5549_TO_5444(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,19 +235,19 @@ class AIIDA_CORE_5549_TO_5444(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status and [percentage]
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+\[.*$')
+        pattern1 = re.compile(r"^(.*?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+\[.*$")
         # Pattern 2: Status followed by test name
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED|ERROR)\s+(.*)$')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED|ERROR)\s+(.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             match1 = pattern1.match(line)
             match2 = pattern2.match(line)
@@ -260,20 +260,19 @@ class AIIDA_CORE_5549_TO_5444(Instance):
             else:
                 continue
             # Clean test name by removing any trailing error messages
-            if ' - ' in test_name:
-                test_name = test_name.split(' - ')[0].strip()
-            if status == 'PASSED':
+            if " - " in test_name:
+                test_name = test_name.split(" - ")[0].strip()
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

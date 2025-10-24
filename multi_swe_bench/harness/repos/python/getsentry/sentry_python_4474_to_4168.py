@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ pip install -e .
 ###ACTION_DELIMITER###
 pip install -r requirements-testing.txt
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class SENTRY_PYTHON_4474_TO_4168(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,7 +180,6 @@ class SENTRY_PYTHON_4474_TO_4168(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -194,9 +187,10 @@ class SENTRY_PYTHON_4474_TO_4168(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test cases with status
-        pattern = r'(tests/.*?\.py::.*?) (PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED) (?:\[.*?\] )?(tests/.*?\.py::.*?)(?= - |$)'
+        pattern = r"(tests/.*?\.py::.*?) (PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED) (?:\[.*?\] )?(tests/.*?\.py::.*?)(?= - |$)"
         matches = re.findall(pattern, log)
         for match in matches:
             # Check if the first part of the pattern matched (test name followed by status)
@@ -210,18 +204,17 @@ class SENTRY_PYTHON_4474_TO_4168(Instance):
             else:
                 continue  # no match
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

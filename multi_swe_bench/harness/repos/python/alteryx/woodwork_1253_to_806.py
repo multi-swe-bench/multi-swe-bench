@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt
 ###ACTION_DELIMITER###
 . venv/bin/activate && pytest --ignore=docs -v
 ###ACTION_DELIMITER###
-echo '. venv/bin/activate && pytest --ignore=docs -v' > test_commands.sh"""
+echo '. venv/bin/activate && pytest --ignore=docs -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ echo '. venv/bin/activate && pytest --ignore=docs -v' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 . venv/bin/activate && pytest --ignore=docs -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 . venv/bin/activate && pytest --ignore=docs -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 . venv/bin/activate && pytest --ignore=docs -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class WOODWORK_1253_TO_806(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,29 +181,29 @@ class WOODWORK_1253_TO_806(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Compile regex patterns to match test lines and error lines
-        test_pattern = re.compile(r'^(.*?)\s+(PASSED|SKIPPED|FAILED)\s+\[\s*\d+%\]$')
-        error_pattern = re.compile(r'^ERROR\s+(.*)$')
+        test_pattern = re.compile(r"^(.*?)\s+(PASSED|SKIPPED|FAILED)\s+\[\s*\d+%\]$")
+        error_pattern = re.compile(r"^ERROR\s+(.*)$")
         # Iterate over each line in the log content
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check if the line matches a test result with status and percentage
             test_match = test_pattern.match(line)
             if test_match:
                 test_name = test_match.group(1)
                 status = test_match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
                 continue
             # Check if the line matches an error entry
@@ -215,9 +215,8 @@ class WOODWORK_1253_TO_806(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

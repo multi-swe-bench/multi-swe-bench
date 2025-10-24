@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -110,7 +110,7 @@ sed -i '140c fs.writeFile("./qunit/err", "Failed due to an error", function() {}
 ###ACTION_DELIMITER###
 grunt qunit --verbose --stack
 ###ACTION_DELIMITER###
-echo 'grunt qunit --verbose' > test_commands.sh"""
+echo 'grunt qunit --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ echo 'grunt qunit --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -207,7 +207,7 @@ class IGNITE_UI_1595_TO_540(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -221,7 +221,6 @@ class IGNITE_UI_1595_TO_540(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -229,32 +228,32 @@ class IGNITE_UI_1595_TO_540(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes from log content
-        cleaned_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        cleaned_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Split lines and extract test names by splitting on '...'
-        for line in cleaned_log.split('\n'):
+        for line in cleaned_log.split("\n"):
             line = line.strip()
-            if '...' in line:
-                parts = line.split('...', 1)
+            if "..." in line:
+                parts = line.split("...", 1)
                 if len(parts) == 2:
                     test_part, status_part = parts
                     # Extract passed tests
-                    if 'OK' in status_part:
-                        test_name = re.sub(r'^\s*\[\s*\d+\]\s*', '', test_part).strip()
+                    if "OK" in status_part:
+                        test_name = re.sub(r"^\s*\[\s*\d+\]\s*", "", test_part).strip()
                         if test_name:
                             passed_tests.add(test_name)
                     # Extract failed tests
-                    elif 'ERROR' in status_part or 'FAILED' in status_part:
-                        test_name = re.sub(r'^\s*\[\s*\d+\]\s*', '', test_part).strip()
+                    elif "ERROR" in status_part or "FAILED" in status_part:
+                        test_name = re.sub(r"^\s*\[\s*\d+\]\s*", "", test_part).strip()
                         if test_name:
                             failed_tests.add(test_name)
         # Add handling for SKIPPED if present in logs
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

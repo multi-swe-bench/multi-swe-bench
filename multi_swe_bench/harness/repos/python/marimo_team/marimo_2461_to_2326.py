@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.12-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -71,7 +71,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && cd marimo && typos && cd .. && pytest -v
 cd frontend && npx playwright test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && cd marimo && typos && cd .. && pytest -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && cd marimo && typos && cd .. && pytest -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && cd marimo && typos && cd .. && pytest -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class MARIMO_2461_TO_2326(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,28 +191,30 @@ class MARIMO_2461_TO_2326(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Regex patterns to match test cases with their statuses
         # Pattern 1: Matches lines like "tests/path/to/test.py::TestClass::test_name PASSED [  0%]"
-        pattern_passed_skipped = re.compile(r'^(tests/.*?) (PASSED|SKIPPED) \[\s*\d+%\]$')
+        pattern_passed_skipped = re.compile(
+            r"^(tests/.*?) (PASSED|SKIPPED) \[\s*\d+%\]$"
+        )
         # Pattern 2: Matches lines like "FAILED tests/path/to/test.py::TestClass::test_name - optional message"
-        pattern_failed = re.compile(r'^(FAILED) (tests/.*?)(?: - .*)?$')
-        for line in log.split('\n'):
+        pattern_failed = re.compile(r"^(FAILED) (tests/.*?)(?: - .*)?$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed or skipped tests
             match = pattern_passed_skipped.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Check for failed tests
             match = pattern_failed.match(line)
@@ -222,9 +224,8 @@ class MARIMO_2461_TO_2326(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

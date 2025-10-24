@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -116,7 +116,7 @@ venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --igno
 ###ACTION_DELIMITER###
 echo '#!/bin/bash
 export THUNDER_EXECUTOR=torch.compile
-venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --ignore=thunder/tests/distributed --ignore=thunder/tests/test_ops.py --ignore=thunder/tests/test_grad.py -v --deselect thunder/tests/test_auto_register_torchops.py::test_torch_ops_trace[cpu-inference-nn.functional.embedding_bag]' > test_commands.sh && bash test_commands.sh"""
+venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --ignore=thunder/tests/distributed --ignore=thunder/tests/test_ops.py --ignore=thunder/tests/test_grad.py -v --deselect thunder/tests/test_auto_register_torchops.py::test_torch_ops_trace[cpu-inference-nn.functional.embedding_bag]' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,9 +127,7 @@ cd /home/{pr.repo}
 export THUNDER_EXECUTOR=torch.compile
 venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --ignore=thunder/tests/distributed --ignore=thunder/tests/test_ops.py --ignore=thunder/tests/test_grad.py -v --deselect thunder/tests/test_auto_register_torchops.py::test_torch_ops_trace[cpu-inference-nn.functional.embedding_bag]
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -144,9 +142,7 @@ fi
 export THUNDER_EXECUTOR=torch.compile
 venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --ignore=thunder/tests/distributed --ignore=thunder/tests/test_ops.py --ignore=thunder/tests/test_grad.py -v --deselect thunder/tests/test_auto_register_torchops.py::test_torch_ops_trace[cpu-inference-nn.functional.embedding_bag]
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -161,9 +157,7 @@ fi
 export THUNDER_EXECUTOR=torch.compile
 venv/bin/python -m coverage run --source thunder -m pytest thunder/tests/ --ignore=thunder/tests/distributed --ignore=thunder/tests/test_ops.py --ignore=thunder/tests/test_grad.py -v --deselect thunder/tests/test_auto_register_torchops.py::test_torch_ops_trace[cpu-inference-nn.functional.embedding_bag]
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -207,7 +201,6 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
 @Instance.register("Lightning-AI", "lightning_thunder_1003_to_829")
 class LIGHTNING_THUNDER_1003_TO_829(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -226,7 +219,7 @@ class LIGHTNING_THUNDER_1003_TO_829(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,43 +233,42 @@ class LIGHTNING_THUNDER_1003_TO_829(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             # Check for PASSED tests
-            if '\x1b[32mPASSED\x1b[0m' in line:
-                parts = line.split('] ', 1)
+            if "\x1b[32mPASSED\x1b[0m" in line:
+                parts = line.split("] ", 1)
                 if len(parts) >= 2:
                     test_part = parts[1]
-                    test_name = test_part.split(' \x1b[', 1)[0]
+                    test_name = test_part.split(" \x1b[", 1)[0]
                     passed_tests.add(test_name)
             # Check for SKIPPED tests
-            elif '\x1b[33mSKIPPED\x1b[0m' in line:
-                parts = line.split('] ', 1)
+            elif "\x1b[33mSKIPPED\x1b[0m" in line:
+                parts = line.split("] ", 1)
                 if len(parts) >= 2:
                     test_part = parts[1]
-                    test_name = test_part.split(' \x1b[', 1)[0]
+                    test_name = test_part.split(" \x1b[", 1)[0]
                     skipped_tests.add(test_name)
             # Check for FAILED tests
-            elif '\x1b[31mFAILED\x1b[0m' in line:
-                parts = line.split('\x1b[31mFAILED\x1b[0m ', 1)
+            elif "\x1b[31mFAILED\x1b[0m" in line:
+                parts = line.split("\x1b[31mFAILED\x1b[0m ", 1)
                 if len(parts) >= 2:
                     test_part = parts[1]
-                    test_name_part = test_part.split(' - ', 1)[0]
-                    test_name = re.sub(r'\x1b\[\d+m', '', test_name_part)
+                    test_name_part = test_part.split(" - ", 1)[0]
+                    test_name = re.sub(r"\x1b\[\d+m", "", test_name_part)
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

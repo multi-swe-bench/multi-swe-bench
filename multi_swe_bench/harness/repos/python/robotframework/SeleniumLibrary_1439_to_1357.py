@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -92,7 +92,7 @@ robot atest' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ export PYTHONPATH=src
 pytest -v utest
 robot atest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +120,7 @@ export PYTHONPATH=src
 pytest -v utest
 robot atest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ export PYTHONPATH=src
 pytest -v utest
 robot atest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class SELENIUMLIBRARY_1439_TO_1357(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,28 +212,28 @@ class SELENIUMLIBRARY_1439_TO_1357(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(.+?)\s+\|\s*(PASSED|FAILED|SKIPPED|FAIL)\s*\|$')
-        for line in log.split('\n'):
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$")
+        pattern2 = re.compile(r"^(.+?)\s+\|\s*(PASSED|FAILED|SKIPPED|FAIL)\s*\|$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern 1: e.g., "test_name PASSED [ 0%]"
             match1 = pattern1.match(line)
             if match1:
                 test_name = match1.group(1).strip()
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2: e.g., "test_name | FAIL |"
@@ -247,19 +241,18 @@ class SELENIUMLIBRARY_1439_TO_1357(Instance):
             if match2:
                 test_name = match2.group(1).strip()
                 status = match2.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'FAIL'):
+                elif status in ("FAILED", "FAIL"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

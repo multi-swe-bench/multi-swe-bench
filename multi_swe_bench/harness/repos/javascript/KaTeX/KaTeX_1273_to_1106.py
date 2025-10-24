@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ npm run prestart && npm run test:lint && npm run test:flow && npm run test:jest 
 echo -e '#!/bin/bash
 npm run prestart && npm run test:lint && npm run test:flow && npm run test:jest -- --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 npm run prestart && npm run test:lint && npm run test:flow && npm run test:jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ fi
 #!/bin/bash
 npm run prestart && npm run test:lint && npm run test:flow && npm run test:jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ fi
 #!/bin/bash
 npm run prestart && npm run test:lint && npm run test:flow && npm run test:jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class KATEX_1273_TO_1106(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,20 +177,20 @@ class KATEX_1273_TO_1106(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract test names using regex patterns
         # Pattern for passed tests: matches '✓' followed by test name (ignoring time)
-        passed_pattern = r'^\s*✓\s*(.*?)\s*(?:\(.*?\))?\s*$'  # Matches indented '✓', test name (including parentheses), optional time
+        passed_pattern = r"^\s*✓\s*(.*?)\s*(?:\(.*?\))?\s*$"  # Matches indented '✓', test name (including parentheses), optional time
         # Pattern for failed tests: assume '✕' as failure indicator (adjust if needed)
-        failed_pattern = r'^\s*✕\s*(.*?)\s*(?:\(.*?\))?\s*$'  # Matches indented '✕', test name (including parentheses), optional time
+        failed_pattern = r"^\s*✕\s*(.*?)\s*(?:\(.*?\))?\s*$"  # Matches indented '✕', test name (including parentheses), optional time
         # Pattern for skipped tests: assume 'SKIPPED' prefix (adjust if needed)
-        skipped_pattern = r'(?:SKIPPED|Skipped|SKIP) (.*)'  # Matches common skipped test prefixes (case-insensitive adjustment may be needed)
+        skipped_pattern = r"(?:SKIPPED|Skipped|SKIP) (.*)"  # Matches common skipped test prefixes (case-insensitive adjustment may be needed)
         # Find all matching tests and add to sets
         passed_tests.update(re.findall(passed_pattern, log, re.MULTILINE))
         failed_tests.update(re.findall(failed_pattern, log, re.MULTILINE))
@@ -198,9 +198,8 @@ class KATEX_1273_TO_1106(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

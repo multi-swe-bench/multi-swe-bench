@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -98,7 +98,7 @@ source libertem-venv/bin/activate && pip install numpy==2.2.6 ncempy 'pint<0.20'
 ###ACTION_DELIMITER###
 source libertem-venv/bin/activate && pip install numpy==1.26.4 ncempy==1.11.0 'pint<0.20'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ source libertem-venv/bin/activate
 pytest -v --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=setup.cfg --junitxml=junit.xml tests/
 pytest -v --doctest-modules --ignore=src/libertem/common/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ source libertem-venv/bin/activate
 pytest -v --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=setup.cfg --junitxml=junit.xml tests/
 pytest -v --doctest-modules --ignore=src/libertem/common/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ source libertem-venv/bin/activate
 pytest -v --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=setup.cfg --junitxml=junit.xml tests/
 pytest -v --doctest-modules --ignore=src/libertem/common/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class LIBERTEM_1535_TO_1285(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,29 +215,28 @@ class LIBERTEM_1535_TO_1285(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'(tests/.+?)\s+(PASSED|SKIPPED|FAILED)', re.MULTILINE)
+        pattern = re.compile(r"(tests/.+?)\s+(PASSED|SKIPPED|FAILED)", re.MULTILINE)
         matches = pattern.findall(log)
         for test_id, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_id)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_id)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_id)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

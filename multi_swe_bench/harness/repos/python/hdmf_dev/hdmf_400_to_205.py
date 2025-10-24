@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ pip install ruamel.yaml==0.15
 ###ACTION_DELIMITER###
 pip install ruamel.yaml==0.16.12
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class HDMF_400_TO_205(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,27 +184,30 @@ class HDMF_400_TO_205(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         test_status: dict[str, str] = {}  # Track latest status for each test
         import re
         import json
+
         # Pattern to match test case lines with test name and status
-        test_pattern = re.compile(r'\s*\|\s*([^\|]+?)\s*\|\s*[^\|]*?\s*\|\s*\x1B\[.*?m(pass|fail|error|failure|skipped|s)\x1B\[.*?m\s*\|', re.IGNORECASE)
+        test_pattern = re.compile(
+            r"\s*\|\s*([^\|]+?)\s*\|\s*[^\|]*?\s*\|\s*\x1B\[.*?m(pass|fail|error|failure|skipped|s)\x1B\[.*?m\s*\|",
+            re.IGNORECASE,
+        )
         # Pattern to remove ANSI color codes
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Skip empty lines
             if not line.strip():
                 continue
             match = test_pattern.search(line)
             if match:
-                test_name = match.group(1).strip().rstrip(':')  # Clean test name
+                test_name = match.group(1).strip().rstrip(":")  # Clean test name
                 status_raw = match.group(2).strip()
                 # Remove ANSI color codes and convert to lowercase
-                status = ansi_escape.sub('', status_raw).strip().lower()
+                status = ansi_escape.sub("", status_raw).strip().lower()
                 # Ensure status is not empty after cleaning
                 if not status:
                     continue
@@ -221,18 +218,17 @@ class HDMF_400_TO_205(Instance):
         failed_tests = set()
         skipped_tests = set()
         for test, status in test_status.items():
-            if status == 'pass':
+            if status == "pass":
                 passed_tests.add(test)
-            elif status in ['error', 'failure', 'fail']:
+            elif status in ["error", "failure", "fail"]:
                 failed_tests.add(test)
-            elif status in ['skipped', 's']:
+            elif status in ["skipped", "s"]:
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

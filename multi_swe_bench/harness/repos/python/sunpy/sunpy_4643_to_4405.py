@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -129,7 +129,7 @@ echo 'export MPLBACKEND=Agg
 pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning sunpy docs' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'export MPLBACKEND=Agg
-pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning -W ignore::astropy.time.core.TimeDeltaMissingUnitWarning sunpy docs' > test_commands.sh && bash test_commands.sh"""
+pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning -W ignore::astropy.time.core.TimeDeltaMissingUnitWarning sunpy docs' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -139,9 +139,7 @@ cd /home/{pr.repo}
 export MPLBACKEND=Agg
 pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning -W ignore::astropy.time.core.TimeDeltaMissingUnitWarning sunpy docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -155,9 +153,7 @@ fi
 export MPLBACKEND=Agg
 pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning -W ignore::astropy.time.core.TimeDeltaMissingUnitWarning sunpy docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -171,9 +167,7 @@ fi
 export MPLBACKEND=Agg
 pytest -vvv -s -rA -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning -W ignore::RuntimeWarning -W ignore::FutureWarning -W ignore::astropy.wcs.wcs.FITSFixedWarning -W ignore::sunpy.util.exceptions.SunpyUserWarning -W ignore::pytest.PytestUnraisableExceptionWarning -W ignore::ResourceWarning -W ignore::astropy.time.core.TimeDeltaMissingUnitWarning sunpy docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -235,7 +229,7 @@ class SUNPY_4643_TO_4405(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -249,18 +243,18 @@ class SUNPY_4643_TO_4405(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.+?)(?:\s+-.*)?$')
-        test_name_pattern = re.compile(r'([\w\/]+\.py::[\w:\[\]()-]+)')
-        lines = log.split('\n')
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)$")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(.+?)(?:\s+-.*)?$")
+        test_name_pattern = re.compile(r"([\w\/]+\.py::[\w:\[\]()-]+)")
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             line = line.strip()
             # Check pattern1: test name followed by status
@@ -268,11 +262,11 @@ class SUNPY_4643_TO_4405(Instance):
             if match1:
                 test_name = match1.group(1)
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern2: status followed by test name
@@ -280,33 +274,32 @@ class SUNPY_4643_TO_4405(Instance):
             if match2:
                 status = match2.group(1)
                 test_name = match2.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check if current line has test name and next line has status
             test_match = test_name_pattern.search(line)
             if test_match and i + 1 < len(lines):
-                next_line = lines[i+1].strip()
-                if next_line in {'PASSED', 'FAILED', 'SKIPPED'}:
+                next_line = lines[i + 1].strip()
+                if next_line in {"PASSED", "FAILED", "SKIPPED"}:
                     test_name = test_match.group(1)
                     status = next_line
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                     continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -116,7 +116,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pytest -v -n 1 --ignore=tests/ext/ --timeout=60 --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v -n 1 --ignore=tests/ext/ --timeout=60 --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n 1 --ignore=tests/ext/ --timeout=60 --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -n 1 --ignore=tests/ext/ --timeout=60 --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -213,7 +213,7 @@ class PYTHON_TELEGRAM_BOT_4170_TO_3929(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -227,7 +227,6 @@ class PYTHON_TELEGRAM_BOT_4170_TO_3929(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -235,24 +234,26 @@ class PYTHON_TELEGRAM_BOT_4170_TO_3929(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse log using regex to capture test status and names
-        pattern = re.compile(r'.*(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/.*?)\s*$', re.MULTILINE)
+        pattern = re.compile(
+            r".*(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/.*?)\s*$", re.MULTILINE
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'ERROR':
+            elif status == "ERROR":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

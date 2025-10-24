@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip install 'numpy<2.0'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ cd /home/[[REPO_NAME]]
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ fi
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class COGENT3_1381_TO_1001(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,36 +193,35 @@ class COGENT3_1381_TO_1001(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status and name
         pattern = re.compile(
-            r'.*\b(?P<status>PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b.*?(?P<test>tests/[\w/.:\[\]\-]+?(?=\s|$))|'
-            r'.*\b(?P<test2>tests/[\w/.:\[\]\-]+?)\b\s+(?P<status2>PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b'
+            r".*\b(?P<status>PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b.*?(?P<test>tests/[\w/.:\[\]\-]+?(?=\s|$))|"
+            r".*\b(?P<test2>tests/[\w/.:\[\]\-]+?)\b\s+(?P<status2>PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b"
         )
         for match in pattern.finditer(log):
-            status = match.group('status') or match.group('status2')
-            test = match.group('test') or match.group('test2')
+            status = match.group("status") or match.group("status2")
+            test = match.group("test") or match.group("test2")
             if not test or not status:
                 continue
             status = status.upper()
-            if status in ('PASSED', 'XPASS'):
+            if status in ("PASSED", "XPASS"):
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

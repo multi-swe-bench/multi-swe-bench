@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ poetry run pip install --upgrade setuptools && poetry run pytest tests/ -v
 ###ACTION_DELIMITER###
 poetry run pip install setuptools==57.5.0 && poetry run pytest tests/ -v
 ###ACTION_DELIMITER###
-echo 'poetry run pytest tests/ -v' > /home/poetry/test_commands.sh"""
+echo 'poetry run pytest tests/ -v' > /home/poetry/test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ echo 'poetry run pytest tests/ -v' > /home/poetry/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest tests/ -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest tests/ -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest tests/ -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class POETRY_3660_TO_1935(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,35 +213,42 @@ class POETRY_3660_TO_1935(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests from execution lines (e.g., "tests/...::test_name PASSED")
-        passed_pattern = re.compile(r"^(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)\s+PASSED", re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)\s+PASSED", re.MULTILINE
+        )
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
         # Extract failed tests from summary (e.g., "FAILED tests/...::test_name")
-        failed_pattern = re.compile(r"^FAILED\s+(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)", re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^FAILED\s+(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)", re.MULTILINE
+        )
         failed_matches = failed_pattern.findall(log)
         failed_tests.update(failed_matches)
         # Extract skipped tests from execution lines (e.g., "tests/...::test_name SKIPPED")
-        skipped_pattern = re.compile(r"^(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)\s+SKIPPED", re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)\s+SKIPPED", re.MULTILINE
+        )
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests.update(skipped_matches)
         # Extract skipped tests from summary (e.g., "SKIPPED tests/...::test_name")
-        skipped_summary_pattern = re.compile(r"^SKIPPED\s+(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)", re.MULTILINE)
+        skipped_summary_pattern = re.compile(
+            r"^SKIPPED\s+(tests/[\w/-]+\.py::[\w\[\]_\-.,]+)", re.MULTILINE
+        )
         skipped_summary_matches = skipped_summary_pattern.findall(log)
         skipped_tests.update(skipped_summary_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

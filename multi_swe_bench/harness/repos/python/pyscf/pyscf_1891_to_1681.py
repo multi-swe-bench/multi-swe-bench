@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -129,7 +129,7 @@ ls -F pyscf
 ###ACTION_DELIMITER###
 echo 'python -m pytest pyscf/gto/test --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -138,9 +138,7 @@ echo 'python -m pytest pyscf/gto/test --no-header -rA --tb=no -p no:cacheprovide
 cd /home/{pr.repo}
 python -m pytest pyscf/gto/test --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -153,9 +151,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest pyscf/gto/test --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -168,9 +164,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest pyscf/gto/test --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -232,7 +226,7 @@ class PYSCF_1891_TO_1681(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -246,14 +240,14 @@ class PYSCF_1891_TO_1681(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         for line in log.splitlines():
             if line.startswith("PASSED"):
                 match = re.match(r"PASSED\s+(.*)", line)
@@ -266,9 +260,8 @@ class PYSCF_1891_TO_1681(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

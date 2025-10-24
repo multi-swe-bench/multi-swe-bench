@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm ci
 ###ACTION_DELIMITER###
 npm run build
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_1548_TO_1528(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,7 +165,6 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_1548_TO_1528(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -173,27 +172,28 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_1548_TO_1528(Instance):
         skipped_tests = set[str]()
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             # Check for passed tests (individual cases)
-            passed_match = re.search(r'✓\s+(.+?)\s*(?:\(\d+ ms\))?$', line)
+            passed_match = re.search(r"✓\s+(.+?)\s*(?:\(\d+ ms\))?$", line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 passed_tests.add(test_name)
             # Check for passed test files
-            pass_file_match = re.search(r'^PASS\s+(.+)$', line)
+            pass_file_match = re.search(r"^PASS\s+(.+)$", line)
             if pass_file_match:
                 test_name = pass_file_match.group(1).strip()
                 passed_tests.add(test_name)
             # Check for passed test files (with line numbers)
-            pass_file_match = re.search(r'^\[\d+\]\s+PASS\s+(.+)$', line)
+            pass_file_match = re.search(r"^\[\d+\]\s+PASS\s+(.+)$", line)
             if pass_file_match:
                 test_name = pass_file_match.group(1).strip()
                 passed_tests.add(test_name)
             # Check for failed tests (individual cases)
-            failed_match = re.search(r'×\s+(.+?)\s*(?:\(\d+ ms\))?$', line)
+            failed_match = re.search(r"×\s+(.+?)\s*(?:\(\d+ ms\))?$", line)
             # Check for failed test files (with line numbers)
-            fail_file_match = re.search(r'^\[\d+\]\s+FAIL\s+(.+)$', line)
+            fail_file_match = re.search(r"^\[\d+\]\s+FAIL\s+(.+)$", line)
             if fail_file_match:
                 test_name = fail_file_match.group(1).strip()
                 failed_tests.add(test_name)
@@ -201,21 +201,20 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_1548_TO_1528(Instance):
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
             # Check for failed test files
-            fail_file_match = re.search(r'^FAIL\s+(.+)$', line)
+            fail_file_match = re.search(r"^FAIL\s+(.+)$", line)
             if fail_file_match:
                 test_name = fail_file_match.group(1).strip()
                 failed_tests.add(test_name)
             # Check for skipped tests
-            skipped_match = re.search(r'○\s+(.+?)\s*(?:\(\d+ ms\))?$', line)
+            skipped_match = re.search(r"○\s+(.+?)\s*(?:\(\d+ ms\))?$", line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

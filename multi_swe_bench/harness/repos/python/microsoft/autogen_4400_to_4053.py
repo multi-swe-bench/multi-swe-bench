@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -180,7 +180,7 @@ cd python && find . -name "__pycache__" -exec rm -rf {} + && PYTHONPATH=./packag
 echo -e '#!/bin/bash
 cd python && find . -name "__pycache__" -exec rm -rf {} + && PYTHONPATH=./packages uv run pytest -v --no-header -rA --tb=short -p no:cacheprovider --import-mode=importlib -n auto $(find ./packages -type d -name "tests")' > /home/autogen/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -190,7 +190,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 cd python && find . -name "__pycache__" -exec rm -rf {} + && PYTHONPATH=./packages uv run pytest -v --no-header -rA --tb=short -p no:cacheprovider --import-mode=importlib -n auto $(find ./packages -type d -name "tests")
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -204,7 +204,7 @@ fi
 #!/bin/bash
 cd python && find . -name "__pycache__" -exec rm -rf {} + && PYTHONPATH=./packages uv run pytest -v --no-header -rA --tb=short -p no:cacheprovider --import-mode=importlib -n auto $(find ./packages -type d -name "tests")
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -218,7 +218,7 @@ fi
 #!/bin/bash
 cd python && find . -name "__pycache__" -exec rm -rf {} + && PYTHONPATH=./packages uv run pytest -v --no-header -rA --tb=short -p no:cacheprovider --import-mode=importlib -n auto $(find ./packages -type d -name "tests")
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -280,7 +280,7 @@ class AUTOGEN_4400_TO_4053(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -294,18 +294,18 @@ class AUTOGEN_4400_TO_4053(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regular expressions to match test status lines
-        failed_pattern = re.compile(r'^FAILED (.*)$')
-        skipped_pattern = re.compile(r'^SKIPPED \[\d+\] (.*?): .*$')
-        passed_pattern = re.compile(r'PASSED (.*)$')
-        for line in log.split('\n'):
+        failed_pattern = re.compile(r"^FAILED (.*)$")
+        skipped_pattern = re.compile(r"^SKIPPED \[\d+\] (.*?): .*$")
+        passed_pattern = re.compile(r"PASSED (.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for failed tests
             failed_match = failed_pattern.match(line)
@@ -322,9 +322,8 @@ class AUTOGEN_4400_TO_4053(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

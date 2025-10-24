@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libfontconfig1
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ERT_PYTEST_ARGS="--verbose" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ERT_PYTEST_ARGS="--verbose" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ERT_PYTEST_ARGS="--verbose" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class ERT_10361_TO_10179(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,43 +181,55 @@ class ERT_10361_TO_10179(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         test_status = {}  # Tracks latest status for each test (key: test name, value: 'passed'/'failed'/'skipped')
         # Original sets replaced with a dictionary to avoid overlapping entries
         import re
+
         # Refined patterns to handle parameters, line numbers, and metadata
         # Enhanced patterns to capture full test names with parameters and handle varied metadata
         # Updated patterns to handle leading line numbers and full test name structure
         # Flexible patterns to handle varied log formats (detailed, summary, line numbers)
-        test_pattern = re.compile(r'((tests|src)/[\w/.-]+\.py::[\w_]+(?:\[[^\]]*\])?|(tests|src)/[\w/.-]+\.py:\d+)\s+(PASSED|FAILED|SKIPPED)')
-        status_pattern = re.compile(r'(?:\[\d+\]\s*\[(?:gw\d+)\]\s*\[\s*\d+%\]\s*)?(PASSED|FAILED|SKIPPED)\s+(?:\[\d+\]\s*)?((?:tests|src)/[\w/.-]+\.py::[\w_]+(?:\[[^\]]*\])?|(?:tests|src)/[\w/.-]+\.py:\d+)')
+        test_pattern = re.compile(
+            r"((tests|src)/[\w/.-]+\.py::[\w_]+(?:\[[^\]]*\])?|(tests|src)/[\w/.-]+\.py:\d+)\s+(PASSED|FAILED|SKIPPED)"
+        )
+        status_pattern = re.compile(
+            r"(?:\[\d+\]\s*\[(?:gw\d+)\]\s*\[\s*\d+%\]\s*)?(PASSED|FAILED|SKIPPED)\s+(?:\[\d+\]\s*)?((?:tests|src)/[\w/.-]+\.py::[\w_]+(?:\[[^\]]*\])?|(?:tests|src)/[\w/.-]+\.py:\d+)"
+        )
         # Extract tests where status is after the test name
         for match in test_pattern.findall(log):
             test_name, _, _, status = match
             # Validate test name format
-            if not (test_name.startswith(('tests/', 'src/')) and ('.py::' in test_name or '.py:' in test_name)):
+            if not (
+                test_name.startswith(("tests/", "src/"))
+                and (".py::" in test_name or ".py:" in test_name)
+            ):
                 continue
             normalized_status = status.lower()
-            if normalized_status in ['passed', 'failed', 'skipped']:
+            if normalized_status in ["passed", "failed", "skipped"]:
                 test_status[test_name] = normalized_status
         # Extract tests where status is before the test name
         for match in status_pattern.findall(log):
             status, test_name = match
             normalized_status = status.lower()
-            if normalized_status in ['passed', 'failed', 'skipped']:
+            if normalized_status in ["passed", "failed", "skipped"]:
                 test_status[test_name] = normalized_status
         # Generate final sets from the status dictionary
-        passed_tests = {test for test, status in test_status.items() if status == 'passed'}
-        failed_tests = {test for test, status in test_status.items() if status == 'failed'}
-        skipped_tests = {test for test, status in test_status.items() if status == 'skipped'}
+        passed_tests = {
+            test for test, status in test_status.items() if status == "passed"
+        }
+        failed_tests = {
+            test for test, status in test_status.items() if status == "failed"
+        }
+        skipped_tests = {
+            test for test, status in test_status.items() if status == "skipped"
+        }
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

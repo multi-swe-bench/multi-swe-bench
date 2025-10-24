@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm install -g pnpm@9.12.1
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo 'pnpm test -- --verbose' > test_commands.sh"""
+echo 'pnpm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'pnpm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class ROUTER_2543_TO_1490(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,7 +165,6 @@ class ROUTER_2543_TO_1490(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -173,11 +172,14 @@ class ROUTER_2543_TO_1490(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract all tasks from the JSON array in the log
         task_arrays = re.findall(r'\[\s*(?:"[^"]+"\s*,?\s*)*\]', log, re.DOTALL)
         if task_arrays:
             task_array_str = task_arrays[-1]  # Take the last array
-            task_array_str = re.sub(r',\s*]', ']', task_array_str)  # Remove trailing commas
+            task_array_str = re.sub(
+                r",\s*]", "]", task_array_str
+            )  # Remove trailing commas
             try:
                 all_tasks = json.loads(task_array_str)
             except json.JSONDecodeError:
@@ -190,7 +192,9 @@ class ROUTER_2543_TO_1490(Instance):
             if ":test:" in task:
                 test_tasks.add(task)
         # Extract failed tasks from the "Failed tasks:" section
-        failed_tasks_match = re.search(r"Failed tasks:\s*((?:- [^\n]+\n*)+)", log, re.DOTALL)
+        failed_tasks_match = re.search(
+            r"Failed tasks:\s*((?:- [^\n]+\n*)+)", log, re.DOTALL
+        )
         if failed_tasks_match:
             failed_tasks_section = failed_tasks_match.group(1)
             failed_tasks_list = re.findall(r"- ([^\n]+)", failed_tasks_section)
@@ -202,9 +206,8 @@ class ROUTER_2543_TO_1490(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

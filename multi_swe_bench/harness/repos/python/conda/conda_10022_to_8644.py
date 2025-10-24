@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -127,7 +127,7 @@ pip install ruamel.yaml==0.16.12 && conda activate base && export CONDA_PREFIX=/
 ###ACTION_DELIMITER###
 conda init bash && source ~/.bashrc && conda activate base && export CONDA_PREFIX=/usr/local && chmod -R 777 /usr/local/../conda.tmp && /usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m 'not integration and not installed'
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash\nconda activate base\nexport CONDA_PREFIX=/usr/local\n/usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m "not integration and not installed"' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+echo -e '#!/bin/bash\nconda activate base\nexport CONDA_PREFIX=/usr/local\n/usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m "not integration and not installed"' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ conda activate base
 export CONDA_PREFIX=/usr/local
 /usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m "not integration and not installed"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ conda activate base
 export CONDA_PREFIX=/usr/local
 /usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m "not integration and not installed"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -171,7 +171,7 @@ conda activate base
 export CONDA_PREFIX=/usr/local
 /usr/local/bin/python -m pytest --basetemp=/usr/local/../conda.tmp -v --cov-report xml --cov-report term-missing --cov-append --cov conda -m "not integration and not installed"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -233,7 +233,7 @@ class CONDA_10022_TO_8644(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -247,7 +247,6 @@ class CONDA_10022_TO_8644(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -255,27 +254,27 @@ class CONDA_10022_TO_8644(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED')
+        passed_pattern = re.compile(r"(tests/.*?)\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests from progress lines
-        failed_progress_pattern = re.compile(r'\[\s*\d+\s*\]\s+(tests/.*?)\s+FAILED')
+        failed_progress_pattern = re.compile(r"\[\s*\d+\s*\]\s+(tests/.*?)\s+FAILED")
         failed_tests.update(failed_progress_pattern.findall(log))
         # Parse failed tests from summary lines
-        failed_summary_pattern = re.compile(r'FAILED\s+(tests/.*?)\s+-')
+        failed_summary_pattern = re.compile(r"FAILED\s+(tests/.*?)\s+-")
         failed_tests.update(failed_summary_pattern.findall(log))
         # Parse error tests (considered as failed)
-        error_pattern = re.compile(r'\[\s*\d+\s*\]\s+ERROR\s+(tests/.*)')
+        error_pattern = re.compile(r"\[\s*\d+\s*\]\s+ERROR\s+(tests/.*)")
         failed_tests.update(error_pattern.findall(log))
         # Parse skipped tests from summary lines
-        skipped_pattern = re.compile(r'\[\s*\d+\s*\]\s+SKIPPED\s+(tests/.*?)\s+-')
+        skipped_pattern = re.compile(r"\[\s*\d+\s*\]\s+SKIPPED\s+(tests/.*?)\s+-")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

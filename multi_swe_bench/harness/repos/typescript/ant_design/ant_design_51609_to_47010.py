@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh
 ###ACTION_DELIMITER###
 echo 'npm run test:all -- --verbose' > /home/ant-design/test_commands.sh
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh"""
+echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class ANT_DESIGN_51609_TO_47010(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,39 +165,38 @@ class ANT_DESIGN_51609_TO_47010(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_pattern = re.compile(r'PASS\s+([^\s\(]+)')
+        passed_pattern = re.compile(r"PASS\s+([^\s\(]+)")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'FAIL\s+([^\s\(]+)')
+        failed_pattern = re.compile(r"FAIL\s+([^\s\(]+)")
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests
         # Pattern 1: skipped renders <path> correctly
-        skipped_path_pattern = re.compile(r'skipped renders\s+([^\s]+)')
+        skipped_path_pattern = re.compile(r"skipped renders\s+([^\s]+)")
         skipped_tests.update(skipped_path_pattern.findall(log))
         # Pattern 2: skipped <name> (remove trailing ' correctly' if present)
-        skipped_name_pattern = re.compile(r'skipped\s+([^\n]+)')
+        skipped_name_pattern = re.compile(r"skipped\s+([^\n]+)")
         for name in skipped_name_pattern.findall(log):
-            cleaned_name = re.sub(r'\s+correctly$', '', name)
+            cleaned_name = re.sub(r"\s+correctly$", "", name)
             skipped_tests.add(cleaned_name)
         # Pattern 3: ✓ skip<Name> (ms)
-        skipped_skipgroup_pattern = re.compile(r'✓\s+(skip\w+)\s+\(')
+        skipped_skipgroup_pattern = re.compile(r"✓\s+(skip\w+)\s+\(")
         skipped_tests.update(skipped_skipgroup_pattern.findall(log))
         # Remove empty entries
         skipped_tests = {test for test in skipped_tests if test}
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

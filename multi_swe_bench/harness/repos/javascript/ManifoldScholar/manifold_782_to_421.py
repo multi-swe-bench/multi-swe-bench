@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -145,7 +145,7 @@ sed -i 's/^cd ../api/export RAILS_DB_USER=postgres\nexport RAILS_DB_PASS=\"\"\nc
 ###ACTION_DELIMITER###
 sed -i 's|^cd ../api|export RAILS_DB_USER=postgres\nexport RAILS_DB_PASS=""\ncd ../api|' /home/manifold/test_commands.sh && bash /home/manifold/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ export RAILS_DB_USER=postgres
 export RAILS_DB_PASS=""
 cd ../api && RAILS_ENV=test bundle exec rspec spec -fd --tag ~@integration --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -177,7 +177,7 @@ export RAILS_DB_USER=postgres
 export RAILS_DB_PASS=""
 cd ../api && RAILS_ENV=test bundle exec rspec spec -fd --tag ~@integration --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -195,7 +195,7 @@ export RAILS_DB_USER=postgres
 export RAILS_DB_PASS=""
 cd ../api && RAILS_ENV=test bundle exec rspec spec -fd --tag ~@integration --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -257,7 +257,7 @@ class MANIFOLD_782_TO_421(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -271,18 +271,18 @@ class MANIFOLD_782_TO_421(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Extract test suites from RUNS and FAIL lines (matches log structure)
         # Capture test suite names from RUNS lines (e.g., 'RUNS  ...Searchable-test.js')
-        all_tests = set(re.findall(r'.*RUNS\s+.*?([\w-]+-test\.js)', log))
+        all_tests = set(re.findall(r".*RUNS\s+.*?([\w-]+-test\.js)", log))
         # Capture failed test suite names from FAIL lines (e.g., 'FAIL  src/.../ListItem-test.js')
-        failed_tests = set(re.findall(r'.*FAIL\s+.*?([\w-]+-test\.js)', log))
+        failed_tests = set(re.findall(r".*FAIL\s+.*?([\w-]+-test\.js)", log))
         # Passed tests = all tests - failed tests
         passed_tests = all_tests - failed_tests
         # Skipped tests (no evidence in logs; default to empty set)
@@ -290,9 +290,8 @@ class MANIFOLD_782_TO_421(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -140,7 +140,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ bash test_commands.sh
 cd /home/[[REPO_NAME]]
 npm test -- --verbose --json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -162,7 +162,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose --json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -175,7 +175,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose --json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -237,7 +237,7 @@ class G2_1768_TO_1643(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -251,7 +251,6 @@ class G2_1768_TO_1643(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -259,6 +258,7 @@ class G2_1768_TO_1643(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract JSON from log content
         # Capture JSON starting with test results (more specific pattern)
         json_match = re.search(r'\{"numFailedTestSuites":.*\}', log, re.DOTALL)
@@ -270,40 +270,39 @@ class G2_1768_TO_1643(Instance):
         else:
             test_results = None
         if test_results:
-            for test_suite in test_results.get('testResults', []):
-                for assertion in test_suite.get('assertionResults', []):
-                    status = assertion.get('status')
-                    test_name = assertion.get('fullName')
+            for test_suite in test_results.get("testResults", []):
+                for assertion in test_suite.get("assertionResults", []):
+                    status = assertion.get("status")
+                    test_name = assertion.get("fullName")
                     if not test_name:
                         continue
-                    if status == 'passed':
+                    if status == "passed":
                         passed_tests.add(test_name)
-                    elif status == 'failed':
+                    elif status == "failed":
                         failed_tests.add(test_name)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(test_name)
                     # Add handling for other statuses if needed
         else:
             # Fallback: parse text-based log (if JSON is not available)
             # Check for individual test results and test suites
             # Parse passed tests
-            passed_matches = re.findall(r'^\s+✓\s+(.*)$', log, re.MULTILINE)
+            passed_matches = re.findall(r"^\s+✓\s+(.*)$", log, re.MULTILINE)
             for test in passed_matches:
                 passed_tests.add(test.strip())
             # Parse failed tests
-            failed_matches = re.findall(r'^\s+✗\s+(.*)$', log, re.MULTILINE)
+            failed_matches = re.findall(r"^\s+✗\s+(.*)$", log, re.MULTILINE)
             for test in failed_matches:
                 failed_tests.add(test.strip())
             # Parse failed test suites
-            suite_failed_matches = re.findall(r'FAIL (.*)$', log, re.MULTILINE)
+            suite_failed_matches = re.findall(r"FAIL (.*)$", log, re.MULTILINE)
             for suite in suite_failed_matches:
                 failed_tests.add(suite.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ npm install -g yarn@1.22.18 --force
 yarn install
 ###ACTION_DELIMITER###
 echo -e 'yarn test:unit --verbose
-yarn test:static' > test_commands.sh"""
+yarn test:static' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 yarn test:unit --verbose
 yarn test:static
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ fi
 yarn test:unit --verbose
 yarn test:static
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 yarn test:unit --verbose
 yarn test:static
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class VKUI_2359_TO_1228(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,63 +173,76 @@ class VKUI_2359_TO_1228(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Pattern for passed tests (individual test cases)
-        passed_pattern = re.compile(r'✓\s+(.+?)\s*\(\d+\s*ms\)')
+        passed_pattern = re.compile(r"✓\s+(.+?)\s*\(\d+\s*ms\)")
         # Track nested test groups
         current_group = []
         # Pattern for test groups (e.g., '  RangeSlider')
-        group_pattern = re.compile(r'^(\s{2,})(\w.+?)\s*$')  # Capture indentation level
+        group_pattern = re.compile(r"^(\s{2,})(\w.+?)\s*$")  # Capture indentation level
         # Pattern for skipped tests in summary
-        skipped_summary_pattern = re.compile(r'Tests:\s+(\d+)\s+skipped')
+        skipped_summary_pattern = re.compile(r"Tests:\s+(\d+)\s+skipped")
         # Pattern for individual skipped tests
-        skipped_pattern = re.compile(r'○\s+skipped\s+(.+)')
+        skipped_pattern = re.compile(r"○\s+skipped\s+(.+)")
         # Pattern for failed test suites
-        failed_pattern = re.compile(r'✕\s+(.+?)\s*\(\d+\s*ms\)')
-        for line in log.split('\n'):
+        failed_pattern = re.compile(r"✕\s+(.+?)\s*\(\d+\s*ms\)")
+        for line in log.split("\n"):
             # Update test group context
             group_match = group_pattern.search(line)
             if group_match:
                 indent = group_match.group(1)
                 depth = len(indent) // 2  # Assume 2 spaces per indent level
                 group_name = group_match.group(2).strip()
-                current_group = current_group[:depth-1] + [group_name]
+                current_group = current_group[: depth - 1] + [group_name]
                 continue
             # Check for summary skipped tests
             summary_skip_match = skipped_summary_pattern.search(line)
             if summary_skip_match:
                 # Note: This captures count; adjust if individual skipped test names are needed
-                skipped_tests.add(f"{summary_skip_match.group(1)} skipped tests (summary)")
+                skipped_tests.add(
+                    f"{summary_skip_match.group(1)} skipped tests (summary)"
+                )
                 continue
             # Check for passed tests
             pass_match = passed_pattern.search(line)
             if pass_match:
                 test_name = pass_match.group(1).strip()
-                full_test_name = ' > '.join(current_group + [test_name]) if current_group else test_name
+                full_test_name = (
+                    " > ".join(current_group + [test_name])
+                    if current_group
+                    else test_name
+                )
                 passed_tests.add(full_test_name)
             # Check for skipped tests
             skip_match = skipped_pattern.search(line)
             if skip_match:
                 test_name = skip_match.group(1).strip()
-                full_test_name = ' > '.join(current_group + [test_name]) if current_group else test_name
+                full_test_name = (
+                    " > ".join(current_group + [test_name])
+                    if current_group
+                    else test_name
+                )
                 skipped_tests.add(full_test_name)
             # Check for failed tests
             fail_match = failed_pattern.search(line)
             if fail_match:
                 test_name = fail_match.group(1).strip()
-                full_test_name = ' > '.join(current_group + [test_name]) if current_group else test_name
+                full_test_name = (
+                    " > ".join(current_group + [test_name])
+                    if current_group
+                    else test_name
+                )
                 failed_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

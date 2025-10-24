@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -148,7 +148,7 @@ cd frontend && CI=true pnpm turbo test -- -v && cd ..
 # Python tests with verbose output
 pytest tests/ -v
 # E2E tests with detailed logs
-cd frontend && npx playwright test --reporter=list && cd ..' > test_commands.sh && chmod +x test_commands.sh"""
+cd frontend && npx playwright test --reporter=list && cd ..' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ pytest tests/ -v
 # E2E tests with detailed logs
 cd frontend && npx playwright test --reporter=list && cd ..
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -184,7 +184,7 @@ pytest tests/ -v
 # E2E tests with detailed logs
 cd frontend && npx playwright test --reporter=list && cd ..
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -204,7 +204,7 @@ pytest tests/ -v
 # E2E tests with detailed logs
 cd frontend && npx playwright test --reporter=list && cd ..
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -266,7 +266,7 @@ class MARIMO_1221_TO_807(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -280,12 +280,12 @@ class MARIMO_1221_TO_807(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regular expression pattern to match test lines
         # Example line: [  23] tests/_ast/test_app.py::TestApp::test_run PASSED [  0%]
         # Pattern for main test lines (PASSED/FAILED)
@@ -303,16 +303,17 @@ class MARIMO_1221_TO_807(Instance):
         for test_name in skipped_matches:
             skipped_tests.add(test_name)
         # Pattern for FAILED tests in summary (captures full test name with colons)
-        failed_summary_pattern = r"FAILED (tests/.*?)(?: -|$)"  # Matches until '-' or end of line
+        failed_summary_pattern = (
+            r"FAILED (tests/.*?)(?: -|$)"  # Matches until '-' or end of line
+        )
         failed_summary_matches = re.findall(failed_summary_pattern, log)
         for test_name in failed_summary_matches:
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

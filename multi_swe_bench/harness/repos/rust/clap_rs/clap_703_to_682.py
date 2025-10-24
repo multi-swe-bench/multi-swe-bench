@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ cargo test --features yaml
 ###ACTION_DELIMITER###
 echo 'cargo test --features yaml' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ echo 'cargo test --features yaml' > test_commands.sh
 cd /home/{pr.repo}
 cargo test --features yaml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test --features yaml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test --features yaml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class CLAP_703_TO_682(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,17 +180,19 @@ class CLAP_703_TO_682(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
+        passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex patterns
         passed_pattern = re.compile(r"test (.*?) \.\.\. ok")
         failed_pattern = re.compile(r"test (.*?) \.\.\. FAILED")
-        failures_section_pattern = re.compile(r"failures:\n\n(.*?)\n\nfailures:", re.DOTALL)
+        failures_section_pattern = re.compile(
+            r"failures:\n\n(.*?)\n\nfailures:", re.DOTALL
+        )
         individual_failure_pattern = re.compile(r"^    (.*?)$", re.MULTILINE)
         ignored_pattern = re.compile(r"test result: .*? (\d+) ignored")
         # Find passed tests
@@ -218,13 +214,12 @@ class CLAP_703_TO_682(Instance):
             # To make the output consistent, we'll create dummy names.
             num_ignored = int(ignored_match.group(1))
             for i in range(num_ignored):
-                skipped_tests.add(f"ignored_test_{i+1}")
+                skipped_tests.add(f"ignored_test_{i + 1}")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

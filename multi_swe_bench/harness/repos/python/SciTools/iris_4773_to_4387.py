@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.8"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/ma
 ###ACTION_DELIMITER###
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 nox -s tests-3.8 --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 nox -s tests-3.8 --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 nox -s tests-3.8 --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class IRIS_4773_TO_4387(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,32 +199,34 @@ class IRIS_4773_TO_4387(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set() # Tests that passed successfully
-        failed_tests: set[str] = set() # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Define regex pattern to match test status and name
         # Adjust regex to handle test names with colons and stop at hyphens/newlines
         # Explicitly allow colons and underscores in test names for clarity
-        pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED)\s+(lib/iris/tests/[\w/]+\.py::[\w:]+)\b', re.IGNORECASE)
+        pattern = re.compile(
+            r"\b(PASSED|FAILED|SKIPPED)\s+(lib/iris/tests/[\w/]+\.py::[\w:]+)\b",
+            re.IGNORECASE,
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

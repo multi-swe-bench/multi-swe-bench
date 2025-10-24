@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -98,7 +98,7 @@ CI=true npm test -- --verbose --watchAll=false --runInBand --maxWorkers=1' > tes
 echo '#!/bin/bash
 CI=true npm test -- --verbose --watchAll=false --runInBand' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-./test_commands.sh"""
+./test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 CI=true npm test -- --verbose --watchAll=false --runInBand
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ fi
 #!/bin/bash
 CI=true npm test -- --verbose --watchAll=false --runInBand
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ fi
 #!/bin/bash
 CI=true npm test -- --verbose --watchAll=false --runInBand
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -198,7 +198,7 @@ class RENKU_UI_317_TO_298(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -212,7 +212,6 @@ class RENKU_UI_317_TO_298(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -220,22 +219,22 @@ class RENKU_UI_317_TO_298(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Pattern to match passed tests (✓ followed by test name, optional duration)
-        passed_pattern = re.compile(r'^\s*✓\s*(.*?)(?:\s*\(\d+ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s*(.*?)(?:\s*\(\d+ms\))?$", re.MULTILINE)
         for match in passed_pattern.findall(log):
             test_name = match.strip()
             passed_tests.add(test_name)
         # Pattern to match failed tests (✕ followed by test name, optional duration)
-        failed_pattern = re.compile(r'^\s*✕\s*(.*?)(?:\s*\(\d+ms\))?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*✕\s*(.*?)(?:\s*\(\d+ms\))?$", re.MULTILINE)
         for match in failed_pattern.findall(log):
             test_name = match.strip()
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

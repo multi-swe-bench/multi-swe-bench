@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ set -e
 cd test/unit
 pytest -v -rA --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ set -e
 cd test/unit
 pytest -v -rA --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ set -e
 cd test/unit
 pytest -v -rA --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ set -e
 cd test/unit
 pytest -v -rA --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class KIWI_1094_TO_832(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class KIWI_1094_TO_832(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -191,29 +190,31 @@ class KIWI_1094_TO_832(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
-        test_name_pattern = r'[a-zA-Z0-9_]+\.py::[A-Za-z0-9_]+::[a-z0-9_]+'
-        status_pattern = r'(PASSED|FAILED|SKIPPED|ERROR)'
-        pattern = re.compile(rf'(?P<test1>{test_name_pattern})\s+(?P<status1>{status_pattern})|(?P<status2>{status_pattern})\s+(?P<test2>{test_name_pattern})')
-        for line in log.split('\n'):
+        test_name_pattern = r"[a-zA-Z0-9_]+\.py::[A-Za-z0-9_]+::[a-z0-9_]+"
+        status_pattern = r"(PASSED|FAILED|SKIPPED|ERROR)"
+        pattern = re.compile(
+            rf"(?P<test1>{test_name_pattern})\s+(?P<status1>{status_pattern})|(?P<status2>{status_pattern})\s+(?P<test2>{test_name_pattern})"
+        )
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
-                test_name = match.group('test1') or match.group('test2')
-                status = match.group('status1') or match.group('status2')
-                if status == 'PASSED':
+                test_name = match.group("test1") or match.group("test2")
+                status = match.group("status1") or match.group("status2")
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'ERROR':
+                elif status == "ERROR":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

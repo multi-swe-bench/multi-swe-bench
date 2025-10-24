@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ pip install -e hypothesis-python/
 ###ACTION_DELIMITER###
 echo 'pytest -v hypothesis-python/tests/cover/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class HYPOTHESIS_3386_TO_3323(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class HYPOTHESIS_3386_TO_3323(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -183,36 +182,36 @@ class HYPOTHESIS_3386_TO_3323(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Define regex patterns to match test cases and their statuses
         # Pattern 1: Test name followed by status (e.g., "test.py::test_name PASSED")
         # Pattern 2: Status followed by test name (e.g., "FAILED test.py::test_name")
         test_pattern = re.compile(
-            r'((?P<test1>[^\s]+::[^\s]+)\s+(?P<status1>PASSED|FAILED|SKIPPED))|((?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test2>[^\s]+::[^\s]+))'
+            r"((?P<test1>[^\s]+::[^\s]+)\s+(?P<status1>PASSED|FAILED|SKIPPED))|((?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test2>[^\s]+::[^\s]+))"
         )
         # Iterate through all matches in the log content
         for match in test_pattern.finditer(log):
             test_name = None
             status = None
-            if match.group('test1') and match.group('status1'):
-                test_name = match.group('test1')
-                status = match.group('status1')
-            elif match.group('status2') and match.group('test2'):
-                test_name = match.group('test2')
-                status = match.group('status2')
+            if match.group("test1") and match.group("status1"):
+                test_name = match.group("test1")
+                status = match.group("status1")
+            elif match.group("status2") and match.group("test2"):
+                test_name = match.group("test2")
+                status = match.group("status2")
             if test_name and status:
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

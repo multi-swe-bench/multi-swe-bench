@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -72,7 +72,7 @@ apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ cd /home/{pr.repo}
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +96,7 @@ fi
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ fi
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class PILLOW_4833_TO_4566(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,17 +186,17 @@ class PILLOW_4833_TO_4566(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes (fixed: single backslash for \x1b)
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Regex to match test cases and statuses (improved pattern)
-        pattern = r'(Tests/[\w/]+\.py::(?:Test\w+::)?test_\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(Tests/[\w/]+\.py::(?:Test\w+::)?test_\w+)'
+        pattern = r"(Tests/[\w/]+\.py::(?:Test\w+::)?test_\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(Tests/[\w/]+\.py::(?:Test\w+::)?test_\w+)"
         matches = re.findall(pattern, log_clean)
         for match in matches:
             if match[0] and match[1]:
@@ -211,18 +205,17 @@ class PILLOW_4833_TO_4566(Instance):
                 test_name, status = match[3], match[2]
             else:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

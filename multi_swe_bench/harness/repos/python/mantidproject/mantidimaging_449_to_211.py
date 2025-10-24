@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -126,7 +126,7 @@ pip install hazelnut
 ###ACTION_DELIMITER###
 export QT_QPA_PLATFORM=offscreen && nosetests -v
 ###ACTION_DELIMITER###
-echo 'export QT_QPA_PLATFORM=offscreen && nosetests -v' > test_commands.sh"""
+echo 'export QT_QPA_PLATFORM=offscreen && nosetests -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ echo 'export QT_QPA_PLATFORM=offscreen && nosetests -v' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 export QT_QPA_PLATFORM=offscreen && nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -148,7 +148,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 export QT_QPA_PLATFORM=offscreen && nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -161,7 +161,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 export QT_QPA_PLATFORM=offscreen && nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -223,7 +223,7 @@ class MANTIDIMAGING_449_TO_211(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -237,25 +237,25 @@ class MANTIDIMAGING_449_TO_211(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines for processing
-        lines = log.split('\n')
+        lines = log.split("\n")
         i = 0
         while i < len(lines):
             line = lines[i].strip()
             # Match test lines starting with #<number> followed by test name
-            test_match = re.match(r'^#\d+\s+(.*?)\s+\.\.\.', line)
+            test_match = re.match(r"^#\d+\s+(.*?)\s+\.\.\.", line)
             if test_match:
                 test_name = test_match.group(1).strip()
                 status = None
                 # Check if status is on the same line
-                status_match = re.search(r'\.\.\.\s+(ok|ERROR|SKIP:.*)$', line)
+                status_match = re.search(r"\.\.\.\s+(ok|ERROR|SKIP:.*)$", line)
                 if status_match:
                     status = status_match.group(1)
                 else:
@@ -263,7 +263,7 @@ class MANTIDIMAGING_449_TO_211(Instance):
                     j = i + 1
                     while j < len(lines):
                         next_line = lines[j].strip()
-                        status_match = re.match(r'^(ok|ERROR|SKIP:.*)$', next_line)
+                        status_match = re.match(r"^(ok|ERROR|SKIP:.*)$", next_line)
                         if status_match:
                             status = status_match.group(1)
                             i = j  # Skip processed lines
@@ -271,19 +271,18 @@ class MANTIDIMAGING_449_TO_211(Instance):
                         j += 1
                 # Categorize test based on status
                 if status:
-                    if status == 'ok':
+                    if status == "ok":
                         passed_tests.add(test_name)
-                    elif status == 'ERROR':
+                    elif status == "ERROR":
                         failed_tests.add(test_name)
-                    elif status.startswith('SKIP:'):
+                    elif status.startswith("SKIP:"):
                         skipped_tests.add(test_name)
             i += 1
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

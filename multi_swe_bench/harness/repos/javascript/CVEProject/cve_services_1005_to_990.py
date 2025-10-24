@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ apt-get update && apt-get install -y mongodb
 ###ACTION_DELIMITER###
 curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | apt-key add - && echo 'deb http://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main' > /etc/apt/sources.list.d/mongodb-org-6.0.list && apt-get update && apt-get install -y mongodb-org
 ###ACTION_DELIMITER###
-mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log"""
+mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class CVE_SERVICES_1005_TO_990(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,7 +169,6 @@ class CVE_SERVICES_1005_TO_990(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -177,30 +176,32 @@ class CVE_SERVICES_1005_TO_990(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json  # Keeping as per the skeleton, though not used
+
         # Parse passed tests
-        passed_matches = re.findall(r'^\s+✔\s+(.*)$', log, re.MULTILINE)
+        passed_matches = re.findall(r"^\s+✔\s+(.*)$", log, re.MULTILINE)
         for match in passed_matches:
-            test_name = match.strip().rstrip(':')
+            test_name = match.strip().rstrip(":")
             passed_tests.add(test_name)
         # Parse failing tests
-        failing_section = re.search(r'(\d+)\s+failing\s*\n(.*?)(?=\n{2,}|\Z)', log, re.DOTALL)
+        failing_section = re.search(
+            r"(\d+)\s+failing\s*\n(.*?)(?=\n{2,}|\Z)", log, re.DOTALL
+        )
         if failing_section:
             failing_content = failing_section.group(2)
-            failed_matches = re.findall(r'^\s+(.+?):$', failing_content, re.MULTILINE)
+            failed_matches = re.findall(r"^\s+(.+?):$", failing_content, re.MULTILINE)
             for match in failed_matches:
                 test_name = match.strip()
                 failed_tests.add(test_name)
         # Parse skipped tests (placeholder)
-        skipped_matches = re.findall(r'(?:✖|SKIPPED)\s+(.*)', log)
+        skipped_matches = re.findall(r"(?:✖|SKIPPED)\s+(.*)", log)
         for match in skipped_matches:
-            test_name = match.strip().rstrip(':')
+            test_name = match.strip().rstrip(":")
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

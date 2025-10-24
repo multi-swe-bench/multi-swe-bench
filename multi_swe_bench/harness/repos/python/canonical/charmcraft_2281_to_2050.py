@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ uv run pytest -v
 ###ACTION_DELIMITER###
 echo 'uv run pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 uv run pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 uv run pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 uv run pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class CHARMCRAFT_2281_TO_2050(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,7 +188,6 @@ class CHARMCRAFT_2281_TO_2050(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -202,21 +195,24 @@ class CHARMCRAFT_2281_TO_2050(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Compile regex patterns to match test statuses
-        pattern_passed_skipped = re.compile(r'^(.+?)\s+(PASSED|SKIPPED|XFAILED)\s+\[\s*\d+%\s*\]$')
-        pattern_failed_error = re.compile(r'^(FAILED|ERROR)\s+(.+?)(\s+-.*)?$')
-        for line in log.split('\n'):
+        pattern_passed_skipped = re.compile(
+            r"^(.+?)\s+(PASSED|SKIPPED|XFAILED)\s+\[\s*\d+%\s*\]$"
+        )
+        pattern_failed_error = re.compile(r"^(FAILED|ERROR)\s+(.+?)(\s+-.*)?$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed, skipped, or xfailed tests (e.g., 'test_name PASSED [ 0%]')
             match = pattern_passed_skipped.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status == 'XFAILED':
+                elif status == "XFAILED":
                     failed_tests.add(test_name)
                 continue
             # Check for failed or error tests (e.g., 'FAILED test_name - ...')
@@ -228,9 +224,8 @@ class CHARMCRAFT_2281_TO_2050(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

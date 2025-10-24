@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -111,7 +111,7 @@ ln -sf $(pwd)/dummy_bids /usr/local/miniconda/lib/python3.10/site-packages/xcp_d
 ###ACTION_DELIMITER###
 mkdir -p /usr/local/freesurfer && ln -sf $(pwd)/dummy_bids /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data/ds001419 && export BIDS_ROOT=$(pwd)/dummy_bids && export TEMPLATEFLOW_HOME=/home/xcp_d/templateflow && export FREESURFER_HOME=/usr/local/freesurfer && bash test_commands.sh
 ###ACTION_DELIMITER###
-mkdir -p /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data && ln -sf $(pwd)/dummy_bids /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data && python3.10 -c 'from templateflow.api import get; get("MNI152NLin2009cAsym", atlas="Schaefer2018", resolution=2); get("MNI152NLin6Asym", atlas="Schaefer2018", resolution=2); get("MNI152NLin2009cAsym", atlas="Schaefer2018", resolution=1)' && mkdir -p /usr/local/freesurfer/subjects && export BIDS_ROOT=$(pwd)/dummy_bids && export TEMPLATEFLOW_HOME=/home/xcp_d/templateflow && export FREESURFER_HOME=/usr/local/freesurfer && bash test_commands.sh"""
+mkdir -p /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data && ln -sf $(pwd)/dummy_bids /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data && python3.10 -c 'from templateflow.api import get; get("MNI152NLin2009cAsym", atlas="Schaefer2018", resolution=2); get("MNI152NLin6Asym", atlas="Schaefer2018", resolution=2); get("MNI152NLin2009cAsym", atlas="Schaefer2018", resolution=1)' && mkdir -p /usr/local/freesurfer/subjects && export BIDS_ROOT=$(pwd)/dummy_bids && export TEMPLATEFLOW_HOME=/home/xcp_d/templateflow && export FREESURFER_HOME=/usr/local/freesurfer && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -120,9 +120,7 @@ mkdir -p /usr/local/miniconda/lib/python3.10/site-packages/xcp_d/tests/data && l
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=no -p no:cacheprovider xcp_d/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -135,9 +133,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider xcp_d/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -150,9 +146,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider xcp_d/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -214,7 +208,7 @@ class XCP_D_1061_TO_956(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -228,16 +222,16 @@ class XCP_D_1061_TO_956(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regular expression pattern to match test cases and their statuses
         test_pattern = re.compile(
-            r'(xcp_d/tests/[\w.]+\.py::[\w_]+)\s+(PASSED|FAILED|ERROR)|(PASSED|FAILED|ERROR)\s+(xcp_d/tests/[\w.]+\.py::[\w_]+)'
+            r"(xcp_d/tests/[\w.]+\.py::[\w_]+)\s+(PASSED|FAILED|ERROR)|(PASSED|FAILED|ERROR)\s+(xcp_d/tests/[\w.]+\.py::[\w_]+)"
         )
         for line in log.splitlines():
             match = test_pattern.search(line)
@@ -251,17 +245,16 @@ class XCP_D_1061_TO_956(Instance):
                     test_name = match.group(4).strip()
                 else:
                     continue  # No valid groups matched
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR'):
+                elif status in ("FAILED", "ERROR"):
                     failed_tests.add(test_name)
                 # Handle SKIPPED if present in logs
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

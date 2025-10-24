@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y texlive-latex-base texlive-fonts-recommended texlive-latex-extra latexmk
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 xvfb-run -a poetry run pytest -v -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a poetry run pytest -v -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a poetry run pytest -v -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class MANIM_3423_TO_2920(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,7 +191,6 @@ class MANIM_3423_TO_2920(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -199,11 +198,12 @@ class MANIM_3423_TO_2920(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex patterns to find test names based on their status
-        passed_pattern = r'PASSED (tests/[^\n]+)'
-        failed_pattern = r'FAILED (tests/[^\n]+)'
-        skipped_pattern = r'SKIPPED (tests/[^\n]+)'
+        passed_pattern = r"PASSED (tests/[^\n]+)"
+        failed_pattern = r"FAILED (tests/[^\n]+)"
+        skipped_pattern = r"SKIPPED (tests/[^\n]+)"
         # Extract test names using regex
         passed_tests = set(re.findall(passed_pattern, log))
         failed_tests = set(re.findall(failed_pattern, log))
@@ -211,9 +211,8 @@ class MANIM_3423_TO_2920(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

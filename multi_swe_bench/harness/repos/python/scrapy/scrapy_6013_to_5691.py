@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ echo 'pytest -v --cov=scrapy --cov-report=xml --cov-report= --durations=10 docs 
 ###ACTION_DELIMITER###
 cat /home/scrapy/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/scrapy/test_commands.sh"""
+bash /home/scrapy/test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ bash /home/scrapy/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --cov=scrapy --cov-report=xml --cov-report= --durations=10 docs scrapy tests --doctest-modules -k "not Windows" --deselect docs/intro/tutorial.rst::line:254,column:1 --deselect docs/intro/tutorial.rst::line:350,column:1 --deselect docs/intro/tutorial.rst::line:412,column:1
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --cov=scrapy --cov-report=xml --cov-report= --durations=10 docs scrapy tests --doctest-modules -k "not Windows" --deselect docs/intro/tutorial.rst::line:254,column:1 --deselect docs/intro/tutorial.rst::line:350,column:1 --deselect docs/intro/tutorial.rst::line:412,column:1
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --cov=scrapy --cov-report=xml --cov-report= --durations=10 docs scrapy tests --doctest-modules -k "not Windows" --deselect docs/intro/tutorial.rst::line:254,column:1 --deselect docs/intro/tutorial.rst::line:350,column:1 --deselect docs/intro/tutorial.rst::line:412,column:1
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class SCRAPY_6013_TO_5691(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,39 +192,38 @@ class SCRAPY_6013_TO_5691(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Remove leading [number] and whitespace
-            processed_line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            processed_line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Check for PASSED
-            passed_match = re.match(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]', processed_line)
+            passed_match = re.match(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]", processed_line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 passed_tests.add(test_name)
             # Check for SKIPPED
-            skipped_match = re.match(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]', processed_line)
+            skipped_match = re.match(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]", processed_line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 skipped_tests.add(test_name)
             # Check for FAILED
-            failed_match = re.match(r'^FAILED\s+(.*?)\s+-', processed_line)
+            failed_match = re.match(r"^FAILED\s+(.*?)\s+-", processed_line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ apt-get install -y samtools
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > /home/jbrowse-components/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/jbrowse-components/test_commands.sh"""
+cat /home/jbrowse-components/test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cat /home/jbrowse-components/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class JBROWSE_COMPONENTS_4158_TO_3726(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,21 +171,28 @@ class JBROWSE_COMPONENTS_4158_TO_3726(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         # Extract test suite paths (PASS/FAIL) and test cases
         import re
-        suite_pattern = re.compile(r'^(PASS|FAIL) (.*?)(?: \(\d+\.\d+ s\))?$', re.MULTILINE)
+
+        suite_pattern = re.compile(
+            r"^(PASS|FAIL) (.*?)(?: \(\d+\.\d+ s\))?$", re.MULTILINE
+        )
         # Capture test cases with symbols (✓/✗/×/-) and stack traces with function names
-        test_case_pattern = re.compile(r'^\s+([✓✗×-])\s+(.*?)(?:\s+\(\d+ ms\))?$', re.MULTILINE)  # Indented test cases with symbols
-        failed_test_pattern = re.compile(r'^\s*\[\d+\]\s+at\s+([^\s(]+)\s*\((.*?test\.(tsx?|js))[:\d]*\)', re.IGNORECASE | re.MULTILINE)  # Captures function and test file
+        test_case_pattern = re.compile(
+            r"^\s+([✓✗×-])\s+(.*?)(?:\s+\(\d+ ms\))?$", re.MULTILINE
+        )  # Indented test cases with symbols
+        failed_test_pattern = re.compile(
+            r"^\s*\[\d+\]\s+at\s+([^\s(]+)\s*\((.*?test\.(tsx?|js))[:\d]*\)",
+            re.IGNORECASE | re.MULTILINE,
+        )  # Captures function and test file
         current_suite = None
         test_status = {}
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Update current suite on PASS/FAIL lines
             suite_match = suite_pattern.match(line)
             if suite_match:
@@ -196,36 +203,35 @@ class JBROWSE_COMPONENTS_4158_TO_3726(Instance):
             if test_match and current_suite:
                 symbol = test_match.group(1)
                 test_name = f"{current_suite} {test_match.group(2)}"
-                if symbol == '✓':
-                    test_status[test_name] = 'passed'
-                elif symbol in ('✗', '×'):
-                    test_status[test_name] = 'failed'
-                elif symbol == '-':
-                    test_status[test_name] = 'skipped'
+                if symbol == "✓":
+                    test_status[test_name] = "passed"
+                elif symbol in ("✗", "×"):
+                    test_status[test_name] = "failed"
+                elif symbol == "-":
+                    test_status[test_name] = "skipped"
                 # Override with suite status if suite is failed
-                if suite_status == 'FAIL':
-                    test_status[test_name] = 'failed'
+                if suite_status == "FAIL":
+                    test_status[test_name] = "failed"
             # Capture failed tests from stack traces
             failed_match = failed_test_pattern.match(line)
             if failed_match:
                 test_file = failed_match.group(2)
                 test_func = failed_match.group(1)
                 test_name = f"{test_file} {test_func}"
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
         # Populate sets from the test_status dictionary
         for test_name, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test_name)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

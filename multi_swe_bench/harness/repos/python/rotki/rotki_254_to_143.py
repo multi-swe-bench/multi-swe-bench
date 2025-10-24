@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -124,7 +124,7 @@ sed -i 's/mypy==0.641/mypy==0.990/' requirements_dev.txt
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip install -r requirements.txt -r requirements_dev.txt && bash /home/rotki/test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/pycryptodome==3.6.6/pycryptodome==3.18.0/' requirements.txt && sed -i 's/pycryptodomex==3.6.6/pycryptodomex==3.18.0/' requirements.txt && source venv/bin/activate && pip install -r requirements.txt -r requirements_dev.txt && bash /home/rotki/test_commands.sh"""
+sed -i 's/pycryptodome==3.6.6/pycryptodome==3.18.0/' requirements.txt && sed -i 's/pycryptodomex==3.6.6/pycryptodomex==3.18.0/' requirements.txt && source venv/bin/activate && pip install -r requirements.txt -r requirements_dev.txt && bash /home/rotki/test_commands.sh""",
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ sed -i 's/pycryptodome==3.6.6/pycryptodome==3.18.0/' requirements.txt && sed -i 
 cd /home/[[REPO_NAME]]
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -146,7 +146,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -221,7 +221,7 @@ class ROTKI_254_TO_143(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,17 +235,19 @@ class ROTKI_254_TO_143(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex pattern to match test names and their statuses (handles both 'test status' and 'status test' formats)
-        pattern = re.compile(r'(.+?::test_.+?) (FAILED|PASSED|ERROR|SKIPPED)|(FAILED|PASSED|ERROR|SKIPPED) (.+?::test_.+?)')
+        pattern = re.compile(
+            r"(.+?::test_.+?) (FAILED|PASSED|ERROR|SKIPPED)|(FAILED|PASSED|ERROR|SKIPPED) (.+?::test_.+?)"
+        )
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             match = pattern.search(line)
             if match:
@@ -256,18 +258,17 @@ class ROTKI_254_TO_143(Instance):
                     test_name = test_name.strip()
                     status = status.strip()
                     # Classify the test based on status
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status in ('FAILED', 'ERROR'):
+                    elif status in ("FAILED", "ERROR"):
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

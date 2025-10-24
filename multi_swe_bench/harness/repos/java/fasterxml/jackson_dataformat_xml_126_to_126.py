@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "maven:3.8.4-jdk-8"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ mvn clean install
 ###ACTION_DELIMITER###
 mvn test
 ###ACTION_DELIMITER###
-echo 'mvn clean test -Dstyle.color=never' > test_commands.sh"""
+echo 'mvn clean test -Dstyle.color=never' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'mvn clean test -Dstyle.color=never' > test_commands.sh"""
 cd /home/{pr.repo}
 mvn clean test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mvn clean test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mvn clean test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class JACKSON_DATAFORMAT_XML_126_TO_126(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,15 +168,19 @@ class JACKSON_DATAFORMAT_XML_126_TO_126(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        compilation_error_pattern = re.compile(r"\[ERROR\] /home/jackson-dataformat-xml/src/test/java/(.+?)\.java")
-        test_pattern = re.compile(r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed:.+ sec - in (.+)")
+
+        compilation_error_pattern = re.compile(
+            r"\[ERROR\] /home/jackson-dataformat-xml/src/test/java/(.+?)\.java"
+        )
+        test_pattern = re.compile(
+            r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed:.+ sec - in (.+)"
+        )
         for line in log.splitlines():
             match = test_pattern.search(line)
             if match:
@@ -198,13 +196,12 @@ class JACKSON_DATAFORMAT_XML_126_TO_126(Instance):
                     failed_tests.add(test_name)
             compilation_match = compilation_error_pattern.search(line)
             if compilation_match:
-                failed_tests.add(compilation_match.group(1).replace('/', '.'))
+                failed_tests.add(compilation_match.group(1).replace("/", "."))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

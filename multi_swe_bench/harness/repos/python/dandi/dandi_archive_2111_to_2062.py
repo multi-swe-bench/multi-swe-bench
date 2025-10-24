@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ export DJANGO_MINIO_STORAGE_ENDPOINT="localhost:9000"
 export DJANGO_DATABASE_URL="postgres://testuser@localhost/testdb"
 ./minio server /tmp/minio --console-address :9001 &
 sleep 10
-venv/bin/pytest --verbose --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+venv/bin/pytest --verbose --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ export DJANGO_DATABASE_URL="postgres://testuser@localhost/testdb"
 sleep 10
 venv/bin/pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -186,7 +186,7 @@ export DJANGO_DATABASE_URL="postgres://testuser@localhost/testdb"
 sleep 10
 venv/bin/pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -208,7 +208,7 @@ export DJANGO_DATABASE_URL="postgres://testuser@localhost/testdb"
 sleep 10
 venv/bin/pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -270,7 +270,7 @@ class DANDI_ARCHIVE_2111_TO_2062(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -284,15 +284,17 @@ class DANDI_ARCHIVE_2111_TO_2062(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test names and their statuses
-        pattern = re.compile(r'(?:(PASSED|FAILED|SKIPPED)\s+([\w/]+\.py::[\w\[\]\-]+)|([\w/]+\.py::[\w\[\]\-]+)\s+(PASSED|FAILED|SKIPPED))')
+        pattern = re.compile(
+            r"(?:(PASSED|FAILED|SKIPPED)\s+([\w/]+\.py::[\w\[\]\-]+)|([\w/]+\.py::[\w\[\]\-]+)\s+(PASSED|FAILED|SKIPPED))"
+        )
         matches = pattern.findall(log)
         for match in matches:
             status1, test1, test2, status2 = match
@@ -302,18 +304,17 @@ class DANDI_ARCHIVE_2111_TO_2062(Instance):
             else:
                 status = status2
                 test_name = test2
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

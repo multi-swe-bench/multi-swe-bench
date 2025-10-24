@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:8-jdk"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ ls -F
 ###ACTION_DELIMITER###
 cd ..
 ###ACTION_DELIMITER###
-echo "cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test" > test_commands.sh"""
+echo "cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ echo "cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test" > t
 cd /home/{pr.repo}
 cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cd jib-maven-plugin && mvn verify && cd ../jib-core && ./gradlew test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class JIB_127_TO_5(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,20 +178,23 @@ class JIB_127_TO_5(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         for line in log_clean.splitlines():
             if "Tests run" in line and "in com.google.cloud.tools.jib" in line:
                 match = re.search(r"in (com\.google\.cloud\.tools\.jib\.\S+)", line)
                 if match:
                     test_name = match.group(1).strip()
-                    if re.search(r"Failures: [1-9]|Errors: [1-9]", line) or "<<< FAILURE!" in line:
+                    if (
+                        re.search(r"Failures: [1-9]|Errors: [1-9]", line)
+                        or "<<< FAILURE!" in line
+                    ):
                         failed_tests.add(test_name)
                     elif re.search(r"Skipped: [1-9]", line):
                         skipped_tests.add(test_name)
@@ -206,9 +203,8 @@ class JIB_127_TO_5(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

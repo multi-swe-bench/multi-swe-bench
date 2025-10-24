@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -95,7 +95,7 @@ bash /home/autogen/test_commands.sh
 echo -e 'source /home/autogen/python/.venv/bin/activate
 pytest -v /home/autogen/python/packages/autogen-core/tests' > /home/autogen/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/autogen/test_commands.sh"""
+bash /home/autogen/test_commands.sh""",
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ cd /home/[[REPO_NAME]]
 source /home/autogen/python/.venv/bin/activate
 pytest -v /home/autogen/python/packages/autogen-core/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ fi
 source /home/autogen/python/.venv/bin/activate
 pytest -v /home/autogen/python/packages/autogen-core/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ fi
 source /home/autogen/python/.venv/bin/activate
 pytest -v /home/autogen/python/packages/autogen-core/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -195,7 +195,7 @@ class AUTOGEN_5183_TO_4847(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -209,13 +209,13 @@ class AUTOGEN_5183_TO_4847(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Pattern to match individual test lines with status
         test_pattern = r"::([^\s]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%]"
         test_matches = re.findall(test_pattern, log)
@@ -238,9 +238,8 @@ class AUTOGEN_5183_TO_4847(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

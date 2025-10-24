@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ pip install joblib==1.1.0 numba==0.51.0
 ###ACTION_DELIMITER###
 pip install joblib==0.13.2 numba==0.45.0 llvmlite==0.30.0
 ###ACTION_DELIMITER###
-sed -i 's/python3.8/python3/g' test_commands.sh && pip install numba==0.49.0 llvmlite==0.32.0 && bash test_commands.sh"""
+sed -i 's/python3.8/python3/g' test_commands.sh && pip install numba==0.49.0 llvmlite==0.32.0 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ cd /home/[[REPO_NAME]]
 python3 -m pytest -v --durations=5 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml tests/
 python3 -m pytest -v --doctest-modules --ignore=src/libertem/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -120,7 +120,7 @@ fi
 python3 -m pytest -v --durations=5 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml tests/
 python3 -m pytest -v --doctest-modules --ignore=src/libertem/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ fi
 python3 -m pytest -v --durations=5 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml tests/
 python3 -m pytest -v --doctest-modules --ignore=src/libertem/win_tweaks.py src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class LIBERTEM_548_TO_336(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,30 +211,29 @@ class LIBERTEM_548_TO_336(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = r'^(tests/.*?::.*?)\s+(PASSED|XFAIL|SKIPPED|FAILED)\s+\[\s*\d+%\s*\]$'
+        pattern = r"^(tests/.*?::.*?)\s+(PASSED|XFAIL|SKIPPED|FAILED)\s+\[\s*\d+%\s*\]$"
         # Find all matches in the log content
         matches = re.findall(pattern, log, re.MULTILINE)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ('FAILED', 'XFAIL'):
+            elif status in ("FAILED", "XFAIL"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

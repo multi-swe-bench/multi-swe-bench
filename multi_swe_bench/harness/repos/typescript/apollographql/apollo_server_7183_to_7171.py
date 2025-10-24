@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'npm test -- --maxWorkers=2' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class APOLLO_SERVER_7183_TO_7171(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,50 +167,52 @@ class APOLLO_SERVER_7183_TO_7171(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Track nested test hierarchy and indentation
         stack = []
         indentation_levels = []
         # Regex patterns with optional duration and nested handling
-        passed_pattern = re.compile(r'^\s*✓\s+(.*?)(?:\s*\(\d+\s*ms\))?$')
-        skipped_pattern = re.compile(r'^\s*○\s+skipped\s+(.*)$')
-        failed_pattern = re.compile(r'^\s*✕\s+(.*?)(?:\s*\(\d+\s*ms\))?$')
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"^\s*✓\s+(.*?)(?:\s*\(\d+\s*ms\))?$")
+        skipped_pattern = re.compile(r"^\s*○\s+skipped\s+(.*)$")
+        failed_pattern = re.compile(r"^\s*✕\s+(.*?)(?:\s*\(\d+\s*ms\))?$")
+        for line in log.split("\n"):
             line = line.rstrip()
             if not line:
                 continue
             # Calculate indentation (leading spaces)
-            indent = len(line) - len(line.lstrip(' '))
-            content = line.lstrip(' ').rstrip()
+            indent = len(line) - len(line.lstrip(" "))
+            content = line.lstrip(" ").rstrip()
             # Handle passed tests
             passed_match = passed_pattern.match(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
-                full_name = ' '.join([desc for (_, desc) in stack] + [test_name])
+                full_name = " ".join([desc for (_, desc) in stack] + [test_name])
                 passed_tests.add(full_name)
                 continue
             # Handle skipped tests
             skipped_match = skipped_pattern.match(line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
-                full_name = ' '.join([desc for (_, desc) in stack] + [test_name])
+                full_name = " ".join([desc for (_, desc) in stack] + [test_name])
                 skipped_tests.add(full_name)
                 continue
             # Handle failed tests
             failed_match = failed_pattern.match(line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
-                full_name = ' '.join([desc for (_, desc) in stack] + [test_name])
+                full_name = " ".join([desc for (_, desc) in stack] + [test_name])
                 failed_tests.add(full_name)
                 continue
             # Update stack for parent test descriptions (no status indicator)
-            if content and not content.startswith(('✓', '○', '✕', 'PASS', 'FAIL', '>', '›')):
+            if content and not content.startswith(
+                ("✓", "○", "✕", "PASS", "FAIL", ">", "›")
+            ):
                 # Pop stack if current indent is not deeper than previous
                 while indentation_levels and indent <= indentation_levels[-1]:
                     stack.pop()
@@ -220,9 +222,8 @@ class APOLLO_SERVER_7183_TO_7171(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ mysql -u root -e "CREATE DATABASE IF NOT EXISTS mindsdb_test; CREATE USER IF NOT
 ###ACTION_DELIMITER###
 pip install pymongo==3.12.3 && export MINDSDB_DB_CON='mysql://test:test@localhost/mindsdb_test' && PYTHONPATH=. pytest --no-header -rA --tb=short -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/
 ###ACTION_DELIMITER###
-service redis-server start && service mariadb start && service postgresql start && export MINDSDB_DB_CON='mysql://test:test@localhost/mindsdb_test' && PYTHONPATH=. pytest -v --no-header -rA --tb=short -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/"""
+service redis-server start && service mariadb start && service postgresql start && export MINDSDB_DB_CON='mysql://test:test@localhost/mindsdb_test' && PYTHONPATH=. pytest -v --no-header -rA --tb=short -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ service redis-server start && service mariadb start && service postgresql start 
 cd /home/[[REPO_NAME]]
 PYTHONPATH=. pytest --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=. pytest --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 PYTHONPATH=. pytest --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/integration_tests/flows/test_mysql_api.py --ignore=tests/integration_tests/flows/test_mysql_bin_api.py --ignore=tests/integration_tests/flows/test_predict_text_sentiment_openai_tutorial.py --ignore=tests/handler_tests/test_binance_handler.py --ignore=tests/handler_tests/test_file_handler.py --ignore=tests/integration_tests/flows/test_kafka.py --ignore=tests/integration_tests/flows/test_redis.py --ignore=tests/unit/ml_handlers/test_autokeras.py --ignore=tests/unit/ml_handlers/test_huggingface.py --ignore=tests/unit/ml_handlers/test_lightwood.py --ignore=tests/unit/ml_handlers/test_ludwig.py --ignore=tests/unit/ml_handlers/test_mlflow.py --ignore=tests/unit/ml_handlers/test_neuralforecast.py --ignore=tests/unit/ml_handlers/test_statsforecast.py --ignore=tests/unit/test_interfaces_consistency.py --ignore=tests/unit/test_merlion_handler.py tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class MINDSDB_5748_TO_5241(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,32 +199,31 @@ class MINDSDB_5748_TO_5241(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status lines and extract test name
         # Matches lines like: [ 101] PASSED tests/integration_tests/flows/test_http.py::TestHTTP::test_tabs[post-payload0-200-result0-headers0]
-        pattern = r'(?:\[\s*\d+\s*\]\s*)?(PASSED|FAILED|ERROR|SKIPPED)\s+([^\n]+?)\s*$'
+        pattern = r"(?:\[\s*\d+\s*\]\s*)?(PASSED|FAILED|ERROR|SKIPPED)\s+([^\n]+?)\s*$"
         matches = re.findall(pattern, log, re.MULTILINE | re.IGNORECASE)
         for status, test_name in matches:
             status = status.upper()
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

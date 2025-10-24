@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ ls -la .github/workflows
 ###ACTION_DELIMITER###
 pip install .[validation,test]
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v tests' > test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v tests' > test_comman
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class PYSTAC_1157_TO_1049(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,51 +165,50 @@ class PYSTAC_1157_TO_1049(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             # Check for PASSED
-            if ' PASSED' in line:
-                if line.startswith('PASSED '):
-                    test_name = line[len('PASSED '):].strip()
+            if " PASSED" in line:
+                if line.startswith("PASSED "):
+                    test_name = line[len("PASSED ") :].strip()
                     passed_tests.add(test_name)
                 else:
-                    idx = line.index(' PASSED')
+                    idx = line.index(" PASSED")
                     test_name = line[:idx].strip()
                     passed_tests.add(test_name)
             # Check for FAILED
-            elif ' FAILED' in line:
-                if line.startswith('FAILED '):
-                    test_name = line[len('FAILED '):].strip()
+            elif " FAILED" in line:
+                if line.startswith("FAILED "):
+                    test_name = line[len("FAILED ") :].strip()
                     failed_tests.add(test_name)
                 else:
-                    idx = line.index(' FAILED')
+                    idx = line.index(" FAILED")
                     test_name = line[:idx].strip()
                     failed_tests.add(test_name)
             # Check for SKIPPED
-            elif ' SKIPPED' in line:
-                if line.startswith('SKIPPED '):
-                    test_name = line[len('SKIPPED '):].strip()
+            elif " SKIPPED" in line:
+                if line.startswith("SKIPPED "):
+                    test_name = line[len("SKIPPED ") :].strip()
                     skipped_tests.add(test_name)
                 else:
-                    idx = line.index(' SKIPPED')
+                    idx = line.index(" SKIPPED")
                     test_name = line[:idx].strip()
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'yarn test -- --require @danielx/hera/register --require @danielx/civet/register --verbose --reporter json' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --require @danielx/hera/register --require @danielx/civet/register --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --require @danielx/hera/register --require @danielx/civet/register --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --require @danielx/hera/register --require @danielx/civet/register --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class CIVET_748_TO_657(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class CIVET_748_TO_657(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -189,33 +188,46 @@ class CIVET_748_TO_657(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove line number prefixes from each line
-        lines = log.split('\n')
-        cleaned_lines = [re.sub(r'^\[\s*\d+\]\s*', '', line) for line in lines]
-        cleaned_content = '\n'.join(cleaned_lines)
+        lines = log.split("\n")
+        cleaned_lines = [re.sub(r"^\[\s*\d+\]\s*", "", line) for line in lines]
+        cleaned_content = "\n".join(cleaned_lines)
         # Extract JSON object by excluding coverage report
-        coverage_start = re.search(r'File\s+\|\s+% Stmts', cleaned_content)
+        coverage_start = re.search(r"File\s+\|\s+% Stmts", cleaned_content)
         if coverage_start:
-            json_content = cleaned_content[:coverage_start.start()]
+            json_content = cleaned_content[: coverage_start.start()]
         else:
             json_content = cleaned_content
         # Extract JSON object starting with 'stats' key
         stats_match = re.search(r'"stats"\s*:\s*\{', json_content)
         if not stats_match:
-            return {"passed_tests": passed_tests, "failed_tests": failed_tests, "skipped_tests": skipped_tests}
+            return {
+                "passed_tests": passed_tests,
+                "failed_tests": failed_tests,
+                "skipped_tests": skipped_tests,
+            }
         stats_start = stats_match.start()
-        start_idx = json_content.rfind('{', 0, stats_start)
-        end_idx = json_content.rfind('}')
+        start_idx = json_content.rfind("{", 0, stats_start)
+        end_idx = json_content.rfind("}")
         if start_idx == -1 or end_idx == -1 or start_idx >= end_idx:
-            return {"passed_tests": passed_tests, "failed_tests": failed_tests, "skipped_tests": skipped_tests}
-        json_content = json_content[start_idx:end_idx+1]
+            return {
+                "passed_tests": passed_tests,
+                "failed_tests": failed_tests,
+                "skipped_tests": skipped_tests,
+            }
+        json_content = json_content[start_idx : end_idx + 1]
         # Parse JSON
         try:
             # Remove trailing commas to handle invalid JSON
-            json_str = re.sub(r',\s*([\]}])', r'\1', json_content)
+            json_str = re.sub(r",\s*([\]}])", r"\1", json_content)
             log_data = json.loads(json_str)
         except json.JSONDecodeError:
-            return {"passed_tests": passed_tests, "failed_tests": failed_tests, "skipped_tests": skipped_tests}
+            return {
+                "passed_tests": passed_tests,
+                "failed_tests": failed_tests,
+                "skipped_tests": skipped_tests,
+            }
         # Process tests
         for test in log_data.get("tests", []):
             test_name = test.get("fullTitle", test.get("title", ""))
@@ -224,16 +236,18 @@ class CIVET_748_TO_657(Instance):
             pending = test.get("pending", False)
             if pending:
                 skipped_tests.add(test_name)
-            elif test.get("err") and (test["err"] != {} or (isinstance(test["err"], str) and test["err"].strip() != "")):
+            elif test.get("err") and (
+                test["err"] != {}
+                or (isinstance(test["err"], str) and test["err"].strip() != "")
+            ):
                 failed_tests.add(test_name)
             else:
                 passed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

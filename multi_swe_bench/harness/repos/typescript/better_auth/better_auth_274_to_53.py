@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ echo 'pnpm test -- -- --reporter verbose' > /home/better-auth/test_commands.sh &
 ###ACTION_DELIMITER###
 echo 'pnpm test -- -- --reporter verbose --run' > /home/better-auth/test_commands.sh && bash /home/better-auth/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ echo 'pnpm test -- -- --reporter verbose --run' > /home/better-auth/test_command
 cd /home/[[REPO_NAME]]
 pnpm test -- -- --reporter verbose --run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -- -- --reporter verbose --run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm test -- -- --reporter verbose --run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class BETTER_AUTH_274_TO_53(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,7 +199,6 @@ class BETTER_AUTH_274_TO_53(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -207,11 +206,14 @@ class BETTER_AUTH_274_TO_53(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Pattern for passed tests: matches "✓ " followed by test name (file > suite > case)
-        passed_pattern = re.compile(r'✓\s+([\w\/-]+\.test\.ts > .*?)(?:\s+\d+ms)?$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"✓\s+([\w\/-]+\.test\.ts > .*?)(?:\s+\d+ms)?$", re.MULTILINE
+        )
         # Pattern for failed tests: matches "FAIL " followed by test name
-        failed_pattern = re.compile(r'FAIL\s+([\w\/-]+\.test\.ts > .*?)$', re.MULTILINE)
+        failed_pattern = re.compile(r"FAIL\s+([\w\/-]+\.test\.ts > .*?)$", re.MULTILINE)
         # Find all passed tests
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
@@ -222,9 +224,8 @@ class BETTER_AUTH_274_TO_53(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

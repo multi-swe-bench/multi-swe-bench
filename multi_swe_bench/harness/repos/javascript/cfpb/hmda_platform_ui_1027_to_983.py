@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ unlink /usr/bin/python && ln -s /usr/bin/python2.7 /usr/bin/python && yarn insta
 ###ACTION_DELIMITER###
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && source ~/.nvm/nvm.sh && nvm install 10 && nvm use 10 && yarn install
 ###ACTION_DELIMITER###
-echo 'yarn test -- --verbose' > test_commands.sh"""
+echo 'yarn test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ echo 'yarn test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class HMDA_PLATFORM_UI_1027_TO_983(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class HMDA_PLATFORM_UI_1027_TO_983(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -187,10 +186,13 @@ class HMDA_PLATFORM_UI_1027_TO_983(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test statuses, accounting for ANSI escape codes
-        pass_pattern = re.compile(r'(?:\x1B\[\d*[A-Za-z])*PASS\s+(\S+\.test\.js)')
-        fail_pattern = re.compile(r'(?:\x1B\[\d*[A-Za-z])*FAIL\s+(\S+\.test\.js)')
-        skip_pattern = re.compile(r'(?:\x1B\[\d*[A-Za-z])*(?:SKIP|SKIPPED)\s+(\S+\.test\.js)')
+        pass_pattern = re.compile(r"(?:\x1B\[\d*[A-Za-z])*PASS\s+(\S+\.test\.js)")
+        fail_pattern = re.compile(r"(?:\x1B\[\d*[A-Za-z])*FAIL\s+(\S+\.test\.js)")
+        skip_pattern = re.compile(
+            r"(?:\x1B\[\d*[A-Za-z])*(?:SKIP|SKIPPED)\s+(\S+\.test\.js)"
+        )
         # Extract test names based on status
         passed_tests = set(pass_pattern.findall(log))
         failed_tests = set(fail_pattern.findall(log))
@@ -198,9 +200,8 @@ class HMDA_PLATFORM_UI_1027_TO_983(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

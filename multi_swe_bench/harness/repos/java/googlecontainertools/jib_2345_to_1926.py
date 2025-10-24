@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:8-jdk"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ apt-get update && apt-get install -y maven
 ###ACTION_DELIMITER###
 ./gradlew clean build --continue
 ###ACTION_DELIMITER###
-echo "./gradlew clean build --continue" > /home/jib/test_commands.sh"""
+echo "./gradlew clean build --continue" > /home/jib/test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo "./gradlew clean build --continue" > /home/jib/test_commands.sh"""
 cd /home/{pr.repo}
 ./gradlew clean build --continue
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./gradlew clean build --continue
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./gradlew clean build --continue
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class JIB_2345_TO_1926(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,14 +168,14 @@ class JIB_2345_TO_1926(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         failed_pattern = re.compile(r"Execution failed for task '(:\S+:\S+)'\.")
         task_pattern = re.compile(r"> Task (:\S+:\S+)( .*)?")
@@ -194,16 +188,17 @@ class JIB_2345_TO_1926(Instance):
             if task_match:
                 task_name = task_match.group(1)
                 status = task_match.group(2)
-                if status and any(s in status for s in ["NO-SOURCE", "UP-TO-DATE", "SKIPPED"]):
+                if status and any(
+                    s in status for s in ["NO-SOURCE", "UP-TO-DATE", "SKIPPED"]
+                ):
                     skipped_tests.add(task_name)
                 elif task_name not in failed_tests:
                     passed_tests.add(task_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ apt-get install -y postgresql
 ###ACTION_DELIMITER###
 pg_ctlcluster 16 main start
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class HUB_174_TO_55(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,32 +183,32 @@ class HUB_174_TO_55(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern to match test status lines (e.g., "--- PASS: TestName (0.00s)")
-        status_pattern = r'^\s*--- (\w+): (.*?) \(\d+\.?\d*s\)$'
+        status_pattern = r"^\s*--- (\w+): (.*?) \(\d+\.?\d*s\)$"
         status_matches = re.findall(status_pattern, log, re.MULTILINE)
         # Pattern to match test start lines (e.g., "=== RUN   TestName")
-        run_pattern = r'^\s*=== RUN\s+(\S+)$'
+        run_pattern = r"^\s*=== RUN\s+(\S+)$"
         all_tests = set(re.findall(run_pattern, log, re.MULTILINE))
         # Pattern to match suite-level FAIL (e.g., "FAIL" at the end of the log)
-        suite_fail_pattern = r'^\s*FAIL\s*$'
+        suite_fail_pattern = r"^\s*FAIL\s*$"
         suite_failed = re.search(suite_fail_pattern, log, re.MULTILINE) is not None
         # Pattern to match compilation/setup errors (e.g., "h.MethodName undefined (type ...)")
-        error_pattern = r'^\s*internal/.*?_test\.go:\d+:\d+: h\.(\w+) undefined.*'
+        error_pattern = r"^\s*internal/.*?_test\.go:\d+:\d+: h\.(\w+) undefined.*"
         compilation_errors = re.findall(error_pattern, log, re.MULTILINE)
         for status, test_name in status_matches:
             status = status.upper()
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status in ('FAIL', 'ERROR'):  # Handle ERROR as failure
+            elif status in ("FAIL", "ERROR"):  # Handle ERROR as failure
                 failed_tests.add(test_name)
-            elif status in ('SKIP', 'SKIPPED'):  # Handle SKIP and SKIPPED
+            elif status in ("SKIP", "SKIPPED"):  # Handle SKIP and SKIPPED
                 skipped_tests.add(test_name)
         # Mark tests that started but didn't complete as failed
         completed_tests = passed_tests.union(failed_tests).union(skipped_tests)
@@ -223,9 +223,8 @@ class HUB_174_TO_55(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

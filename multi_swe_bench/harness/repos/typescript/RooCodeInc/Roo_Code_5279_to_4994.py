@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pnpm exec turbo test --force --log-order grouped --output-logs full' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm exec turbo test --force --log-order grouped --output-logs full
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm exec turbo test --force --log-order grouped --output-logs full
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm exec turbo test --force --log-order grouped --output-logs full
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class ROO_CODE_5279_TO_4994(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,7 +191,6 @@ class ROO_CODE_5279_TO_4994(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -199,17 +198,21 @@ class ROO_CODE_5279_TO_4994(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract test packages from 'Packages in scope' line
-        packages_match = re.search(r'• Packages in scope: (.*)', log)
+        packages_match = re.search(r"• Packages in scope: (.*)", log)
         all_tests = set()
         if packages_match:
-            packages = [p.strip() for p in packages_match.group(1).split(',')]
+            packages = [p.strip() for p in packages_match.group(1).split(",")]
             all_tests = {f"{pkg}:test" for pkg in packages}
         # Extract failed tests (handle spaces and #test/:test)
-        failed_matches = re.findall(r'Failed:\s+(.*?)(#test|:test)', log)
+        failed_matches = re.findall(r"Failed:\s+(.*?)(#test|:test)", log)
         failed_tests = {f"{pkg}:test" for pkg, _ in failed_matches}
         # Extract skipped tests from lines indicating skipped status (e.g., 'Skipped: test_name' or 'test_name: skipped')
-        skipped_pattern = re.compile(r'(Skipped:\s+)?(@roo-code/[\w-]+:test|roo-cline:test)\s*[:.]?\s*skipped', re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"(Skipped:\s+)?(@roo-code/[\w-]+:test|roo-cline:test)\s*[:.]?\s*skipped",
+            re.IGNORECASE,
+        )
         skipped_matches = [match[1] for match in skipped_pattern.findall(log)]
         skipped_tests = set(skipped_matches)
         # Passed tests are all tests not failed or skipped
@@ -217,9 +220,8 @@ class ROO_CODE_5279_TO_4994(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

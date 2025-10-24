@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ pip install pytest-xdist
 ###ACTION_DELIMITER###
 echo 'pytest -v -n auto tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class AESARA_741_TO_169(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,26 +208,25 @@ class AESARA_741_TO_169(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Use regex to find test names based on status
-        passed_pattern = re.compile(r'PASSED (tests/.*?)(?= - |\s|$)')
-        failed_pattern = re.compile(r'FAILED (tests/.*?)(?= - |\s|$)')
-        skipped_pattern = re.compile(r'SKIPPED (tests/.*?)(?= - |\s|$)')
+        passed_pattern = re.compile(r"PASSED (tests/.*?)(?= - |\s|$)")
+        failed_pattern = re.compile(r"FAILED (tests/.*?)(?= - |\s|$)")
+        skipped_pattern = re.compile(r"SKIPPED (tests/.*?)(?= - |\s|$)")
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

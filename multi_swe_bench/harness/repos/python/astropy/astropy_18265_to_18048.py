@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ pip install tox
 ###ACTION_DELIMITER###
 tox -e py311-test
 ###ACTION_DELIMITER###
-echo "tox -e py311-test" > test_commands.sh"""
+echo "tox -e py311-test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ echo "tox -e py311-test" > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 tox -e py311-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 tox -e py311-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 tox -e py311-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class ASTROPY_18265_TO_18048(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,14 +181,14 @@ class ASTROPY_18265_TO_18048(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-        log_no_ansi = ansi_escape.sub('', log)
+
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+        log_no_ansi = ansi_escape.sub("", log)
         test_file = None
         # This pattern is to find file paths of tests
         test_file_pattern = re.compile(r"([\w\.\-\/]+\.(?:py|rst))")
@@ -201,17 +201,17 @@ class ASTROPY_18265_TO_18048(Instance):
             file_match = test_file_pattern.search(line)
             if file_match:
                 test_file = file_match.group(1)
-                line = line[file_match.end():]
+                line = line[file_match.end() :]
             if test_file:
                 statuses = "".join(status_pattern.findall(line))
                 for status in statuses:
-                    if status == 'F':
+                    if status == "F":
                         failed_tests.add(test_file)
                     # pytest uses 'x' for xfail (expected failure) and 's' for skip.
                     # Both are considered "skipped" for this problem.
-                    elif status in ('s', 'x', 'X'):
+                    elif status in ("s", "x", "X"):
                         skipped_tests.add(test_file)
-                    elif status == '.':
+                    elif status == ".":
                         passed_tests.add(test_file)
         # Deconflict the sets. A failed test can't be passed or skipped.
         # A skipped test can't be passed.
@@ -221,9 +221,8 @@ class ASTROPY_18265_TO_18048(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ hatch run test-optional:test
 ###ACTION_DELIMITER###
 uv pip install --system -e ".[recommended]"
 ###ACTION_DELIMITER###
-echo 'hatch run test-optional:test -v' > test_commands.sh"""
+echo 'hatch run test-optional:test -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ echo 'hatch run test-optional:test -v' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 hatch run test-optional:test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 hatch run test-optional:test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 hatch run test-optional:test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class MARIMO_4524_TO_4291(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,18 +183,22 @@ class MARIMO_4524_TO_4291(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not used in current logic
         # Regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'(tests/.*?) (PASSED|SKIPPED|FAILED)\b')  # Test name before status
-        pattern2 = re.compile(r'(PASSED|SKIPPED|FAILED) (tests/.*?)\b')  # Status before test name
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"(tests/.*?) (PASSED|SKIPPED|FAILED)\b"
+        )  # Test name before status
+        pattern2 = re.compile(
+            r"(PASSED|SKIPPED|FAILED) (tests/.*?)\b"
+        )  # Status before test name
+        for line in log.split("\n"):
             line = line.strip()
             match1 = pattern1.search(line)
             match2 = pattern2.search(line)
@@ -207,18 +211,17 @@ class MARIMO_4524_TO_4291(Instance):
             else:
                 continue
             # Categorize test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

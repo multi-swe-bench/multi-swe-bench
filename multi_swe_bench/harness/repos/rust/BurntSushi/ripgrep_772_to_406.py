@@ -25,10 +25,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -70,7 +70,7 @@ source "$HOME/.cargo/env" && export TRAVIS_RUST_VERSION=1.20.0 && export TARGET=
 ###ACTION_DELIMITER###
 apt-get install -y file
 ###ACTION_DELIMITER###
-echo 'source "$HOME/.cargo/env" && cargo test --verbose --all' > /home/ripgrep/test_commands.sh"""
+echo 'source "$HOME/.cargo/env" && cargo test --verbose --all' > /home/ripgrep/test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,9 +79,7 @@ echo 'source "$HOME/.cargo/env" && cargo test --verbose --all' > /home/ripgrep/t
 cd /home/{pr.repo}
 source "$HOME/.cargo/env" && cargo test --verbose --all
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source "$HOME/.cargo/env" && cargo test --verbose --all
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source "$HOME/.cargo/env" && cargo test --verbose --all
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -173,7 +167,7 @@ class RIPGREP_772_TO_406(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,7 +181,6 @@ class RIPGREP_772_TO_406(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
@@ -197,12 +190,14 @@ class RIPGREP_772_TO_406(Instance):
         # Pattern for lines like: test path::to::test ... ignored
         ignored_pattern = re.compile(r"^test (.*) \.\.\. ignored$")
         # Pattern to find the "failures:" block and capture the lines underneath until the next "test result:"
-        failures_block_pattern = re.compile(r"failures:\n(.*?)\ntest result:", re.DOTALL)
+        failures_block_pattern = re.compile(
+            r"failures:\n(.*?)\ntest result:", re.DOTALL
+        )
         # First, find all the explicitly listed failed tests.
         failures_match = failures_block_pattern.search(log)
         if failures_match:
             failed_lines_str = failures_match.group(1).strip()
-            for line in failed_lines_str.split('\n'):
+            for line in failed_lines_str.split("\n"):
                 line = line.strip()
                 # Ignore decorative lines like "---- thread 'main' panicked at ... ----"
                 if line and not line.startswith("----"):
@@ -224,9 +219,8 @@ class RIPGREP_772_TO_406(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

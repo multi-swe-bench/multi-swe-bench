@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ npm run test:unit
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 npm run test:unit
-npm run test:e2e' > test_commands.sh && chmod +x test_commands.sh"""
+npm run test:e2e' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd /home/[[REPO_NAME]]
 npm run test:unit
 npm run test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ fi
 npm run test:unit
 npm run test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ fi
 npm run test:unit
 npm run test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class CYLC_UI_797_TO_676(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,7 +195,6 @@ class CYLC_UI_797_TO_676(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -203,14 +202,15 @@ class CYLC_UI_797_TO_676(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             # Match passed tests (Mocha uses ✓)
-            passed_match = re.search(r'^\s*✓\s*(.*)$', line)
+            passed_match = re.search(r"^\s*✓\s*(.*)$", line)
             if passed_match:
                 passed_tests.add(passed_match.group(1).strip())
             # Match failed tests (Mocha lists failed tests with numbers)
-            failed_match = re.search(r'^\s*\d+\)\s*(.*)$', line)
+            failed_match = re.search(r"^\s*\d+\)\s*(.*)$", line)
             if failed_match:
                 failed_tests.add(failed_match.group(1).strip())
             # Add skipped tests pattern if identified in logs
@@ -220,9 +220,8 @@ class CYLC_UI_797_TO_676(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ pip install -e hypothesis-python/
 ###ACTION_DELIMITER###
 echo 'pytest --no-header -rA --tb=no -p no:cacheprovider hypothesis-python/tests/cover/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA --tb=no -p no:cacheprovider hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider hypothesis-python/tests/cover/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class HYPOTHESIS_4137_TO_4019(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,42 +169,44 @@ class HYPOTHESIS_4137_TO_4019(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         xfail_tests = set()
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
-            if 'PASSED ' in line:
-                parts = line.split('PASSED ', 1)
+            if "PASSED " in line:
+                parts = line.split("PASSED ", 1)
                 if len(parts) > 1:
-                    test = parts[1].strip().split(' - ', 1)[0].strip()
+                    test = parts[1].strip().split(" - ", 1)[0].strip()
                     passed_tests.add(test)
-            elif 'FAILED ' in line:
-                parts = line.split('FAILED ', 1)
+            elif "FAILED " in line:
+                parts = line.split("FAILED ", 1)
                 if len(parts) > 1:
-                    test = parts[1].strip().split(' - ', 1)[0].strip()
+                    test = parts[1].strip().split(" - ", 1)[0].strip()
                     failed_tests.add(test)
-            elif 'SKIPPED ' in line:
-                parts = line.split('SKIPPED ', 1)
+            elif "SKIPPED " in line:
+                parts = line.split("SKIPPED ", 1)
                 if len(parts) > 1:
-                    test_part = parts[1].strip().split(':', 1)[0].strip()
-                    test = test_part.split(']', 1)[-1].strip() if ']' in test_part else test_part
+                    test_part = parts[1].strip().split(":", 1)[0].strip()
+                    test = (
+                        test_part.split("]", 1)[-1].strip()
+                        if "]" in test_part
+                        else test_part
+                    )
                     skipped_tests.add(test)
-            elif 'XFAIL ' in line:
-                parts = line.split('XFAIL ', 1)
+            elif "XFAIL " in line:
+                parts = line.split("XFAIL ", 1)
                 if len(parts) > 1:
-                    test = parts[1].strip().split(' - ', 1)[0].strip()
+                    test = parts[1].strip().split(" - ", 1)[0].strip()
                     xfail_tests.add(test)
         failed_tests.update(xfail_tests)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

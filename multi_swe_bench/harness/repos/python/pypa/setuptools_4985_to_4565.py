@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -52,7 +52,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 pip install -e ".[test,check,cover,enabler,type,core]"
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -61,7 +61,7 @@ echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -74,7 +74,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -149,7 +149,7 @@ class SETUPTOOLS_4985_TO_4565(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -163,7 +163,6 @@ class SETUPTOOLS_4985_TO_4565(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -171,27 +170,29 @@ class SETUPTOOLS_4985_TO_4565(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Define regex pattern to capture test status and name
-        status_pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED|XFAIL|XPASS|ERROR)\b\s+(.+?)(?:\s+-.*)?$')
+        status_pattern = re.compile(
+            r"\b(PASSED|FAILED|SKIPPED|XFAIL|XPASS|ERROR)\b\s+(.+?)(?:\s+-.*)?$"
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = status_pattern.search(line)
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
                 # Map status to appropriate set
-                if status in ('PASSED', 'XPASS'):
+                if status in ("PASSED", "XPASS"):
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR', 'XFAIL'):
+                elif status in ("FAILED", "ERROR", "XFAIL"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -55,7 +55,7 @@ set +e
 npm test -- --verbose
 npm run test:visual
 npm run test:dts
-set -e' > test_commands.sh && chmod +x test_commands.sh"""
+set -e' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ npm run test:visual
 npm run test:dts
 set -e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ npm run test:visual
 npm run test:dts
 set -e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ npm run test:visual
 npm run test:dts
 set -e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class ECHARTS_20535_TO_20249(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,23 +181,25 @@ class ECHARTS_20535_TO_20249(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         describe_stack = []
         # Regular expressions to match test cases, suites, and describe blocks
-        suite_pass_pattern = re.compile(r'^PASS\s+(.*?)(\s+\(\d+ ms\))?$')
-        suite_fail_pattern = re.compile(r'^FAIL\s+(.*?)(\s+\(\d+ ms\))?$')
+        suite_pass_pattern = re.compile(r"^PASS\s+(.*?)(\s+\(\d+ ms\))?$")
+        suite_fail_pattern = re.compile(r"^FAIL\s+(.*?)(\s+\(\d+ ms\))?$")
         # Regular expressions to match test cases and describe blocks
-        pass_pattern = re.compile(r'^\s+✓\s+(.*?)(\s+\(\d+ ms\))?$')
-        fail_pattern = re.compile(r'^\s+✕\s+(.*?)(\s+\(\d+ ms\))?$')
-        skip_pattern = re.compile(r'^\s+○\s+(.*?)(\s+\(\d+ ms\))?$')
-        describe_pattern = re.compile(r'^\s*(?!.*[>|●])(\S.*)$')  # Matches indented suite lines (excludes code/error lines with |, >, or ●)
+        pass_pattern = re.compile(r"^\s+✓\s+(.*?)(\s+\(\d+ ms\))?$")
+        fail_pattern = re.compile(r"^\s+✕\s+(.*?)(\s+\(\d+ ms\))?$")
+        skip_pattern = re.compile(r"^\s+○\s+(.*?)(\s+\(\d+ ms\))?$")
+        describe_pattern = re.compile(
+            r"^\s*(?!.*[>|●])(\S.*)$"
+        )  # Matches indented suite lines (excludes code/error lines with |, >, or ●)
         for line in lines:
             # Check for suite-level pass/fail and reset stack
             suite_pass_match = suite_pass_pattern.match(line)
@@ -210,11 +212,15 @@ class ECHARTS_20535_TO_20249(Instance):
                 describe_stack = []
                 continue
             # Check for describe blocks (indented lines without test symbols)
-            if not (pass_pattern.match(line) or fail_pattern.match(line) or skip_pattern.match(line)):
+            if not (
+                pass_pattern.match(line)
+                or fail_pattern.match(line)
+                or skip_pattern.match(line)
+            ):
                 describe_match = describe_pattern.match(line)
                 if describe_match:
                     # Calculate indentation level (assuming 2 spaces per level)
-                    leading_spaces = len(line) - len(line.lstrip(' '))
+                    leading_spaces = len(line) - len(line.lstrip(" "))
                     level = leading_spaces // 2
                     describe_text = describe_match.group(1).strip()
                     # Update the describe stack
@@ -233,29 +239,28 @@ class ECHARTS_20535_TO_20249(Instance):
             pass_match = pass_pattern.match(line)
             if pass_match:
                 test_name = pass_match.group(1).strip()
-                full_test_name = ' '.join(describe_stack + [test_name])
+                full_test_name = " ".join(describe_stack + [test_name])
                 passed_tests.add(full_test_name)
                 continue
             # Check for failed tests
             fail_match = fail_pattern.match(line)
             if fail_match:
                 test_name = fail_match.group(1).strip()
-                full_test_name = ' '.join(describe_stack + [test_name])
+                full_test_name = " ".join(describe_stack + [test_name])
                 failed_tests.add(full_test_name)
                 continue
             # Check for skipped tests
             skip_match = skip_pattern.match(line)
             if skip_match:
                 test_name = skip_match.group(1).strip()
-                full_test_name = ' '.join(describe_stack + [test_name])
+                full_test_name = " ".join(describe_stack + [test_name])
                 skipped_tests.add(full_test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

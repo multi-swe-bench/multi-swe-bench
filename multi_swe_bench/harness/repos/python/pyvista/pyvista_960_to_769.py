@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ echo 'HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=50 HYPOTHESIS_HEALTH_CHEC
 ###ACTION_DELIMITER###
 echo -e '[hypothesis]\ndeadline = none\nmax_examples = 10\nhealth_checks = none' >> pytest.ini && xvfb-run -a bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHECKS= xvfb-run -a pytest -v -rA --tb=short' > test_commands.sh && bash test_commands.sh"""
+echo 'HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHECKS= xvfb-run -a pytest -v -rA --tb=short' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ echo 'HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHEC
 cd /home/{pr.repo}
 HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHECKS= xvfb-run -a pytest -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHECKS= xvfb-run -a pytest -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 HYPOTHESIS_DEADLINE=None HYPOTHESIS_MAX_EXAMPLES=10 HYPOTHESIS_HEALTH_CHECKS= xvfb-run -a pytest -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class PYVISTA_960_TO_769(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,45 +214,64 @@ class PYVISTA_960_TO_769(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and their statuses
         patterns = [
             # Test name followed by PASSED
-            (re.compile(r'(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\s+PASSED\b'), 'passed'),
+            (
+                re.compile(
+                    r"(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\s+PASSED\b"
+                ),
+                "passed",
+            ),
             # PASSED followed by test name
-            (re.compile(r'PASSED\s+(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\b'), 'passed'),
+            (
+                re.compile(
+                    r"PASSED\s+(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\b"
+                ),
+                "passed",
+            ),
             # Test name followed by FAILED
-            (re.compile(r'(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\s+FAILED\b'), 'failed'),
+            (
+                re.compile(
+                    r"(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\s+FAILED\b"
+                ),
+                "failed",
+            ),
             # FAILED followed by test name
-            (re.compile(r'FAILED\s+(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\b'), 'failed'),
+            (
+                re.compile(
+                    r"FAILED\s+(tests/.*?::test_.*?|pyvista::tests::.*?::test_.*?)\b"
+                ),
+                "failed",
+            ),
             # SKIPPED with test name (assuming test name is after SKIPPED)
-            (re.compile(r'.*SKIPPED\s+\[\d+\]\s+(tests/.*?:\d+)'), 'skipped'),
+            (re.compile(r".*SKIPPED\s+\[\d+\]\s+(tests/.*?:\d+)"), "skipped"),
         ]
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             for pattern, status in patterns:
                 match = pattern.search(line)
                 if match:
                     test_name = match.group(1)
-                    if status == 'passed':
+                    if status == "passed":
                         passed_tests.add(test_name)
-                    elif status == 'failed':
+                    elif status == "failed":
                         failed_tests.add(test_name)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(test_name)
                     break  # Stop checking other patterns for this line
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

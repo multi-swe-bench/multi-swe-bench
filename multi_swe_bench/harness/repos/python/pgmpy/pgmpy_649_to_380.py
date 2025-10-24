@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -139,7 +139,7 @@ grep -rl 'nodess' pgmpy/ | xargs sed -i 's/nodess/nodes/g'
 ###ACTION_DELIMITER###
 grep -rl 'numpy\.int' pgmpy/ | xargs sed -i 's/numpy\.int/int/g'
 ###ACTION_DELIMITER###
-grep -rl 'np\.int' pgmpy/ | xargs sed -i 's/np\.int/int/g'"""
+grep -rl 'np\.int' pgmpy/ | xargs sed -i 's/np\.int/int/g'""",
             ),
             File(
                 ".",
@@ -150,9 +150,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -167,9 +165,7 @@ fi
 source venv/bin/activate
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -184,9 +180,7 @@ fi
 source venv/bin/activate
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -248,7 +242,7 @@ class PGMPY_649_TO_380(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -262,16 +256,16 @@ class PGMPY_649_TO_380(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.*)$')
+
+        lines = log.split("\n")
+        pattern1 = re.compile(r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(.*)$")
         for line in lines:
             line = line.strip()
             # Match lines like 'test_name PASSED [ 0%]'
@@ -279,12 +273,12 @@ class PGMPY_649_TO_380(Instance):
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if '.py::' in test_name:
-                    if status == 'PASSED':
+                if ".py::" in test_name:
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                 continue
             # Match lines like 'FAILED test_name'
@@ -292,20 +286,19 @@ class PGMPY_649_TO_380(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if '.py::' in test_name:
-                    if status == 'PASSED':
+                if ".py::" in test_name:
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

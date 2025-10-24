@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ yarn build
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class PIONEER_2360_TO_2238(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,19 +187,19 @@ class PIONEER_2360_TO_2238(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         current_groups = []
         for line in lines:
             # Remove leading [number] prefix
-            line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Extract content after "| " if present
             if "| " in line:
                 content = line.split("| ", 1)[1]  # Split on the first "| "
@@ -214,21 +214,46 @@ class PIONEER_2360_TO_2238(Instance):
             if not text:
                 continue
             # Check if the line is a test case (starts with ✓, ✕, or ○)
-            if text.startswith(('✓ ', '✕ ', '○ ')):
+            if text.startswith(("✓ ", "✕ ", "○ ")):
                 # Extract test name part (remove symbol and time)
-                test_name_part = text.split(' (', 1)[0][2:]  # [2:] removes the symbol and space
+                test_name_part = text.split(" (", 1)[0][
+                    2:
+                ]  # [2:] removes the symbol and space
                 # Combine with current groups to form full test name
-                full_test_name = ' '.join(current_groups + [test_name_part])
+                full_test_name = " ".join(current_groups + [test_name_part])
                 # Add to the appropriate set
-                if text.startswith('✓ '):
+                if text.startswith("✓ "):
                     passed_tests.add(full_test_name)
-                elif text.startswith('✕ '):
+                elif text.startswith("✕ "):
                     failed_tests.add(full_test_name)
-                elif text.startswith('○ '):
+                elif text.startswith("○ "):
                     skipped_tests.add(full_test_name)
             else:
                 # Skip test suite lines (PASS, FAIL, etc.) and summary lines
-                if text.startswith(('PASS', 'FAIL', 'SKIPPED', 'Test Suites:', 'Tests:', 'Snapshots:', 'Time:', 'Ran', 'Browserslist:', '$ ', '$ jest', 'ui', 'yarn run', 'npx ', 'Why you should do it regularly: ', 'console.error', 'console.error ', 'console.error:', 'Warning:', 'at ')):
+                if text.startswith(
+                    (
+                        "PASS",
+                        "FAIL",
+                        "SKIPPED",
+                        "Test Suites:",
+                        "Tests:",
+                        "Snapshots:",
+                        "Time:",
+                        "Ran",
+                        "Browserslist:",
+                        "$ ",
+                        "$ jest",
+                        "ui",
+                        "yarn run",
+                        "npx ",
+                        "Why you should do it regularly: ",
+                        "console.error",
+                        "console.error ",
+                        "console.error:",
+                        "Warning:",
+                        "at ",
+                    )
+                ):
                     current_groups = []
                     continue
                 # Update current groups based on indentation level
@@ -238,9 +263,8 @@ class PIONEER_2360_TO_2238(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

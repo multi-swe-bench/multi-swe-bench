@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ npm run smoke -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ set -e
 npm run unit -- --verbose
 npm run smoke -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ set -e
 npm run unit -- --verbose
 npm run smoke -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ set -e
 npm run unit -- --verbose
 npm run smoke -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -172,7 +172,7 @@ class LIGHTHOUSE_763_TO_312(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,29 +186,28 @@ class LIGHTHOUSE_763_TO_312(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # JSON parsing not required for current log format
         # Parse passed tests using regex pattern for checkmarks
-        passed_pattern = re.compile(r'^\s*✓\s*(.*?)(?:\s+\(\d+ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s*(.*?)(?:\s+\(\d+ms\))?$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests (handle trailing colons)
-        failed_pattern = re.compile(r'^\s*\d+\)\s*(.*?)(?::|$)', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*\d+\)\s*(.*?)(?::|$)", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests (common patterns like SKIPPED or x)
-        skipped_pattern = re.compile(r'^\s*(?:SKIPPED|x)\s*(.*)$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s*(?:SKIPPED|x)\s*(.*)$", re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

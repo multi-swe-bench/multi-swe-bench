@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -135,7 +135,7 @@ sed -i 's/typing-extensions==4.1.1/typing-extensions==4.9.0/' requirements.txt &
 echo 'pytest -v --cov=jobserver --cov=services --cov=tests' > test_commands.sh
 ###ACTION_DELIMITER###
 echo -e 'python manage.py collectstatic --no-input
-pytest -v --cov=jobserver --cov=services --cov=tests' > test_commands.sh && chmod +x test_commands.sh"""
+pytest -v --cov=jobserver --cov=services --cov=tests' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ cd /home/[[REPO_NAME]]
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=services --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ fi
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=services --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -173,7 +173,7 @@ fi
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=services --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -235,7 +235,7 @@ class JOB_SERVER_461_TO_395(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -249,29 +249,28 @@ class JOB_SERVER_461_TO_395(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test names and their statuses
-        pattern = re.compile(r'(tests/[^:]+::\w+)\s+(PASSED|FAILED|SKIPPED)')
+        pattern = re.compile(r"(tests/[^:]+::\w+)\s+(PASSED|FAILED|SKIPPED)")
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

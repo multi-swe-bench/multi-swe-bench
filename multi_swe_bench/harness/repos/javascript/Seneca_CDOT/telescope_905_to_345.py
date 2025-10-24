@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:lts-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ jq '.overrides = {"sharp": "0.33.5"}' package.json > temp.json && mv temp.json p
 ###ACTION_DELIMITER###
 jq -s '.[0] * .[1]' package.json <(echo '{"overrides": {"sharp": "0.33.5"}}') > temp.json && mv temp.json package.json && export SHARP_BINARY_HOST="https://github.com/lovell/sharp-libvips/releases/download/v8.15.2/" && export SHARP_LIBVIPS_BINARY_HOST="https://github.com/lovell/sharp-libvips/releases/download/v8.15.2/" && rm -rf node_modules package-lock.json && npm install && cd ../../ && npm install
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > /home/telescope/test_commands.sh && chmod +x /home/telescope/test_commands.sh"""
+echo 'npm test -- --verbose' > /home/telescope/test_commands.sh && chmod +x /home/telescope/test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ echo 'npm test -- --verbose' > /home/telescope/test_commands.sh && chmod +x /hom
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class TELESCOPE_905_TO_345(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,29 +219,28 @@ class TELESCOPE_905_TO_345(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Parse test results using regex
-        pattern = re.compile(r'^(PASS|FAIL|SKIPPED)\s+([^\s]+)$', re.MULTILINE)
+        pattern = re.compile(r"^(PASS|FAIL|SKIPPED)\s+([^\s]+)$", re.MULTILINE)
         for match in pattern.finditer(log):
             status, test_name = match.groups()
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

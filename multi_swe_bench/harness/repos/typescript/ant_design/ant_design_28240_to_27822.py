@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ echo 'npm test -- --verbose -u' > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class ANT_DESIGN_28240_TO_27822(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,34 +183,37 @@ class ANT_DESIGN_28240_TO_27822(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Extract passed tests (✓ followed by test name)
-        pass_pattern = r'PASS\s+(.+\.test\.(?:js|tsx?))(?:\s+\(\d+\.\d+ s\))?'
+        pass_pattern = r"PASS\s+(.+\.test\.(?:js|tsx?))(?:\s+\(\d+\.\d+ s\))?"
         for match in re.finditer(pass_pattern, log):
             test = match.group(1)
             if test and test.strip():
                 passed_tests.add(test.strip())
         # Extract failed tests (FAIL followed by test name)
-        fail_pattern = r'FAIL\s+(.+\.test\.(?:js|tsx?))(?:\s+\(\d+\.\d+ s\))?'
+        fail_pattern = r"FAIL\s+(.+\.test\.(?:js|tsx?))(?:\s+\(\d+\.\d+ s\))?"
         for match in re.finditer(fail_pattern, log):
             test = match.group(1)
             if test and test.strip():
                 failed_tests.add(test.strip())
         # Extract skipped tests (○ followed by test name)
-        skip_pattern = r'\s*○\s+(.*?)\s*\(\d+\.?\d*\s*(?:ms|s)\)'
-        skipped_tests.update(match.group(1).strip() for match in re.finditer(skip_pattern, log) if match.group(1).strip())
+        skip_pattern = r"\s*○\s+(.*?)\s*\(\d+\.?\d*\s*(?:ms|s)\)"
+        skipped_tests.update(
+            match.group(1).strip()
+            for match in re.finditer(skip_pattern, log)
+            if match.group(1).strip()
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

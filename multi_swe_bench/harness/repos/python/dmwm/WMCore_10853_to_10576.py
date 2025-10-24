@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ nose2 -v test/python
 ###ACTION_DELIMITER###
 python3 setup.py test -v
 ###ACTION_DELIMITER###
-echo 'python3 setup.py test -v' > test_commands.sh"""
+echo 'python3 setup.py test -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ echo 'python3 setup.py test -v' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python3 setup.py test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 setup.py test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python3 setup.py test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class WMCORE_10853_TO_10576(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,18 +189,23 @@ class WMCORE_10853_TO_10576(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Unified pattern to match test cases and their statuses (SKIP/ERROR/FAILED/PASSED/PASS/OK)
-        test_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?#\d+\s+(.*?)\s+\.\.\.\s+(SKIP|ERROR|FAILED|FAIL|PASSED|PASS|OK)', re.IGNORECASE)
-        test_name_pattern = re.compile(r'#\d+\s+(.*?)\s+\.\.\.\s+', re.IGNORECASE)
+        test_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?#\d+\s+(.*?)\s+\.\.\.\s+(SKIP|ERROR|FAILED|FAIL|PASSED|PASS|OK)",
+            re.IGNORECASE,
+        )
+        test_name_pattern = re.compile(r"#\d+\s+(.*?)\s+\.\.\.\s+", re.IGNORECASE)
         # Pattern to match ERROR lines (e.g., "ERROR: testName")
-        error_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(ERROR|FAILED):\s+(.*?)\s*$', re.IGNORECASE)
+        error_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(ERROR|FAILED):\s+(.*?)\s*$", re.IGNORECASE
+        )
         # Track test statuses to resolve conflicts (latest status takes precedence)
         test_status = {}
         # Extract tests from unified pattern
@@ -217,21 +222,20 @@ class WMCORE_10853_TO_10576(Instance):
         for match in test_name_pattern.findall(log):
             test_name = match.strip()
             if test_name and test_name not in test_status:
-                test_status[test_name] = 'PASSED'
+                test_status[test_name] = "PASSED"
         # Categorize tests based on final status
         for test_name, status in test_status.items():
-            if status in ('PASSED', 'PASS', 'OK'):
+            if status in ("PASSED", "PASS", "OK"):
                 passed_tests.add(test_name)
-            elif status in ('SKIP',):
+            elif status in ("SKIP",):
                 skipped_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED', 'FAIL'):
+            elif status in ("ERROR", "FAILED", "FAIL"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

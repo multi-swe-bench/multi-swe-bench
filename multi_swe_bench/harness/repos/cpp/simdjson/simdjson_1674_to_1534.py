@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ ctest -V
 ###ACTION_DELIMITER###
 cd ..
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash\nset -ex\nmkdir -p build\ncd build\ncmake -DSIMDJSON_DEVELOPER_MODE=ON ..\nmake\nctest -V' > test_commands.sh"""
+echo -e '#!/bin/bash\nset -ex\nmkdir -p build\ncd build\ncmake -DSIMDJSON_DEVELOPER_MODE=ON ..\nmake\nctest -V' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
 make
 ctest -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
 make
 ctest -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ cmake -DSIMDJSON_DEVELOPER_MODE=ON ..
 make
 ctest -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class SIMDJSON_1674_TO_1534(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,7 +186,6 @@ class SIMDJSON_1674_TO_1534(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -200,6 +193,7 @@ class SIMDJSON_1674_TO_1534(Instance):
         skipped_tests = set()
         import re
         import json
+
         passed_pattern = re.compile(r"Test #\d+: (.*) \.+   Passed")
         failed_pattern = re.compile(r"\t \d+ - (.*) \(Failed\)")
         for line in log.splitlines():
@@ -212,9 +206,8 @@ class SIMDJSON_1674_TO_1534(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

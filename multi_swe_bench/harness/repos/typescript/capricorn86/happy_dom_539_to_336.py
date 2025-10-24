@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ lerna bootstrap --hoist
 ###ACTION_DELIMITER###
 npx lerna bootstrap --hoist
 ###ACTION_DELIMITER###
-echo 'npx lerna run test -- --verbose' > test_commands.sh"""
+echo 'npx lerna run test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ echo 'npx lerna run test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx lerna run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx lerna run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx lerna run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class HAPPY_DOM_539_TO_336(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,22 +197,22 @@ class HAPPY_DOM_539_TO_336(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # import json  # Not needed for regex parsing
         # Regex patterns to match test results
-        success_package_pattern = re.compile(r'lerna success - (.+)')
+        success_package_pattern = re.compile(r"lerna success - (.+)")
         fail_package_pattern = re.compile(r"lerna ERR! .+ exited \d+ in '(.+)'")
-        pass_pattern = re.compile(r'PASS\s+([^\s\(]+)')
-        fail_pattern = re.compile(r'FAIL\s+([^\s\(]+)')
+        pass_pattern = re.compile(r"PASS\s+([^\s\(]+)")
+        fail_pattern = re.compile(r"FAIL\s+([^\s\(]+)")
         # skipped_pattern = re.compile(r'^SKIPPED\s+(.+\.test\.(ts|js))\b')  # Uncomment if skipped tests are present
         # Iterate through each line to find test results
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             pass_match = pass_pattern.search(line)
@@ -242,9 +242,8 @@ class HAPPY_DOM_539_TO_336(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

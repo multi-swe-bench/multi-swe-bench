@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ python localbuild.py --pytest tests
 ###ACTION_DELIMITER###
 pip install numba pandas pyarrow jax numexpr uproot
 ###ACTION_DELIMITER###
-echo 'python -m pytest -vv -rs tests' > test_commands.sh"""
+echo 'python -m pytest -vv -rs tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ echo 'python -m pytest -vv -rs tests' > test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -vv -rs tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -vv -rs tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -vv -rs tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class AWKWARD_1573_TO_561(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,35 +180,38 @@ class AWKWARD_1573_TO_561(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse all test statuses from result lines (accounting for spacing)
-        test_matches = re.findall(r'(tests/[^:]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED)', log)
+        test_matches = re.findall(
+            r"(tests/[^:]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED)", log
+        )
         for test, status in test_matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         # Additional regex for skipped tests (capturing file names)
-        skipped_matches = re.findall(r'SKIPPED \[\d+\] (tests/[^:]+\.py)', log)
+        skipped_matches = re.findall(r"SKIPPED \[\d+\] (tests/[^:]+\.py)", log)
         skipped_tests.update(skipped_matches)
         # Parse failed tests from error headers (capturing test names)
-        failed_matches = re.findall(r'___ (test[^_]+.*?) ____', log)
+        failed_matches = re.findall(r"___ (test[^_]+.*?) ____", log)
         # Append path to failed test names (assuming consistent structure)
-        failed_tests.update([f'tests/test_{name}.py::{name}' for name in failed_matches])
+        failed_tests.update(
+            [f"tests/test_{name}.py::{name}" for name in failed_matches]
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

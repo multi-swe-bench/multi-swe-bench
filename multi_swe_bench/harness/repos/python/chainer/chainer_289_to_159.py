@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ nosetests -v -a '!gpu'
 ###ACTION_DELIMITER###
 echo 'nosetests -v -a '\''!gpu'\''' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 nosetests -v -a '!gpu'
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v -a '!gpu'
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 nosetests -v -a '!gpu'
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class CHAINER_289_TO_159(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,22 +171,30 @@ class CHAINER_289_TO_159(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to extract line numbers and match test status/failures
-        line_num_pattern = re.compile(r'^\[\s*\d+\]\s*(.*)$')  # Extracts content after [line_num]
-        status_pattern = re.compile(r'(test_\w+\s*\(.*?\))\s*\.\.\.\s*(\w+)$')  # Matches test_name (TestClass) ... status
-        test_name_pattern = re.compile(r'^test_\w+\s*\(.*?\)$')  # Validates test name structure
-        fail_pattern = re.compile(r'^(FAIL|ERROR):\s*([\w\d_]+\s*\(.*?\))$')  # Matches FAIL: test_name (TestClass)
+        line_num_pattern = re.compile(
+            r"^\[\s*\d+\]\s*(.*)$"
+        )  # Extracts content after [line_num]
+        status_pattern = re.compile(
+            r"(test_\w+\s*\(.*?\))\s*\.\.\.\s*(\w+)$"
+        )  # Matches test_name (TestClass) ... status
+        test_name_pattern = re.compile(
+            r"^test_\w+\s*\(.*?\)$"
+        )  # Validates test name structure
+        fail_pattern = re.compile(
+            r"^(FAIL|ERROR):\s*([\w\d_]+\s*\(.*?\))$"
+        )  # Matches FAIL: test_name (TestClass)
         for line in log.splitlines():
             line = line.strip()
             # Remove line number if present
-            if line.startswith('['):
+            if line.startswith("["):
                 line_num_match = line_num_pattern.match(line)
                 if line_num_match:
                     content = line_num_match.group(1).strip()
@@ -201,11 +209,11 @@ class CHAINER_289_TO_159(Instance):
                 status = status_match.group(2).strip()
                 if not test_name_pattern.match(test_name):
                     continue  # Skip invalid test names
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status in ['FAIL', 'ERROR']:
+                elif status in ["FAIL", "ERROR"]:
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Handle failure messages (e.g., FAIL: test)
@@ -219,9 +227,8 @@ class CHAINER_289_TO_159(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

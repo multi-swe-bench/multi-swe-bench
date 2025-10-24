@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y 
 ###ACTION_DELIMITER###
 npm install
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class API_SUBVENTIONS_ASSO_3296_TO_2675(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,21 +165,21 @@ class API_SUBVENTIONS_ASSO_3296_TO_2675(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Remove ANSI escape codes to simplify parsing
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-9;]*[mK])', re.IGNORECASE)
-        clean_log = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-9;]*[mK])", re.IGNORECASE)
+        clean_log = ansi_escape.sub("", log)
         # Regex patterns to match test statuses in clean log
-        pass_pattern = re.compile(r'PASS\s+(.+\.test\.(ts|js))', re.IGNORECASE)
-        fail_pattern = re.compile(r'FAIL\s+([^\s\[]+\.test\.(ts|js))', re.IGNORECASE)
-        skip_pattern = re.compile(r'SKIP\s+(.+\.test\.(ts|js))', re.IGNORECASE)
+        pass_pattern = re.compile(r"PASS\s+(.+\.test\.(ts|js))", re.IGNORECASE)
+        fail_pattern = re.compile(r"FAIL\s+([^\s\[]+\.test\.(ts|js))", re.IGNORECASE)
+        skip_pattern = re.compile(r"SKIP\s+(.+\.test\.(ts|js))", re.IGNORECASE)
         # Process log line-by-line to avoid overlapping matches
-        for line in clean_log.split('\n'):
+        for line in clean_log.split("\n"):
             pass_match = pass_pattern.search(line)
             if pass_match:
                 passed_tests.add(pass_match.group(1))
@@ -195,9 +195,8 @@ class API_SUBVENTIONS_ASSO_3296_TO_2675(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

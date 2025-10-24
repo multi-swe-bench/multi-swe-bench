@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ npx xo --quiet && npx nyc tap --no-cov --timeout=150 test/*.js test/reporters/*.
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 npx xo --quiet && npx nyc tap --no-cov --timeout=150 test/*.js test/reporters/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ fi
 #!/bin/bash
 npx xo --quiet && npx nyc tap --no-cov --timeout=150 test/*.js test/reporters/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -120,7 +120,7 @@ fi
 #!/bin/bash
 npx xo --quiet && npx nyc tap --no-cov --timeout=150 test/*.js test/reporters/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -182,7 +182,7 @@ class AVA_1179_TO_961(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,31 +196,32 @@ class AVA_1179_TO_961(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Removed unused json import
         # Parse passed tests (handles subtests and optional comments)
-        passed_pattern = re.compile(r'^ok\s+\d+\s+-\s+(.*?)(?:\s+#.*)?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^ok\s+\d+\s+-\s+(.*?)(?:\s+#.*)?$", re.MULTILINE)
         passed_tests.update([name.strip() for name in passed_pattern.findall(log)])
         # Parse failed tests with post-processing to exclude error messages
-        failed_pattern = re.compile(r'^not ok\s+\d+\s+-\s+(.*?)(?:\s+#.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^not ok\s+\d+\s+-\s+(.*?)(?:\s+#.*)?$", re.MULTILINE
+        )
         for name in failed_pattern.findall(log):
             cleaned_name = name.strip()
             failed_tests.add(cleaned_name)
         # Parse skipped subtests (1..0 indicates no tests ran)
-        skipped_pattern = re.compile(r'^\s*# Subtest: (.*?)\n\s+1..0$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s*# Subtest: (.*?)\n\s+1..0$", re.MULTILINE)
         skipped_tests.update([name.strip() for name in skipped_pattern.findall(log)])
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install testfixtures
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 ./venv/bin/pytest --no-header -v -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./venv/bin/pytest --no-header -v -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./venv/bin/pytest --no-header -v -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class SCRAPY_6540_TO_6269(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,17 +196,17 @@ class SCRAPY_6540_TO_6269(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        statuses = {'PASSED', 'FAILED', 'SKIPPED'}
+
+        statuses = {"PASSED", "FAILED", "SKIPPED"}
         for line in log.splitlines():
             # Remove leading line number in brackets
-            cleaned_line = re.sub(r'^\[\s*\d+\s*\]\s*', '', line.strip())
+            cleaned_line = re.sub(r"^\[\s*\d+\s*\]\s*", "", line.strip())
             if not cleaned_line:
                 continue
             # Split off any error message after " - "
@@ -223,41 +217,40 @@ class SCRAPY_6540_TO_6269(Instance):
             # Check if status is at the start of status_part with one or more spaces
             status_start = None
             for status in statuses:
-                start_pattern = re.compile(rf'^{re.escape(status)}\s+')
+                start_pattern = re.compile(rf"^{re.escape(status)}\s+")
                 if start_pattern.match(status_part):
                     status_start = status
-                    test_name = start_pattern.sub('', status_part, count=1).strip()
+                    test_name = start_pattern.sub("", status_part, count=1).strip()
                     break
             if status_start:
-                if status_start == 'PASSED':
+                if status_start == "PASSED":
                     passed_tests.add(test_name)
-                elif status_start == 'FAILED':
+                elif status_start == "FAILED":
                     failed_tests.add(test_name)
-                elif status_start == 'SKIPPED':
+                elif status_start == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check if status is at the end of status_part with one or more spaces
             status_end = None
             for status in statuses:
-                end_pattern = re.compile(rf'\s+{re.escape(status)}$')
+                end_pattern = re.compile(rf"\s+{re.escape(status)}$")
                 if end_pattern.search(status_part):
                     status_end = status
-                    test_name = end_pattern.sub('', status_part, count=1).strip()
+                    test_name = end_pattern.sub("", status_part, count=1).strip()
                     break
             if status_end:
-                if status_end == 'PASSED':
+                if status_end == "PASSED":
                     passed_tests.add(test_name)
-                elif status_end == 'FAILED':
+                elif status_end == "FAILED":
                     failed_tests.add(test_name)
-                elif status_end == 'SKIPPED':
+                elif status_end == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ cat /usr/local/lib/python3.10/site-packages/gpuhunt/_internal/constraints.py
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install -e .[aws,gcp]"""
+pip install -e .[aws,gcp]""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ pip install -e .[aws,gcp]"""
 cd /home/[[REPO_NAME]]
 pytest -v src/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v src/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v src/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class DSTACK_1203_TO_701(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,28 +197,30 @@ class DSTACK_1203_TO_701(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract passed tests
-        passed_pattern = re.compile(r'(src/tests/.*?) PASSED \[\s*\d+%\]|PASSED (src/tests/.*)')
+        passed_pattern = re.compile(
+            r"(src/tests/.*?) PASSED \[\s*\d+%\]|PASSED (src/tests/.*)"
+        )
         for match in passed_pattern.findall(log):
             test_name = match[0] if match[0] else match[1]
             if test_name:
                 passed_tests.add(test_name.strip())
         # Extract failed tests
-        failed_pattern = re.compile(r'FAILED (src/tests/.*)')
+        failed_pattern = re.compile(r"FAILED (src/tests/.*)")
         for match in failed_pattern.findall(log):
             test_name = match.strip()
             if test_name:
                 failed_tests.add(test_name)
         # Extract skipped tests
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (src/tests/[^:]+:\d+)')
+        skipped_pattern = re.compile(r"SKIPPED \[\d+\] (src/tests/[^:]+:\d+)")
         for match in skipped_pattern.findall(log):
             test_name = match.strip()
             if test_name:
@@ -226,9 +228,8 @@ class DSTACK_1203_TO_701(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

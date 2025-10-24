@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -127,7 +127,7 @@ pip install scikit-image==0.19.3 --force-reinstall
 ###ACTION_DELIMITER###
 pip install numpy==1.19.5 scipy==1.7.3 scikit-learn==0.21.3 matplotlib==3.5.3 scikit-image==0.19.3 visdom==0.1.8.9 urllib3==1.26.18 --force-reinstall
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,9 +136,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -151,9 +149,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -166,9 +162,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -230,7 +224,7 @@ class IGNITE_1756_TO_1557(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -244,25 +238,30 @@ class IGNITE_1756_TO_1557(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Improved parsing: capture full test IDs and prioritize execution lines
-        execution_pattern = re.compile(r'(tests/.*?::test_\w+)\s+\x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m.*?\[\s*\d+%\]', re.MULTILINE)
-        summary_failed_pattern = re.compile(r'\x1b\[31mFAILED\x1b\[0m\s+(tests/.*?::test_\w+)\b', re.MULTILINE)
+        execution_pattern = re.compile(
+            r"(tests/.*?::test_\w+)\s+\x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m.*?\[\s*\d+%\]",
+            re.MULTILINE,
+        )
+        summary_failed_pattern = re.compile(
+            r"\x1b\[31mFAILED\x1b\[0m\s+(tests/.*?::test_\w+)\b", re.MULTILINE
+        )
         # Process execution lines (highest priority)
         for match in execution_pattern.finditer(log):
             test_id = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_id)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_id)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_id)
         # Process summary lines (fallback for missed failed tests)
         for match in summary_failed_pattern.finditer(log):
@@ -272,9 +271,8 @@ class IGNITE_1756_TO_1557(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

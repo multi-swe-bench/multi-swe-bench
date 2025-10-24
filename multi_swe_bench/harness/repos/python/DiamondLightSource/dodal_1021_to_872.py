@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ wget https://bootstrap.pypa.io/get-pip.py && python3.11 get-pip.py
 ###ACTION_DELIMITER###
 python3.11 -m venv venv && source venv/bin/activate && pip install --pre ophyd-async==0.9.0a1 && pip install -e '.[dev]'
 ###ACTION_DELIMITER###
-echo 'pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-report xml:cov.xml docs src tests system_tests' > test_commands.sh"""
+echo 'pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-report xml:cov.xml docs src tests system_tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ echo 'pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-repo
 cd /home/[[REPO_NAME]]
 pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-report xml:cov.xml docs src tests system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-report xml:cov.xml docs src tests system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -m "not (s03 or adsim)" --cov=dodal --cov-report term --cov-report xml:cov.xml docs src tests system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class DODAL_1021_TO_872(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,18 +193,22 @@ class DODAL_1021_TO_872(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Matches lines where status is after the test name (PASSED, FAILED, SKIPPED)
-        pattern_status_after = re.compile(r"(\btests/\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)\b")
+        pattern_status_after = re.compile(
+            r"(\btests/\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)\b"
+        )
         # Pattern 2: Matches lines where status is ERROR before the test name
-        pattern_error_before = re.compile(r"ERROR[:\s]+\s*(\btests/[^:]+::[\w\[\]_\-\.]+)")
+        pattern_error_before = re.compile(
+            r"ERROR[:\s]+\s*(\btests/[^:]+::[\w\[\]_\-\.]+)"
+        )
         # Process matches for pattern_status_after
         for test_name, status in pattern_status_after.findall(log):
             if status == "PASSED":
@@ -221,9 +225,8 @@ class DODAL_1021_TO_872(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

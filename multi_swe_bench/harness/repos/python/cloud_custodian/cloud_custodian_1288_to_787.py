@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -89,7 +89,7 @@ pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
 echo -e 'AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 C7N_VALIDATE=true nosetests -v --processes=-1 --process-timeout=300 tests' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 C7N_VALIDATE=true nosetests -v --processes=-1 --process-timeout=300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 C7N_VALIDATE=true nosetests -v --processes=-1 --process-timeout=300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 C7N_VALIDATE=true nosetests -v --processes=-1 --process-timeout=300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class CLOUD_CUSTODIAN_1288_TO_787(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,31 +200,34 @@ class CLOUD_CUSTODIAN_1288_TO_787(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse log content and extract test results
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Parse passed tests
-        passed_pattern = re.compile(r'.*?([\w_]+) \(.+?\) \.\.\. ok', re.MULTILINE)
+        passed_pattern = re.compile(r".*?([\w_]+) \(.+?\) \.\.\. ok", re.MULTILINE)
         for match in passed_pattern.finditer(log):
             passed_tests.add(match.group(1))
         # Parse failed tests (errors and failures)
-        error_pattern = re.compile(r'.*?(?:ERROR|FAIL): ([\w_]+) \(.+?\)', re.MULTILINE)
+        error_pattern = re.compile(r".*?(?:ERROR|FAIL): ([\w_]+) \(.+?\)", re.MULTILINE)
         failed_tests.update(error_pattern.findall(log))
-        failed_status_pattern = re.compile(r'.*?([\w_]+) \(.+?\) \.\.\. FAILED', re.MULTILINE)
+        failed_status_pattern = re.compile(
+            r".*?([\w_]+) \(.+?\) \.\.\. FAILED", re.MULTILINE
+        )
         failed_tests.update(failed_status_pattern.findall(log))
         # Parse skipped tests
-        skipped_pattern = re.compile(r'.*?([\w_]+) \(.+?\) \.\.\. skipped', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r".*?([\w_]+) \(.+?\) \.\.\. skipped", re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

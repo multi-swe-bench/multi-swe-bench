@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -112,7 +112,7 @@ yarn prisma migrate deploy
 ###ACTION_DELIMITER###
 yarn prisma db seed
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ yarn test -- --verbose
 
 yarn e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -142,7 +142,7 @@ yarn test -- --verbose
 
 yarn e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ yarn test -- --verbose
 
 yarn e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -221,7 +221,7 @@ class CAL_COM_18782_TO_18001(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,7 +235,6 @@ class CAL_COM_18782_TO_18001(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -243,15 +242,16 @@ class CAL_COM_18782_TO_18001(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract individual test names from stdout lines and determine status by checking subsequent lines
-        test_name_pattern = re.compile(r'stdout \| (.*)')
-        lines = log.split('\n')
+        test_name_pattern = re.compile(r"stdout \| (.*)")
+        lines = log.split("\n")
         for match in test_name_pattern.finditer(log):
             full_test_name = match.group(1)
             # Find the line number of the stdout line
             line_num = -1
             for i, line in enumerate(lines):
-                if f'stdout | {full_test_name}' in line:
+                if f"stdout | {full_test_name}" in line:
                     line_num = i
                     break
             if line_num == -1:
@@ -260,10 +260,10 @@ class CAL_COM_18782_TO_18001(Instance):
             has_error = False
             is_skipped = False
             for j in range(line_num + 1, min(line_num + 6, len(lines))):
-                if re.search(r'\[ERROR[^]]*\]', lines[j], re.IGNORECASE):
+                if re.search(r"\[ERROR[^]]*\]", lines[j], re.IGNORECASE):
                     has_error = True
                     break
-                if 'SKIPPED' in lines[j]:
+                if "SKIPPED" in lines[j]:
                     is_skipped = True
                     break
             if is_skipped:
@@ -275,9 +275,8 @@ class CAL_COM_18782_TO_18001(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

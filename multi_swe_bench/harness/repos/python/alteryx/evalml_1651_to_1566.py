@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -113,7 +113,7 @@ source venv/bin/activate && pip install numpy==1.22.0 && sed -i 's/dtype=np.int/
 apt-get update && apt-get install -y graphviz && source venv/bin/activate && echo 'pytest evalml/ --doctest-modules --doctest-continue-on-failure -v' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 echo -e 'source venv/bin/activate
-pytest evalml/ --doctest-modules --doctest-continue-on-failure -v' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+pytest evalml/ --doctest-modules --doctest-continue-on-failure -v' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ cd /home/[[REPO_NAME]]
 source venv/bin/activate
 pytest evalml/ --doctest-modules --doctest-continue-on-failure -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ fi
 source venv/bin/activate
 pytest evalml/ --doctest-modules --doctest-continue-on-failure -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ fi
 source venv/bin/activate
 pytest evalml/ --doctest-modules --doctest-continue-on-failure -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -213,7 +213,7 @@ class EVALML_1651_TO_1566(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -227,40 +227,43 @@ class EVALML_1651_TO_1566(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+\%\]', re.MULTILINE)
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.*?)\s+-\s+.*', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+\%\]", re.MULTILINE
+        )
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED)\s+(.*?)\s+-\s+.*", re.MULTILINE
+        )
         # Extract tests from pattern 1 matches
         for test_name, status in pattern1.findall(log):
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract tests from pattern 2 matches
         for status, test_name in pattern2.findall(log):
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

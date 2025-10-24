@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ python runtests.py -v -m
 ###ACTION_DELIMITER###
 echo 'python runtests.py -v -m' > /home/numba/test_commands.sh && chmod +x /home/numba/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/numba/test_commands.sh"""
+cat /home/numba/test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ cat /home/numba/test_commands.sh"""
 cd /home/{pr.repo}
 python runtests.py -v -m
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py -v -m
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py -v -m
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class NUMBA_7996_TO_6579(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,19 +182,25 @@ class NUMBA_7996_TO_6579(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set() # Tests that passed successfully
-        failed_tests: set[str] = set() # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Define regex patterns
-        passed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?([^\(]+?)\s*\(\s*([^)]+?)\s*\)\s*\.\.\.\s*ok.*')
-        skipped_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(.+?)\s*\(\s*([^)]+?)\s*\)\s*\.\.\.\s*skipped.*')
-        failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(FAIL|ERROR):\s*([^\(]+?)\s*\(\s*([^)]+?)\s*\).*')
+        passed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?([^\(]+?)\s*\(\s*([^)]+?)\s*\)\s*\.\.\.\s*ok.*"
+        )
+        skipped_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(.+?)\s*\(\s*([^)]+?)\s*\)\s*\.\.\.\s*skipped.*"
+        )
+        failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(FAIL|ERROR):\s*([^\(]+?)\s*\(\s*([^)]+?)\s*\).*"
+        )
         # Split log into lines
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()  # Remove leading/trailing whitespace
             # Check for passed tests
             passed_match = passed_pattern.match(line)
@@ -229,9 +229,8 @@ class NUMBA_7996_TO_6579(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

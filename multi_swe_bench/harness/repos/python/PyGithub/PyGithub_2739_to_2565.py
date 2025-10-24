@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -116,7 +116,7 @@ app_private_key = ""' > GithubCredentials.py
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider --auth_with_token tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --auth_with_token tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --auth_with_token tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --auth_with_token tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -213,7 +213,7 @@ class PYGITHUB_2739_TO_2565(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -227,30 +227,30 @@ class PYGITHUB_2739_TO_2565(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Remove ANSI escape codes from the log content
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Regular expression pattern to match test cases with status (PASSED, FAILED, ERROR, SKIPPED)
         # Pattern 1: Matches lines where test name is followed by status (e.g., "tests/...::...::... PASSED")
-        pattern1 = r'(tests/[^:]+::[^:]+::[^ ]+) (PASSED|FAILED|ERROR|SKIPPED)'
+        pattern1 = r"(tests/[^:]+::[^:]+::[^ ]+) (PASSED|FAILED|ERROR|SKIPPED)"
         # Pattern 2: Matches lines where status is ERROR followed by test name (e.g., "ERROR tests/...::...::...")
-        pattern2 = r'ERROR (tests/[^:]+::[^:]+::[^ ]+)'
+        pattern2 = r"ERROR (tests/[^:]+::[^:]+::[^ ]+)"
         # Find all matches for both patterns
         matches1 = re.findall(pattern1, clean_log)
         matches2 = re.findall(pattern2, clean_log)
         # Process matches from pattern1
         for test_name, status in matches1:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process matches from pattern2 (these are ERROR status)
         for test_name in matches2:
@@ -258,9 +258,8 @@ class PYGITHUB_2739_TO_2565(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

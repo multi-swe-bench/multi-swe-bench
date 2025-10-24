@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -106,7 +106,7 @@ pip install alabaster==0.7.12 && make install
 ###ACTION_DELIMITER###
 pytest --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh && 
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class COBBLER_3177_TO_3038(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,7 +217,6 @@ class COBBLER_3177_TO_3038(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -225,26 +224,29 @@ class COBBLER_3177_TO_3038(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test status lines with line numbers
-        pattern = re.compile(r'^\s*(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?: - .*)?$', re.MULTILINE | re.IGNORECASE)
+        pattern = re.compile(
+            r"^\s*(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?: - .*)?$",
+            re.MULTILINE | re.IGNORECASE,
+        )
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
                 status = match.group(1).upper()
                 test_name = match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

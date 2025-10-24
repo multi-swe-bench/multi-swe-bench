@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "golang:1.21"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -106,7 +106,7 @@ sed -i '/host    all             all             127.0.0.1\/32            scram-
 ###ACTION_DELIMITER###
 psql -U postgres -h localhost -d hub_tests -c 'SELECT 1;' && tern migrate --config ~/.cfg/tern-tests.conf --migrations database/migrations/schema
 ###ACTION_DELIMITER###
-echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_commands.sh
 cd /home/[[REPO_NAME]]
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class HUB_980_TO_905(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,7 +217,6 @@ class HUB_980_TO_905(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -225,12 +224,13 @@ class HUB_980_TO_905(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-            # Regex patterns to match test results
-        passed_pattern = re.compile(r'--- PASS: (.*?) \(\d+\.\d+s\)')
-        failed_pattern = re.compile(r'--- FAIL: (.*?) \(\d+\.\d+s\)')
-        skipped_pattern = re.compile(r'--- SKIP: (.*?) \(\d+\.\d+s\)')
+
+        # Regex patterns to match test results
+        passed_pattern = re.compile(r"--- PASS: (.*?) \(\d+\.\d+s\)")
+        failed_pattern = re.compile(r"--- FAIL: (.*?) \(\d+\.\d+s\)")
+        skipped_pattern = re.compile(r"--- SKIP: (.*?) \(\d+\.\d+s\)")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for passed tests
             pass_match = passed_pattern.search(line)
             if pass_match:
@@ -249,9 +249,8 @@ class HUB_980_TO_905(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

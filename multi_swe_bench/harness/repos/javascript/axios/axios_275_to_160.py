@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ npm install phantomjs-prebuilt@2.1.16 --ignore-scripts
 ###ACTION_DELIMITER###
 npm install
 ###ACTION_DELIMITER###
-echo "npm test -- --verbose" > test_commands.sh"""
+echo "npm test -- --verbose" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo "npm test -- --verbose" > test_commands.sh"""
 cd /home/{pr.repo}
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class AXIOS_275_TO_160(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,7 +168,6 @@ class AXIOS_275_TO_160(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -182,12 +175,15 @@ class AXIOS_275_TO_160(Instance):
         skipped_tests = set()
         import re
         import json
+
         passed_pattern = re.compile(r"(test[a-zA-Z0-9_]+)\.\.\.OK")
         failed_pattern = re.compile(r"(test[a-zA-Z0-9_]+)\.\.\.Fatal error.*")
-        skipped_pattern = re.compile(r"WARN \[launcher\]: ([a-zA-Z]+) have not captured")
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        skipped_pattern = re.compile(
+            r"WARN \[launcher\]: ([a-zA-Z]+) have not captured"
+        )
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
         for line in log.splitlines():
-            line = ansi_escape.sub('', line)
+            line = ansi_escape.sub("", line)
             passed_match = passed_pattern.search(line)
             if passed_match:
                 passed_tests.add(passed_match.group(1))
@@ -203,9 +199,8 @@ class AXIOS_275_TO_160(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

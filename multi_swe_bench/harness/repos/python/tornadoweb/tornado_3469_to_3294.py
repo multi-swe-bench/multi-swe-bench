@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ echo 'python -m tornado.test.runtests --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m tornado.test.runtests --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m tornado.test.runtests --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m tornado.test.runtests --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class TORNADO_3469_TO_3294(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,54 +172,55 @@ class TORNADO_3469_TO_3294(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             line = line.strip()
             # Check for passed tests
-            if re.search(r'\.\.\.\s*ok$', line):
+            if re.search(r"\.\.\.\s*ok$", line):
                 # Check previous line for test name
                 if i > 0:
-                    prev_line = lines[i-1].strip()
-                    prev_match = re.match(r'^\[\s*\d+\]\s*(.*)$', prev_line)
+                    prev_line = lines[i - 1].strip()
+                    prev_match = re.match(r"^\[\s*\d+\]\s*(.*)$", prev_line)
                     if prev_match:
                         prev_test = prev_match.group(1).strip()
                         passed_tests.add(prev_test)
                         continue
                 # Extract test part from current line if previous line is not a test name
-                current_match = re.match(r'^(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*ok$', line)
+                current_match = re.match(
+                    r"^(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*ok$", line
+                )
                 if current_match:
                     current_test = current_match.group(1).strip()
                     passed_tests.add(current_test)
             # Check for failed tests
-            elif 'FAIL:' in line:
-                fail_match = re.search(r'FAIL:\s*(.*)', line)
+            elif "FAIL:" in line:
+                fail_match = re.search(r"FAIL:\s*(.*)", line)
                 if fail_match:
                     test_name = fail_match.group(1).strip()
                     failed_tests.add(test_name)
             # Check for skipped tests (lines containing ... skipped)
-            elif re.search(r'\.\.\. skipped', line):
-                test_part = re.sub(r'^\[\s*\d+\]\s*', '', line)
-                test_part = test_part.rsplit('... skipped', 1)[0].strip()
+            elif re.search(r"\.\.\. skipped", line):
+                test_part = re.sub(r"^\[\s*\d+\]\s*", "", line)
+                test_part = test_part.rsplit("... skipped", 1)[0].strip()
                 if i > 0:
-                    prev_line = lines[i-1].strip()
-                    prev_test_part = re.sub(r'^\[\s*\d+\]\s*', '', prev_line)
-                    if not prev_line.endswith('...'):
+                    prev_line = lines[i - 1].strip()
+                    prev_test_part = re.sub(r"^\[\s*\d+\]\s*", "", prev_line)
+                    if not prev_line.endswith("..."):
                         skipped_tests.add(prev_test_part)
                         continue
                 skipped_tests.add(test_part)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -61,7 +61,7 @@ bash /home/terriajs/test_commands.sh
 echo -e 'npx gulp build
 xvfb-run -a npx gulp test-travis' > /home/terriajs/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/terriajs/test_commands.sh"""
+bash /home/terriajs/test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cd /home/[[REPO_NAME]]
 npx gulp build
 xvfb-run -a npx gulp test-travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ fi
 npx gulp build
 xvfb-run -a npx gulp test-travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ fi
 npx gulp build
 xvfb-run -a npx gulp test-travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class TERRIAJS_4412_TO_3942(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,18 +175,18 @@ class TERRIAJS_4412_TO_3942(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str] # Tests that passed successfully
-        failed_tests = set[str] # Tests that failed
-        skipped_tests = set[str] # Tests that were skipped
+        passed_tests = set[str]  # Tests that passed successfully
+        failed_tests = set[str]  # Tests that failed
+        skipped_tests = set[str]  # Tests that were skipped
         import re
+
         # Extract all test names from the log
-        test_pattern = re.compile(r'\./test/([\w/]+Spec)\.ts', re.IGNORECASE)
+        test_pattern = re.compile(r"\./test/([\w/]+Spec)\.ts", re.IGNORECASE)
         all_tests = set(test_pattern.findall(log))
         # Extract failed tests (those with ERROR)
-        failed_pattern = re.compile(r'ERROR in \./test/([\w/]+Spec)\.ts', re.IGNORECASE)
+        failed_pattern = re.compile(r"ERROR in \./test/([\w/]+Spec)\.ts", re.IGNORECASE)
         failed_tests = set(failed_pattern.findall(log))
         # Passed tests are all tests not in failed_tests
         passed_tests = all_tests - failed_tests
@@ -195,9 +195,8 @@ class TERRIAJS_4412_TO_3942(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

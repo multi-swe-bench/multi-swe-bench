@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pyenv exec python run_tests.py
 ###ACTION_DELIMITER###
 echo 'python run_tests.py' > /home/vyper/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/vyper/test_commands.sh"""
+cat /home/vyper/test_commands.sh""",
             ),
             File(
                 ".",
@@ -102,9 +102,7 @@ cat /home/vyper/test_commands.sh"""
 cd /home/{pr.repo}
 python run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class VYPER_1042_TO_908(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,19 +204,19 @@ class VYPER_1042_TO_908(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns for test statuses
-        passed_pattern = re.compile(r'(tests/.*?::.*?) PASSED\s+\[\s*\d+%]')
-        failed_pattern = re.compile(r'FAILED (tests/.*?::.*?)(?: - |$)')
-        skipped_pattern = re.compile(r'(tests/.*?::.*?) SKIPPED\s+\[\s*\d+%]')
+        passed_pattern = re.compile(r"(tests/.*?::.*?) PASSED\s+\[\s*\d+%]")
+        failed_pattern = re.compile(r"FAILED (tests/.*?::.*?)(?: - |$)")
+        skipped_pattern = re.compile(r"(tests/.*?::.*?) SKIPPED\s+\[\s*\d+%]")
         for line in lines:
             # Extract passed tests
             passed_match = passed_pattern.search(line)
@@ -239,9 +233,8 @@ class VYPER_1042_TO_908(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

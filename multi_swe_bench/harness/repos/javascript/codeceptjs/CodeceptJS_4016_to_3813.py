@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -147,7 +147,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y lsof
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -198,7 +198,7 @@ fi
 npx mocha test/unit --recursive --timeout 10000 --verbose --reporter json
 npx mocha test/runner --recursive --timeout 10000 --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -253,7 +253,7 @@ fi
 npx mocha test/unit --recursive --timeout 10000 --verbose --reporter json
 npx mocha test/runner --recursive --timeout 10000 --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -308,7 +308,7 @@ fi
 npx mocha test/unit --recursive --timeout 10000 --verbose --reporter json
 npx mocha test/runner --recursive --timeout 10000 --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -370,7 +370,7 @@ class CODECEPTJS_4016_TO_3813(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -384,7 +384,6 @@ class CODECEPTJS_4016_TO_3813(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -392,6 +391,7 @@ class CODECEPTJS_4016_TO_3813(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to capture test cases with fullTitle and err fields
         pattern = re.compile(
             r'"title":\s*"[^"]+",\s*'
@@ -401,26 +401,25 @@ class CODECEPTJS_4016_TO_3813(Instance):
             r'"currentRetry":\s*\d+,\s*'
             r'(?:"speed":\s*"[^"]+",\s*)?'  # Optional speed field
             r'"err":\s*(\{.*?\})',
-            re.DOTALL
+            re.DOTALL,
         )
         # Find all matches in the log content
         matches = pattern.findall(log)
         for full_title, err in matches:
             # Check if the test is marked as skipped (based on fullTitle)
-            if 'skip' in full_title.lower():
+            if "skip" in full_title.lower():
                 skipped_tests.add(full_title)
             else:
                 # Determine if the test passed or failed based on err field
-                if err.strip() == '{}':
+                if err.strip() == "{}":
                     passed_tests.add(full_title)
                 else:
                     failed_tests.add(full_title)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

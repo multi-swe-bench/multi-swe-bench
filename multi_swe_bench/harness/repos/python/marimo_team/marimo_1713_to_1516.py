@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && pytest --no-header -rA --tb=no -p no:cacheprovider -v
 cd frontend && npx playwright test --verbose' > /home/marimo/test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x /home/marimo/test_commands.sh"""
+chmod +x /home/marimo/test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && pytest --no-header -rA --tb=no -p no:cacheprovider -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && pytest --no-header -rA --tb=no -p no:cacheprovider -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ cd frontend && CI=true pnpm turbo test --verbose
 cd .. && pytest --no-header -rA --tb=no -p no:cacheprovider -v
 cd frontend && npx playwright test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class MARIMO_1713_TO_1516(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,38 +187,42 @@ class MARIMO_1713_TO_1516(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             # Remove [line number] prefix
-            if ']' in line:
-                content = line.split(']', 1)[1].strip()
+            if "]" in line:
+                content = line.split("]", 1)[1].strip()
             else:
                 content = line.strip()
             # Check for PASSED tests (two patterns)
             # Check for PASSED tests (include colons and dots for test names)
-            passed_match = re.match(r'^(tests/[\w/:.]+)\s+PASSED|^PASSED\s+(tests/[\w/:.]+)', content)
+            passed_match = re.match(
+                r"^(tests/[\w/:.]+)\s+PASSED|^PASSED\s+(tests/[\w/:.]+)", content
+            )
             if passed_match:
                 test_name = passed_match.group(1) or passed_match.group(2)
                 if test_name:
                     # Remove trailing whitespace and brackets
-                    test_name = re.sub(r'\s+\[.*', '', test_name)
+                    test_name = re.sub(r"\s+\[.*", "", test_name)
                     passed_tests.add(test_name.strip())
                 continue
             # Check for FAILED tests (include colons and dots)
-            failed_match = re.match(r'^FAILED (tests/[\w/:.]+)(?: - |$)', content)
+            failed_match = re.match(r"^FAILED (tests/[\w/:.]+)(?: - |$)", content)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
                 continue
             # Check for SKIPPED tests (allow colons in test path)
-            skipped_match = re.search(r'SKIPPED\s+\[\d+\]\s+(tests/.*?)(?=:\d+)', content)
+            skipped_match = re.search(
+                r"SKIPPED\s+\[\d+\]\s+(tests/.*?)(?=:\d+)", content
+            )
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 skipped_tests.add(test_name)
@@ -226,9 +230,8 @@ class MARIMO_1713_TO_1516(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

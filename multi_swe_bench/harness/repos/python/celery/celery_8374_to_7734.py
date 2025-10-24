@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ pytest --maxfail=10 --capture=no -v t/unit
 ###ACTION_DELIMITER###
 echo 'pytest --no-header -rA -v --tb=no -p no:cacheprovider t/unit t/integration' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ echo 'pytest --no-header -rA -v --tb=no -p no:cacheprovider t/unit t/integration
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA -v --tb=no -p no:cacheprovider t/unit t/integration
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA -v --tb=no -p no:cacheprovider t/unit t/integration
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA -v --tb=no -p no:cacheprovider t/unit t/integration
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class CELERY_8374_TO_7734(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,20 +203,24 @@ class CELERY_8374_TO_7734(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines with status
         # Pattern 1: Test name followed by status (e.g., "test_name PASSED")
-        pattern1 = re.compile(r'^(?:\[\s*\d+\]\s+)?(t/.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+.*')
+        pattern1 = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(t/.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+.*"
+        )
         # Pattern 2: Status followed by test name (e.g., "FAILED test_name")
-        pattern2 = re.compile(r'^\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+(t/[\w/.-]+\.py::[\w:[\]\d-]+)\s+.*')
+        pattern2 = re.compile(
+            r"^\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+(t/[\w/.-]+\.py::[\w:[\]\d-]+)\s+.*"
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern1.match(line)
             if match:
@@ -230,18 +234,17 @@ class CELERY_8374_TO_7734(Instance):
                 else:
                     continue  # No match, skip the line
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR', 'XFAIL'):
+            elif status in ("FAILED", "ERROR", "XFAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

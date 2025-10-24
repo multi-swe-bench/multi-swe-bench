@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ pip install -r requirements_dev.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v -n auto test/' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'source venv/bin/activate && pytest -v -n auto test/' > test_commands.sh"""
+echo 'source venv/bin/activate && pytest -v -n auto test/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ echo 'source venv/bin/activate && pytest -v -n auto test/' > test_commands.sh"""
 cd /home/{pr.repo}
 source venv/bin/activate && pytest -v -n auto test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source venv/bin/activate && pytest -v -n auto test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source venv/bin/activate && pytest -v -n auto test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class SQLFLUFF_4335_TO_4326(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,7 +176,6 @@ class SQLFLUFF_4335_TO_4326(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -190,48 +183,48 @@ class SQLFLUFF_4335_TO_4326(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Check for PASSED tests
-            if 'PASSED' in line:
-                parts = line.split('PASSED')
+            if "PASSED" in line:
+                parts = line.split("PASSED")
                 if len(parts) >= 2:
                     test_part = parts[1].strip()
-                    test_name = test_part.split()[0] if test_part else ''
+                    test_name = test_part.split()[0] if test_part else ""
                     if test_name:
                         passed_tests.add(test_name)
             # Check for FAILED tests
-            elif 'FAILED' in line:
-                parts = line.split('FAILED')
+            elif "FAILED" in line:
+                parts = line.split("FAILED")
                 if len(parts) >= 2:
                     test_part = parts[1].strip()
-                    test_name = test_part.split()[0] if test_part else ''
+                    test_name = test_part.split()[0] if test_part else ""
                     if test_name:
                         failed_tests.add(test_name)
             # Check for SKIPPED tests
-            elif 'SKIPPED' in line:
-                parts = line.split('SKIPPED')
+            elif "SKIPPED" in line:
+                parts = line.split("SKIPPED")
                 if len(parts) >= 2:
                     test_part = parts[1].strip()
-                    test_name = test_part.split()[0] if test_part else ''
+                    test_name = test_part.split()[0] if test_part else ""
                     if test_name:
                         skipped_tests.add(test_name)
             # Check for ERROR tests (consider as failed)
-            elif 'ERROR' in line:
-                parts = line.split('ERROR')
+            elif "ERROR" in line:
+                parts = line.split("ERROR")
                 if len(parts) >= 2:
                     test_part = parts[1].strip()
-                    test_name = test_part.split()[0] if test_part else ''
+                    test_name = test_part.split()[0] if test_part else ""
                     if test_name:
                         failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

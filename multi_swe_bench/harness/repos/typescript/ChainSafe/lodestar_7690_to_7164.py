@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ wget https://github.com/ConsenSys/web3signer/releases/download/23.11.0/web3signe
 ###ACTION_DELIMITER###
 wget https://github.com/ConsenSys/web3signer/releases/download/24.6.0/web3signer-24.6.0.tar.gz && tar -xzf web3signer-24.6.0.tar.gz && mv web3signer-24.6.0 /usr/local/bin/ && ln -s /usr/local/bin/web3signer-24.6.0/bin/web3signer /usr/local/bin/web3signer
 ###ACTION_DELIMITER###
-wget https://github.com/ConsenSys/web3signer/releases/download/23.6.0/web3signer-23.6.0-apache.tar.gz && tar -xzf web3signer-23.6.0-apache.tar.gz && mv web3signer-23.6.0 /usr/local/bin/ && ln -s /usr/local/bin/web3signer-23.6.0/bin/web3signer /usr/local/bin/web3signer"""
+wget https://github.com/ConsenSys/web3signer/releases/download/23.6.0/web3signer-23.6.0-apache.tar.gz && tar -xzf web3signer-23.6.0-apache.tar.gz && mv web3signer-23.6.0 /usr/local/bin/ && ln -s /usr/local/bin/web3signer-23.6.0/bin/web3signer /usr/local/bin/web3signer""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ wget https://github.com/ConsenSys/web3signer/releases/download/23.6.0/web3signer
 cd /home/[[REPO_NAME]]
 pkill node || true; PORT=0 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pkill node || true; PORT=0 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pkill node || true; PORT=0 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class LODESTAR_7690_TO_7164(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,7 +197,6 @@ class LODESTAR_7690_TO_7164(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -205,27 +204,29 @@ class LODESTAR_7690_TO_7164(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Regex patterns to match test lines and ANSI codes
-        test_pattern = re.compile(r'@lodestar/[^:]+:  (\x1b\[32m✓\x1b\[39m|\x1b\[31m×\x1b\[39m) (.*)')
-        ansi_pattern = re.compile(r'\x1b\[[0-9;]*m')
+        test_pattern = re.compile(
+            r"@lodestar/[^:]+:  (\x1b\[32m✓\x1b\[39m|\x1b\[31m×\x1b\[39m) (.*)"
+        )
+        ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
         # Parse each test line
         for match in test_pattern.finditer(log):
             status_part = match.group(1)
             test_name_part = match.group(2)
             # Remove ANSI escape codes from the test name
-            clean_test_name = ansi_pattern.sub('', test_name_part).strip()
+            clean_test_name = ansi_pattern.sub("", test_name_part).strip()
             # Determine test status and add to the appropriate set
-            if '✓' in status_part:
+            if "✓" in status_part:
                 passed_tests.add(clean_test_name)
-            elif '×' in status_part:
+            elif "×" in status_part:
                 failed_tests.add(clean_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

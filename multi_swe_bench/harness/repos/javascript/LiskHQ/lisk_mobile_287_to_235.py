@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ npm install
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > test_commands.sh && echo 'npm run test:android' >> test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,7 +74,7 @@ cd /home/[[REPO_NAME]]
 npm test -- --verbose
 npm run test:android
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ fi
 npm test -- --verbose
 npm run test:android
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ fi
 npm test -- --verbose
 npm run test:android
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -164,7 +164,7 @@ class LISK_MOBILE_287_TO_235(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,30 +178,29 @@ class LISK_MOBILE_287_TO_235(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        pattern = re.compile(r'.*(PASS|FAIL) Lint (.*)$')
-        for line in log.split('\n'):
+        pattern = re.compile(r".*(PASS|FAIL) Lint (.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern.match(line)
             if match:
                 status, test_name = match.groups()
-                if status == 'PASS':
+                if status == "PASS":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

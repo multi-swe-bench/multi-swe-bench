@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ echo -e '#!/bin/bash
 poetry run bash -c "cd test/unit && pytest -v -n 5 --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc"
 poetry run bash -c "cd test/scripts && pytest -s -vv"' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ cd /home/[[REPO_NAME]]
 poetry run bash -c "cd test/unit && pytest -v -n 5 --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc"
 poetry run bash -c "cd test/scripts && pytest -s -vv"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ fi
 poetry run bash -c "cd test/unit && pytest -v -n 5 --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc"
 poetry run bash -c "cd test/scripts && pytest -s -vv"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ fi
 poetry run bash -c "cd test/unit && pytest -v -n 5 --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc"
 poetry run bash -c "cd test/scripts && pytest -s -vv"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class KIWI_2859_TO_2648(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,17 +181,17 @@ class KIWI_2859_TO_2648(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests by splitting lines on 'PASSED'
-        for line in log.split('\n'):
-            if 'PASSED' in line:
-                parts = line.split('PASSED')
+        for line in log.split("\n"):
+            if "PASSED" in line:
+                parts = line.split("PASSED")
                 test_name = parts[-1].strip()
                 if test_name:
                     passed_tests.add(test_name)
@@ -200,15 +200,14 @@ class KIWI_2859_TO_2648(Instance):
         failed_matches = re.findall(failed_pattern, log)
         failed_tests = set(failed_matches)
         # Extract SKIPPED tests
-        skipped_pattern = re.compile(r'SKIPPED (.*?)(?:\s|$)')
+        skipped_pattern = re.compile(r"SKIPPED (.*?)(?:\s|$)")
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ conda activate uxarray_build
 ###ACTION_DELIMITER###
 python -m pip install . --no-deps
 ###ACTION_DELIMITER###
-echo 'NUMBA_DISABLE_JIT=1 python -m pytest test -v' > test_commands.sh"""
+echo 'NUMBA_DISABLE_JIT=1 python -m pytest test -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ echo 'NUMBA_DISABLE_JIT=1 python -m pytest test -v' > test_commands.sh"""
 cd /home/{pr.repo}
 NUMBA_DISABLE_JIT=1 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 NUMBA_DISABLE_JIT=1 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 NUMBA_DISABLE_JIT=1 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class UXARRAY_1293_TO_1092(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,38 +174,41 @@ class UXARRAY_1293_TO_1092(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not used
         # Regex pattern for test lines (test name followed by status)
-        pattern_test = re.compile(r'^(test/.*?)\s+(PASSED|FAILED|SKIPPED)\b', re.MULTILINE)
+        pattern_test = re.compile(
+            r"^(test/.*?)\s+(PASSED|FAILED|SKIPPED)\b", re.MULTILINE
+        )
         # Regex pattern for summary lines (status followed by test name)
-        pattern_summary = re.compile(r'^(FAILED|SKIPPED)\s+(test/.*?)\s+-', re.MULTILINE)
+        pattern_summary = re.compile(
+            r"^(FAILED|SKIPPED)\s+(test/.*?)\s+-", re.MULTILINE
+        )
         # Process test lines
         for test_name, status in pattern_test.findall(log):
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process summary lines (captures failed/skipped tests not in test lines)
         for status, test_name in pattern_summary.findall(log):
-            if status == 'FAILED':
+            if status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

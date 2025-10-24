@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -93,7 +93,7 @@ expect "Do you want to import sample data? (y/N)"
 send "n\r"
 expect "Enter the maximum size limit of Images uploaded (in MB) max: 20 (3)"
 send "3\r"
-expect eof' > setup_automator.exp && chmod +x setup_automator.exp && ./setup_automator.exp"""
+expect eof' > setup_automator.exp && chmod +x setup_automator.exp && ./setup_automator.exp""",
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ expect eof' > setup_automator.exp && chmod +x setup_automator.exp && ./setup_aut
 cd /home/[[REPO_NAME]]
 npm test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -190,7 +190,7 @@ class TALAWA_API_1785_TO_1256(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,28 +204,40 @@ class TALAWA_API_1785_TO_1256(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests (handles leading characters and multi-line names)
-        passed_pattern = re.compile(r'^\s*✓\s+(.*?)(?=\n\s*[✓FAIL]|$)', re.DOTALL | re.MULTILINE)
-        passed_tests.update(m.group(1).replace('\n', ' ').strip() for m in passed_pattern.finditer(log))
+        passed_pattern = re.compile(
+            r"^\s*✓\s+(.*?)(?=\n\s*[✓FAIL]|$)", re.DOTALL | re.MULTILINE
+        )
+        passed_tests.update(
+            m.group(1).replace("\n", " ").strip() for m in passed_pattern.finditer(log)
+        )
         # Pattern for failed tests (handles leading characters and multi-line names)
-        failed_pattern = re.compile(r'^\s*FAIL\s+(tests/.+?spec\.ts > .+?)(?=\s+(AssertionError:|Error:|$))', re.DOTALL | re.MULTILINE)
-        failed_tests.update(m.group(1).replace('\n', ' ').strip() for m in failed_pattern.finditer(log))
+        failed_pattern = re.compile(
+            r"^\s*FAIL\s+(tests/.+?spec\.ts > .+?)(?=\s+(AssertionError:|Error:|$))",
+            re.DOTALL | re.MULTILINE,
+        )
+        failed_tests.update(
+            m.group(1).replace("\n", " ").strip() for m in failed_pattern.finditer(log)
+        )
         # Pattern for skipped tests (handles leading characters and multi-line names)
-        skipped_pattern = re.compile(r'^\s*SKIPPED\s+(.*?)(?=\n\s*[✓FAILSKIPPED]|$)', re.DOTALL | re.MULTILINE)
-        skipped_tests.update(m.group(1).replace('\n', ' ').strip() for m in skipped_pattern.finditer(log))
+        skipped_pattern = re.compile(
+            r"^\s*SKIPPED\s+(.*?)(?=\n\s*[✓FAILSKIPPED]|$)", re.DOTALL | re.MULTILINE
+        )
+        skipped_tests.update(
+            m.group(1).replace("\n", " ").strip() for m in skipped_pattern.finditer(log)
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

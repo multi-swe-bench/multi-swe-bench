@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ rm -rf /usr/local/share/.cache/yarn && rm -rf node_modules yarn.lock && export P
 ###ACTION_DELIMITER###
 export PYTHON=python2.7 && npm install --legacy-peer-deps --ignore-scripts
 ###ACTION_DELIMITER###
-echo 'yarn test --verbose --watchAll=false' > /home/politeiagui/test_commands.sh"""
+echo 'yarn test --verbose --watchAll=false' > /home/politeiagui/test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ echo 'yarn test --verbose --watchAll=false' > /home/politeiagui/test_commands.sh
 cd /home/[[REPO_NAME]]
 yarn test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class POLITEIAGUI_1299_TO_1020(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class POLITEIAGUI_1299_TO_1020(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -191,35 +190,45 @@ class POLITEIAGUI_1299_TO_1020(Instance):
         skipped_tests = set()
         import re
         import sys
+
         # Extract passed tests (marked with ✓) - time suffix optional
-        passed_pattern = re.compile(r'^\s+✓\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s+✓\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE)
         passed_tests = set(test.strip() for test in passed_pattern.findall(log))
         # Extract failed tests (marked with ✕) - time suffix optional
-        failed_pattern = re.compile(r'^\s+✕\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s+✕\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE)
         failed_tests = set(test.strip() for test in failed_pattern.findall(log))
         # Extract summary counts for validation
-        summary_pattern = re.compile(r'Tests:\s+(\d+)\s+failed,\s+(\d+)\s+passed', re.MULTILINE)
+        summary_pattern = re.compile(
+            r"Tests:\s+(\d+)\s+failed,\s+(\d+)\s+passed", re.MULTILINE
+        )
         summary_match = summary_pattern.search(log)
         if summary_match:
             expected_failed = int(summary_match.group(1))
             expected_passed = int(summary_match.group(2))
             # Validate parsed counts against summary
             if len(failed_tests) != expected_failed:
-                print(f"Warning: Parsed {len(failed_tests)} failed tests, but summary reports {expected_failed}", file=sys.stderr)
+                print(
+                    f"Warning: Parsed {len(failed_tests)} failed tests, but summary reports {expected_failed}",
+                    file=sys.stderr,
+                )
             if len(passed_tests) != expected_passed:
-                print(f"Warning: Parsed {len(passed_tests)} passed tests, but summary reports {expected_passed}", file=sys.stderr)
+                print(
+                    f"Warning: Parsed {len(passed_tests)} passed tests, but summary reports {expected_passed}",
+                    file=sys.stderr,
+                )
         else:
             expected_failed = 0
             expected_passed = 0
         # Extract skipped tests (marked with −)
-        skipped_pattern = re.compile(r'^\s+−\s+([^\(]+?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s+−\s+([^\(]+?)\s*(?:\(\d+ms\))?$", re.MULTILINE
+        )
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ echo 'NODE_OPTIONS="--import ts-node/esm --import ./build/coffee-esm.mjs --impor
 ###ACTION_DELIMITER###
 echo 'NODE_OPTIONS="--import ts-node/esm --import ./build/coffee-esm.mjs --import ./build/hera-esm.mjs --import ./dist/esm.mjs" yarn test -- --reporter spec --extension ts,civet,coffee,hera' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 NODE_OPTIONS="--import ts-node/esm --import ./build/coffee-esm.mjs --import ./build/hera-esm.mjs --import ./dist/esm.mjs" yarn test -- --reporter spec --extension ts,civet,coffee,hera
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_OPTIONS="--import ts-node/esm --import ./build/coffee-esm.mjs --import ./build/hera-esm.mjs --import ./dist/esm.mjs" yarn test -- --reporter spec --extension ts,civet,coffee,hera
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_OPTIONS="--import ts-node/esm --import ./build/coffee-esm.mjs --import ./build/hera-esm.mjs --import ./dist/esm.mjs" yarn test -- --reporter spec --extension ts,civet,coffee,hera
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class CIVET_654_TO_479(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,7 +211,6 @@ class CIVET_654_TO_479(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -219,14 +218,15 @@ class CIVET_654_TO_479(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Track nested sections and extract full test names
         sections = []
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Reset sections on summary lines
-            if re.search(r'(passing|pending|failing)', line):
+            if re.search(r"(passing|pending|failing)", line):
                 sections = []
             # Update sections based on indentation (2 spaces per level)
-            section_match = re.match(r'^(\s+)([a-zA-Z].*)$', line)
+            section_match = re.match(r"^(\s+)([a-zA-Z].*)$", line)
             if section_match:
                 indent = len(section_match.group(1))
                 section_name = section_match.group(2).strip()
@@ -234,40 +234,39 @@ class CIVET_654_TO_479(Instance):
                 sections = sections[:level] + [section_name]
             # Capture tests with status symbols or text indicators
             # Check for passed tests (✔)
-            passed_match = re.match(r'^\s+✔\s+(.*)$', line)
+            passed_match = re.match(r"^\s+✔\s+(.*)$", line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 full_test_name = test_name
                 passed_tests.add(full_test_name)
             # Check for failed tests (symbol: x)
-            failed_match = re.match(r'^\s+\d+\)\s+(.*?)(?=:|$)', line)
+            failed_match = re.match(r"^\s+\d+\)\s+(.*?)(?=:|$)", line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 full_test_name = test_name
                 failed_tests.add(full_test_name)
             # Check for failed tests in summary (error exit code)
-            if 'error Command failed with exit code 1' in line:
+            if "error Command failed with exit code 1" in line:
                 # Fallback: Assume 1 failed test if exit code 1 and no failed tests captured
                 if not failed_tests:
-                    failed_tests.add('Unknown failed test')
+                    failed_tests.add("Unknown failed test")
             # Check for skipped tests (text: pending)
-            skipped_match = re.search(r'pending[:\s]+(.*)$', line, re.IGNORECASE)
+            skipped_match = re.search(r"pending[:\s]+(.*)$", line, re.IGNORECASE)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 full_test_name = test_name
                 skipped_tests.add(full_test_name)
         # Handle pending tests (skipped) from summary lines
-        pending_match = re.search(r'(\d+) pending', log)
+        pending_match = re.search(r"(\d+) pending", log)
         if pending_match and not skipped_tests:
             pending_count = int(pending_match.group(1))
             # Add generic pending test names if individual tests aren't captured
-            skipped_tests = {f'Pending test {i+1}' for i in range(pending_count)}
+            skipped_tests = {f"Pending test {i + 1}" for i in range(pending_count)}
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

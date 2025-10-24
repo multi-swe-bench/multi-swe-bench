@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ rm -f /etc/apt/sources.list.d/debian.list /etc/apt/sources.list.d/debian-contrib
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y glpk-utils && echo 'pytest pyomo --verbose --ignore=ATTIC' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install 'pyyaml<6.0' && echo 'pytest pyomo --verbose --ignore=ATTIC --ignore=pyomo/contrib/pynumero/algorithms/solvers/tests/test_cyipopt_solver.py' > test_commands.sh && bash test_commands.sh"""
+pip install 'pyyaml<6.0' && echo 'pytest pyomo --verbose --ignore=ATTIC --ignore=pyomo/contrib/pynumero/algorithms/solvers/tests/test_cyipopt_solver.py' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ pip install 'pyyaml<6.0' && echo 'pytest pyomo --verbose --ignore=ATTIC --ignore
 cd /home/[[REPO_NAME]]
 pytest pyomo --verbose --ignore=ATTIC --ignore=pyomo/contrib/pynumero/algorithms/solvers/tests/test_cyipopt_solver.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest pyomo --verbose --ignore=ATTIC --ignore=pyomo/contrib/pynumero/algorithms/solvers/tests/test_cyipopt_solver.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest pyomo --verbose --ignore=ATTIC --ignore=pyomo/contrib/pynumero/algorithms/solvers/tests/test_cyipopt_solver.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class PYOMO_1221_TO_736(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,7 +211,6 @@ class PYOMO_1221_TO_736(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -219,34 +218,34 @@ class PYOMO_1221_TO_736(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test lines with status at end or beginning
         pattern = re.compile(
-            r'(?P<test_name>[\w/]+\.py::[\w:]+)\s+(?P<status>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test_name2>[\w/]+\.py::[\w:]+)'
+            r"(?P<test_name>[\w/]+\.py::[\w:]+)\s+(?P<status>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test_name2>[\w/]+\.py::[\w:]+)"
         )
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
                 # Check which group matched
-                if match.group('test_name') and match.group('status'):
-                    test_name = match.group('test_name')
-                    status = match.group('status')
+                if match.group("test_name") and match.group("status"):
+                    test_name = match.group("test_name")
+                    status = match.group("status")
                 else:
-                    test_name = match.group('test_name2')
-                    status = match.group('status2')
+                    test_name = match.group("test_name2")
+                    status = match.group("status2")
                 # Add to the appropriate set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

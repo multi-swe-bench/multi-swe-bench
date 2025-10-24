@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -101,7 +101,7 @@ mkdir -p /usr/local/lib/python3.9/site-packages/sklearn/cross_validation && echo
 ###ACTION_DELIMITER###
 mkdir -p /usr/local/lib/python3.9/site-packages/sklearn/utils/testing && echo 'from sklearn.utils import *' > /usr/local/lib/python3.9/site-packages/sklearn/utils/testing/__init__.py && echo 'from sklearn.linear_model import *' > /usr/local/lib/python3.9/site-packages/sklearn/linear_model/base.py && make test
 ###ACTION_DELIMITER###
-echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh && chmod +x /home/nilearn/test_commands.sh && submit"""
+echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh && chmod +x /home/nilearn/test_commands.sh && submit""",
             ),
             File(
                 ".",
@@ -110,9 +110,7 @@ echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh && chmod +x /hom
 cd /home/{pr.repo}
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -125,9 +123,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class NILEARN_995_TO_794(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,7 +212,6 @@ class NILEARN_995_TO_794(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -226,17 +219,20 @@ class NILEARN_995_TO_794(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to capture test name and status (ok, ERROR, skipped) from test lines
-        test_status_pattern = re.compile(r'^(\S+)\s+\.\.\..*?(ok|ERROR|skipped)$', re.MULTILINE | re.DOTALL)
+        test_status_pattern = re.compile(
+            r"^(\S+)\s+\.\.\..*?(ok|ERROR|skipped)$", re.MULTILINE | re.DOTALL
+        )
         # Regex pattern to capture ERROR: <test_name> lines
-        error_test_pattern = re.compile(r'^ERROR:\s+(\S+)$', re.MULTILINE)
+        error_test_pattern = re.compile(r"^ERROR:\s+(\S+)$", re.MULTILINE)
         # Extract tests with status from test lines
         for test_name, status in test_status_pattern.findall(log):
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status == 'ERROR':
+            elif status == "ERROR":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         # Extract additional failed tests from ERROR: lines
         for test_name in error_test_pattern.findall(log):
@@ -244,9 +240,8 @@ class NILEARN_995_TO_794(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

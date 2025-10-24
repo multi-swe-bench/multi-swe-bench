@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ playwright install
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libcairo2 libpango-1.0-0 libasound2
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class BENEFITS_2977_TO_1206(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,7 +187,6 @@ class BENEFITS_2977_TO_1206(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -195,10 +194,13 @@ class BENEFITS_2977_TO_1206(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         lines = log.split("\n")
         for line in lines:
             # Check for status at the start (e.g., "PASSED tests/...")
-            start_match = re.search(r"\b(PASSED|FAILED|SKIPPED)\s+(tests/[\w/\.::\[\]\-]+)", line)
+            start_match = re.search(
+                r"\b(PASSED|FAILED|SKIPPED)\s+(tests/[\w/\.::\[\]\-]+)", line
+            )
             if start_match:
                 status = start_match.group(1).upper()
                 test_name = start_match.group(2)
@@ -210,7 +212,9 @@ class BENEFITS_2977_TO_1206(Instance):
                     skipped_tests.add(test_name)
                 continue
             # Check for status at the end (e.g., "tests/... PASSED")
-            end_match = re.search(r"(tests/[\w/\.::\[\]\-]+)\s+(PASSED|FAILED|SKIPPED)\b", line)
+            end_match = re.search(
+                r"(tests/[\w/\.::\[\]\-]+)\s+(PASSED|FAILED|SKIPPED)\b", line
+            )
             if end_match:
                 test_name = end_match.group(1)
                 status = end_match.group(2).upper()
@@ -224,9 +228,8 @@ class BENEFITS_2977_TO_1206(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

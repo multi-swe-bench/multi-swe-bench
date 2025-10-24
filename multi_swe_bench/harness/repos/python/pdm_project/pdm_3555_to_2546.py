@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ pip install pdm
 ###ACTION_DELIMITER###
 pdm install
 ###ACTION_DELIMITER###
-echo 'pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+echo 'pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_comm
 cd /home/{pr.repo}
 pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pdm run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class PDM_3555_TO_2546(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,18 +168,22 @@ class PDM_3555_TO_2546(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test names and statuses
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns to match test lines (test-first or status-first)
-        test_first_pattern = re.compile(r'(tests/.*?\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED|XFAIL)\b', re.IGNORECASE)
-        status_first_pattern = re.compile(r'(PASSED|FAILED|SKIPPED|XFAIL)\b.*?\s(tests/.*?\.py::[^ ]+)', re.IGNORECASE)
+        test_first_pattern = re.compile(
+            r"(tests/.*?\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED|XFAIL)\b", re.IGNORECASE
+        )
+        status_first_pattern = re.compile(
+            r"(PASSED|FAILED|SKIPPED|XFAIL)\b.*?\s(tests/.*?\.py::[^ ]+)", re.IGNORECASE
+        )
         for line in lines:
             line = line.strip()
             # Check for test-first pattern
@@ -202,18 +200,17 @@ class PDM_3555_TO_2546(Instance):
                 else:
                     continue  # No match
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

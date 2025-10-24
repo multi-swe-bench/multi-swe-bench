@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ pytest -rA --tb=no -p no:cacheprovider -v
 ###ACTION_DELIMITER###
 echo 'pytest -rA --tb=no -p no:cacheprovider -v' > /home/vyper/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/vyper/test_commands.sh"""
+cat /home/vyper/test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ cat /home/vyper/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class VYPER_2343_TO_2077(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,36 +226,35 @@ class VYPER_2343_TO_2077(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Define regex pattern to match test status and name, handling embedded newlines
-        pattern = r'\b(PASSED|FAILED|XFAIL|SKIPPED)\b\s+(tests/.*?)(?=\s+-|$|\n)'
+        pattern = r"\b(PASSED|FAILED|XFAIL|SKIPPED)\b\s+(tests/.*?)(?=\s+-|$|\n)"
         # Match test names up to hyphens, end of line, or newlines (no DOTALL to avoid multi-line captures)
         matches = re.findall(pattern, log)
         for status, test_name in matches:
             # Ensure the test name is valid (starts with 'tests/')
-            if not test_name.startswith('tests/'):
+            if not test_name.startswith("tests/"):
                 continue
             # Clean up the test name (remove leading/trailing whitespace)
             test_name = test_name.strip()
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status in ('XFAIL', 'SKIPPED'):
+            elif status in ("XFAIL", "SKIPPED"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

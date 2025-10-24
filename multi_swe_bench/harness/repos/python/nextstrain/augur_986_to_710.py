@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ apt-get install -y pkg-config && export CFLAGS="-I/usr/include/freetype2" && pip
 ###ACTION_DELIMITER###
 ./test_commands.sh
 ###ACTION_DELIMITER###
-ln -s /usr/bin/iqtree2 /usr/bin/iqtree && ./test_commands.sh"""
+ln -s /usr/bin/iqtree2 /usr/bin/iqtree && ./test_commands.sh""",
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ cd /home/[[REPO_NAME]]
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ fi
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ fi
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class AUGUR_986_TO_710(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,31 +205,30 @@ class AUGUR_986_TO_710(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Use regex to find test names and their statuses
-        pattern = r'^([\w\/\.\-::]+)\s*[: ]\s*(PASSED|FAILED|SKIPPED)\s*$'
+        pattern = r"^([\w\/\.\-::]+)\s*[: ]\s*(PASSED|FAILED|SKIPPED)\s*$"
         matches = re.findall(pattern, log, re.MULTILINE | re.IGNORECASE)
         for test_name, status in matches:
             test_name = test_name.strip()
             status = status.lower()
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test_name)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

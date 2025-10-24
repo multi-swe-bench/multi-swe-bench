@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -142,7 +142,7 @@ bash test_commands.sh
 echo -e '#!/bin/bash
 CI=true pnpm run test -- --coverage --max-workers=auto --reporter=json' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -152,7 +152,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 CI=true pnpm run test -- --coverage --max-workers=auto --reporter=json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -166,7 +166,7 @@ fi
 #!/bin/bash
 CI=true pnpm run test -- --coverage --max-workers=auto --reporter=json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -180,7 +180,7 @@ fi
 #!/bin/bash
 CI=true pnpm run test -- --coverage --max-workers=auto --reporter=json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -242,7 +242,7 @@ class CREATE_TYPESCRIPT_APP_1149_TO_513(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -256,27 +256,26 @@ class CREATE_TYPESCRIPT_APP_1149_TO_513(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: matches lines with ✓, captures test file path
-        passed_pattern = re.compile(r'\x1b\[32m✓\x1b\[39m\s+([^\s]+)')
+        passed_pattern = re.compile(r"\x1b\[32m✓\x1b\[39m\s+([^\s]+)")
         passed_tests = set(passed_pattern.findall(log))
         # Pattern for failed tests: matches lines with ❯, captures test file path
-        failed_pattern = re.compile(r'\x1b\[33m❯\x1b\[39m\s+([^\s]+)')
+        failed_pattern = re.compile(r"\x1b\[33m❯\x1b\[39m\s+([^\s]+)")
         failed_tests = set(failed_pattern.findall(log))
         # Skipped tests: no examples in logs, so leaving empty
         skipped_tests = set()
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

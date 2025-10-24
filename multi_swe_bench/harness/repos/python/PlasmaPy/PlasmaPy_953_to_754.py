@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ cat plasmapy/utils/roman.py
 ###ACTION_DELIMITER###
 pip uninstall -y roman
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --pyargs plasmapy --durations=25 docs --ignore=docs/conf.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -107,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --pyargs plasmapy --durations=25 docs --ignore=docs/conf.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --pyargs plasmapy --durations=25 docs --ignore=docs/conf.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class PLASMAPY_953_TO_754(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,32 +194,31 @@ class PLASMAPY_953_TO_754(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]$', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED\s+(.*?)(\s+-.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(.*?)(\s+-.*)?$", re.MULTILINE)
         for match in failed_pattern.finditer(log):
             test_name = match.group(1).strip()
             failed_tests.add(test_name)
         # Parse skipped tests
-        skipped_pattern = re.compile(r'^SKIPPED\s+(.*?)(\s+-.*)?$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^SKIPPED\s+(.*?)(\s+-.*)?$", re.MULTILINE)
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1).strip()
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

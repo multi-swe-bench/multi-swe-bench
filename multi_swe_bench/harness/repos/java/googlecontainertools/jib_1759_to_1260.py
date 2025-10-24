@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:8-jdk"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ apt-get install -y maven
 ###ACTION_DELIMITER###
 ./build.sh maven
 ###ACTION_DELIMITER###
-echo "cd jib-maven-plugin && ./mvnw test" > /home/jib/test_commands.sh"""
+echo "cd jib-maven-plugin && ./mvnw test" > /home/jib/test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo "cd jib-maven-plugin && ./mvnw test" > /home/jib/test_commands.sh"""
 cd /home/{pr.repo}
 cd jib-maven-plugin && ./mvnw test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cd jib-maven-plugin && ./mvnw test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cd jib-maven-plugin && ./mvnw test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class JIB_1759_TO_1260(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,22 +172,24 @@ class JIB_1759_TO_1260(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         # Regular expression to find test headers
         if "BUILD FAILURE" in log or "COMPILATION ERROR" in log:
-            test_file_pattern = re.compile(r'/home/jib/.*?/src/test/java/(.*?\.java)')
+            test_file_pattern = re.compile(r"/home/jib/.*?/src/test/java/(.*?\.java)")
             for line in log.splitlines():
                 match = test_file_pattern.search(line)
                 if match:
                     test_file_path = match.group(1)
-                    test_class_name = test_file_path.replace('/', '.').replace('.java', '')
+                    test_class_name = test_file_path.replace("/", ".").replace(
+                        ".java", ""
+                    )
                     failed_tests.add(test_class_name)
         else:
             result_pattern = re.compile(
@@ -215,9 +211,8 @@ class JIB_1759_TO_1260(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

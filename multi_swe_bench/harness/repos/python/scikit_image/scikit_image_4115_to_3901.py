@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ pip uninstall -y scipy matplotlib pywavelets contourpy && pip install numpy==1.2
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install -r requirements.txt"""
+pip install -r requirements.txt""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ pip install -r requirements.txt"""
 cd /home/{pr.repo}
 pytest -v skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class SCIKIT_IMAGE_4115_TO_3901(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,29 +192,28 @@ class SCIKIT_IMAGE_4115_TO_3901(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract test names using regular expressions
         # Passed tests: match non-whitespace characters followed by " PASSED"
-        passed_matches = re.findall(r'(\S+) PASSED', log)
+        passed_matches = re.findall(r"(\S+) PASSED", log)
         passed_tests = set(passed_matches)
         # Failed tests: match "FAILED " followed by non-whitespace characters
-        failed_matches = re.findall(r'FAILED (\S+)', log)
+        failed_matches = re.findall(r"FAILED (\S+)", log)
         failed_tests = set(failed_matches)
         # Skipped tests: match non-whitespace characters followed by " SKIPPED"
-        skipped_matches = re.findall(r'(\S+) SKIPPED', log)
+        skipped_matches = re.findall(r"(\S+) SKIPPED", log)
         skipped_tests = set(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

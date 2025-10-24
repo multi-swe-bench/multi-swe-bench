@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rust:1.65"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ cargo build
 ###ACTION_DELIMITER###
 cargo test
 ###ACTION_DELIMITER###
-echo 'cargo test -- --nocapture' > test_commands.sh"""
+echo 'cargo test -- --nocapture' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo 'cargo test -- --nocapture' > test_commands.sh"""
 cd /home/{pr.repo}
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class BAT_1938_TO_1440(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,13 +164,13 @@ class BAT_1938_TO_1440(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
+        passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex patterns
         passed_pattern = re.compile(r"test (.*) \.\.\. ok")
         failed_pattern = re.compile(r"    (.*)")
@@ -195,7 +189,7 @@ class BAT_1938_TO_1440(Instance):
                     failed_tests.add(match.group(1).strip())
                     continue
             if "test result: FAILED" in line:
-                in_failures_section = False # Reset after summary line
+                in_failures_section = False  # Reset after summary line
                 continue
             match = passed_pattern.match(line)
             if match:
@@ -210,9 +204,8 @@ class BAT_1938_TO_1440(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

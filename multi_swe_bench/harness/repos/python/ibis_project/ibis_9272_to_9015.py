@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ mkdir -p /home/ibis/ci/ib
 ###ACTION_DELIMITER###
 ./test_commands.sh
 ###ACTION_DELIMITER###
-mkdir -p /home/ibis/ci/ibis"""
+mkdir -p /home/ibis/ci/ibis""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ mkdir -p /home/ibis/ci/ibis"""
 cd /home/{pr.repo}
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider -W ignore::DeprecationWarning -n auto -k "not (mysql or postgres or bigquery or clickhouse or druid or exasol or impala or mssql or oracle or pyspark or snowflake or trino)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class IBIS_9272_TO_9015(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,31 +226,32 @@ class IBIS_9272_TO_9015(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status and name (captures test name until first whitespace)
         # Refined regex to match structured test names (ibis/.../test.py::test_name)
         # Expanded regex to capture parameterized test names with symbols like <, >, ,, :
-        pattern = re.compile(r'(PASSED|FAILED|ERROR|SKIPPED)\s+(ibis/[\w/.]+\.py::[\w\[\]<>.,:_-]+)')
+        pattern = re.compile(
+            r"(PASSED|FAILED|ERROR|SKIPPED)\s+(ibis/[\w/.]+\.py::[\w\[\]<>.,:_-]+)"
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

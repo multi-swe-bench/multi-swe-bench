@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ echo 'xonsh run-tests.xsh test -- -v' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class XONSH_4241_TO_3906(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,35 +170,34 @@ class XONSH_4241_TO_3906(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to capture test names (tests/...::test...)
-        ansi_escape = re.compile(r'\x1b\[.*?m')
-        test_pattern = re.compile(r'(tests/.*?::.*?)(?=\s+(PASSED|FAILED|SKIPPED))')
-        for line in log.split('\n'):
+        ansi_escape = re.compile(r"\x1b\[.*?m")
+        test_pattern = re.compile(r"(tests/.*?::.*?)(?=\s+(PASSED|FAILED|SKIPPED))")
+        for line in log.split("\n"):
             # Remove ANSI codes from the entire line first
-            cleaned_line = ansi_escape.sub('', line)
+            cleaned_line = ansi_escape.sub("", line)
             match = test_pattern.search(cleaned_line)
             if match:
                 test_name = match.group(1)
                 # Determine status from the original line (preserves ANSI codes for status checks)
-                if 'PASSED' in line:
+                if "PASSED" in line:
                     passed_tests.add(test_name)
-                elif 'FAILED' in line:
+                elif "FAILED" in line:
                     failed_tests.add(test_name)
-                elif 'SKIPPED' in line:
+                elif "SKIPPED" in line:
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

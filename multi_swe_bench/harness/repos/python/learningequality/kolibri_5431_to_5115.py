@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ source venv/bin/activate && pip install -r requirements/base.txt && pip install 
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 source venv/bin/activate
-pytest -v --cov=kolibri --cov-report= --cov-append --color=no' > test_commands.sh && chmod +x test_commands.sh"""
+pytest -v --cov=kolibri --cov-report= --cov-append --color=no' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v --cov=kolibri --cov-report= --cov-append --color=no
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ fi
 source venv/bin/activate
 pytest -v --cov=kolibri --cov-report= --cov-append --color=no
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ fi
 source venv/bin/activate
 pytest -v --cov=kolibri --cov-report= --cov-append --color=no
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class KOLIBRI_5431_TO_5115(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,7 +180,6 @@ class KOLIBRI_5431_TO_5115(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -194,24 +187,27 @@ class KOLIBRI_5431_TO_5115(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Compile regex pattern to match test cases with statuses
-        pattern = re.compile(r'(?:\[\s*\d+\s*\]\s+)?(.+\.py::\S+)\s+(PASSED|FAILED|SKIPPED|ERROR|FAIL)(?:\s+\[\s*\d+%?\s*\])?', re.MULTILINE | re.IGNORECASE)
+        pattern = re.compile(
+            r"(?:\[\s*\d+\s*\]\s+)?(.+\.py::\S+)\s+(PASSED|FAILED|SKIPPED|ERROR|FAIL)(?:\s+\[\s*\d+%?\s*\])?",
+            re.MULTILINE | re.IGNORECASE,
+        )
         # Find all matches in the log content
         matches = pattern.findall(log)
         # Process each match to populate test sets
         for test_name, status in matches:
-            if status.upper() == 'PASSED':
+            if status.upper() == "PASSED":
                 passed_tests.add(test_name)
-            elif status.upper() == 'SKIPPED':
+            elif status.upper() == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status.upper() in ('FAILED', 'FAIL', 'ERROR'):
+            elif status.upper() in ("FAILED", "FAIL", "ERROR"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ echo 'xvfb-run -a npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 xvfb-run -a npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class GOVUK_FRONTEND_990_TO_707(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,28 +203,27 @@ class GOVUK_FRONTEND_990_TO_707(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str] # Tests that passed successfully
-        failed_tests = set[str] # Tests that failed
-        skipped_tests = set[str] # Tests that were skipped
+        passed_tests = set[str]  # Tests that passed successfully
+        failed_tests = set[str]  # Tests that failed
+        skipped_tests = set[str]  # Tests that were skipped
         import re
+
         # Extract passed tests (marked with ✓)
-        passed_pattern = re.compile(r'✓\s+(.*?)\s+\(\d+ms\)')
+        passed_pattern = re.compile(r"✓\s+(.*?)\s+\(\d+ms\)")
         passed_tests = set(passed_pattern.findall(log))
         # Extract failed tests (matches ✕/× with mandatory duration, mirroring passed structure)
-        failed_pattern = re.compile(r'[✕×]\s+(.*?)\s+\(\d+ms\)', re.MULTILINE)
+        failed_pattern = re.compile(r"[✕×]\s+(.*?)\s+\(\d+ms\)", re.MULTILINE)
         failed_tests = set(match.strip() for match in failed_pattern.findall(log))
         # Extract skipped tests (matches ○/↷ with mandatory duration, mirroring passed structure)
-        skipped_pattern = re.compile(r'[○↷]\s+(.*?)\s+\(\d+ms\)', re.MULTILINE)
+        skipped_pattern = re.compile(r"[○↷]\s+(.*?)\s+\(\d+ms\)", re.MULTILINE)
         skipped_tests = set(match.strip() for match in skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

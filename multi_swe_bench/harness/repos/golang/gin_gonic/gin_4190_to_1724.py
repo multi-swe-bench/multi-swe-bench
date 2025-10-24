@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "golang:1.23.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ go mod download
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo "go test -v ./..." > test_commands.sh"""
+echo "go test -v ./..." > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "go test -v ./..." > test_commands.sh"""
 cd /home/{pr.repo}
 go test -v ./...
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v ./...
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 go test -v ./...
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class GIN_4190_TO_1724(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,14 +164,14 @@ class GIN_4190_TO_1724(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         run_tests = set(re.findall(r"=== RUN\s+([\S]+)", log))
@@ -187,9 +181,8 @@ class GIN_4190_TO_1724(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

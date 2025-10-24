@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -140,7 +140,7 @@ xvfb-run -a yarn test-system --verbose
 xvfb-run -a yarn test-mocha --verbose
 xvfb-run -a yarn test-scripts --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ xvfb-run -a yarn test-system --verbose
 xvfb-run -a yarn test-mocha --verbose
 xvfb-run -a yarn test-scripts --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -174,7 +174,7 @@ xvfb-run -a yarn test-system --verbose
 xvfb-run -a yarn test-mocha --verbose
 xvfb-run -a yarn test-scripts --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -193,7 +193,7 @@ xvfb-run -a yarn test-system --verbose
 xvfb-run -a yarn test-mocha --verbose
 xvfb-run -a yarn test-scripts --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -255,7 +255,7 @@ class CYPRESS_29836_TO_29515(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -269,7 +269,6 @@ class CYPRESS_29836_TO_29515(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -277,25 +276,25 @@ class CYPRESS_29836_TO_29515(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests using ANSI escape codes for green checkmark
         # Adjusted regex for passed tests with flexible spacing
-        passed_pattern = re.compile(r'\x1b\[32m\s+✓\x1b\[0m\x1b\[90m\s+(.*?)\x1b\[0m')
+        passed_pattern = re.compile(r"\x1b\[32m\s+✓\x1b\[0m\x1b\[90m\s+(.*?)\x1b\[0m")
         passed_tests = set(passed_pattern.findall(log))
         # Adjusted regex for failed tests (supports bold red and flexible spacing)
         # Flexible regex for failed tests with red ANSI codes
-        failed_pattern = re.compile(r'\x1b\[31(?:;1)?m\s*\d+\)\s*(.*?)\x1b\[0m')
+        failed_pattern = re.compile(r"\x1b\[31(?:;1)?m\s*\d+\)\s*(.*?)\x1b\[0m")
         failed_tests = set(failed_pattern.findall(log))
         # Flexible regex for failed tests with reset ANSI codes
-        failed_pattern2 = re.compile(r'.*\x1b\[0m\s+\d+\)\s+(.*?):')
+        failed_pattern2 = re.compile(r".*\x1b\[0m\s+\d+\)\s+(.*?):")
         failed_tests.update([match.strip() for match in failed_pattern2.findall(log)])
         # Skipped tests not detected in sampled logs, initialize as empty set
         skipped_tests = set()
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

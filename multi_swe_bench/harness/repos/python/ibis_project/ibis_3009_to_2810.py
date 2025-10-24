@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -117,7 +117,7 @@ pip install pytest-mock
 ###ACTION_DELIMITER###
 pytest -v ibis/tests/test_api.py::test_multiple_backends
 ###ACTION_DELIMITER###
-bash /home/ibis/test_commands.sh"""
+bash /home/ibis/test_commands.sh""",
             ),
             File(
                 ".",
@@ -126,9 +126,7 @@ bash /home/ibis/test_commands.sh"""
 cd /home/{pr.repo}
 python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -141,9 +139,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +152,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -c "import ibis.backends.sqlite; import ibis.backends.pandas" && pytest -v ibis/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -220,7 +214,7 @@ class IBIS_3009_TO_2810(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -234,41 +228,42 @@ class IBIS_3009_TO_2810(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex patterns to match test execution lines and summary lines
         # Execution lines: e.g., [   9] ibis/tests/expr/test_analysis.py::test_rewrite_join_projection_without_other_ops PASSED [  0%]
-        pattern_execution = r'^\s*(?:\[\s*\d+\s*\]\s*)?([\w\/\-\.]+\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASSED)\s+(?:\[\s*\d+\.?\d*%?\s*\])?'
+        pattern_execution = r"^\s*(?:\[\s*\d+\s*\]\s*)?([\w\/\-\.]+\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASSED)\s+(?:\[\s*\d+\.?\d*%?\s*\])?"
         # Summary lines: e.g., FAILED ibis/tests/test_api.py::test_top_level_api - AssertionError...
-        pattern_summary = r'^\s*(?:\[\s*\d+\s*\]\s*)?(FAILED|SKIPPED|XFAIL|XPASSED)\s+([\w\/\-\.]+\.py::[^\s]+)'  # Use multiline flag
+        pattern_summary = r"^\s*(?:\[\s*\d+\s*\]\s*)?(FAILED|SKIPPED|XFAIL|XPASSED)\s+([\w\/\-\.]+\.py::[^\s]+)"  # Use multiline flag
         matches_execution = re.findall(pattern_execution, log, re.MULTILINE)
         matches_summary = re.findall(pattern_summary, log, re.MULTILINE)
-        matches = matches_execution + [(test, status) for status, test in matches_summary]
+        matches = matches_execution + [
+            (test, status) for status, test in matches_summary
+        ]
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 # XFAIL is expected failure, consider as skipped
                 skipped_tests.add(test_name)
-            elif status == 'XPASSED':
+            elif status == "XPASSED":
                 # XPASSED is unexpected pass, consider as failed
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ apt-get install -y build-essential python3-dev libssl-dev libffi-dev
 ###ACTION_DELIMITER###
 pip install pytest==6.2.5
 ###ACTION_DELIMITER###
-pip install torch==1.7.1+cpu torchvision==0.8.2+cpu -f https://download.pytorch.org/whl/torch_stable.html"""
+pip install torch==1.7.1+cpu torchvision==0.8.2+cpu -f https://download.pytorch.org/whl/torch_stable.html""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ pip install torch==1.7.1+cpu torchvision==0.8.2+cpu -f https://download.pytorch.
 cd /home/{pr.repo}
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class PYSYFT_2100_TO_2096(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,7 +192,6 @@ class PYSYFT_2100_TO_2096(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -206,14 +199,17 @@ class PYSYFT_2100_TO_2096(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse PASSED tests
-        passed_pattern = re.compile(r'(test/[\w/]+\.py::[\w\[\]\-]+)\s+PASSED')
+        passed_pattern = re.compile(r"(test/[\w/]+\.py::[\w\[\]\-]+)\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Parse FAILED tests
-        failed_pattern = re.compile(r'FAILED\s+(test/[\w/]+\.py::[\w\[\]\-]+)')
+        failed_pattern = re.compile(r"FAILED\s+(test/[\w/]+\.py::[\w\[\]\-]+)")
         failed_tests.update(failed_pattern.findall(log))
         # Parse SKIPPED tests
-        skipped_pattern = re.compile(r'(test/[\w/]+\.py::[\w\[\]\-]+)\s+SKIPPED|SKIPPED\s+(test/[\w/]+\.py::[\w\[\]\-]+)')
+        skipped_pattern = re.compile(
+            r"(test/[\w/]+\.py::[\w\[\]\-]+)\s+SKIPPED|SKIPPED\s+(test/[\w/]+\.py::[\w\[\]\-]+)"
+        )
         skipped_matches = skipped_pattern.findall(log)
         for match in skipped_matches:
             test_name = match[0] if match[0] else match[1]
@@ -222,9 +218,8 @@ class PYSYFT_2100_TO_2096(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ ls statsmodels
 ###ACTION_DELIMITER###
 echo 'pytest -v statsmodels/tests/' > /home/statsmodels/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/statsmodels/test_commands.sh"""
+bash /home/statsmodels/test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash /home/statsmodels/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v statsmodels/tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v statsmodels/tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v statsmodels/tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class STATSMODELS_9471_TO_9249(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,7 +182,6 @@ class STATSMODELS_9471_TO_9249(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -196,8 +189,11 @@ class STATSMODELS_9471_TO_9249(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
-        pattern = re.compile(r'(?:(PASSED|SKIPPED|FAILED)\s+([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)|([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)\s+(PASSED|SKIPPED|FAILED))')
+        pattern = re.compile(
+            r"(?:(PASSED|SKIPPED|FAILED)\s+([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)|([\w/]+/tests/[\w.]+\.py::[\w:]+(?:\[[^]]*\])?)\s+(PASSED|SKIPPED|FAILED))"
+        )
         matches = pattern.findall(log)
         for match in matches:
             status1, test1, test2, status2 = match
@@ -207,18 +203,17 @@ class STATSMODELS_9471_TO_9249(Instance):
                 status, test_name = status2, test2
             else:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

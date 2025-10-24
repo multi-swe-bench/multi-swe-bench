@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ echo -e '#!/bin/bash
 set -e
 yarn clean
 yarn build
-yarn test -- --verbose' > test_commands.sh && chmod +x test_commands.sh"""
+yarn test -- --verbose' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ yarn clean
 yarn build
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ yarn clean
 yarn build
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ yarn clean
 yarn build
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -176,7 +176,7 @@ class ALLURE_JS_973_TO_928(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,15 +190,21 @@ class ALLURE_JS_973_TO_928(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         import re
+
         # Define regex patterns for test statuses
         # Refined patterns to capture test names accurately
-        passed_pattern = re.compile(r'✓\s+([^\(]+?)\s+\(\d+ tests\)')  # Matches passed tests
-        failed_pattern = re.compile(r'\s+❯\s+([^\(]+?)\s+\(\d+ tests \| \d+ failed\)')  # Matches failed tests
-        skipped_pattern = re.compile(r'\s+❯\s+([^\(]+?)\s+\(0 test\)')  # Matches skipped tests
+        passed_pattern = re.compile(
+            r"✓\s+([^\(]+?)\s+\(\d+ tests\)"
+        )  # Matches passed tests
+        failed_pattern = re.compile(
+            r"\s+❯\s+([^\(]+?)\s+\(\d+ tests \| \d+ failed\)"
+        )  # Matches failed tests
+        skipped_pattern = re.compile(
+            r"\s+❯\s+([^\(]+?)\s+\(0 test\)"
+        )  # Matches skipped tests
         # Extract test names using the patterns
         passed_tests = set(match.strip() for match in passed_pattern.findall(log))
         failed_tests = set(match.strip() for match in failed_pattern.findall(log))
@@ -206,9 +212,8 @@ class ALLURE_JS_973_TO_928(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

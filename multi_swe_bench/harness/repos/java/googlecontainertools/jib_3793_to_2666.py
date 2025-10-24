@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:8-jdk"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ apt-get install -y maven
 ###ACTION_DELIMITER###
 ./gradlew test integrationTest --rerun-tasks --no-daemon
 ###ACTION_DELIMITER###
-echo './gradlew test --rerun-tasks --continue --no-daemon' > test_commands.sh"""
+echo './gradlew test --rerun-tasks --continue --no-daemon' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ echo './gradlew test --rerun-tasks --continue --no-daemon' > test_commands.sh"""
 cd /home/{pr.repo}
 ./gradlew test --rerun-tasks --continue --no-daemon
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./gradlew test --rerun-tasks --continue --no-daemon
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./gradlew test --rerun-tasks --continue --no-daemon
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class JIB_3793_TO_2666(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,13 +192,13 @@ class JIB_3793_TO_2666(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         all_tasks = set()
         # Regex to find all tasks, and their status from "> Task" lines
         task_line_pattern = re.compile(r"^> Task (:\S+)( .*)?$")
@@ -228,7 +222,9 @@ class JIB_3793_TO_2666(Instance):
                 test_name = match.group(2)
                 failed_tests.add(f"{class_name}.{test_name}")
         # Regex for failure summary at the end of the log
-        execution_failure_pattern = re.compile(r"Execution failed for task '(:[\w:-]+)'")
+        execution_failure_pattern = re.compile(
+            r"Execution failed for task '(:[\w:-]+)'"
+        )
         for line in log.splitlines():
             match = execution_failure_pattern.search(line)
             if match:
@@ -237,9 +233,8 @@ class JIB_3793_TO_2666(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

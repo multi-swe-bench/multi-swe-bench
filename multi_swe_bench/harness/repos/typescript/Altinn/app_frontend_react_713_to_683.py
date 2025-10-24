@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -226,7 +226,7 @@ cd ../../test/cypress && yarn delete:reports || true && yarn run start-server-an
 ###ACTION_DELIMITER###
 bash /home/app-frontend-react/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -238,7 +238,7 @@ cd /home/app-frontend-react || exit 1
 cd src/altinn-app-frontend && yarn test
 cd ../../test/cypress && yarn delete:reports || true && yarn run start-server-and-test "yarn before:appfrontend" http://local.altinn.cloud "yarn cy:run --env environment=local -b electron" --timeout 300000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -254,7 +254,7 @@ cd /home/app-frontend-react || exit 1
 cd src/altinn-app-frontend && yarn test
 cd ../../test/cypress && yarn delete:reports || true && yarn run start-server-and-test "yarn before:appfrontend" http://local.altinn.cloud "yarn cy:run --env environment=local -b electron" --timeout 300000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -270,7 +270,7 @@ cd /home/app-frontend-react || exit 1
 cd src/altinn-app-frontend && yarn test
 cd ../../test/cypress && yarn delete:reports || true && yarn run start-server-and-test "yarn before:appfrontend" http://local.altinn.cloud "yarn cy:run --env environment=local -b electron" --timeout 300000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -332,7 +332,7 @@ class APP_FRONTEND_REACT_713_TO_683(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -346,33 +346,32 @@ class APP_FRONTEND_REACT_713_TO_683(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Unified pattern to match PASS/FAIL/SKIP with variations
         pattern = re.compile(
-            r'^(?:\[\s*\d+\]\s+)?(PASS|FAIL(?:ED)?|SKIP(?:PED)?)\s+([^\s]+)(?:\s*\(\d+\.\d+\s+s\))?$',
-            re.MULTILINE | re.IGNORECASE
+            r"^(?:\[\s*\d+\]\s+)?(PASS|FAIL(?:ED)?|SKIP(?:PED)?)\s+([^\s]+)(?:\s*\(\d+\.\d+\s+s\))?$",
+            re.MULTILINE | re.IGNORECASE,
         )
         for match in pattern.finditer(log):
             status = match.group(1).upper()  # Normalize to uppercase
             test_name = match.group(2).strip()
-            if status.startswith('PASS'):
+            if status.startswith("PASS"):
                 passed_tests.add(test_name)
-            elif status.startswith('FAIL'):
+            elif status.startswith("FAIL"):
                 failed_tests.add(test_name)
-            elif status.startswith('SKIP'):
+            elif status.startswith("SKIP"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

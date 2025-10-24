@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 ###ACTION_DELIMITER###
 echo 'venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class XCLIM_2098_TO_1814(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,34 +188,35 @@ class XCLIM_2098_TO_1814(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for PASSED tests (ANSI green)
-        passed_pattern = re.compile(r'\x1b\[32mPASSED\x1b\[0m\s+(.*?)\x1b\[0m')
+        passed_pattern = re.compile(r"\x1b\[32mPASSED\x1b\[0m\s+(.*?)\x1b\[0m")
         for match in passed_pattern.findall(log):
             # Remove ANSI codes from the test name
-            test_name = re.sub(r'\x1b\[\d+m', '', match)
+            test_name = re.sub(r"\x1b\[\d+m", "", match)
             passed_tests.add(test_name)
         # Pattern for FAILED tests (ANSI red)
-        failed_pattern = re.compile(r'\x1b\[31mFAILED\x1b\[0m\s+(.*?)\x1b\[0m')
+        failed_pattern = re.compile(r"\x1b\[31mFAILED\x1b\[0m\s+(.*?)\x1b\[0m")
         for match in failed_pattern.findall(log):
-            test_name = re.sub(r'\x1b\[\d+m', '', match)
+            test_name = re.sub(r"\x1b\[\d+m", "", match)
             failed_tests.add(test_name)
         # Pattern for SKIPPED tests (ANSI yellow)
-        skipped_pattern = re.compile(r'\x1b\[33mSKIPPED\x1b\[0m\s+\[\d+\]\s+(tests/.*?:\d+)')
+        skipped_pattern = re.compile(
+            r"\x1b\[33mSKIPPED\x1b\[0m\s+\[\d+\]\s+(tests/.*?:\d+)"
+        )
         for match in skipped_pattern.findall(log):
             skipped_tests.add(match)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

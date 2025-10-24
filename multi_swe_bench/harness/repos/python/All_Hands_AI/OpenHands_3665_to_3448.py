@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -116,7 +116,7 @@ set -e
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/unit/
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/integration/' > /home/OpenHands/test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x /home/OpenHands/test_commands.sh"""
+chmod +x /home/OpenHands/test_commands.sh""",
             ),
             File(
                 ".",
@@ -128,9 +128,7 @@ set -e
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/unit/
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/integration/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -146,9 +144,7 @@ set -e
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/unit/
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/integration/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -164,9 +160,7 @@ set -e
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/unit/
 poetry run pytest --verbose --no-header -rA --tb=no -p no:cacheprovider ./tests/integration/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -228,7 +222,7 @@ class OPENHANDS_3665_TO_3448(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -242,7 +236,6 @@ class OPENHANDS_3665_TO_3448(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -250,49 +243,57 @@ class OPENHANDS_3665_TO_3448(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Process PASSED tests
-            if 'PASSED' in line:
+            if "PASSED" in line:
                 # Case 1: Test name followed by PASSED
-                if 'tests/' in line:
-                    parts = line.split('PASSED')
+                if "tests/" in line:
+                    parts = line.split("PASSED")
                     test_part_before = parts[0].strip()
-                    if test_part_before.startswith('tests/'):
+                    if test_part_before.startswith("tests/"):
                         passed_tests.add(test_part_before)
                     if len(parts) > 1:
                         test_part_after = parts[1].strip()
-                        if test_part_after.startswith('tests/'):
+                        if test_part_after.startswith("tests/"):
                             test_name = test_part_after.split()[0]
                             passed_tests.add(test_name)
             # Process FAILED tests
-            elif 'FAILED' in line:
-                if 'tests/' in line:
-                    parts = line.split('FAILED')
+            elif "FAILED" in line:
+                if "tests/" in line:
+                    parts = line.split("FAILED")
                     if len(parts) > 1:
                         test_part = parts[1].strip()
-                        test_name = test_part.split(' - ')[0] if ' - ' in test_part else test_part
-                        if test_name.startswith('tests/'):
+                        test_name = (
+                            test_part.split(" - ")[0]
+                            if " - " in test_part
+                            else test_part
+                        )
+                        if test_name.startswith("tests/"):
                             failed_tests.add(test_name)
             # Process SKIPPED tests
-            elif 'SKIPPED' in line:
-                if 'tests/' in line:
-                    parts = line.split('SKIPPED')
+            elif "SKIPPED" in line:
+                if "tests/" in line:
+                    parts = line.split("SKIPPED")
                     if len(parts) > 1:
                         test_part = parts[1].strip()
-                        if 'tests/' in test_part:
-                            test_part = 'tests/' + test_part.split('tests/')[1]
-                            colon_parts = test_part.split(':')
-                            test_name = f"{colon_parts[0]}:{colon_parts[1]}" if len(colon_parts)>=2 else colon_parts[0]
-                            if test_name.startswith('tests/'):
+                        if "tests/" in test_part:
+                            test_part = "tests/" + test_part.split("tests/")[1]
+                            colon_parts = test_part.split(":")
+                            test_name = (
+                                f"{colon_parts[0]}:{colon_parts[1]}"
+                                if len(colon_parts) >= 2
+                                else colon_parts[0]
+                            )
+                            if test_name.startswith("tests/"):
                                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

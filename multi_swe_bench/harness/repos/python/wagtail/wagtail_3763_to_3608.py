@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -104,7 +104,7 @@ pip install --upgrade pip==21.3.1
 ###ACTION_DELIMITER###
 pip install flake8==3.9.2 && pip install --upgrade isort
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -120,9 +120,7 @@ python -u runtests.py
 npm run test:unit:coverage -- --runInBand
 npm run build
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +140,7 @@ python -u runtests.py
 npm run test:unit:coverage -- --runInBand
 npm run build
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -164,9 +160,7 @@ python -u runtests.py
 npm run test:unit:coverage -- --runInBand
 npm run build
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -228,7 +222,7 @@ class WAGTAIL_3763_TO_3608(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -242,7 +236,6 @@ class WAGTAIL_3763_TO_3608(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -250,19 +243,19 @@ class WAGTAIL_3763_TO_3608(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse test results using regex
-        pass_pattern = re.compile(r'PASS\s+(.+\.test\.js)')
-        failed_pattern = re.compile(r'FAIL\s+(.+\.test\.js)')
-        skipped_pattern = re.compile(r'SKIPPED\s+(.+\.test\.js)')
+        pass_pattern = re.compile(r"PASS\s+(.+\.test\.js)")
+        failed_pattern = re.compile(r"FAIL\s+(.+\.test\.js)")
+        skipped_pattern = re.compile(r"SKIPPED\s+(.+\.test\.js)")
         passed_tests.update(pass_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

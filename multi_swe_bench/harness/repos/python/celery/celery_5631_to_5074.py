@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ pip install -e .
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y redis-server && service redis-server start && export CELERY_BROKER_URL=redis://localhost:6379/0 && bash test_commands.sh"""
+apt-get update && apt-get install -y redis-server && service redis-server start && export CELERY_BROKER_URL=redis://localhost:6379/0 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ apt-get update && apt-get install -y redis-server && service redis-server start 
 cd /home/[[REPO_NAME]]
 pytest -v t/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v t/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v t/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class CELERY_5631_TO_5074(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,30 +185,29 @@ class CELERY_5631_TO_5074(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regular expression pattern to match test lines
-        pattern = r'^(.+?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[\s*\d+%\s*\]$'
+        pattern = r"^(.+?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[\s*\d+%\s*\]$"
         # Find all matches in the log content
         matches = re.findall(pattern, log, re.MULTILINE)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

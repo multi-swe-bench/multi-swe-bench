@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -52,7 +52,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 yarn install
 ###ACTION_DELIMITER###
-echo 'yarn test' > test_commands.sh"""
+echo 'yarn test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -61,7 +61,7 @@ echo 'yarn test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -74,7 +74,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -149,7 +149,7 @@ class ALFA_1564_TO_1485(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -163,40 +163,39 @@ class ALFA_1564_TO_1485(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract test names with extensions (e.g., .spec.tsx)
-        test_pattern = re.compile(r'testing (packages/.*?\.spec\.(tsx?|jsx?|ts|js))')
+        test_pattern = re.compile(r"testing (packages/.*?\.spec\.(tsx?|jsx?|ts|js))")
         all_tests = set(match.group(1) for match in test_pattern.finditer(log))
         # Extract failed tests (handle .js -> .tsx conversion)
-        error_pattern = re.compile(r'Error:.*?(packages/.*?\.spec)\.(jsx?)')
+        error_pattern = re.compile(r"Error:.*?(packages/.*?\.spec)\.(jsx?)")
         failed_js_tests = set(match.group(1) for match in error_pattern.finditer(log))
         failed_tests = {f"{test}.tsx" for test in failed_js_tests}  # Map .js to .tsx
         # Add exact matches for errors with .tsx/.ts (convert .js to .tsx)
-        exact_error_pattern = re.compile(r'Error:.*?(packages/.*?\.spec)\.(tsx?|jsx?)')
+        exact_error_pattern = re.compile(r"Error:.*?(packages/.*?\.spec)\.(tsx?|jsx?)")
         for match in exact_error_pattern.finditer(log):
             base = match.group(1)
             ext = match.group(2)
-            if ext.startswith('js'):
+            if ext.startswith("js"):
                 failed_tests.add(f"{base}.tsx")
             else:
                 failed_tests.add(f"{base}.{ext}")
         # Passed tests are all tests not failed
         passed_tests = all_tests - failed_tests
         # Check for skipped tests with extensions
-        skipped_pattern = re.compile(r'skipped (packages/.*?\.spec\.(tsx?|jsx?|ts|js))')
+        skipped_pattern = re.compile(r"skipped (packages/.*?\.spec\.(tsx?|jsx?|ts|js))")
         skipped_tests = set(match.group(1) for match in skipped_pattern.finditer(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

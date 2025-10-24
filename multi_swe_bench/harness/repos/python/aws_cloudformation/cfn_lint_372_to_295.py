@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'cd test && python -m unittest discover -v' > /home/cfn-lint/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 cd test && python -m unittest discover -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd test && python -m unittest discover -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd test && python -m unittest discover -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class CFN_LINT_372_TO_295(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,14 +167,14 @@ class CFN_LINT_372_TO_295(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for i in range(len(lines)):
             line = lines[i].strip()
             # Check for status lines (e.g., "... ok" or "... FAIL")
@@ -184,18 +184,18 @@ class CFN_LINT_372_TO_295(Instance):
             # Match status lines by ending with ... ok/FAIL
             # Check if next line is a status line
             if i < len(lines) - 1:
-                next_line = lines[i+1].strip()
-                status_match = re.search(r'\.\.\.\s*(ok|FAIL)\s*$', next_line)
+                next_line = lines[i + 1].strip()
+                status_match = re.search(r"\.\.\.\s*(ok|FAIL)\s*$", next_line)
                 if status_match:
                     status = status_match.group(1)
                     # Extract test name from current line
-                    test_name = re.sub(r'^\[\s*\d+\s*\]\s*', '', line)
-                    if status == 'ok':
+                    test_name = re.sub(r"^\[\s*\d+\s*\]\s*", "", line)
+                    if status == "ok":
                         passed_tests.add(test_name)
-                    elif status == 'FAIL':
+                    elif status == "FAIL":
                         failed_tests.add(test_name)
             # Capture standalone FAIL lines by matching FAIL:
-            fail_match = re.search(r'FAIL:\s*(.*?)\s*$', line)
+            fail_match = re.search(r"FAIL:\s*(.*?)\s*$", line)
             if fail_match:
                 test_name = fail_match.group(1).strip()
                 failed_tests.add(test_name)
@@ -204,9 +204,8 @@ class CFN_LINT_372_TO_295(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

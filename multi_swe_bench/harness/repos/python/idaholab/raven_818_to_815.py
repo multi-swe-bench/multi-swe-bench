@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ make
 ###ACTION_DELIMITER###
 ./run_tests
 ###ACTION_DELIMITER###
-echo './run_tests -j 4' > test_commands.sh"""
+echo './run_tests -j 4' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ echo './run_tests -j 4' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./run_tests -j 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./run_tests -j 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./run_tests -j 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class RAVEN_818_TO_815(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +219,6 @@ class RAVEN_818_TO_815(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: Set[str] = set()  # Tests that passed successfully
@@ -227,15 +226,22 @@ class RAVEN_818_TO_815(Instance):
         skipped_tests: Set[str] = set()  # Tests that were skipped
         try:
             import re
+
             # Parse passed tests
             passed_pattern = re.compile(r"\(\d+/\d+\) Success \([^)]*\) (.*)")
-            passed_tests.update([test.strip() for test in passed_pattern.findall(log) if test.strip()])
+            passed_tests.update(
+                [test.strip() for test in passed_pattern.findall(log) if test.strip()]
+            )
             # Parse skipped tests
             skipped_pattern = re.compile(r"\(\d+/\d+\) Skipped \([^)]*\) (.*)")
-            skipped_tests.update([test.strip() for test in skipped_pattern.findall(log) if test.strip()])
+            skipped_tests.update(
+                [test.strip() for test in skipped_pattern.findall(log) if test.strip()]
+            )
             # Parse failed tests
-            failed_pattern = re.compile(r'FAILED:')
-            summary_pattern = re.compile(r'PASSED:\s*\d+\s*FAILED:\s*\d+\s*SKIPPED\s*\d+', re.IGNORECASE)
+            failed_pattern = re.compile(r"FAILED:")
+            summary_pattern = re.compile(
+                r"PASSED:\s*\d+\s*FAILED:\s*\d+\s*SKIPPED\s*\d+", re.IGNORECASE
+            )
             lines = log.splitlines()
             failed_start = None
             for i, line in enumerate(lines):
@@ -249,7 +255,7 @@ class RAVEN_818_TO_815(Instance):
                         continue
                     if summary_pattern.search(line):
                         break
-                    test_name = re.sub(r'^\[\s*\d+\s*\]\s*', '', line)
+                    test_name = re.sub(r"^\[\s*\d+\s*\]\s*", "", line)
                     if test_name:
                         failed_tests.add(test_name.strip())
             # Debug print to verify failed tests count
@@ -260,9 +266,8 @@ class RAVEN_818_TO_815(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

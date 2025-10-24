@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ pip install numpy==1.19.5
 ###ACTION_DELIMITER###
 pip install pandas==1.3.5 scipy==1.7.3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class PANDERA_305_TO_138(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,21 +174,21 @@ class PANDERA_305_TO_138(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases with leading line numbers and their statuses
         # Line format: [  123] tests/test_xxx.py::test_name PASSED [  0%]
         # or [1916] FAILED tests/test_xxx.py::test_name - Error...
-        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED(?:\s+\[\s*\d+%\])?')
-        failed_pattern = re.compile(r'FAILED\s+(tests/.*?)(?:\s+-|$)')
-        skipped_pattern = re.compile(r'(SKIPPED\s+(tests/.*?)|(tests/.*?)\s+SKIPPED)')
+        passed_pattern = re.compile(r"(tests/.*?)\s+PASSED(?:\s+\[\s*\d+%\])?")
+        failed_pattern = re.compile(r"FAILED\s+(tests/.*?)(?:\s+-|$)")
+        skipped_pattern = re.compile(r"(SKIPPED\s+(tests/.*?)|(tests/.*?)\s+SKIPPED)")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             passed_match = passed_pattern.search(line)
@@ -213,9 +207,8 @@ class PANDERA_305_TO_138(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

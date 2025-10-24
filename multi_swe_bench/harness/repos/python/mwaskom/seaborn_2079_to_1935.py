@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ pip install pandas==0.22.0 --break-system-packages
 ###ACTION_DELIMITER###
 apt-get install -y python3-statsmodels
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > /home/seaborn/test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > /home/seaborn/test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > /home/seaborn/test_c
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class SEABORN_2079_TO_1935(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,13 +190,13 @@ class SEABORN_2079_TO_1935(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
+
         for line in log.splitlines():
             if line.startswith("PASSED"):
                 match = re.match(r"PASSED\s+(.*)", line)
@@ -212,41 +206,40 @@ class SEABORN_2079_TO_1935(Instance):
                 match = re.match(r"FAILED\s+([^\s]+)", line)
                 if match:
                     failed_tests.add(match.group(1).strip())
-            elif re.match(r"^seaborn.*\s+[.sFE]+",line):
-                test_file_match = re.match(r"([^\s]+)",line)
+            elif re.match(r"^seaborn.*\s+[.sFE]+", line):
+                test_file_match = re.match(r"([^\s]+)", line)
                 if test_file_match:
                     test_file = test_file_match.group(1)
-                    statuses = re.findall(r"(\w)(?:\[\d+%\s\]]+)$",line)
+                    statuses = re.findall(r"(\w)(?:\[\d+%\s\]]+)$", line)
                     if statuses:
                         for status in statuses[0]:
-                            if status == 's':
-                               # This is a placeholder as the test name is not on this line
-                               # The actual test name appears later in the log
-                               pass
+                            if status == "s":
+                                # This is a placeholder as the test name is not on this line
+                                # The actual test name appears later in the log
+                                pass
         # Look for skipped tests in the summary info, since they are not always explicitly marked
         skipped_summary = re.search(r"=+ short test summary info =+", log)
         if skipped_summary:
-            summary_text = log[skipped_summary.end():]
+            summary_text = log[skipped_summary.end() :]
             skipped_matches = re.findall(r"SKIPPED \[\d+\] ([^\n]+)", summary_text)
             for test_name in skipped_matches:
                 # The test name might contain the file path and reason, we only want the test name part.
                 file_and_reason = test_name.split(" - ")
                 if len(file_and_reason) > 1:
-                     skipped_tests.add(file_and_reason[0].strip())
+                    skipped_tests.add(file_and_reason[0].strip())
                 else:
                     # Handle cases where there is no explicit reason after the test name
                     # This could be improved with more specific log analysis if needed
                     parts = test_name.split(":")
                     if len(parts) > 2:
                         skipped_tests.add(f"{parts[0]}:{parts[1]}")
-                    else: 
+                    else:
                         skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

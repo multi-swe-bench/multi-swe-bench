@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -104,7 +104,7 @@ pip3 install pytest-json-report && pytest --verbose --json-report=report.json
 ###ACTION_DELIMITER###
 pytest --verbose --json-report-file=report.json
 ###ACTION_DELIMITER###
-echo 'pytest --verbose --runtime=node --json-report-file=report.json' > /home/pyodide/test_commands.sh && chmod +x /home/pyodide/test_commands.sh"""
+echo 'pytest --verbose --runtime=node --json-report-file=report.json' > /home/pyodide/test_commands.sh && chmod +x /home/pyodide/test_commands.sh""",
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ echo 'pytest --verbose --runtime=node --json-report-file=report.json' > /home/py
 cd /home/[[REPO_NAME]]
 pytest --verbose --runtime=node --json-report-file=report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose --runtime=node --json-report-file=report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --verbose --runtime=node --json-report-file=report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class PYODIDE_3815_TO_3496(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,21 +215,23 @@ class PYODIDE_3815_TO_3496(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: test name followed by status and percentage (e.g., "test_name PASSED [ 0%]")
-        pattern1 = re.compile(r'^(.*?) (PASSED|SKIPPED|ERROR|FAILED) \s+\[\s*\d+%\s*\]$')
+        pattern1 = re.compile(
+            r"^(.*?) (PASSED|SKIPPED|ERROR|FAILED) \s+\[\s*\d+%\s*\]$"
+        )
         # Pattern 2: status followed by test name and dash (e.g., "ERROR test_name - ...")
-        pattern2 = re.compile(r'^(ERROR|FAILED|SKIPPED|PASSED) (.*?) - .*$')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(ERROR|FAILED|SKIPPED|PASSED) (.*?) - .*$")
+        for line in log.split("\n"):
             # Remove leading line number bracket
-            cleaned_line = re.sub(r'^\[\s*\d+\]\s*', '', line).strip()
+            cleaned_line = re.sub(r"^\[\s*\d+\]\s*", "", line).strip()
             if not cleaned_line:
                 continue
             # Check pattern1
@@ -246,18 +248,17 @@ class PYODIDE_3815_TO_3496(Instance):
                 else:
                     continue  # No match
             # Categorize based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED'):
+            elif status in ("ERROR", "FAILED"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

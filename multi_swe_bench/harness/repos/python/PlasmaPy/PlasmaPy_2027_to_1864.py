@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ pip install -e .[tests]
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nsource venv/bin/activate\npytest --verbose --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-./test_commands.sh"""
+./test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ fi
 source venv/bin/activate
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ fi
 source venv/bin/activate
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class PLASMAPY_2027_TO_1864(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,7 +186,6 @@ class PLASMAPY_2027_TO_1864(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -200,23 +193,24 @@ class PLASMAPY_2027_TO_1864(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
-            # Regex pattern for individual test lines (e.g., "test_name PASSED [  0%]")
+        # Regex pattern for individual test lines (e.g., "test_name PASSED [  0%]")
         test_line_pattern = re.compile(
-            r'^(.*?)\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+\[\s*\d+%\]$',
-            re.MULTILINE
+            r"^(.*?)\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+\[\s*\d+%\]$",
+            re.MULTILINE,
         )
         # Regex patterns for summary lines (e.g., "FAILED test_name")
-        summary_failed_pattern = re.compile(r'^FAILED\s+(.*)$', re.MULTILINE)
-        summary_skipped_pattern = re.compile(r'^SKIPPED\s+(.*)$', re.MULTILINE)
+        summary_failed_pattern = re.compile(r"^FAILED\s+(.*)$", re.MULTILINE)
+        summary_skipped_pattern = re.compile(r"^SKIPPED\s+(.*)$", re.MULTILINE)
         # Extract test names from individual test lines
         for test_name, status in test_line_pattern.findall(log):
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
             # Handle XFAILED and XPASSED if necessary, but function skeleton doesn't have keys for them
         # Extract failed test names from summary
@@ -230,9 +224,8 @@ class PLASMAPY_2027_TO_1864(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ pip install numpy==1.26.4
 ###ACTION_DELIMITER###
 python localbuild.py --pytest tests
 ###ACTION_DELIMITER###
-echo 'python localbuild.py --pytest tests' > test_commands.sh"""
+echo 'python localbuild.py --pytest tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ echo 'python localbuild.py --pytest tests' > test_commands.sh"""
 cd /home/{pr.repo}
 python localbuild.py --pytest tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python localbuild.py --pytest tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python localbuild.py --pytest tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class AWKWARD_1856_TO_1581(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,31 +182,34 @@ class AWKWARD_1856_TO_1581(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for passed tests (captures test name before ' PASSED')
         passed_pattern = re.compile(r"(tests/.*?)\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: captures 'test_name FAILED' and underlined test names
         failed_pattern1 = re.compile(r"(tests/.*?)\s+FAILED")
-        failed_pattern2 = re.compile(r"_{20,}\s+(tests/.*?)\s+_{20,}")  # Underlined failed tests
+        failed_pattern2 = re.compile(
+            r"_{20,}\s+(tests/.*?)\s+_{20,}"
+        )  # Underlined failed tests
         failed_tests.update(failed_pattern1.findall(log))
         failed_tests.update(failed_pattern2.findall(log))
         # Pattern for skipped tests: captures 'SKIPPED [1] tests/...' (clean file name)
-        skipped_pattern1 = re.compile(r"\[\s*\d+\s*\]\s*SKIPPED\s+\[\d+\]\s+(tests/[^:]+)")  # Stop at first colon to exclude line number/reason
+        skipped_pattern1 = re.compile(
+            r"\[\s*\d+\s*\]\s*SKIPPED\s+\[\d+\]\s+(tests/[^:]+)"
+        )  # Stop at first colon to exclude line number/reason
         skipped_tests.update(skipped_pattern1.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

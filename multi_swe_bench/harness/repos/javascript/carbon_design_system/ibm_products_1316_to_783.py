@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -118,7 +118,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo './node_modules/.bin/lerna exec -- ../../node_modules/.bin/jest --verbose --passWithNoTests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./node_modules/.bin/lerna exec -- ../../node_modules/.bin/jest --verbose --passWithNoTests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -140,7 +140,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/.bin/lerna exec -- ../../node_modules/.bin/jest --verbose --passWithNoTests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/.bin/lerna exec -- ../../node_modules/.bin/jest --verbose --passWithNoTests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class IBM_PRODUCTS_1316_TO_783(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,7 +229,6 @@ class IBM_PRODUCTS_1316_TO_783(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -237,18 +236,21 @@ class IBM_PRODUCTS_1316_TO_783(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         from collections import defaultdict
+
         # Track test context: suite, describe blocks, and current indentation
         test_context = []
-        suite = ''
+        suite = ""
         indent_levels = defaultdict(int)
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         # Regex patterns
-        suite_pattern = re.compile(r'^(PASS|FAIL) (src/.*\.(spec|test)\.js)')
-        describe_pattern = re.compile(r'^(\s*)(\w+.*)$')  # Nested describe blocks
-        test_pattern = re.compile(r'^(\s*)(✓|✕|-)\s*(.*?)\s*\(\d+ ms\)$')  # Tests with status
-        for line in log.split('\n'):
+        suite_pattern = re.compile(r"^(PASS|FAIL) (src/.*\.(spec|test)\.js)")
+        describe_pattern = re.compile(r"^(\s*)(\w+.*)$")  # Nested describe blocks
+        test_pattern = re.compile(
+            r"^(\s*)(✓|✕|-)\s*(.*?)\s*\(\d+ ms\)$"
+        )  # Tests with status
+        for line in log.split("\n"):
             # Update suite context
             suite_match = suite_pattern.search(line)
             if suite_match:
@@ -258,7 +260,7 @@ class IBM_PRODUCTS_1316_TO_783(Instance):
                 continue
             # Update describe blocks (track indentation)
             describe_match = describe_pattern.search(line)
-            if describe_match and '✓' not in line and '✕' not in line:
+            if describe_match and "✓" not in line and "✕" not in line:
                 indent = len(describe_match.group(1))
                 block = describe_match.group(2).strip()
                 # Determine parent context based on indentation
@@ -266,32 +268,35 @@ class IBM_PRODUCTS_1316_TO_783(Instance):
                 if parent_level == -1:
                     test_context = [suite, block]
                 else:
-                    test_context = test_context[:indent_levels[parent_level]+1] + [block]
-                indent_levels[indent] = len(test_context)-1
+                    test_context = test_context[: indent_levels[parent_level] + 1] + [
+                        block
+                    ]
+                indent_levels[indent] = len(test_context) - 1
                 continue
             # Match individual tests and categorize
             test_match = test_pattern.search(line)
             if test_match:
                 status = test_match.group(2)
                 test_name = test_match.group(3).strip()
-                full_test_name = ' '.join(test_context + [test_name])
-                if status == '✓':
+                full_test_name = " ".join(test_context + [test_name])
+                if status == "✓":
                     passed_tests.add(full_test_name)
-                elif status == '✕':
+                elif status == "✕":
                     failed_tests.add(full_test_name)
-                elif status == '-':  # Assume '-' for skipped (adjust if needed)
+                elif status == "-":  # Assume '-' for skipped (adjust if needed)
                     skipped_tests.add(full_test_name)
         # Handle skipped tests from summary (if no individual markers)
-        skipped_summary = re.search(r'Tests:.*? (\d+) skipped', log)
+        skipped_summary = re.search(r"Tests:.*? (\d+) skipped", log)
         if skipped_summary and not skipped_tests:
             # Placeholder: If no individual skipped tests, mark them (adjust logic as needed)
-            skipped_tests.add(f'Skipped {skipped_summary.group(1)} tests (see log summary)')
+            skipped_tests.add(
+                f"Skipped {skipped_summary.group(1)} tests (see log summary)"
+            )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

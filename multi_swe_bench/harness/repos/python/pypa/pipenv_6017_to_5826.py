@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ export PATH=$PATH:/root/.local/bin
 ###ACTION_DELIMITER###
 pipenv install --deploy --dev
 ###ACTION_DELIMITER###
-echo 'pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace tests' > test_commands.sh"""
+echo 'pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ echo 'pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace t
 cd /home/[[REPO_NAME]]
 pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pipenv run pytest -v -ra -n auto --cov-config pyproject.toml --fulltrace tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class PIPENV_6017_TO_5826(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class PIPENV_6017_TO_5826(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -183,23 +182,23 @@ class PIPENV_6017_TO_5826(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract all test names from the log
-        all_test_matches = re.findall(r'tests/[^:]+::.*?(?=\s|$)', log)
+        all_test_matches = re.findall(r"tests/[^:]+::.*?(?=\s|$)", log)
         all_tests = set(all_test_matches)
         # Extract failed tests
-        failed_matches = re.findall(r'FAILED (tests/[^ ]+)(?:\s+-|$)', log)
+        failed_matches = re.findall(r"FAILED (tests/[^ ]+)(?:\s+-|$)", log)
         failed_tests = set(failed_matches)
         # Extract skipped tests
-        skipped_matches = re.findall(r'SKIPPED (tests/[^ ]+)', log)
+        skipped_matches = re.findall(r"SKIPPED (tests/[^ ]+)", log)
         skipped_tests = set(skipped_matches)
         # Calculate passed tests as all tests not failed or skipped
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

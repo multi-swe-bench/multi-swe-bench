@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -79,7 +79,7 @@ pip install numpy==1.26
 export MANUAL_TEST=1 && python -m pytest -v
 ###ACTION_DELIMITER###
 echo -e 'export MANUAL_TEST=1
-python -m pytest -v' > test_commands.sh"""
+python -m pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd /home/[[REPO_NAME]]
 export MANUAL_TEST=1
 python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class OPTERYX_1414_TO_1369(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,20 +193,20 @@ class OPTERYX_1414_TO_1369(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # import json  # Not used in this implementation
         # Regex patterns to match test results
-        pattern_passed = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]')
-        pattern_failed = re.compile(r'^FAILED\s+(.*?)(\s+-.*)?$')
-        pattern_skipped = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]')
-        pattern_skipped_failed_style = re.compile(r'^SKIPPED\s+(.*?)(\s+-.*)?$')
-        for line in log.split('\n'):
+        pattern_passed = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]")
+        pattern_failed = re.compile(r"^FAILED\s+(.*?)(\s+-.*)?$")
+        pattern_skipped = re.compile(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]")
+        pattern_skipped_failed_style = re.compile(r"^SKIPPED\s+(.*?)(\s+-.*)?$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for PASSED tests
             match = pattern_passed.match(line)
@@ -234,9 +234,8 @@ class OPTERYX_1414_TO_1369(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

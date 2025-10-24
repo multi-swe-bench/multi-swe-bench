@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ set -e
  yarn cypress:run
  yarn cucumber:playwright:open' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ set -e
  yarn cypress:run
  yarn cucumber:playwright:open
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ set -e
  yarn cypress:run
  yarn cucumber:playwright:open
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ set -e
  yarn cypress:run
  yarn cucumber:playwright:open
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class LISK_DESKTOP_5474_TO_5376(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class LISK_DESKTOP_5474_TO_5376(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # type: set[str]
@@ -191,35 +190,36 @@ class LISK_DESKTOP_5474_TO_5376(Instance):
         skipped_tests = set()  # type: set[str]
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_hierarchy = []
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             indent_level = leading_spaces // 2  # Assume 2 spaces per indent level
             content = line.strip()
             if not content:
                 continue
             # Check for test markers
             test_marker = None
-            if '✓' in content:
-                test_marker = '✓'
-            elif '✕' in content:
-                test_marker = '✕'
-            elif '○' in content:
-                test_marker = '○'
+            if "✓" in content:
+                test_marker = "✓"
+            elif "✕" in content:
+                test_marker = "✕"
+            elif "○" in content:
+                test_marker = "○"
             if test_marker:
                 # Extract test description
                 # Split off the time part (e.g., (5 ms))
-                parts = content.split(' (', 1)
-                test_desc = parts[0].replace(test_marker, '').strip()
+                parts = content.split(" (", 1)
+                test_desc = parts[0].replace(test_marker, "").strip()
                 # Combine with current hierarchy
-                full_test_name = ' '.join(current_hierarchy + [test_desc]).strip()
+                full_test_name = " ".join(current_hierarchy + [test_desc]).strip()
                 # Categorize
-                if test_marker == '✓':
+                if test_marker == "✓":
                     passed_tests.add(full_test_name)
-                elif test_marker == '✕':
+                elif test_marker == "✕":
                     failed_tests.add(full_test_name)
-                elif test_marker == '○':
+                elif test_marker == "○":
                     skipped_tests.add(full_test_name)
             else:
                 # Update describe hierarchy
@@ -237,14 +237,13 @@ class LISK_DESKTOP_5474_TO_5376(Instance):
                     else:
                         # Add new levels
                         while len(current_hierarchy) < indent_level - 1:
-                            current_hierarchy.append('')
+                            current_hierarchy.append("")
                         current_hierarchy.append(content)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

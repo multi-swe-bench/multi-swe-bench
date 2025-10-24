@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -100,7 +100,7 @@ echo "set -e
 (cd jib-gradle-plugin && ./gradlew build install -x javadoc)
 (cd jib-maven-plugin && ./mvnw install -U)" > /home/jib/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ set -e
 (cd jib-gradle-plugin && ./gradlew build install -x javadoc)
 (cd jib-maven-plugin && ./mvnw install -U)
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +128,7 @@ set -e
 (cd jib-gradle-plugin && ./gradlew build install -x javadoc)
 (cd jib-maven-plugin && ./mvnw install -U)
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -148,9 +144,7 @@ set -e
 (cd jib-gradle-plugin && ./gradlew build install -x javadoc)
 (cd jib-maven-plugin && ./mvnw install -U)
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -212,7 +206,7 @@ class JIB_716_TO_127(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -226,13 +220,13 @@ class JIB_716_TO_127(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Pattern for Maven test results summary line
         maven_result_pattern = re.compile(
             r"Tests run: \d+, Failures: (\d+), Errors: (\d+), Skipped: (\d+).* in ([\w\.]+)"
@@ -265,32 +259,37 @@ class JIB_716_TO_127(Instance):
         # Handle Gradle tests for successful builds
         if "BUILD SUCCESSFUL" in log:
             # A simple pattern for any gradle test line.
-            #gradle_test_line = re.compile(r"^([\w\.]+) > .*$", re.MULTILINE)
-            gradle_test_line = re.compile(r"^([a-zA-Z0-9\-_\.]+) > ([a-zA-Z0-9\-_]+) .+$", re.MULTILINE)
+            # gradle_test_line = re.compile(r"^([\w\.]+) > .*$", re.MULTILINE)
+            gradle_test_line = re.compile(
+                r"^([a-zA-Z0-9\-_\.]+) > ([a-zA-Z0-9\-_]+) .+$", re.MULTILINE
+            )
             all_gradle_tests = set(gradle_test_line.findall(log))
             for test in all_gradle_tests:
                 # check the test is a valid test name format.
-                if re.match(r'^(com|org)\..*Test$', test[0]):
-                     if test[0] not in failed_tests and test[0] not in skipped_tests:
+                if re.match(r"^(com|org)\..*Test$", test[0]):
+                    if test[0] not in failed_tests and test[0] not in skipped_tests:
                         passed_tests.add(test[0])
         # If build fails, we might not have 'Running...' lines for tests that failed during compilation
         if "BUILD FAILED" in log:
             # Look for compilation errors and extract class names
-            compilation_error_pattern = re.compile(r"([a-zA-Z0-9\.\/]+)\.java:\d+:\serror:")
+            compilation_error_pattern = re.compile(
+                r"([a-zA-Z0-9\.\/]+)\.java:\d+:\serror:"
+            )
             matches = compilation_error_pattern.findall(log)
             for match in matches:
                 # convert path to class name
-                class_name = match.replace('/', '.')
-                #find the first occurrence of a test class name
-                m = re.search(r'((?:com|org)\.(?:[a-zA-Z0-9]+\.)+[a-zA-Z0-9]+Test)', class_name)
-                if(m):
+                class_name = match.replace("/", ".")
+                # find the first occurrence of a test class name
+                m = re.search(
+                    r"((?:com|org)\.(?:[a-zA-Z0-9]+\.)+[a-zA-Z0-9]+Test)", class_name
+                )
+                if m:
                     failed_tests.add(m.group(1))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
             "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

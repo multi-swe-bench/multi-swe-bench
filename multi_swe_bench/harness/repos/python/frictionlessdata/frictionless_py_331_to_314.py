@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ pip install cython==0.29.36 && pip install 'setuptools<59' && pip install pyyaml
 ###ACTION_DELIMITER###
 pip install pyyaml==5.4.1 --no-build-isolation
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class FRICTIONLESS_PY_331_TO_314(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,16 +185,18 @@ class FRICTIONLESS_PY_331_TO_314(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        test_name_pattern = r'tests/[^:]+?\.py::[\w:]+'
-        combined_pattern = re.compile(rf'(PASSED|SKIPPED|FAILED)\s+.*?({test_name_pattern})|({test_name_pattern})\s+(PASSED|SKIPPED|FAILED)')
-        for line in log.split('\n'):
+
+        test_name_pattern = r"tests/[^:]+?\.py::[\w:]+"
+        combined_pattern = re.compile(
+            rf"(PASSED|SKIPPED|FAILED)\s+.*?({test_name_pattern})|({test_name_pattern})\s+(PASSED|SKIPPED|FAILED)"
+        )
+        for line in log.split("\n"):
             line = line.strip()
             match = combined_pattern.search(line)
             if not match:
@@ -211,18 +213,17 @@ class FRICTIONLESS_PY_331_TO_314(Instance):
                 test_name = group3
             else:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

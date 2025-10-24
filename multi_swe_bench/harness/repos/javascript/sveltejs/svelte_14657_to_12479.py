@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo "pnpm exec vitest run --reporter=verbose" > test_commands.sh"""
+echo "pnpm exec vitest run --reporter=verbose" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo "pnpm exec vitest run --reporter=verbose" > test_commands.sh"""
 cd /home/{pr.repo}
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class SVELTE_14657_TO_12479(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,48 +162,49 @@ class SVELTE_14657_TO_12479(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         for line in log.splitlines():
             # Passed tests
-            if line.strip().startswith('✓'):
-                match = re.search(r'✓ (.*)', line)
+            if line.strip().startswith("✓"):
+                match = re.search(r"✓ (.*)", line)
                 if match:
                     test_name = match.group(1).strip()
                     passed_tests.add(test_name)
             # Failed tests
-            elif '✗' in line: # For test-patch-run.log
-                match = re.search(r'✗ (.*?) \(packages/.*\)', line)
+            elif "✗" in line:  # For test-patch-run.log
+                match = re.search(r"✗ (.*?) \(packages/.*\)", line)
                 if match:
                     test_name = match.group(1).strip()
                     failed_tests.add(test_name)
-            elif 'FAIL' in line: # For run.log
-                match = re.search(r'FAIL\s+(.*)', line)
+            elif "FAIL" in line:  # For run.log
+                match = re.search(r"FAIL\s+(.*)", line)
                 if match:
-                    test_name = match.group(1).strip().replace('[', '').replace(']', '').strip()
+                    test_name = (
+                        match.group(1).strip().replace("[", "").replace("]", "").strip()
+                    )
                     failed_tests.add(test_name)
             # Skipped tests (based on summary)
-        summary_line = re.search(r'Tests.*?(\d+) skipped', log)
+        summary_line = re.search(r"Tests.*?(\d+) skipped", log)
         if summary_line:
             # We know the number of skipped tests, but not their names from the log format.
             # We will add placeholders for now.
             num_skipped = int(summary_line.group(1))
             for i in range(num_skipped):
-                skipped_tests.add(f"skipped_test_{i+1}")
+                skipped_tests.add(f"skipped_test_{i + 1}")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

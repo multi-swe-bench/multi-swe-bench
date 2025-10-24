@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ npm config set registry https://registry.npm.taobao.org
 ###ACTION_DELIMITER###
 yarn install
 ###ACTION_DELIMITER###
-echo 'yarn test --verbose' > test_commands.sh"""
+echo 'yarn test --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ echo 'yarn test --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class VKUI_7518_TO_7272(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,50 +181,57 @@ class VKUI_7518_TO_7272(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         current_suite = ""
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Extract content after the line number prefix
-            content_match = re.match(r'^\[\s*\d+\]\s*(.*)$', line)
+            content_match = re.match(r"^\[\s*\d+\]\s*(.*)$", line)
             content = content_match.group(1) if content_match else line
             # Update current test suite if the line is a suite name (indented with 2 spaces)
-            suite_match = re.match(r'^\s{2}(\S.*?)\s*$', content)
+            suite_match = re.match(r"^\s{2}(\S.*?)\s*$", content)
             if suite_match:
                 current_suite = suite_match.group(1)
                 continue
             # Check for passed tests (indented with 4 spaces, ✓)
-            passed_match = re.match(r'^\s{4}✓\s+(.*?)\s+\(\d+\s*ms\)$', content)
+            passed_match = re.match(r"^\s{4}✓\s+(.*?)\s+\(\d+\s*ms\)$", content)
             if passed_match:
                 test_case = passed_match.group(1)
-                full_test_name = f"{current_suite} {test_case}" if current_suite else test_case
+                full_test_name = (
+                    f"{current_suite} {test_case}" if current_suite else test_case
+                )
                 passed_tests.add(full_test_name)
                 continue
             # Check for failed tests (indented with 4 spaces, x)
-            failed_match = re.match(r'^\s{4,}[✕x]\s+(.*?)\s+\(\d+\s*ms\)$', content)
+            failed_match = re.match(r"^\s{4,}[✕x]\s+(.*?)\s+\(\d+\s*ms\)$", content)
             if failed_match:
                 test_case = failed_match.group(1)
-                full_test_name = f"{current_suite} {test_case}" if current_suite else test_case
+                full_test_name = (
+                    f"{current_suite} {test_case}" if current_suite else test_case
+                )
                 failed_tests.add(full_test_name)
                 continue
             # Check for skipped tests (indented with 4 spaces, s or SKIPPED)
-            skipped_match = re.match(r'^\s{4}(?:s|SKIPPED)\s+(.*?)\s+\(\d+\s*ms\)$', content)
+            skipped_match = re.match(
+                r"^\s{4}(?:s|SKIPPED)\s+(.*?)\s+\(\d+\s*ms\)$", content
+            )
             if skipped_match:
                 test_case = skipped_match.group(1)
-                full_test_name = f"{current_suite} {test_case}" if current_suite else test_case
+                full_test_name = (
+                    f"{current_suite} {test_case}" if current_suite else test_case
+                )
                 skipped_tests.add(full_test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

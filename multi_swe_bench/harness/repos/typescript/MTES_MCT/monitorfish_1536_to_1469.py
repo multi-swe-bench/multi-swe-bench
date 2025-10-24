@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ sed -i '/<dependency>\n        <groupId>org.springframework.boot<\/groupId>\n   
 ###ACTION_DELIMITER###
 cat target/surefire-reports/fr.gouv.cnsp.monitorfish.infrastructure.api.HealthcheckControllerITests.txt
 ###ACTION_DELIMITER###
-echo 'make test' > /home/monitorfish/test_commands.sh && chmod +x /home/monitorfish/test_commands.sh"""
+echo 'make test' > /home/monitorfish/test_commands.sh && chmod +x /home/monitorfish/test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ echo 'make test' > /home/monitorfish/test_commands.sh && chmod +x /home/monitorf
 cd /home/[[REPO_NAME]]
 make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class MONITORFISH_1536_TO_1469(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,36 +203,35 @@ class MONITORFISH_1536_TO_1469(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract all running test classes
         running_tests = set()
-        running_pattern = re.compile(r'\[INFO\] Running (.*)')
+        running_pattern = re.compile(r"\[INFO\] Running (.*)")
         for match in running_pattern.finditer(log):
             running_tests.add(match.group(1).strip())
         # Extract failed test classes
-        failed_pattern = re.compile(r'<<< (FAILURE|ERROR)! - in (.*)')
+        failed_pattern = re.compile(r"<<< (FAILURE|ERROR)! - in (.*)")
         for match in failed_pattern.finditer(log):
             test_name = match.group(2).strip()
             failed_tests.add(test_name)
         # Determine passed tests (running classes not in failed)
         passed_tests = running_tests - failed_tests
         # Extract skipped test classes
-        skipped_pattern = re.compile(r'\[INFO\] Skipping (.*)')
+        skipped_pattern = re.compile(r"\[INFO\] Skipping (.*)")
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1).strip()
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ npm install cheerio@1.0.0-rc.3 --save-dev --legacy-peer-deps
 ###ACTION_DELIMITER###
 npm run test -- --verbose
 ###ACTION_DELIMITER###
-echo 'npm run test -- --verbose' > test_commands.sh"""
+echo 'npm run test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ echo 'npm run test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class ANT_DESIGN_31042_TO_30655(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,36 +199,47 @@ class ANT_DESIGN_31042_TO_30655(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse test results from summary and individual lines
         # Match test suite results (e.g., 'PASS components/form/__tests__/type.test.tsx')
-        pass_pattern = re.compile(r'(?:\[\s*\d+\s*\]\s+)?PASS(?:ED)?:?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))', re.IGNORECASE)  # Use non-capturing groups for test type and extension  # Target test file paths  # Use \S+ for flexible test name capture  # Optional line number prefix  # Match line number prefix  # Simplified to match any PASS line  # Allow extra text between line number and PASS
-        fail_pattern = re.compile(r'(?:\[\s*\d+\s*\]\s+)?FAIL(?:ED)?:?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))', re.IGNORECASE)  # Target test file paths  # Use \S+ for flexible test name capture  # Optional line number prefix  # Match line number prefix  # Simplified to match any FAIL line  # Case-insensitive match
+        pass_pattern = re.compile(
+            r"(?:\[\s*\d+\s*\]\s+)?PASS(?:ED)?:?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))",
+            re.IGNORECASE,
+        )  # Use non-capturing groups for test type and extension  # Target test file paths  # Use \S+ for flexible test name capture  # Optional line number prefix  # Match line number prefix  # Simplified to match any PASS line  # Allow extra text between line number and PASS
+        fail_pattern = re.compile(
+            r"(?:\[\s*\d+\s*\]\s+)?FAIL(?:ED)?:?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))",
+            re.IGNORECASE,
+        )  # Target test file paths  # Use \S+ for flexible test name capture  # Optional line number prefix  # Match line number prefix  # Simplified to match any FAIL line  # Case-insensitive match
         # Extract passed tests
         passed_tests.update(pass_pattern.findall(log))
         # Extract failed tests
         failed_tests.update(fail_pattern.findall(log))
         # Extract skipped tests from individual lines (e.g., 'SKIPPED components/test/test.tsx')
-        skip_pattern = re.compile(r'(?:\[\s*\d+\s*\]\s+)?(?:SKIP|SKIPPED):?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))', re.IGNORECASE)  # Match test file paths  # Include slashes for file paths  # Flexible capture for skipped test names  # Target test file paths for skipped tests  # Flexible capture for skipped test names  # Handle SKIP or SKIPPED  # Target test file paths  # Optional line number prefix and flexible capture  # Simplified to match any SKIPPED line  # Allow optional colon after SKIPPED
+        skip_pattern = re.compile(
+            r"(?:\[\s*\d+\s*\]\s+)?(?:SKIP|SKIPPED):?\s+([\w\/\-\.]+\.(?:test|spec)\.(?:js|ts|tsx|jsx))",
+            re.IGNORECASE,
+        )  # Match test file paths  # Include slashes for file paths  # Flexible capture for skipped test names  # Target test file paths for skipped tests  # Flexible capture for skipped test names  # Handle SKIP or SKIPPED  # Target test file paths  # Optional line number prefix and flexible capture  # Simplified to match any SKIPPED line  # Allow optional colon after SKIPPED
         skipped_tests.update(skip_pattern.findall(log))
         # Extract skipped tests from summary if individual lines are not available
-        skip_summary = re.search(r'Tests:\s+\d+ failed,\s+(\d+) skipped', log)
+        skip_summary = re.search(r"Tests:\s+\d+ failed,\s+(\d+) skipped", log)
         if skip_summary and not skipped_tests:
             # If no individual skipped tests are found, log a warning (task requires names, so this is a fallback)
             import warnings
-            warnings.warn(f"Skipped tests count: {skip_summary.group(1)}, but no test names were found in the log.")
+
+            warnings.warn(
+                f"Skipped tests count: {skip_summary.group(1)}, but no test names were found in the log."
+            )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

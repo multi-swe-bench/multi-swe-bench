@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20.3.1-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -65,7 +65,7 @@ sed -i 's/XXXX/http:\/\/localhost:9200/' packages/code-du-travail-frontend/.env 
 echo -e 'yarn test:frontend --verbose
 TEST_MODE=heavy-and-light yarn test:e2e --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ cd /home/[[REPO_NAME]]
 yarn test:frontend --verbose
 TEST_MODE=heavy-and-light yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ fi
 yarn test:frontend --verbose
 TEST_MODE=heavy-and-light yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ fi
 yarn test:frontend --verbose
 TEST_MODE=heavy-and-light yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class CODE_DU_TRAVAIL_NUMERIQUE_6156_TO_5917(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,27 +179,26 @@ class CODE_DU_TRAVAIL_NUMERIQUE_6156_TO_5917(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests using regex pattern
-        pass_pattern = r'@cdt/frontend: PASS (.*)'
+        pass_pattern = r"@cdt/frontend: PASS (.*)"
         passed_tests = set(re.findall(pass_pattern, log))
         # Extract failed tests using regex pattern
-        fail_pattern = r'@cdt/frontend: FAIL (.*)'
+        fail_pattern = r"@cdt/frontend: FAIL (.*)"
         failed_tests = set(re.findall(fail_pattern, log))
         # Skipped tests: No pattern identified in logs, leaving empty
         skipped_tests = set()
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

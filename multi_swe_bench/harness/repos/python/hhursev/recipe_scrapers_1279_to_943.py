@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
 echo 'python -m unittest discover -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m unittest discover -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m unittest discover -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m unittest discover -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,18 +164,24 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract all test names with full structure
-        all_tests = set(re.findall(r'tests/test_data/.*?\.json \(tests\.RecipeTestCase\)', log))
+        all_tests = set(
+            re.findall(r"tests/test_data/.*?\.json \(tests\.RecipeTestCase\)", log)
+        )
         # Extract failed test names with full structure
-        failed_tests = set(re.findall(r'FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))', log))
+        failed_tests = set(
+            re.findall(
+                r"FAIL:\s*(tests/test_data/.*?\.json \(tests\.RecipeTestCase\))", log
+            )
+        )
         # Determine passed tests (all tests not in failed_tests)
         passed_tests = all_tests - failed_tests
         # Skipped tests (placeholder; add regex if needed)
@@ -189,9 +189,8 @@ class RECIPE_SCRAPERS_1279_TO_943(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

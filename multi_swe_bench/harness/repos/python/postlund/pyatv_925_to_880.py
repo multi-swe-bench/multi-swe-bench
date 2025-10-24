@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -88,7 +88,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install protobuf==3.20.3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +112,7 @@ fi
 #!/bin/bash
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ fi
 #!/bin/bash
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class PYATV_925_TO_880(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,16 +202,18 @@ class PYATV_925_TO_880(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Compile regex patterns
-        passed_pattern = re.compile(r'\d+\.\d+s call\s+(tests/.*)$', re.MULTILINE)
-        failed_pattern = re.compile(r'(?:\[.*?\])?\s*(FAILED|ERROR)\s+(tests/[\w/.:-]+)', re.MULTILINE)
+        passed_pattern = re.compile(r"\d+\.\d+s call\s+(tests/.*)$", re.MULTILINE)
+        failed_pattern = re.compile(
+            r"(?:\[.*?\])?\s*(FAILED|ERROR)\s+(tests/[\w/.:-]+)", re.MULTILINE
+        )
         # Extract passed tests
         passed_tests = set(passed_pattern.findall(log))
         # Extract failed tests
@@ -228,9 +224,8 @@ class PYATV_925_TO_880(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

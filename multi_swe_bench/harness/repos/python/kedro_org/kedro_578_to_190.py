@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -127,7 +127,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/pyspark~=2.2; python_version < "3.8"/pyspark~=3.3/' test_requirements.txt && pip install -r test_requirements.txt -c constraints.txt --only-binary pyspark
 ###ACTION_DELIMITER###
-sed -i 's/pyspark~=2.2; python_version < "3.8"/pyspark~=3.3.0/' test_requirements.txt && pip install pyspark~=3.3.0 && bash test_commands.sh"""
+sed -i 's/pyspark~=2.2; python_version < "3.8"/pyspark~=3.3.0/' test_requirements.txt && pip install pyspark~=3.3.0 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,9 +136,7 @@ sed -i 's/pyspark~=2.2; python_version < "3.8"/pyspark~=3.3.0/' test_requirement
 cd /home/{pr.repo}
 pytest -v tests --cov-config pyproject.toml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -151,9 +149,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests --cov-config pyproject.toml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -166,9 +162,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests --cov-config pyproject.toml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -230,7 +224,7 @@ class KEDRO_578_TO_190(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -244,38 +238,37 @@ class KEDRO_578_TO_190(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: test name followed by PASSED and [ percentage ]
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]$', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]$", re.MULTILINE)
         passed_matches = passed_pattern.findall(log)
         for test in passed_matches:
             passed_tests.add(test.strip())
         # Pattern for failed tests: FAILED followed by test name
-        failed_pattern = re.compile(r'^FAILED\s+(.*?)$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(.*?)$", re.MULTILINE)
         failed_matches = failed_pattern.findall(log)
         for test in failed_matches:
             failed_tests.add(test.strip())
         # Check for skipped tests in both formats
-        skipped_pattern1 = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]$', re.MULTILINE)
+        skipped_pattern1 = re.compile(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]$", re.MULTILINE)
         skipped_matches1 = skipped_pattern1.findall(log)
         for test in skipped_matches1:
             skipped_tests.add(test.strip())
-        skipped_pattern2 = re.compile(r'^SKIPPED\s+(.*?)$', re.MULTILINE)
+        skipped_pattern2 = re.compile(r"^SKIPPED\s+(.*?)$", re.MULTILINE)
         skipped_matches2 = skipped_pattern2.findall(log)
         for test in skipped_matches2:
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

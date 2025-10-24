@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'GOOGLE_AUTH_DISABLED=1 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests/unit/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 GOOGLE_AUTH_DISABLED=1 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 GOOGLE_AUTH_DISABLED=1 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 GOOGLE_AUTH_DISABLED=1 pytest --no-header -rA --tb=no -p no:cacheprovider -v tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class PYTHON_STORAGE_325_TO_41(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,18 +214,18 @@ class PYTHON_STORAGE_325_TO_41(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Refined regex patterns to handle test status formats
         # Matches both: [line] test_name PASSED [percent] and [line] PASSED test_name
-        pattern_passed_failed = r'(tests/unit/.*?\.py::[^\s]+)\s+(PASSED|FAILED)|(PASSED|FAILED)\s+(tests/unit/.*?\.py::[^\s]+)'
+        pattern_passed_failed = r"(tests/unit/.*?\.py::[^\s]+)\s+(PASSED|FAILED)|(PASSED|FAILED)\s+(tests/unit/.*?\.py::[^\s]+)"
         # Matches SKIPPED tests with file:line (log does not provide full test name)
-        pattern_skipped = r'SKIPPED\s+\[\d+\]\s+(tests/unit/[^:]+\.py:\d+)'  # Captures file:line for skipped
+        pattern_skipped = r"SKIPPED\s+\[\d+\]\s+(tests/unit/[^:]+\.py:\d+)"  # Captures file:line for skipped
         # Extract and process PASSED/FAILED tests
         for match in re.findall(pattern_passed_failed, log):
             test1, status1, status2, test2 = match
@@ -239,18 +233,17 @@ class PYTHON_STORAGE_325_TO_41(Instance):
                 test, status = test1, status1
             else:
                 test, status = test2, status2
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
         # Extract and process SKIPPED tests
         skipped_tests.update(re.findall(pattern_skipped, log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

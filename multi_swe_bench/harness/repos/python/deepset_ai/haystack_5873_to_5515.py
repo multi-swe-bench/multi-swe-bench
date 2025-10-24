@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ pytest -v test/
 ###ACTION_DELIMITER###
 pip install pytest-xdist
 ###ACTION_DELIMITER###
-echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/' > /home/haystack/test_commands.sh"""
+echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/' > /home/haystack/test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/' > /ho
 cd /home/{pr.repo}
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class HAYSTACK_5873_TO_5515(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,15 +198,15 @@ class HAYSTACK_5873_TO_5515(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status and name
-        pattern = r'(PASSED|FAILED|SKIPPED) (test/.+)'
+        pattern = r"(PASSED|FAILED|SKIPPED) (test/.+)"
         matches = re.findall(pattern, log)
         for status, test_name in matches:
             if status == "PASSED":
@@ -224,9 +218,8 @@ class HAYSTACK_5873_TO_5515(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

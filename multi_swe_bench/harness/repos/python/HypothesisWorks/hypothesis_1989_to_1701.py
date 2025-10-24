@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ DJANGO_SETTINGS_MODULE=tests.django.toystore.settings /root/.cache/hypothesis-bu
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 cd hypothesis-python || exit 1
-/root/.cache/hypothesis-build-runtimes/python-versions//3.6.15/bin/python -m pytest -v --ignore=tests/py2/ --ignore=tests/django/' > /home/hypothesis/test_commands.sh && chmod +x /home/hypothesis/test_commands.sh"""
+/root/.cache/hypothesis-build-runtimes/python-versions//3.6.15/bin/python -m pytest -v --ignore=tests/py2/ --ignore=tests/django/' > /home/hypothesis/test_commands.sh && chmod +x /home/hypothesis/test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ cd /home/[[REPO_NAME]]
 cd hypothesis-python || exit 1
 /root/.cache/hypothesis-build-runtimes/python-versions//3.6.15/bin/python -m pytest -v --ignore=tests/py2/ --ignore=tests/django/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ fi
 cd hypothesis-python || exit 1
 /root/.cache/hypothesis-build-runtimes/python-versions//3.6.15/bin/python -m pytest -v --ignore=tests/py2/ --ignore=tests/django/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ fi
 cd hypothesis-python || exit 1
 /root/.cache/hypothesis-build-runtimes/python-versions//3.6.15/bin/python -m pytest -v --ignore=tests/py2/ --ignore=tests/django/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class HYPOTHESIS_1989_TO_1701(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,21 +217,21 @@ class HYPOTHESIS_1989_TO_1701(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns for each status
         # PASSED: [line_num] test_name PASSED ...
-        pattern_passed = re.compile(r'^\s*([^\s]+)\s+PASSED\b', re.MULTILINE)
+        pattern_passed = re.compile(r"^\s*([^\s]+)\s+PASSED\b", re.MULTILINE)
         # FAILED: [line_num] FAILED test_name ...
-        pattern_failed = re.compile(r'^\s*FAILED\s+([^\s]+)\b', re.MULTILINE)
+        pattern_failed = re.compile(r"^\s*FAILED\s+([^\s]+)\b", re.MULTILINE)
         # SKIPPED: Check both possible patterns
-        pattern_skipped1 = re.compile(r'^\s*([^\s]+)\s+SKIPPED\b', re.MULTILINE)
-        pattern_skipped2 = re.compile(r'^\s*SKIPPED\s+([^\s]+)\b', re.MULTILINE)
+        pattern_skipped1 = re.compile(r"^\s*([^\s]+)\s+SKIPPED\b", re.MULTILINE)
+        pattern_skipped2 = re.compile(r"^\s*SKIPPED\s+([^\s]+)\b", re.MULTILINE)
         # Extract passed tests
         passed_matches = pattern_passed.findall(log)
         passed_tests.update(passed_matches)
@@ -246,9 +246,8 @@ class HYPOTHESIS_1989_TO_1701(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

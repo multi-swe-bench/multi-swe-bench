@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ npm install -g pnpm
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo "pnpm test --reporter=verbose" > test_commands.sh"""
+echo "pnpm test --reporter=verbose" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "pnpm test --reporter=verbose" > test_commands.sh"""
 cd /home/{pr.repo}
 pnpm test --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm test --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class SVELTE_12479_TO_12081(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,31 +164,31 @@ class SVELTE_12479_TO_12081(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex to find test files
         test_file_pattern = re.compile(r"(packages/svelte/.*?\.ts)")
         for line in log.splitlines():
-            line = line.strip() # remove leading/trailing whitespace
-            if not line.startswith('✓') and not line.startswith('❯'):
+            line = line.strip()  # remove leading/trailing whitespace
+            if not line.startswith("✓") and not line.startswith("❯"):
                 continue
             match = test_file_pattern.search(line)
             if not match:
                 continue
             test_file = match.group(1).strip()
             # Handle passed tests
-            if line.startswith('✓'):
+            if line.startswith("✓"):
                 passed_tests.add(test_file)
             # Handle failed tests
-            if line.startswith('❯'):
+            if line.startswith("❯"):
                 failed_tests.add(test_file)
             # Handle skipped tests
-            if 'skipped' in line:
+            if "skipped" in line:
                 skipped_tests.add(test_file)
         # Remove failed tests from passed and skipped sets
         passed_tests -= failed_tests
@@ -204,9 +198,8 @@ class SVELTE_12479_TO_12081(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

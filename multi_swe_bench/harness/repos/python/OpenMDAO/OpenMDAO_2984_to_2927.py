@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ echo -e '#!/bin/bash\ntestflo -v -n 4 .' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 testflo -v -n 4 .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ fi
 #!/bin/bash
 testflo -v -n 4 .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ fi
 #!/bin/bash
 testflo -v -n 4 .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -178,7 +178,7 @@ class OPENMDAO_2984_TO_2927(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,7 +192,6 @@ class OPENMDAO_2984_TO_2927(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -200,22 +199,25 @@ class OPENMDAO_2984_TO_2927(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Use regex to find all test lines with status
-        pattern = re.compile(r'^\s*(?:\[\s*\d+\]\s*)?([\w\/\-\.]+\.py:[\w\-]+\.[\w\-]+)\s*\.{3}\s*(OK|PASSED|FAIL|FAILED|SKIP|SKIPPED)', re.MULTILINE)
+        pattern = re.compile(
+            r"^\s*(?:\[\s*\d+\]\s*)?([\w\/\-\.]+\.py:[\w\-]+\.[\w\-]+)\s*\.{3}\s*(OK|PASSED|FAIL|FAILED|SKIP|SKIPPED)",
+            re.MULTILINE,
+        )
         test_matches = pattern.findall(log)
         for test_name, status in test_matches:
-            if status in ('OK', 'PASSED'):
+            if status in ("OK", "PASSED"):
                 passed_tests.add(test_name)
-            elif status in ('FAIL', 'FAILED'):
+            elif status in ("FAIL", "FAILED"):
                 failed_tests.add(test_name)
-            elif status in ('SKIP', 'SKIPPED'):
+            elif status in ("SKIP", "SKIPPED"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 ./reframe.py --help
 ###ACTION_DELIMITER###
-echo -e "./test_reframe.py -v\n./reframe.py -r -t tutorial -t production --exec-policy=serial --save-log-files" > test_commands.sh"""
+echo -e "./test_reframe.py -v\n./reframe.py -r -t tutorial -t production --exec-policy=serial --save-log-files" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,9 +67,7 @@ cd /home/{pr.repo}
 ./test_reframe.py -v
 ./reframe.py -r -t tutorial -t production --exec-policy=serial --save-log-files
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ fi
 ./test_reframe.py -v
 ./reframe.py -r -t tutorial -t production --exec-policy=serial --save-log-files
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +95,7 @@ fi
 ./test_reframe.py -v
 ./reframe.py -r -t tutorial -t production --exec-policy=serial --save-log-files
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -163,7 +157,7 @@ class REFRAME_275_TO_90(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,30 +171,36 @@ class REFRAME_275_TO_90(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regular expressions to match test lines
-        pattern1 = re.compile(r'^\[\s*\d+\]\s*(.*?)\s*\.\.\.\s*(.*)$')  # Match ... as separator
-        pattern2 = re.compile(r'^(FAIL|ERROR):\s*(.*?)\s*$', re.MULTILINE)  # Capture status and full test name from summaries (no [number] prefix)
+        pattern1 = re.compile(
+            r"^\[\s*\d+\]\s*(.*?)\s*\.\.\.\s*(.*)$"
+        )  # Match ... as separator
+        pattern2 = re.compile(
+            r"^(FAIL|ERROR):\s*(.*?)\s*$", re.MULTILINE
+        )  # Capture status and full test name from summaries (no [number] prefix)
         for line in log.splitlines():
             line = line.strip()
-            if re.search(r'\.{3}|\u2026', line):
+            if re.search(r"\.{3}|\u2026", line):
                 # Split test name and status using ... or … as separator
-                test_part, status_part = re.split(r'\s*\.\.\.\s*', line, 1)
+                test_part, status_part = re.split(r"\s*\.\.\.\s*", line, 1)
                 # Extract test name by removing the line number bracket
-                test_name = test_part.split(']')[-1].strip()
+                test_name = test_part.split("]")[-1].strip()
                 status = status_part.strip()
                 status_lower = status.lower()
-                if status_lower.startswith(('ok', 'passed', 'success')):
+                if status_lower.startswith(("ok", "passed", "success")):
                     passed_tests.add(test_name)
-                elif status_lower in ('error', 'fail') or status_lower.startswith(('error', 'fail', 'failed')):
+                elif status_lower in ("error", "fail") or status_lower.startswith(
+                    ("error", "fail", "failed")
+                ):
                     failed_tests.add(test_name)
-                elif status_lower.startswith(('skip', 'skipped')):
+                elif status_lower.startswith(("skip", "skipped")):
                     skipped_tests.add(test_name)
             else:
                 # Check for failure summary lines (e.g., FAIL: test_name)
@@ -211,9 +211,8 @@ class REFRAME_275_TO_90(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

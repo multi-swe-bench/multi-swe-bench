@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "maven:3.8.4-openjdk-11"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ mvn install
 ###ACTION_DELIMITER###
 echo "mvn test" > test_commands.sh
 ###ACTION_DELIMITER###
-echo "mvn test -Dstyle.color=never" > test_commands.sh"""
+echo "mvn test -Dstyle.color=never" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "mvn test -Dstyle.color=never" > test_commands.sh"""
 cd /home/{pr.repo}
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class JACKSON_DATABIND_3622_TO_3570(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,28 +164,30 @@ class JACKSON_DATABIND_3622_TO_3570(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         running_tests = set()
         for line in log.splitlines():
-            if line.startswith('[INFO] Running'):
-                match = re.search(r'Running (.*)', line)
+            if line.startswith("[INFO] Running"):
+                match = re.search(r"Running (.*)", line)
                 if match:
                     test_name = match.group(1).strip()
                     running_tests.add(test_name)
-            if line.startswith('[INFO] Tests run:') or line.startswith('[ERROR] Tests run:'):
-                match = re.search(r'in (.*)', line)
+            if line.startswith("[INFO] Tests run:") or line.startswith(
+                "[ERROR] Tests run:"
+            ):
+                match = re.search(r"in (.*)", line)
                 if match:
                     test_name = match.group(1).strip()
                     if test_name in running_tests:
                         running_tests.remove(test_name)
-                    if 'Failures: 0' in line and 'Errors: 0' in line:
+                    if "Failures: 0" in line and "Errors: 0" in line:
                         passed_tests.add(test_name)
                     else:
                         failed_tests.add(test_name)
@@ -199,9 +195,8 @@ class JACKSON_DATABIND_3622_TO_3570(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

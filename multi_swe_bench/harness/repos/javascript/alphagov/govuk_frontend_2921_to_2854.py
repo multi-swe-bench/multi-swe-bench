@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class GOVUK_FRONTEND_2921_TO_2854(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,39 +177,38 @@ class GOVUK_FRONTEND_2921_TO_2854(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test statuses and extract test names
-        passed_pattern = re.compile(r'\x1b\[32m✓\x1b\[39m \x1b\[2m(.*?)\x1b\[22m')
-        failed_pattern = re.compile(r'\x1b\[31m✕\x1b\[39m \x1b\[2m(.*?)\x1b\[22m')
-        skipped_pattern = re.compile(r'\x1b\[33m○\x1b\[39m \x1b\[2m(.*?)\x1b\[22m')
+        passed_pattern = re.compile(r"\x1b\[32m✓\x1b\[39m \x1b\[2m(.*?)\x1b\[22m")
+        failed_pattern = re.compile(r"\x1b\[31m✕\x1b\[39m \x1b\[2m(.*?)\x1b\[22m")
+        skipped_pattern = re.compile(r"\x1b\[33m○\x1b\[39m \x1b\[2m(.*?)\x1b\[22m")
         # Extract passed tests
         for match in passed_pattern.findall(log):
             test_name = match.strip()
             # Remove trailing duration (e.g., (2 ms), (1 s))
-            test_name = re.sub(r' \(\d+ (ms|s)\)$', '', test_name)
+            test_name = re.sub(r" \(\d+ (ms|s)\)$", "", test_name)
             passed_tests.add(test_name)
         # Extract failed tests
         for match in failed_pattern.findall(log):
             test_name = match.strip()
-            test_name = re.sub(r' \(\d+ (ms|s)\)$', '', test_name)
+            test_name = re.sub(r" \(\d+ (ms|s)\)$", "", test_name)
             failed_tests.add(test_name)
         # Extract skipped tests
         for match in skipped_pattern.findall(log):
             test_name = match.strip()
-            test_name = re.sub(r' \(\d+ (ms|s)\)$', '', test_name)
+            test_name = re.sub(r" \(\d+ (ms|s)\)$", "", test_name)
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

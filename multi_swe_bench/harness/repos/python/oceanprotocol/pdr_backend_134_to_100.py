@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -147,7 +147,7 @@ fuser -k 8545/tcp
 ###ACTION_DELIMITER###
 source venv/bin/activate && fuser -k 8545/tcp; sleep 2 && ganache --port 8545 --mnemonic 'test test test test test test test test test test test junk' & sleep 5 && export WEB3_PROVIDER_URL=http://localhost:8545 && export OCEAN_CONTRACTS_ADDRESS_FILE=/home/pdr-backend/addresses.json && echo '{}' > /home/pdr-backend/addresses.json && python -c "from web3 import Web3; from web3._utils.encoding import to_hex; from web3._utils.address import to_checksum_address; Web3.to_hex = staticmethod(to_hex); Web3.to_checksum_address = staticmethod(to_checksum_address)" && ./venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -158,7 +158,7 @@ export WEB3_PROVIDER_URL=http://localhost:8545
 python -c "from web3 import Web3; from web3._utils.encoding import to_hex; Web3.to_hex = staticmethod(to_hex)"
 ./venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -173,7 +173,7 @@ export WEB3_PROVIDER_URL=http://localhost:8545
 python -c "from web3 import Web3; from web3._utils.encoding import to_hex; Web3.to_hex = staticmethod(to_hex)"
 ./venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -188,7 +188,7 @@ export WEB3_PROVIDER_URL=http://localhost:8545
 python -c "from web3 import Web3; from web3._utils.encoding import to_hex; Web3.to_hex = staticmethod(to_hex)"
 ./venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -250,7 +250,7 @@ class PDR_BACKEND_134_TO_100(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -264,16 +264,20 @@ class PDR_BACKEND_134_TO_100(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(.+\.py::.+?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s*\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|ERROR|SKIPPED)\s+(.+\.py::.+?)(?:\s+-.*)?$')
+        pattern1 = re.compile(
+            r"^(.+\.py::.+?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s*\[\s*\d+%\s*\]$"
+        )
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|ERROR|SKIPPED)\s+(.+\.py::.+?)(?:\s+-.*)?$"
+        )
         for line in log.splitlines():
             line = line.strip()
             match = pattern1.match(line)
@@ -288,18 +292,17 @@ class PDR_BACKEND_134_TO_100(Instance):
                 else:
                     continue  # Skip non-test lines
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

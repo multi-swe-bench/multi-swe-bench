@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ pip install -e '.[test]'
 ###ACTION_DELIMITER###
 echo '/home/xonsh/venv/bin/xonsh run-tests.xsh test -- -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 /home/xonsh/venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 /home/xonsh/venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 /home/xonsh/venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class XONSH_5769_TO_5440(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,43 +178,42 @@ class XONSH_5769_TO_5440(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match test names and their statuses
         pattern = re.compile(
-            r'(?P<test>tests/[\w/\.]+::[\w\-\[\]=,]+)\s+(?P<status>PASSED|FAILED|SKIPPED|XFAILED|XPASSED|RERUN)|'
-            r'(?P<status2>PASSED|FAILED|SKIPPED|XFAILED|XPASSED|RERUN)\s+(?P<test2>tests/[\w/\.]+::[\w\-\[\]=,]+)'
+            r"(?P<test>tests/[\w/\.]+::[\w\-\[\]=,]+)\s+(?P<status>PASSED|FAILED|SKIPPED|XFAILED|XPASSED|RERUN)|"
+            r"(?P<status2>PASSED|FAILED|SKIPPED|XFAILED|XPASSED|RERUN)\s+(?P<test2>tests/[\w/\.]+::[\w\-\[\]=,]+)"
         )
         test_status = {}
         for match in pattern.finditer(log):
-            if match.group('test'):
-                test = match.group('test')
-                status = match.group('status')
+            if match.group("test"):
+                test = match.group("test")
+                status = match.group("status")
             else:
-                test = match.group('test2')
-                status = match.group('status2')
+                test = match.group("test2")
+                status = match.group("status2")
             # Update status, ignoring RERUN unless it's the first entry
-            if status != 'RERUN':
+            if status != "RERUN":
                 test_status[test] = status
         # Categorize tests based on their final status
         for test, status in test_status.items():
-            if status in ('PASSED', 'XPASSED'):
+            if status in ("PASSED", "XPASSED"):
                 passed_tests.add(test)
-            elif status in ('FAILED', 'XFAILED'):
+            elif status in ("FAILED", "XFAILED"):
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

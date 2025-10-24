@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ apt-get update && apt-get install -y mongodb
 ###ACTION_DELIMITER###
 curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg && echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" > /etc/apt/sources.list.d/mongodb-org-6.0.list && apt-get update && apt-get install -y mongodb-org
 ###ACTION_DELIMITER###
-mkdir -p /data/db && chown -R mongodb:mongodb /data/db && mongod --fork --logpath /var/log/mongodb.log"""
+mkdir -p /data/db && chown -R mongodb:mongodb /data/db && mongod --fork --logpath /var/log/mongodb.log""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 npm test -- --verbose
 npm run test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ fi
 npm test -- --verbose
 npm run test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 npm test -- --verbose
 npm run test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class CVE_SERVICES_1086_TO_1008(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,41 +173,50 @@ class CVE_SERVICES_1086_TO_1008(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         test_status = {}
         # Pattern for passed tests: Capture indented test names (exclude duration)
-        passed_pattern = re.compile(r'^\s{6,}✔\s*(.*?)\s*(?:\(\d+ms\))?\s*$', re.MULTILINE)  # Matches indented ✔
+        passed_pattern = re.compile(
+            r"^\s{6,}✔\s*(.*?)\s*(?:\(\d+ms\))?\s*$", re.MULTILINE
+        )  # Matches indented ✔
         for match in passed_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name:
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
         # Pattern for failed tests: Match indented test cases (6+ spaces)
-        failed_pattern = re.compile(r'^\s{6,}\d+\)\s*(?!.*hook)(?!.*Error:)(?!.*at )(.*?)\s*$', re.MULTILINE)  # Matches indented failed tests
+        failed_pattern = re.compile(
+            r"^\s{6,}\d+\)\s*(?!.*hook)(?!.*Error:)(?!.*at )(.*?)\s*$", re.MULTILINE
+        )  # Matches indented failed tests
         for match in failed_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name:
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
         # Skipped tests: Disabled (no valid markers observed)
         # skipped_pattern = re.compile(r'^\s*SKIPPED\s*(.*?)\s*$', re.MULTILINE)  # Placeholder for future use
         # for match in skipped_pattern.finditer(log):
         #     test_name = match.group(1).strip()
         #     if test_name:
         #         test_status[test_name] = 'skipped'
-        passed_tests = set(name for name, status in test_status.items() if status == 'passed')
-        failed_tests = set(name for name, status in test_status.items() if status == 'failed')
-        skipped_tests = set(name for name, status in test_status.items() if status == 'skipped')
+        passed_tests = set(
+            name for name, status in test_status.items() if status == "passed"
+        )
+        failed_tests = set(
+            name for name, status in test_status.items() if status == "failed"
+        )
+        skipped_tests = set(
+            name for name, status in test_status.items() if status == "skipped"
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

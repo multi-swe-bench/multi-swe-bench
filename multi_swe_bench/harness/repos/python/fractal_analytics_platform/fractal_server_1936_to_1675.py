@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ echo 'poetry run pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class FRACTAL_SERVER_1936_TO_1675(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,21 +179,27 @@ class FRACTAL_SERVER_1936_TO_1675(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Extract passed tests
-        passed_matches = re.findall(r"^(tests/.*?\.py::.*?) PASSED\b", log, re.MULTILINE)
+        passed_matches = re.findall(
+            r"^(tests/.*?\.py::.*?) PASSED\b", log, re.MULTILINE
+        )
         passed_tests.update(passed_matches)
         # Extract skipped tests
-        skipped_matches = re.findall(r"^(tests/.*?\.py::.*?) SKIPPED\b", log, re.MULTILINE)
+        skipped_matches = re.findall(
+            r"^(tests/.*?\.py::.*?) SKIPPED\b", log, re.MULTILINE
+        )
         skipped_tests.update(skipped_matches)
         # Extract failed tests (FAILED status)
-        failed_matches = re.findall(r"^(tests/.*?\.py::.*?) FAILED\b", log, re.MULTILINE)
+        failed_matches = re.findall(
+            r"^(tests/.*?\.py::.*?) FAILED\b", log, re.MULTILINE
+        )
         failed_tests.update(failed_matches)
         # Extract failed tests (ERROR prefix)
         error_matches = re.findall(r"^ERROR (tests/.*?\.py::.*?)$", log, re.MULTILINE)
@@ -201,9 +207,8 @@ class FRACTAL_SERVER_1936_TO_1675(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

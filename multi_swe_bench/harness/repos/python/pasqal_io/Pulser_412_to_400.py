@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ source venv/bin/activate && pip uninstall -y scipy && pip install scipy==1.7.3
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip uninstall -y matplotlib && pip install matplotlib==3.5.3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class PULSER_412_TO_400(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,7 +204,6 @@ class PULSER_412_TO_400(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -218,10 +211,15 @@ class PULSER_412_TO_400(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Regex patterns to match test results
-        pattern1 = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')  # test name followed by status and percentage
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.*?)\s*(-.*)?$')  # status followed by test name
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$"
+        )  # test name followed by status and percentage
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED)\s+(.*?)\s*(-.*)?$"
+        )  # status followed by test name
+        for line in log.split("\n"):
             line = line.strip()
             if not line:
                 continue
@@ -230,11 +228,11 @@ class PULSER_412_TO_400(Instance):
             if match1:
                 test_name = match1.group(1).strip()
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern2
@@ -242,19 +240,18 @@ class PULSER_412_TO_400(Instance):
             if match2:
                 status = match2.group(1)
                 test_name = match2.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

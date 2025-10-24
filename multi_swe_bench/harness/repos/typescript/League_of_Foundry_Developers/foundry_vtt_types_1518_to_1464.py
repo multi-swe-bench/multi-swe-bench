@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ echo '{ "compilerOptions": { "skipLibCheck": true, "exactOptionalPropertyTypes":
 ###ACTION_DELIMITER###
 echo 'npm test && echo "All tests passed successfully"' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ echo 'npm test && echo "All tests passed successfully"' > test_commands.sh && ba
 cd /home/[[REPO_NAME]]
 npm test && echo "All tests passed successfully"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test && echo "All tests passed successfully"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test && echo "All tests passed successfully"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class FOUNDRY_VTT_TYPES_1518_TO_1464(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,15 +257,17 @@ class FOUNDRY_VTT_TYPES_1518_TO_1464(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Extract test suite name from log header (e.g., 'foundry-vtt-types' from package line)
-        suite_pattern = re.compile(r'@[^/]+/([^@]+)@')  # Matches package name in '@org/name@version'
+        suite_pattern = re.compile(
+            r"@[^/]+/([^@]+)@"
+        )  # Matches package name in '@org/name@version'
         suite_match = suite_pattern.search(log)
         test_name = suite_match.group(1) if suite_match else "unknown_test_suite"
         # Determine test status based on log content
@@ -277,9 +279,8 @@ class FOUNDRY_VTT_TYPES_1518_TO_1464(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ echo '#!/bin/bash' > test_commands.sh && echo 'pytest -v --cov=cmd2 --cov-append
 ###ACTION_DELIMITER###
 pip install -e .[test]
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,9 +63,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -v --cov=cmd2 --cov-append --cov-report=term --cov-report=html --junitxml=junit/test-results.xml tests tests_isolated
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -79,9 +77,7 @@ fi
 #!/bin/bash
 pytest -v --cov=cmd2 --cov-append --cov-report=term --cov-report=html --junitxml=junit/test-results.xml tests tests_isolated
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +91,7 @@ fi
 #!/bin/bash
 pytest -v --cov=cmd2 --cov-append --cov-report=term --cov-report=html --junitxml=junit/test-results.xml tests tests_isolated
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -159,7 +153,7 @@ class CMD2_1253_TO_964(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,28 +167,27 @@ class CMD2_1253_TO_964(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set() # Tests that passed successfully
-        failed_tests: set[str] = set() # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_pattern = re.compile(r'(tests/[^:]+::[^ ]+)\s+PASSED')
+        passed_pattern = re.compile(r"(tests/[^:]+::[^ ]+)\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'FAILED\s+(tests/[^:]+::[^ ]+)\s+-')
+        failed_pattern = re.compile(r"FAILED\s+(tests/[^:]+::[^ ]+)\s+-")
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests
-        skipped_pattern = re.compile(r'(tests/[^:]+::[^ ]+)\s+SKIPPED')
+        skipped_pattern = re.compile(r"(tests/[^:]+::[^ ]+)\s+SKIPPED")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

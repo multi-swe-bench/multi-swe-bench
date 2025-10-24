@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -137,7 +137,7 @@ pip2.7 uninstall -y pyrfc3339 && pip2.7 install pyrfc3339==1.1 && bash test_comm
 ###ACTION_DELIMITER###
 pip2.7 install pyicu && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -147,9 +147,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 nosetests -v --processes=-1 --process-timeout=100
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -163,9 +161,7 @@ fi
 #!/bin/bash
 nosetests -v --processes=-1 --process-timeout=100
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -179,9 +175,7 @@ fi
 #!/bin/bash
 nosetests -v --processes=-1 --process-timeout=100
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -243,7 +237,7 @@ class CERTBOT_4895_TO_4894(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,25 +251,29 @@ class CERTBOT_4895_TO_4894(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract total tests from summary (e.g., 'Ran 158 tests')
         total_tests = 0
-        summary_match = re.search(r'Ran (\d+) tests', log)
+        summary_match = re.search(r"Ran (\d+) tests", log)
         if summary_match:
             total_tests = int(summary_match.group(1))
         # Extract all test names (test_* pattern)
-        all_tests = set(re.findall(r'test_\w+', log))
+        all_tests = set(re.findall(r"test_\w+", log))
         # Extract failed tests (FAIL:, ERROR: lines, or tracebacks)
-        failed_pattern = re.compile(r'(?:FAIL|ERROR):\s*(test_\w+)|line \d+, in (test_\w+)', re.IGNORECASE)
-        failed_tests = set(match for group in failed_pattern.findall(log) for match in group if match)
+        failed_pattern = re.compile(
+            r"(?:FAIL|ERROR):\s*(test_\w+)|line \d+, in (test_\w+)", re.IGNORECASE
+        )
+        failed_tests = set(
+            match for group in failed_pattern.findall(log) for match in group if match
+        )
         # Extract skipped tests (SKIP: or SKIPPED: lines)
-        skipped_pattern = re.compile(r'(?:SKIP|SKIPPED):\s*(test_\w+)', re.IGNORECASE)
+        skipped_pattern = re.compile(r"(?:SKIP|SKIPPED):\s*(test_\w+)", re.IGNORECASE)
         skipped_tests = set(skipped_pattern.findall(log))
         # Calculate passed tests (all tests not failed/skipped)
         passed_tests = all_tests - failed_tests - skipped_tests
@@ -289,9 +287,8 @@ class CERTBOT_4895_TO_4894(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

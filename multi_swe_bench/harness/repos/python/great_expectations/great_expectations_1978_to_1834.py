@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -95,7 +95,7 @@ venv/bin/pip install jinja2==2.11.3 markupsafe==1.1.1 && bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install moto && bash test_commands.sh
 ###ACTION_DELIMITER###
-venv/bin/pip install markupsafe==1.1.1 && bash test_commands.sh"""
+venv/bin/pip install markupsafe==1.1.1 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -107,9 +107,7 @@ export LANG=en_US.UTF-8
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ./venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -125,9 +123,7 @@ export LANG=en_US.UTF-8
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ./venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +139,7 @@ export LANG=en_US.UTF-8
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ./venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -207,7 +201,7 @@ class GREAT_EXPECTATIONS_1978_TO_1834(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -221,44 +215,43 @@ class GREAT_EXPECTATIONS_1978_TO_1834(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'(tests/.*?)\s+(PASSED|FAILED|SKIPPED)')
-        pattern2 = re.compile(r'\[\s*\d+\]\s+(ERROR|SKIPPED)\s+(tests/[^\s]+)')
-        for line in log.split('\n'):
+        pattern1 = re.compile(r"(tests/.*?)\s+(PASSED|FAILED|SKIPPED)")
+        pattern2 = re.compile(r"\[\s*\d+\]\s+(ERROR|SKIPPED)\s+(tests/[^\s]+)")
+        for line in log.split("\n"):
             line = line.strip()
             match1 = pattern1.search(line)
             if match1:
                 test_name = match1.group(1)
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             match2 = pattern2.search(line)
             if match2:
                 status = match2.group(1)
                 test_name = match2.group(2)
-                if status == 'ERROR':
+                if status == "ERROR":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

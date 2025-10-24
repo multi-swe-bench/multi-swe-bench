@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -91,7 +91,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 bash -x test_commands.sh
 ###ACTION_DELIMITER###
-./node_modules/.bin/tsc --noEmit"""
+./node_modules/.bin/tsc --noEmit""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ cd /home/[[REPO_NAME]]
 export PATH="./node_modules/.bin:$PATH"
 bash ./build/test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ fi
 export PATH="./node_modules/.bin:$PATH"
 bash ./build/test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ fi
 export PATH="./node_modules/.bin:$PATH"
 bash ./build/test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class CIVET_1136_TO_940(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,40 +205,40 @@ class CIVET_1136_TO_940(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Prioritize summary counts for total test numbers
         # Extract individual test cases from log entries
         # Adjust patterns to match actual test status indicators in the log
         # Extract summary counts first
-        summary_passed_pattern = re.compile(r'(\d+) passing', re.MULTILINE)
+        summary_passed_pattern = re.compile(r"(\d+) passing", re.MULTILINE)
         summary_passed = summary_passed_pattern.findall(log)
-        summary_skipped_pattern = re.compile(r'(\d+) pending', re.MULTILINE)
+        summary_skipped_pattern = re.compile(r"(\d+) pending", re.MULTILINE)
         summary_skipped = summary_skipped_pattern.findall(log)
-        summary_failed_pattern = re.compile(r'(\d+) failing', re.MULTILINE)
+        summary_failed_pattern = re.compile(r"(\d+) failing", re.MULTILINE)
         summary_failed = summary_failed_pattern.findall(log)
         # Extract test names from symbolic output and error contexts
         # Symbolic blocks (e.g., '.' for passed, ',' for skipped, '!' for failed)
-        symbolic_pattern = re.compile(r'([.,!])', re.MULTILINE)
+        symbolic_pattern = re.compile(r"([.,!])", re.MULTILINE)
         symbolic_matches = symbolic_pattern.findall(log)
         # Map symbols to test statuses (simplified example)
         test_index = 0
         for symbol in symbolic_matches:
-            test_name = f'test_{test_index + 1}'
-            if symbol == '.':
+            test_name = f"test_{test_index + 1}"
+            if symbol == ".":
                 passed_tests.add(test_name)
-            elif symbol == '!':
+            elif symbol == "!":
                 failed_tests.add(test_name)
-            elif symbol == ',':
+            elif symbol == ",":
                 skipped_tests.add(test_name)
             test_index += 1
         # Extract explicit test names from error messages
-        error_test_pattern = re.compile(r'Error in test (.+?):', re.MULTILINE)
+        error_test_pattern = re.compile(r"Error in test (.+?):", re.MULTILINE)
         error_tests = error_test_pattern.findall(log)
         failed_tests.update(error_tests)
         # Remove failed tests from passed set
@@ -249,30 +249,41 @@ class CIVET_1136_TO_940(Instance):
         total_failed = int(summary_failed[0]) if summary_failed else 0
         # Generate generic test names for unmatched tests
         passed_generic_count = max(0, total_passed - len(passed_tests))
-        passed_tests = passed_tests.union({f'test_{i+1}' for i in range(passed_generic_count)})
+        passed_tests = passed_tests.union(
+            {f"test_{i + 1}" for i in range(passed_generic_count)}
+        )
         failed_generic_count = max(0, total_failed - len(failed_tests))
-        failed_tests = failed_tests.union({f'failed_test_{i+1}' for i in range(failed_generic_count)})
+        failed_tests = failed_tests.union(
+            {f"failed_test_{i + 1}" for i in range(failed_generic_count)}
+        )
         skipped_generic_count = max(0, total_skipped - len(skipped_tests))
-        skipped_tests = skipped_tests.union({f'skipped_test_{i+1}' for i in range(skipped_generic_count)})
+        skipped_tests = skipped_tests.union(
+            {f"skipped_test_{i + 1}" for i in range(skipped_generic_count)}
+        )
         # Validate summary counts against explicit tests
         if summary_passed:
             expected_passed = int(summary_passed[0])
             if len(passed_tests) != expected_passed:
-                print(f"Warning: Combined passed tests ({len(passed_tests)}) do not match summary ({expected_passed})")
+                print(
+                    f"Warning: Combined passed tests ({len(passed_tests)}) do not match summary ({expected_passed})"
+                )
         if summary_skipped:
             expected_skipped = int(summary_skipped[0])
             if len(skipped_tests) != expected_skipped:
-                print(f"Warning: Combined skipped tests ({len(skipped_tests)}) do not match summary ({expected_skipped})")
+                print(
+                    f"Warning: Combined skipped tests ({len(skipped_tests)}) do not match summary ({expected_skipped})"
+                )
         if summary_failed:
             expected_failed = int(summary_failed[0])
             if len(failed_tests) != expected_failed:
-                print(f"Warning: Combined failed tests ({len(failed_tests)}) do not match summary ({expected_failed})")
+                print(
+                    f"Warning: Combined failed tests ({len(failed_tests)}) do not match summary ({expected_failed})"
+                )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

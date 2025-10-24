@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -65,7 +65,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/yarn cy:run --verbose/yarn cy:run/' test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ cd /home/[[REPO_NAME]]
 yarn test --verbose
 yarn cy:run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ fi
 yarn test --verbose
 yarn cy:run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ fi
 yarn test --verbose
 yarn cy:run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -168,7 +168,7 @@ class APP_FRONTEND_REACT_1534_TO_724(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,19 +182,19 @@ class APP_FRONTEND_REACT_1534_TO_724(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: matches "✓ " followed by test name, optional duration
-        passed_pattern = re.compile(r'✓ (.*?)(?: \(\d+ ms\))?$')
+        passed_pattern = re.compile(r"✓ (.*?)(?: \(\d+ ms\))?$")
         # Pattern for failed tests: matches "✕ " followed by test name, optional duration
-        failed_pattern = re.compile(r'✕ (.*?)(?: \(\d+ ms\))?$')
+        failed_pattern = re.compile(r"✕ (.*?)(?: \(\d+ ms\))?$")
         test_status = {}  # Track final status of each test (overwrites earlier entries)
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for passed tests
             passed_match = passed_pattern.search(line)
             if passed_match:
@@ -216,9 +216,8 @@ class APP_FRONTEND_REACT_1534_TO_724(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

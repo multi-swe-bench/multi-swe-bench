@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo 'yarn test -- --verbose' > /home/lisk-desktop/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/lisk-desktop/test_commands.sh"""
+bash /home/lisk-desktop/test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash /home/lisk-desktop/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class LISK_DESKTOP_5366_TO_5324(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class LISK_DESKTOP_5366_TO_5324(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -190,8 +189,9 @@ class LISK_DESKTOP_5366_TO_5324(Instance):
         test_status: dict[str, str] = {}  # Track latest status of each test
         import re
         import json
-        test_case_pattern = re.compile(r'^\s*([✓✕○−-])\s+(.*?)(?:\s+\(\d+ ms\))?$')
-        lines = log.split('\n')
+
+        test_case_pattern = re.compile(r"^\s*([✓✕○−-])\s+(.*?)(?:\s+\(\d+ ms\))?$")
+        lines = log.split("\n")
         current_groups = []
         for line in lines:
             # Check if the line is a test case
@@ -203,24 +203,26 @@ class LISK_DESKTOP_5366_TO_5324(Instance):
                 depth = indent // 2
                 # Construct full test name from current groups and test name
                 if len(current_groups) >= depth - 1:
-                    full_test_name = ' › '.join(current_groups[:depth-1] + [test_name])
+                    full_test_name = " › ".join(
+                        current_groups[: depth - 1] + [test_name]
+                    )
                 else:
-                    full_test_name = ' › '.join(current_groups + [test_name])
+                    full_test_name = " › ".join(current_groups + [test_name])
                 # Categorize based on symbol
-                if symbol == '✓':
-                    test_status[full_test_name] = 'passed'
-                elif symbol == '✕':
-                    test_status[full_test_name] = 'failed'
-                elif symbol == '−':
-                    test_status[full_test_name] = 'skipped'
-                elif symbol == '○':
-                    test_status[full_test_name] = 'skipped'
+                if symbol == "✓":
+                    test_status[full_test_name] = "passed"
+                elif symbol == "✕":
+                    test_status[full_test_name] = "failed"
+                elif symbol == "−":
+                    test_status[full_test_name] = "skipped"
+                elif symbol == "○":
+                    test_status[full_test_name] = "skipped"
                 continue
             # Check if the line is a group header
             stripped_line = line.strip()
             if not stripped_line:
                 continue  # Skip empty lines
-            if stripped_line.startswith('●'):
+            if stripped_line.startswith("●"):
                 continue  # Skip error lines
             # Skip code lines, stack traces, etc.
             if any(pattern in stripped_line for pattern in ("|", ">", "at ")):
@@ -235,21 +237,20 @@ class LISK_DESKTOP_5366_TO_5324(Instance):
             if len(current_groups) < depth:
                 current_groups.append(group_name)
             else:
-                current_groups = current_groups[:depth-1] + [group_name]
+                current_groups = current_groups[: depth - 1] + [group_name]
         # Populate results from test_status
         for test, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

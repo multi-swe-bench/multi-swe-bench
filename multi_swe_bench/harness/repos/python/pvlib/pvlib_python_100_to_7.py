@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 source venv38/bin/activate && pip install pandas==1.5.3 ephem
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ cd /home/[[REPO_NAME]]
 source venv38/bin/activate
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ fi
 source venv38/bin/activate
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ fi
 source venv38/bin/activate
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class PVLIB_PYTHON_100_TO_7(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +219,6 @@ class PVLIB_PYTHON_100_TO_7(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -227,28 +226,28 @@ class PVLIB_PYTHON_100_TO_7(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex pattern to match test lines: test name followed by ... and status
-        pattern = re.compile(r'^(pvlib\.test\..*?)\s+\.\.\.\s+(\w+)$')
+        pattern = re.compile(r"^(pvlib\.test\..*?)\s+\.\.\.\s+(\w+)$")
         for line in lines:
             line = line.strip()
             match = pattern.match(line)
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status in ('ERROR', 'FAIL'):
+                elif status in ("ERROR", "FAIL"):
                     failed_tests.add(test_name)
-                elif status in ('SKIP', 'SKIPPED', 'skipped'):
+                elif status in ("SKIP", "SKIPPED", "skipped"):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ npx playwright install-deps
 ###ACTION_DELIMITER###
 pnpm test -r --filter=./packages/*
 ###ACTION_DELIMITER###
-echo "pnpm test -r --filter=./packages/*" > /home/svelte/test_commands.sh"""
+echo "pnpm test -r --filter=./packages/*" > /home/svelte/test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ echo "pnpm test -r --filter=./packages/*" > /home/svelte/test_commands.sh"""
 cd /home/{pr.repo}
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class SVELTE_9282_TO_9124(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,7 +174,6 @@ class SVELTE_9282_TO_9124(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -188,19 +181,20 @@ class SVELTE_9282_TO_9124(Instance):
         skipped_tests = set()
         import re
         import json
-        test_file_pattern = re.compile(r'✓ (.*?) ')
-        failed_test_pattern = re.compile(r'❯ (.*?) ')
-        skipped_test_pattern = re.compile(r'(\d+) skipped')
+
+        test_file_pattern = re.compile(r"✓ (.*?) ")
+        failed_test_pattern = re.compile(r"❯ (.*?) ")
+        skipped_test_pattern = re.compile(r"(\d+) skipped")
         for line in log.splitlines():
-            if line.startswith(' ✓'):
+            if line.startswith(" ✓"):
                 match = test_file_pattern.search(line)
                 if match:
                     passed_tests.add(match.group(1))
-            if line.startswith(' ❯'):
+            if line.startswith(" ❯"):
                 match = failed_test_pattern.search(line)
                 if match:
                     failed_tests.add(match.group(1))
-            if 'skipped' in line:
+            if "skipped" in line:
                 match = skipped_test_pattern.search(line)
                 if match:
                     num_skipped = int(match.group(1))
@@ -208,13 +202,12 @@ class SVELTE_9282_TO_9124(Instance):
                         # The log does not provide the names of the skipped tests,
                         # so we will add a placeholder name.
                         for i in range(num_skipped):
-                            skipped_tests.add(f'skipped_test_{i+1}')
+                            skipped_tests.add(f"skipped_test_{i + 1}")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

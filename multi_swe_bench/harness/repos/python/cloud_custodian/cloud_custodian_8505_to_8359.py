@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -123,7 +123,7 @@ poetry install
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-poetry run pytest --collect-only -v"""
+poetry run pytest --collect-only -v""",
             ),
             File(
                 ".",
@@ -132,9 +132,7 @@ poetry run pytest --collect-only -v"""
 cd /home/{pr.repo}
 poetry run pytest -v --no-header -rA --tb=native -p no:cacheprovider -m "not skiplive" -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +145,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v --no-header -rA --tb=native -p no:cacheprovider -m "not skiplive" -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -162,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest -v --no-header -rA --tb=native -p no:cacheprovider -m "not skiplive" -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -226,7 +220,7 @@ class CLOUD_CUSTODIAN_8505_TO_8359(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,31 +234,31 @@ class CLOUD_CUSTODIAN_8505_TO_8359(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test statuses
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
-            if 'FAILED' in line:
-                parts = line.split('FAILED ')
+            if "FAILED" in line:
+                parts = line.split("FAILED ")
                 if len(parts) > 1:
                     test_part = parts[1]
-                    test_name = test_part.split(' -')[0].strip()
+                    test_name = test_part.split(" -")[0].strip()
                     failed_tests.add(test_name)
-            elif 'PASSED' in line:
-                parts = line.split('PASSED ')
+            elif "PASSED" in line:
+                parts = line.split("PASSED ")
                 if len(parts) > 1:
                     test_part = parts[1]
                     test_name = test_part.split()[0].strip()
                     passed_tests.add(test_name)
-            elif 'SKIPPED' in line:
-                parts = line.split('SKIPPED ')
+            elif "SKIPPED" in line:
+                parts = line.split("SKIPPED ")
                 if len(parts) > 1:
                     test_part = parts[1]
                     test_name = test_part.split()[0].strip()
@@ -272,9 +266,8 @@ class CLOUD_CUSTODIAN_8505_TO_8359(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

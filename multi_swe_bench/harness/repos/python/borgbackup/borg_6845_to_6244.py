@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ apt-get install -y libacl1-dev
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -n 1 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n 1 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -n 1 -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class BORG_6845_TO_6244(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,33 +182,34 @@ class BORG_6845_TO_6244(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse main test lines
-        main_pattern = re.compile(r'\[gw\d+\] \[\s*\d+%\] (PASSED|SKIPPED|FAILED) (.*?)\s*$')
-        for line in log.split('\n'):
+        main_pattern = re.compile(
+            r"\[gw\d+\] \[\s*\d+%\] (PASSED|SKIPPED|FAILED) (.*?)\s*$"
+        )
+        for line in log.split("\n"):
             # Check main test lines
             main_match = main_pattern.search(line)
             if main_match:
                 status = main_match.group(1)
                 test_name = main_match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

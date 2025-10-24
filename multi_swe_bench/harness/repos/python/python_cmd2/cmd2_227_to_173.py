@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -99,7 +99,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo '#!/bin/bash' > test_commands.sh && echo 'source venv/bin/activate' >> test_commands.sh && echo 'python -c "import pyperclip; from types import SimpleNamespace; pyperclip.exceptions = SimpleNamespace(PyperclipException=pyperclip.PyperclipException); import pytest; pytest.main(['\''-v'\'', '\''-rA'\'', '\''--tb=short'\'', '\''tests/'\''])"' >> test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -110,9 +110,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 python -c "import pyperclip; from types import SimpleNamespace; pyperclip.exceptions = SimpleNamespace(PyperclipException=pyperclip.PyperclipException); import pytest; pytest.main(['-v', '-rA', '--tb=short', 'tests/'])"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ fi
 source venv/bin/activate
 python -c "import pyperclip; from types import SimpleNamespace; pyperclip.exceptions = SimpleNamespace(PyperclipException=pyperclip.PyperclipException); import pytest; pytest.main(['-v', '-rA', '--tb=short', 'tests/'])"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -144,9 +140,7 @@ fi
 source venv/bin/activate
 python -c "import pyperclip; from types import SimpleNamespace; pyperclip.exceptions = SimpleNamespace(PyperclipException=pyperclip.PyperclipException); import pytest; pytest.main(['-v', '-rA', '--tb=short', 'tests/'])"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -208,7 +202,7 @@ class CMD2_227_TO_173(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -222,16 +216,20 @@ class CMD2_227_TO_173(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns for each status, accounting for leading text (e.g., line numbers)
-        passed_pattern = re.compile(r".*?(tests/[^:]+::[^:]+(?:\[[^\]]+\])?) PASSED|.*?PASSED (tests/[^:]+::[^:]+(?:\[[^\]]+\])?)")
-        failed_pattern = re.compile(r".*?(tests/[^:]+::[^:]+(?:\[[^\]]+\])?) FAILED|.*?FAILED (tests/[^:]+::[^:]+(?:\[[^\]]+\])?) -")
+        passed_pattern = re.compile(
+            r".*?(tests/[^:]+::[^:]+(?:\[[^\]]+\])?) PASSED|.*?PASSED (tests/[^:]+::[^:]+(?:\[[^\]]+\])?)"
+        )
+        failed_pattern = re.compile(
+            r".*?(tests/[^:]+::[^:]+(?:\[[^\]]+\])?) FAILED|.*?FAILED (tests/[^:]+::[^:]+(?:\[[^\]]+\])?) -"
+        )
         skipped_pattern = re.compile(r".*?SKIPPED \[\d+\] (tests/[^:]+:\d+)")
         # Extract passed tests
         for match in passed_pattern.finditer(log):
@@ -250,9 +248,8 @@ class CMD2_227_TO_173(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

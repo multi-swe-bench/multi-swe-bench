@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -84,7 +84,7 @@ pipenv install --dev
 ###ACTION_DELIMITER###
 pipenv run pip show packaging
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pipenv run pytest -vv --basetemp=/tmp/cekit-tests --junit-xml=target/junit-local.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +108,7 @@ fi
 #!/bin/bash
 pipenv run pytest -vv --basetemp=/tmp/cekit-tests --junit-xml=target/junit-local.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ fi
 #!/bin/bash
 pipenv run pytest -vv --basetemp=/tmp/cekit-tests --junit-xml=target/junit-local.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class CEKIT_761_TO_486(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,19 +198,19 @@ class CEKIT_761_TO_486(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test cases with their statuses (handles [ % ] and - formats)
-        pattern = r'''
+        pattern = r"""
             (tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)  # Test first, status second (whitespace separator)
             |
             (PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)  # Status first, test second (whitespace separator)
-        '''
+        """
         matches = re.findall(pattern, log, re.VERBOSE)
         for match in matches:
             test1, status1, status2, test2 = match
@@ -227,18 +221,17 @@ class CEKIT_761_TO_486(Instance):
                 test = test2
                 status = status2
             # Clean the test name if necessary
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

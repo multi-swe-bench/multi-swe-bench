@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -124,7 +124,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'export MPLBACKEND=Agg' > test_commands.sh && echo 'export JAX_NUM_THREADS=1' >> test_commands.sh && echo 'export OMP_NUM_THREADS=1' >> test_commands.sh && echo 'pytest -m "unit and not slow and not solve" -n 2 --no-header -rA --tb=short -p no:cacheprovider tests/' >> test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ export JAX_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 pytest -m "unit and not slow and not solve" -n 2 --no-header -rA --tb=short -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -152,7 +152,7 @@ export JAX_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 pytest -m "unit and not slow and not solve" -n 2 --no-header -rA --tb=short -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ export JAX_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 pytest -m "unit and not slow and not solve" -n 2 --no-header -rA --tb=short -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -230,7 +230,7 @@ class DESC_484_TO_480(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -244,34 +244,33 @@ class DESC_484_TO_480(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex pattern to match test lines (PASSED/FAILED) from log end
-        pattern = r'^(PASSED|FAILED|SKIPPED) (.*?)( - .*)?$'
+        pattern = r"^(PASSED|FAILED|SKIPPED) (.*?)( - .*)?$"
         matches = re.findall(pattern, log, re.MULTILINE)
         for match in matches:
             status = match[0]
             test_name = match[1]
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Handle SKIPPED tests if present (pattern may need adjustment)
         # Add SKIPPED pattern matching if logs contain skipped tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

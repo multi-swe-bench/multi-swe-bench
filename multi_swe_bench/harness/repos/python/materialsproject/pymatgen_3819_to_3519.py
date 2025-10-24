@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
 pip install -e .[dev,optional]
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh"""
+echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_comma
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class PYMATGEN_3819_TO_3519(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,35 +171,34 @@ class PYMATGEN_3819_TO_3519(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regular expressions to match test status lines with ANSI codes
-        passed_pattern = re.compile(r'\x1b\[32mPASSED\x1b\[0m (.*?)\x1b\[0m')
-        failed_pattern = re.compile(r'\x1b\[31mFAILED\x1b\[0m (.*?) -')
-        skipped_pattern = re.compile(r'\x1b\[33mSKIPPED\x1b\[0m \[\d+\] (.*?): ')
+        passed_pattern = re.compile(r"\x1b\[32mPASSED\x1b\[0m (.*?)\x1b\[0m")
+        failed_pattern = re.compile(r"\x1b\[31mFAILED\x1b\[0m (.*?) -")
+        skipped_pattern = re.compile(r"\x1b\[33mSKIPPED\x1b\[0m \[\d+\] (.*?): ")
         # Extract and clean passed tests
         for match in passed_pattern.findall(log):
-            test_name = re.sub(r'\x1b\[.*?m', '', match)
+            test_name = re.sub(r"\x1b\[.*?m", "", match)
             passed_tests.add(test_name.strip())
         # Extract and clean failed tests
         for match in failed_pattern.findall(log):
-            test_name = re.sub(r'\x1b\[.*?m', '', match)
+            test_name = re.sub(r"\x1b\[.*?m", "", match)
             failed_tests.add(test_name.strip())
         # Extract and clean skipped tests
         for match in skipped_pattern.findall(log):
-            test_name = re.sub(r'\x1b\[.*?m', '', match)
+            test_name = re.sub(r"\x1b\[.*?m", "", match)
             skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

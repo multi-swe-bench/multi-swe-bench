@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ sed -i '/mocha: {ui: 'tdd'}/a \      timeout: 60000,' tests/karma.conf.js
 ###ACTION_DELIMITER###
 sed -i '/browsers: \['Firefox', 'Chrome'\],/a \  browserNoActivityTimeout: 60000,' tests/karma.conf.js
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 xvfb-run -a npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class AFRAME_3517_TO_3194(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,49 +213,65 @@ class AFRAME_3517_TO_3194(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         import re
         import re
+
         # Strip ANSI color codes and line numbers
-        ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
-        log_clean = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+        log_clean = ansi_escape.sub("", log)
         # Remove line number prefixes (e.g., [  20] )
-        log_clean = re.sub(r'^\[\s*\d+\]\s', '', log_clean, flags=re.MULTILINE)
+        log_clean = re.sub(r"^\[\s*\d+\]\s", "", log_clean, flags=re.MULTILINE)
         # Pattern to match test lines (status symbols: ✔, ✖, ℹ)
-        test_pattern = re.compile(r'^(\s*)(✔|✖|ℹ)\s+(.*)$')  # Matches status with any leading spaces
+        test_pattern = re.compile(
+            r"^(\s*)(✔|✖|ℹ)\s+(.*)$"
+        )  # Matches status with any leading spaces
         # Pattern to match parent categories (no status symbol)
-        group_pattern = re.compile(r'^(\s*)([^✔✖ℹ].*)$')
+        group_pattern = re.compile(r"^(\s*)([^✔✖ℹ].*)$")
         current_groups = []
-        for line in log_clean.split('\n'):
+        for line in log_clean.split("\n"):
             line = line.rstrip()  # Preserve leading spaces
             if not line.strip():
                 continue
             # Skip log lines
-            if any(keyword in line for keyword in ['LOG:', 'INFO', 'WARNING', 'Timeout', 'require<', 'WARN', '404:']):
+            if any(
+                keyword in line
+                for keyword in [
+                    "LOG:",
+                    "INFO",
+                    "WARNING",
+                    "Timeout",
+                    "require<",
+                    "WARN",
+                    "404:",
+                ]
+            ):
                 continue
             # Match test lines (status symbols with leading spaces)
             test_match = test_pattern.match(line)
             if test_match:
                 spaces, status, test_part = test_match.groups()
-                indent_level = len(spaces) // 2  # 2 spaces = level 1, 4 spaces = level 2, etc.
+                indent_level = (
+                    len(spaces) // 2
+                )  # 2 spaces = level 1, 4 spaces = level 2, etc.
                 # Update groups based on indentation
                 if indent_level == 0:
                     current_groups = [test_part]
                 else:
                     current_groups = current_groups[:indent_level] + [test_part]
-                full_test = ' > '.join(current_groups)
-                if status == '✔':
+                full_test = " > ".join(current_groups)
+                if status == "✔":
                     passed_tests.add(full_test)
-                elif status == '✖':
+                elif status == "✖":
                     failed_tests.add(full_test)
-                elif status == 'ℹ':
+                elif status == "ℹ":
                     skipped_tests.add(full_test)
             # Match parent categories (non-status lines with leading spaces)
             group_match = group_pattern.match(line)
@@ -264,15 +280,16 @@ class AFRAME_3517_TO_3194(Instance):
                 group_indent = len(spaces) // 2
                 current_groups = current_groups[:group_indent] + [group_name.strip()]
         # Parse summary for skipped tests (fallback)
-        summary_match = re.search(r'SUMMARY:.*ℹ (\d+) tests? skipped', log_clean)
+        summary_match = re.search(r"SUMMARY:.*ℹ (\d+) tests? skipped", log_clean)
         if summary_match and not skipped_tests:
-            skipped_tests.add(f'Skipped {summary_match.group(1)} tests (summary fallback)')
+            skipped_tests.add(
+                f"Skipped {summary_match.group(1)} tests (summary fallback)"
+            )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

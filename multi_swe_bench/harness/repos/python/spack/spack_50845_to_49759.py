@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ pip install -e .[dev]
 echo -e '#!/bin/bash
 spack unit-test -v' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 spack unit-test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ fi
 #!/bin/bash
 spack unit-test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 #!/bin/bash
 spack unit-test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class SPACK_50845_TO_49759(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,22 +173,32 @@ class SPACK_50845_TO_49759(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases and their statuses
         # Passed tests: e.g., "lib/spack/... PASSED [  0%]"
-        passed_pattern = re.compile(r'^\s*(lib/spack/[^\s]+)\s+PASSED(?:\s+\[\s*\d+%\])?', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^\s*(lib/spack/[^\s]+)\s+PASSED(?:\s+\[\s*\d+%\])?", re.MULTILINE
+        )
         # Failed tests: e.g., "FAILED lib/spack/..." or "lib/spack/... FAILED [  0%]"
-        failed_pattern_prefix = re.compile(r'^\s*FAILED\s+(lib/spack/[^\s]+)(?:\s|$)', re.MULTILINE)
-        failed_pattern_suffix = re.compile(r'^\s*(lib/spack/[^\s]+)\s+FAILED(?:\s+\[\s*\d+%\])?', re.MULTILINE)
+        failed_pattern_prefix = re.compile(
+            r"^\s*FAILED\s+(lib/spack/[^\s]+)(?:\s|$)", re.MULTILINE
+        )
+        failed_pattern_suffix = re.compile(
+            r"^\s*(lib/spack/[^\s]+)\s+FAILED(?:\s+\[\s*\d+%\])?", re.MULTILINE
+        )
         # Skipped tests: e.g., "SKIPPED lib/spack/..." or "lib/spack/... SKIPPED [  0%]"
-        skipped_pattern_prefix = re.compile(r'^\s*SKIPPED\s+(lib/spack/[^\s]+)(?:\s|$)', re.MULTILINE)
-        skipped_pattern_suffix = re.compile(r'^\s*(lib/spack/[^\s]+)\s+SKIPPED(?:\s+\[\s*\d+%\])?', re.MULTILINE)
+        skipped_pattern_prefix = re.compile(
+            r"^\s*SKIPPED\s+(lib/spack/[^\s]+)(?:\s|$)", re.MULTILINE
+        )
+        skipped_pattern_suffix = re.compile(
+            r"^\s*(lib/spack/[^\s]+)\s+SKIPPED(?:\s+\[\s*\d+%\])?", re.MULTILINE
+        )
         # Extract test names and update sets
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern_prefix.findall(log))
@@ -198,9 +208,8 @@ class SPACK_50845_TO_49759(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

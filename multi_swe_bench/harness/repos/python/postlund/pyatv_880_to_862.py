@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install protobuf==3.20.3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10 --cov --cov-append --cov-report=term-missing --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10 --cov --cov-append --cov-report=term-missing --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -n auto --log-level=debug -v --timeout=30 --durations=10 --cov --cov-append --cov-report=term-missing --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class PYATV_880_TO_862(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,7 +190,6 @@ class PYATV_880_TO_862(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -204,10 +197,11 @@ class PYATV_880_TO_862(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names using regex patterns
-        passed_pattern = re.compile(r'PASSED\s+(tests/[\w/]+\.py::[\w:]+)')
-        failed_pattern = re.compile(r'FAILED\s+(tests/[\w/]+\.py::[\w:]+)')
-        skipped_pattern = re.compile(r'SKIPPED\s+(tests/[\w/]+\.py::[\w:]+)')
+        passed_pattern = re.compile(r"PASSED\s+(tests/[\w/]+\.py::[\w:]+)")
+        failed_pattern = re.compile(r"FAILED\s+(tests/[\w/]+\.py::[\w:]+)")
+        skipped_pattern = re.compile(r"SKIPPED\s+(tests/[\w/]+\.py::[\w:]+)")
         # Find all matches in the log content
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -215,9 +209,8 @@ class PYATV_880_TO_862(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

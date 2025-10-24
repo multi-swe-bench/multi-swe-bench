@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -84,7 +84,7 @@ jest src/components/Footer/Footer.test.js -u
 ###ACTION_DELIMITER###
 yarn test src/components/Footer/Footer.test.js --watchAll=false -u
 ###ACTION_DELIMITER###
-echo 'yarn test --verbose' > /home/maas-ui/test_commands.sh && chmod +x /home/maas-ui/test_commands.sh"""
+echo 'yarn test --verbose' > /home/maas-ui/test_commands.sh && chmod +x /home/maas-ui/test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ echo 'yarn test --verbose' > /home/maas-ui/test_commands.sh && chmod +x /home/ma
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class MAAS_UI_598_TO_141(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,7 +195,6 @@ class MAAS_UI_598_TO_141(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -203,6 +202,7 @@ class MAAS_UI_598_TO_141(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the log parsing logic here
         # Extract passed tests
         passed_tests.update(re.findall(r"^PASS (.*)$", log, re.MULTILINE))
@@ -210,16 +210,27 @@ class MAAS_UI_598_TO_141(Instance):
         failed_tests.update(re.findall(r"^FAIL (.*)$", log, re.MULTILINE))
         failed_tests.update(re.findall(r"at .* \((.*):\d+:\d+\)", log))
         # Extract skipped tests
-        skipped_tests.update(re.findall(r"(src/app/.*?test.*?)\s+skipped", log, re.IGNORECASE | re.MULTILINE))
-        skipped_tests.update(re.findall(r"skipped\s+(src/app/.*?test.*?)", log, re.IGNORECASE | re.MULTILINE))
-        skipped_tests.update(re.findall(r"(src/app/.*?test.*?)\s+skipped", log, re.IGNORECASE | re.MULTILINE))
+        skipped_tests.update(
+            re.findall(
+                r"(src/app/.*?test.*?)\s+skipped", log, re.IGNORECASE | re.MULTILINE
+            )
+        )
+        skipped_tests.update(
+            re.findall(
+                r"skipped\s+(src/app/.*?test.*?)", log, re.IGNORECASE | re.MULTILINE
+            )
+        )
+        skipped_tests.update(
+            re.findall(
+                r"(src/app/.*?test.*?)\s+skipped", log, re.IGNORECASE | re.MULTILINE
+            )
+        )
         skipped_tests.update(re.findall(r"^SKIP (.*)$", log, re.MULTILINE))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -111,7 +111,7 @@ bash /home/numba/test_commands.sh
 ###ACTION_DELIMITER###
 python3.8 -m pip install pytest-xdist
 ###ACTION_DELIMITER###
-bash /home/numba/test_commands.sh"""
+bash /home/numba/test_commands.sh""",
             ),
             File(
                 ".",
@@ -120,9 +120,7 @@ bash /home/numba/test_commands.sh"""
 cd /home/{pr.repo}
 python3.8 -m pytest -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -135,9 +133,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python3.8 -m pytest -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -150,9 +146,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python3.8 -m pytest -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -214,7 +208,7 @@ class NUMBA_5674_TO_5162(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -228,7 +222,6 @@ class NUMBA_5674_TO_5162(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -236,13 +229,16 @@ class NUMBA_5674_TO_5162(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regular expressions to match test status lines
         # Update pattern to capture SKIPPED and handle varying formats
         # Update pattern to handle varying whitespace and greedy capture
         # Capture any test name after status with flexible matching
-        status_pattern = re.compile(r'\[\w+\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.*?)\s*$')
+        status_pattern = re.compile(
+            r"\[\w+\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.*?)\s*$"
+        )
         # Capture any test name after ERROR with flexible matching
-        error_pattern = re.compile(r'ERROR\s+(.*?)\s*(?:-|$)')
+        error_pattern = re.compile(r"ERROR\s+(.*?)\s*(?:-|$)")
         # Split log into lines and process each line
         for line in log.splitlines():
             # Check for PASSED, FAILED, or SKIPPED status
@@ -250,11 +246,11 @@ class NUMBA_5674_TO_5162(Instance):
             if status_match:
                 status = status_match.group(1)
                 test_name = status_match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Check for ERROR status
             error_match = error_pattern.search(line)
@@ -264,9 +260,8 @@ class NUMBA_5674_TO_5162(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

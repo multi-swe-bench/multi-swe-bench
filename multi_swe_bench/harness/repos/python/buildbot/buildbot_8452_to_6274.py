@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -81,7 +81,7 @@ bash test_commands.sh
 echo -e '#!/bin/bash
 make trial' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 make trial
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ fi
 #!/bin/bash
 make trial
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ fi
 #!/bin/bash
 make trial
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class BUILDBOT_8452_TO_6274(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,7 +195,6 @@ class BUILDBOT_8452_TO_6274(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -204,18 +203,19 @@ class BUILDBOT_8452_TO_6274(Instance):
         processed_tests = set()  # Track tests already classified
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         hierarchy = []
         i = 0
         while i < len(lines):
             line = lines[i]
             # Strip [number] prefix from log lines
-            stripped_line = re.sub(r'^\[\d+\]\s*', '', line)
-            leading_spaces = re.match(r'^(\s*)', stripped_line).group(1)
+            stripped_line = re.sub(r"^\[\d+\]\s*", "", line)
+            leading_spaces = re.match(r"^(\s*)", stripped_line).group(1)
             level = len(leading_spaces) // 2
             text = stripped_line.strip()
             # Handle hierarchical test cases with ... [STATUS]
-            test_case_match = re.search(r'^(.*?)\s+\.\.\.\s+\[(\w+)\]$', text)
+            test_case_match = re.search(r"^(.*?)\s+\.\.\.\s+\[(\w+)\]$", text)
             if test_case_match:
                 test_name_part = test_case_match.group(1)
                 status = test_case_match.group(2)
@@ -224,16 +224,16 @@ class BUILDBOT_8452_TO_6274(Instance):
                     hierarchy = hierarchy[:level]
                 else:
                     while len(hierarchy) < level:
-                        hierarchy.append('')
+                        hierarchy.append("")
                 hierarchy.append(test_name_part)
-                full_test_name = '.'.join(hierarchy)
+                full_test_name = ".".join(hierarchy)
                 # Categorize by status (avoid duplicates)
                 if full_test_name not in processed_tests:
-                    if status == 'OK':
+                    if status == "OK":
                         passed_tests.add(full_test_name)
-                    elif status in ['ERROR', 'FAILED']:
+                    elif status in ["ERROR", "FAILED"]:
                         failed_tests.add(full_test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(full_test_name)
                     processed_tests.add(full_test_name)
                 hierarchy.pop()  # Remove test part for next iteration
@@ -243,7 +243,7 @@ class BUILDBOT_8452_TO_6274(Instance):
                     hierarchy = hierarchy[:level]
                 else:
                     while len(hierarchy) < level:
-                        hierarchy.append('')
+                        hierarchy.append("")
                 if level < len(hierarchy):
                     hierarchy[level] = text
                 else:
@@ -254,11 +254,11 @@ class BUILDBOT_8452_TO_6274(Instance):
         while i < len(lines):
             line = lines[i].strip()
             # Check if current line is a separator
-            if re.fullmatch(r'^[=-]+$', line):
+            if re.fullmatch(r"^[=-]+$", line):
                 # Check if next line is a status line
                 if i + 1 < len(lines):
-                    status_line = lines[i+1].strip()
-                    status_match = re.fullmatch(r'^\[(\w+)\]$', status_line)
+                    status_line = lines[i + 1].strip()
+                    status_match = re.fullmatch(r"^\[(\w+)\]$", status_line)
                     if status_match:
                         status = status_match.group(1)
                         # Collect all test names before the separator
@@ -267,18 +267,21 @@ class BUILDBOT_8452_TO_6274(Instance):
                         while j >= 0:
                             test_line = lines[j].strip()
                             # Check if test_line is a valid test name and not processed
-                            if re.match(r'^buildbot\.test\..+\.test_\w+$', test_line) and test_line not in processed_tests:
+                            if (
+                                re.match(r"^buildbot\.test\..+\.test_\w+$", test_line)
+                                and test_line not in processed_tests
+                            ):
                                 test_names.append(test_line)
                                 j -= 1
                             else:
                                 break
                         # Add collected test names to the appropriate set
                         for test_name in test_names:
-                            if status == 'ERROR':
+                            if status == "ERROR":
                                 failed_tests.add(test_name)
-                            elif status == 'SKIPPED':
+                            elif status == "SKIPPED":
                                 skipped_tests.add(test_name)
-                            elif status == 'OK':
+                            elif status == "OK":
                                 passed_tests.add(test_name)
                             processed_tests.add(test_name)
                         # Move i to after the status line
@@ -288,9 +291,8 @@ class BUILDBOT_8452_TO_6274(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

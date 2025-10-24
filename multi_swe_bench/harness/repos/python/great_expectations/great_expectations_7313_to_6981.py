@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlal
 pip install pandas==1.5.3 && bash test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlalchemy --ignore=tests/test_definitions/test_expectations_v3_api.py --ignore=tests/datasource/data_connector/test_configured_asset_glue_catalog_data_connector.py --ignore=tests/integration/usage_statistics/test_usage_stats_common_messages_are_sent_v3api.py --ignore=tests/profile/test_user_configurable_profiler_v3_batch_request.py --ignore=tests/render/renderer/v3/test_suite_edit_notebook_renderer.py' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlalchemy --ignore=tests/test_definitions/test_expectations_v3_api.py --ignore=tests/datasource/data_connector/test_configured_asset_glue_catalog_data_connector.py --ignore=tests/integration/usage_statistics/test_usage_stats_common_messages_are_sent_v3api.py --ignore=tests/profile/test_user_configurable_profiler_v3_batch_request.py --ignore=tests/render/renderer/v3/test_suite_edit_notebook_renderer.py' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,9 +103,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlalchemy --ignore=tests/test_definitions/test_expectations_v3_api.py --ignore=tests/datasource/data_connector/test_configured_asset_glue_catalog_data_connector.py --ignore=tests/integration/usage_statistics/test_usage_stats_common_messages_are_sent_v3api.py --ignore=tests/profile/test_user_configurable_profiler_v3_batch_request.py --ignore=tests/render/renderer/v3/test_suite_edit_notebook_renderer.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -119,9 +117,7 @@ fi
 #!/bin/bash
 pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlalchemy --ignore=tests/test_definitions/test_expectations_v3_api.py --ignore=tests/datasource/data_connector/test_configured_asset_glue_catalog_data_connector.py --ignore=tests/integration/usage_statistics/test_usage_stats_common_messages_are_sent_v3api.py --ignore=tests/profile/test_user_configurable_profiler_v3_batch_request.py --ignore=tests/render/renderer/v3/test_suite_edit_notebook_renderer.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -135,9 +131,7 @@ fi
 #!/bin/bash
 pytest -v --no-header -rA --tb=short -p no:cacheprovider -m "not e2e" --no-sqlalchemy --ignore=tests/test_definitions/test_expectations_v3_api.py --ignore=tests/datasource/data_connector/test_configured_asset_glue_catalog_data_connector.py --ignore=tests/integration/usage_statistics/test_usage_stats_common_messages_are_sent_v3api.py --ignore=tests/profile/test_user_configurable_profiler_v3_batch_request.py --ignore=tests/render/renderer/v3/test_suite_edit_notebook_renderer.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -199,7 +193,7 @@ class GREAT_EXPECTATIONS_7313_TO_6981(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,21 +207,23 @@ class GREAT_EXPECTATIONS_7313_TO_6981(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Define regex patterns to match test lines
         # Pattern 1: Test name followed by status and progress (e.g., "[  0%]")
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s+\[\s*\d+%\s*\]$')
+        pattern1 = re.compile(
+            r"^(.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s+\[\s*\d+%\s*\]$"
+        )
         # Pattern 2: Status followed by test name (with optional message after '-')
-        pattern2 = re.compile(r'^(XFAIL|FAILED|SKIPPED|PASSED)\s+(.*?)(\s+-.*)?$')
+        pattern2 = re.compile(r"^(XFAIL|FAILED|SKIPPED|PASSED)\s+(.*?)(\s+-.*)?$")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             if not line:
                 continue
@@ -243,19 +239,18 @@ class GREAT_EXPECTATIONS_7313_TO_6981(Instance):
                 else:
                     continue  # Skip lines that don't match
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XFAIL'):
+            elif status in ("FAILED", "XFAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
             # Ignore other statuses if any
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

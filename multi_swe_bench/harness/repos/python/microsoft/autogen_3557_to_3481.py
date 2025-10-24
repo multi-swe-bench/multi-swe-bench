@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -118,7 +118,7 @@ pip install --force-reinstall llama-index-core==0.13.6 && pip install -e ".[test
 ###ACTION_DELIMITER###
 pip install llama-index==0.13.6 llama-index-core==0.13.6 && bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install llama-index-core==0.10.68.post1 && bash test_commands.sh"""
+pip install llama-index-core==0.10.68.post1 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ pip install llama-index-core==0.10.68.post1 && bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --asyncio-mode=auto ./test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -140,7 +140,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --asyncio-mode=auto ./test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --asyncio-mode=auto ./test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class AUTOGEN_3557_TO_3481(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,7 +229,6 @@ class AUTOGEN_3557_TO_3481(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -237,8 +236,12 @@ class AUTOGEN_3557_TO_3481(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Pattern to match test lines with their status
-        pattern = re.compile(r'(test/[^ ]+) (PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED) (test/[^ ]+)', re.MULTILINE)
+        pattern = re.compile(
+            r"(test/[^ ]+) (PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED) (test/[^ ]+)",
+            re.MULTILINE,
+        )
         matches = pattern.findall(log)
         for match in matches:
             test1, status1, status2, test2 = match
@@ -250,18 +253,17 @@ class AUTOGEN_3557_TO_3481(Instance):
                 status = status2
             else:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

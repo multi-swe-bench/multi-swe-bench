@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ su - postgres -c "psql -c 'CREATE USER root WITH SUPERUSER;'"
 ###ACTION_DELIMITER###
 su - postgres -c "createdb lcfs"
 ###ACTION_DELIMITER###
-echo 'cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./lcfs/tests' > /home/lcfs/test_commands.sh"""
+echo 'cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./lcfs/tests' > /home/lcfs/test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ echo 'cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprov
 cd /home/[[REPO_NAME]]
 cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./lcfs/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./lcfs/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd backend && poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./lcfs/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class LCFS_2342_TO_2120(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,20 +187,26 @@ class LCFS_2342_TO_2120(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status and [percentage]
-        pattern1 = re.compile(r'^(lcfs/tests/.*?::test_\w+)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[\s*\d+%\]', re.IGNORECASE)
+        pattern1 = re.compile(
+            r"^(lcfs/tests/.*?::test_\w+)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[\s*\d+%\]",
+            re.IGNORECASE,
+        )
         # Pattern 2: Status followed by test name (with possible trailing info after hyphen)
-        pattern2 = re.compile(r'^(PASSED|FAILED|ERROR|SKIPPED)\s+(lcfs/tests/.*?::test_\w+)(?:\s+-.*)?$', re.IGNORECASE)
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|ERROR|SKIPPED)\s+(lcfs/tests/.*?::test_\w+)(?:\s+-.*)?$",
+            re.IGNORECASE,
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match1 = pattern1.match(line)
             if match1:
@@ -214,18 +220,17 @@ class LCFS_2342_TO_2120(Instance):
                 else:
                     continue  # No match, skip line
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pip install -r tools/tests-requirements.txt
 ###ACTION_DELIMITER###
 sed -i 's|virtualenv==20.0.35#egg=virtualenv|virtualenv==20.0.35|' tools/tests-requirements.txt
 ###ACTION_DELIMITER###
-pip install -r tools/tests-requirements.txt"""
+pip install -r tools/tests-requirements.txt""",
             ),
             File(
                 ".",
@@ -102,9 +102,7 @@ pip install -r tools/tests-requirements.txt"""
 cd /home/{pr.repo}
 pytest -v --timeout 300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --timeout 300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --timeout 300 tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class PIP_5764_TO_5457(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,19 +204,21 @@ class PIP_5764_TO_5457(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Extract all test names from the log
-        all_tests = set(re.findall(r'tests/[\w/\.]+::[\w:]+', log))
+        all_tests = set(re.findall(r"tests/[\w/\.]+::[\w:]+", log))
         # Extract failed tests
-        failed_tests = set(re.findall(r'FAILED\s+(tests/[\w/\.]+::[\w:]+)', log))
+        failed_tests = set(re.findall(r"FAILED\s+(tests/[\w/\.]+::[\w:]+)", log))
         # Extract skipped tests (handles both "test_name SKIPPED" and "SKIPPED test_name")
-        skipped_pattern = re.compile(r'(tests/[\w/\.]+::[\w:]+)\s+SKIPPED|SKIPPED\s+(tests/[\w/\.]+::[\w:]+)')
+        skipped_pattern = re.compile(
+            r"(tests/[\w/\.]+::[\w:]+)\s+SKIPPED|SKIPPED\s+(tests/[\w/\.]+::[\w:]+)"
+        )
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests = set()
         for match in skipped_matches:
@@ -232,17 +228,18 @@ class PIP_5764_TO_5457(Instance):
             if test2:
                 skipped_tests.add(test2)
         # Extract error tests (setup/teardown errors)
-        error_tests = set(re.findall(r'ERROR\s+(tests/[\w/\.]+::[\w:]+)', log))
+        error_tests = set(re.findall(r"ERROR\s+(tests/[\w/\.]+::[\w:]+)", log))
         # Extract xfailed tests (expected failures)
-        xfailed_tests = set(re.findall(r'XFAILED\s+(tests/[\w/\.]+::[\w:]+)', log))
+        xfailed_tests = set(re.findall(r"XFAILED\s+(tests/[\w/\.]+::[\w:]+)", log))
         # Passed tests = all tests - non-passed tests
-        passed_tests = all_tests - failed_tests - skipped_tests - error_tests - xfailed_tests
+        passed_tests = (
+            all_tests - failed_tests - skipped_tests - error_tests - xfailed_tests
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

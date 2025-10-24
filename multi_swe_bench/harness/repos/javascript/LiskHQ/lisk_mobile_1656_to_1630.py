@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:16-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ sed -i 's/"@liskhq\/lisk-client": "6.0.0-alpha.13"/"@liskhq\/lisk-client": "6.0.
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-npm test -- --verbose"""
+npm test -- --verbose""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ npm test -- --verbose"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class LISK_MOBILE_1656_TO_1630(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,26 +197,38 @@ class LISK_MOBILE_1656_TO_1630(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         current_suite = ""
         # Regex to match suite lines (PASS/FAIL/SKIP followed by file path)
-        suite_pattern = re.compile(r'^(PASS|FAIL|SKIP)\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)?$', re.UNICODE | re.IGNORECASE)
+        suite_pattern = re.compile(
+            r"^(PASS|FAIL|SKIP)\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)?$",
+            re.UNICODE | re.IGNORECASE,
+        )
         # Regex to match individual test lines
-        pass_test_pattern = re.compile(r'^\s+✓\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)$', re.UNICODE | re.MULTILINE)
-        fail_test_pattern = re.compile(r'^\s+✕\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)$', re.UNICODE | re.MULTILINE)
-        skip_test_pattern = re.compile(r'^\s+(?:[-–—•○]|SKIP|SKIPPED)\s+(.*?)\s*(?:\(.*?\))?$', re.UNICODE | re.IGNORECASE | re.MULTILINE)
+        pass_test_pattern = re.compile(
+            r"^\s+✓\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)$", re.UNICODE | re.MULTILINE
+        )
+        fail_test_pattern = re.compile(
+            r"^\s+✕\s+(.*?)\s*\(\d+(?:\.\d+)? (?:ms|s)\)$", re.UNICODE | re.MULTILINE
+        )
+        skip_test_pattern = re.compile(
+            r"^\s+(?:[-–—•○]|SKIP|SKIPPED)\s+(.*?)\s*(?:\(.*?\))?$",
+            re.UNICODE | re.IGNORECASE | re.MULTILINE,
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Update current suite if line matches a test suite
             suite_match = suite_pattern.match(line.strip())
             if suite_match:
-                current_suite = suite_match.group(2).strip()  # Extract file path as suite name
+                current_suite = suite_match.group(
+                    2
+                ).strip()  # Extract file path as suite name
             # Check for passed tests
             pass_match = pass_test_pattern.match(line)
             if pass_match and current_suite:
@@ -235,9 +247,8 @@ class LISK_MOBILE_1656_TO_1630(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -172,7 +172,7 @@ export HYPOTHESIS_DEADLINE=60000
 export HYPOTHESIS_IGNORE_HEALTH_CHECKS=yes
 xvfb-run -a python -m pytest -v tests -k "not test_plot_over_line"' > /home/pyvista/test_commands.sh && chmod +x /home/pyvista/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/pyvista/test_commands.sh"""
+bash /home/pyvista/test_commands.sh""",
             ),
             File(
                 ".",
@@ -186,9 +186,7 @@ export HYPOTHESIS_DEADLINE=60000
 export HYPOTHESIS_IGNORE_HEALTH_CHECKS=yes
 xvfb-run -a python -m pytest -v tests -k "not test_plot_over_line"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -206,9 +204,7 @@ export HYPOTHESIS_DEADLINE=60000
 export HYPOTHESIS_IGNORE_HEALTH_CHECKS=yes
 xvfb-run -a python -m pytest -v tests -k "not test_plot_over_line"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -226,9 +222,7 @@ export HYPOTHESIS_DEADLINE=60000
 export HYPOTHESIS_IGNORE_HEALTH_CHECKS=yes
 xvfb-run -a python -m pytest -v tests -k "not test_plot_over_line"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -290,7 +284,7 @@ class PYVISTA_738_TO_360(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -304,7 +298,6 @@ class PYVISTA_738_TO_360(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -312,23 +305,25 @@ class PYVISTA_738_TO_360(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        test_pattern = re.compile(r'(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)')
+
+        test_pattern = re.compile(
+            r"(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)"
+        )
         matches = test_pattern.findall(log)
         for match in matches:
             test_name = match[0] if match[0] else match[3]
             status = match[1] if match[1] else match[2]
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

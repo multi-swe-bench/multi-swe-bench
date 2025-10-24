@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ###ACTION_DELIMITER###
 pip install -c constraints.txt -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class QISKIT_12439_TO_12061(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,34 +189,35 @@ class QISKIT_12439_TO_12061(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Compile regex pattern to match test lines (handles time with/without decimal)
-        pattern = re.compile(r'\{.*?\}\s+(test\.python\..*?)\s+(?:\[\d+\.?\d*s\]\s+)?\.\.\.\s+([^\s]+)')
+        pattern = re.compile(
+            r"\{.*?\}\s+(test\.python\..*?)\s+(?:\[\d+\.?\d*s\]\s+)?\.\.\.\s+([^\s]+)"
+        )
         # Iterate over each line in the log
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2).lower()
-                if status in ['ok', 'passed']:
+                if status in ["ok", "passed"]:
                     passed_tests.add(test_name)
                 # Add handling for other statuses if present in logs
-                elif status in ['failed', 'error', 'fail']:
+                elif status in ["failed", "error", "fail"]:
                     failed_tests.add(test_name)
-                elif 'skip' in status:
+                elif "skip" in status:
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

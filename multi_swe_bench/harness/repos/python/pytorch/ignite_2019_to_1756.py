@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ pip install numpy==1.23.5
 ###ACTION_DELIMITER###
 pytest -v --no-header -rA -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py
 ###ACTION_DELIMITER###
-echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py' > test_commands.sh"""
+echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tes
 cd /home/{pr.repo}
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider --ignore=tests/ignite/contrib/metrics/regression/test_canberra_metric.py --ignore=tests/ignite/contrib/metrics/regression/test_manhattan_distance.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class IGNITE_2019_TO_1756(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,37 +190,36 @@ class IGNITE_2019_TO_1756(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes from the log content
-        cleaned_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        cleaned_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Split into individual lines
-        lines = cleaned_log.split('\n')
+        lines = cleaned_log.split("\n")
         for line in lines:
             # Check for test status and extract test name
-            if 'PASSED' in line:
-                match = re.search(r'tests/[^:]+::[^ ]+', line)
+            if "PASSED" in line:
+                match = re.search(r"tests/[^:]+::[^ ]+", line)
                 if match:
                     passed_tests.add(match.group(0))
-            elif 'SKIPPED' in line:
-                match = re.search(r'tests/[^:]+::[^ ]+', line)
+            elif "SKIPPED" in line:
+                match = re.search(r"tests/[^:]+::[^ ]+", line)
                 if match:
                     skipped_tests.add(match.group(0))
-            elif 'FAILED' in line:
-                match = re.search(r'tests/[^:]+::[^ ]+', line)
+            elif "FAILED" in line:
+                match = re.search(r"tests/[^:]+::[^ ]+", line)
                 if match:
                     failed_tests.add(match.group(0))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

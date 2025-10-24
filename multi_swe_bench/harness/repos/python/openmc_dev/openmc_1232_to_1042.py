@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -102,7 +102,7 @@ echo 'export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
 export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -113,9 +113,7 @@ export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
 export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +128,7 @@ export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
 export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +143,7 @@ export OPENMC_CROSS_SECTIONS=/root/nndc_hdf5/cross_sections.xml
 export OPENMC_ENDF_DATA=/root/endf-b-vii.1/
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -211,7 +205,7 @@ class OPENMC_1232_TO_1042(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -225,7 +219,6 @@ class OPENMC_1232_TO_1042(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -233,11 +226,12 @@ class OPENMC_1232_TO_1042(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
         lines = log.splitlines()
         # Regex patterns to match test cases
-        pattern1 = re.compile(r'(tests/[^ ]+) (PASSED|FAILED|SKIPPED)\b')
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\b (tests/[^ ]+)')
+        pattern1 = re.compile(r"(tests/[^ ]+) (PASSED|FAILED|SKIPPED)\b")
+        pattern2 = re.compile(r"(PASSED|FAILED|SKIPPED)\b (tests/[^ ]+)")
         for line in lines:
             # Check pattern 1: test name followed by status
             match = pattern1.search(line)
@@ -253,18 +247,17 @@ class OPENMC_1232_TO_1042(Instance):
                 else:
                     continue  # No match, skip line
             # Add test to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

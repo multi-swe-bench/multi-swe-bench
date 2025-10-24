@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pytest tests --run-optional no_jupyter --numprocesses auto --cov -v
 pytest tests --run-optional jupyter -m jupyter --numprocesses auto --cov --cov-append -v
 coverage report' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ pytest tests --run-optional no_jupyter --numprocesses auto --cov -v
 pytest tests --run-optional jupyter -m jupyter --numprocesses auto --cov --cov-append -v
 coverage report
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ pytest tests --run-optional no_jupyter --numprocesses auto --cov -v
 pytest tests --run-optional jupyter -m jupyter --numprocesses auto --cov --cov-append -v
 coverage report
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ pytest tests --run-optional no_jupyter --numprocesses auto --cov -v
 pytest tests --run-optional jupyter -m jupyter --numprocesses auto --cov --cov-append -v
 coverage report
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class BLACK_4680_TO_2690(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,19 +184,21 @@ class BLACK_4680_TO_2690(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Track the latest status of each test using a dictionary
         test_status = {}
         # Regex pattern to match test results (captures status and test name)
-        pattern = re.compile(r'\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|SKIPPED|FAILED)\s+(tests/.*?)\s*$')
+        pattern = re.compile(
+            r"\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|SKIPPED|FAILED)\s+(tests/.*?)\s*$"
+        )
         # Process each line to update the latest status
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
                 status = match.group(1)
@@ -210,18 +206,17 @@ class BLACK_4680_TO_2690(Instance):
                 test_status[test_name] = status  # Overwrite with latest status
         # Populate sets based on the latest status
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

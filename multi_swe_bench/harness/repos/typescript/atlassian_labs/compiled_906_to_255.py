@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nyarn test --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ fi
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ fi
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -170,7 +170,7 @@ class COMPILED_906_TO_255(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,7 +184,6 @@ class COMPILED_906_TO_255(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -192,20 +191,20 @@ class COMPILED_906_TO_255(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract test suite statuses
-        passed_tests.update(re.findall(r'PASS\s+([^\n]+)', log))
-        failed_tests.update(re.findall(r'FAIL\s+([^\n]+)', log))
-        skipped_tests.update(re.findall(r'SKIPPED\s+([^\n]+)', log))
+        passed_tests.update(re.findall(r"PASS\s+([^\n]+)", log))
+        failed_tests.update(re.findall(r"FAIL\s+([^\n]+)", log))
+        skipped_tests.update(re.findall(r"SKIPPED\s+([^\n]+)", log))
         # Extract individual test cases
-        passed_tests.update(re.findall(r'✓\s+([^\(]+?)\s+\(\d+ ms\)', log))
-        failed_tests.update(re.findall(r'✗\s+([^\(]+?)\s+\(\d+ ms\)', log))
-        skipped_tests.update(re.findall(r'SKIPPED\s+([^\(]+?)\s+\(\d+ ms\)', log))
+        passed_tests.update(re.findall(r"✓\s+([^\(]+?)\s+\(\d+ ms\)", log))
+        failed_tests.update(re.findall(r"✗\s+([^\(]+?)\s+\(\d+ ms\)", log))
+        skipped_tests.update(re.findall(r"SKIPPED\s+([^\(]+?)\s+\(\d+ ms\)", log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

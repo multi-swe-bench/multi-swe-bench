@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 pip install -e ".[testing]"
 ###ACTION_DELIMITER###
-echo 'python runtests.py -v2' > test_commands.sh"""
+echo 'python runtests.py -v2' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo 'python runtests.py -v2' > test_commands.sh"""
 cd /home/{pr.repo}
 python runtests.py -v2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py -v2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py -v2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class WAGTAIL_10010_TO_9711(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,18 +162,18 @@ class WAGTAIL_10010_TO_9711(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Regex patterns to match test lines
-        passed_pattern = re.compile(r'\((.*?)\) \.\.\. ok$')
-        failed_pattern = re.compile(r'FAIL: .*? \((.*?)\)')
-        skipped_pattern = re.compile(r'\((.*?)\) \.\.\. skipped$')
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"\((.*?)\) \.\.\. ok$")
+        failed_pattern = re.compile(r"FAIL: .*? \((.*?)\)")
+        skipped_pattern = re.compile(r"\((.*?)\) \.\.\. skipped$")
+        for line in log.split("\n"):
             # Check for passed tests
             passed_match = passed_pattern.search(line)
             if passed_match:
@@ -198,9 +192,8 @@ class WAGTAIL_10010_TO_9711(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

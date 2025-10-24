@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -241,7 +241,7 @@ module.exports = {
 };
 EOF
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -252,7 +252,7 @@ yarn build:cjs && yarn build:es
 yarn test:client --verbose -u --config jest.config.js
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -267,7 +267,7 @@ yarn build:cjs && yarn build:es
 yarn test:client --verbose -u --config jest.config.js
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -282,7 +282,7 @@ yarn build:cjs && yarn build:es
 yarn test:client --verbose -u --config jest.config.js
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -344,7 +344,7 @@ class ARCO_DESIGN_1720_TO_1389(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -358,7 +358,6 @@ class ARCO_DESIGN_1720_TO_1389(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -366,29 +365,34 @@ class ARCO_DESIGN_1720_TO_1389(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Parse passed tests
-        passed_pattern = re.compile(r'✓ renders (.*?) correctly')
+        passed_pattern = re.compile(r"✓ renders (.*?) correctly")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests from test results and error stacks
         # Capture failed tests from '✕ renders ...' lines
-        failed_test_pattern = re.compile(r'(?:✕|x|FAILED|●|•)\s+renders\s+([^/]+/demo/[^.]+\.md)(?:\s+correctly.*)?\s*', re.IGNORECASE)
+        failed_test_pattern = re.compile(
+            r"(?:✕|x|FAILED|●|•)\s+renders\s+([^/]+/demo/[^.]+\.md)(?:\s+correctly.*)?\s*",
+            re.IGNORECASE,
+        )
         failed_matches = failed_test_pattern.findall(log)
         for test_name in failed_matches:
             if test_name:
                 failed_tests.add(test_name.strip())
         # Capture failed tests from error stacks (e.g., components/Tabs/__demo__/drag.md:26:17)
-        failed_stack_pattern = re.compile(r'components/([^:]+?\.md):')  # Capture any .md file under components
+        failed_stack_pattern = re.compile(
+            r"components/([^:]+?\.md):"
+        )  # Capture any .md file under components
         stack_matches = failed_stack_pattern.findall(log)
         for match in stack_matches:
-            test_name = match.replace('__demo__', 'demo').replace('__test__', 'demo')
+            test_name = match.replace("__demo__", "demo").replace("__test__", "demo")
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

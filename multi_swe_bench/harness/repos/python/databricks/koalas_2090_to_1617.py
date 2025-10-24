@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ pip3.7 install --break-system-packages pyspark
 ###ACTION_DELIMITER###
 ./dev/pytest
 ###ACTION_DELIMITER###
-echo "./dev/pytest" > /home/koalas/test_commands.sh && chmod +x /home/koalas/test_commands.sh"""
+echo "./dev/pytest" > /home/koalas/test_commands.sh && chmod +x /home/koalas/test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ echo "./dev/pytest" > /home/koalas/test_commands.sh && chmod +x /home/koalas/tes
 cd /home/[[REPO_NAME]]
 ./dev/pytest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./dev/pytest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./dev/pytest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class KOALAS_2090_TO_1617(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,7 +211,6 @@ class KOALAS_2090_TO_1617(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -219,13 +218,14 @@ class KOALAS_2090_TO_1617(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines with status, handling both test name before or after status
         pattern = re.compile(
-            r'(databricks/.*?) \x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m|'
-            r'\x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m (databricks/.*?)'
+            r"(databricks/.*?) \x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m|"
+            r"\x1b\[3[123]m(FAILED|PASSED|SKIPPED)\x1b\[0m (databricks/.*?)"
         )
         # Iterate over each line in the log
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
                 # Extract test name and status from the matched groups
@@ -238,22 +238,21 @@ class KOALAS_2090_TO_1617(Instance):
                 else:
                     continue  # should not happen, but just in case
                 # Remove any escape sequences from the test name
-                test_name = re.sub(r'\x1b\[\d+m', '', test_name)
+                test_name = re.sub(r"\x1b\[\d+m", "", test_name)
                 # Remove any trailing non-test name characters (like - or whitespace)
-                test_name = test_name.split('-')[0].strip()
+                test_name = test_name.split("-")[0].strip()
                 # Add to the corresponding set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

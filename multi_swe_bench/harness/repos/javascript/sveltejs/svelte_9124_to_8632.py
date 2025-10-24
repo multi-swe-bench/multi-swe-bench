@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ npm install -g pnpm@8.6.3
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo "pnpm test -r --filter=./packages/*" > test_commands.sh"""
+echo "pnpm test -r --filter=./packages/*" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "pnpm test -r --filter=./packages/*" > test_commands.sh"""
 cd /home/{pr.repo}
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm test -r --filter=./packages/*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class SVELTE_9124_TO_8632(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,31 +164,31 @@ class SVELTE_9124_TO_8632(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         for line in log.splitlines():
-            if '✓' in line:
-                match = re.search(r'✓ (.*?)\s+\(', line)
+            if "✓" in line:
+                match = re.search(r"✓ (.*?)\s+\(", line)
                 if match:
                     passed_tests.add(match.group(1).strip())
-            elif 'FAIL' in line:
-                match = re.search(r'FAIL (.*?)\s+\[', line)
+            elif "FAIL" in line:
+                match = re.search(r"FAIL (.*?)\s+\[", line)
                 if match:
                     test_name = match.group(1).strip()
                     if test_name:
                         failed_tests.add(test_name)
-            elif '❯' in line and 'skipped' in line:
-                match = re.search(r'❯ (.*?)\s+\(', line)
+            elif "❯" in line and "skipped" in line:
+                match = re.search(r"❯ (.*?)\s+\(", line)
                 if match:
                     skipped_tests.add(match.group(1).strip())
-            elif '❯' in line and 'failed' in line:
-                match = re.search(r'❯ (.*?)\s+\(', line)
+            elif "❯" in line and "failed" in line:
+                match = re.search(r"❯ (.*?)\s+\(", line)
                 if match:
                     failed_tests.add(match.group(1).strip())
         # If a test is in failed, it can't be in passed or skipped
@@ -212,9 +206,8 @@ class SVELTE_9124_TO_8632(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libcairo2 libpango-1.0-0 libgdk-pixbuf2.0-0
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 uv run pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 uv run pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 uv run pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class SCOUT_5332_TO_4985(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,7 +208,6 @@ class SCOUT_5332_TO_4985(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -222,29 +215,29 @@ class SCOUT_5332_TO_4985(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test cases and their statuses
-        pattern = r'(?P<test>tests/[^:]+::test_[^\s]+)\s+(?P<status>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test2>tests/[^:]+::test_[^\s]+)'
+        pattern = r"(?P<test>tests/[^:]+::test_[^\s]+)\s+(?P<status>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test2>tests/[^:]+::test_[^\s]+)"
         # Find all matches in the log content
         matches = re.finditer(pattern, log)
         for match in matches:
-            test_name = match.group('test') or match.group('test2')
-            status = match.group('status') or match.group('status2')
+            test_name = match.group("test") or match.group("test2")
+            status = match.group("status") or match.group("status2")
             if not test_name or not status:
                 continue  # Skip invalid matches
             # Clean the test name by removing any trailing whitespace or special characters
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

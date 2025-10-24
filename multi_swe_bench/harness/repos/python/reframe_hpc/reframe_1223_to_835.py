@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -80,7 +80,7 @@ echo -e '#!/bin/bash
  ./test_reframe.py --rfm-user-config=config/cscs-ci.py -v
  ./bin/reframe -C config/cscs.py --save-log-files -r -v --flex-alloc-nodes=2 -t production,benchmark' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ cd /home/{pr.repo}
  ./test_reframe.py --rfm-user-config=config/cscs-ci.py -v
  ./bin/reframe -C config/cscs.py --save-log-files -r -v --flex-alloc-nodes=2 -t production,benchmark
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +108,7 @@ fi
  ./test_reframe.py --rfm-user-config=config/cscs-ci.py -v
  ./bin/reframe -C config/cscs.py --save-log-files -r -v --flex-alloc-nodes=2 -t production,benchmark
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ fi
  ./test_reframe.py --rfm-user-config=config/cscs-ci.py -v
  ./bin/reframe -C config/cscs.py --save-log-files -r -v --flex-alloc-nodes=2 -t production,benchmark
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class REFRAME_1223_TO_835(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,31 +200,33 @@ class REFRAME_1223_TO_835(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Strip ANSI escape codes
-        log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Parse all test statuses with a single regex
-        test_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?([\w\/\.:-]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?', re.MULTILINE)
+        test_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?([\w\/\.:-]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?",
+            re.MULTILINE,
+        )
         for test_name, status in test_pattern.findall(log):
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

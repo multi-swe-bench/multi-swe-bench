@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 yarn build
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./node_modules/.bin/lerna run test --parallel -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/.bin/lerna run test --parallel -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/.bin/lerna run test --parallel -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class DESIGN_SYSTEM_2396_TO_2151(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,29 +203,30 @@ class DESIGN_SYSTEM_2396_TO_2151(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse passed tests using ✓ symbol
-        passed_pattern = re.compile(r'^.*✓ (.*?)(?: \(\d+ ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^.*✓ (.*?)(?: \(\d+ ms\))?$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests using symbols and error stacks
         # Match ✕/● lines (ANSI-colored or not)
-        failed_pattern = re.compile(r'^.*(?:\x1B\[31m)?(✕|●)(?:\x1B\[39m)? (.*?)(?: \(\d+ ms\))?$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^.*(?:\x1B\[31m)?(✕|●)(?:\x1B\[39m)? (.*?)(?: \(\d+ ms\))?$", re.MULTILINE
+        )
         failed_tests.update(match[1] for match in failed_pattern.findall(log))
         # Parse skipped tests using ○ skipped
-        skipped_pattern = re.compile(r'^.*○ skipped (.*)$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^.*○ skipped (.*)$", re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

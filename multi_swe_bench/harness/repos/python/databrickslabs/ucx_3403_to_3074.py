@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ pip install hatch
 ###ACTION_DELIMITER###
 hatch run test
 ###ACTION_DELIMITER###
-echo 'hatch run test' > test_commands.sh"""
+echo 'hatch run test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'hatch run test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 hatch run test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 hatch run test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 hatch run test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class UCX_3403_TO_3074(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,44 +165,52 @@ class UCX_3403_TO_3074(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract progress bar lines (handle optional line numbers)
-        progress_lines = re.findall(r'^(?:\[\s*\d+\]\s*)?(.*?)\s+\[\s*\d+%\]$', log, re.MULTILINE)
-        progress_chars = ''.join(progress_lines)
+        progress_lines = re.findall(
+            r"^(?:\[\s*\d+\]\s*)?(.*?)\s+\[\s*\d+%\]$", log, re.MULTILINE
+        )
+        progress_chars = "".join(progress_lines)
         # Extract full test names from call lines (greedy match for parameters)
-        test_names = re.findall(r'call\s+(tests/.*)\s*$', log, re.MULTILINE)
+        test_names = re.findall(r"call\s+(tests/.*)\s*$", log, re.MULTILINE)
         # Truncate to match progress_chars length
-        test_names = test_names[:len(progress_chars)]
+        test_names = test_names[: len(progress_chars)]
         if len(test_names) < len(progress_chars):
-            test_names += [f'unknown_test_{i}' for i in range(len(progress_chars) - len(test_names))]
+            test_names += [
+                f"unknown_test_{i}"
+                for i in range(len(progress_chars) - len(test_names))
+            ]
         else:
-            test_names = test_names[:len(progress_chars)]
+            test_names = test_names[: len(progress_chars)]
         # Map progress characters to test statuses
         for char, test in zip(progress_chars, test_names):
-            if char == '.':
+            if char == ".":
                 passed_tests.add(test)
-            elif char == 'F':
+            elif char == "F":
                 failed_tests.add(test)
-            elif char == 's':
+            elif char == "s":
                 skipped_tests.add(test)
         # Extract additional failed and skipped tests from summary
-        failed_from_summary = re.findall(r'^(?:\[\s*\d+\]\s*)?FAILED (.*)$', log, re.MULTILINE)
+        failed_from_summary = re.findall(
+            r"^(?:\[\s*\d+\]\s*)?FAILED (.*)$", log, re.MULTILINE
+        )
         failed_tests.update(failed_from_summary)
-        skipped_from_summary = re.findall(r'^(?:\[\s*\d+\]\s*)?SKIPPED (.*)$', log, re.MULTILINE)
+        skipped_from_summary = re.findall(
+            r"^(?:\[\s*\d+\]\s*)?SKIPPED (.*)$", log, re.MULTILINE
+        )
         skipped_tests.update(skipped_from_summary)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

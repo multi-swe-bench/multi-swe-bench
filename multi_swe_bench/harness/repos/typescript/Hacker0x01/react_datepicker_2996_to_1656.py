@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ apt-get update && apt-get install -y firefox
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y firefox-esr
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 NODE_OPTIONS=--openssl-legacy-provider npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_OPTIONS=--openssl-legacy-provider npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_OPTIONS=--openssl-legacy-provider npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class REACT_DATEPICKER_2996_TO_1656(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,30 +175,34 @@ class REACT_DATEPICKER_2996_TO_1656(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test names and statuses
         hierarchy = []
         # Regex patterns to match test lines and section headers
-        test_pattern = re.compile(r'^( +)([✖✔]) (.*)$')
-        section_pattern = re.compile(r'^( +)(.*?)$')
-        for line in log.split('\n'):
+        test_pattern = re.compile(r"^( +)([✖✔]) (.*)$")
+        section_pattern = re.compile(r"^( +)(.*?)$")
+        for line in log.split("\n"):
             # Process test lines (✔/✖)
             test_match = test_pattern.match(line)
             if test_match:
                 spaces, symbol, test_title = test_match.groups()
                 level = len(spaces) // 2
                 # Combine hierarchy (parent sections) with test title
-                full_test_name = ' '.join(hierarchy[:level-1]) + ' ' + test_title if level > 0 else test_title
+                full_test_name = (
+                    " ".join(hierarchy[: level - 1]) + " " + test_title
+                    if level > 0
+                    else test_title
+                )
                 full_test_name = full_test_name.strip()
-                if symbol == '✔':
+                if symbol == "✔":
                     passed_tests.add(full_test_name)
-                elif symbol == '✖':
+                elif symbol == "✖":
                     failed_tests.add(full_test_name)
                 continue
             # Process section headers (nested descriptions)
@@ -206,7 +210,7 @@ class REACT_DATEPICKER_2996_TO_1656(Instance):
             if section_match:
                 spaces, section_name = section_match.groups()
                 section_name = section_name.strip()
-                if not section_name or '✖' in line or '✔' in line:
+                if not section_name or "✖" in line or "✔" in line:
                     continue
                 level = len(spaces) // 2
                 if level == 0:
@@ -222,9 +226,8 @@ class REACT_DATEPICKER_2996_TO_1656(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

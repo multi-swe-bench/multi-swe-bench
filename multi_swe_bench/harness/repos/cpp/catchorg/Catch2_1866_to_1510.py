@@ -25,10 +25,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -62,7 +62,7 @@ make
 ###ACTION_DELIMITER###
 echo "mkdir -p build && cd build && cmake -DCATCH_BUILD_TESTING=ON -DCATCH_BUILD_EXAMPLES=ON -DCATCH_BUILD_EXTRA_TESTS=ON .. && make && ctest -E DebugBreakMacros -V" > /home/Catch2/test_commands.sh
 ###ACTION_DELIMITER###
-ctest --show-only"""
+ctest --show-only""",
             ),
             File(
                 ".",
@@ -71,9 +71,7 @@ ctest --show-only"""
 cd /home/{pr.repo}
 mkdir -p build && cd build && cmake -DCATCH_BUILD_TESTING=ON -DCATCH_BUILD_EXAMPLES=ON -DCATCH_BUILD_EXTRA_TESTS=ON .. && make && ctest -E DebugBreakMacros -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -86,9 +84,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mkdir -p build && cd build && cmake -DCATCH_BUILD_TESTING=ON -DCATCH_BUILD_EXAMPLES=ON -DCATCH_BUILD_EXTRA_TESTS=ON .. && make && ctest -E DebugBreakMacros -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mkdir -p build && cd build && cmake -DCATCH_BUILD_TESTING=ON -DCATCH_BUILD_EXAMPLES=ON -DCATCH_BUILD_EXTRA_TESTS=ON .. && make && ctest -E DebugBreakMacros -V
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -165,7 +159,7 @@ class CATCH2_1866_TO_1510(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,7 +172,6 @@ class CATCH2_1866_TO_1510(Instance):
             return fix_patch_run_cmd
 
         return "bash /home/fix-run.sh"
-
 
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
@@ -200,9 +193,8 @@ class CATCH2_1866_TO_1510(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

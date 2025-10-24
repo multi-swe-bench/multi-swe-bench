@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -112,7 +112,7 @@ apt-get install -y python3.7 python3.7-venv python3.7-dev python3.7-distutils &&
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -123,9 +123,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v -p no:xonsh tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +138,7 @@ fi
 source venv/bin/activate
 pytest -v -p no:xonsh tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +153,7 @@ fi
 source venv/bin/activate
 pytest -v -p no:xonsh tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -221,7 +215,7 @@ class XONSH_3126_TO_3068(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,31 +229,34 @@ class XONSH_3126_TO_3068(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: captures full test name (including spaces) until PASSED
-        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED')
+        passed_pattern = re.compile(r"(tests/.*?)\s+PASSED")
         # Pattern for failed tests: captures full test name until space or end of line (flexible)
-        failed_pattern = re.compile(r'(?:FAILED|ERROR)\s+(tests/.*?)(?=\s|$)')
+        failed_pattern = re.compile(r"(?:FAILED|ERROR)\s+(tests/.*?)(?=\s|$)")
         # Pattern for skipped tests: handles 'tests/... SKIPPED' and 'SKIPPED (text) tests/...'
-        skipped_pattern = re.compile(r'(tests/.*?)\s+SKIPPED|SKIPPED.*?(tests/.*?)(?=\s|$)')
+        skipped_pattern = re.compile(
+            r"(tests/.*?)\s+SKIPPED|SKIPPED.*?(tests/.*?)(?=\s|$)"
+        )
         # Extract test names
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
         # Flatten tuples from skipped matches (extract non-empty test names)
         skipped_matches = skipped_pattern.findall(log)
-        skipped_tests.update([match[0] if match[0] else match[1] for match in skipped_matches])
+        skipped_tests.update(
+            [match[0] if match[0] else match[1] for match in skipped_matches]
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

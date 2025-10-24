@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ rm -rf build
 ###ACTION_DELIMITER###
 mkdir build && cd build && cmake -DSIMDJSON_DEVELOPER_MODE=ON .. && make && ctest
 ###ACTION_DELIMITER###
-echo "cd build && ctest --verbose" > /home/simdjson/test_commands.sh"""
+echo "cd build && ctest --verbose" > /home/simdjson/test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ echo "cd build && ctest --verbose" > /home/simdjson/test_commands.sh"""
 cd /home/{pr.repo}
 cd build && ctest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cd build && ctest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cd build && ctest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class SIMDJSON_2283_TO_1746(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,22 +174,22 @@ class SIMDJSON_2283_TO_1746(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         passed_pattern = re.compile(r"Test\s+#\d+:\s(.*?)\s+\.+(\s+Passed.*)")
         failed_pattern = re.compile(r"The following tests FAILED:((.|\n)*)")
         for line in log.splitlines():
-          m = passed_pattern.search(line)
-          if m:
-            passed_tests.add(m.group(1).strip())
+            m = passed_pattern.search(line)
+            if m:
+                passed_tests.add(m.group(1).strip())
         failed_match = failed_pattern.search(log)
         if failed_match:
             failed_tests_str = failed_match.group(1)
@@ -207,9 +201,8 @@ class SIMDJSON_2283_TO_1746(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

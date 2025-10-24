@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ pytest -v tests/core' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,9 +83,7 @@ cd /home/{pr.repo}
 source .venv/bin/activate
 pytest -v tests/core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +97,7 @@ fi
 source .venv/bin/activate
 pytest -v tests/core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +111,7 @@ fi
 source .venv/bin/activate
 pytest -v tests/core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -179,7 +173,7 @@ class PANDERA_1931_TO_1926(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,17 +187,17 @@ class PANDERA_1931_TO_1926(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Pattern to match individual test lines with status and percentage
         test_line_pattern = re.compile(
             r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+\[\s*\d+%\]$",
-            re.MULTILINE
+            re.MULTILINE,
         )
         # Find all matches in the log
         test_matches = test_line_pattern.findall(log)
@@ -219,8 +213,7 @@ class PANDERA_1931_TO_1926(Instance):
                 passed_tests.add(test_name)
         # Pattern to match summary lines with specific test statuses
         summary_pattern = re.compile(
-            r"^(FAILED|ERROR|SKIPPED|XFAIL)\s+(tests/.*?)$",
-            re.MULTILINE
+            r"^(FAILED|ERROR|SKIPPED|XFAIL)\s+(tests/.*?)$", re.MULTILINE
         )
         summary_matches = summary_pattern.findall(log)
         for status, test_name in summary_matches:
@@ -233,9 +226,8 @@ class PANDERA_1931_TO_1926(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

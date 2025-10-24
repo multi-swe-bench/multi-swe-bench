@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -139,7 +139,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i -e '34i @zope.interface.implementer(interfaces.IConfig)' -e '35d' letsencrypt/configuration.py
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -152,9 +152,7 @@ nosetests -v letsencrypt_apache
 nosetests -v letsencrypt_nginx
 nosetests -v letshelp_letsencrypt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -171,9 +169,7 @@ nosetests -v letsencrypt_apache
 nosetests -v letsencrypt_nginx
 nosetests -v letshelp_letsencrypt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -190,9 +186,7 @@ nosetests -v letsencrypt_apache
 nosetests -v letsencrypt_nginx
 nosetests -v letshelp_letsencrypt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -254,7 +248,7 @@ class CERTBOT_1404_TO_1160(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -268,7 +262,6 @@ class CERTBOT_1404_TO_1160(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -276,17 +269,24 @@ class CERTBOT_1404_TO_1160(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests: lines ending with "... ok"
         # Adjusted to ignore leading line numbers in brackets
         # Adjusted to match actual log format (no line numbers) and handle leading spaces
-        passed_pattern = re.compile(r'^\s*(.+?)\s*\.\.\.\s*ok$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*(.+?)\s*\.\.\.\s*ok$", re.MULTILINE)
         passed_tests = set(test.strip() for test in passed_pattern.findall(log))
         # Parse failed tests: lines ending with ... FAILED or starting with ERROR:
-        failed_result_pattern = re.compile(r'^(?:\[\s*\d+\s*\]\s*)?(.+?)\s*\.\.\.\s*FAILED$', re.MULTILINE)
-        failed_error_pattern = re.compile(r'^(?:\[\s*\d+\s*\]\s*)?ERROR:\s*(.+)$', re.MULTILINE)
+        failed_result_pattern = re.compile(
+            r"^(?:\[\s*\d+\s*\]\s*)?(.+?)\s*\.\.\.\s*FAILED$", re.MULTILINE
+        )
+        failed_error_pattern = re.compile(
+            r"^(?:\[\s*\d+\s*\]\s*)?ERROR:\s*(.+)$", re.MULTILINE
+        )
         failed_tests = set()
         # Combine results from both patterns
-        for test in failed_result_pattern.findall(log) + failed_error_pattern.findall(log):
+        for test in failed_result_pattern.findall(log) + failed_error_pattern.findall(
+            log
+        ):
             cleaned_test = test.strip()
             if cleaned_test:
                 failed_tests.add(cleaned_test)
@@ -294,9 +294,8 @@ class CERTBOT_1404_TO_1160(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

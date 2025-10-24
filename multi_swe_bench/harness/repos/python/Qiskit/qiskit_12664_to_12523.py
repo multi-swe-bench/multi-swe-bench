@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.12-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ apt-get update && apt-get install -y rustc cargo
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class QISKIT_12664_TO_12523(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class QISKIT_12664_TO_12523(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -187,34 +186,34 @@ class QISKIT_12664_TO_12523(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
-        for line in log.split('\n'):
-            if ' ... ' in line:
-                part1, part2 = line.split(' ... ', 1)
+
+        for line in log.split("\n"):
+            if " ... " in line:
+                part1, part2 = line.split(" ... ", 1)
                 # Extract test name from part1
                 tokens = part1.split()
                 test_name = None
                 for token in tokens:
-                    if token.startswith('test.'):
+                    if token.startswith("test."):
                         test_name = token
                         break
                 if not test_name:
                     continue
                 # Extract status from part2
-                status = part2.strip().split(':')[0]
+                status = part2.strip().split(":")[0]
                 # Categorize status
                 status_lower = status.lower()
-                if status_lower == 'ok':
+                if status_lower == "ok":
                     passed_tests.add(test_name)
-                elif status_lower == 'skipped':
+                elif status_lower == "skipped":
                     skipped_tests.add(test_name)
-                elif status_lower in ['failed', 'xfail', 'error']:
+                elif status_lower in ["failed", "xfail", "error"]:
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

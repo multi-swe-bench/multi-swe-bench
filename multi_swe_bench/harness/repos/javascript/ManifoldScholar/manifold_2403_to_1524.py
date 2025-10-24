@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ruby:3.2-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -137,7 +137,7 @@ bundle update dalli
 echo -e '#!/bin/bash
 set -e
 cd client && yarn test -- --maxWorkers=4
-cd ../api && RAILS_ENV=test bundle exec rspec spec -v' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh"""
+cd ../api && RAILS_ENV=test bundle exec rspec spec -v' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh""",
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4
 cd ../api && RAILS_ENV=test bundle exec rspec spec -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -165,7 +165,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4
 cd ../api && RAILS_ENV=test bundle exec rspec spec -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4
 cd ../api && RAILS_ENV=test bundle exec rspec spec -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class MANIFOLD_2403_TO_1524(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,54 +257,53 @@ class MANIFOLD_2403_TO_1524(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         current_context = []
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             line_text = line.strip()
             if not line_text:
                 continue
             # Check if it's a test case line with ✓ (passed)
-            if '✓' in line_text:
-                match = re.match(r'✓\s*(.*?)(\s*\(\d+ms\))?$', line_text)
+            if "✓" in line_text:
+                match = re.match(r"✓\s*(.*?)(\s*\(\d+ms\))?$", line_text)
                 if match:
                     test_desc = match.group(1).strip()
-                    full_test_name = ' '.join(current_context + [test_desc])
+                    full_test_name = " ".join(current_context + [test_desc])
                     passed_tests.add(full_test_name)
             # Check if it's a test case line with ✕ (failed)
-            elif '✕' in line_text:
-                match = re.match(r'✕\s*(.*?)(\s*\(\d+ms\))?$', line_text)
+            elif "✕" in line_text:
+                match = re.match(r"✕\s*(.*?)(\s*\(\d+ms\))?$", line_text)
                 if match:
                     test_desc = match.group(1).strip()
-                    full_test_name = ' '.join(current_context + [test_desc])
+                    full_test_name = " ".join(current_context + [test_desc])
                     failed_tests.add(full_test_name)
             # Check if it's a skipped test (marked with → or SKIPPED)
-            elif '→' in line_text or 'SKIPPED' in line_text:
-                match = re.match(r'(→|SKIPPED)\s*(.*?)(\s*\(\d+ms\))?$', line_text)
+            elif "→" in line_text or "SKIPPED" in line_text:
+                match = re.match(r"(→|SKIPPED)\s*(.*?)(\s*\(\d+ms\))?$", line_text)
                 if match:
                     test_desc = match.group(2).strip()
-                    full_test_name = ' '.join(current_context + [test_desc])
+                    full_test_name = " ".join(current_context + [test_desc])
                     skipped_tests.add(full_test_name)
             else:
                 # Update current context for group/subgroup lines (ignore top-level lines)
                 if leading_spaces == 0:
                     continue
                 level = leading_spaces // 2
-                current_context = current_context[:level-1]
+                current_context = current_context[: level - 1]
                 current_context.append(line_text)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

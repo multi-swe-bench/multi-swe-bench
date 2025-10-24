@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ apt-get update && apt-get install -y libdbus-1-3
 ###ACTION_DELIMITER###
 ERT_PYTEST_ARGS="-v" uv run just check-all
 ###ACTION_DELIMITER###
-echo 'ERT_PYTEST_ARGS="-v" uv run just check-all' > /home/ert/test_commands.sh && chmod +x /home/ert/test_commands.sh"""
+echo 'ERT_PYTEST_ARGS="-v" uv run just check-all' > /home/ert/test_commands.sh && chmod +x /home/ert/test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ echo 'ERT_PYTEST_ARGS="-v" uv run just check-all' > /home/ert/test_commands.sh &
 cd /home/[[REPO_NAME]]
 ERT_PYTEST_ARGS="-v" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ERT_PYTEST_ARGS="-v" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ERT_PYTEST_ARGS="-v" uv run just check-all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class ERT_10917_TO_10766(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,22 +213,24 @@ class ERT_10917_TO_10766(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex to match status and test name (handles worker threads and parameters)
-        pattern = re.compile(r'(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|FAILED|SKIPPED) (tests/.*?)\s*$')
+        pattern = re.compile(
+            r"(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|FAILED|SKIPPED) (tests/.*?)\s*$"
+        )
         test_status = {}  # Track latest status for each test
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
                 status, test_name = match.groups()
                 # Clean test name (remove trailing punctuation if present)
-                test_name = test_name.rstrip('.:')
+                test_name = test_name.rstrip(".:")
                 test_status[test_name] = status  # Overwrite with latest status
         # Populate sets based on the latest status
         for test, status in test_status.items():
@@ -241,9 +243,8 @@ class ERT_10917_TO_10766(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

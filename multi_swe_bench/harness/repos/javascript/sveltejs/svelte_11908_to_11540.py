@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ pnpm test
 ###ACTION_DELIMITER###
 pnpm exec playwright install-deps
 ###ACTION_DELIMITER###
-echo "pnpm test" > test_commands.sh"""
+echo "pnpm test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ echo "pnpm test" > test_commands.sh"""
 cd /home/{pr.repo}
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class SVELTE_11908_TO_11540(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,40 +180,39 @@ class SVELTE_11908_TO_11540(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         for line in log.splitlines():
-            if line.startswith(' ✓'):
-                match = re.search(r'✓ (.*?)\s+\(', line)
+            if line.startswith(" ✓"):
+                match = re.search(r"✓ (.*?)\s+\(", line)
                 if match:
                     test_file = match.group(1).strip()
-                    if 'skipped' in line:
+                    if "skipped" in line:
                         skipped_tests.add(test_file)
                     else:
                         passed_tests.add(test_file)
-            elif line.startswith(' ❯') and 'failed' in line:
-                match = re.search(r'❯ (.*?)\s+\(.*\d+\s+failed\)', line)
+            elif line.startswith(" ❯") and "failed" in line:
+                match = re.search(r"❯ (.*?)\s+\(.*\d+\s+failed\)", line)
                 if match:
                     failed_tests.add(match.group(1).strip())
-            elif line.strip().startswith('❯') and '>' in line:
-                match = re.search(r'> (.*)', line.strip())
+            elif line.strip().startswith("❯") and ">" in line:
+                match = re.search(r"> (.*)", line.strip())
                 if match:
-                     # Extract the test name, which is the part before the first space
+                    # Extract the test name, which is the part before the first space
                     full_test_name = match.group(1).strip()
-                    test_name = full_test_name.split(' ')[0]
+                    test_name = full_test_name.split(" ")[0]
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

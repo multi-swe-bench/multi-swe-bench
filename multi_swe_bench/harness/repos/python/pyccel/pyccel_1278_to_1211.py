@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ cat tests/run_tests_py3.sh
 ###ACTION_DELIMITER###
 sed -i 's/^mpirun/#mpirun/' tests/run_tests_py3.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 bash tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 bash tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 bash tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class PYCCEL_1278_TO_1211(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,34 +180,35 @@ class PYCCEL_1278_TO_1211(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Use regex to find test lines
-        pattern = re.compile(r'(tests/[^ ]+)\s+(PASSED|SKIPPED|XFAIL|FAILED)(?:\s+\[\s*\d+%\])?|(PASSED|SKIPPED|XFAIL|FAILED)\s+(tests/[^ ]+)')
-        lines = log.split('\n')
+        pattern = re.compile(
+            r"(tests/[^ ]+)\s+(PASSED|SKIPPED|XFAIL|FAILED)(?:\s+\[\s*\d+%\])?|(PASSED|SKIPPED|XFAIL|FAILED)\s+(tests/[^ ]+)"
+        )
+        lines = log.split("\n")
         for line in lines:
             match = pattern.search(line)
             if match:
                 test_name = match.group(1) if match.group(1) else match.group(4)
                 status = match.group(2) if match.group(2) else match.group(3)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status in ('FAILED', 'XFAIL'):
+                elif status in ("FAILED", "XFAIL"):
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

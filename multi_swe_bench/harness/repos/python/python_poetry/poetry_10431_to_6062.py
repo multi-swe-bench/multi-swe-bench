@@ -25,10 +25,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -36,7 +36,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ poetry install
 ###ACTION_DELIMITER###
 echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,7 +72,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -160,7 +160,7 @@ class POETRY_10431_TO_6062(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,29 +174,27 @@ class POETRY_10431_TO_6062(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         # Extract all unique test names from the log
-        test_names = set(re.findall(r'(tests/[^:]+::[^ \n]+)', log))
+        test_names = set(re.findall(r"(tests/[^:]+::[^ \n]+)", log))
         # Determine status for each test
         for test in test_names:
             # Check for PASSED status
-            if re.search(rf'PASSED {re.escape(test)}', log):
+            if re.search(rf"PASSED {re.escape(test)}", log):
                 passed_tests.add(test)
             # Check for FAILED status
-            elif re.search(rf'FAILED {re.escape(test)}', log):
+            elif re.search(rf"FAILED {re.escape(test)}", log):
                 failed_tests.add(test)
         # Skipped tests are those not passed or failed
         skipped_tests = test_names - passed_tests - failed_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

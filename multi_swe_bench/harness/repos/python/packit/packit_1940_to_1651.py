@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip3 install distro
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 pytest --verbose --showlocals --timeout=120 ./tests/unit ./tests/integration ./tests/functional
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 pytest --verbose --showlocals --timeout=120 ./tests/unit ./tests/integration ./tests/functional
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 pytest --verbose --showlocals --timeout=120 ./tests/unit ./tests/integration ./tests/functional
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class PACKIT_1940_TO_1651(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,26 +193,28 @@ class PACKIT_1940_TO_1651(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Compile regex patterns to match test lines
-        pattern_passed_skipped = re.compile(r'^(.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\s*\]$')
-        pattern_failed_error = re.compile(r'^(FAILED|ERROR)\s+(.*?)(\s+-.*)?$')
-        for line in log.split('\n'):
+        pattern_passed_skipped = re.compile(
+            r"^(.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\s*\]$"
+        )
+        pattern_failed_error = re.compile(r"^(FAILED|ERROR)\s+(.*?)(\s+-.*)?$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for PASSED or SKIPPED tests
             match = pattern_passed_skipped.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check for FAILED or ERROR tests
@@ -224,9 +226,8 @@ class PACKIT_1940_TO_1651(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

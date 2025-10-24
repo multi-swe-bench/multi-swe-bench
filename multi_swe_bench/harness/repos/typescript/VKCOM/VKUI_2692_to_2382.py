@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ chmod +x test_commands.sh'
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ yarn --ignore-engines lint:style -- --formatter verbose
 # Run Prettier check with verbose output
 yarn --ignore-engines lint:prettier -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -134,7 +134,7 @@ yarn --ignore-engines lint:style -- --formatter verbose
 # Run Prettier check with verbose output
 yarn --ignore-engines lint:prettier -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ yarn --ignore-engines lint:style -- --formatter verbose
 # Run Prettier check with verbose output
 yarn --ignore-engines lint:prettier -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class VKUI_2692_TO_2382(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,54 +233,57 @@ class VKUI_2692_TO_2382(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         groups = []
-        for line in log.split('\n'):
-            line = line.rstrip('\r')
+        for line in log.split("\n"):
+            line = line.rstrip("\r")
             leading_spaces = len(line) - len(line.lstrip())
             level = leading_spaces // 2
             stripped_line = line.strip()
             # Check for passed tests
-            pass_match = re.match(r'^✓\s+(.*?)(?:\s+\(\d+ ms\))?$', stripped_line)
+            pass_match = re.match(r"^✓\s+(.*?)(?:\s+\(\d+ ms\))?$", stripped_line)
             if pass_match:
                 test_name = pass_match.group(1)
-                full_name = ' '.join(groups + [test_name])
+                full_name = " ".join(groups + [test_name])
                 passed_tests.add(full_name)
                 continue
             # Check for failed tests
-            fail_match = re.match(r'^✕\s+(.*?)(?:\s+\(\d+ ms\))?$', stripped_line)
+            fail_match = re.match(r"^✕\s+(.*?)(?:\s+\(\d+ ms\))?$", stripped_line)
             if fail_match:
                 test_name = fail_match.group(1)
-                full_name = ' '.join(groups + [test_name])
+                full_name = " ".join(groups + [test_name])
                 failed_tests.add(full_name)
                 continue
             # Check for skipped tests
-            skip_match = re.match(r'^○\s+skipped\s+(.*?)(?:\s+\(\d+ ms\))?$', stripped_line)
+            skip_match = re.match(
+                r"^○\s+skipped\s+(.*?)(?:\s+\(\d+ ms\))?$", stripped_line
+            )
             if skip_match:
                 test_name = skip_match.group(1)
-                full_name = ' '.join(groups + [test_name])
+                full_name = " ".join(groups + [test_name])
                 skipped_tests.add(full_name)
                 continue
             # Update groups for non-test lines (ignore PASS/FAIL/ERROR lines)
-            if stripped_line and not stripped_line.startswith(('✓', '✕', '○', 'PASS', 'FAIL', 'ERROR')):
+            if stripped_line and not stripped_line.startswith(
+                ("✓", "✕", "○", "PASS", "FAIL", "ERROR")
+            ):
                 if level == 0:
                     continue
                 if level > len(groups):
                     groups.append(stripped_line)
                 else:
-                    groups = groups[:level-1] + [stripped_line]
+                    groups = groups[: level - 1] + [stripped_line]
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

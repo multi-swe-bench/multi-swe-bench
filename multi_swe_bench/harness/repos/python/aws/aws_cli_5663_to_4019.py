@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -62,7 +62,7 @@ python scripts/ci/install
 echo -e 'cd tests
 nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cd /home/{pr.repo}
 cd tests
 nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -88,9 +86,7 @@ fi
 cd tests
 nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ fi
 cd tests
 nosetests -v --with-coverage --cover-erase --cover-package awscli --with-xunit --cover-xml unit/ functional/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class AWS_CLI_5663_TO_4019(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,42 +176,44 @@ class AWS_CLI_5663_TO_4019(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test names and statuses
         for line in log.splitlines():
             line = line.strip()
             # Split into test part and status part using flexible spacing around ...
-            split_result = re.split(r'\s*\.\.\.\s*', line, 1)
+            split_result = re.split(r"\s*\.\.\.\s*", line, 1)
             if len(split_result) == 2:
                 test_part, status_part = split_result
                 # Extract test name by removing the leading [number] prefix
-                test_name = re.sub(r'^\[\s*\d+\s*\]\s*', '', test_part)
+                test_name = re.sub(r"^\[\s*\d+\s*\]\s*", "", test_part)
                 # Extract status (first word in status part)
                 # Extract status keyword from status_part
-                status_match = re.search(r'(ok|skip|skipped|failed|failure|error|errors|fail)', status_part.lower())
+                status_match = re.search(
+                    r"(ok|skip|skipped|failed|failure|error|errors|fail)",
+                    status_part.lower(),
+                )
                 if not status_match:
                     continue
                 status = status_match.group(0)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
                 # Handle skipped/skip statuses
-                elif status in ['skip', 'skipped']:
+                elif status in ["skip", "skipped"]:
                     skipped_tests.add(test_name)
                 # Handle failed/failure/error statuses
-                elif status in ['failed', 'failure', 'error', 'errors', 'fail']:
+                elif status in ["failed", "failure", "error", "errors", "fail"]:
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

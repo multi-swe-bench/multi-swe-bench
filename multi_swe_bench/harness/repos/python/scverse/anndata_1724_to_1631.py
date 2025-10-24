@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ if new_marker not in markers:
 path.write_text(toml.dumps(data))
 END
 ###ACTION_DELIMITER###
-bash /home/anndata/test_commands.sh"""
+bash /home/anndata/test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ bash /home/anndata/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest tests/ -v --no-header -rA --tb=no -p no:cacheprovider -p no:memray --json-report --json-report-file=test_report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest tests/ -v --no-header -rA --tb=no -p no:cacheprovider -p no:memray --json-report --json-report-file=test_report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest tests/ -v --no-header -rA --tb=no -p no:cacheprovider -p no:memray --json-report --json-report-file=test_report.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class ANNDATA_1724_TO_1631(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +219,6 @@ class ANNDATA_1724_TO_1631(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -227,23 +226,24 @@ class ANNDATA_1724_TO_1631(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         current_test_file = None
         current_status_chars = []
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            if line.startswith('tests/'):
+            if line.startswith("tests/"):
                 # Process previous test file
                 if current_test_file:
                     for idx, char in enumerate(current_status_chars):
                         test_name = f"{current_test_file}::test_{idx}"
-                        if char == '.':
+                        if char == ".":
                             passed_tests.add(test_name)
-                        elif char == 'F':
+                        elif char == "F":
                             failed_tests.add(test_name)
-                        elif char == 's':
+                        elif char == "s":
                             skipped_tests.add(test_name)
                     current_status_chars = []
                 # Extract new test file and status chars
@@ -252,34 +252,33 @@ class ANNDATA_1724_TO_1631(Instance):
                     current_test_file = None
                     continue
                 test_file = parts[0]
-                status_part = ' '.join(parts[1:-1]) if len(parts) > 1 else ''
+                status_part = " ".join(parts[1:-1]) if len(parts) > 1 else ""
                 current_status_chars = list(status_part)
                 current_test_file = test_file
             else:
                 # Continue collecting status chars for current test file
                 if current_test_file:
                     parts = line.split()
-                    if parts and parts[-1].startswith('['):
-                        status_part = ' '.join(parts[:-1])
+                    if parts and parts[-1].startswith("["):
+                        status_part = " ".join(parts[:-1])
                     else:
-                        status_part = ' '.join(parts)
+                        status_part = " ".join(parts)
                     current_status_chars.extend(list(status_part))
         # Process the last test file
         if current_test_file:
             for idx, char in enumerate(current_status_chars):
                 test_name = f"{current_test_file}::test_{idx}"
-                if char == '.':
+                if char == ".":
                     passed_tests.add(test_name)
-                elif char == 'F':
+                elif char == "F":
                     failed_tests.add(test_name)
-                elif char == 's':
+                elif char == "s":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

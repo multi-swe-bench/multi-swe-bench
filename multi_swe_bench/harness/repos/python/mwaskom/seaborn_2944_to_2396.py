@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.8-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ ls -F tests/
 ###ACTION_DELIMITER###
 pip install pytest
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class SEABORN_2944_TO_2396(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,7 +170,6 @@ class SEABORN_2944_TO_2396(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -184,6 +177,7 @@ class SEABORN_2944_TO_2396(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         for line in log.splitlines():
             if line.startswith("PASSED"):
                 match = re.search(r"PASSED\s+(.*)", line)
@@ -206,7 +200,6 @@ class SEABORN_2944_TO_2396(Instance):
             "failed_tests": failed_tests,
             "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

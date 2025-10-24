@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -96,7 +96,7 @@ echo -e '#!/bin/bash
 . ./share/spack/setup-env.sh
 share/spack/qa/run-unit-tests
 spack mirror remove travis || true
-share/spack/qa/run-build-tests zlib' > test_commands.sh && chmod +x test_commands.sh"""
+share/spack/qa/run-build-tests zlib' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ share/spack/qa/run-unit-tests
 spack mirror remove travis || true
 share/spack/qa/run-build-tests zlib
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ share/spack/qa/run-unit-tests
 spack mirror remove travis || true
 share/spack/qa/run-build-tests zlib
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ share/spack/qa/run-unit-tests
 spack mirror remove travis || true
 share/spack/qa/run-build-tests zlib
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class SPACK_13521_TO_11977(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,33 +219,32 @@ class SPACK_13521_TO_11977(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR)$')
-        for line in log.split('\n'):
+        pattern = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR)$")
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR'):
+                elif status in ("FAILED", "ERROR"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

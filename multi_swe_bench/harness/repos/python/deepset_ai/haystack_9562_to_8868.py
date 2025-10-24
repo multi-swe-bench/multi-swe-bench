@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ hatch run test:python -m spacy download en_core_web_sm
 ###ACTION_DELIMITER###
 bash /home/haystack/test_commands.sh
 ###ACTION_DELIMITER###
-hatch run test:python -m spacy download en_core_web_sm --force"""
+hatch run test:python -m spacy download en_core_web_sm --force""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ hatch run test:python -m spacy download en_core_web_sm --force"""
 cd /home/{pr.repo}
 hatch run test:unit -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 hatch run test:unit -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 hatch run test:unit -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class HAYSTACK_9562_TO_8868(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,31 +184,39 @@ class HAYSTACK_9562_TO_8868(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines and statuses
-        test_status_pattern = re.compile(r'^\s*(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]')
-        test_name_pattern = re.compile(r'^\s*(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s*$')
-        status_line_pattern = re.compile(r'^\s*(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]')
-        summary_pattern = re.compile(r'^\s*(PASSED|FAILED|SKIPPED)\s+(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s*$')
+        test_status_pattern = re.compile(
+            r"^\s*(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]"
+        )
+        test_name_pattern = re.compile(
+            r"^\s*(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s*$"
+        )
+        status_line_pattern = re.compile(
+            r"^\s*(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]"
+        )
+        summary_pattern = re.compile(
+            r"^\s*(PASSED|FAILED|SKIPPED)\s+(e2e/[^\s]+\.py::[^\s]+|test/[^\s]+\.py::[^\s]+)\s*$"
+        )
         current_test = None
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for test with status on the same line
             match = test_status_pattern.search(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 current_test = None
                 continue
@@ -223,11 +225,11 @@ class HAYSTACK_9562_TO_8868(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 current_test = None
                 continue
@@ -241,11 +243,11 @@ class HAYSTACK_9562_TO_8868(Instance):
                 match = status_line_pattern.search(line)
                 if match:
                     status = match.group(1)
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(current_test)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(current_test)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(current_test)
                     current_test = None
                     continue
@@ -253,9 +255,8 @@ class HAYSTACK_9562_TO_8868(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

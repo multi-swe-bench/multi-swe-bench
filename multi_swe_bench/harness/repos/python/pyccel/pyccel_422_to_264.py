@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -72,7 +72,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip uninstall -y sympy && pip install sympy==1.9
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ python3 -m pytest tests/pyccel -v
 python3 -m pytest tests/epyccel -v -m "not parallel"
 mpirun --allow-run-as-root -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +100,7 @@ python3 -m pytest tests/pyccel -v
 python3 -m pytest tests/epyccel -v -m "not parallel"
 mpirun --allow-run-as-root -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ python3 -m pytest tests/pyccel -v
 python3 -m pytest tests/epyccel -v -m "not parallel"
 mpirun --allow-run-as-root -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class PYCCEL_422_TO_264(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,7 +192,6 @@ class PYCCEL_422_TO_264(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -206,33 +199,33 @@ class PYCCEL_422_TO_264(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
         # Remove ANSI escape codes (including color and other codes)
         # Fix nested set warning and remove ANSI codes
-        clean_log = re.sub(r'\x1b\[[0-9;]+[mK]', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]+[mK]", "", log)
         # Use greedy capture for test name and flexible spacing
         pattern = re.compile(
-            r'^(?:\[\s*\d+\]\s+)?(.+::.+?)\s+(PASSED|FAILED|XFAIL|SKIPPED)',
-            re.MULTILINE
+            r"^(?:\[\s*\d+\]\s+)?(.+::.+?)\s+(PASSED|FAILED|XFAIL|SKIPPED)",
+            re.MULTILINE,
         )
         # Find all matches
         matches = pattern.findall(clean_log)
         # Categorize tests
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 skipped_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

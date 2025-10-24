@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -99,7 +99,7 @@ venv/bin/pip uninstall -y tensorflow keras && venv/bin/pip install tensorflow==2
 ###ACTION_DELIMITER###
 echo 'KERAS_BACKEND=tensorflow venv/bin/pytest -v keras_cv' > /home/keras-cv/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/keras-cv/test_commands.sh"""
+bash /home/keras-cv/test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,9 +108,7 @@ bash /home/keras-cv/test_commands.sh"""
 cd /home/{pr.repo}
 KERAS_BACKEND=tensorflow venv/bin/pytest -v keras_cv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -123,9 +121,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 KERAS_BACKEND=tensorflow venv/bin/pytest -v keras_cv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -138,9 +134,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 KERAS_BACKEND=tensorflow venv/bin/pytest -v keras_cv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -202,7 +196,7 @@ class KERAS_CV_642_TO_434(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -216,24 +210,26 @@ class KERAS_CV_642_TO_434(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for PASSED and SKIPPED tests in execution lines
-        pattern_passed_skipped = re.compile(r'^([^\s]+)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\]', re.MULTILINE)
+        pattern_passed_skipped = re.compile(
+            r"^([^\s]+)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
         # Pattern for FAILED tests in summary lines
-        pattern_failed = re.compile(r'^FAILED\s+(.*?)\s*$', re.MULTILINE)
+        pattern_failed = re.compile(r"^FAILED\s+(.*?)\s*$", re.MULTILINE)
         # Process PASSED and SKIPPED
         for match in pattern_passed_skipped.findall(log):
             test_name = match[0].strip()
             status = match[1]
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process FAILED
         for test_name in pattern_failed.findall(log):
@@ -242,9 +238,8 @@ class KERAS_CV_642_TO_434(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

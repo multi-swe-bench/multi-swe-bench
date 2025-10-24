@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -84,7 +84,7 @@ apt-get install -y python3.11-distutils && poetry install
 ###ACTION_DELIMITER###
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_c
 cd /home/[[REPO_NAME]]
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class LIBSYS_AIRFLOW_1579_TO_1377(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,41 +195,46 @@ class LIBSYS_AIRFLOW_1579_TO_1377(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]', re.MULTILINE)
-        pattern2 = re.compile(r'^\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]",
+            re.MULTILINE,
+        )
+        pattern2 = re.compile(
+            r"^\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)",
+            re.MULTILINE,
+        )
         # Find all matches for both patterns
         matches1 = pattern1.findall(log)
         matches2 = pattern2.findall(log)
         # Process matches from pattern1
         for test_name, status in matches1:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process matches from pattern2
         for status, test_name in matches2:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

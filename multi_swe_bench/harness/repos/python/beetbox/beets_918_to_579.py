@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip uninstall -y munkres && pip install munkres==1.0.12
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class BEETS_918_TO_579(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,38 +208,39 @@ class BEETS_918_TO_579(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse the log content using regex
-        pattern = re.compile(r'^\s*(?:\[\s*\d+\s*\]\s*)?([^\(]+?)(?:\s*\(.*?\))?\s*\.\.\.\s*(\w+).*$')
+        pattern = re.compile(
+            r"^\s*(?:\[\s*\d+\s*\]\s*)?([^\(]+?)(?:\s*\(.*?\))?\s*\.\.\.\s*(\w+).*$"
+        )
         test_status = {}
         for line in log.splitlines():
             line = line.strip()
             match = pattern.match(line)
             if match:
-                test_name = match.group(1).strip().split('(')[0].strip()
+                test_name = match.group(1).strip().split("(")[0].strip()
                 status = match.group(2)
                 test_status[test_name] = status  # Track latest status
         for test_name, status in test_status.items():
             status_lower = status.lower()
-            if status_lower in ('ok', 'passed'):
+            if status_lower in ("ok", "passed"):
                 passed_tests.add(test_name)
-            elif status_lower in ('failed', 'error', 'fail'):
+            elif status_lower in ("failed", "error", "fail"):
                 failed_tests.add(test_name)
-            elif status_lower in ('skip', 'skipped'):
+            elif status_lower in ("skip", "skipped"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

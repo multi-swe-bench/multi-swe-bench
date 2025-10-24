@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -244,7 +244,7 @@ builtins.transforms = transforms
 import pytest
 pytest.main(['-v'])
 END
-EOF"""
+EOF""",
             ),
             File(
                 ".",
@@ -286,9 +286,7 @@ import pytest
 pytest.main(['-v'])
 END
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -334,9 +332,7 @@ import pytest
 pytest.main(['-v'])
 END
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -382,9 +378,7 @@ import pytest
 pytest.main(['-v'])
 END
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -446,7 +440,7 @@ class METPY_272_TO_222(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -460,15 +454,15 @@ class METPY_272_TO_222(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # type: set[str]
         failed_tests = set()  # type: set[str]
         skipped_tests = set()  # type: set[str]
         import re
+
         # Parse test lines using regex
-        pattern = r'(?:(PASSED|FAILED|SKIPPED)\s+([\w\/]+\.py::\w+))|(?:([\w\/]+\.py::\w+)\s+(PASSED|FAILED|SKIPPED))'
+        pattern = r"(?:(PASSED|FAILED|SKIPPED)\s+([\w\/]+\.py::\w+))|(?:([\w\/]+\.py::\w+)\s+(PASSED|FAILED|SKIPPED))"
         matches = re.findall(pattern, log)
         for match in matches:
             status_before, test_after, test_before, status_after = match
@@ -481,18 +475,17 @@ class METPY_272_TO_222(Instance):
             else:
                 continue
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

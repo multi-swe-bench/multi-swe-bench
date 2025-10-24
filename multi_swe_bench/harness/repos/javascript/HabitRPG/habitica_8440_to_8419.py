@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ mkdir -p /data/db && chown -R mongodb:mongodb /data/db && mongod --dbpath /data/
 ###ACTION_DELIMITER###
 npm test -- --verbose
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class HABITICA_8440_TO_8419(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +205,6 @@ class HABITICA_8440_TO_8419(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -214,45 +213,45 @@ class HABITICA_8440_TO_8419(Instance):
         import re
         import json
         import os
+
         # Clean ANSI color codes from the log
-        clean_log = re.sub(r'\x1b\[\d+;\d+m|\x1b\[\d+m', '', log)
+        clean_log = re.sub(r"\x1b\[\d+;\d+m|\x1b\[\d+m", "", log)
         # Extract passed tests (✓ or ✔)
         passed_tests = set()
-        for line in clean_log.split('\n'):
-            if '✓' in line or '✔' in line:
-                match = re.search(r'^\s{4,}[✓✔]\s+(.*)', line)
+        for line in clean_log.split("\n"):
+            if "✓" in line or "✔" in line:
+                match = re.search(r"^\s{4,}[✓✔]\s+(.*)", line)
                 if match:
                     test_name = match.group(1).strip()
                     passed_tests.add(test_name)
         # Extract failed tests (✖)
         failed_tests = set()
-        for line in clean_log.split('\n'):
-            if '✖' in line:
-                match = re.search(r'✖\s+(.*)', line)
+        for line in clean_log.split("\n"):
+            if "✖" in line:
+                match = re.search(r"✖\s+(.*)", line)
                 if match:
                     test_name = match.group(1).strip()
                     failed_tests.add(test_name)
         # Extract skipped tests (from "skipped mocha test" warnings)
         skipped_tests = set()
-        lines = clean_log.split('\n')
+        lines = clean_log.split("\n")
         for i, line in enumerate(lines):
-            if 'skipped mocha test' in line:
+            if "skipped mocha test" in line:
                 if i > 0:
-                    file_line = lines[i-1].strip()
+                    file_line = lines[i - 1].strip()
                     # Extract file path by removing the line number prefix
-                    file_path = re.sub(r'^\[\s*\d+\]\s*', '', file_line)
+                    file_path = re.sub(r"^\[\s*\d+\]\s*", "", file_line)
                     # Extract test name from the file path
                     test_name = os.path.basename(file_path)
                     # Remove .test.js or .js extensions
-                    test_name = re.sub(r'\.test\.js$', '', test_name)
-                    test_name = re.sub(r'\.js$', '', test_name)
+                    test_name = re.sub(r"\.test\.js$", "", test_name)
+                    test_name = re.sub(r"\.js$", "", test_name)
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

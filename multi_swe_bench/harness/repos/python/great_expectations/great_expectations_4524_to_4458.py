@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install ipykernel && python -m ipykernel install --user
 ###ACTION_DELIMITER###
-LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 bash test_commands.sh"""
+LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -107,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class GREAT_EXPECTATIONS_4524_TO_4458(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,44 +194,47 @@ class GREAT_EXPECTATIONS_4524_TO_4458(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         test_status = {}  # Track status of each test to avoid conflicts
         # Parse SKIPPED tests: test name followed by SKIPPED and percentage
-        skipped_pattern = re.compile(r'^(tests/.*?)\s+SKIPPED\s+\[\s*\d+%\]', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(tests/.*?)\s+SKIPPED\s+\[\s*\d+%\]", re.MULTILINE
+        )
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1).strip()
-            test_status[test_name] = 'skipped'
+            test_status[test_name] = "skipped"
         # Parse FAILED tests: FAILED followed by test name
-        failed_pattern = re.compile(r'^FAILED\s+(tests/.*?)(?=\s|$)', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(tests/.*?)(?=\s|$)", re.MULTILINE)
         for match in failed_pattern.finditer(log):
             test_name = match.group(1).strip()
-            test_status[test_name] = 'failed'
+            test_status[test_name] = "failed"
         # Parse PASSED tests: test name followed by percentage (not skipped/failed)
-        passed_pattern = re.compile(r'^(tests/.*?)\s+PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^(tests/.*?)\s+PASSED\s+\[\s*\d+%\]", re.MULTILINE
+        )
         for match in passed_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name not in test_status:
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
         # Populate the test sets from the status dictionary
         for test, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

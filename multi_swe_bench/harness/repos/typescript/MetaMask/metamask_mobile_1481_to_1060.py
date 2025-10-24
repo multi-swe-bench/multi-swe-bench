@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -121,7 +121,7 @@ echo -e '#!/bin/bash
 set -e
 jest ./app/ --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ cd /home/[[REPO_NAME]]
 set -e
 jest ./app/ --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ fi
 set -e
 jest ./app/ --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -162,7 +162,7 @@ fi
 set -e
 jest ./app/ --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -224,7 +224,7 @@ class METAMASK_MOBILE_1481_TO_1060(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,19 +238,27 @@ class METAMASK_MOBILE_1481_TO_1060(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         current_suite = None
         # Regex patterns to match test suite and cases
-        suite_pattern = re.compile(r'^\s{2}(\w+)\s*$')  # Matches suite names (e.g., '  Transactions')
-        passed_test_pattern = re.compile(r'^\s{4}✓\s(.*?)\s*\(\d+ms\)$')  # Matches passed tests (e.g., '    ✓ should render correctly (20ms)')
-        failed_test_pattern = re.compile(r'^\s{4}✕\s(.*?)\s*\(\d+ms\)$')  # Matches failed tests (e.g., '    ✕ should render correctly (7ms)')
-        failed_indicator_pattern = re.compile(r'^\s{2}●\s(.*?) › (.*?)$')  # Matches failed test indicators (e.g., '  ● AssetIcon › should render correctly')
-        for line in log.split('\n'):
+        suite_pattern = re.compile(
+            r"^\s{2}(\w+)\s*$"
+        )  # Matches suite names (e.g., '  Transactions')
+        passed_test_pattern = re.compile(
+            r"^\s{4}✓\s(.*?)\s*\(\d+ms\)$"
+        )  # Matches passed tests (e.g., '    ✓ should render correctly (20ms)')
+        failed_test_pattern = re.compile(
+            r"^\s{4}✕\s(.*?)\s*\(\d+ms\)$"
+        )  # Matches failed tests (e.g., '    ✕ should render correctly (7ms)')
+        failed_indicator_pattern = re.compile(
+            r"^\s{2}●\s(.*?) › (.*?)$"
+        )  # Matches failed test indicators (e.g., '  ● AssetIcon › should render correctly')
+        for line in log.split("\n"):
             # Update current suite name if line matches suite pattern
             suite_match = suite_pattern.match(line)
             if suite_match:
@@ -278,9 +286,8 @@ class METAMASK_MOBILE_1481_TO_1060(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -69,7 +69,7 @@ echo '18' > .nvmrc && YARN_IGNORE_ENGINES=true yarn test
 ###ACTION_DELIMITER###
 echo 'YARN_IGNORE_ENGINES=true yarn test' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 YARN_IGNORE_ENGINES=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 YARN_IGNORE_ENGINES=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 YARN_IGNORE_ENGINES=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -166,7 +166,7 @@ class CARBON_ADDONS_IOT_REACT_3764_TO_3699(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,27 +180,27 @@ class CARBON_ADDONS_IOT_REACT_3764_TO_3699(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Extract passed tests (PASS followed by test file path)
-        passed_pattern = r'PASS\s+(.*?)\n'
+        passed_pattern = r"PASS\s+(.*?)\n"
         passed_matches = re.findall(passed_pattern, log)
         for match in passed_matches:
             test_name = match.strip()
             passed_tests.add(test_name)
         # Extract failed tests (test case names after ●)
-        failed_pattern = r'FAIL\s+(.*?)\n'
+        failed_pattern = r"FAIL\s+(.*?)\n"
         failed_matches = re.findall(failed_pattern, log)
         for match in failed_matches:
             test_name = match.strip()
             failed_tests.add(test_name)
         # Extract skipped tests (placeholder pattern)
-        skipped_pattern = r'SKIPPED\s+(.*?)\n'
+        skipped_pattern = r"SKIPPED\s+(.*?)\n"
         skipped_matches = re.findall(skipped_pattern, log, re.DOTALL)
         for match in skipped_matches:
             test_name = match.strip()
@@ -208,9 +208,8 @@ class CARBON_ADDONS_IOT_REACT_3764_TO_3699(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

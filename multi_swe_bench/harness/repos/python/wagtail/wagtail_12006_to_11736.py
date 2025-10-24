@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -91,7 +91,7 @@ pip install --force-reinstall --no-binary Pillow --verbose Pillow==10.4.0 | grep
 ###ACTION_DELIMITER###
 pip install --force-reinstall --no-binary Pillow -vvv Pillow==10.4.0 2>&1 | grep -i 'avif'
 ###ACTION_DELIMITER###
-pkg-config --cflags --libs libavif"""
+pkg-config --cflags --libs libavif""",
             ),
             File(
                 ".",
@@ -100,9 +100,7 @@ pkg-config --cflags --libs libavif"""
 cd /home/{pr.repo}
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class WAGTAIL_12006_TO_11736(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,25 +202,25 @@ class WAGTAIL_12006_TO_11736(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Pattern for failed tests: matches (fully.qualified.test.name) after FAIL: or ERROR:
-        failed_pattern = re.compile(r'(FAIL|ERROR): \w+ \(([^)]+)\)')
+        failed_pattern = re.compile(r"(FAIL|ERROR): \w+ \(([^)]+)\)")
         failed_matches = failed_pattern.findall(log)
         for match in failed_matches:
             failed_tests.add(match[1].strip())
         # Pattern for skipped tests: handles multi-line (test name on line N, skipped on line N+1)
-        skipped_pattern = re.compile(r'\(([^)]+)\).*?\.\.\. skipped', re.DOTALL)
+        skipped_pattern = re.compile(r"\(([^)]+)\).*?\.\.\. skipped", re.DOTALL)
         skipped_matches = skipped_pattern.findall(log)
         for match in skipped_matches:
             skipped_tests.add(match.strip())
         # Pattern for passed tests: handles multi-line (test name on line N, ok on line N+1)
-        passed_pattern = re.compile(r'\(([^)]+)\).*?\.\.\. ok', re.DOTALL)
+        passed_pattern = re.compile(r"\(([^)]+)\).*?\.\.\. ok", re.DOTALL)
         passed_matches = passed_pattern.findall(log)
         for match in passed_matches:
             test_name = match.strip()
@@ -235,9 +229,8 @@ class WAGTAIL_12006_TO_11736(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

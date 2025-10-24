@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pip uninstall -y daft && pip install daft-pgm && python -c 'from daft import PGM
 ###ACTION_DELIMITER###
 pytest -v
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh"""
+echo 'pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -102,9 +102,7 @@ echo 'pytest -v' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class PGMPY_1584_TO_1269(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,19 +204,25 @@ class PGMPY_1584_TO_1269(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex patterns based on log analysis
         # Updated patterns to match real log format (no sample line numbers)
-        passed_pattern = re.compile(r'^(pgmpy/tests/.*?)\s+PASSED\s+\[\s*\d+%\]$', re.MULTILINE)
-        failed_pattern = re.compile(r'^FAILED\s+(pgmpy/tests/[^\s]+)$', re.MULTILINE)
-        skipped_pattern_exec = re.compile(r'^(pgmpy/tests/.*?)\s+SKIPPED\s+\[\s*\d+%\]$', re.MULTILINE)
-        skipped_pattern_summary = re.compile(r'^SKIPPED\s+(pgmpy/tests/[^\s]+)$', re.MULTILINE)
-        for line in log.split('\n'):
+        passed_pattern = re.compile(
+            r"^(pgmpy/tests/.*?)\s+PASSED\s+\[\s*\d+%\]$", re.MULTILINE
+        )
+        failed_pattern = re.compile(r"^FAILED\s+(pgmpy/tests/[^\s]+)$", re.MULTILINE)
+        skipped_pattern_exec = re.compile(
+            r"^(pgmpy/tests/.*?)\s+SKIPPED\s+\[\s*\d+%\]$", re.MULTILINE
+        )
+        skipped_pattern_summary = re.compile(
+            r"^SKIPPED\s+(pgmpy/tests/[^\s]+)$", re.MULTILINE
+        )
+        for line in log.split("\n"):
             # Match passed tests from execution lines
             passed_match = passed_pattern.search(line)
             if passed_match:
@@ -242,9 +242,8 @@ class PGMPY_1584_TO_1269(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
-    }
-        
+            "skipped_tests": skipped_tests,
+        }
 
         return TestResult(
             passed_count=len(passed_tests),

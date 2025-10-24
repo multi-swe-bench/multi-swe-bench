@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 source venv310/bin/activate && pip install 'setuptools<81.0.0' && bash test_commands.sh
 ###ACTION_DELIMITER###
-source venv310/bin/activate && pip uninstall -y gunicorn && bash test_commands.sh"""
+source venv310/bin/activate && pip uninstall -y gunicorn && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ source venv310/bin/activate && pip uninstall -y gunicorn && bash test_commands.s
 cd /home/{pr.repo}
 source venv310/bin/activate && python -W ignore::UserWarning:pkg_resources -m pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source venv310/bin/activate && python -W ignore::UserWarning:pkg_resources -m pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source venv310/bin/activate && python -W ignore::UserWarning:pkg_resources -m pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class AIOHTTP_5731_TO_5298(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,15 +226,18 @@ class AIOHTTP_5731_TO_5298(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status (simplified)
-        pattern = re.compile(r"^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAILED)\s+\[\s*\d+%\]|^(FAILED|ERROR|SKIPPED|XFAILED)\s+(tests/[^:]+::[^ ]+)\s+-", re.MULTILINE)
+        pattern = re.compile(
+            r"^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAILED)\s+\[\s*\d+%\]|^(FAILED|ERROR|SKIPPED|XFAILED)\s+(tests/[^:]+::[^ ]+)\s+-",
+            re.MULTILINE,
+        )
         test_status = {}
         for match in pattern.finditer(log):
             # Handle both test_name first and status first patterns
@@ -263,9 +260,8 @@ class AIOHTTP_5731_TO_5298(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

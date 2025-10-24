@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.8-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ pip install 'protobuf<=3.20.0'
 ###ACTION_DELIMITER###
 python scripts/eachdist.py test
 ###ACTION_DELIMITER###
-echo 'python scripts/eachdist.py test' > test_commands.sh"""
+echo 'python scripts/eachdist.py test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ echo 'python scripts/eachdist.py test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python scripts/eachdist.py test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python scripts/eachdist.py test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python scripts/eachdist.py test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class OPENTELEMETRY_PYTHON_1425_TO_1218(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,38 +171,39 @@ class OPENTELEMETRY_PYTHON_1425_TO_1218(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regular expression pattern to match test lines with status (PASSED/FAILED/SKIPPED)
         test_pattern = re.compile(
-            r'.*?([\w\-\/]+\/tests\/[\w\-\/]+\.py::[\w:]+)\s+(PASSED|FAILED|SKIPPED)',
-            re.MULTILINE
+            r".*?([\w\-\/]+\/tests\/[\w\-\/]+\.py::[\w:]+)\s+(PASSED|FAILED|SKIPPED)",
+            re.MULTILINE,
         )
         # Find all matches for passed, failed, or skipped tests
         for match in test_pattern.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Regular expression pattern to match failed test headers (e.g., ______________ TestName _______________)
         failed_header_pattern = re.compile(
-            r'^\s*\[\s*\d+\]\s*_{3,}\s*([\w.]+::?[\w.]+)\s*_{3,}\s*$',
-            re.MULTILINE
+            r"^\s*\[\s*\d+\]\s*_{3,}\s*([\w.]+::?[\w.]+)\s*_{3,}\s*$", re.MULTILINE
         )
         # Find all failed test headers and extract test names
         for match in failed_header_pattern.finditer(log):
             test_name = match.group(1)
             # Attempt to find the full test name by searching for the test in the log
-            full_test_match = re.search(rf'[\w\/]+\/tests\/[\w\/]+\.py::{test_name}', log)
+            full_test_match = re.search(
+                rf"[\w\/]+\/tests\/[\w\/]+\.py::{test_name}", log
+            )
             if full_test_match:
                 failed_tests.add(full_test_match.group(0))
             else:
@@ -210,9 +211,8 @@ class OPENTELEMETRY_PYTHON_1425_TO_1218(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

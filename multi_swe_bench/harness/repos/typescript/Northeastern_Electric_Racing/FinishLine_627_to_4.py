@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,7 +70,7 @@ cd /home/[[REPO_NAME]]
 yarn workspace backend test --verbose
 yarn workspace frontend test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ fi
 yarn workspace backend test --verbose
 yarn workspace frontend test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ fi
 yarn workspace backend test --verbose
 yarn workspace frontend test --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -164,7 +164,7 @@ class FINISHLINE_627_TO_4(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,7 +178,6 @@ class FINISHLINE_627_TO_4(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -186,40 +185,40 @@ class FINISHLINE_627_TO_4(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Handle test suites (PASS/FAIL/SKIPPED)
-            suite_match = re.match(r'^(PASS|FAIL|SKIPPED)\s+(.*)$', line.strip())
+            suite_match = re.match(r"^(PASS|FAIL|SKIPPED)\s+(.*)$", line.strip())
             if suite_match:
                 status, test_name = suite_match.groups()
-                if status == 'PASS':
+                if status == "PASS":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Handle individual passed tests (✓)
-            test_pass_match = re.match(r'^\s*✓\s+(.*?)\s*\(\d+ ms\)$', line)
+            test_pass_match = re.match(r"^\s*✓\s+(.*?)\s*\(\d+ ms\)$", line)
             if test_pass_match:
                 test_name = test_pass_match.group(1)
                 passed_tests.add(test_name)
             # Handle individual failed tests (× or ✗)
-            test_fail_match = re.match(r'^\s*[×✗]\s+(.*?)\s*\(\d+ ms\)$', line)
+            test_fail_match = re.match(r"^\s*[×✗]\s+(.*?)\s*\(\d+ ms\)$", line)
             if test_fail_match:
                 test_name = test_fail_match.group(1)
                 failed_tests.add(test_name)
             # Handle individual skipped tests (○)
-            test_skip_match = re.match(r'^\s*[○]\s+(.*?)\s*\(\d+ ms\)$', line)
+            test_skip_match = re.match(r"^\s*[○]\s+(.*?)\s*\(\d+ ms\)$", line)
             if test_skip_match:
                 test_name = test_skip_match.group(1)
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

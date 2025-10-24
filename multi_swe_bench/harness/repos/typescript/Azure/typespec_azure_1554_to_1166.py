@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ echo 'pnpm -r --filter=\'!./core/\' --filter=\'!./core/**\' test -- -v' > test_c
 ###ACTION_DELIMITER###
 echo 'pnpm -r --filter=!./core/ --filter=!./core/** test -- -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm -r --filter=!./core/ --filter=!./core/** test -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm -r --filter=!./core/ --filter=!./core/** test -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm -r --filter=!./core/ --filter=!./core/** test -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class TYPESPEC_AZURE_1554_TO_1166(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,20 +183,24 @@ class TYPESPEC_AZURE_1554_TO_1166(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Capture package + test file for unique identification
         # Pattern for passed tests (e.g., 'packages/typespec-azure-core test:  ✓ test/decorators.test.ts  (36 tests)')
-        passed_pattern = re.compile(r'packages/([^/]+) test:\s+✓\s+([^\s]+)\s+\(\d+ tests?\)')
+        passed_pattern = re.compile(
+            r"packages/([^/]+) test:\s+✓\s+([^\s]+)\s+\(\d+ tests?\)"
+        )
         # Pattern for failed tests (e.g., 'packages/typespec-client-generator-core test:  ❯ test/decorators.test.ts:3920:7')
-        failed_pattern = re.compile(r'packages/([^/]+) test:\s+❯\s+([^:]+):\d+:\d+')
+        failed_pattern = re.compile(r"packages/([^/]+) test:\s+❯\s+([^:]+):\d+:\d+")
         # Pattern for skipped tests (e.g., 'packages/typespec-azure-core test:  ✓ test/rules/no-openapi.test.ts  (5 tests | 2 skipped)')
-        skipped_pattern = re.compile(r'packages/([^/]+) test:\s+✓\s+([^\s]+)\s+\(\d+ tests? \| \d+ skipped\)')
+        skipped_pattern = re.compile(
+            r"packages/([^/]+) test:\s+✓\s+([^\s]+)\s+\(\d+ tests? \| \d+ skipped\)"
+        )
         for line in log.splitlines():
             # Extract passed tests with package
             passed_match = passed_pattern.search(line)
@@ -219,9 +223,8 @@ class TYPESPEC_AZURE_1554_TO_1166(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

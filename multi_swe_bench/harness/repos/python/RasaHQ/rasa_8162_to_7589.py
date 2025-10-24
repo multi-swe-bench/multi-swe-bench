@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.8-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -105,7 +105,7 @@ echo 'OMP_NUM_THREADS=1 poetry run pytest tests -v -n 1 --cov rasa --ignore test
 ###ACTION_DELIMITER###
 echo 'OMP_NUM_THREADS=1 poetry run pytest tests -v -n 1 --cov rasa' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto' > test_commands.sh"""
+echo 'OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -114,9 +114,7 @@ echo 'OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto' > test_commands.sh""
 cd /home/{pr.repo}
 OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -129,9 +127,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -144,9 +140,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 OMP_NUM_THREADS=1 poetry run pytest tests -v -n auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -208,7 +202,7 @@ class RASA_8162_TO_7589(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -222,7 +216,6 @@ class RASA_8162_TO_7589(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -230,25 +223,25 @@ class RASA_8162_TO_7589(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test status and name
-        pattern = r'.*?(?P<status>PASSED|FAILED|SKIPPED|ERROR)\s+(?P<test_name>tests/.*\.py::[^\s]+)'
+        pattern = r".*?(?P<status>PASSED|FAILED|SKIPPED|ERROR)\s+(?P<test_name>tests/.*\.py::[^\s]+)"
         for line in log.splitlines():
             match = re.search(pattern, line)
             if match:
-                status = match.group('status')
-                test_name = match.group('test_name').strip()
-                if status == 'PASSED':
+                status = match.group("status")
+                test_name = match.group("test_name").strip()
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR'):
+                elif status in ("FAILED", "ERROR"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

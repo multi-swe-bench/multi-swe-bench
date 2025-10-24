@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 npm install xo@0.10.0
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 ./node_modules/.bin/xo && ./node_modules/.bin/nyc ./node_modules/.bin/tape test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/xo && ./node_modules/.bin/nyc ./node_modules/.bin/tape test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/xo && ./node_modules/.bin/nyc ./node_modules/.bin/tape test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -168,7 +168,7 @@ class AVA_90_TO_82(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,18 +182,22 @@ class AVA_90_TO_82(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse TAP format: test names from '# ' lines, status from 'ok'/'not ok' lines
         test_name = None
-        test_name_pattern = re.compile(r'^# (.*)$')  # Matches test names (e.g., '# .pass()')
-        test_status_pattern = re.compile(r'^(ok|not ok) \d+ .*$')  # Matches status lines
-        for line in log.split('\n'):
+        test_name_pattern = re.compile(
+            r"^# (.*)$"
+        )  # Matches test names (e.g., '# .pass()')
+        test_status_pattern = re.compile(
+            r"^(ok|not ok) \d+ .*$"
+        )  # Matches status lines
+        for line in log.split("\n"):
             line = line.strip()
             # Capture test name from '# ' lines
             name_match = test_name_pattern.match(line)
@@ -204,17 +208,16 @@ class AVA_90_TO_82(Instance):
             status_match = test_status_pattern.match(line)
             if status_match and test_name:
                 status = status_match.group(1)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status == 'not ok':
+                elif status == "not ok":
                     failed_tests.add(test_name)
                 test_name = None  # Reset for next test
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

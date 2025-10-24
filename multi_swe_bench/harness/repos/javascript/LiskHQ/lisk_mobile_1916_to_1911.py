@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ cd ..
 
 # Run E2E tests with verbose logging
 npx detox build -c android.debug
-npx detox test -c android.debug --loglevel debug' > test_commands.sh"""
+npx detox test -c android.debug --loglevel debug' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd ..
 npx detox build -c android.debug
 npx detox test -c android.debug --loglevel debug
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ cd ..
 npx detox build -c android.debug
 npx detox test -c android.debug --loglevel debug
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ cd ..
 npx detox build -c android.debug
 npx detox test -c android.debug --loglevel debug
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class LISK_MOBILE_1916_TO_1911(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,28 +217,36 @@ class LISK_MOBILE_1916_TO_1911(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Parse test names using regex patterns for Jest output
         # Passed tests are marked with ✓, failed with ✕, skipped with ○
-        passed_pattern = re.compile(r'^\s*✓\s+(.*)$', re.MULTILINE)
-        failed_pattern = re.compile(r'^\s*✕\s+(.*)$', re.MULTILINE)
-        skipped_pattern = re.compile(r'^\s*-\s+(.*)$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s+(.*)$", re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*✕\s+(.*)$", re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s*-\s+(.*)$", re.MULTILINE)
         # Remove trailing duration (e.g., (5 ms)) from test names
-        passed_tests = set(re.sub(r'\s*\(\d+ \w+\)$', '', test).strip() for test in passed_pattern.findall(log))
-        failed_tests = set(re.sub(r'\s*\(\d+ \w+\)$', '', test).strip() for test in failed_pattern.findall(log))
-        skipped_tests = set(re.sub(r'\s*\(\d+ \w+\)$', '', test).strip() for test in skipped_pattern.findall(log))
+        passed_tests = set(
+            re.sub(r"\s*\(\d+ \w+\)$", "", test).strip()
+            for test in passed_pattern.findall(log)
+        )
+        failed_tests = set(
+            re.sub(r"\s*\(\d+ \w+\)$", "", test).strip()
+            for test in failed_pattern.findall(log)
+        )
+        skipped_tests = set(
+            re.sub(r"\s*\(\d+ \w+\)$", "", test).strip()
+            for test in skipped_pattern.findall(log)
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ rm -rf node_modules && yarn install
 ###ACTION_DELIMITER###
 echo 'yarn test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class IBM_PRODUCTS_5920_TO_5761(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,28 +171,36 @@ class IBM_PRODUCTS_5920_TO_5761(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Step 1: Remove ANSI escape codes first
-        ansi_escape = re.compile(r'\x1B\[[0-9;]*m')
-        cleaned_log = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B\[[0-9;]*m")
+        cleaned_log = ansi_escape.sub("", log)
         # Step 2: Match test files and test cases with strict patterns
         # Pattern 1: Test files (e.g., PASS src/components/Example.test.js) - capture test suite names
-        test_file_pattern = re.compile(r'@carbon/[^:]+:\s+(PASS|FAIL|SKIPPED)\s+([^\n]+?\.(?:test\.)?js)')  # Handle test file status
+        test_file_pattern = re.compile(
+            r"@carbon/[^:]+:\s+(PASS|FAIL|SKIPPED)\s+([^\n]+?\.(?:test\.)?js)"
+        )  # Handle test file status
         # Pattern 2: Test suites (e.g., ExampleCommunityComponent) - exclude test case lines
-        test_suite_pattern = re.compile(r'@carbon/[^:]+:\s+\s+([^✓✗\n]+)')  # Skip lines with ✓/✗
+        test_suite_pattern = re.compile(
+            r"@carbon/[^:]+:\s+\s+([^✓✗\n]+)"
+        )  # Skip lines with ✓/✗
         # Pattern 3: Individual test cases (e.g., ✓ renders (43 ms)) - strict spacing
-        test_case_pattern = re.compile(r'@carbon/[^:]+:\s{3,}\s*([✓✗])\s+([^()]+?)\s*\(\d+ ms\)')  # 3+ spaces after colon
+        test_case_pattern = re.compile(
+            r"@carbon/[^:]+:\s{3,}\s*([✓✗])\s+([^()]+?)\s*\(\d+ ms\)"
+        )  # 3+ spaces after colon
         # Pattern 4: Skipped tests (e.g., ↳ skipped (1 ms))
-        skipped_test_pattern = re.compile(r'@carbon/[^:]+:\s+\s+\s*↳\s+([^()]+?)\s*\(\d+ ms\)')
+        skipped_test_pattern = re.compile(
+            r"@carbon/[^:]+:\s+\s+\s*↳\s+([^()]+?)\s*\(\d+ ms\)"
+        )
         # Track current test suite and file
-        current_suite = ''
-        for line in cleaned_log.split('\n'):
+        current_suite = ""
+        for line in cleaned_log.split("\n"):
             # Update current test suite
             suite_match = test_suite_pattern.search(line)
             if suite_match:
@@ -200,19 +208,22 @@ class IBM_PRODUCTS_5920_TO_5761(Instance):
             # Process test files
             file_match = test_file_pattern.search(line)
             if file_match:
-                status, test_file = file_match.group(1), file_match.group(2).split('/')[-1]
-                if status == 'PASS':
+                status, test_file = (
+                    file_match.group(1),
+                    file_match.group(2).split("/")[-1],
+                )
+                if status == "PASS":
                     passed_tests.add(test_file)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_file)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_file)
             # Process individual test cases
             case_match = test_case_pattern.search(line)
             if case_match and current_suite:
                 status, test_case = case_match.group(1), case_match.group(2).strip()
                 full_test_name = f"{current_suite} {test_case}"
-                if status == '✓':
+                if status == "✓":
                     passed_tests.add(full_test_name)
                 else:
                     failed_tests.add(full_test_name)
@@ -225,9 +236,8 @@ class IBM_PRODUCTS_5920_TO_5761(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

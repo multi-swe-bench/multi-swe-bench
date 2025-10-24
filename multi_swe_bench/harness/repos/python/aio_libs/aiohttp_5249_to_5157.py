@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ make vtest
 ###ACTION_DELIMITER###
 echo 'make vtest' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class AIOHTTP_5249_TO_5157(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,7 +190,6 @@ class AIOHTTP_5249_TO_5157(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         test_status = {}  # Track latest status of each test
@@ -204,88 +197,92 @@ class AIOHTTP_5249_TO_5157(Instance):
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         current_file = None
         current_test_name = None
-        lines = log.split('\n')
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             line = line.strip()
-            prev_line = lines[i-1].strip() if i > 0 else ''
+            prev_line = lines[i - 1].strip() if i > 0 else ""
             # Capture current file from lines like "tests/test_run_app.py:428:"
-            file_match = re.match(r'^(tests/.*?)\:\d+\:', line)
+            file_match = re.match(r"^(tests/.*?)\:\d+\:", line)
             if file_match:
                 current_file = file_match.group(1)
                 continue
             # Capture test name from lines with status (e.g., 'tests/test_connector.py::test_named_pipe_connector PASSED')
-            test_status_match = re.match(r'^(tests/.*?\.py::test.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL)$', line)
+            test_status_match = re.match(
+                r"^(tests/.*?\.py::test.*?)\s+(PASSED|FAILED|SKIPPED|XFAIL)$", line
+            )
             if test_status_match:
                 test_name = test_status_match.group(1)
                 status = test_status_match.group(2)
-                if status == 'PASSED':
-                    test_status[test_name] = 'passed'
-                elif status == 'FAILED':
-                    test_status[test_name] = 'failed'
-                elif status == 'SKIPPED':
-                    test_status[test_name] = 'skipped'
-                elif status == 'XFAIL':
-                    test_status[test_name] = 'failed'
+                if status == "PASSED":
+                    test_status[test_name] = "passed"
+                elif status == "FAILED":
+                    test_status[test_name] = "failed"
+                elif status == "SKIPPED":
+                    test_status[test_name] = "skipped"
+                elif status == "XFAIL":
+                    test_status[test_name] = "failed"
                 continue
             # Capture test name from lines without status (e.g., 'tests/test_connector.py::test_named_pipe_connector')
-            test_name_only_match = re.match(r'^(tests/.*?\.py::test.*)$', line)
+            test_name_only_match = re.match(r"^(tests/.*?\.py::test.*)$", line)
             if test_name_only_match:
                 current_test_name = test_name_only_match.group(1)
                 continue
             # Check for PASSED tests
-            passed_match = re.match(r'^(.*?)\s+PASSED$', line)
+            passed_match = re.match(r"^(.*?)\s+PASSED$", line)
             if passed_match:
                 test_name = passed_match.group(1)
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
                 current_test_name = test_name
                 continue
             # Check for XFAIL tests (treated as failed)
-            xfail_match = re.match(r'^XFAIL\s+(tests/.*?\.py::test.*)$', line)
+            xfail_match = re.match(r"^XFAIL\s+(tests/.*?\.py::test.*)$", line)
             if xfail_match:
                 test_name = xfail_match.group(1)
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
                 continue
             # Check for FAILED tests in standard format
-            failed_std_match = re.match(r'^(tests/.*?\.py::test.*?)\s+FAILED$', line)
+            failed_std_match = re.match(r"^(tests/.*?\.py::test.*?)\s+FAILED$", line)
             if failed_std_match:
                 test_name = failed_std_match.group(1)
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
                 continue
             # Check for SKIPPED tests with reason
-            skipped_reason_match = re.match(r'^SKIPPED\s+\[\d+\]\s+(tests/.*?\.py):\d+:\s+.*$', line)
+            skipped_reason_match = re.match(
+                r"^SKIPPED\s+\[\d+\]\s+(tests/.*?\.py):\d+:\s+.*$", line
+            )
             if skipped_reason_match:
                 if current_test_name is not None:
-                    test_status[current_test_name] = 'skipped'
+                    test_status[current_test_name] = "skipped"
                     current_test_name = None  # Reset
                 else:
                     # Extract test name from previous line if current_test_name is unset
-                    test_match = re.match(r'^(tests/.*?\.py::.*)$', prev_line)
+                    test_match = re.match(r"^(tests/.*?\.py::.*)$", prev_line)
                     if test_match:
-                        test_status[test_match.group(1)] = 'skipped'
+                        test_status[test_match.group(1)] = "skipped"
                 continue
             # Check for FAILED tests in error blocks (test name in underscores)
-            failed_underscore_match = re.match(r'^_{2,}\s+(test.*?)\s+_{2,}$', line)
+            failed_underscore_match = re.match(r"^_{2,}\s+(test.*?)\s+_{2,}$", line)
             if failed_underscore_match and current_file:
                 test_name = failed_underscore_match.group(1)
                 full_test_name = f"{current_file}::{test_name}"
-                test_status[full_test_name] = 'failed'
+                test_status[full_test_name] = "failed"
                 continue
         # Populate results from test_status
         for test_name, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test_name)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

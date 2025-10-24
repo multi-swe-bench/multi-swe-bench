@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ poetry install --with dev --no-interaction
 ###ACTION_DELIMITER###
 echo 'poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class KEEP_3638_TO_2877(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class KEEP_3638_TO_2877(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,8 +180,9 @@ class KEEP_3638_TO_2877(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test cases with their status
-        pattern = r'(?:(PASSED|FAILED|ERROR)\s+(tests/[\w/-]+\.py::[\w-]+(?:\[(?:[^]]*)\])?)\s*|(tests/[\w/-]+\.py::[\w-]+(?:\[(?:[^]]*)\])?)\s+(PASSED|FAILED|ERROR))'
+        pattern = r"(?:(PASSED|FAILED|ERROR)\s+(tests/[\w/-]+\.py::[\w-]+(?:\[(?:[^]]*)\])?)\s*|(tests/[\w/-]+\.py::[\w-]+(?:\[(?:[^]]*)\])?)\s+(PASSED|FAILED|ERROR))"
         matches = re.findall(pattern, log)
         for match in matches:
             status = None
@@ -190,25 +190,24 @@ class KEEP_3638_TO_2877(Instance):
             # Check if the first alternative (status at start) matched
             if match[0] and match[1]:
                 status = match[0]
-                test_name = match[1].rstrip(' -')  # Remove trailing space or hyphen
+                test_name = match[1].rstrip(" -")  # Remove trailing space or hyphen
             # Check if the second alternative (status at end) matched
             elif match[2] and match[3]:
-                test_name = match[2].rstrip(' -')
+                test_name = match[2].rstrip(" -")
                 status = match[3]
             else:
                 continue  # No valid match
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
             # Skipped tests are not observed in the sample logs, so not handled here
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

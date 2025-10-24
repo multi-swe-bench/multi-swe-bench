@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:16-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ sed -i "s/browser = await puppeteer.launch();/browser = await puppeteer.launch({
 ###ACTION_DELIMITER###
 npm test
 ###ACTION_DELIMITER###
-echo "npm test" > test_commands.sh"""
+echo "npm test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ echo "npm test" > test_commands.sh"""
 cd /home/{pr.repo}
 npm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class SVELTE_6032_TO_3726(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,47 +184,49 @@ class SVELTE_6032_TO_3726(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
+
         lines = log.splitlines()
         for i, line in enumerate(lines):
-            if line.strip().startswith('✓'):
-                test_name = line.strip().lstrip('✓').strip()
+            if line.strip().startswith("✓"):
+                test_name = line.strip().lstrip("✓").strip()
                 passed_tests.add(test_name)
-            elif 'pending' in line:
+            elif "pending" in line:
                 # The log format doesn't provide individual skipped test names,
                 # so we'll capture the line indicating pending tests.
                 # Or, if there's a number, we can create placeholder names.
-                match = re.search(r'(\d+)\s+pending', line)
+                match = re.search(r"(\d+)\s+pending", line)
                 if match:
                     num_pending = int(match.group(1))
                     for i in range(num_pending):
-                        skipped_tests.add(f"pending_test_{i+1}")
-            elif 'AssertionError' in line:
+                        skipped_tests.add(f"pending_test_{i + 1}")
+            elif "AssertionError" in line:
                 # Look for a preceding line that might contain the test name
                 for j in range(i - 1, -1, -1):
                     prev_line = lines[j].strip()
-                    if prev_line.endswith(':'):
-                        test_name = prev_line.rstrip(':')
+                    if prev_line.endswith(":"):
+                        test_name = prev_line.rstrip(":")
                         # Avoid adding overly broad or generic names
-                        if 'expected' not in test_name.lower() and 'actual' not in test_name.lower():
+                        if (
+                            "expected" not in test_name.lower()
+                            and "actual" not in test_name.lower()
+                        ):
                             failed_tests.add(test_name)
                             break
-            elif 'cmd-click:' in line:
-              test_path = line.split('cmd-click:')[1].strip()
-              test_name = test_path.split('/')[-2]
-              failed_tests.add(test_name)
+            elif "cmd-click:" in line:
+                test_path = line.split("cmd-click:")[1].strip()
+                test_name = test_path.split("/")[-2]
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

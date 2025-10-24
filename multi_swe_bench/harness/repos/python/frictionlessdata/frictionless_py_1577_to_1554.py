@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -96,7 +96,7 @@ pip install geojson
 ###ACTION_DELIMITER###
 sed -i 's/-p no:cacheprovider/-p no:cacheprovider -k "not wkt"/' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v -rA --tb=short -p no:cacheprovider -k "not wkt" --ignore=tests/portals/github --ignore=tests/portals/zenodo --ignore=tests/portals/ckan
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -118,7 +118,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA --tb=short -p no:cacheprovider -k "not wkt" --ignore=tests/portals/github --ignore=tests/portals/zenodo --ignore=tests/portals/ckan
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -rA --tb=short -p no:cacheprovider -k "not wkt" --ignore=tests/portals/github --ignore=tests/portals/zenodo --ignore=tests/portals/ckan
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -193,7 +193,7 @@ class FRICTIONLESS_PY_1577_TO_1554(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -207,7 +207,6 @@ class FRICTIONLESS_PY_1577_TO_1554(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -215,30 +214,39 @@ class FRICTIONLESS_PY_1577_TO_1554(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Define pattern for test names (handles parameters and special characters)
-        test_name_pattern = r'tests/[\w/\\]+\.py::[\w-]+(?:\[.*?\])?'
+        test_name_pattern = r"tests/[\w/\\]+\.py::[\w-]+(?:\[.*?\])?"
         # Compile regex patterns for each status (handles both 'TEST PASSED' and 'PASSED TEST' formats)
-        passed_pattern = re.compile(rf'({test_name_pattern})\s+PASSED\s+\[\s*\d+%\s*\]|PASSED\s+({test_name_pattern})')
-        failed_pattern = re.compile(rf'({test_name_pattern})\s+FAILED|FAILED\s+({test_name_pattern})')
-        skipped_pattern = re.compile(rf'\[\s*\d+\s*\]\s+SKIPPED\s+\[\d+\]\s+(tests/[\w/\\]+\.py:\d+)')
+        passed_pattern = re.compile(
+            rf"({test_name_pattern})\s+PASSED\s+\[\s*\d+%\s*\]|PASSED\s+({test_name_pattern})"
+        )
+        failed_pattern = re.compile(
+            rf"({test_name_pattern})\s+FAILED|FAILED\s+({test_name_pattern})"
+        )
+        skipped_pattern = re.compile(
+            rf"\[\s*\d+\s*\]\s+SKIPPED\s+\[\d+\]\s+(tests/[\w/\\]+\.py:\d+)"
+        )
         # Extract passed tests
         for match in passed_pattern.findall(log):
             test = match[0] if match[0] else match[1]
-            if test: passed_tests.add(test)
+            if test:
+                passed_tests.add(test)
         # Extract failed tests
         for match in failed_pattern.findall(log):
             test = match[0] if match[0] else match[1]
-            if test: failed_tests.add(test)
+            if test:
+                failed_tests.add(test)
         # Extract skipped tests
         for match in skipped_pattern.findall(log):
             test = match[0] if match[0] else match[1]
-            if test: skipped_tests.add(test)
+            if test:
+                skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

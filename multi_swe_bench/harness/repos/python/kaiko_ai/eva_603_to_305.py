@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -128,7 +128,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i '$a from torch.nn.init import trunc_normal_' tests/eva/core/utils/__init__.py
 ###ACTION_DELIMITER###
-sed -i '$a from torch.nn.init import trunc_normal_' src/eva/core/utils/__init__.py && bash test_commands.sh"""
+sed -i '$a from torch.nn.init import trunc_normal_' src/eva/core/utils/__init__.py && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -140,9 +140,7 @@ source venv/bin/activate
 export TORCH_FORCE_WEIGHTS_ONLY_LOAD=1
 pytest -vv --no-cov tests/eva/core tests/eva/vision
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +156,7 @@ source venv/bin/activate
 export TORCH_FORCE_WEIGHTS_ONLY_LOAD=1
 pytest -vv --no-cov tests/eva/core tests/eva/vision
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -176,9 +172,7 @@ source venv/bin/activate
 export TORCH_FORCE_WEIGHTS_ONLY_LOAD=1
 pytest -vv --no-cov tests/eva/core tests/eva/vision
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -240,7 +234,7 @@ class EVA_603_TO_305(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -254,7 +248,6 @@ class EVA_603_TO_305(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -262,12 +255,13 @@ class EVA_603_TO_305(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI color codes from log content
-        log_clean = re.sub(r'\x1b\[.*?m', '', log)
+        log_clean = re.sub(r"\x1b\[.*?m", "", log)
         # Regex pattern to match test names and statuses in cleaned log
         pattern = re.compile(
-            r'(tests/[\w/-]+\.py::test_\w+(\[.*?\])?)\s+(PASSED|FAILED|SKIPPED)|'
-            r'(PASSED|FAILED|SKIPPED)\s+(tests/[\w/-]+\.py::test_\w+(\[.*?\])?)'
+            r"(tests/[\w/-]+\.py::test_\w+(\[.*?\])?)\s+(PASSED|FAILED|SKIPPED)|"
+            r"(PASSED|FAILED|SKIPPED)\s+(tests/[\w/-]+\.py::test_\w+(\[.*?\])?)"
         )
         # Find all matches in the cleaned log
         matches = pattern.findall(log_clean)
@@ -282,20 +276,19 @@ class EVA_603_TO_305(Instance):
             else:
                 continue  # no match
             # Strip color codes from the test name
-            clean_test_name = re.sub(r'\x1b\[.*?m', '', test_name).strip()
+            clean_test_name = re.sub(r"\x1b\[.*?m", "", test_name).strip()
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(clean_test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(clean_test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(clean_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

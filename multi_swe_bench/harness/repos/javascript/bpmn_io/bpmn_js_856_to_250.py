@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ TEST_BROWSERS=ChromeHeadless npm test
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 TEST_BROWSERS=ChromeHeadless npm test -- --verbose
-npm run test:distro -- --verbose' > /home/bpmn-js/test_commands.sh"""
+npm run test:distro -- --verbose' > /home/bpmn-js/test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ cd /home/[[REPO_NAME]]
 TEST_BROWSERS=ChromeHeadless npm test -- --verbose
 npm run test:distro -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ fi
 TEST_BROWSERS=ChromeHeadless npm test -- --verbose
 npm run test:distro -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ fi
 TEST_BROWSERS=ChromeHeadless npm test -- --verbose
 npm run test:distro -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class BPMN_JS_856_TO_250(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,7 +185,6 @@ class BPMN_JS_856_TO_250(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -193,20 +192,20 @@ class BPMN_JS_856_TO_250(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests using regex
-        passed_matches = re.findall(r'✓\s*(.*)$', log, re.MULTILINE)
+        passed_matches = re.findall(r"✓\s*(.*)$", log, re.MULTILINE)
         passed_tests = set(passed_matches)
         # Extract failed tests using regex
-        failed_matches = re.findall(r'✗\s*(.*)$', log, re.MULTILINE)
+        failed_matches = re.findall(r"✗\s*(.*)$", log, re.MULTILINE)
         failed_tests = set(failed_matches)
         # Skipped tests: No pattern identified in provided logs, leaving as empty set
         # TODO: Add parsing logic for skipped tests if pattern is identified
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

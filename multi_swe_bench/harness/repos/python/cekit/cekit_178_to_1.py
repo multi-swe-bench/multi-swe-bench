@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ cd /home/{pr.repo}
 mkdir -p target
 pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ fi
 mkdir -p target
 pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ fi
 mkdir -p target
 pytest -v --cov-report term --cov concreate --junit-xml target/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class CEKIT_178_TO_1(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,7 +180,6 @@ class CEKIT_178_TO_1(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -194,35 +187,48 @@ class CEKIT_178_TO_1(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import sys
+
         # Extract passed tests from execution lines
-        passed_pattern = re.compile(r'(tests/.*?) PASSED\s+\[')
+        passed_pattern = re.compile(r"(tests/.*?) PASSED\s+\[")
         passed_tests = set(passed_pattern.findall(log))
         # Extract failed tests from summary lines
-        failed_pattern = re.compile(r'FAILED (tests/.*?) -')
+        failed_pattern = re.compile(r"FAILED (tests/.*?) -")
         failed_tests = set(failed_pattern.findall(log))
         # Extract skipped tests from both execution and summary lines
-        skipped_pattern_exec = re.compile(r'(tests/.*?) SKIPPED \[')
-        skipped_pattern_sum = re.compile(r'SKIPPED (tests/.*?) -')
-        skipped_tests = set(skipped_pattern_exec.findall(log) + skipped_pattern_sum.findall(log))
+        skipped_pattern_exec = re.compile(r"(tests/.*?) SKIPPED \[")
+        skipped_pattern_sum = re.compile(r"SKIPPED (tests/.*?) -")
+        skipped_tests = set(
+            skipped_pattern_exec.findall(log) + skipped_pattern_sum.findall(log)
+        )
         # Validate parsed counts against summary
-        summary_pattern = re.compile(r'(\d+) failed, (\d+) passed(?:, (\d+) skipped)?')
+        summary_pattern = re.compile(r"(\d+) failed, (\d+) passed(?:, (\d+) skipped)?")
         summary_match = summary_pattern.search(log)
         if summary_match:
             expected_failed = int(summary_match.group(1))
             expected_passed = int(summary_match.group(2))
-            expected_skipped = int(summary_match.group(3)) if summary_match.group(3) else 0
+            expected_skipped = (
+                int(summary_match.group(3)) if summary_match.group(3) else 0
+            )
             if len(failed_tests) != expected_failed:
-                print(f"Warning: Parsed {len(failed_tests)} failed tests, expected {expected_failed}", file=sys.stderr)
+                print(
+                    f"Warning: Parsed {len(failed_tests)} failed tests, expected {expected_failed}",
+                    file=sys.stderr,
+                )
             if len(passed_tests) != expected_passed:
-                print(f"Warning: Parsed {len(passed_tests)} passed tests, expected {expected_passed}", file=sys.stderr)
+                print(
+                    f"Warning: Parsed {len(passed_tests)} passed tests, expected {expected_passed}",
+                    file=sys.stderr,
+                )
             if len(skipped_tests) != expected_skipped:
-                print(f"Warning: Parsed {len(skipped_tests)} skipped tests, expected {expected_skipped}", file=sys.stderr)
+                print(
+                    f"Warning: Parsed {len(skipped_tests)} skipped tests, expected {expected_skipped}",
+                    file=sys.stderr,
+                )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

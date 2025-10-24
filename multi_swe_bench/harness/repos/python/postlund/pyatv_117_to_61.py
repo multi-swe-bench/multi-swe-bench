@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -123,7 +123,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i '55s/pyatv/zeroconf/' tests/test_scan.py
 ###ACTION_DELIMITER###
-sed -i '56s/timeout=5/timeout=10/' tests/test_scan.py"""
+sed -i '56s/timeout=5/timeout=10/' tests/test_scan.py""",
             ),
             File(
                 ".",
@@ -132,9 +132,7 @@ sed -i '56s/timeout=5/timeout=10/' tests/test_scan.py"""
 cd /home/{pr.repo}
 pytest -v --timeout=30 --duration=10 --cov --cov-report=html
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +145,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --timeout=30 --duration=10 --cov --cov-report=html
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -162,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --timeout=30 --duration=10 --cov --cov-report=html
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -226,7 +220,7 @@ class PYATV_117_TO_61(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,29 +234,28 @@ class PYATV_117_TO_61(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Use regex to find test cases and their statuses
-        pattern = re.compile(r'^(tests/[^ ]+)\s+(PASSED|FAILED|SKIPPED)$', re.MULTILINE)
+        pattern = re.compile(r"^(tests/[^ ]+)\s+(PASSED|FAILED|SKIPPED)$", re.MULTILINE)
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

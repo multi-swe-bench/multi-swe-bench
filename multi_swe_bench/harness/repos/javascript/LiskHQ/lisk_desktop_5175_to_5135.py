@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18.12.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ yarn test --verbose
  yarn cypress:run --reporter spec
  yarn cucumber:playwright:open --format pretty' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ yarn test --verbose
  yarn cypress:run --reporter spec
  yarn cucumber:playwright:open --format pretty
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ yarn test --verbose
  yarn cypress:run --reporter spec
  yarn cucumber:playwright:open --format pretty
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ yarn test --verbose
  yarn cypress:run --reporter spec
  yarn cucumber:playwright:open --format pretty
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class LISK_DESKTOP_5175_TO_5135(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,66 +193,99 @@ class LISK_DESKTOP_5175_TO_5135(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_groups = []
-        current_test_file = ''
+        current_test_file = ""
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             level = leading_spaces // 2
-            content = line.lstrip(' ')
+            content = line.lstrip(" ")
             # Check for passed tests (✓)
-            if content.startswith('✓ '):
-                match = re.match(r'✓ (.*?)\s*\(\d+ ms\)$', content)
+            if content.startswith("✓ "):
+                match = re.match(r"✓ (.*?)\s*\(\d+ ms\)$", content)
                 if match:
                     test_desc = match.group(1)
-                    test_name = f"{current_test_file} {' '.join(current_groups + [test_desc])}" if current_test_file else ' '.join(current_groups + [test_desc])
+                    test_name = (
+                        f"{current_test_file} {' '.join(current_groups + [test_desc])}"
+                        if current_test_file
+                        else " ".join(current_groups + [test_desc])
+                    )
                     passed_tests.add(test_name)
             # Handle test file passes
-            elif content.startswith('PASS '):
-                match = re.match(r'PASS (.*?)(\s*\(\d+\.\d+ s\))?$', content)
+            elif content.startswith("PASS "):
+                match = re.match(r"PASS (.*?)(\s*\(\d+\.\d+ s\))?$", content)
                 if match:
                     test_file = match.group(1)
                     current_test_file = test_file
                     current_groups = []
             # Handle test file failures
-            elif content.startswith('FAIL '):
-                match = re.match(r'FAIL (.*?)(\s*\(\d+\.\d+ s\))?$', content)
+            elif content.startswith("FAIL "):
+                match = re.match(r"FAIL (.*?)(\s*\(\d+\.\d+ s\))?$", content)
                 if match:
                     test_file = match.group(1)
                     current_test_file = test_file
                     current_groups = []
             # Check for failed tests (Jest uses ✕ or ● for failures)
-            elif content.startswith('✕ '):
-                match = re.match(r'✕ (.*?)(\s*\(\d+ ms\)|:|Error:|Failed:|$)', content)
+            elif content.startswith("✕ "):
+                match = re.match(r"✕ (.*?)(\s*\(\d+ ms\)|:|Error:|Failed:|$)", content)
                 if match:
                     test_desc = match.group(1)
-                    test_name = f"{current_test_file} {' '.join(current_groups + [test_desc])}" if current_test_file else ' '.join(current_groups + [test_desc])
+                    test_name = (
+                        f"{current_test_file} {' '.join(current_groups + [test_desc])}"
+                        if current_test_file
+                        else " ".join(current_groups + [test_desc])
+                    )
                     failed_tests.add(test_name)
-            elif content.startswith('● '):
+            elif content.startswith("● "):
                 # Extract test name from suite failures
-                match = re.match(r'●\s*(.*?)(\s*[:(]|$)', content)
+                match = re.match(r"●\s*(.*?)(\s*[:(]|$)", content)
                 if match:
                     test_desc = match.group(1).strip()
-                    test_name = f"{current_test_file} {' '.join(current_groups + [test_desc])}" if current_test_file else ' '.join(current_groups + [test_desc])
+                    test_name = (
+                        f"{current_test_file} {' '.join(current_groups + [test_desc])}"
+                        if current_test_file
+                        else " ".join(current_groups + [test_desc])
+                    )
                     failed_tests.add(test_name)
             # Check for skipped tests (○)
-            elif content.startswith('○ '):
-                match = re.match(r'○ (.*?)\s*\(\d+ ms\)$', content)
+            elif content.startswith("○ "):
+                match = re.match(r"○ (.*?)\s*\(\d+ ms\)$", content)
                 if match:
                     test_desc = match.group(1)
-                    test_name = f"{current_test_file} {' '.join(current_groups + [test_desc])}" if current_test_file else ' '.join(current_groups + [test_desc])
+                    test_name = (
+                        f"{current_test_file} {' '.join(current_groups + [test_desc])}"
+                        if current_test_file
+                        else " ".join(current_groups + [test_desc])
+                    )
                     skipped_tests.add(test_name)
             # Update current groups (ignore file-level lines)
             else:
-                group_name = content.rstrip(' :\t\n\r')
-                if group_name and not group_name.startswith(('PASS', 'FAIL', 'SKIPPED', 'error', 'info', 'Summary', 'at ', 'warning', 'failed')) and 'error' not in group_name.lower() and 'failed' not in group_name.lower():
+                group_name = content.rstrip(" :\t\n\r")
+                if (
+                    group_name
+                    and not group_name.startswith(
+                        (
+                            "PASS",
+                            "FAIL",
+                            "SKIPPED",
+                            "error",
+                            "info",
+                            "Summary",
+                            "at ",
+                            "warning",
+                            "failed",
+                        )
+                    )
+                    and "error" not in group_name.lower()
+                    and "failed" not in group_name.lower()
+                ):
                     if level < len(current_groups):
                         current_groups = current_groups[:level]
                     elif level == len(current_groups):
@@ -263,14 +296,13 @@ class LISK_DESKTOP_5175_TO_5135(Instance):
                     else:
                         # Add missing levels
                         while len(current_groups) < level:
-                            current_groups.append('')
-                        current_groups[level-1] = group_name
+                            current_groups.append("")
+                        current_groups[level - 1] = group_name
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

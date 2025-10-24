@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ ls requirements
 ###ACTION_DELIMITER###
 pip install .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA -v -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA -v -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA -v -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class PYGITHUB_3060_TO_2739(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class PYGITHUB_3060_TO_2739(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,28 +180,30 @@ class PYGITHUB_3060_TO_2739(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove all ANSI escape codes (e.g., color, bold)
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Handle two log formats: [test] [status] and [status] [test], including SKIPPED
-        pattern = re.compile(r'(tests/[\w/]+\.py::[\w:]+::test\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[\w/]+\.py::[\w:]+::test\w+)')
+        pattern = re.compile(
+            r"(tests/[\w/]+\.py::[\w:]+::test\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[\w/]+\.py::[\w:]+::test\w+)"
+        )
         matches = pattern.findall(log_clean)
         for match in matches:
             test_name = match[0] if match[0] else match[3]
             status = match[1] if match[1] else match[2]
             test_name = test_name.strip()
             status = status.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

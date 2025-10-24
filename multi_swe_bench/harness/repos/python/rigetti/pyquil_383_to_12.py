@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ echo 'python setup.py test --addopts "-v"' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python setup.py test --addopts "-v"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -107,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python setup.py test --addopts "-v"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python setup.py test --addopts "-v"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class PYQUIL_383_TO_12(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,29 +194,31 @@ class PYQUIL_383_TO_12(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Use regex to find all test cases and their statuses
-        test_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?([\w\/-]+\.py::[\w\[\],-]+)\s+(PASS(?:ED)?|FAIL(?:ED)?|SKIP(?:PED)?)', re.IGNORECASE)
+        test_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?([\w\/-]+\.py::[\w\[\],-]+)\s+(PASS(?:ED)?|FAIL(?:ED)?|SKIP(?:PED)?)",
+            re.IGNORECASE,
+        )
         matches = test_pattern.findall(log)
         for test_name, status in matches:
-            if status.upper().startswith('PASS'):
+            if status.upper().startswith("PASS"):
                 passed_tests.add(test_name)
-            elif status.upper().startswith('FAIL'):
+            elif status.upper().startswith("FAIL"):
                 failed_tests.add(test_name)
-            elif status.upper().startswith('SKIP'):
+            elif status.upper().startswith("SKIP"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ make build
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo "make test" > test_commands.sh"""
+echo "make test" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo "make test" > test_commands.sh"""
 cd /home/{pr.repo}
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class PONYC_4467_TO_4327(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,13 +172,13 @@ class PONYC_4467_TO_4327(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Pattern for passed tests
         passed_pattern = re.compile(r"\[\s+OK\s+\]\s+([\w\.-]+)(?:\s+\(\d+\s+ms\))?")
         failed_pattern = re.compile(r"\[\s+FAILED\s+\]\s+([\w\.]+)")
@@ -200,9 +194,8 @@ class PONYC_4467_TO_4327(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

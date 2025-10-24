@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -66,7 +66,7 @@ uv run pytest tests/ --numprocesses auto --maxprocesses 6 --dist worksteal --dis
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 uv run pytest tests/ --numprocesses auto --maxprocesses 6 --dist worksteal --disable-docker-image-builds --exclude-service kubernetes --exclude-service docker --durations 26 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +90,7 @@ fi
 #!/bin/bash
 uv run pytest tests/ --numprocesses auto --maxprocesses 6 --dist worksteal --disable-docker-image-builds --exclude-service kubernetes --exclude-service docker --durations 26 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ fi
 #!/bin/bash
 uv run pytest tests/ --numprocesses auto --maxprocesses 6 --dist worksteal --disable-docker-image-builds --exclude-service kubernetes --exclude-service docker --durations 26 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class PREFECT_18353_TO_17954(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,29 +180,28 @@ class PREFECT_18353_TO_17954(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract passed tests
-        passed_matches = re.findall(r'PASSED (tests/.*)$', log, re.MULTILINE)
+        passed_matches = re.findall(r"PASSED (tests/.*)$", log, re.MULTILINE)
         passed_tests.update(passed_matches)
         # Extract failed tests
-        failed_matches = re.findall(r'FAILED (tests/.*)$', log, re.MULTILINE)
+        failed_matches = re.findall(r"FAILED (tests/.*)$", log, re.MULTILINE)
         failed_tests.update(failed_matches)
         # Extract skipped tests
-        skipped_matches = re.findall(r'SKIPPED \[\d+\] (tests/.*?):', log, re.MULTILINE)
+        skipped_matches = re.findall(r"SKIPPED \[\d+\] (tests/.*?):", log, re.MULTILINE)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

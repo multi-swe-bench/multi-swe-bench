@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pip install colorama
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -102,9 +102,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class ISORT_2331_TO_2136(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,46 +204,49 @@ class ISORT_2331_TO_2136(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases with status
         # Pattern 1: test name followed by status (e.g., "tests/...::test_name PASSED")
         # Captures test names with .py::test or .py:line_number, stops at first whitespace before status
-        pattern1 = re.compile(r'(?P<test_name>tests/.*?\.py::[^\s]+|tests/.*?\.py:[0-9]+)\s+(?P<status>PASSED|FAILED|SKIPPED|XFAIL|ERROR)')
+        pattern1 = re.compile(
+            r"(?P<test_name>tests/.*?\.py::[^\s]+|tests/.*?\.py:[0-9]+)\s+(?P<status>PASSED|FAILED|SKIPPED|XFAIL|ERROR)"
+        )
         # Pattern 2: status followed by test name (e.g., "PASSED tests/...::test_name")
         # Allows optional [1] after status, captures test names with .py::test or .py:line_number
-        pattern2 = re.compile(r'(?P<status>PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+\[?\d*]?\s*(?P<test_name>tests/.*?\.py::[^\s]+|tests/.*?\.py:[0-9]+)')
+        pattern2 = re.compile(
+            r"(?P<status>PASSED|FAILED|SKIPPED|XFAIL|ERROR)\s+\[?\d*]?\s*(?P<test_name>tests/.*?\.py::[^\s]+|tests/.*?\.py:[0-9]+)"
+        )
         # Track test statuses, overwriting with later entries (e.g., summary)
         test_statuses = {}
         # Process matches from pattern1
         for match in pattern1.finditer(log):
-            test_name = match.group('test_name').strip()
-            status = match.group('status').strip()
+            test_name = match.group("test_name").strip()
+            status = match.group("status").strip()
             test_statuses[test_name] = status
         # Process matches from pattern2
         for match in pattern2.finditer(log):
-            test_name = match.group('test_name').strip()
-            status = match.group('status').strip()
+            test_name = match.group("test_name").strip()
+            status = match.group("status").strip()
             test_statuses[test_name] = status
         # Populate sets based on final statuses
         for test_name, status in test_statuses.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ['FAILED', 'ERROR', 'XFAIL']:
+            elif status in ["FAILED", "ERROR", "XFAIL"]:
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ apt-get install -y libqt5opengl5 libglu1-mesa
 ###ACTION_DELIMITER###
 echo 'xvfb-run -a pytest -v --no-header -rA --full-trace --capture=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 xvfb-run -a pytest -v --no-header -rA --full-trace --capture=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a pytest -v --no-header -rA --full-trace --capture=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a pytest -v --no-header -rA --full-trace --capture=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class NAPARI_7965_TO_7250(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,49 +189,64 @@ class NAPARI_7965_TO_7250(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses
         # Match test name and status on the same line (with optional text after)
-        combined_pattern = re.compile(r'(.+?\.py::test_.+?(?:\[.*?\])?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\b', re.IGNORECASE)
+        combined_pattern = re.compile(
+            r"(.+?\.py::test_.+?(?:\[.*?\])?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\b",
+            re.IGNORECASE,
+        )
         # Match test name (captures until first whitespace, including parameters)
-        test_name_pattern = re.compile(r'(.+?\.py::test_.+?(?:\[.*?\])?)\s', re.MULTILINE)
+        test_name_pattern = re.compile(
+            r"(.+?\.py::test_.+?(?:\[.*?\])?)\s", re.MULTILINE
+        )
         # Match status (works with or without surrounding text)
-        status_pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED|XFAIL)\b', re.IGNORECASE)
+        status_pattern = re.compile(r"\b(PASSED|FAILED|SKIPPED|XFAIL)\b", re.IGNORECASE)
         # Match failed tests with FAILED status (handles warnings/errors on same line)
-        failed_pattern = re.compile(r'(.+?\.py::test_.+?(?:\[.*?\])?)\s+FAILED\b', re.IGNORECASE)
+        failed_pattern = re.compile(
+            r"(.+?\.py::test_.+?(?:\[.*?\])?)\s+FAILED\b", re.IGNORECASE
+        )
         # Match skipped tests with SKIPPED status (handles surrounding text)
-        skipped_pattern = re.compile(r'(.+?\.py::test_.+?(?:\[.*?\])?)\s+SKIPPED\b', re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"(.+?\.py::test_.+?(?:\[.*?\])?)\s+SKIPPED\b", re.IGNORECASE
+        )
         # Match failed tests in summary table (combines file and function columns)
-        failure_summary_pattern = re.compile(r'│\s*(src/napari[^│]+)\s*│\s*(test_[^│]+)\s*│', re.MULTILINE)
+        failure_summary_pattern = re.compile(
+            r"│\s*(src/napari[^│]+)\s*│\s*(test_[^│]+)\s*│", re.MULTILINE
+        )
         current_test = None
         # Extract failed tests using failed_pattern
-        failed_tests.update(match.group(1).strip() for match in failed_pattern.finditer(log))
+        failed_tests.update(
+            match.group(1).strip() for match in failed_pattern.finditer(log)
+        )
         # Extract failed tests from summary table (combine file and function)
         for match in failure_summary_pattern.finditer(log):
             file_part = match.group(1).strip()
             test_part = match.group(2).strip()
             failed_tests.add(f"{file_part}::{test_part}")
         # Extract skipped tests using skipped_pattern
-        skipped_tests.update(match.group(1).strip() for match in skipped_pattern.finditer(log))
-        for line in log.split('\n'):
+        skipped_tests.update(
+            match.group(1).strip() for match in skipped_pattern.finditer(log)
+        )
+        for line in log.split("\n"):
             # Check for test name and status on the same line
             combined_match = combined_pattern.search(line)
             if combined_match:
                 test_name = combined_match.group(1).strip()
                 status = combined_match.group(2).upper()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status == 'XFAIL':
+                elif status == "XFAIL":
                     failed_tests.add(test_name)
                 continue  # Skip to next line
             # Extract test name if present (status may be on next line)
@@ -243,21 +258,20 @@ class NAPARI_7965_TO_7250(Instance):
             if status_match:
                 status = status_match.group(1).upper()
                 if current_test:
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(current_test)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(current_test)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(current_test)
-                    elif status == 'XFAIL':
+                    elif status == "XFAIL":
                         failed_tests.add(current_test)
                     current_test = None
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

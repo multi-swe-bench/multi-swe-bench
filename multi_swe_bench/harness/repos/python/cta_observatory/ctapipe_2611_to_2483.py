@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ eval "$(./bin/micromamba shell hook --shell bash)" && ./bin/micromamba activate 
 ###ACTION_DELIMITER###
 echo 'pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-echo './bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs' > test_commands.sh && chmod +x test_commands.sh"""
+echo './bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ echo './bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --docte
 cd /home/[[REPO_NAME]]
 ./bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./bin/micromamba run -n cta-dev pytest -v -n auto --dist loadscope --doctest-modules --doctest-glob=*.rst --ignore=docs/conf.py src/ctapipe docs
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class CTAPIPE_2611_TO_2483(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,29 +199,29 @@ class CTAPIPE_2611_TO_2483(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status and name (handles [gw...] and percentage prefixes)
         # Regex for PASSED, FAILED, XFAIL (with :: in test name)
-        main_pattern = r'\b(PASSED|FAILED|XFAIL)\b.*?(src/.*?::.*?)(?=\s|$)'
+        main_pattern = r"\b(PASSED|FAILED|XFAIL)\b.*?(src/.*?::.*?)(?=\s|$)"
         main_matches = re.findall(main_pattern, log)
         for status, test_name in main_matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 skipped_tests.add(test_name)  # XFAIL is considered skipped
         # Regex for SKIPPED tests in summary (extract test name from parentheses)
-        skipped_pattern = r'SKIPPED.*?(src/.*?\.py):\d+.*?\((.*?)\)'
+        skipped_pattern = r"SKIPPED.*?(src/.*?\.py):\d+.*?\((.*?)\)"
         skipped_matches = re.findall(skipped_pattern, log)
         for file_path, test_name in skipped_matches:
-            full_test_name = f'{file_path}::{test_name}'
+            full_test_name = f"{file_path}::{test_name}"
             skipped_tests.add(full_test_name)
         # Remove skipped tests from passed/failed to avoid overlap
         passed_tests -= skipped_tests
@@ -229,9 +229,8 @@ class CTAPIPE_2611_TO_2483(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

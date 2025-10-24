@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -89,7 +89,7 @@ set -e
 CI=true pnpm turbo --filter @marimo-team/frontend test -- --run --verbose
 
 # Run end-to-end tests
-pnpm run e2e' > test_commands.sh && chmod +x test_commands.sh"""
+pnpm run e2e' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ CI=true pnpm turbo --filter @marimo-team/frontend test -- --run --verbose
 # Run end-to-end tests
 pnpm run e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ CI=true pnpm turbo --filter @marimo-team/frontend test -- --run --verbose
 # Run end-to-end tests
 pnpm run e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ CI=true pnpm turbo --filter @marimo-team/frontend test -- --run --verbose
 # Run end-to-end tests
 pnpm run e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class MARIMO_5678_TO_5548(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,12 +233,12 @@ class MARIMO_5678_TO_5548(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Parsing logic here
         # Parse passed tests (e.g., [1182] tests/...::test PASSED)
         passed_pattern = re.compile(r"[.*?] (tests/.*?) PASSED")
@@ -250,26 +250,25 @@ class MARIMO_5678_TO_5548(Instance):
         skipped_pattern = re.compile(r"[.*?] (tests/.*?) SKIPPED")
         skipped_tests.update(skipped_pattern.findall(log))
         # Parse passed tests
-        passed_pattern = re.compile(r'tests/.*? PASSED')
+        passed_pattern = re.compile(r"tests/.*? PASSED")
         for match in passed_pattern.findall(log):
-            test_name = match.replace(' PASSED', '').strip()
+            test_name = match.replace(" PASSED", "").strip()
             passed_tests.add(test_name)
         # Parse failed tests
-        failed_pattern = re.compile(r'FAILED tests/.*')
+        failed_pattern = re.compile(r"FAILED tests/.*")
         for match in failed_pattern.findall(log):
-            test_name = match.replace('FAILED ', '').strip()
+            test_name = match.replace("FAILED ", "").strip()
             failed_tests.add(test_name)
         # Parse skipped tests
-        skipped_pattern = re.compile(r'tests/.*? SKIPPED')
+        skipped_pattern = re.compile(r"tests/.*? SKIPPED")
         for match in skipped_pattern.findall(log):
-            test_name = match.replace(' SKIPPED', '').strip()
+            test_name = match.replace(" SKIPPED", "").strip()
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ npm test -- --reporter spec
 ###ACTION_DELIMITER###
 echo 'npm test -- --reporter spec' > /home/decaffeinate/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class DECAFFEINATE_395_TO_304(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,16 +183,16 @@ class DECAFFEINATE_395_TO_304(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Parse test cases
-        test_case_pattern = re.compile(r'\s+\d+\)\s+(.*?):')
-        lines = log.split('\n')
+        test_case_pattern = re.compile(r"\s+\d+\)\s+(.*?):")
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             match = test_case_pattern.search(line)
             if match:
@@ -201,7 +201,7 @@ class DECAFFEINATE_395_TO_304(Instance):
                 error_found = False
                 # Check up to 4 lines ahead to avoid missing the error
                 for j in range(i + 1, min(i + 5, len(lines))):
-                    if 'Error:' in lines[j]:
+                    if "Error:" in lines[j]:
                         error_found = True
                         break
                 if error_found:
@@ -211,9 +211,8 @@ class DECAFFEINATE_395_TO_304(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -127,7 +127,7 @@ source venv/bin/activate && sed -i 's/from theano.graph.utils import inputs/from
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip install nose && sed -i "s/matplotlib.use('Agg', warn=False)/matplotlib.use('Agg')/g" pymc3/tests/test_diagnostics.py pymc3/tests/test_examples.py pymc3/tests/test_plots.py && pytest -v
 ###ACTION_DELIMITER###
-echo 'pytest -v' > /home/pymc/test_commands.sh"""
+echo 'pytest -v' > /home/pymc/test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,9 +136,7 @@ echo 'pytest -v' > /home/pymc/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -151,9 +149,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -166,9 +162,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -230,7 +224,7 @@ class PYMC_1591_TO_1478(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -244,16 +238,16 @@ class PYMC_1591_TO_1478(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s*\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.*?)(?:\s+-.*)?\s*$')
+        pattern1 = re.compile(r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s*\[\s*\d+%\s*\]$")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(.*?)(?:\s+-.*)?\s*$")
         for line in log.splitlines():
             line = line.strip()
             # Check pattern1: test name followed by status and progress
@@ -270,18 +264,17 @@ class PYMC_1591_TO_1478(Instance):
                 else:
                     continue  # No match, skip line
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

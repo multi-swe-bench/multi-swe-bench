@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -116,7 +116,7 @@ pip uninstall -y scipy pandas matplotlib scikit-image && pip install scipy==1.7.
 ###ACTION_DELIMITER###
 pip uninstall -y contourpy && pip install contourpy==1.0.5
 ###ACTION_DELIMITER###
-bash /home/ignite/test_commands.sh"""
+bash /home/ignite/test_commands.sh""",
             ),
             File(
                 ".",
@@ -126,9 +126,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 venv/bin/pytest --tx "4*popen//python=python" --cov ignite --cov-report term-missing --cov-report xml -vvv tests -m ""
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +140,7 @@ fi
 #!/bin/bash
 venv/bin/pytest --tx "4*popen//python=python" --cov ignite --cov-report term-missing --cov-report xml -vvv tests -m ""
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +154,7 @@ fi
 #!/bin/bash
 venv/bin/pytest --tx "4*popen//python=python" --cov ignite --cov-report term-missing --cov-report xml -vvv tests -m ""
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -222,7 +216,7 @@ class IGNITE_2369_TO_2179(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -236,21 +230,23 @@ class IGNITE_2369_TO_2179(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1b\[.*?m', '', log)
-        lines = clean_log.split('\n')
+        clean_log = re.sub(r"\x1b\[.*?m", "", log)
+        lines = clean_log.split("\n")
         # Regex pattern to match test lines
-        test_pattern = re.compile(r'^(?:(PASSED|FAILED|SKIPPED|ERROR) )?(.+?::.+?)(?: (PASSED|FAILED|SKIPPED|ERROR))? .*$')
+        test_pattern = re.compile(
+            r"^(?:(PASSED|FAILED|SKIPPED|ERROR) )?(.+?::.+?)(?: (PASSED|FAILED|SKIPPED|ERROR))? .*$"
+        )
         for line in lines:
             line = line.strip()
-            if '::' not in line:
+            if "::" not in line:
                 continue
             match = test_pattern.match(line)
             if not match:
@@ -262,18 +258,17 @@ class IGNITE_2369_TO_2179(Instance):
             if not status:
                 continue
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

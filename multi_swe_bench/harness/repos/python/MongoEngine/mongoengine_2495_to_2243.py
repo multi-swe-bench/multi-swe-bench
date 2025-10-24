@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -75,7 +75,7 @@ apt-get update && apt-get install -y wget gnupg && wget -qO - https://www.mongod
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y wget gnupg && wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg && echo 'deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main' | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org && service mongod start
 ###ACTION_DELIMITER###
-mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh"""
+mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log && pip install 'pymongo>=3.4,<4.0' && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ mkdir -p /data/db && mongod --fork --logpath /var/log/mongodb.log && pip install
 cd /home/{pr.repo}
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class MONGOENGINE_2495_TO_2243(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,30 +186,32 @@ class MONGOENGINE_2495_TO_2243(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status (e.g., "tests/...::test_name PASSED [  0%]")
-        pattern1 = re.compile(r'^(tests/.*?\.py::.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\s+')
+        pattern1 = re.compile(
+            r"^(tests/.*?\.py::.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\s+"
+        )
         # Pattern 2: Status followed by test name (e.g., "FAILED tests/...::test_name - ...")
-        pattern2 = re.compile(r'^(FAILED|SKIPPED)\s+(tests/.*?\.py::.*?::.*?)\s+-?')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(FAILED|SKIPPED)\s+(tests/.*?\.py::.*?::.*?)\s+-?")
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern 1
             match = pattern1.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue  # Move to next line after matching
             # Check pattern 2
@@ -223,17 +219,16 @@ class MONGOENGINE_2495_TO_2243(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'FAILED':
+                if status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

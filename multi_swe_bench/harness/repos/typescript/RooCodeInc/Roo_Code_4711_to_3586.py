@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ echo 'pnpm exec turbo test --log-order grouped --output-logs full --verbosity 2'
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm exec turbo test --log-order grouped --output-logs full --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm exec turbo test --log-order grouped --output-logs full --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm exec turbo test --log-order grouped --output-logs full --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class ROO_CODE_4711_TO_3586(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,21 +203,23 @@ class ROO_CODE_4711_TO_3586(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1B\[[0-9;]*[mK]', '', log)
+        log_clean = re.sub(r"\x1B\[[0-9;]*[mK]", "", log)
         # Extract all test suites (e.g., @roo-code/telemetry:test)
-        test_suites_pattern = re.compile(r'(\S+):test:', re.IGNORECASE)
+        test_suites_pattern = re.compile(r"(\S+):test:", re.IGNORECASE)
         all_suites = set(test_suites_pattern.findall(log_clean))
         all_suites = {f"{suite}#test" for suite in all_suites}
         # Pattern for failed tests: Capture 'Failed: <test>' or '<test>#test: ... exited (1)'
-        failed_pattern = re.compile(r'Failed:\s+(\S+)|(\S+)#test:.*exited \(1\)', re.IGNORECASE)
+        failed_pattern = re.compile(
+            r"Failed:\s+(\S+)|(\S+)#test:.*exited \(1\)", re.IGNORECASE
+        )
         failed_matches = failed_pattern.findall(log_clean)
         # Combine results from both capture groups
         failed_tests = set()
@@ -225,23 +227,22 @@ class ROO_CODE_4711_TO_3586(Instance):
             test = match[0] or match[1]
             if test:
                 # Filter out invalid test names (e.g., 'command')
-                if not (test.startswith('@roo-code/') or test.startswith('roo-cline')):
+                if not (test.startswith("@roo-code/") or test.startswith("roo-cline")):
                     continue
                 # Ensure consistent format (add #test if missing)
-                if '#test' not in test:
-                    test += '#test'
+                if "#test" not in test:
+                    test += "#test"
                 failed_tests.add(test)
         # Passed tests = all suites - failed suites
         passed_tests = all_suites - failed_tests
         # Pattern for skipped tests: Capture 'skipped' in test summaries
-        skipped_pattern = re.compile(r'(\S+#test)[^\n]*skipped', re.IGNORECASE)
+        skipped_pattern = re.compile(r"(\S+#test)[^\n]*skipped", re.IGNORECASE)
         skipped_tests.update(skipped_pattern.findall(log_clean))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

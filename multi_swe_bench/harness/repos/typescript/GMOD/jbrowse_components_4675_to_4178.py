@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'yarn test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class JBROWSE_COMPONENTS_4675_TO_4178(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,34 +167,33 @@ class JBROWSE_COMPONENTS_4675_TO_4178(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match passed and failed tests
         # Matches lines like: "  ✓ creates a default config (2214 ms)"
         # or "  ✕ throws an error if unable to write to config.json (41 ms)"
         test_pattern = re.compile(
-            r'^  ([✓✕])\s+([^\(]+?)\s*\(\d+\s+ms\)$',
-            re.MULTILINE
+            r"^  ([✓✕])\s+([^\(]+?)\s*\(\d+\s+ms\)$", re.MULTILINE
         )
         # Find all matches in the log
         matches = test_pattern.findall(log)
         for symbol, test_name in matches:
             # Strip any leading/trailing whitespace from the test name
             cleaned_test_name = test_name.strip()
-            if symbol == '✓':
+            if symbol == "✓":
                 passed_tests.add(cleaned_test_name)
-            elif symbol == '✕':
+            elif symbol == "✕":
                 failed_tests.add(cleaned_test_name)
         # Handle skipped tests (assuming they are marked with '○' and have 'skipped' in the line)
         # Example line: "  ○ skipped test (skipped)"
         skipped_pattern = re.compile(
-            r'^\s*(○|skipped)\s*([^\(]+?)\s*(\(.*\))?$',  # Matches ○ or 'skipped' with optional parentheses
-            re.MULTILINE
+            r"^\s*(○|skipped)\s*([^\(]+?)\s*(\(.*\))?$",  # Matches ○ or 'skipped' with optional parentheses
+            re.MULTILINE,
         )
         skipped_matches = skipped_pattern.findall(log)
         for symbol, test_name, _ in skipped_matches:
@@ -203,9 +202,8 @@ class JBROWSE_COMPONENTS_4675_TO_4178(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

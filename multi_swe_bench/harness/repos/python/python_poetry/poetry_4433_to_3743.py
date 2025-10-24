@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -119,7 +119,7 @@ pip install pytest-mock deepdiff urllib3==1.26.15 && pytest -v tests/
 echo -e 'source .venv/bin/activate
 pytest -v tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ cd /home/[[REPO_NAME]]
 source .venv/bin/activate
 pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ fi
 source .venv/bin/activate
 pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ fi
 source .venv/bin/activate
 pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class POETRY_4433_TO_3743(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,15 +233,17 @@ class POETRY_4433_TO_3743(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Pattern to match test lines with status
-        test_pattern = re.compile(r'^(?:(.*?)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(.*?))\b(?:\s+\[\s*\d+%\])?')
+        test_pattern = re.compile(
+            r"^(?:(.*?)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(.*?))\b(?:\s+\[\s*\d+%\])?"
+        )
         for line in log.splitlines():
             line = line.strip()
             match = test_pattern.match(line)
@@ -251,18 +253,17 @@ class POETRY_4433_TO_3743(Instance):
                 status = match.group(2) or match.group(3)
                 # Clean test name by removing trailing hyphen and extra info
                 test_name = test_name.split(" - ")[0].strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

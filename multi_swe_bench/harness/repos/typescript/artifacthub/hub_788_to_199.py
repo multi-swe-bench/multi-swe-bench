@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -104,7 +104,7 @@ apt-get install -y software-properties-common && add-apt-repository ppa:deadsnak
 ###ACTION_DELIMITER###
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && source ~/.nvm/nvm.sh && nvm install 14 && nvm use 14 && yarn install
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash\n\n# Database tests\npg_prove --host localhost --dbname hub --username postgres --verbose ./database/tests/**/*.sql\n\n# Backend tests\ngo test -cover -race -v -mod=readonly ./...\n\n# Frontend tests\ncd web && yarn test --watchAll=false --passWithNoTests --verbose' > /home/hub/test_commands.sh && chmod +x /home/hub/test_commands.sh"""
+echo -e '#!/bin/bash\n\n# Database tests\npg_prove --host localhost --dbname hub --username postgres --verbose ./database/tests/**/*.sql\n\n# Backend tests\ngo test -cover -race -v -mod=readonly ./...\n\n# Frontend tests\ncd web && yarn test --watchAll=false --passWithNoTests --verbose' > /home/hub/test_commands.sh && chmod +x /home/hub/test_commands.sh""",
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ go test -cover -race -v -mod=readonly ./...
 # Frontend tests
 cd web && yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -144,7 +144,7 @@ go test -cover -race -v -mod=readonly ./...
 # Frontend tests
 cd web && yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -166,7 +166,7 @@ go test -cover -race -v -mod=readonly ./...
 # Frontend tests
 cd web && yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -228,7 +228,7 @@ class HUB_788_TO_199(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -242,7 +242,6 @@ class HUB_788_TO_199(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -250,9 +249,12 @@ class HUB_788_TO_199(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract test names and statuses using regex
         # Pattern for passed tests: matches --- PASS: TestName and PASS TestFile.tsx (no line start anchor)
-        pass_pattern = re.compile(r'(--- PASS:\s+(\S+)|PASS\s+(.*\.test\.tsx))', re.MULTILINE)
+        pass_pattern = re.compile(
+            r"(--- PASS:\s+(\S+)|PASS\s+(.*\.test\.tsx))", re.MULTILINE
+        )
         pass_matches = pass_pattern.findall(log)
         passed_tests = set()
         for match in pass_matches:
@@ -260,23 +262,28 @@ class HUB_788_TO_199(Instance):
             test_name = match[1] if match[1] else match[2].strip()
             passed_tests.add(test_name)
         # Pattern for failed tests: matches --- FAIL: TestName, FAIL TestFile.tsx, and ● TestName (no line start anchor)
-        fail_pattern = re.compile(r'(--- FAIL:\s+(\S+)|FAIL\s+(.*\.test\.tsx)|●\s+(.*)$)', re.MULTILINE)
+        fail_pattern = re.compile(
+            r"(--- FAIL:\s+(\S+)|FAIL\s+(.*\.test\.tsx)|●\s+(.*)$)", re.MULTILINE
+        )
         fail_matches = fail_pattern.findall(log)
         failed_tests = set()
         for match in fail_matches:
             # Capture test names from --- FAIL, FAIL, and ● lines
-            test_name = match[1] if match[1] else (match[2].strip() if match[2] else match[3].strip())
+            test_name = (
+                match[1]
+                if match[1]
+                else (match[2].strip() if match[2] else match[3].strip())
+            )
             if test_name:
                 failed_tests.add(test_name)
         # Pattern for skipped tests: matches --- SKIP: TestName
-        skip_pattern = re.compile(r'--- SKIP:\s+(\S+)', re.MULTILINE)
+        skip_pattern = re.compile(r"--- SKIP:\s+(\S+)", re.MULTILINE)
         skipped_tests = set(skip_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

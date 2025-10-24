@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -108,7 +108,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install daft xgboost
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,9 +118,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +132,7 @@ fi
 source venv/bin/activate
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -150,9 +146,7 @@ fi
 source venv/bin/activate
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -214,7 +208,7 @@ class PGMPY_2233_TO_2197(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -228,20 +222,22 @@ class PGMPY_2233_TO_2197(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases
         # Pattern for passed tests: matches lines ending with "PASSED [percentage]"
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$", re.MULTILINE)
         # Pattern for failed tests: matches lines starting with "FAILED " followed by test name
-        failed_pattern = re.compile(r'^FAILED\s*(.*?)(?:\s*-\s*.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s*(.*?)(?:\s*-\s*.*)?$", re.MULTILINE)
         # Pattern for skipped tests: matches lines ending with "SKIPPED [percentage]"
-        skipped_pattern = re.compile(r'^\[\s*\d+\]\s*([^\s]+)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\[\s*\d+\]\s*([^\s]+)\s+SKIPPED\s+\[\s*\d+%\s*\]$", re.MULTILINE
+        )
         # Extract test names
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -249,9 +245,8 @@ class PGMPY_2233_TO_2197(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

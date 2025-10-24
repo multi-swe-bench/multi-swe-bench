@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -150,7 +150,7 @@ rm -rf rethinkdb_test_data || true
 rethinkdb --daemon --directory rethinkdb_test_data --cache-size 1024 --no-http-admin
 for i in {1..60}; do nc -z localhost 28015 && break; sleep 1; done
 sleep 10
-pytest -v --tb=line -p no:cacheprovider --timeout 600' > /home/bigchaindb/test_commands.sh && chmod +x /home/bigchaindb/test_commands.sh"""
+pytest -v --tb=line -p no:cacheprovider --timeout 600' > /home/bigchaindb/test_commands.sh && chmod +x /home/bigchaindb/test_commands.sh""",
             ),
             File(
                 ".",
@@ -166,7 +166,7 @@ for i in {1..60}; do nc -z localhost 28015 && break; sleep 1; done
 sleep 10
 pytest -v --tb=line -p no:cacheprovider --timeout 600
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -186,7 +186,7 @@ for i in {1..60}; do nc -z localhost 28015 && break; sleep 1; done
 sleep 10
 pytest -v --tb=line -p no:cacheprovider --timeout 600
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -206,7 +206,7 @@ for i in {1..60}; do nc -z localhost 28015 && break; sleep 1; done
 sleep 10
 pytest -v --tb=line -p no:cacheprovider --timeout 600
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -268,7 +268,7 @@ class BIGCHAINDB_515_TO_471(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -282,20 +282,22 @@ class BIGCHAINDB_515_TO_471(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines
-        pattern = re.compile(r'.*?(tests/[\w/\.]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED|ERROR)')
+        pattern = re.compile(
+            r".*?(tests/[\w/\.]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED|ERROR)"
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
             else:
                 # Handle ERROR, FAILED, Timeout, etc. as failed
@@ -303,9 +305,8 @@ class BIGCHAINDB_515_TO_471(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

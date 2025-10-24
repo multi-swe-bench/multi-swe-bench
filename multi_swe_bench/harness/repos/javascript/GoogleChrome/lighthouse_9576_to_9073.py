@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:lts-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > /home/lighthouse/test_commands.sh && chmod +x /home/lighthouse/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/lighthouse/test_commands.sh"""
+bash /home/lighthouse/test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ bash /home/lighthouse/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class LIGHTHOUSE_9576_TO_9073(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class LIGHTHOUSE_9576_TO_9073(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -187,23 +186,27 @@ class LIGHTHOUSE_9576_TO_9073(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract test names and statuses using regex patterns
         # Passed tests: lines starting with "PASS " followed by test file path
         passed_pattern = re.compile(r"PASS (lighthouse-core/test/.*?\.js)")
         passed_tests = set(passed_pattern.findall(log))
         # Failed tests: stack trace lines pointing to test files
-        failed_pattern = re.compile(r"at .*? \((lighthouse-core/test/.*?\.js):\d+:\d+\)")
+        failed_pattern = re.compile(
+            r"at .*? \((lighthouse-core/test/.*?\.js):\d+:\d+\)"
+        )
         failed_tests = set(failed_pattern.findall(log))
         # Skipped tests: lines starting with "SKIP " followed by test file path (if present)
         # Adjusted pattern to match skipped tests (e.g., 'skipped' in test results)
-        skipped_pattern = re.compile(r"\[\s*\d+\] SKIP (lighthouse-core/test/.*?\.js)", re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"\[\s*\d+\] SKIP (lighthouse-core/test/.*?\.js)", re.IGNORECASE
+        )
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

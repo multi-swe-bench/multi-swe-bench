@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -136,7 +136,7 @@ apt-get update && apt-get install -y iproute2 && echo -e 'pip install tenacity==
 ###ACTION_DELIMITER###
 echo 'pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask)"' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask or test_copy_warns_if_dependencies_in_active_flow or test_system_check_doesnt_warn)"' > test_commands.sh && bash test_commands.sh"""
+echo 'pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask or test_copy_warns_if_dependencies_in_active_flow or test_system_check_doesnt_warn)"' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -145,9 +145,7 @@ echo 'pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docke
 cd /home/{pr.repo}
 pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask or test_copy_warns_if_dependencies_in_active_flow or test_system_check_doesnt_warn)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask or test_copy_warns_if_dependencies_in_active_flow or test_system_check_doesnt_warn)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -175,9 +171,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA -p no:cacheprovider -k "not (cli or server or docker_agent or warning or dask or test_copy_warns_if_dependencies_in_active_flow or test_system_check_doesnt_warn)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -239,7 +233,7 @@ class PREFECT_4462_TO_3893(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -253,7 +247,6 @@ class PREFECT_4462_TO_3893(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -261,6 +254,7 @@ class PREFECT_4462_TO_3893(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Extract skipped tests using regex pattern
         skipped_pattern = re.compile(r"SKIPPED \[\d+\] (tests/.*?):")
@@ -269,7 +263,9 @@ class PREFECT_4462_TO_3893(Instance):
         failed_pattern = re.compile(r"(?:ERROR|FAILED) (tests/.*?) -")
         failed_tests.update(failed_pattern.findall(log))
         # Extract all test names from log
-        all_tests_pattern = re.compile(r"(tests/[^\s]+\.py(?:::[^\s]+)?|docs/[^\s]+\.py)")
+        all_tests_pattern = re.compile(
+            r"(tests/[^\s]+\.py(?:::[^\s]+)?|docs/[^\s]+\.py)"
+        )
         all_tests = set(all_tests_pattern.findall(log))
         # Extract passed tests by excluding skipped/failed
         passed_tests = all_tests - skipped_tests - failed_tests
@@ -279,9 +275,8 @@ class PREFECT_4462_TO_3893(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

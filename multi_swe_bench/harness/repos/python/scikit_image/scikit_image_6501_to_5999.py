@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -89,7 +89,7 @@ apt-get install -y libgeos-dev && python setup.py build_ext --inplace && pip ins
 ###ACTION_DELIMITER###
 python setup.py build_ext --inplace -v && pip install --no-use-pep517 .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v --cov=skimage --pyargs skimage
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v --cov=skimage --pyargs skimage
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v --cov=skimage --pyargs skimage
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class SCIKIT_IMAGE_6501_TO_5999(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,30 +200,29 @@ class SCIKIT_IMAGE_6501_TO_5999(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract test names using regular expressions
         # Pattern for passed tests: test name followed by " PASSED"
-        passed_matches = re.findall(r'(skimage/.*?)\s+PASSED', log)
+        passed_matches = re.findall(r"(skimage/.*?)\s+PASSED", log)
         passed_tests.update(passed_matches)
         # Pattern for failed tests: "FAILED " followed by test name
-        failed_matches = re.findall(r'FAILED\s+(\S+)', log)
+        failed_matches = re.findall(r"FAILED\s+(\S+)", log)
         failed_tests.update(failed_matches)
         # Pattern for skipped tests: "SKIPPED " followed by test name
-        skipped_matches = re.findall(r'(\S+)\s+SKIPPED', log)
+        skipped_matches = re.findall(r"(\S+)\s+SKIPPED", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

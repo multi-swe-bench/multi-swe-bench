@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ruby:3.2-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -121,7 +121,7 @@ sed -i 's/gem "charlock_holmes", "~> 0.7.10"/gem "charlock_holmes", "~> 0.7.9"/'
 echo -e '#!/bin/bash
 set -e
 cd client && yarn test --verbose
-cd ../api && bundle exec rspec spec --format documentation' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh"""
+cd ../api && bundle exec rspec spec --format documentation' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh""",
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ set -e
 cd client && yarn test --verbose
 cd ../api && bundle exec rspec spec --format documentation
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ set -e
 cd client && yarn test --verbose
 cd ../api && bundle exec rspec spec --format documentation
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -165,7 +165,7 @@ set -e
 cd client && yarn test --verbose
 cd ../api && bundle exec rspec spec --format documentation
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -227,7 +227,7 @@ class MANIFOLD_3636_TO_2956(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -241,7 +241,6 @@ class MANIFOLD_3636_TO_2956(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -249,49 +248,55 @@ class MANIFOLD_3636_TO_2956(Instance):
         skipped_tests = set[str]()
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_suite = None
         # Handle skipped tests (common markers: '○', 'SKIPPED')
         for i, line in enumerate(lines):
             stripped_line = line.strip()
-            if stripped_line.startswith('SKIPPED'):
+            if stripped_line.startswith("SKIPPED"):
                 if i + 1 < len(lines):
-                    current_suite = lines[i+1].strip()
-            elif current_suite and (stripped_line.startswith('○') or 'SKIPPED' in stripped_line):
-                test_case = stripped_line.split('○', 1)[1].strip() if '○' in stripped_line else stripped_line.split('SKIPPED', 1)[1].strip()
-                if '(' in test_case:
-                    test_case = test_case.rsplit('(', 1)[0].strip()
+                    current_suite = lines[i + 1].strip()
+            elif current_suite and (
+                stripped_line.startswith("○") or "SKIPPED" in stripped_line
+            ):
+                test_case = (
+                    stripped_line.split("○", 1)[1].strip()
+                    if "○" in stripped_line
+                    else stripped_line.split("SKIPPED", 1)[1].strip()
+                )
+                if "(" in test_case:
+                    test_case = test_case.rsplit("(", 1)[0].strip()
                 skipped_tests.add(f"{current_suite} {test_case}")
-            if stripped_line.startswith('PASS'):
+            if stripped_line.startswith("PASS"):
                 if i + 1 < len(lines):
-                    current_suite = lines[i+1].strip()
-            elif stripped_line.startswith('FAIL'):
+                    current_suite = lines[i + 1].strip()
+            elif stripped_line.startswith("FAIL"):
                 if i + 1 < len(lines):
-                    current_suite = lines[i+1].strip()
+                    current_suite = lines[i + 1].strip()
             elif current_suite:
-                if stripped_line.startswith('✓'):
-                    test_case = stripped_line.split('✓', 1)[1].strip()
-                    if '(' in test_case:
-                        test_case = test_case.rsplit('(', 1)[0].strip()
+                if stripped_line.startswith("✓"):
+                    test_case = stripped_line.split("✓", 1)[1].strip()
+                    if "(" in test_case:
+                        test_case = test_case.rsplit("(", 1)[0].strip()
                     passed_tests.add(f"{current_suite} {test_case}")
-                elif stripped_line.startswith('✕'):
-                    test_case = stripped_line.split('✕', 1)[1].strip()
-                    if '(' in test_case:
-                        test_case = test_case.rsplit('(', 1)[0].strip()
+                elif stripped_line.startswith("✕"):
+                    test_case = stripped_line.split("✕", 1)[1].strip()
+                    if "(" in test_case:
+                        test_case = test_case.rsplit("(", 1)[0].strip()
                     failed_tests.add(f"{current_suite} {test_case}")
         # Capture snapshot failures
-        snapshot_pattern = re.compile(r'Snapshot name: `(.*?)`', re.IGNORECASE)
+        snapshot_pattern = re.compile(r"Snapshot name: `(.*?)`", re.IGNORECASE)
         for match in snapshot_pattern.finditer(log):
-            failed_test = re.sub(r' \d+$', '', match.group(1).strip())
+            failed_test = re.sub(r" \d+$", "", match.group(1).strip())
             failed_tests.add(failed_test)
         # Remove any passed tests that are also failed
         passed_tests -= failed_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

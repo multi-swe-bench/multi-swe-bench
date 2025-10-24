@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -77,7 +77,7 @@ apt-get update && apt-get install -y curl && curl --proto '=https' --tlsv1.2 -sS
 ###ACTION_DELIMITER###
 make compile
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ cd /home/[[REPO_NAME]]
 export MANUAL_TEST=1
 python -m pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class OPTERYX_2010_TO_1924(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,20 +191,20 @@ class OPTERYX_2010_TO_1924(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Implement the log parsing logic here
         # Regex patterns to match test cases
-        pattern1 = re.compile(r'^(.+?\.py::.+?) (PASSED|FAILED|SKIPPED)')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED) (.+?\.py::.+)')
+        pattern1 = re.compile(r"^(.+?\.py::.+?) (PASSED|FAILED|SKIPPED)")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED) (.+?\.py::.+)")
         for line in log.splitlines():
             # Remove leading line number (e.g., "[   4] ")
-            cleaned_line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            cleaned_line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             if not cleaned_line:
                 continue
             # Check pattern 1: test name followed by status
@@ -212,11 +212,11 @@ class OPTERYX_2010_TO_1924(Instance):
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2: status followed by test name
@@ -225,20 +225,19 @@ class OPTERYX_2010_TO_1924(Instance):
                 status = match.group(1)
                 test_name = match.group(2).strip()
                 # Remove trailing additional information (e.g., " - reason")
-                test_name = re.sub(r' - .*$', '', test_name)
-                if status == 'PASSED':
+                test_name = re.sub(r" - .*$", "", test_name)
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

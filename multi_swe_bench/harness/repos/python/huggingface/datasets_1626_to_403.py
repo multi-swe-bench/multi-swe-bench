@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ python -m pytest -n auto --dist=loadfile -s -v ./tests/
 ###ACTION_DELIMITER###
 echo 'python -m pytest -n auto --dist=loadfile -s -v ./tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class DATASETS_1626_TO_403(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,7 +171,6 @@ class DATASETS_1626_TO_403(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -179,27 +178,33 @@ class DATASETS_1626_TO_403(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests using regex
-        passed_pattern = re.compile(r'PASSED\s+(\S+)')
+        passed_pattern = re.compile(r"PASSED\s+(\S+)")
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests from underlined sections (e.g., [2544] ________________________ ArrayXDTest.test_from_dict_4d _________________________)
-        failed_underline_pattern = re.compile(r'.*_{20,}\s*([\w.:_]+)\s*_{20,}.*')  # Matches TestClass.test_method, tests::TestClass::test_method, etc., with leading/trailing content
+        failed_underline_pattern = re.compile(
+            r".*_{20,}\s*([\w.:_]+)\s*_{20,}.*"
+        )  # Matches TestClass.test_method, tests::TestClass::test_method, etc., with leading/trailing content
         failed_tests.update(failed_underline_pattern.findall(log))
         # Extract failed tests from FAILED lines (e.g., FAILED tests/test_arrow_dataset.py::BaseDatasetTest::test_new_features_on_disk)
-        failed_pattern = re.compile(r'FAILED\s+([\w/]+\.py::[\w:]+)')  # Matches full test path with ::
+        failed_pattern = re.compile(
+            r"FAILED\s+([\w/]+\.py::[\w:]+)"
+        )  # Matches full test path with ::
         failed_tests.update(failed_pattern.findall(log))
         # Extract failed tests from ERROR lines (e.g., ERROR tests/test_metric_common.py::TestClass::test_method)
-        error_pattern = re.compile(r'ERROR\s+([\w/]+\.py::[\w:]+)')  # Captures full test path from errors
+        error_pattern = re.compile(
+            r"ERROR\s+([\w/]+\.py::[\w:]+)"
+        )  # Captures full test path from errors
         failed_tests.update(error_pattern.findall(log))
         # Extract skipped tests from SKIPPED lines (if present)
-        skipped_pattern = re.compile(r'SKIPPED\s+(\S+)')
+        skipped_pattern = re.compile(r"SKIPPED\s+(\S+)")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

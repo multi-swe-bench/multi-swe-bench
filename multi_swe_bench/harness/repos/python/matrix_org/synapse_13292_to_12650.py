@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ poetry add setuptools@^67.9.0
 ###ACTION_DELIMITER###
 poetry run pip install setuptools
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poetry run trial tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run trial tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run trial tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class SYNAPSE_13292_TO_12650(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,30 +188,30 @@ class SYNAPSE_13292_TO_12650(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_module = None
         current_class = None
         for i, line in enumerate(lines):
             stripped_line = line.strip()
             # Check for module line (e.g., tests.api.test_auth)
-            if re.match(r'^tests(\.\w+)+$', stripped_line):
+            if re.match(r"^tests(\.\w+)+$", stripped_line):
                 current_module = stripped_line
                 current_class = None
                 continue
             # Check for class line (e.g., "  AuthTestCase")
-            class_match = re.match(r'^\s+(\w+)$', line)
+            class_match = re.match(r"^\s+(\w+)$", line)
             if class_match:
                 current_class = class_match.group(1)
                 continue
             # Check for test method line with status (e.g., "    test_blocking_mau ... [OK]")
-            method_match = re.match(r'^\s+(\w+)\s+[\.\s]+\[(\w+)\]$', line)
+            method_match = re.match(r"^\s+(\w+)\s+[\.\s]+\[(\w+)\]$", line)
             if method_match:
                 method_name = method_match.group(1)
                 status = method_match.group(2)
@@ -226,50 +220,62 @@ class SYNAPSE_13292_TO_12650(Instance):
                 else:
                     full_test_name = method_name  # Fallback if module/class not found
                 # Determine status
-                if status == 'OK':
+                if status == "OK":
                     passed_tests.add(full_test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(full_test_name)
-                elif status in ['SKIP', 'SKIPPED']:
+                elif status in ["SKIP", "SKIPPED"]:
                     skipped_tests.add(full_test_name)
                 continue
             # Check for full test name followed by FAIL (e.g., "tests.storage.test_state.StateStoreTestCase.test_get_state_for_event")
-            full_test_match = re.match(r'^tests(\.\w+)+$', stripped_line)
+            full_test_match = re.match(r"^tests(\.\w+)+$", stripped_line)
             if full_test_match:
                 # Check next two lines for separator and [FAIL]
                 if i + 2 < len(lines):
-                    next_line = lines[i+1].strip()
-                    next_next_line = lines[i+2].strip()
-                    if next_line.startswith(('=', '-')) and next_next_line == '[FAIL]':
+                    next_line = lines[i + 1].strip()
+                    next_next_line = lines[i + 2].strip()
+                    if next_line.startswith(("=", "-")) and next_next_line == "[FAIL]":
                         full_test_name = stripped_line
                         failed_tests.add(full_test_name)
                 continue
             # Check for FailTest in traceback to capture failed tests
-            if 'FailTest' in line:
+            if "FailTest" in line:
                 # Look back up to 10 lines to find the traceback line with the test method
-                for j in range(i-1, max(i-10, 0), -1):
+                for j in range(i - 1, max(i - 10, 0), -1):
                     traceback_line = lines[j]
-                    if 'File "' in traceback_line and ' in test_' in traceback_line:
+                    if 'File "' in traceback_line and " in test_" in traceback_line:
                         # Extract module and method from the traceback line
                         file_pattern = r'File ".*tests/((?:\w+/)*)test_(\w+)\.py", line \d+, in (test_\w+)'
                         file_match = re.search(file_pattern, traceback_line)
                         if file_match:
-                            module_parts = file_match.group(1).rstrip('/').split('/') if file_match.group(1) else []
-                            module = 'tests.' + '.'.join(module_parts) + 'test_' + file_match.group(2)
+                            module_parts = (
+                                file_match.group(1).rstrip("/").split("/")
+                                if file_match.group(1)
+                                else []
+                            )
+                            module = (
+                                "tests."
+                                + ".".join(module_parts)
+                                + "test_"
+                                + file_match.group(2)
+                            )
                             method = file_match.group(3)
                             # Look forward up to 10 lines to find the full test name
-                            for k in range(i+1, min(i+10, len(lines))):
+                            for k in range(i + 1, min(i + 10, len(lines))):
                                 full_test_line = lines[k].strip()
-                                if re.match(r'^tests(\.\w+)+$', full_test_line) and module in full_test_line and method in full_test_line:
+                                if (
+                                    re.match(r"^tests(\.\w+)+$", full_test_line)
+                                    and module in full_test_line
+                                    and method in full_test_line
+                                ):
                                     failed_tests.add(full_test_line)
                                     break
                             break
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

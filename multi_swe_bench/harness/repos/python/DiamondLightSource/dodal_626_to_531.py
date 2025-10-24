@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -89,7 +89,7 @@ cat venv/lib/python3.11/site-packages/ophyd_async/panda/__init__.py
 ###ACTION_DELIMITER###
 venv/bin/python -c "from ophyd_async.panda import HDFPanda; print('Import successful')"
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 venv/bin/pytest --no-header -rA
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ fi
 #!/bin/bash
 venv/bin/pytest --no-header -rA
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ fi
 #!/bin/bash
 venv/bin/pytest --no-header -rA
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class DODAL_626_TO_531(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,17 +203,19 @@ class DODAL_626_TO_531(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and their statuses
-        passed_pattern = re.compile(r'(tests/[\w/:.[\]()\-]+)\s+PASSED')
-        failed_pattern = re.compile(r'FAILED\s+(tests/[\w/:.[\]()\-]+)')
-        skipped_pattern = re.compile(r'(tests/[\w/:.[\]()\-]+)\s+SKIPPED|SKIPPED\s+(tests/[\w/:.[\]()\-]+)')
+        passed_pattern = re.compile(r"(tests/[\w/:.[\]()\-]+)\s+PASSED")
+        failed_pattern = re.compile(r"FAILED\s+(tests/[\w/:.[\]()\-]+)")
+        skipped_pattern = re.compile(
+            r"(tests/[\w/:.[\]()\-]+)\s+SKIPPED|SKIPPED\s+(tests/[\w/:.[\]()\-]+)"
+        )
         for line in log.splitlines():
             # Check for passed tests
             passed_match = passed_pattern.search(line)
@@ -229,14 +231,17 @@ class DODAL_626_TO_531(Instance):
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
                 # Determine which group matched
-                test_name = skipped_match.group(1) if skipped_match.group(1) else skipped_match.group(2)
+                test_name = (
+                    skipped_match.group(1)
+                    if skipped_match.group(1)
+                    else skipped_match.group(2)
+                )
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

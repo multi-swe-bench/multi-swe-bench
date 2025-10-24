@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -76,7 +76,7 @@ pytest -v -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +100,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class FEATURETOOLS_2705_TO_2661(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,7 +190,6 @@ class FEATURETOOLS_2705_TO_2661(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -204,34 +197,40 @@ class FEATURETOOLS_2705_TO_2661(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        pattern1 = re.compile(r'^(?:\[\s*\d+\]\s+)?(?P<test>.+?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        pattern2 = re.compile(r'^\[\s*\d+\]\s+(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*)\s*$', re.MULTILINE)
+
+        pattern1 = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(?P<test>.+?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$",
+            re.MULTILINE,
+        )
+        pattern2 = re.compile(
+            r"^\[\s*\d+\]\s+(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*)\s*$",
+            re.MULTILINE,
+        )
         # Process pattern1 matches
         for match in pattern1.finditer(log):
-            test = match.group('test').strip()
-            status = match.group('status')
-            if status == 'PASSED':
+            test = match.group("test").strip()
+            status = match.group("status")
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         # Process pattern2 matches
         for match in pattern2.finditer(log):
-            test = match.group('test').strip()
-            status = match.group('status')
-            if status == 'PASSED':
+            test = match.group("test").strip()
+            status = match.group("status")
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

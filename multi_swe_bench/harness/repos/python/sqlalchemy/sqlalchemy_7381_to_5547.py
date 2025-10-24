@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -119,7 +119,7 @@ tox -e py
 ###ACTION_DELIMITER###
 pip install pytest==6.2.5 && bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install pytest-xdist==2.5.0 && bash test_commands.sh"""
+pip install pytest-xdist==2.5.0 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -128,9 +128,7 @@ pip install pytest-xdist==2.5.0 && bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v --tb=native test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v --tb=native test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +154,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v --tb=native test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -222,7 +216,7 @@ class SQLALCHEMY_7381_TO_5547(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -236,7 +230,6 @@ class SQLALCHEMY_7381_TO_5547(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -244,22 +237,25 @@ class SQLALCHEMY_7381_TO_5547(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns for extracting test names and statuses
         # Passed tests patterns
         passed_patterns = [
-            re.compile(r"\[\d+\] (test/.*?) (?:<- .*?)? PASSED \[\s*\d+%\]", re.MULTILINE),
-            re.compile(r"^(test/.*?) PASSED \[\s*\d+%\]", re.MULTILINE)
+            re.compile(
+                r"\[\d+\] (test/.*?) (?:<- .*?)? PASSED \[\s*\d+%\]", re.MULTILINE
+            ),
+            re.compile(r"^(test/.*?) PASSED \[\s*\d+%\]", re.MULTILINE),
         ]
         # Skipped tests patterns
         skipped_patterns = [
             re.compile(r"\[\d+\] (test/.*?) SKIPPED \[\s*\d+%\]", re.MULTILINE),
             re.compile(r"^(test/.*?) SKIPPED \[\s*\d+%\]", re.MULTILINE),
-            re.compile(r"SKIPPED \[\d+\] .*?: '([^']+)' :", re.MULTILINE)
+            re.compile(r"SKIPPED \[\d+\] .*?: '([^']+)' :", re.MULTILINE),
         ]
         # Failed tests patterns
         failed_patterns = [
             re.compile(r"\[\d+\] FAILED (test/.*)$", re.MULTILINE),
-            re.compile(r"^FAILED (test/.*)$", re.MULTILINE)
+            re.compile(r"^FAILED (test/.*)$", re.MULTILINE),
         ]
         # Extract passed tests
         for pattern in passed_patterns:
@@ -276,9 +272,8 @@ class SQLALCHEMY_7381_TO_5547(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

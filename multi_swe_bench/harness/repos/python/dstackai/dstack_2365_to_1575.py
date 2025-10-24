@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ pip install -U '.[all]' -r requirements_dev.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v src/tests --runui --runpostgres' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ chmod +x test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v src/tests --runui --runpostgres
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v src/tests --runui --runpostgres
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v src/tests --runui --runpostgres
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class DSTACK_2365_TO_1575(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class DSTACK_2365_TO_1575(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -191,24 +190,27 @@ class DSTACK_2365_TO_1575(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Define regex patterns to match test lines
-        test_status_pattern = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$')
-        error_pattern = re.compile(r'^ERROR\s+(.+)$')
+        test_status_pattern = re.compile(
+            r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$"
+        )
+        error_pattern = re.compile(r"^ERROR\s+(.+)$")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check for test status lines
             status_match = test_status_pattern.match(line)
             if status_match:
                 test_name = status_match.group(1)
                 status = status_match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check for error lines
@@ -220,9 +222,8 @@ class DSTACK_2365_TO_1575(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

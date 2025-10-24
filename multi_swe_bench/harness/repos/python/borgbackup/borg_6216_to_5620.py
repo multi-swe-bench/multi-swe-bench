@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install python-dateutil
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rA --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA --benchmark-skip --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class BORG_6216_TO_5620(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,22 +176,24 @@ class BORG_6216_TO_5620(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for PASSED tests (test name before or after PASSED)
-        passed_pattern1 = re.compile(r'(src/.*?\.py::[\w:\[\]()_, -\\x*+]+) PASSED\s+\[\s*\d+%\]')
-        passed_pattern2 = re.compile(r'PASSED (src/.*?\.py::[\w:\[\]()_, -\\x*+]+)')
+        passed_pattern1 = re.compile(
+            r"(src/.*?\.py::[\w:\[\]()_, -\\x*+]+) PASSED\s+\[\s*\d+%\]"
+        )
+        passed_pattern2 = re.compile(r"PASSED (src/.*?\.py::[\w:\[\]()_, -\\x*+]+)")
         # Pattern for FAILED tests (test name before or after FAILED)
-        failed_pattern1 = re.compile(r'(src/.*?\.py::[\w:\[\]()_, -\\x*+]+) FAILED')
-        failed_pattern2 = re.compile(r'FAILED (src/.*?\.py::[\w:\[\]()_, -\\x*+]+)')
+        failed_pattern1 = re.compile(r"(src/.*?\.py::[\w:\[\]()_, -\\x*+]+) FAILED")
+        failed_pattern2 = re.compile(r"FAILED (src/.*?\.py::[\w:\[\]()_, -\\x*+]+)")
         # Pattern for SKIPPED tests (test name after SKIPPED [n])
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (src/.*?)(?=: )')
+        skipped_pattern = re.compile(r"SKIPPED \[\d+\] (src/.*?)(?=: )")
         # Find all passed tests
         passed1 = passed_pattern1.findall(log)
         passed2 = passed_pattern2.findall(log)
@@ -214,9 +210,8 @@ class BORG_6216_TO_5620(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

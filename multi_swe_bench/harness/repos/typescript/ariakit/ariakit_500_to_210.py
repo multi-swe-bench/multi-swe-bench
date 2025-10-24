@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -87,7 +87,7 @@ echo -e '#!/bin/bash
 npm test -- --verbose --color=never' > /home/ariakit/test_commands.sh && chmod +x /home/ariakit/test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-yarn test --verbose --color=never' > /home/ariakit/test_commands.sh && chmod +x /home/ariakit/test_commands.sh"""
+yarn test --verbose --color=never' > /home/ariakit/test_commands.sh && chmod +x /home/ariakit/test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn test --verbose --color=never
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ fi
 #!/bin/bash
 yarn test --verbose --color=never
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ fi
 #!/bin/bash
 yarn test --verbose --color=never
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class ARIAKIT_500_TO_210(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,7 +201,6 @@ class ARIAKIT_500_TO_210(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -209,17 +208,18 @@ class ARIAKIT_500_TO_210(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
         # Fix ANSI escape code removal with correct regex
-        log_clean = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', log)
+        log_clean = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", log)
         # Adjust patterns to match log structure (e.g., '  ✓ initial state (70ms)')
         # Capture test name between ✓ and (time), allowing for spaces
         # Make time component optional and capture test names with optional whitespace
-        passed_pattern = re.compile(r'^\s*✓\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE)
         # Failed tests may use '✕' or other markers; adjust pattern for optional time
-        failed_pattern = re.compile(r'^\s*✕\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*✕\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE)
         # Skipped tests pattern (update marker if log uses different symbol)
-        skipped_pattern = re.compile(r'^\s*○\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s*○\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE)
         # Extract test names
         passed_tests = set(passed_pattern.findall(log_clean))
         failed_tests = set(failed_pattern.findall(log_clean))
@@ -227,9 +227,8 @@ class ARIAKIT_500_TO_210(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

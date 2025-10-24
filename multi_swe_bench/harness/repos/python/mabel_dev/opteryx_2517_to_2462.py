@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ python -m pytest -v -n auto --color=yes -k "not gcs and not valkey and not icebe
 echo -e 'export MANUAL_TEST=1
 python -m pytest -v -n auto --color=yes -k "not gcs and not valkey and not iceberg and not postgres and not cockroach and not mysql and not memcached and not redis and not duckdb and not datastax and not minio and not mongo and not s3 and not documentation and not connector"' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,7 +118,7 @@ cd /home/[[REPO_NAME]]
 export MANUAL_TEST=1
 python -m pytest -v -n auto --color=yes -k "not gcs and not valkey and not iceberg and not postgres and not cockroach and not mysql and not memcached and not redis and not duckdb and not datastax and not minio and not mongo and not s3 and not documentation and not connector"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v -n auto --color=yes -k "not gcs and not valkey and not iceberg and not postgres and not cockroach and not mysql and not memcached and not redis and not duckdb and not datastax and not minio and not mongo and not s3 and not documentation and not connector"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -146,7 +146,7 @@ fi
 export MANUAL_TEST=1
 python -m pytest -v -n auto --color=yes -k "not gcs and not valkey and not iceberg and not postgres and not cockroach and not mysql and not memcached and not redis and not duckdb and not datastax and not minio and not mongo and not s3 and not documentation and not connector"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -208,7 +208,7 @@ class OPTERYX_2517_TO_2462(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -222,30 +222,29 @@ class OPTERYX_2517_TO_2462(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Extract passed tests
-        passed_pattern = re.compile(r'PASSED\s+(.*?)\s*$', re.MULTILINE)
+        passed_pattern = re.compile(r"PASSED\s+(.*?)\s*$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log_clean))
         # Extract failed tests
-        failed_pattern = re.compile(r'FAILED\s+(.*?)\s+-\s', re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED\s+(.*?)\s+-\s", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log_clean))
         # Extract skipped tests
-        skipped_pattern = re.compile(r'SKIPPED\s+(.*?)\s+-\s', re.MULTILINE)
+        skipped_pattern = re.compile(r"SKIPPED\s+(.*?)\s+-\s", re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log_clean))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

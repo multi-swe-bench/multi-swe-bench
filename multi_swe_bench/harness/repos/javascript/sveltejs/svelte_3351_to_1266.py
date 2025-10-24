@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 npm install
 ###ACTION_DELIMITER###
-echo "npm test -- --verbose" > /home/svelte/test_commands.sh"""
+echo "npm test -- --verbose" > /home/svelte/test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo "npm test -- --verbose" > /home/svelte/test_commands.sh"""
 cd /home/{pr.repo}
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class SVELTE_3351_TO_1266(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,30 +162,29 @@ class SVELTE_3351_TO_1266(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         for line in log.splitlines():
             line = line.strip()
-            if line.startswith('✓'):
-                passed_tests.add(line.replace('✓', '').strip())
-            elif re.match(r'^\d+\)', line):
-                test_name = re.sub(r'^\d+\)\s*', '', line)
+            if line.startswith("✓"):
+                passed_tests.add(line.replace("✓", "").strip())
+            elif re.match(r"^\d+\)", line):
+                test_name = re.sub(r"^\d+\)\s*", "", line)
                 failed_tests.add(test_name)
-            elif line.startswith('- '):
-                skipped_tests.add(line.replace('- ', '').strip())
+            elif line.startswith("- "):
+                skipped_tests.add(line.replace("- ", "").strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

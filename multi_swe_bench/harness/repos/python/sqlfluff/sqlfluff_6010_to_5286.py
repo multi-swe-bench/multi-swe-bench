@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ echo 'pytest -vv -rsfE test/' > /home/sqlfluff/test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class SQLFLUFF_6010_TO_5286(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,29 +182,28 @@ class SQLFLUFF_6010_TO_5286(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Simplified patterns matching test names directly
         # Passed tests: test_name followed by PASSED
-        passed_pattern = re.compile(r'(test/.*?::.*?)\s+PASSED', re.IGNORECASE)
+        passed_pattern = re.compile(r"(test/.*?::.*?)\s+PASSED", re.IGNORECASE)
         passed_tests.update(passed_pattern.findall(log))
         # Failed tests: FAILED followed by test_name
-        failed_pattern = re.compile(r'FAILED\s+(test/.*?::.*?)\s+-', re.DOTALL)
+        failed_pattern = re.compile(r"FAILED\s+(test/.*?::.*?)\s+-", re.DOTALL)
         failed_tests.update(failed_pattern.findall(log))
         # Skipped tests: SKIPPED [1] followed by test file and line
-        skipped_pattern = re.compile(r'SKIPPED\s+\[\d+\]\s+(test/.*?):', re.DOTALL)
+        skipped_pattern = re.compile(r"SKIPPED\s+\[\d+\]\s+(test/.*?):", re.DOTALL)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

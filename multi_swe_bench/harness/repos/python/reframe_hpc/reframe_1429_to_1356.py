@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ source reframe-venv/bin/activate
 ###ACTION_DELIMITER###
 echo "./test_reframe.py -v" > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class REFRAME_1429_TO_1356(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,18 +188,18 @@ class REFRAME_1429_TO_1356(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: test_name followed by status (e.g., "test.py::test PASSED [ 0%]")
-        pattern1 = re.compile(r'^(.+?::.+?)\s+(PASSED|FAILED|SKIPPED)\s+.*$')
+        pattern1 = re.compile(r"^(.+?::.+?)\s+(PASSED|FAILED|SKIPPED)\s+.*$")
         # Pattern 2: status followed by test_name (e.g., "FAILED test.py::test - error")
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(.+?::.+?)\s+.*$')
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(.+?::.+?)\s+.*$")
         for line in log.splitlines():
             line = line.strip()
             match1 = pattern1.match(line)
@@ -219,18 +213,17 @@ class REFRAME_1429_TO_1356(Instance):
                     test_name = match2.group(2).strip()
                 else:
                     continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

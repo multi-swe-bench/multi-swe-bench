@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -89,7 +89,7 @@ cat dev-requirements.txt
 ###ACTION_DELIMITER###
 pip install -r dev-requirements.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class PREFECT_1786_TO_1673(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,30 +200,30 @@ class PREFECT_1786_TO_1673(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json  # Not used, but kept as per skeleton
+
         # Pattern for PASSED/FAILED tests
-        test_pattern = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED)\s+\[\s*\d+%\]\s*$')
+        test_pattern = re.compile(r"^(tests/.*?)\s+(PASSED|FAILED)\s+\[\s*\d+%\]\s*$")
         # Pattern for SKIPPED tests
-        skipped_pattern = re.compile(r'^SKIPPED\s+\[\d+\]\s+(tests/.*?):.*')
+        skipped_pattern = re.compile(r"^SKIPPED\s+\[\d+\]\s+(tests/.*?):.*")
         # Pattern for XFAIL tests (added to failed_tests)
-        xpass_pattern = re.compile(r'^XPASS\s+(tests/.*?)\s+-\s+.*')
-        xfail_pattern = re.compile(r'^XFAIL\s+(tests/.*?)\s+-\s+.*')
-        for line in log.split('\n'):
+        xpass_pattern = re.compile(r"^XPASS\s+(tests/.*?)\s+-\s+.*")
+        xfail_pattern = re.compile(r"^XFAIL\s+(tests/.*?)\s+-\s+.*")
+        for line in log.split("\n"):
             # Check for PASSED/FAILED tests
             match = test_pattern.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
                 continue
             # Check for XPASS tests
@@ -253,9 +247,8 @@ class PREFECT_1786_TO_1673(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install pytest-xdist
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class DATASETS_5079_TO_4372(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,28 +181,33 @@ class DATASETS_5079_TO_4372(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests (format: [line] [gwX] PASSED tests/...)
-        passed_pattern = re.compile(r'(?:\[\d+\]\s*)?\[gw\d+\] PASSED (tests/.*)(?=\s|$)')
+        passed_pattern = re.compile(
+            r"(?:\[\d+\]\s*)?\[gw\d+\] PASSED (tests/.*)(?=\s|$)"
+        )
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests (formats: [line] [gwX] FAILED/ERROR tests/..., [line] ERROR/FAILED tests/...)
-        failed_pattern = re.compile(r'(?:\[\d+\]\s*)?(?:\[gw\d+\] (?:FAILED|ERROR)|ERROR|FAILED) (tests/.*)(?=\s|$| - )')
+        failed_pattern = re.compile(
+            r"(?:\[\d+\]\s*)?(?:\[gw\d+\] (?:FAILED|ERROR)|ERROR|FAILED) (tests/.*)(?=\s|$| - )"
+        )
         failed_tests.update(failed_pattern.findall(log))
         # Extract skipped tests (formats: [line] [gwX] SKIPPED tests/..., [line] SKIPPED tests/...)
-        skipped_pattern = re.compile(r'(?:\[\d+\]\s*)?(?:\[gw\d+\] SKIPPED|SKIPPED) (tests/.*)(?=\s|$| - )')
+        skipped_pattern = re.compile(
+            r"(?:\[\d+\]\s*)?(?:\[gw\d+\] SKIPPED|SKIPPED) (tests/.*)(?=\s|$| - )"
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

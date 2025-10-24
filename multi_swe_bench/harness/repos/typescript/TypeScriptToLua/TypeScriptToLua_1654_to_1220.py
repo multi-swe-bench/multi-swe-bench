@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ bash /home/TypeScriptToLua/test_commands.sh
 ###ACTION_DELIMITER###
 npm run build
 ###ACTION_DELIMITER###
-bash /home/TypeScriptToLua/test_commands.sh"""
+bash /home/TypeScriptToLua/test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ bash /home/TypeScriptToLua/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class TYPESCRIPTTOLUA_1654_TO_1220(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,7 +169,6 @@ class TYPESCRIPTTOLUA_1654_TO_1220(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -177,21 +176,21 @@ class TYPESCRIPTTOLUA_1654_TO_1220(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Parse passed tests (marked with ✓ and time in ms)
-        passed_matches = re.findall(r'✓ (.*?) \(\d+ ms\)', log)
+        passed_matches = re.findall(r"✓ (.*?) \(\d+ ms\)", log)
         passed_tests.update(passed_matches)
         # Parse failed tests (marked with ●)
-        failed_matches = re.findall(r'● (.*)', log)
+        failed_matches = re.findall(r"● (.*)", log)
         failed_tests.update(failed_matches)
         # Parse skipped tests (marked with ○ skipped)
-        skipped_matches = re.findall(r'○ skipped (.*)', log)
+        skipped_matches = re.findall(r"○ skipped (.*)", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

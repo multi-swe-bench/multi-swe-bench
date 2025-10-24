@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.6-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -75,7 +75,7 @@ py.test --verbose --ignore=tests/test_utils.py tests/
 ###ACTION_DELIMITER###
 pip install pytest-xdist==3.0.2
 ###ACTION_DELIMITER###
-echo "py.test --verbose --ignore=tests/test_utils.py tests/" > test_commands.sh"""
+echo "py.test --verbose --ignore=tests/test_utils.py tests/" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ echo "py.test --verbose --ignore=tests/test_utils.py tests/" > test_commands.sh"
 cd /home/{pr.repo}
 py.test --verbose --ignore=tests/test_utils.py tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 py.test --verbose --ignore=tests/test_utils.py tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 py.test --verbose --ignore=tests/test_utils.py tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class REQUESTS_4137_TO_3036(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,35 +186,34 @@ class REQUESTS_4137_TO_3036(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         for line in log.splitlines():
             if " PASSED " in line:
-                match = re.search(r'^(tests/.*?) PASSED', line)
+                match = re.search(r"^(tests/.*?) PASSED", line)
                 if match:
                     passed_tests.add(match.group(1).strip())
             elif " FAILED " in line:
-                match = re.search(r'^(tests/.*?) FAILED', line)
+                match = re.search(r"^(tests/.*?) FAILED", line)
                 if match:
                     failed_tests.add(match.group(1).strip())
             elif " SKIPPED " in line:
-                match = re.search(r'^(tests/.*?) SKIPPED', line)
+                match = re.search(r"^(tests/.*?) SKIPPED", line)
                 if match:
                     skipped_tests.add(match.group(1).strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

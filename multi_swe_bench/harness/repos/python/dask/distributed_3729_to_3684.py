@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -130,7 +130,7 @@ bash test_commands.sh
 echo -e '#!/bin/bash
 conda run -n dask-distributed pytest -v distributed --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/dashboard/tests --ignore=distributed/tests/test_core.py' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -140,9 +140,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 conda run -n dask-distributed pytest -v distributed --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/dashboard/tests --ignore=distributed/tests/test_core.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +154,7 @@ fi
 #!/bin/bash
 conda run -n dask-distributed pytest -v distributed --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/dashboard/tests --ignore=distributed/tests/test_core.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -172,9 +168,7 @@ fi
 #!/bin/bash
 conda run -n dask-distributed pytest -v distributed --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/dashboard/tests --ignore=distributed/tests/test_core.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -236,7 +230,7 @@ class DISTRIBUTED_3729_TO_3684(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -250,46 +244,45 @@ class DISTRIBUTED_3729_TO_3684(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test results
         # Pattern 1: Matches lines like "test_path::test_name STATUS [  %]"
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]")
         # Pattern 2: Matches lines like "XFAIL test_path::test_name" or "XPASS test_path::test_name"
-        pattern2 = re.compile(r'^(XFAIL|XPASS)\s+(.+?)$')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(XFAIL|XPASS)\s+(.+?)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for pattern1
             match = pattern1.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Check for pattern2
             match = pattern2.match(line)
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'XFAIL':
+                if status == "XFAIL":
                     failed_tests.add(test_name)
-                elif status == 'XPASS':
+                elif status == "XPASS":
                     passed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

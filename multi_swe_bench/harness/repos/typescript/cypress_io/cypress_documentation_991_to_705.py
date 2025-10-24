@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ echo -e '#!/bin/bash
 npm test -- --verbose
 npx start-server-and-test start http://localhost:2222 "cypress run --verbose"' > /home/cypress-documentation/test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x /home/cypress-documentation/test_commands.sh"""
+chmod +x /home/cypress-documentation/test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ cd /home/[[REPO_NAME]]
 npm test -- --verbose
 npx start-server-and-test start http://localhost:2222 "cypress run --verbose"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ fi
 npm test -- --verbose
 npx start-server-and-test start http://localhost:2222 "cypress run --verbose"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ fi
 npm test -- --verbose
 npx start-server-and-test start http://localhost:2222 "cypress run --verbose"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class CYPRESS_DOCUMENTATION_991_TO_705(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,30 +191,34 @@ class CYPRESS_DOCUMENTATION_991_TO_705(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         # Regex patterns for test statuses (adjust based on log patterns)
         # Passed tests: matches '✓ test_name (time)'
-        passed_pattern = re.compile(r'✓\s+(.+?)\s+\(\d+ms\)', )
+        passed_pattern = re.compile(
+            r"✓\s+(.+?)\s+\(\d+ms\)",
+        )
         # Failed tests: assume '✕' marker (adjust if logs use different symbols)
-        failed_pattern = re.compile(r'✕\s+(.+?)\s+\(\d+ms\)', )
+        failed_pattern = re.compile(
+            r"✕\s+(.+?)\s+\(\d+ms\)",
+        )
         # Skipped tests: assume 'SKIPPED' prefix (adjust based on logs)
-        skipped_pattern = re.compile(r'SKIPPED\s+(.+)', )
+        skipped_pattern = re.compile(
+            r"SKIPPED\s+(.+)",
+        )
         # Extract test names
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
         skipped_tests.update(skipped_pattern.findall(log))
         # Handle summary lines if individual tests aren't captured (fallback)
-            # If no failed tests found, use summary count (placeholder logic)
+        # If no failed tests found, use summary count (placeholder logic)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

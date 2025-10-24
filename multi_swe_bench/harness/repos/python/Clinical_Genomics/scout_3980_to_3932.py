@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pgrep mongod || mongod --fork --logpath /var/log/mongodb.log && bash test_comman
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y wkhtmltopdf
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ fi
 source venv/bin/activate
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -138,9 +134,7 @@ fi
 source venv/bin/activate
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -202,7 +196,7 @@ class SCOUT_3980_TO_3932(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -216,35 +210,36 @@ class SCOUT_3980_TO_3932(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test cases with PASSED, FAILED, or SKIPPED status
-        pattern_test_first = r'(tests/[^\s]+).*?(PASSED|FAILED|SKIPPED)'
-        pattern_status_first = r'(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)'
+        pattern_test_first = r"(tests/[^\s]+).*?(PASSED|FAILED|SKIPPED)"
+        pattern_status_first = r"(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)"
         # Find matches where test name comes first, then status
         matches_test_first = re.findall(pattern_test_first, log, re.MULTILINE)
         # Find matches where status comes first, then test name
         matches_status_first = re.findall(pattern_status_first, log, re.MULTILINE)
         # Combine matches into a list of (test_name, status) tuples
-        matches = matches_test_first + [(test, status) for (status, test) in matches_status_first]
+        matches = matches_test_first + [
+            (test, status) for (status, test) in matches_status_first
+        ]
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

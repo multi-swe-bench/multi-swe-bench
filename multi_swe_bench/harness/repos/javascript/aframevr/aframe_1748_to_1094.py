@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ xvfb-run npm test -- --browsers Chrome,firefox_latest --single-run
 ###ACTION_DELIMITER###
 xvfb-run npm test -- --browsers Chromium,Firefox --single-run --verbose
 ###ACTION_DELIMITER###
-echo 'xvfb-run npm test -- --browsers Firefox --single-run --verbose' > /home/aframe/test_commands.sh"""
+echo 'xvfb-run npm test -- --browsers Firefox --single-run --verbose' > /home/aframe/test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ echo 'xvfb-run npm test -- --browsers Firefox --single-run --verbose' > /home/af
 cd /home/[[REPO_NAME]]
 xvfb-run npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run npm test -- --browsers Firefox --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class AFRAME_1748_TO_1094(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,7 +177,6 @@ class AFRAME_1748_TO_1094(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -185,36 +184,38 @@ class AFRAME_1748_TO_1094(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Helper function to strip ANSI escape codes
         def strip_ansi(s):
-            return re.sub(r'\x1b\[[0-9;]*m', '', s)
+            return re.sub(r"\x1b\[[0-9;]*m", "", s)
+
         # Strip ANSI codes from the log
         stripped_log = strip_ansi(log)
-        lines = stripped_log.split('\n')
+        lines = stripped_log.split("\n")
         current_hierarchy = []
         for line in lines:
             # Strip line number prefix (e.g., [   1] )
-            line = re.sub(r'^\[\s*\d+\]\s*', '', line)
-            leading_spaces = len(line) - len(line.lstrip(' '))
-            content = line.lstrip(' ')
+            line = re.sub(r"^\[\s*\d+\]\s*", "", line)
+            leading_spaces = len(line) - len(line.lstrip(" "))
+            content = line.lstrip(" ")
             # Skip lines with log warnings/errors
-            if 'WARN' in content or 'ERROR' in content:
+            if "WARN" in content or "ERROR" in content:
                 continue
-            if '✔' in content:
+            if "✔" in content:
                 # Extract test description
-                test_desc = content.split('✔', 1)[1].strip()
+                test_desc = content.split("✔", 1)[1].strip()
                 # Skip summary phrases
-                if 'tests completed' in test_desc or 'tests failed' in test_desc:
+                if "tests completed" in test_desc or "tests failed" in test_desc:
                     continue
                 # Combine with current hierarchy
-                full_test_name = '.'.join(current_hierarchy + [test_desc])
+                full_test_name = ".".join(current_hierarchy + [test_desc])
                 passed_tests.add(full_test_name)
-            elif '✖' in content:
-                test_desc = content.split('✖', 1)[1].strip()
+            elif "✖" in content:
+                test_desc = content.split("✖", 1)[1].strip()
                 # Skip summary phrases
-                if 'tests failed' in test_desc:
+                if "tests failed" in test_desc:
                     continue
-                full_test_name = '.'.join(current_hierarchy + [test_desc])
+                full_test_name = ".".join(current_hierarchy + [test_desc])
                 failed_tests.add(full_test_name)
             else:
                 # Check if it's a section line (not a test)
@@ -222,13 +223,33 @@ class AFRAME_1748_TO_1094(Instance):
                 if not content:
                     continue
                 # Skip log lines, section headers, header commands, and summary timings
-                if content.startswith(('Firefox', 'LOG:', 'INFO', 'WARN', 'ERROR', '15 09 2025', 'START:', 'SUMMARY:', '>')) or 'Finished in' in content:
+                if (
+                    content.startswith(
+                        (
+                            "Firefox",
+                            "LOG:",
+                            "INFO",
+                            "WARN",
+                            "ERROR",
+                            "15 09 2025",
+                            "START:",
+                            "SUMMARY:",
+                            ">",
+                        )
+                    )
+                    or "Finished in" in content
+                ):
                     continue
                 # Skip error messages and summary phrases
-                if 'Expected' in content or 'AssertionError' in content or 'tests completed' in content or 'tests failed' in content:
+                if (
+                    "Expected" in content
+                    or "AssertionError" in content
+                    or "tests completed" in content
+                    or "tests failed" in content
+                ):
                     continue
                 # Handle FAILED TESTS section by resetting hierarchy
-                if content == 'FAILED TESTS:':
+                if content == "FAILED TESTS:":
                     current_hierarchy = []
                     continue
                 # Determine hierarchy level (assuming 2 spaces per level)
@@ -238,13 +259,12 @@ class AFRAME_1748_TO_1094(Instance):
                     current_hierarchy = [content]
                 else:
                     # Truncate to (level - 1) and append the new section
-                    current_hierarchy = current_hierarchy[:level-1] + [content]
+                    current_hierarchy = current_hierarchy[: level - 1] + [content]
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

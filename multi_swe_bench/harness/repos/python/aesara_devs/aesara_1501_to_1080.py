@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -69,7 +69,7 @@ echo 'pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/' > test_
 ###ACTION_DELIMITER###
 pip install pytest-xdist
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -93,9 +91,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +104,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -n auto --no-header -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -172,7 +166,7 @@ class AESARA_1501_TO_1080(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,24 +180,33 @@ class AESARA_1501_TO_1080(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test status lines
         # Adjust patterns to be more flexible (optional line numbers, ignore case)
         # Refine patterns to match test name structure (tests/...::...)
         # Refine patterns to capture test names with parameters
-        passed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?PASSED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$', re.MULTILINE)
-        failed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?FAILED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?PASSED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$",
+            re.MULTILINE,
+        )
+        failed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?FAILED\s+(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)(?:\s+-.*)?$",
+            re.MULTILINE,
+        )
         # Adjust to match skipped tests with flexible separators and positions
         # Capture test names followed by 'skipped' in the reason
         # Match skipped tests with same structure as passed/failed
         # Capture test names followed by 'skipped' in the reason
-        skipped_pattern = re.compile(r'(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)\s+[:-]\s*.*skipped', re.MULTILINE | re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"(tests/[\w/]+\.py::[\w:]+(?:\[[^\]]*\])?)\s+[:-]\s*.*skipped",
+            re.MULTILINE | re.IGNORECASE,
+        )
         # Extract test names using the patterns
         passed_tests = set(passed_pattern.findall(log))
         failed_tests = set(failed_pattern.findall(log))
@@ -211,9 +214,8 @@ class AESARA_1501_TO_1080(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -68,7 +68,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,9 +78,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +92,7 @@ fi
 #!/bin/bash
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ fi
 #!/bin/bash
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class AIOHTTP_9874_TO_9566(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,35 +182,34 @@ class AIOHTTP_9874_TO_9566(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse passed tests (capture full test name until end of identifier)
-        passed_pattern = re.compile(r'PASSED (tests/.*?)(?=\s|$)')
+        passed_pattern = re.compile(r"PASSED (tests/.*?)(?=\s|$)")
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
         # Parse failed tests (capture full test name until end of identifier)
-        failed_pattern = re.compile(r'FAILED (tests/.*?)(?=\s|$)')
+        failed_pattern = re.compile(r"FAILED (tests/.*?)(?=\s|$)")
         failed_matches = failed_pattern.findall(log)
         failed_tests.update(failed_matches)
         # Parse skipped tests (capture full test identifier including line number)
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (.*?): ')
+        skipped_pattern = re.compile(r"SKIPPED \[\d+\] (.*?): ")
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests.update(skipped_matches)
         # Parse XFAIL tests (treat as failed)
-        xfail_pattern = re.compile(r'XFAIL (tests/.*?)(?=\s|$)')
+        xfail_pattern = re.compile(r"XFAIL (tests/.*?)(?=\s|$)")
         xfail_matches = xfail_pattern.findall(log)
         failed_tests.update(xfail_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ pip install -e .[dev,stats]
 ###ACTION_DELIMITER###
 ls ci
 ###ACTION_DELIMITER###
-echo "pytest --no-header -rA --tb=no -p no:cacheprovider" > test_commands.sh"""
+echo "pytest --no-header -rA --tb=no -p no:cacheprovider" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo "pytest --no-header -rA --tb=no -p no:cacheprovider" > test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class SEABORN_3190_TO_3084(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,13 +164,13 @@ class SEABORN_3190_TO_3084(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex to capture the test status and name
         passed_pattern = re.compile(r"^PASSED\s+(.*)")
         failed_pattern = re.compile(r"^FAILED\s+(.*)")
@@ -205,9 +199,8 @@ class SEABORN_3190_TO_3084(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

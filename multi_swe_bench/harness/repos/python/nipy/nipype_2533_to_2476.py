@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ wget -q -O /etc/apt/trusted.gpg.d/neurodebian.gpg https://neurodebian.net/_stati
 echo -e 'source venv/bin/activate
 pytest -v --doctest-modules -k "not mrtrix and not fsl and not ants" nipype' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -95,9 +95,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v --doctest-modules -k "not mrtrix and not fsl and not ants" nipype
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ fi
 source venv/bin/activate
 pytest -v --doctest-modules -k "not mrtrix and not fsl and not ants" nipype
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +123,7 @@ fi
 source venv/bin/activate
 pytest -v --doctest-modules -k "not mrtrix and not fsl and not ants" nipype
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -191,7 +185,7 @@ class NIPYPE_2533_TO_2476(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,16 +199,16 @@ class NIPYPE_2533_TO_2476(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status lines
         # Pattern matches lines like "[gw3] [  0%] PASSED test_name"
-        pattern = r'(?:\[\s*\d+\]\s+)?(?:\[gw\d+\]\s+\[\s*\d+%\]\s+)?(PASSED|FAILED|SKIPPED|XFAILED|ERROR)\s+([\w\/]+\.py::[\w_.]+(?:::[\w_.]+)*)'
+        pattern = r"(?:\[\s*\d+\]\s+)?(?:\[gw\d+\]\s+\[\s*\d+%\]\s+)?(PASSED|FAILED|SKIPPED|XFAILED|ERROR)\s+([\w\/]+\.py::[\w_.]+(?:::[\w_.]+)*)"
         matches = re.finditer(pattern, log)
         test_status = {}
         for match in matches:
@@ -222,18 +216,17 @@ class NIPYPE_2533_TO_2476(Instance):
             test_name = match.group(2).strip()
             test_status[test_name] = status  # Overwrite with latest status
         for test_name, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XFAILED', 'ERROR'):
+            elif status in ("FAILED", "XFAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

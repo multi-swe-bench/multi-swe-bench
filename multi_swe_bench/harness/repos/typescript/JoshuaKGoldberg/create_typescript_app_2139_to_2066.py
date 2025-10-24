@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ bash test_commands.sh
 echo -e '#!/bin/bash
 pnpm test run --reporter verbose --reporter json --test-timeout 20000' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 pnpm test run --reporter verbose --reporter json --test-timeout 20000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ fi
 #!/bin/bash
 pnpm test run --reporter verbose --reporter json --test-timeout 20000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ fi
 #!/bin/bash
 pnpm test run --reporter verbose --reporter json --test-timeout 20000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -168,7 +168,7 @@ class CREATE_TYPESCRIPT_APP_2139_TO_2066(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,7 +182,6 @@ class CREATE_TYPESCRIPT_APP_2139_TO_2066(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -190,31 +189,31 @@ class CREATE_TYPESCRIPT_APP_2139_TO_2066(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Extract JSON part from log (assuming it's at the end)
         json_match = re.search(r'\{"numTotalTestSuites.*\}', log, re.DOTALL)
         if json_match:
             try:
                 test_data = json.loads(json_match.group())
                 # Process each test result
-                for suite in test_data.get('testResults', []):
-                    for assertion in suite.get('assertionResults', []):
-                        test_name = assertion.get('fullName')
-                        status = assertion.get('status')
+                for suite in test_data.get("testResults", []):
+                    for assertion in suite.get("assertionResults", []):
+                        test_name = assertion.get("fullName")
+                        status = assertion.get("status")
                         if test_name:
-                            if status == 'passed':
+                            if status == "passed":
                                 passed_tests.add(test_name)
-                            elif status == 'failed':
+                            elif status == "failed":
                                 failed_tests.add(test_name)
-                            elif status == 'skipped':
+                            elif status == "skipped":
                                 skipped_tests.add(test_name)
             except json.JSONDecodeError:
                 pass
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

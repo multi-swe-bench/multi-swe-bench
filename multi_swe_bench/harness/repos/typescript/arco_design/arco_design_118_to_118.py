@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -98,7 +98,7 @@ bash -c 'cat << EOF > test_commands.sh
 #!/bin/bash
 yarn test:client --verbose
 yarn test:node --verbose
-EOF'"""
+EOF'""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ cd /home/[[REPO_NAME]]
 yarn test:client --verbose
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ fi
 yarn test:client --verbose
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ fi
 yarn test:client --verbose
 yarn test:node --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class ARCO_DESIGN_118_TO_118(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,29 +215,28 @@ class ARCO_DESIGN_118_TO_118(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract passed tests using regex pattern for "✓" followed by test name and time
-        passed_pattern = r'✓ (.*?) \(\d+ ms\)'
+        passed_pattern = r"✓ (.*?) \(\d+ ms\)"
         passed_tests = set(re.findall(passed_pattern, log))
         # Extract failed tests from snapshot summary lines with "•" followed by test name and count
-        failed_pattern = r'• (renders .*? correctly) \d+'
+        failed_pattern = r"• (renders .*? correctly) \d+"
         failed_tests = set(re.findall(failed_pattern, log))
         # Extract skipped tests (if marked with "−" followed by test name and time)
-        skipped_pattern = r'− (.*?) \(\d+ ms\)'
+        skipped_pattern = r"− (.*?) \(\d+ ms\)"
         skipped_tests = set(re.findall(skipped_pattern, log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

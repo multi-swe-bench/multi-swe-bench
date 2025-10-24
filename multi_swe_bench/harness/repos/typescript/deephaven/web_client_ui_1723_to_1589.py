@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -77,7 +77,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 npx playwright install-deps
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ set -e
 npx jest --verbose --watchAll=false ./...
 npm run e2e -- --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ set -e
 npx jest --verbose --watchAll=false ./...
 npm run e2e -- --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ set -e
 npx jest --verbose --watchAll=false ./...
 npm run e2e -- --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class WEB_CLIENT_UI_1723_TO_1589(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,7 +197,6 @@ class WEB_CLIENT_UI_1723_TO_1589(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -205,41 +204,41 @@ class WEB_CLIENT_UI_1723_TO_1589(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed test suites (PASS followed by test name)
-        pass_suite_pattern = re.compile(r'\[\d+\]\s+PASS\s+(.*?)\s*$', re.MULTILINE)
+        pass_suite_pattern = re.compile(r"\[\d+\]\s+PASS\s+(.*?)\s*$", re.MULTILINE)
         passed_suites = pass_suite_pattern.findall(log)
         passed_tests.update(passed_suites)
         # Parse individual passed tests (✓ with optional leading spaces)
-        pass_test_pattern = re.compile(r'\s*✓\s+(.*?)\s*\(\d+ ms\)', re.MULTILINE)
+        pass_test_pattern = re.compile(r"\s*✓\s+(.*?)\s*\(\d+ ms\)", re.MULTILINE)
         passed_tests_list = pass_test_pattern.findall(log)
         passed_tests.update(passed_tests_list)
         # Parse failed test suites (FAIL followed by test name)
-        fail_suite_pattern = re.compile(r'\[\d+\]\s+FAIL\s+(.*?)\s*$', re.MULTILINE)
+        fail_suite_pattern = re.compile(r"\[\d+\]\s+FAIL\s+(.*?)\s*$", re.MULTILINE)
         failed_suites = fail_suite_pattern.findall(log)
         failed_tests.update(failed_suites)
         # Parse individual failed tests from error context (test name in error messages)
-        fail_test_pattern = re.compile(r'\s*✕\s+(.*?)\s*\(\d+ ms\)', re.MULTILINE)
+        fail_test_pattern = re.compile(r"\s*✕\s+(.*?)\s*\(\d+ ms\)", re.MULTILINE)
         failed_tests_list = fail_test_pattern.findall(log)
         failed_tests.update(failed_tests_list)
         # Extract test names from error file paths if individual failures not captured
-        error_path_pattern = re.compile(r'\((.*?/)?(.*?):\d+:\d+\)', re.MULTILINE)
+        error_path_pattern = re.compile(r"\((.*?/)?(.*?):\d+:\d+\)", re.MULTILINE)
         error_tests = [match[1] for match in error_path_pattern.findall(log)]
         failed_tests.update(error_tests)
         # Parse skipped tests from summary (e.g., '[11079]   75 skipped')
-        skip_count_pattern = re.compile(r'\[\d+\]\s+(\d+)\s+skipped', re.MULTILINE)
+        skip_count_pattern = re.compile(r"\[\d+\]\s+(\d+)\s+skipped", re.MULTILINE)
         skip_count = skip_count_pattern.findall(log)
         if skip_count:
             skipped_tests.add(f"{skip_count[0]} tests skipped")
         # Parse individual skipped tests from entries (e.g., '[webkit] › ...')
-        skip_test_pattern = re.compile(r'\[webkit\] › (.*)', re.MULTILINE)
+        skip_test_pattern = re.compile(r"\[webkit\] › (.*)", re.MULTILINE)
         skipped_tests_list = skip_test_pattern.findall(log)
         skipped_tests.update(skipped_tests_list)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

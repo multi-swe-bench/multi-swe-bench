@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ sed -i '80s/^# SQLITE_PATH=/SQLITE_PATH=\/tmp\/fractal.db/' .fractal_server.env
 ###ACTION_DELIMITER###
 poetry run alembic upgrade head
 ###ACTION_DELIMITER###
-echo 'poetry run pytest -v' > test_commands.sh"""
+echo 'poetry run pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ echo 'poetry run pytest -v' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class FRACTAL_SERVER_221_TO_151(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,25 +175,27 @@ class FRACTAL_SERVER_221_TO_151(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status and percentage
-        pattern = r'(tests/[^:]+::[^ ]+) (PASSED|FAILED|SKIPPED|ERROR)\s*(?:\[\s*\d+%\])?'
+        pattern = (
+            r"(tests/[^:]+::[^ ]+) (PASSED|FAILED|SKIPPED|ERROR)\s*(?:\[\s*\d+%\])?"
+        )
         matches = re.findall(pattern, log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract skipped tests from 'collected' line
-        skipped_collected_pattern = r'.*collected \d+ items\s*/\s*(\d+)\s*skipped'
+        skipped_collected_pattern = r".*collected \d+ items\s*/\s*(\d+)\s*skipped"
         skipped_collected_match = re.search(skipped_collected_pattern, log)
         if skipped_collected_match:
             skipped_count = int(skipped_collected_match.group(1))
@@ -201,19 +203,18 @@ class FRACTAL_SERVER_221_TO_151(Instance):
             if skipped_count > 0 and not skipped_tests:
                 skipped_tests.add(f"skipped_{skipped_count}_tests")
         # Check for summary lines to capture any missing tests
-        summary_pattern = r'(FAILED|ERROR|SKIPPED) (?:\[\d+\] )?(tests/[^:]+::[^ ]+)'
+        summary_pattern = r"(FAILED|ERROR|SKIPPED) (?:\[\d+\] )?(tests/[^:]+::[^ ]+)"
         summary_matches = re.findall(summary_pattern, log)
         for status, test_name in summary_matches:
-            if status in ('FAILED', 'ERROR'):
+            if status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

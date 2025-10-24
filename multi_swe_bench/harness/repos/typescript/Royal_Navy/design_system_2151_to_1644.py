@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ yarn build
 ###ACTION_DELIMITER###
 yarn test
 ###ACTION_DELIMITER###
-echo 'yarn test' > test_commands.sh"""
+echo 'yarn test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ echo 'yarn test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class DESIGN_SYSTEM_2151_TO_1644(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,55 +179,55 @@ class DESIGN_SYSTEM_2151_TO_1644(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Add patterns for file-level test results (handles prefixes like 'royalnavy.io: ')
         result_patterns = [
-            (re.compile(r'PASS\s+(.*\.test\.[jt]sx?)', re.IGNORECASE), 'passed'),
-            (re.compile(r'FAIL\s+(.*\.test\.[jt]sx?)', re.IGNORECASE), 'failed'),
-            (re.compile(r'SKIP\s+(.*\.test\.[jt]sx?)', re.IGNORECASE), 'skipped'),
-            (re.compile(r'✓\s+(.*)'), 'passed'),
-            (re.compile(r'✕\s+(.*)'), 'failed'),
-            (re.compile(r'○\s+(.*)'), 'skipped')
+            (re.compile(r"PASS\s+(.*\.test\.[jt]sx?)", re.IGNORECASE), "passed"),
+            (re.compile(r"FAIL\s+(.*\.test\.[jt]sx?)", re.IGNORECASE), "failed"),
+            (re.compile(r"SKIP\s+(.*\.test\.[jt]sx?)", re.IGNORECASE), "skipped"),
+            (re.compile(r"✓\s+(.*)"), "passed"),
+            (re.compile(r"✕\s+(.*)"), "failed"),
+            (re.compile(r"○\s+(.*)"), "skipped"),
         ]
         current_test = None
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Parse file-level results
             for pattern, status in result_patterns:
                 match = pattern.search(line)
                 if match:
                     test_file = match.group(1).strip()
-                    if status == 'passed':
+                    if status == "passed":
                         passed_tests.add(test_file)
-                    elif status == 'failed':
+                    elif status == "failed":
                         failed_tests.add(test_file)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(test_file)
                     break
             # Capture skipped tests (handles it.skip/test.skip with quotes/backticks)
-            skip_match = re.search(r'''(it|test)\.skip\(\s*["'`](.*?)["'`]''', line)
+            skip_match = re.search(r"""(it|test)\.skip\(\s*["'`](.*?)["'`]""", line)
             if skip_match:
                 test_name = skip_match.group(2).strip()
                 skipped_tests.add(test_name)
                 current_test = None
                 continue
             # Capture test names from it/test blocks (ignores prefixes, handles quotes/backticks)
-            test_match = re.search(r'''(?:.*?)(it|test)\(\s*["'`](.*?)["'`]''', line)
+            test_match = re.search(r"""(?:.*?)(it|test)\(\s*["'`](.*?)["'`]""", line)
             if test_match:
                 current_test = test_match.group(2).strip()
                 passed_tests.add(current_test)  # Assume pass initially
             # Detect failed tests ('>' in stack traces + Jest's failure markers)
-            if current_test and ('>' in line or 'failed' in line.lower()):
+            if current_test and (">" in line or "failed" in line.lower()):
                 passed_tests.discard(current_test)
                 failed_tests.add(current_test)
                 current_test = None
             # Handle explicit SKIP in log lines (handles quotes/backticks)
-            skip_line_match = re.search(r'''SKIP\s+.*?["'`](.*?)["'`]''', line)
+            skip_line_match = re.search(r"""SKIP\s+.*?["'`](.*?)["'`]""", line)
             if skip_line_match:
                 test_name = skip_line_match.group(1).strip()
                 skipped_tests.add(test_name)
@@ -235,9 +235,8 @@ class DESIGN_SYSTEM_2151_TO_1644(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

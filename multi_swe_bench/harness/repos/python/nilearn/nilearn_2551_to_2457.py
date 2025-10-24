@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ pytest -v --doctest-glob=*.rst $(find doc/ -name *.rst) doc/_additional_doctests
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ cd /home/{pr.repo}
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst $(find doc/ -name *.rst) doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ fi
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst $(find doc/ -name *.rst) doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ fi
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst $(find doc/ -name *.rst) doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class NILEARN_2551_TO_2457(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,30 +174,29 @@ class NILEARN_2551_TO_2457(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract all test names from "call" lines
-        all_tests_pattern = re.compile(r'call\s+([\w\/\-\.]+\.py::[\w\-\.]+)')
+        all_tests_pattern = re.compile(r"call\s+([\w\/\-\.]+\.py::[\w\-\.]+)")
         all_tests = set(all_tests_pattern.findall(log))
         # Extract failed tests from "FAILED" lines in summary
-        failed_pattern = re.compile(r'FAILED\s+([\w\/\-\.]+\.py::[\w\-\.]+)\s+-')
+        failed_pattern = re.compile(r"FAILED\s+([\w\/\-\.]+\.py::[\w\-\.]+)\s+-")
         failed_tests = set(failed_pattern.findall(log))
         # Extract skipped tests from "SKIPPED" lines
-        skipped_pattern = re.compile(r'SKIPPED\s+([\w\/\-\.]+\.py::[\w\-\.]+)')
+        skipped_pattern = re.compile(r"SKIPPED\s+([\w\/\-\.]+\.py::[\w\-\.]+)")
         skipped_tests = set(skipped_pattern.findall(log))
         # Calculate passed tests as all tests not failed or skipped
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

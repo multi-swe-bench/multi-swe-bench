@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ echo -e '#!/bin/bash
 set -e
 coverage run -a --branch -m policyengine_core.scripts.policyengine_command test policyengine_us/tests/policy/ -c policyengine_us
 coverage xml -i
-pytest policyengine_us/tests/ --maxfail=0 -v -rA --no-header' > test_commands.sh && chmod +x test_commands.sh"""
+pytest policyengine_us/tests/ --maxfail=0 -v -rA --no-header' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ coverage run -a --branch -m policyengine_core.scripts.policyengine_command test 
 coverage xml -i
 pytest policyengine_us/tests/ --maxfail=0 -v -rA --no-header
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ coverage run -a --branch -m policyengine_core.scripts.policyengine_command test 
 coverage xml -i
 pytest policyengine_us/tests/ --maxfail=0 -v -rA --no-header
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ coverage run -a --branch -m policyengine_core.scripts.policyengine_command test 
 coverage xml -i
 pytest policyengine_us/tests/ --maxfail=0 -v -rA --no-header
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class POLICYENGINE_US_4841_TO_4482(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,28 +203,27 @@ class POLICYENGINE_US_4841_TO_4482(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract test files from progress lines (e.g., 'policyengine_us/tests/...yaml ..........')
-        progress_pattern = re.compile(r'(policyengine_us/tests/.*?\.yaml) ')
+        progress_pattern = re.compile(r"(policyengine_us/tests/.*?\.yaml) ")
         all_tests = set(progress_pattern.findall(log))
         # Extract failed tests from 'FAILED' lines
-        failed_pattern = re.compile(r'FAILED (policyengine_us/tests/.*?\.yaml::?)')
+        failed_pattern = re.compile(r"FAILED (policyengine_us/tests/.*?\.yaml::?)")
         # Strip trailing colons to match progress line test names
-        failed_tests.update([test.rstrip(':') for test in failed_pattern.findall(log)])
+        failed_tests.update([test.rstrip(":") for test in failed_pattern.findall(log)])
         # Passed tests are all test files not in failed/skipped
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

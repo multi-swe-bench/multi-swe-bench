@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -142,7 +142,7 @@ sed -i 's/def add_hooks\s*():/def add_hooks(ctx):/' /home/openFEC/tasks.py
 ###ACTION_DELIMITER###
 sed -i '74s/def add_hooks():/def add_hooks(ctx):/' /home/openFEC/tasks.py
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ sed -i '74s/def add_hooks():/def add_hooks(ctx):/' /home/openFEC/tasks.py
 cd /home/[[REPO_NAME]]
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -177,7 +177,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -239,7 +239,7 @@ class OPENFEC_719_TO_449(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -253,17 +253,19 @@ class OPENFEC_719_TO_449(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_test = None  # Track test name across lines
-        test_pattern = re.compile(r'(test_\w+)\s*\(.*?\)\s*\.\.\.')  # Matches test name
-        status_pattern = re.compile(r'(?:\.\.\.\s*)?(ok|FAIL|ERROR|SKIP)(:.*)?$')  # Matches status with optional ... and message
+        test_pattern = re.compile(r"(test_\w+)\s*\(.*?\)\s*\.\.\.")  # Matches test name
+        status_pattern = re.compile(
+            r"(?:\.\.\.\s*)?(ok|FAIL|ERROR|SKIP)(:.*)?$"
+        )  # Matches status with optional ... and message
         for line in lines:
             # Capture test name if present
             test_match = test_pattern.search(line)
@@ -273,19 +275,18 @@ class OPENFEC_719_TO_449(Instance):
             status_match = status_pattern.search(line)
             if status_match and current_test:
                 status = status_match.group(1)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(current_test)
-                elif status in ['FAIL', 'ERROR']:
+                elif status in ["FAIL", "ERROR"]:
                     failed_tests.add(current_test)
-                elif status == 'SKIP':
+                elif status == "SKIP":
                     skipped_tests.add(current_test)
                 current_test = None  # Reset after processing
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

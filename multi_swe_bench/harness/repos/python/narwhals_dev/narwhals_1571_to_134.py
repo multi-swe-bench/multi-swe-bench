@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 pip install -e . -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh"""
+echo 'pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo 'pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovid
 cd /home/{pr.repo}
 pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest tests --verbose --runslow --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class NARWHALS_1571_TO_134(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,35 +162,34 @@ class NARWHALS_1571_TO_134(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
         pattern = re.compile(
-            r'(?:(tests/.+?)\s+(PASSED|FAILED|XFAIL|SKIPPED)\s+\[\s*\d+%\s*\])|(?:(PASSED|FAILED|XFAIL|SKIPPED)\s+(tests/.+))'
+            r"(?:(tests/.+?)\s+(PASSED|FAILED|XFAIL|SKIPPED)\s+\[\s*\d+%\s*\])|(?:(PASSED|FAILED|XFAIL|SKIPPED)\s+(tests/.+))"
         )
         for match in pattern.finditer(log):
             test1, status1, status2, test2 = match.groups()
             test = test1 if test1 else test2
             status = status1 if status1 else status2
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 skipped_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

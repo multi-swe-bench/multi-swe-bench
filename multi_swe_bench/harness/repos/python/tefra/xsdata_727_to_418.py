@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install docformatter==1.5.0
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class XSDATA_727_TO_418(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,7 +172,6 @@ class XSDATA_727_TO_418(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -186,26 +179,26 @@ class XSDATA_727_TO_418(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Extract passed tests
-        passed_pattern = re.compile(r'(\btests/.*?)\s+PASSED\b')
+        passed_pattern = re.compile(r"(\btests/.*?)\s+PASSED\b")
         for match in passed_pattern.findall(clean_log):
             passed_tests.add(match.strip())
         # Extract failed tests
-        failed_pattern = re.compile(r'FAILED\s+(\btests/.*?)\s+-')
+        failed_pattern = re.compile(r"FAILED\s+(\btests/.*?)\s+-")
         for match in failed_pattern.findall(clean_log):
             failed_tests.add(match.strip())
         # Extract skipped tests
-        skipped_pattern = re.compile(r'SKIPPED\s+\[\d+\]\s+(\btests/[^:]+:\d+)')
+        skipped_pattern = re.compile(r"SKIPPED\s+\[\d+\]\s+(\btests/[^:]+:\d+)")
         for match in skipped_pattern.findall(clean_log):
             skipped_tests.add(match.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

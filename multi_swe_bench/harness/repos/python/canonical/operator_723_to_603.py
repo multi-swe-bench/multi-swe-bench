@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install --force-reinstall --no-cache-dir pyyaml --break-system-packages
 ###ACTION_DELIMITER###
 pip install tox --break-system-packages
 ###ACTION_DELIMITER###
-echo 'tox -v' > test_commands.sh"""
+echo 'tox -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo 'tox -v' > test_commands.sh"""
 cd /home/{pr.repo}
 tox -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 tox -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 tox -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class OPERATOR_723_TO_603(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,29 +172,28 @@ class OPERATOR_723_TO_603(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str] # Tests that passed successfully
-        failed_tests = set[str] # Tests that failed
-        skipped_tests = set[str] # Tests that were skipped
+        passed_tests = set[str]  # Tests that passed successfully
+        failed_tests = set[str]  # Tests that failed
+        skipped_tests = set[str]  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[32mPASSED\x1b\[0m')
+        passed_pattern = re.compile(r"(test/[\w\/\.::]+) \x1b\[32mPASSED\x1b\[0m")
         passed_tests = set(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[31mFAILED\x1b\[0m')
+        failed_pattern = re.compile(r"(test/[\w\/\.::]+) \x1b\[31mFAILED\x1b\[0m")
         failed_tests = set(failed_pattern.findall(log))
         # Parse skipped tests
-        skipped_pattern = re.compile(r'(test/[\w\/\.::]+) \x1b\[33mSKIPPED\x1b\[0m')
+        skipped_pattern = re.compile(r"(test/[\w\/\.::]+) \x1b\[33mSKIPPED\x1b\[0m")
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

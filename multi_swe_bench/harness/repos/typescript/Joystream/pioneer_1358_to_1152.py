@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ yarn build
 ###ACTION_DELIMITER###
 NODE_OPTIONS=--openssl-legacy-provider yarn build
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 NODE_OPTIONS=--max_old_space_size=7000 yarn workspace ui test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_OPTIONS=--max_old_space_size=7000 yarn workspace ui test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_OPTIONS=--max_old_space_size=7000 yarn workspace ui test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class PIONEER_1358_TO_1152(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,37 +175,42 @@ class PIONEER_1358_TO_1152(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         test_status = {}
         # Track latest status for each test using a dictionary
-        passed_pattern = re.compile(r'.*✓\s+(.+?)\s*(?:\(\d+ ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r".*✓\s+(.+?)\s*(?:\(\d+ ms\))?$", re.MULTILINE)
         for match in passed_pattern.finditer(log):
             test_name = match.group(1).strip()
-            test_status[test_name] = 'passed'
-        failed_pattern = re.compile(r'.*✕\s+(.+?)\s*(?:\(\d+ ms\))?$', re.MULTILINE)
+            test_status[test_name] = "passed"
+        failed_pattern = re.compile(r".*✕\s+(.+?)\s*(?:\(\d+ ms\))?$", re.MULTILINE)
         for match in failed_pattern.finditer(log):
             test_name = match.group(1).strip()
-            test_status[test_name] = 'failed'
-        skipped_pattern = re.compile(r'.*○\s+(.+?)\s*(?:\(\d+ ms\))?$', re.MULTILINE)
+            test_status[test_name] = "failed"
+        skipped_pattern = re.compile(r".*○\s+(.+?)\s*(?:\(\d+ ms\))?$", re.MULTILINE)
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1).strip()
-            test_status[test_name] = 'skipped'
+            test_status[test_name] = "skipped"
         # Populate sets based on the latest status
-        passed_tests = set(name for name, status in test_status.items() if status == 'passed')
-        failed_tests = set(name for name, status in test_status.items() if status == 'failed')
-        skipped_tests = set(name for name, status in test_status.items() if status == 'skipped')
+        passed_tests = set(
+            name for name, status in test_status.items() if status == "passed"
+        )
+        failed_tests = set(
+            name for name, status in test_status.items() if status == "failed"
+        )
+        skipped_tests = set(
+            name for name, status in test_status.items() if status == "skipped"
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

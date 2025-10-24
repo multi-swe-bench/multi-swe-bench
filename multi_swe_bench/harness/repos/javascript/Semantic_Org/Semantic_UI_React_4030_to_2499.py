@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ apt-get update && apt-get install -y libxrandr2
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libnss3 libxss1 libasound2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libpango-1.0-0 libx11-xcb1 libxcb-dri3-0 libxcomposite1 libxdamage1 libxfixes3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class SEMANTIC_UI_REACT_4030_TO_2499(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class SEMANTIC_UI_REACT_4030_TO_2499(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -189,29 +188,34 @@ class SEMANTIC_UI_REACT_4030_TO_2499(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         stack: list[tuple[str, int]] = []
         for line in lines:
             # Extract content after line number
             content = line
             # Remove ANSI escape codes (color codes)
-            content = re.sub(r'\x1b\[[0-9;]*m', '', content)
+            content = re.sub(r"\x1b\[[0-9;]*m", "", content)
             # Calculate indent level (number of leading spaces)
-            indent_level = len(content) - len(content.lstrip(' '))
+            indent_level = len(content) - len(content.lstrip(" "))
             # Check if it's a test line (has status symbol)
-            test_match = re.search(r'\s*([✔✓√✖⚠])\s+(.*)', content)
+            test_match = re.search(r"\s*([✔✓√✖⚠])\s+(.*)", content)
             if test_match:
                 status = test_match.group(1)
                 test_desc = test_match.group(2).strip()
                 # Get current group from stack
-                current_group = ' '.join([g[0] for g in stack]) if stack else ''
-                test_name = f"{current_group} {test_desc}".strip() if current_group else test_desc
+                current_group = " ".join([g[0] for g in stack]) if stack else ""
+                test_name = (
+                    f"{current_group} {test_desc}".strip()
+                    if current_group
+                    else test_desc
+                )
                 # Determine status
-                if status == '✔':
+                if status == "✔":
                     passed_tests.add(test_name)
-                elif status == '✖':
+                elif status == "✖":
                     failed_tests.add(test_name)
-                elif status == '⚠':
+                elif status == "⚠":
                     # Handle slow tests if needed; for now, skip
                     pass
                 else:
@@ -223,19 +227,32 @@ class SEMANTIC_UI_REACT_4030_TO_2499(Instance):
                 if not group_text:
                     continue  # Skip empty lines
                 # Skip non-test group lines (contains log keywords)
-                non_test_keywords = {'ERROR', 'INFO', 'WARN', 'yarn', 'node', 'Compiled', 'Built', 'Starting', 'Finished', 'Time:', 'Entrypoint', 'Browserslist', 'Error from chokidar'}
+                non_test_keywords = {
+                    "ERROR",
+                    "INFO",
+                    "WARN",
+                    "yarn",
+                    "node",
+                    "Compiled",
+                    "Built",
+                    "Starting",
+                    "Finished",
+                    "Time:",
+                    "Entrypoint",
+                    "Browserslist",
+                    "Error from chokidar",
+                }
                 if any(keyword in group_text for keyword in non_test_keywords):
                     continue
                 # Pop stack until we find a group with indent_level < current indent_level
                 while stack and stack[-1][1] >= indent_level:
                     stack.pop()
-                stack.append( (group_text, indent_level) )
+                stack.append((group_text, indent_level))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

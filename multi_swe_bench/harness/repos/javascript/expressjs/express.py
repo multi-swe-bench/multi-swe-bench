@@ -115,9 +115,7 @@ fi
 echo "check_git_changes: No uncommitted changes"
 exit 0
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ bash /home/check_git_changes.sh
 
 npm install || true
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +141,7 @@ set -e
 
 cd /home/{pr.repo}
 npm run test-ci -- --reporter json
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -159,9 +153,7 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 npm run test-ci -- --reporter json 
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -173,9 +165,7 @@ cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 npm run test-ci -- --reporter json
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 

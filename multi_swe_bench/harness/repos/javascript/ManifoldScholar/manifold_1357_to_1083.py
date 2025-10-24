@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ruby:3.2-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ cat ../Gemfile
 ###ACTION_DELIMITER###
 cat package.json
 ###ACTION_DELIMITER###
-echo 'yarn --cwd client test' > /home/manifold/test_commands.sh"""
+echo 'yarn --cwd client test' > /home/manifold/test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ echo 'yarn --cwd client test' > /home/manifold/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn --cwd client test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn --cwd client test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn --cwd client test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class MANIFOLD_1357_TO_1083(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,49 +189,49 @@ class MANIFOLD_1357_TO_1083(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         current_describe = None
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.rstrip()
             # Check for describe block (two spaces, not four)
-            if line.startswith('  ') and not line.startswith('    '):
+            if line.startswith("  ") and not line.startswith("    "):
                 current_describe = line.strip()
             # Check for passed test (four spaces, ✓)
-            elif line.startswith('    ✓ '):
+            elif line.startswith("    ✓ "):
                 if current_describe is None:
                     continue
-                test_part = line.split('✓ ', 1)[1]
+                test_part = line.split("✓ ", 1)[1]
                 # Remove time suffix
-                if ' (' in test_part:
-                    test_desc = test_part.rsplit(' (', 1)[0].strip()
+                if " (" in test_part:
+                    test_desc = test_part.rsplit(" (", 1)[0].strip()
                 else:
                     test_desc = test_part.strip()
                 test_name = f"{current_describe} {test_desc}"
                 passed_tests.add(test_name)
             # Check for failed test (four spaces, ✕)
-            elif line.startswith('    ✕ '):
+            elif line.startswith("    ✕ "):
                 if current_describe is None:
                     continue
-                test_part = line.split('✕ ', 1)[1]
-                if ' (' in test_part:
-                    test_desc = test_part.rsplit(' (', 1)[0].strip()
+                test_part = line.split("✕ ", 1)[1]
+                if " (" in test_part:
+                    test_desc = test_part.rsplit(" (", 1)[0].strip()
                 else:
                     test_desc = test_part.strip()
                 test_name = f"{current_describe} {test_desc}"
                 failed_tests.add(test_name)
             # Check for skipped test (four spaces, ○)
-            elif line.startswith('    ○ '):
+            elif line.startswith("    ○ "):
                 if current_describe is None:
                     continue
-                test_part = line.split('○ ', 1)[1]
-                if ' (' in test_part:
-                    test_desc = test_part.rsplit(' (', 1)[0].strip()
+                test_part = line.split("○ ", 1)[1]
+                if " (" in test_part:
+                    test_desc = test_part.rsplit(" (", 1)[0].strip()
                 else:
                     test_desc = test_part.strip()
                 test_name = f"{current_describe} {test_desc}"
@@ -239,9 +239,8 @@ class MANIFOLD_1357_TO_1083(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

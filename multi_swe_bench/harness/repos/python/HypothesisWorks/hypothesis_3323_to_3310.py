@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -170,7 +170,7 @@ apt-get update && apt-get install -y libffi-dev && rm -rf /root/.cache/hypothesi
 cd /home/hypothesis/hypothesis-python
 pip install -e .
 pip install numpy array-api-compat pandas fakeredis redis
-pytest -v -W "ignore::DeprecationWarning:mypy_extensions" --ignore=tests/array_api tests' > /home/hypothesis/test_commands.sh && bash /home/hypothesis/test_commands.sh"""
+pytest -v -W "ignore::DeprecationWarning:mypy_extensions" --ignore=tests/array_api tests' > /home/hypothesis/test_commands.sh && bash /home/hypothesis/test_commands.sh""",
             ),
             File(
                 ".",
@@ -183,7 +183,7 @@ pip install -e .
 pip install numpy array-api-compat pandas fakeredis redis
 pytest -v -W "ignore::DeprecationWarning:mypy_extensions" --ignore=tests/array_api tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -200,7 +200,7 @@ pip install -e .
 pip install numpy array-api-compat pandas fakeredis redis
 pytest -v -W "ignore::DeprecationWarning:mypy_extensions" --ignore=tests/array_api tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -217,7 +217,7 @@ pip install -e .
 pip install numpy array-api-compat pandas fakeredis redis
 pytest -v -W "ignore::DeprecationWarning:mypy_extensions" --ignore=tests/array_api tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -279,7 +279,7 @@ class HYPOTHESIS_3323_TO_3310(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -293,18 +293,18 @@ class HYPOTHESIS_3323_TO_3310(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for individual test lines with percentage
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$')
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$")
         # Pattern for summary lines (e.g., "FAILED test_name")
-        pattern2 = re.compile(r'^(FAILED|SKIPPED|PASSED) (.+)$')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(FAILED|SKIPPED|PASSED) (.+)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern1
             match = pattern1.match(line)
@@ -320,18 +320,17 @@ class HYPOTHESIS_3323_TO_3310(Instance):
                 else:
                     continue  # No match
             # Process status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

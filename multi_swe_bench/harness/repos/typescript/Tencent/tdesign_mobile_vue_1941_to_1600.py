@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ npm run test:snap -- -v' > /home/tdesign-mobile-vue/test_commands.sh
 ###ACTION_DELIMITER###
 cat /home/tdesign-mobile-vue/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/tdesign-mobile-vue/test_commands.sh"""
+bash /home/tdesign-mobile-vue/test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ cd /home/[[REPO_NAME]]
 npm run test:unit -- -v
 npm run test:snap -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ fi
 npm run test:unit -- -v
 npm run test:snap -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ fi
 npm run test:unit -- -v
 npm run test:snap -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class TDESIGN_MOBILE_VUE_1941_TO_1600(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,26 +183,25 @@ class TDESIGN_MOBILE_VUE_1941_TO_1600(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Pattern for passed tests: matches lines with ✓ and test path (no line number)
-        passed_pattern = re.compile(r'✓\s+(src/[^(]+)\s+\(\d+ tests\)', re.MULTILINE)
+        passed_pattern = re.compile(r"✓\s+(src/[^(]+)\s+\(\d+ tests\)", re.MULTILINE)
         passed_tests = set(match.strip() for match in passed_pattern.findall(log))
         # Pattern for failed tests: matches lines with ❯ and test path (no line number)
-        failed_pattern = re.compile(r'❯\s+(src/[^:]+):\d+:\d+', re.MULTILINE)
+        failed_pattern = re.compile(r"❯\s+(src/[^:]+):\d+:\d+", re.MULTILINE)
         failed_tests = set(match.strip() for match in failed_pattern.findall(log))
         # Skipped tests: No patterns identified in sampled logs, leaving empty
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

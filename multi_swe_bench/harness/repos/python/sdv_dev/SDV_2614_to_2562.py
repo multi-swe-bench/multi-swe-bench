@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.12-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ echo '#!/bin/bash' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 pip install -e .[test,readme]
 ###ACTION_DELIMITER###
-echo 'python -m pytest -v ./tests/unit --reruns 3 --cov=sdv --cov-report=xml:./unit_cov.xml' >> test_commands.sh && echo 'python -m pytest -v ./tests/integration --reruns 3 --cov=sdv --cov-report=xml:./integration_cov.xml' >> test_commands.sh && echo 'rundoc run --single-session python3 -t python3 README.md' >> test_commands.sh"""
+echo 'python -m pytest -v ./tests/unit --reruns 3 --cov=sdv --cov-report=xml:./unit_cov.xml' >> test_commands.sh && echo 'python -m pytest -v ./tests/integration --reruns 3 --cov=sdv --cov-report=xml:./integration_cov.xml' >> test_commands.sh && echo 'rundoc run --single-session python3 -t python3 README.md' >> test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,7 +66,7 @@ python -m pytest -v ./tests/unit --reruns 3 --cov=sdv --cov-report=xml:./unit_co
 python -m pytest -v ./tests/integration --reruns 3 --cov=sdv --cov-report=xml:./integration_cov.xml
 rundoc run --single-session python3 -t python3 README.md
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ python -m pytest -v ./tests/unit --reruns 3 --cov=sdv --cov-report=xml:./unit_co
 python -m pytest -v ./tests/integration --reruns 3 --cov=sdv --cov-report=xml:./integration_cov.xml
 rundoc run --single-session python3 -t python3 README.md
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ python -m pytest -v ./tests/unit --reruns 3 --cov=sdv --cov-report=xml:./unit_co
 python -m pytest -v ./tests/integration --reruns 3 --cov=sdv --cov-report=xml:./integration_cov.xml
 rundoc run --single-session python3 -t python3 README.md
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -160,7 +160,7 @@ class SDV_2614_TO_2562(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,30 +174,29 @@ class SDV_2614_TO_2562(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Regex pattern to match test lines with status
-        pattern = r'(tests/.*\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]'
+        pattern = r"(tests/.*\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"
         matches = re.findall(pattern, log, re.MULTILINE)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

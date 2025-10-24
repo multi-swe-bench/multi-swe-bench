@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -114,7 +114,7 @@ apt-get install -y libgl1-mesa-glx libxrender1 libfontconfig1 python3-tk
 ###ACTION_DELIMITER###
 apt-get install -y libgl1 libxrender1 libfontconfig1 python3-tk
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ cd /home/{pr.repo}
 export MPLBACKEND=Agg
 venv/bin/pytest -v --no-header -rA --tb=long -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +138,7 @@ fi
 export MPLBACKEND=Agg
 venv/bin/pytest -v --no-header -rA --tb=long -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +152,7 @@ fi
 export MPLBACKEND=Agg
 venv/bin/pytest -v --no-header -rA --tb=long -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -220,7 +214,7 @@ class OPTUNA_4422_TO_4147(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -234,7 +228,6 @@ class OPTUNA_4422_TO_4147(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -242,42 +235,42 @@ class OPTUNA_4422_TO_4147(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-        cleaned_log = ansi_escape.sub('', log)
-        for line in cleaned_log.split('\n'):
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+        cleaned_log = ansi_escape.sub("", log)
+        for line in cleaned_log.split("\n"):
             line = line.strip()
-            if line.startswith('='):
+            if line.startswith("="):
                 continue  # Skip summary lines
-            if 'PASSED' in line:
-                test_name = line.split('PASSED')[0].strip()
-                if test_name.startswith('tests/'):
+            if "PASSED" in line:
+                test_name = line.split("PASSED")[0].strip()
+                if test_name.startswith("tests/"):
                     passed_tests.add(test_name)
-            elif 'FAILED' in line:
-                parts = line.split('FAILED')
+            elif "FAILED" in line:
+                parts = line.split("FAILED")
                 if len(parts) < 2:
                     continue
                 test_part = parts[1].strip()
-                test_name = test_part.split(' - ')[0].strip()
-                if test_name.startswith('tests/'):
+                test_name = test_part.split(" - ")[0].strip()
+                if test_name.startswith("tests/"):
                     failed_tests.add(test_name)
-            elif 'SKIPPED' in line:
-                parts = line.split('SKIPPED')
+            elif "SKIPPED" in line:
+                parts = line.split("SKIPPED")
                 if len(parts) < 2:
                     continue
-                if parts[0].strip() == '':
+                if parts[0].strip() == "":
                     test_part = parts[1].strip()
-                    test_name = test_part.split(' - ')[0].strip()
+                    test_name = test_part.split(" - ")[0].strip()
                 else:
                     test_name = parts[0].strip()
-                if test_name.startswith('tests/'):
+                if test_name.startswith("tests/"):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

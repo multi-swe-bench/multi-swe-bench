@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ jq '.resolutions += {"graceful-fs": "4.2.11", "minimatch": "3.1.2"}' package.jso
 ###ACTION_DELIMITER###
 npm test
 ###ACTION_DELIMITER###
-echo 'GULP_TASK=test-server npx gulp travis' > test_commands.sh && echo 'GULP_TASK=test-client-travis npx gulp travis' >> test_commands.sh"""
+echo 'GULP_TASK=test-server npx gulp travis' > test_commands.sh && echo 'GULP_TASK=test-client-travis npx gulp travis' >> test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ cd /home/[[REPO_NAME]]
 GULP_TASK=test-server npx gulp travis
 GULP_TASK=test-client-travis npx gulp travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ fi
 GULP_TASK=test-server npx gulp travis
 GULP_TASK=test-client-travis npx gulp travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ fi
 GULP_TASK=test-server npx gulp travis
 GULP_TASK=test-client-travis npx gulp travis
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -186,7 +186,7 @@ class TESTCAFE_HAMMERHEAD_1627_TO_843(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,18 +200,18 @@ class TESTCAFE_HAMMERHEAD_1627_TO_843(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: ✓ followed by test name
-        passed_re = re.compile(r'^\s*✓\s+(.*)$')
+        passed_re = re.compile(r"^\s*✓\s+(.*)$")
         # Pattern for failed tests: number) followed by test name
-        failed_re = re.compile(r'^\s*\d+\)\s+(.*)$')
-        for line in log.split('\n'):
+        failed_re = re.compile(r"^\s*\d+\)\s+(.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             passed_match = passed_re.match(line)
@@ -226,9 +226,8 @@ class TESTCAFE_HAMMERHEAD_1627_TO_843(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

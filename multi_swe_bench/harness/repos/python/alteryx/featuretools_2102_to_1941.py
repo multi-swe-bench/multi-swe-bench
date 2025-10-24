@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ echo 'pytest -v -rA --doctest-modules --ignore=featuretools/tests/entry_point_te
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rA --doctest-modules --ignore=featuretools/tests/entry_point_tests/add-ons
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA --doctest-modules --ignore=featuretools/tests/entry_point_tests/add-ons
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA --doctest-modules --ignore=featuretools/tests/entry_point_tests/add-ons
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class FEATURETOOLS_2102_TO_1941(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,7 +174,6 @@ class FEATURETOOLS_2102_TO_1941(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -188,11 +181,12 @@ class FEATURETOOLS_2102_TO_1941(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract test names and statuses using regex
         # Pattern to match test names followed by status (e.g., 'test_login PASSED')
-        passed_pattern = re.compile(r'(test\S+)\s+PASSED')
-        failed_pattern = re.compile(r'(test\S+)\s+FAILED')
-        skipped_pattern = re.compile(r'(test\S+)\s+SKIPPED')
+        passed_pattern = re.compile(r"(test\S+)\s+PASSED")
+        failed_pattern = re.compile(r"(test\S+)\s+FAILED")
+        skipped_pattern = re.compile(r"(test\S+)\s+SKIPPED")
         # Find all matches in the log content
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -200,9 +194,8 @@ class FEATURETOOLS_2102_TO_1941(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

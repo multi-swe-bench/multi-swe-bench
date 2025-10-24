@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ pip uninstall -y numpy && pip install numpy==1.19.5 && pip install numba==0.46.0
 ###ACTION_DELIMITER###
 pytest -vv tests
 ###ACTION_DELIMITER###
-echo 'pytest -vv tests' > test_commands.sh"""
+echo 'pytest -vv tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ echo 'pytest -vv tests' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -vv tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -vv tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -vv tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class AWKWARD_94_TO_93(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,7 +178,6 @@ class AWKWARD_94_TO_93(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -192,23 +185,26 @@ class AWKWARD_94_TO_93(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'(tests/[^:]+::[^ ]+) PASSED')
+        passed_pattern = re.compile(r"(tests/[^:]+::[^ ]+) PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'FAILED (tests/[^:]+::[^ ]+)')
+        failed_pattern = re.compile(r"FAILED (tests/[^:]+::[^ ]+)")
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests (matches test names before or after 'skipped')
-        skipped_pattern = re.compile(r'(tests/[^:]+::[^ ]+).*skipped|skipped.*(tests/[^:]+::[^ ]+)', re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"(tests/[^:]+::[^ ]+).*skipped|skipped.*(tests/[^:]+::[^ ]+)",
+            re.IGNORECASE,
+        )
         for match in skipped_pattern.findall(log):
             test_name = match[0] if match[0] else match[1]
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

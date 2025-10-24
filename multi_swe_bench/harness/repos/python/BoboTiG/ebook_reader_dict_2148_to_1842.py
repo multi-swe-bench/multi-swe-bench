@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ source venv/bin/activate && python -m pip install -U pip && python -m pip instal
 ###ACTION_DELIMITER###
 echo 'python -m pytest -v --doctest-modules wikidict tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v --doctest-modules wikidict tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v --doctest-modules wikidict tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v --doctest-modules wikidict tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class EBOOK_READER_DICT_2148_TO_1842(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,7 +184,6 @@ class EBOOK_READER_DICT_2148_TO_1842(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -198,18 +191,19 @@ class EBOOK_READER_DICT_2148_TO_1842(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Pattern for PASSED and SKIPPED tests (test name followed by status)
-        pattern_passed_skipped = r'^(.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\]'
+        pattern_passed_skipped = r"^(.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\]"
         # Pattern for FAILED tests (status followed by test name)
-        pattern_failed = r'^(FAILED)\s+(.*?)\s+-'
+        pattern_failed = r"^(FAILED)\s+(.*?)\s+-"
         # Find all passed and skipped tests
         matches_passed_skipped = re.findall(pattern_passed_skipped, log, re.MULTILINE)
         for test_name, status in matches_passed_skipped:
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Find all failed tests
         matches_failed = re.findall(pattern_failed, log, re.MULTILINE)
@@ -219,9 +213,8 @@ class EBOOK_READER_DICT_2148_TO_1842(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

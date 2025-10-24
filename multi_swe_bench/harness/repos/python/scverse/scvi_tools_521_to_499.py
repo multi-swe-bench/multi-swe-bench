@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -122,7 +122,7 @@ apt-get install -y mongodb-server && service mongodb start && pip install scanpy
 ###ACTION_DELIMITER###
 echo 'deb http://deb.debian.org/debian bookworm main non-free contrib' > /etc/apt/sources.list && apt-get update && apt-get install -y mongodb && service mongodb start && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/test_notebook.py' > test_commands.sh && bash test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/test_notebook.py' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/test_notebook.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -144,7 +144,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/test_notebook.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider ./tests --ignore=tests/test_notebook.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class SCVI_TOOLS_521_TO_499(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,23 +233,22 @@ class SCVI_TOOLS_521_TO_499(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract test names using regular expressions
-        passed_tests = set(re.findall(r'^PASSED (\S+)', log, re.MULTILINE))
-        failed_tests = set(re.findall(r'^FAILED (\S+)', log, re.MULTILINE))
-        skipped_tests = set(re.findall(r'^SKIPPED (\S+)', log, re.MULTILINE))
+        passed_tests = set(re.findall(r"^PASSED (\S+)", log, re.MULTILINE))
+        failed_tests = set(re.findall(r"^FAILED (\S+)", log, re.MULTILINE))
+        skipped_tests = set(re.findall(r"^SKIPPED (\S+)", log, re.MULTILINE))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

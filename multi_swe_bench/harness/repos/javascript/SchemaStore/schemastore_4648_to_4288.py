@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ node ./cli.js check
 ###ACTION_DELIMITER###
 echo 'node ./cli.js check' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 node ./cli.js check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 node ./cli.js check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 node ./cli.js check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class SCHEMASTORE_4648_TO_4288(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,13 +169,13 @@ class SCHEMASTORE_4648_TO_4288(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract test files (schema files in src/schemas/)
         test_files = set()
         file_pattern = re.compile(r'on file "([^"]+)"', re.MULTILINE)
@@ -184,7 +184,10 @@ class SCHEMASTORE_4648_TO_4288(Instance):
             if file_path.startswith("src/schemas/"):
                 test_files.add(file_path)
         # Extract failed tests (schema files with ✖ or validation errors)
-        failed_pattern = re.compile(r'(✖ Running ".*?" on file "([^"]+)"|Failed to validate file "([^"]+)" against schema file "([^"]+)")', re.MULTILINE)
+        failed_pattern = re.compile(
+            r'(✖ Running ".*?" on file "([^"]+)"|Failed to validate file "([^"]+)" against schema file "([^"]+)")',
+            re.MULTILINE,
+        )
         for match in failed_pattern.finditer(log):
             # Capture schema file (group 2 from ✖, group 4 from validation error)
             failed_file = match.group(2) or match.group(4)
@@ -197,9 +200,8 @@ class SCHEMASTORE_4648_TO_4288(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

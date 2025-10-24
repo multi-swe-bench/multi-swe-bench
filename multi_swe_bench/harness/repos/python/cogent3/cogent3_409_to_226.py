@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -97,7 +97,7 @@ pytest -v -rA --ignore=test_mpi.py' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install numpy==1.24.4 && pip install -e . && bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install numpy==1.23.5 && pip install -e . && bash test_commands.sh"""
+pip install numpy==1.23.5 && pip install -e . && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ source venv/bin/activate
 cd tests
 pytest -v -rA --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ source venv/bin/activate
 cd tests
 pytest -v -rA --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ source venv/bin/activate
 cd tests
 pytest -v -rA --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -200,7 +200,7 @@ class COGENT3_409_TO_226(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,17 +214,19 @@ class COGENT3_409_TO_226(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns for test statuses
-        passed_pattern = re.compile(r'(?:PASSED\s+([\w\/]+\.py::[\w:]+)|([\w\/]+\.py::[\w:]+)\s+PASSED)')
-        failed_pattern = re.compile(r'FAILED\s+([\w\/]+\.py::[\w:]+)')
-        skipped_pattern = re.compile(r'SKIPPED\s+\[\d+\]\s+([\w\/]+\.py:\d+)')
+        passed_pattern = re.compile(
+            r"(?:PASSED\s+([\w\/]+\.py::[\w:]+)|([\w\/]+\.py::[\w:]+)\s+PASSED)"
+        )
+        failed_pattern = re.compile(r"FAILED\s+([\w\/]+\.py::[\w:]+)")
+        skipped_pattern = re.compile(r"SKIPPED\s+\[\d+\]\s+([\w\/]+\.py:\d+)")
         # Extract passed tests
         for match in passed_pattern.findall(log):
             test_name = match[0] if match[0] else match[1]
@@ -238,9 +240,8 @@ class COGENT3_409_TO_226(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

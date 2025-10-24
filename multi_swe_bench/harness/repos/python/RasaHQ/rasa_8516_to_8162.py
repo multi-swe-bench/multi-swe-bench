@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -126,7 +126,7 @@ poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests/integrati
 ###ACTION_DELIMITER###
 chmod +x /home/rasa/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/rasa/test_commands.sh"""
+cat /home/rasa/test_commands.sh""",
             ),
             File(
                 ".",
@@ -138,9 +138,7 @@ set -e
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests -n 4
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests/integration -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +154,7 @@ set -e
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests -n 4
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests/integration -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -174,9 +170,7 @@ set -e
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests -n 4
 poetry run pytest --no-header -rA -v --tb=no -p no:cacheprovider tests/integration -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -238,7 +232,7 @@ class RASA_8516_TO_8162(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -252,30 +246,32 @@ class RASA_8516_TO_8162(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract test names using a unified regex pattern for PASSED/FAILED/SKIPPED
         # Handles variable prefixes (e.g., [gw3], [ 33%], line numbers) and captures full test names
-        pattern = re.compile(r'^(?:.*?)\b(PASSED|FAILED|SKIPPED)\b\s+(tests/[\w/.:\[\]\-]+(?:\[[^\]]+\])?)', re.MULTILINE)
+        pattern = re.compile(
+            r"^(?:.*?)\b(PASSED|FAILED|SKIPPED)\b\s+(tests/[\w/.:\[\]\-]+(?:\[[^\]]+\])?)",
+            re.MULTILINE,
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

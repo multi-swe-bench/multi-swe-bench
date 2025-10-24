@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ apt-get install -y liblz4-dev && pip install -e . && bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libacl1-dev && pip install -e . && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v -rs --pyargs borg.testsuite' > test_commands.sh && bash test_commands.sh"""
+echo 'pytest -v -rs --pyargs borg.testsuite' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ echo 'pytest -v -rs --pyargs borg.testsuite' > test_commands.sh && bash test_com
 cd /home/{pr.repo}
 pytest -v -rs --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rs --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rs --pyargs borg.testsuite
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class BORG_2717_TO_2510(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,7 +214,6 @@ class BORG_2717_TO_2510(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -228,27 +221,29 @@ class BORG_2717_TO_2510(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern to match test lines with status (PASSED, FAILED, SKIPPED)
         # Pattern for PASSED/FAILED tests in execution lines (with line numbers)
-        test_exec_pattern = re.compile(r'(borg/[\w/:.\[\]]+)\s+(PASSED|FAILED|SKIPPED)\b', re.IGNORECASE)
+        test_exec_pattern = re.compile(
+            r"(borg/[\w/:.\[\]]+)\s+(PASSED|FAILED|SKIPPED)\b", re.IGNORECASE
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             exec_match = test_exec_pattern.search(line)
             if exec_match:
                 test_name = exec_match.group(1)
                 status = exec_match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

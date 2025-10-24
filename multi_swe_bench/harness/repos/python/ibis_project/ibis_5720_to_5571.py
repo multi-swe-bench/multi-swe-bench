@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -95,7 +95,7 @@ poetry add impyla
 ###ACTION_DELIMITER###
 poetry add impyla@latest
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -119,9 +117,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +130,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest --no-header -rA --tb=no -p no:cacheprovider -v .
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -198,7 +192,7 @@ class IBIS_5720_TO_5571(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -212,7 +206,6 @@ class IBIS_5720_TO_5571(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -220,9 +213,14 @@ class IBIS_5720_TO_5571(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test cases
-        test_pattern = re.compile(r'([\w/]+\.py::[\w\[\]\-:.<>]+)\s+\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b')
-        status_first_pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b\s+([\w/]+\.py::[\w\[\]\-:.<>]+)')
+        test_pattern = re.compile(
+            r"([\w/]+\.py::[\w\[\]\-:.<>]+)\s+\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b"
+        )
+        status_first_pattern = re.compile(
+            r"\b(PASSED|FAILED|SKIPPED|ERROR|XFAILED)\b\s+([\w/]+\.py::[\w\[\]\-:.<>]+)"
+        )
         test_status = {}
         # Find all matches for test name followed by status
         for match in test_pattern.findall(log):
@@ -234,18 +232,17 @@ class IBIS_5720_TO_5571(Instance):
             test_status[test_name] = status  # Overwrite with latest status
         # Populate the sets based on the final status
         for test_name, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ['FAILED', 'ERROR', 'XFAILED']:
+            elif status in ["FAILED", "ERROR", "XFAILED"]:
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

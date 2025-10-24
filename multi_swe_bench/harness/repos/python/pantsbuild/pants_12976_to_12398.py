@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -122,7 +122,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's|--test-output=all :: --no-watch-filesystem|--test-output=all ::|' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ cd /home/[[REPO_NAME]]
 ./pants --no-pantsd --no-watch-filesystem test --test-output=all ::
 cargo test --manifest-path src/rust/engine/Cargo.toml --all --tests --exclude brfs --exclude watch -- --nocapture
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -148,7 +148,7 @@ fi
 ./pants --no-pantsd --no-watch-filesystem test --test-output=all ::
 cargo test --manifest-path src/rust/engine/Cargo.toml --all --tests --exclude brfs --exclude watch -- --nocapture
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -163,7 +163,7 @@ fi
 ./pants --no-pantsd --no-watch-filesystem test --test-output=all ::
 cargo test --manifest-path src/rust/engine/Cargo.toml --all --tests --exclude brfs --exclude watch -- --nocapture
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -225,7 +225,7 @@ class PANTS_12976_TO_12398(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -239,7 +239,6 @@ class PANTS_12976_TO_12398(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -247,14 +246,15 @@ class PANTS_12976_TO_12398(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test lines with name and status
-        pattern = re.compile(r'test (.*?) \.\.\. (\w+)')
+        pattern = re.compile(r"test (.*?) \.\.\. (\w+)")
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
             # Add handling for other statuses (e.g., 'skipped') if present in logs
             # elif status == 'skipped':
@@ -262,9 +262,8 @@ class PANTS_12976_TO_12398(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

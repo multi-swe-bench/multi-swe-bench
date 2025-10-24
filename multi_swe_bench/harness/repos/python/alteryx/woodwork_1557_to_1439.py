@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -133,7 +133,7 @@ pip install moto && echo -e 'export PYARROW_IGNORE_TIMEZONE=1\nexport JAVA_HOME=
 ###ACTION_DELIMITER###
 echo -e 'export PYARROW_IGNORE_TIMEZONE=1\nexport JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64\nexport SPARK_DRIVER_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_MASTER=local[1]\npytest -v -s woodwork/ --log-level=DEBUG' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo -e 'export PYARROW_IGNORE_TIMEZONE=1\nexport JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64\nexport SPARK_DRIVER_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_MASTER=local[1]\npytest -v -s woodwork/ --log-level=DEBUG --setup-show' > test_commands.sh && bash test_commands.sh"""
+echo -e 'export PYARROW_IGNORE_TIMEZONE=1\nexport JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64\nexport SPARK_DRIVER_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED"\nexport SPARK_MASTER=local[1]\npytest -v -s woodwork/ --log-level=DEBUG --setup-show' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ export SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL
 export SPARK_MASTER=local[1]
 pytest -v -s woodwork/ --log-level=DEBUG --setup-show
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -165,7 +165,7 @@ export SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL
 export SPARK_MASTER=local[1]
 pytest -v -s woodwork/ --log-level=DEBUG --setup-show
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -183,7 +183,7 @@ export SPARK_EXECUTOR_EXTRA_JAVA_OPTIONS="--add-exports=java.base/sun.nio.ch=ALL
 export SPARK_MASTER=local[1]
 pytest -v -s woodwork/ --log-level=DEBUG --setup-show
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -245,7 +245,7 @@ class WOODWORK_1557_TO_1439(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -259,7 +259,6 @@ class WOODWORK_1557_TO_1439(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -267,49 +266,59 @@ class WOODWORK_1557_TO_1439(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: test name followed by fixtures and PASSED
-        passed_pattern = re.compile(r'(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)\s+\(fixtures.*?\)PASSED')
+        passed_pattern = re.compile(
+            r"(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)\s+\(fixtures.*?\)PASSED"
+        )
         # Pattern for failed tests: FAILED followed by test name
-        failed_pattern = re.compile(r'FAILED\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)')
+        failed_pattern = re.compile(
+            r"FAILED\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)"
+        )
         # Pattern for error tests: ERROR followed by test name (considered failed)
-        error_pattern = re.compile(r'ERROR\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)')
+        error_pattern = re.compile(
+            r"ERROR\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)"
+        )
         # Pattern for skipped tests: SKIPPED followed by test name or test name followed by SKIPPED
-        skipped_pattern1 = re.compile(r'SKIPPED\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)')
-        skipped_pattern2 = re.compile(r'(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)\s+\(fixtures.*?\)SKIPPED')
+        skipped_pattern1 = re.compile(
+            r"SKIPPED\s+(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)"
+        )
+        skipped_pattern2 = re.compile(
+            r"(woodwork/tests/[\w/]+\.py::\w+(?:\[.+\])?)\s+\(fixtures.*?\)SKIPPED"
+        )
         test_status = {}
         # Process passed tests
         for match in passed_pattern.finditer(log):
             test_name = match.group(1)
-            test_status[test_name] = 'passed'
+            test_status[test_name] = "passed"
         # Process failed tests
         for match in failed_pattern.finditer(log):
             test_name = match.group(1)
-            test_status[test_name] = 'failed'
+            test_status[test_name] = "failed"
         # Process error tests (considered failed)
         for match in error_pattern.finditer(log):
             test_name = match.group(1)
-            test_status[test_name] = 'failed'
+            test_status[test_name] = "failed"
         # Process skipped tests
         for match in skipped_pattern1.finditer(log):
             test_name = match.group(1)
-            test_status[test_name] = 'skipped'
+            test_status[test_name] = "skipped"
         for match in skipped_pattern2.finditer(log):
             test_name = match.group(1)
-            test_status[test_name] = 'skipped'
+            test_status[test_name] = "skipped"
         # Populate sets based on the final status
         for test, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

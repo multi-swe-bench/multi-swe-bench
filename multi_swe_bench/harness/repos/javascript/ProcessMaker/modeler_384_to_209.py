@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ apt-get install -y libasound2 && bash /home/modeler/test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libgtk2.0-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 && npm install cypress@3.8.3 && bash /home/modeler/test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y libgtk-3-0 && bash /home/modeler/test_commands.sh"""
+apt-get install -y libgtk-3-0 && bash /home/modeler/test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ apt-get install -y libgtk-3-0 && bash /home/modeler/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx vue-cli-service test:e2e --headless --browser electron --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx vue-cli-service test:e2e --headless --browser electron --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx vue-cli-service test:e2e --headless --browser electron --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class MODELER_384_TO_209(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,21 +219,21 @@ class MODELER_384_TO_209(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns for test cases
         # Passed tests: lines like "    ✓ Update task name (2690ms)"
-        passed_pattern = re.compile(r'^\s*✓\s+(.+?)\s*\(\d+(ms|s)\)$')
+        passed_pattern = re.compile(r"^\s*✓\s+(.+?)\s*\(\d+(ms|s)\)$")
         # Failed tests: lines like "    1) Can create call activity flow"
-        failed_pattern = re.compile(r'^\s*\d+\)\s+(.+)$')
+        failed_pattern = re.compile(r"^\s*\d+\)\s+(.+)$")
         # Skipped tests: assuming lines like "    − Skipped test (123ms)"
-        skipped_pattern = re.compile(r'^\s*−\s+(.+?)\s*\(\d+(ms|s)\)$')
-        for line in log.split('\n'):
+        skipped_pattern = re.compile(r"^\s*−\s+(.+?)\s*\(\d+(ms|s)\)$")
+        for line in log.split("\n"):
             # Check for passed tests
             passed_match = passed_pattern.search(line)
             if passed_match:
@@ -252,9 +252,8 @@ class MODELER_384_TO_209(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

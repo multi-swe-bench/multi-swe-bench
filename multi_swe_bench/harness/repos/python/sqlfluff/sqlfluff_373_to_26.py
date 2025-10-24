@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -62,7 +62,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 python setup.py develop
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cd /home/{pr.repo}
 python util.py clean-tests
 pytest -vv --cov --cov-report=xml --junitxml=.test-reports/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -88,9 +86,7 @@ fi
 python util.py clean-tests
 pytest -vv --cov --cov-report=xml --junitxml=.test-reports/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ fi
 python util.py clean-tests
 pytest -vv --cov --cov-report=xml --junitxml=.test-reports/junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class SQLFLUFF_373_TO_26(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,36 +176,35 @@ class SQLFLUFF_373_TO_26(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for passed tests: matches lines with line number, test name, PASSED, and percentage
         for line in log.splitlines():
             parts = line.split()
-            if 'PASSED' in parts:
-                idx = parts.index('PASSED')
-                if idx > 0 and parts[idx-1].startswith('test/'):
-                    passed_tests.add(parts[idx-1])
+            if "PASSED" in parts:
+                idx = parts.index("PASSED")
+                if idx > 0 and parts[idx - 1].startswith("test/"):
+                    passed_tests.add(parts[idx - 1])
         # Pattern for failed tests: matches summary lines with FAILED, test name, and hyphen
-        failed_pattern = re.compile(r'FAILED\s+(test/.*?)\s+-')
+        failed_pattern = re.compile(r"FAILED\s+(test/.*?)\s+-")
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped tests during execution
-        skipped_pattern = re.compile(r'\[\s*\d+\]\s+(test/.*?)\s+SKIPPED\s+\[\s*\d+%\]')
+        skipped_pattern = re.compile(r"\[\s*\d+\]\s+(test/.*?)\s+SKIPPED\s+\[\s*\d+%\]")
         skipped_tests.update(skipped_pattern.findall(log))
         # Pattern for skipped tests in summary
-        skipped_summary_pattern = re.compile(r'SKIPPED\s+(test/.*?)\s+-')
+        skipped_summary_pattern = re.compile(r"SKIPPED\s+(test/.*?)\s+-")
         skipped_tests.update(skipped_summary_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

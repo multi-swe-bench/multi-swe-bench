@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -149,7 +149,7 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 export PYTHONPATH=".:$PYTHONPATH"
 python scripts/eachdist.py test -- -vv -s --full-trace' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -161,7 +161,7 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 export PYTHONPATH=".:$PYTHONPATH"
 python scripts/eachdist.py test -- -vv -s --full-trace
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -177,7 +177,7 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 export PYTHONPATH=".:$PYTHONPATH"
 python scripts/eachdist.py test -- -vv -s --full-trace
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -193,7 +193,7 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 export PYTHONPATH=".:$PYTHONPATH"
 python scripts/eachdist.py test -- -vv -s --full-trace
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -255,7 +255,7 @@ class OPENTELEMETRY_PYTHON_1656_TO_1516(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -269,18 +269,18 @@ class OPENTELEMETRY_PYTHON_1656_TO_1516(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         current_test = None
         # Regex patterns to match test names and statuses
-        test_pattern = re.compile(r'([\w\/\.:-]+\.py::[\w:]+)')
-        status_pattern = re.compile(r'(PASSED|FAILED|SKIPPED)')
-        for line in log.split('\n'):
+        test_pattern = re.compile(r"([\w\/\.:-]+\.py::[\w:]+)")
+        status_pattern = re.compile(r"(PASSED|FAILED|SKIPPED)")
+        for line in log.split("\n"):
             # Capture test name if present
             test_match = test_pattern.search(line)
             if test_match:
@@ -289,19 +289,18 @@ class OPENTELEMETRY_PYTHON_1656_TO_1516(Instance):
             status_match = status_pattern.search(line)
             if status_match and current_test:
                 status = status_match.group(1)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(current_test)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(current_test)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(current_test)
                 current_test = None  # Reset after associating status
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

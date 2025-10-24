@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -62,7 +62,7 @@ pip install -r requirements.txt
 echo -e 'python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cd /home/{pr.repo}
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -88,9 +86,7 @@ fi
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ fi
 python selftest.py
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class PILLOW_3848_TO_3837(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,18 +176,18 @@ class PILLOW_3848_TO_3837(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         lines = log.splitlines()
         # Regex patterns for test statuses
-        passed_pattern = re.compile(r'PASSED\s+(.*)$')
-        failed_pattern = re.compile(r'FAILED\s+(.*?)\s+-\s+.*')
-        skipped_pattern = re.compile(r'SKIPPED\s+\[\d+\]\s+(.*?): .*')
+        passed_pattern = re.compile(r"PASSED\s+(.*)$")
+        failed_pattern = re.compile(r"FAILED\s+(.*?)\s+-\s+.*")
+        skipped_pattern = re.compile(r"SKIPPED\s+\[\d+\]\s+(.*?): .*")
         for line in lines:
             # Check for passed tests
             passed_match = passed_pattern.search(line)
@@ -210,9 +204,8 @@ class PILLOW_3848_TO_3837(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

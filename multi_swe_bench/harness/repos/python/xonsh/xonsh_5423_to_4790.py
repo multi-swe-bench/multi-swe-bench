@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ python3 -m venv venv && source venv/bin/activate && pip install -e '.[test]'
 ###ACTION_DELIMITER###
 echo 'venv/bin/xonsh run-tests.xsh test -- -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/xonsh run-tests.xsh test -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class XONSH_5423_TO_4790(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,22 +174,26 @@ class XONSH_5423_TO_4790(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: test name followed by status and [percentage]
         # Pattern 1: Test name followed by status and [percentage/other] (flexible bracket content)
-        pattern1 = re.compile(r'(tests/.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[.*?\]\s*$', re.IGNORECASE)
+        pattern1 = re.compile(
+            r"(tests/.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[.*?\]\s*$", re.IGNORECASE
+        )
         # Pattern 2: Status followed by test name (ignores trailing errors)
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(tests/.+?)(\s+-.*)?\s*$', re.IGNORECASE)
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+(tests/.+?)(\s+-.*)?\s*$", re.IGNORECASE
+        )
         for line in log.splitlines():
             line = line.strip()
-            content = re.sub(r'^\[\s*\d+\s*\]\s*', '', line).strip()
+            content = re.sub(r"^\[\s*\d+\s*\]\s*", "", line).strip()
             # Check pattern 1 first
             match = pattern1.search(content)
             if match:
@@ -209,18 +207,17 @@ class XONSH_5423_TO_4790(Instance):
                 status = match.group(1).upper()
                 test_name = match.group(2).strip()
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

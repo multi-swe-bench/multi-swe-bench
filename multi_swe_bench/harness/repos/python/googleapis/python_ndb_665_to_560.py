@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -404,7 +404,7 @@ export DATASTORE_PROJECT_ID=test-project
 python -m pytest -v tests/unit/
 
 # Cleanup emulator
-if ps -p $EMULATOR_PID > /dev/null; then kill $EMULATOR_PID; fi' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+if ps -p $EMULATOR_PID > /dev/null; then kill $EMULATOR_PID; fi' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -436,7 +436,7 @@ python -m pytest -v tests/unit/
 # Cleanup emulator
 if ps -p $EMULATOR_PID > /dev/null; then kill $EMULATOR_PID; fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -472,7 +472,7 @@ python -m pytest -v tests/unit/
 # Cleanup emulator
 if ps -p $EMULATOR_PID > /dev/null; then kill $EMULATOR_PID; fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -508,7 +508,7 @@ python -m pytest -v tests/unit/
 # Cleanup emulator
 if ps -p $EMULATOR_PID > /dev/null; then kill $EMULATOR_PID; fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -570,7 +570,7 @@ class PYTHON_NDB_665_TO_560(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -584,40 +584,50 @@ class PYTHON_NDB_665_TO_560(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         pending_test_name = None
         for line in lines:
             line = line.strip()
             # Check for test name with status on the same line (e.g., 'tests/... PASSED [ 0%]')
             # Match test name with status on the same line (e.g., 'tests/... PASSED [ 0%]')
             # Capture test name and strip trailing characters (e.g., ' - Attr...')
-            match_before = re.match(r'^(tests/.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\s*(\[.*\])?$', line)
+            match_before = re.match(
+                r"^(tests/.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\s*(\[.*\])?$", line
+            )
             if match_before:
-                test_name = re.sub(r'\s+-.*$', '', match_before.group(1).strip())  # Remove trailing '- ...'
+                test_name = re.sub(
+                    r"\s+-.*$", "", match_before.group(1).strip()
+                )  # Remove trailing '- ...'
                 status = match_before.group(2)
                 pending_test_name = None
             else:
                 # Match status before test name (e.g., 'PASSED tests/...')
-                match_after = re.match(r'^(PASSED|FAILED|SKIPPED)\s+(tests/.*?::.*?)(\s+-.*)?$', line)
+                match_after = re.match(
+                    r"^(PASSED|FAILED|SKIPPED)\s+(tests/.*?::.*?)(\s+-.*)?$", line
+                )
                 if match_after:
                     status = match_after.group(1)
-                    test_name = re.sub(r'\s+-.*$', '', match_after.group(2).strip())
+                    test_name = re.sub(r"\s+-.*$", "", match_after.group(2).strip())
                     pending_test_name = None
                 else:
                     # Capture test name without status (e.g., 'tests/...')
-                    test_name_match = re.search(r'(tests/.*?::.*?)(?=\s|$)', line)  # Stop at space/end
+                    test_name_match = re.search(
+                        r"(tests/.*?::.*?)(?=\s|$)", line
+                    )  # Stop at space/end
                     if test_name_match:
-                        pending_test_name = re.sub(r'\s+-.*$', '', test_name_match.group(1).strip())
+                        pending_test_name = re.sub(
+                            r"\s+-.*$", "", test_name_match.group(1).strip()
+                        )
                         continue
                     # Capture status without test name (link to pending test)
-                    status_match = re.match(r'^(PASSED|FAILED|SKIPPED)\b', line)
+                    status_match = re.match(r"^(PASSED|FAILED|SKIPPED)\b", line)
                     if status_match and pending_test_name:
                         status = status_match.group(1)
                         test_name = pending_test_name
@@ -625,18 +635,17 @@ class PYTHON_NDB_665_TO_560(Instance):
                     else:
                         continue  # Skip non-test lines
             # Categorize test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

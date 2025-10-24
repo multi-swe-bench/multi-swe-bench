@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libglib2.0-dev
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python3 run_tests.py --backend=ninja
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 run_tests.py --backend=ninja
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python3 run_tests.py --backend=ninja
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class MESON_7979_TO_7791(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,7 +178,6 @@ class MESON_7979_TO_7791(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -192,28 +185,32 @@ class MESON_7979_TO_7791(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse test cases using regex patterns
         # Pattern 1: test_* (...) ... ok (passed)
-        passed_pattern = re.compile(r'^(test_\w+) \(\S+\) \.\.\. ok$', re.MULTILINE)
+        passed_pattern = re.compile(r"^(test_\w+) \(\S+\) \.\.\. ok$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Pattern 2: test_* (...) ... skipped (skipped)
-        skipped_pattern = re.compile(r'^(test_\w+) \(\S+\) \.\.\. skipped', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(test_\w+) \(\S+\) \.\.\. skipped", re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         # Pattern 3: Succeeded test: test ... (passed)
-        succeeded_pattern = re.compile(r'^Succeeded test: (test .+)$', re.MULTILINE)
+        succeeded_pattern = re.compile(r"^Succeeded test: (test .+)$", re.MULTILINE)
         passed_tests.update(succeeded_pattern.findall(log))
         # Pattern 4: Skipping: test ... (skipped)
-        skipping_pattern = re.compile(r'^Skipping: (test .+)$', re.MULTILINE)
+        skipping_pattern = re.compile(r"^Skipping: (test .+)$", re.MULTILINE)
         skipped_tests.update(skipping_pattern.findall(log))
         # Pattern 5: ERROR in test cases (failed)
-        failed_pattern = re.compile(r'^(test cases/.+?)/meson\.build:\d+:\d+: ERROR', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^(test cases/.+?)/meson\.build:\d+:\d+: ERROR", re.MULTILINE
+        )
         failed_tests.update(failed_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

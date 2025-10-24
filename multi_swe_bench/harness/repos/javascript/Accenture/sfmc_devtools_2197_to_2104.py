@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,27 +167,33 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names using hierarchical sections (indentation + === headers)
         test_hierarchy = []
         test_names = set()
         # Regex to match section headers (indentation + ===, e.g., '    Deploy ================')
-        section_header = re.compile(r'^(\s+)([^=]+?)\s+={3,}$', re.MULTILINE)  # More permissive text capture
+        section_header = re.compile(
+            r"^(\s+)([^=]+?)\s+={3,}$", re.MULTILINE
+        )  # More permissive text capture
         # Regex to match test cases (indentation without ===, e.g., '  Should create template' or '  test: validate')
-        test_case = re.compile(r'^(\s{2,})(.+?)$', re.MULTILINE | re.UNICODE)  # Capture diverse test patterns
-        for line in log.split('\n'):
+        test_case = re.compile(
+            r"^(\s{2,})(.+?)$", re.MULTILINE | re.UNICODE
+        )  # Capture diverse test patterns
+        for line in log.split("\n"):
             line = line.rstrip()
-            if not line: continue
+            if not line:
+                continue
             # Skip summary lines
             # Skip debug lines
-            if 'debug' in line: continue
+            if "debug" in line:
+                continue
             # Match section headers (e.g., '    Deploy ================')
             header_match = section_header.match(line)
             if header_match:
@@ -198,14 +204,49 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
                 while test_hierarchy and test_hierarchy[-1][0] >= current_level:
                     test_hierarchy.pop()
                 test_hierarchy.append((current_level, text))
-                full_test_name = ' > '.join([t for (l, t) in test_hierarchy])
+                full_test_name = " > ".join([t for (l, t) in test_hierarchy])
                 test_names.add(full_test_name)
             # Match test cases (leaf nodes, e.g., '  Should create a script template')
             case_match = test_case.match(line)
             if case_match:
                 leading_spaces = case_match.group(1)
                 text = case_match.group(2).strip()
-                if not text or '=' in text or 'debug' in text or 'at Context' in text or 'at process' in text or 'Unexpected number' in text or 'expected - actual' in text or text.startswith(('+', '-', '1)', '10)', '11)', '13)', '16)', '17)', '2)', '20)', '21)')) or 'did not create' in text or 'should not have thrown an error' in text or 'returned metadata' in text or 'returned JSON' in text or 'returned new-JSON' in text or 'returned template JSON' in text or 'was not equal expected' in text or 'does not correspond to' in text or 'failing' in text or 'passing' in text or 'pending' in text : continue  # Skip empty/header/debug lines
+                if (
+                    not text
+                    or "=" in text
+                    or "debug" in text
+                    or "at Context" in text
+                    or "at process" in text
+                    or "Unexpected number" in text
+                    or "expected - actual" in text
+                    or text.startswith(
+                        (
+                            "+",
+                            "-",
+                            "1)",
+                            "10)",
+                            "11)",
+                            "13)",
+                            "16)",
+                            "17)",
+                            "2)",
+                            "20)",
+                            "21)",
+                        )
+                    )
+                    or "did not create" in text
+                    or "should not have thrown an error" in text
+                    or "returned metadata" in text
+                    or "returned JSON" in text
+                    or "returned new-JSON" in text
+                    or "returned template JSON" in text
+                    or "was not equal expected" in text
+                    or "does not correspond to" in text
+                    or "failing" in text
+                    or "passing" in text
+                    or "pending" in text
+                ):
+                    continue  # Skip empty/header/debug lines
                 current_level = len(leading_spaces)
                 # Update hierarchy for test cases (maintain nested context)
                 while test_hierarchy and test_hierarchy[-1][0] > current_level:
@@ -214,28 +255,33 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
                 if test_hierarchy and test_hierarchy[-1][0] == current_level:
                     test_hierarchy.pop()
                 test_hierarchy.append((current_level, text))
-                full_test_name = ' > '.join([t for (l, t) in test_hierarchy])
+                full_test_name = " > ".join([t for (l, t) in test_hierarchy])
                 test_names.add(full_test_name)
         # Identify failed tests (numbered entries with error details, e.g., '46) type: triggeredSend')
         failed_tests = set()
-        failed_entry = re.compile(r'^\s*(\d+)\)\s*([^\n]+?)(?=\s*:|\n)', re.MULTILINE)
+        failed_entry = re.compile(r"^\s*(\d+)\)\s*([^\n]+?)(?=\s*:|\n)", re.MULTILINE)
         for match in failed_entry.finditer(log):
             # Extract full test name from failed entry
             failed_hierarchy = []
-            for line in match.group(2).split('\n'):
+            for line in match.group(2).split("\n"):
                 leading_spaces = len(line) - len(line.lstrip())
-                content = line.lstrip().rstrip(':').split(' =')[0]
-                if '===' in content: content = content.split('===')[0].strip()
-                if not content: continue
+                content = line.lstrip().rstrip(":").split(" =")[0]
+                if "===" in content:
+                    content = content.split("===")[0].strip()
+                if not content:
+                    continue
                 current_level = leading_spaces
                 while failed_hierarchy and failed_hierarchy[-1][0] >= current_level:
                     failed_hierarchy.pop()
                 failed_hierarchy.append((current_level, line.lstrip()))
-            failed_text = ' > '.join([t for (l, t) in failed_hierarchy])
+            failed_text = " > ".join([t for (l, t) in failed_hierarchy])
             # Match with extracted test names (case-insensitive)
             matched = False
             for test in test_names:
-                if test.lower() in failed_text.lower() or failed_text.lower() in test.lower():
+                if (
+                    test.lower() in failed_text.lower()
+                    or failed_text.lower() in test.lower()
+                ):
                     failed_tests.add(test)
                     matched = True
                     break
@@ -244,7 +290,7 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
         # Identify skipped tests (individual 'pending' tests and summary)
         skipped_tests = set()
         # Check for 'pending' in test lines (e.g., '  (pending)')
-        pending_test = re.compile(r'^(\s+)([\w\s:,-]+?)\s+\(pending\)$', re.MULTILINE)
+        pending_test = re.compile(r"^(\s+)([\w\s:,-]+?)\s+\(pending\)$", re.MULTILINE)
         for match in pending_test.finditer(log):
             leading_spaces = match.group(1)
             text = match.group(2).strip()
@@ -253,11 +299,11 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
             while test_hierarchy and test_hierarchy[-1][0] >= current_level:
                 test_hierarchy.pop()
             test_hierarchy.append((current_level, text))
-            full_test_name = ' > '.join([t for (l, t) in test_hierarchy]) + ' (pending)'
+            full_test_name = " > ".join([t for (l, t) in test_hierarchy]) + " (pending)"
             skipped_tests.add(full_test_name)
             test_hierarchy.pop()
         # Check summary for pending count (fallback)
-        summary_pending = re.search(r'(\d+)\s*pending', log, re.IGNORECASE)
+        summary_pending = re.search(r"(\d+)\s*pending", log, re.IGNORECASE)
         if summary_pending and len(skipped_tests) == 0:
             skipped_tests.add(f"{summary_pending.group(1)} pending tests")
         # Calculate passed tests (total tests - failed - skipped)
@@ -265,9 +311,8 @@ class SFMC_DEVTOOLS_2197_TO_2104(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

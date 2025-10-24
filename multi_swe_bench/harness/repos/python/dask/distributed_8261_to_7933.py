@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ sed -i 's|ci1 and not slow and not avoid_ci and not extra_packages and not gpu a
 ###ACTION_DELIMITER###
 sed -i 's|pytest -v -n 1 -m "ci1 and not slow and not avoid_ci and not extra_packages and not gpu and not ipython and not leaking and not workerstate and not flaky" distributed/tests|pytest -v distributed/tests/test_client.py distributed/tests/test_worker.py|' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v distributed/tests/test_client.py distributed/tests/test_worker.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v distributed/tests/test_client.py distributed/tests/test_worker.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v distributed/tests/test_client.py distributed/tests/test_worker.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class DISTRIBUTED_8261_TO_7933(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,21 +226,23 @@ class DISTRIBUTED_8261_TO_7933(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes and parse test names/statuses
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
         # Combined pattern to match test name and status in either order
-        test_status_pattern = re.compile(r'((distributed/tests/.*?\.py::test_\w+))\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)|(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+((distributed/tests/.*?\.py::test_\w+))')
+        test_status_pattern = re.compile(
+            r"((distributed/tests/.*?\.py::test_\w+))\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)|(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+((distributed/tests/.*?\.py::test_\w+))"
+        )
         # Track the latest status for each test to avoid duplicates
         test_status = {}
         for line in log.splitlines():
-            stripped_line = ansi_escape.sub('', line)
+            stripped_line = ansi_escape.sub("", line)
             match = test_status_pattern.search(stripped_line)
             if match:
                 # Extract test name and status from either pattern group
@@ -255,18 +251,17 @@ class DISTRIBUTED_8261_TO_7933(Instance):
                 test_status[test_name] = status  # Overwrite with latest status
         # Populate sets based on the latest status
         for test_name, status in test_status.items():
-            if status in ('PASSED', 'XPASSED'):
+            if status in ("PASSED", "XPASSED"):
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XFAILED'):
+            elif status in ("FAILED", "XFAILED"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

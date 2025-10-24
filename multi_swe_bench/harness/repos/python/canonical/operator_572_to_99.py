@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ pip uninstall -y flake8 autopep8 && pip install flake8==3.0.0 autopep8==1.4.4
 ###ACTION_DELIMITER###
 pip install flake8==3.8.4 autopep8==1.5.4 && pytest --capture=fd
 ###ACTION_DELIMITER###
-echo 'pytest -v --capture=fd' > test_commands.sh"""
+echo 'pytest -v --capture=fd' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ echo 'pytest -v --capture=fd' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --capture=fd
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --capture=fd
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --capture=fd
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class OPERATOR_572_TO_99(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,7 +196,6 @@ class OPERATOR_572_TO_99(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -210,21 +203,21 @@ class OPERATOR_572_TO_99(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'^(test/.*?) PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(r"^(test/.*?) PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         passed_tests = set(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'FAILED (test/.*?) - .*', re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED (test/.*?) - .*", re.MULTILINE)
         failed_tests = set(failed_pattern.findall(log))
         # Parse skipped tests (if any)
-        skipped_pattern = re.compile(r'^(test/.*?) SKIPPED\s+\[\s*\d+%\]', re.MULTILINE)
+        skipped_pattern = re.compile(r"^(test/.*?) SKIPPED\s+\[\s*\d+%\]", re.MULTILINE)
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

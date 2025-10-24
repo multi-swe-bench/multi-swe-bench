@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ yarn install
 ###ACTION_DELIMITER###
 yarn test -- --verbose
 ###ACTION_DELIMITER###
-echo 'yarn test -- --verbose' > test_commands.sh"""
+echo 'yarn test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ echo 'yarn test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class LISK_MOBILE_1786_TO_1780(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,58 +213,57 @@ class LISK_MOBILE_1786_TO_1780(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         current_hierarchy: list[str] = []
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Check if the line is a test case
-            test_match = re.match(r'^\s*([✓✕○−-])\s+(.*?)(?:\s+\(\d+ ms\))?$', line)
+            test_match = re.match(r"^\s*([✓✕○−-])\s+(.*?)(?:\s+\(\d+ ms\))?$", line)
             if test_match:
                 symbol = test_match.group(1)
                 test_name = test_match.group(2)
                 # Calculate leading spaces to determine hierarchy level
-                leading_spaces = len(line) - len(line.lstrip(' '))
+                leading_spaces = len(line) - len(line.lstrip(" "))
                 level = leading_spaces // 2
                 # Construct full test name from hierarchy and test name
                 if current_hierarchy:
-                    full_test_name = ' › '.join(current_hierarchy) + ' › ' + test_name
+                    full_test_name = " › ".join(current_hierarchy) + " › " + test_name
                 else:
                     full_test_name = test_name
                 # Classify based on symbol
-                if symbol == '✓':
+                if symbol == "✓":
                     passed_tests.add(full_test_name)
-                elif symbol == '✕':
+                elif symbol == "✕":
                     failed_tests.add(full_test_name)
-                elif symbol == '○':
+                elif symbol == "○":
                     skipped_tests.add(full_test_name)
-                elif symbol == '−':
+                elif symbol == "−":
                     skipped_tests.add(full_test_name)
-                elif symbol == '-':
+                elif symbol == "-":
                     skipped_tests.add(full_test_name)
                 continue
             # Check if the line is a describe block (ignore error messages)
-            if line.lstrip().startswith('●'):
+            if line.lstrip().startswith("●"):
                 continue
-            describe_match = re.match(r'^\s*([^\s].*?)\s*$', line)
+            describe_match = re.match(r"^\s*([^\s].*?)\s*$", line)
             if describe_match:
                 describe_name = describe_match.group(1)
-                leading_spaces = len(line) - len(line.lstrip(' '))
+                leading_spaces = len(line) - len(line.lstrip(" "))
                 level = leading_spaces // 2
                 # Update the current hierarchy to the current level
-                current_hierarchy = current_hierarchy[:level-1] + [describe_name]
+                current_hierarchy = current_hierarchy[: level - 1] + [describe_name]
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

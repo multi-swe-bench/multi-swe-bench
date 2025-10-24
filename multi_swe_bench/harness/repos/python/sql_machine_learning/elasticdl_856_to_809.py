@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -122,7 +122,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ bash test_commands.sh
 cd /home/[[REPO_NAME]]
 make -f elasticdl/Makefile && K8S_TESTS=False pytest -v elasticdl/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -144,7 +144,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 make -f elasticdl/Makefile && K8S_TESTS=False pytest -v elasticdl/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 make -f elasticdl/Makefile && K8S_TESTS=False pytest -v elasticdl/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class ELASTICDL_856_TO_809(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,34 +233,33 @@ class ELASTICDL_856_TO_809(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests : set[str] = set()  # Tests that passed successfully
-        failed_tests : set[str] = set()  # Tests that failed
-        skipped_tests : set[str] = set()  # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Use regex to find all test cases and their statuses
         pattern = re.compile(
-            r'^\s*(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]\s*$',
-            re.MULTILINE | re.IGNORECASE
+            r"^\s*(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]\s*$",
+            re.MULTILINE | re.IGNORECASE,
         )
         matches = pattern.findall(log)
         for match in matches:
             test_name = match[0].strip() if match[0] else match[3].strip()
             status = match[1].strip().upper() if match[1] else match[2].strip().upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y file pkg-config
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,9 +125,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest unittests/ --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -141,9 +139,7 @@ fi
 #!/bin/bash
 pytest unittests/ --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +153,7 @@ fi
 #!/bin/bash
 pytest unittests/ --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -221,7 +215,7 @@ class MESON_14671_TO_13777(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,18 +229,22 @@ class MESON_14671_TO_13777(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Define regex patterns for each test status
-        passed_pattern = re.compile(r'([\w\/\.::]+)\s+PASSED\s+\[\s*\d+%\]|PASSED\s+([\w\/\.::]+)')
-        skipped_pattern = re.compile(r'([\w\/\.::]+)\s+SKIPPED\s+\[\s*\d+%\]|SKIPPED\s+\[\d+\]\s+([\w\/\.]+:\d+)')
-        failed_pattern = re.compile(r'FAILED\s+([\w\/\.::]+)')
+        passed_pattern = re.compile(
+            r"([\w\/\.::]+)\s+PASSED\s+\[\s*\d+%\]|PASSED\s+([\w\/\.::]+)"
+        )
+        skipped_pattern = re.compile(
+            r"([\w\/\.::]+)\s+SKIPPED\s+\[\s*\d+%\]|SKIPPED\s+\[\d+\]\s+([\w\/\.]+:\d+)"
+        )
+        failed_pattern = re.compile(r"FAILED\s+([\w\/\.::]+)")
         # Extract passed tests
         for match in passed_pattern.finditer(log):
             test_name = match.group(1) or match.group(2)
@@ -265,9 +263,8 @@ class MESON_14671_TO_13777(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

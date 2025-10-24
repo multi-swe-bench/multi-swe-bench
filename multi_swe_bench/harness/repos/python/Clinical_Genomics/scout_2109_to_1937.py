@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -144,7 +144,7 @@ apt-get update && apt-get install -y ca-certificates && update-ca-certificates
 ###ACTION_DELIMITER###
 echo -n | openssl s_client -connect compbio.charite.de:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /usr/local/share/ca-certificates/compbio.charite.de.crt && update-ca-certificates
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -154,9 +154,7 @@ cd /home/{pr.repo}
 export SCOUT_DB_URI=mongodb://localhost:27017/test
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -170,9 +168,7 @@ fi
 export SCOUT_DB_URI=mongodb://localhost:27017/test
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -186,9 +182,7 @@ fi
 export SCOUT_DB_URI=mongodb://localhost:27017/test
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -250,7 +244,7 @@ class SCOUT_2109_TO_1937(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -264,16 +258,16 @@ class SCOUT_2109_TO_1937(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Compile regex pattern to match test cases and their status
         pattern = re.compile(
-            r'(tests/[\w/]+\.py::\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[\w/]+\.py::\w+)'
+            r"(tests/[\w/]+\.py::\w+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[\w/]+\.py::\w+)"
         )
         # Iterate through each line in the log
         for line in log.splitlines():
@@ -287,18 +281,17 @@ class SCOUT_2109_TO_1937(Instance):
                     test_name = match.group(4)
                     status = match.group(3)
                 # Add to the corresponding set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

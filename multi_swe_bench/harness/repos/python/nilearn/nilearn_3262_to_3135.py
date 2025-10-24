@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -94,7 +94,7 @@ python -m pytest --pyargs nilearn
 PYTHONPATH="$PYTHONPATH:doc/sphinxext" pytest --doctest-glob=*.rst doc/
 pytest doc/_additional_doctests.txt' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ python -m pytest --pyargs nilearn
 PYTHONPATH="$PYTHONPATH:doc/sphinxext" pytest --doctest-glob=*.rst doc/
 pytest doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +122,7 @@ python -m pytest --pyargs nilearn
 PYTHONPATH="$PYTHONPATH:doc/sphinxext" pytest --doctest-glob=*.rst doc/
 pytest doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ python -m pytest --pyargs nilearn
 PYTHONPATH="$PYTHONPATH:doc/sphinxext" pytest --doctest-glob=*.rst doc/
 pytest doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class NILEARN_3262_TO_3135(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,20 +214,22 @@ class NILEARN_3262_TO_3135(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         test_status = {}
         current_test = None
-        status_keywords = {'PASSED', 'FAILED', 'SKIPPED'}
-        lines = log.split('\n')
+        status_keywords = {"PASSED", "FAILED", "SKIPPED"}
+        lines = log.split("\n")
         for line in lines:
             # Match test names in lines with line numbers (e.g., [   9] test_name)
-            test_match = re.search(r'.*?([^\s]+::[^\s]+)\s+(passed|failed|skipped)', line, re.IGNORECASE)
+            test_match = re.search(
+                r".*?([^\s]+::[^\s]+)\s+(passed|failed|skipped)", line, re.IGNORECASE
+            )
             if test_match:
                 current_test = test_match.group(1)
                 status = test_match.group(2).upper()
@@ -241,7 +237,7 @@ class NILEARN_3262_TO_3135(Instance):
                 current_test = None
                 continue
             # Fallback: Match test name without status for multi-line cases
-            test_match = re.search(r'.*?([^\s]+::[^\s]+)', line)
+            test_match = re.search(r".*?([^\s]+::[^\s]+)", line)
             if test_match:
                 current_test = test_match.group(1)
                 # Check if status is on the same line
@@ -259,18 +255,17 @@ class NILEARN_3262_TO_3135(Instance):
                         break
         # Populate sets from the test_status dictionary
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

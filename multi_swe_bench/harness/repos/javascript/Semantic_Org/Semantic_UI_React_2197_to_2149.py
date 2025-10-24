@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ sed -i "s/browsers: \['ChromeHeadless'\]/browsers: \['puppeteer'\]/" karma.conf.
 ###ACTION_DELIMITER###
 yarn test
 ###ACTION_DELIMITER###
-echo 'yarn test' > test_commands.sh"""
+echo 'yarn test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ echo 'yarn test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class SEMANTIC_UI_REACT_2197_TO_2149(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,25 +205,32 @@ class SEMANTIC_UI_REACT_2197_TO_2149(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract test names using regex patterns
-        passed_pattern = re.compile(r'^\s*✔\s*(.*)$', re.MULTILINE)
-        failed_pattern = re.compile(r'^\s*✖\s*(.*)$', re.MULTILINE)
-        passed_tests = set(match.strip() for match in passed_pattern.findall(log) if "tests completed" not in match)
-        failed_tests = set(match.strip() for match in failed_pattern.findall(log) if "test failed" not in match)
+        passed_pattern = re.compile(r"^\s*✔\s*(.*)$", re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*✖\s*(.*)$", re.MULTILINE)
+        passed_tests = set(
+            match.strip()
+            for match in passed_pattern.findall(log)
+            if "tests completed" not in match
+        )
+        failed_tests = set(
+            match.strip()
+            for match in failed_pattern.findall(log)
+            if "test failed" not in match
+        )
         # Skipped tests not identified in sampled logs
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

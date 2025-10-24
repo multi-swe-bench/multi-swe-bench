@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -104,7 +104,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install python-docx
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -113,9 +113,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -vv test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -vv test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +139,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -vv test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -207,7 +201,7 @@ class HAYSTACK_8500_TO_8294(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -221,7 +215,6 @@ class HAYSTACK_8500_TO_8294(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -229,9 +222,13 @@ class HAYSTACK_8500_TO_8294(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Regex pattern to identify test cases and their statuses
-        pattern = re.compile(r'^.*?(test/.*?)(?:\s+<- .*?)?\s+(PASSED|FAILED|SKIPPED|PASS|FAIL|SKIP|passed|failed|skipped|pass|fail|skip|OK|ERROR|XFAIL|xfail|√|x).*$', re.MULTILINE)
+        pattern = re.compile(
+            r"^.*?(test/.*?)(?:\s+<- .*?)?\s+(PASSED|FAILED|SKIPPED|PASS|FAIL|SKIP|passed|failed|skipped|pass|fail|skip|OK|ERROR|XFAIL|xfail|√|x).*$",
+            re.MULTILINE,
+        )
         # Iterate through all matches in the log content
         for match in pattern.finditer(log):
             test_name = match.group(1).strip()
@@ -246,9 +243,8 @@ class HAYSTACK_8500_TO_8294(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

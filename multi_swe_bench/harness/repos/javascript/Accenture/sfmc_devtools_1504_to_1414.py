@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class SFMC_DEVTOOLS_1504_TO_1414(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,16 +167,20 @@ class SFMC_DEVTOOLS_1504_TO_1414(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Simplified regex to match actual log content (no line number brackets)
-        test_name_pattern = re.compile(r'^\s*[- ]?\s+(Should .+?)(?::|$)', re.MULTILINE)  # Match optional hyphen/space and test name
-        summary_pattern = re.compile(r'^\s*(\d+)\s+passing|^\s*(\d+)\s+pending', re.MULTILINE)  # Capture counts without line numbers
+        test_name_pattern = re.compile(
+            r"^\s*[- ]?\s+(Should .+?)(?::|$)", re.MULTILINE
+        )  # Match optional hyphen/space and test name
+        summary_pattern = re.compile(
+            r"^\s*(\d+)\s+passing|^\s*(\d+)\s+pending", re.MULTILINE
+        )  # Capture counts without line numbers
         # Extract test names and summary
         all_tests = set(test_name_pattern.findall(log))
         summary = summary_pattern.findall(log)
@@ -186,15 +190,26 @@ class SFMC_DEVTOOLS_1504_TO_1414(Instance):
         failed_count = max(0, len(all_tests) - passed_count - skipped_count)
         # Map tests to statuses
         sorted_tests = sorted(all_tests)
-        passed_tests = set(sorted_tests[:passed_count]) if len(sorted_tests) >= passed_count else set(sorted_tests)
-        skipped_tests = set(sorted_tests[-skipped_count:]) if len(sorted_tests) >= skipped_count and skipped_count > 0 else set()
-        failed_tests = set(sorted_tests[passed_count:passed_count+failed_count]) if len(sorted_tests) >= passed_count+failed_count else set()
+        passed_tests = (
+            set(sorted_tests[:passed_count])
+            if len(sorted_tests) >= passed_count
+            else set(sorted_tests)
+        )
+        skipped_tests = (
+            set(sorted_tests[-skipped_count:])
+            if len(sorted_tests) >= skipped_count and skipped_count > 0
+            else set()
+        )
+        failed_tests = (
+            set(sorted_tests[passed_count : passed_count + failed_count])
+            if len(sorted_tests) >= passed_count + failed_count
+            else set()
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

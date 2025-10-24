@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:16.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -91,7 +91,7 @@ apt-get install -y libpcre2-dev
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo "make test" > /home/ponyc/test_commands.sh"""
+echo "make test" > /home/ponyc/test_commands.sh""",
             ),
             File(
                 ".",
@@ -100,9 +100,7 @@ echo "make test" > /home/ponyc/test_commands.sh"""
 cd /home/{pr.repo}
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class PONYC_907_TO_860(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,19 +202,21 @@ class PONYC_907_TO_860(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Pattern for [       OK ] <test_name> (<duration>)
         passed_pattern1 = re.compile(r"\[\s+OK\s+\]\s+([\w\.]+)")
         # Pattern for ---- Passed: <test_name>
         passed_pattern2 = re.compile(r"---- Passed: ([\w/.-]*[a-zA-Z]+[\w/.-]*)")
         # Pattern for tests that are complete
-        passed_pattern3 = re.compile(r"\d+ tests started, \d+ complete: ([\w/.-]+) complete")
+        passed_pattern3 = re.compile(
+            r"\d+ tests started, \d+ complete: ([\w/.-]+) complete"
+        )
         # Pattern for [  FAILED  ] <test_name>
         failed_pattern1 = re.compile(r"\[  FAILED  \]\s+([\w\.]+\.[\w\.]+)")
         # Pattern for **** FAILED: <test_name>
@@ -237,8 +233,8 @@ class PONYC_907_TO_860(Instance):
                 continue
             match = passed_pattern3.search(line)
             if match:
-              passed_tests.add(match.group(1).strip())
-              continue
+                passed_tests.add(match.group(1).strip())
+                continue
             # Failed tests
             match = failed_pattern1.search(line)
             if match:
@@ -252,9 +248,8 @@ class PONYC_907_TO_860(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

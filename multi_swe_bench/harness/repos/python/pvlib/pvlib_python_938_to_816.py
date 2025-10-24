@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -90,7 +90,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install pandas==1.1.5
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest pvlib -v --no-header -rA --tb=short -p no:cacheprovider --remote-data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -112,7 +112,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest pvlib -v --no-header -rA --tb=short -p no:cacheprovider --remote-data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest pvlib -v --no-header -rA --tb=short -p no:cacheprovider --remote-data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class PVLIB_PYTHON_938_TO_816(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,18 +201,24 @@ class PVLIB_PYTHON_938_TO_816(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines (strictly match pvlib test paths)
         # Pattern 1: Test name followed by status and progress (e.g., "pvlib/tests/...::test PASSED [ 0%]")
-        pattern1 = re.compile(r'^(pvlib/tests/.+?::.+?)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+\[.+\]$', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^(pvlib/tests/.+?::.+?)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+\[.+\]$",
+            re.MULTILINE,
+        )
         # Pattern 2: Status followed by test name and error (e.g., "FAILED pvlib/tests/...::test - error")
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(pvlib/tests/.+?::.+?)\s+-.*$', re.MULTILINE)
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(pvlib/tests/.+?::.+?)\s+-.*$",
+            re.MULTILINE,
+        )
         # Find all matches
         matches1 = pattern1.findall(log)
         matches2 = pattern2.findall(log)
@@ -226,18 +232,17 @@ class PVLIB_PYTHON_938_TO_816(Instance):
             test_status[test_name] = status
         # Categorize tests based on their status
         for test_name, status in test_status.items():
-            if status in ('PASSED', 'XFAIL'):
+            if status in ("PASSED", "XFAIL"):
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XPASS'):
+            elif status in ("FAILED", "XPASS"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -118,7 +118,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'cd test/unit && export PYTHONPATH=.. && bash -c "cd ../../ && ./setup.py develop" && pytest -v --no-header -rA --tb=no -p no:cacheprovider --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 cd test/unit && export PYTHONPATH=.. && bash -c "cd ../../ && ./setup.py develop" && pytest -v --no-header -rA --tb=no -p no:cacheprovider --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -140,7 +140,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd test/unit && export PYTHONPATH=.. && bash -c "cd ../../ && ./setup.py develop" && pytest -v --no-header -rA --tb=no -p no:cacheprovider --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd test/unit && export PYTHONPATH=.. && bash -c "cd ../../ && ./setup.py develop" && pytest -v --no-header -rA --tb=no -p no:cacheprovider --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class KIWI_832_TO_723(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,15 +229,15 @@ class KIWI_832_TO_723(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test names in the format file.py::TestClass::test_method
-        test_name_pattern = re.compile(r'(\w+\.py::\w+::\w+)')
+        test_name_pattern = re.compile(r"(\w+\.py::\w+::\w+)")
         # Iterate over each line in the log
         for line in log.splitlines():
             # Check if the line contains a test name
@@ -245,19 +245,18 @@ class KIWI_832_TO_723(Instance):
             if test_match:
                 test_name = test_match.group(1)
                 # Determine the test status
-                if 'FAILED' in line:
+                if "FAILED" in line:
                     failed_tests.add(test_name)
-                elif 'PASSED' in line:
+                elif "PASSED" in line:
                     passed_tests.add(test_name)
-                elif 'SKIPPED' in line:
+                elif "SKIPPED" in line:
                     skipped_tests.add(test_name)
                 # Add other statuses if needed
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

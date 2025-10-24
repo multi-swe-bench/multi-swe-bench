@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ make .develop
 ###ACTION_DELIMITER###
 echo 'make vtest' > /home/aiohttp/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/aiohttp/test_commands.sh"""
+bash /home/aiohttp/test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ bash /home/aiohttp/test_commands.sh"""
 cd /home/{pr.repo}
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class AIOHTTP_8629_TO_8075(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,13 +178,13 @@ class AIOHTTP_8629_TO_8075(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split line into parts to identify test name and status
         for line in log.splitlines():
             parts = line.split()
@@ -198,27 +192,26 @@ class AIOHTTP_8629_TO_8075(Instance):
             status = None
             # Look for test name (starts with 'tests/')
             for i, part in enumerate(parts):
-                if part.startswith('tests/'):
+                if part.startswith("tests/"):
                     test_name = part
                     # Check all parts for status keywords
                     for j, p in enumerate(parts):
-                        if p in {'PASSED', 'FAILED', 'SKIPPED', 'XFAIL'}:
+                        if p in {"PASSED", "FAILED", "SKIPPED", "XFAIL"}:
                             status = p
                             break
                     break
             if test_name and status:
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'XFAIL'):
+                elif status in ("FAILED", "XFAIL"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

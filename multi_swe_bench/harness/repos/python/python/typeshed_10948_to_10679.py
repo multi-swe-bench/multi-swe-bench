@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -75,7 +75,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/python3 tests\/typecheck_typeshed.py -v/python3 tests\/typecheck_typeshed.py/' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ python3 tests/stubtest_stdlib.py -v
 python3 tests/stubtest_third_party.py -v
 python3 tests/typecheck_typeshed.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ python3 tests/stubtest_stdlib.py -v
 python3 tests/stubtest_third_party.py -v
 python3 tests/typecheck_typeshed.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ python3 tests/stubtest_stdlib.py -v
 python3 tests/stubtest_third_party.py -v
 python3 tests/typecheck_typeshed.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class TYPESHED_10948_TO_10679(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,7 +213,6 @@ class TYPESHED_10948_TO_10679(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -221,21 +220,21 @@ class TYPESHED_10948_TO_10679(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Extract test cases by splitting lines on '... '
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
-            if '... success' in line:
-                test_name = line.split('... success')[0].strip()
+            if "... success" in line:
+                test_name = line.split("... success")[0].strip()
                 passed_tests.add(test_name)
-            elif '... fail' in line:
-                test_name = line.split('... fail')[0].strip()
+            elif "... fail" in line:
+                test_name = line.split("... fail")[0].strip()
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

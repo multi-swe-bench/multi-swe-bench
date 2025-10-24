@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip uninstall -y numpy && pip install numpy==1.26.4 && python setup.py build_ext --inplace
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=no -p no:cacheprovider skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider skimage --doctest-modules
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class SCIKIT_IMAGE_5974_TO_5431(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,47 +184,52 @@ class SCIKIT_IMAGE_5974_TO_5431(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test lines
         patterns = [
             # Case 1: [num] test_name STATUS [percent]
-            re.compile(r'\[\s*\d+\]\s+(?P<test>.*?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]'),
+            re.compile(
+                r"\[\s*\d+\]\s+(?P<test>.*?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"
+            ),
             # Case 2: [num] STATUS test_name
-            re.compile(r'\[\s*\d+\]\s+(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*?)\s*$'),
+            re.compile(
+                r"\[\s*\d+\]\s+(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*?)\s*$"
+            ),
             # Case 3: STATUS test_name (no [num])
-            re.compile(r'^\s*(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*?)\s*$'),
+            re.compile(r"^\s*(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test>.*?)\s*$"),
             # Case 4: test_name STATUS [percent] (no [num])
-            re.compile(r'^\s*(?P<test>.*?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
+            re.compile(
+                r"^\s*(?P<test>.*?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"
+            ),
         ]
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             for pattern in patterns:
                 match = pattern.search(line)
                 if match:
-                    test = match.group('test').strip()
+                    test = match.group("test").strip()
                     # Remove trailing error messages after ' - '
-                    if ' - ' in test:
-                        test = test.split(' - ')[0].strip()
-                    status = match.group('status').strip()
-                    if status == 'PASSED':
+                    if " - " in test:
+                        test = test.split(" - ")[0].strip()
+                    status = match.group("status").strip()
+                    if status == "PASSED":
                         passed_tests.add(test)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test)
                     break  # Move to next line after matching
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

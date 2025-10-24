@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -79,7 +79,7 @@ apt-get install -y libxcomposite1
 ###ACTION_DELIMITER###
 apt-get install -y libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libnss3 libcups2 libxss1 libxrandr2 libgconf-2-4 libasound2 libpangocairo-1.0-0 libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0 libgbm1
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd /home/[[REPO_NAME]]
 npm run app:test -- --verbose
 cd client && NODE_OPTIONS=--openssl-legacy-provider npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ fi
 npm run app:test -- --verbose
 cd client && NODE_OPTIONS=--openssl-legacy-provider npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 npm run app:test -- --verbose
 cd client && NODE_OPTIONS=--openssl-legacy-provider npm run test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class CAMUNDA_MODELER_1310_TO_1270(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,27 +193,27 @@ class CAMUNDA_MODELER_1310_TO_1270(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Strip ANSI escape codes
-        ansi_escape = re.compile(r'\x1B\[[0-9;]*m')
-        log_clean = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B\[[0-9;]*m")
+        log_clean = ansi_escape.sub("", log)
         # Split into lines
-        lines = log_clean.split('\n')
+        lines = log_clean.split("\n")
         # Regex patterns for tests
-        passed_pattern = re.compile(r'^\s*✓\s+(.*)$')
-        skipped_pattern = re.compile(r'^\s*-\s+(.*)$')
-        failed_pattern = re.compile(r'^\s*\d+\)\s+(.*)$')
+        passed_pattern = re.compile(r"^\s*✓\s+(.*)$")
+        skipped_pattern = re.compile(r"^\s*-\s+(.*)$")
+        failed_pattern = re.compile(r"^\s*\d+\)\s+(.*)$")
         for line in lines:
             # Strip line number prefix and ANSI codes
-            line_clean = ansi_escape.sub('', line)
-            line_number_pattern = re.compile(r'^\[\s*\d+\]\s*')
-            content = line_number_pattern.sub('', line_clean).strip()
+            line_clean = ansi_escape.sub("", line)
+            line_number_pattern = re.compile(r"^\[\s*\d+\]\s*")
+            content = line_number_pattern.sub("", line_clean).strip()
             if not content:
                 continue
             # Check for passed tests
@@ -234,9 +234,8 @@ class CAMUNDA_MODELER_1310_TO_1270(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

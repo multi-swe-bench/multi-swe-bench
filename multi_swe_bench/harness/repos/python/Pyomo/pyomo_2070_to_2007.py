@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ make -C doc/OnlineDocs doctest -d' > test_commands.sh
 ###ACTION_DELIMITER###
 pip install .[tests]
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ set -e
 python -m pyomo.common.unittest -v
 make -C doc/OnlineDocs doctest -d
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ set -e
 python -m pyomo.common.unittest -v
 make -C doc/OnlineDocs doctest -d
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ set -e
 python -m pyomo.common.unittest -v
 make -C doc/OnlineDocs doctest -d
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class PYOMO_2070_TO_2007(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,35 +183,34 @@ class PYOMO_2070_TO_2007(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Regex pattern to match test lines. Captures test name and status.
         # Pattern matches lines like: [123] test_name (module.Class) ... status
         for line in log.splitlines():
-            if '...' in line:
+            if "..." in line:
                 # Split line into test part (left) and status part (right) using '...' as delimiter
-                test_part, status_part = line.split('...', 1)
+                test_part, status_part = line.split("...", 1)
                 # Remove leading [number] and trim whitespace to get test name
-                test_name = re.sub(r'^\[\s*\d+\]\s*', '', test_part).strip()
+                test_name = re.sub(r"^\[\s*\d+\]\s*", "", test_part).strip()
                 status = status_part.strip()
-                if status.lower().startswith('ok'):
+                if status.lower().startswith("ok"):
                     passed_tests.add(test_name)
-                elif status.lower().startswith('skip'):
+                elif status.lower().startswith("skip"):
                     skipped_tests.add(test_name)
-                elif 'error' in status.lower() or 'fail' in status.lower():
+                elif "error" in status.lower() or "fail" in status.lower():
                     failed_tests.add(test_name)
                 # Add other statuses if necessary
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

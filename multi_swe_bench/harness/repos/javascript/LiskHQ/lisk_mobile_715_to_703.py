@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ npm install --legacy-peer-deps
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose --maxWorkers=1' > test_commands.sh"""
+echo 'npm test -- --verbose --maxWorkers=1' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ echo 'npm test -- --verbose --maxWorkers=1' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose --maxWorkers=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose --maxWorkers=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose --maxWorkers=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class LISK_MOBILE_715_TO_703(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,20 +171,20 @@ class LISK_MOBILE_715_TO_703(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         stack = []
         # Regex to match test cases with status markers (✓, ✕, ○) and optional duration
-        test_re = re.compile(r'^(\s*)(✓|✕|○)\s*(.*?)(\s*\(\d+ms\))?$')
+        test_re = re.compile(r"^(\s*)(✓|✕|○)\s*(.*?)(\s*\(\d+ms\))?$")
         # Regex to match suite lines (indented, non-test lines)
-        suite_re = re.compile(r'^(\s*)(.*?)\s*$')
-        for line in log.split('\n'):
-            line = line.rstrip('\r')
+        suite_re = re.compile(r"^(\s*)(.*?)\s*$")
+        for line in log.split("\n"):
+            line = line.rstrip("\r")
             # Check for test cases
             test_match = test_re.match(line)
             if test_match:
@@ -194,14 +194,14 @@ class LISK_MOBILE_715_TO_703(Instance):
                 while stack and stack[-1][1] >= indent_level:
                     stack.pop()
                 # Build full test name from stack
-                suite_path = ' › '.join([s[0] for s in stack])
+                suite_path = " › ".join([s[0] for s in stack])
                 full_name = f"{suite_path} › {test_name}" if suite_path else test_name
                 # Classify test status
-                if status == '✓':
+                if status == "✓":
                     passed_tests.add(full_name)
-                elif status == '✕':
+                elif status == "✕":
                     failed_tests.add(full_name)
-                elif status == '○':
+                elif status == "○":
                     skipped_tests.add(full_name)
                 continue
             # Check for suite lines (update stack)
@@ -210,10 +210,15 @@ class LISK_MOBILE_715_TO_703(Instance):
                 indent, suite_name = suite_match.groups()
                 indent_level = len(indent)
                 # Strip 'FAIL'/'PASS' prefix from suite names
-                if suite_name.startswith(('FAIL', 'PASS')):
-                    suite_name = suite_name.split(' ', 1)[1].strip()
+                if suite_name.startswith(("FAIL", "PASS")):
+                    suite_name = suite_name.split(" ", 1)[1].strip()
                 # Skip lines with errors, expect, or other non-suite content
-                if not suite_name or 'at ' in suite_name or 'Error' in suite_name or 'expect' in suite_name:
+                if (
+                    not suite_name
+                    or "at " in suite_name
+                    or "Error" in suite_name
+                    or "expect" in suite_name
+                ):
                     continue
                 # Update stack: remove deeper levels, then add current suite
                 while stack and stack[-1][1] >= indent_level:
@@ -222,9 +227,8 @@ class LISK_MOBILE_715_TO_703(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.6"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install -e .
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/' > /home/pylint/test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/' > /home/pylint/test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/' > /home/p
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider pylint/test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class PYLINT_2090_TO_1856(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,13 +172,13 @@ class PYLINT_2090_TO_1856(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         passed_pattern = re.compile(r"^PASSED\s+(.*)")
         failed_pattern = re.compile(r"^FAILED\s+(.*?)(?:\s+-.*)?$")
         skipped_pattern = re.compile(r"^SKIPPED\s+\[\d+\]\s+([^:]+:\d+)")
@@ -196,7 +190,9 @@ class PYLINT_2090_TO_1856(Instance):
             elif skipped_match := skipped_pattern.match(line):
                 skipped_tests.add(skipped_match.group(1).strip())
         if not any([passed_tests, failed_tests, skipped_tests]):
-            summary_pattern = re.compile(r"^= (\d+) failed, (\d+) passed, (\d+) skipped,.*")
+            summary_pattern = re.compile(
+                r"^= (\d+) failed, (\d+) passed, (\d+) skipped,.*"
+            )
             summary_match = summary_pattern.search(log)
             if summary_match:
                 # This is a fallback and will not contain test names
@@ -212,9 +208,8 @@ class PYLINT_2090_TO_1856(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

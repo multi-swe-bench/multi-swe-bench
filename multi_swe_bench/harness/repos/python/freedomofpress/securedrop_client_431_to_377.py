@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -138,7 +138,7 @@ if xdpyinfo -display :0 >/dev/null 2>&1; then
 else
   echo "Xvfb failed to start. Logs:
 " && cat xvfb.log
-fi' > test_commands.sh && bash test_commands.sh"""
+fi' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -156,7 +156,7 @@ else
 " && cat xvfb.log
 fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -178,7 +178,7 @@ else
 " && cat xvfb.log
 fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -200,7 +200,7 @@ else
 " && cat xvfb.log
 fi
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -262,7 +262,7 @@ class SECUREDROP_CLIENT_431_TO_377(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -276,15 +276,17 @@ class SECUREDROP_CLIENT_431_TO_377(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]', re.MULTILINE)
+        pattern = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
         # Extract test cases and statuses
         for match in pattern.finditer(log):
             test_name = match.group(1)
@@ -298,9 +300,8 @@ class SECUREDROP_CLIENT_431_TO_377(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

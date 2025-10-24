@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -107,7 +107,7 @@ poetry run pytest -v ./tests
 ###ACTION_DELIMITER###
 echo 'poetry run pytest -v ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -116,9 +116,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 poetry run pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -131,9 +129,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -146,9 +142,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest -v ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -210,7 +204,7 @@ class ISORT_1775_TO_1749(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -224,15 +218,17 @@ class ISORT_1775_TO_1749(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex pattern to match test lines
-        test_pattern = re.compile(r"^(tests/.*?) (PASSED|FAILED|SKIPPED)\s+\[.*\]$", re.MULTILINE)
+        test_pattern = re.compile(
+            r"^(tests/.*?) (PASSED|FAILED|SKIPPED)\s+\[.*\]$", re.MULTILINE
+        )
         matches = test_pattern.findall(log)
         for test_name, status in matches:
             if status == "PASSED":
@@ -244,9 +240,8 @@ class ISORT_1775_TO_1749(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

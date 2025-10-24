@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ bash /home/Civet/test_commands.sh
 ###ACTION_DELIMITER###
 yarn build
 ###ACTION_DELIMITER###
-bash /home/Civet/test_commands.sh"""
+bash /home/Civet/test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn test -- -v --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ fi
 #!/bin/bash
 yarn test -- -v --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ fi
 #!/bin/bash
 yarn test -- -v --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -170,7 +170,7 @@ class CIVET_1685_TO_1317(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,15 +184,14 @@ class CIVET_1685_TO_1317(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         # Extract JSON content from the log
-        json_start = log.find('{')
-        json_end = log.rfind('}') + 1
+        json_start = log.find("{")
+        json_end = log.rfind("}") + 1
         if json_start != -1 and json_end != 0:
             json_content = log[json_start:json_end]
             try:
@@ -201,15 +200,15 @@ class CIVET_1685_TO_1317(Instance):
                 data = {}
         else:
             data = {}
-        tests = data.get('tests', [])
+        tests = data.get("tests", [])
         for test in tests:
             # Extract test name from fullTitle or title
-            test_name = test.get('fullTitle', test.get('title', ''))
+            test_name = test.get("fullTitle", test.get("title", ""))
             if not test_name:
                 continue  # Skip tests without a name
             # Determine test status
-            pending = test.get('pending', False)
-            err = test.get('err', {})
+            pending = test.get("pending", False)
+            err = test.get("err", {})
             if pending:
                 skipped_tests.add(test_name)
             elif err:
@@ -219,9 +218,8 @@ class CIVET_1685_TO_1317(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

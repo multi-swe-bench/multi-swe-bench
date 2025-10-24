@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ pytest -v pgmpy
 ###ACTION_DELIMITER###
 echo 'pytest -v pgmpy' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class PGMPY_1936_TO_1830(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,33 +176,32 @@ class PGMPY_1936_TO_1830(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Use MULTILINE flag to match line starts
         flags = re.MULTILINE
         # Parse passed tests (non-greedy matching for test name)
-        passed_pattern = r'^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+PASSED\s+\[.*\]$'
+        passed_pattern = r"^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+PASSED\s+\[.*\]$"
         passed_matches = re.findall(passed_pattern, log, flags=flags)
         passed_tests.update([test.strip() for test in passed_matches])
         # Parse skipped tests (non-greedy matching for test name)
-        skipped_pattern = r'^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+SKIPPED(?:\s+\[.*\])?$'
+        skipped_pattern = r"^(?:\[\s*\d+\s*\]\s*)?(.*?)\s+SKIPPED(?:\s+\[.*\])?$"
         skipped_matches = re.findall(skipped_pattern, log, flags=flags)
         skipped_tests.update([test.strip() for test in skipped_matches])
         # Parse failed tests (lines starting with FAILED in the summary)
-        failed_pattern = r'^\s*FAILED\s+(.*?)(?:\s+-.*)?$'
+        failed_pattern = r"^\s*FAILED\s+(.*?)(?:\s+-.*)?$"
         failed_matches = re.findall(failed_pattern, log, flags=flags)
         failed_tests.update([test.strip() for test in failed_matches])
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

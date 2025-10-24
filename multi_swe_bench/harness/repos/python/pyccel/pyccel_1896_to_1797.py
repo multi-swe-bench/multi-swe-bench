@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -76,7 +76,7 @@ bash test_commands.sh
 echo -e 'source venv/bin/activate
 pytest --verbose -n 2 -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest --verbose -n 2 -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +100,7 @@ fi
 source venv/bin/activate
 pytest --verbose -n 2 -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ fi
 source venv/bin/activate
 pytest --verbose -n 2 -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class PYCCEL_1896_TO_1797(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,30 +190,31 @@ class PYCCEL_1896_TO_1797(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex pattern to match test status and name (PASSED, FAILED, SKIPPED, XFAIL, XPASSED)
-        pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED|XFAIL|XPASSED)\b\s+(tests/.*?)(?=\s|$)')
+        pattern = re.compile(
+            r"\b(PASSED|FAILED|SKIPPED|XFAIL|XPASSED)\b\s+(tests/.*?)(?=\s|$)"
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status in ('PASSED', 'XPASSED'):
+            if status in ("PASSED", "XPASSED"):
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XFAIL'):
+            elif status in ("FAILED", "XFAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

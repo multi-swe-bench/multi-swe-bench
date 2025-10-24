@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:18.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -109,7 +109,7 @@ rustup default 1.45.0
 ###ACTION_DELIMITER###
 source /root/.cargo/env && cargo test
 ###ACTION_DELIMITER###
-echo 'source /root/.cargo/env && cargo test' > /home/nushell/test_commands.sh"""
+echo 'source /root/.cargo/env && cargo test' > /home/nushell/test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,9 +118,7 @@ echo 'source /root/.cargo/env && cargo test' > /home/nushell/test_commands.sh"""
 cd /home/{pr.repo}
 source /root/.cargo/env && cargo test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source /root/.cargo/env && cargo test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -148,9 +144,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source /root/.cargo/env && cargo test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -212,7 +206,7 @@ class NUSHELL_945_TO_399(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -226,14 +220,14 @@ class NUSHELL_945_TO_399(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Implement the log parsing logic here
@@ -254,9 +248,8 @@ class NUSHELL_945_TO_399(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

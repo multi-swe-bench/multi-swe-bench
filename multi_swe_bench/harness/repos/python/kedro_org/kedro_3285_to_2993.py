@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ behave --tags=-skip --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cd /home/{pr.repo}
 pytest -v --numprocesses 4 --dist loadfile
 behave --tags=-skip --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ fi
 pytest -v --numprocesses 4 --dist loadfile
 behave --tags=-skip --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ fi
 pytest -v --numprocesses 4 --dist loadfile
 behave --tags=-skip --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class KEDRO_3285_TO_2993(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,15 +178,17 @@ class KEDRO_3285_TO_2993(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Regex pattern to match test results from parallel workers
-        test_pattern = re.compile(r'\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.+)')
+        test_pattern = re.compile(
+            r"\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.+)"
+        )
         for match in test_pattern.finditer(log):
             status = match.group(1)
             test_name = match.group(2).strip()
@@ -205,9 +201,8 @@ class KEDRO_3285_TO_2993(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

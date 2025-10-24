@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 ls
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class PYBAMM_115_TO_88(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,28 +190,29 @@ class PYBAMM_115_TO_88(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests using regex
-        passed_pattern = re.compile(r'PASSED (tests/.*?)\s*$', re.MULTILINE)
+        passed_pattern = re.compile(r"PASSED (tests/.*?)\s*$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests using regex
-        failed_pattern = re.compile(r'FAILED (tests/.*?)\s*$', re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED (tests/.*?)\s*$", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Extract skipped tests using regex
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (tests/.*?:\d+):\s*.*$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"SKIPPED \[\d+\] (tests/.*?:\d+):\s*.*$", re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

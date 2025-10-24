@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ python3 -m venv venv && source venv/bin/activate && pip install -r requirements/
 ###ACTION_DELIMITER###
 echo 'pytest -v --cov=torchgeo --cov-report=xml' > /home/torchgeo/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/torchgeo/test_commands.sh"""
+cat /home/torchgeo/test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ cat /home/torchgeo/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --cov=torchgeo --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --cov=torchgeo --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --cov=torchgeo --cov-report=xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class TORCHGEO_2840_TO_2432(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,44 +174,43 @@ class TORCHGEO_2840_TO_2432(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Remove line number (e.g., [  10] )
-            processed_line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            processed_line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             if not processed_line:
                 continue
             # Check for FAILED status
-            if processed_line.startswith('FAILED '):
-                test_name = processed_line[len('FAILED '):].strip()
+            if processed_line.startswith("FAILED "):
+                test_name = processed_line[len("FAILED ") :].strip()
                 failed_tests.add(test_name)
             # Check for PASSED status
-            elif ' PASSED ' in processed_line:
+            elif " PASSED " in processed_line:
                 # Split on ' PASSED ' to get the test name part
-                parts = processed_line.split(' PASSED ', 1)  # Split once
+                parts = processed_line.split(" PASSED ", 1)  # Split once
                 test_name = parts[0].strip()
                 passed_tests.add(test_name)
             # Check for SKIPPED status
-            elif processed_line.startswith('SKIPPED '):
-                test_name = processed_line[len('SKIPPED '):].strip()
+            elif processed_line.startswith("SKIPPED "):
+                test_name = processed_line[len("SKIPPED ") :].strip()
                 skipped_tests.add(test_name)
-            elif ' SKIPPED ' in processed_line:
-                parts = processed_line.split(' SKIPPED ', 1)
+            elif " SKIPPED " in processed_line:
+                parts = processed_line.split(" SKIPPED ", 1)
                 test_name = parts[0].strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

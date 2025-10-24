@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install tables openpyxl
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 MPLBACKEND=Agg pytest --ignore=tests/test_notebook.py -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 MPLBACKEND=Agg pytest --ignore=tests/test_notebook.py -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 MPLBACKEND=Agg pytest --ignore=tests/test_notebook.py -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class SCVI_TOOLS_705_TO_549(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,7 +197,6 @@ class SCVI_TOOLS_705_TO_549(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -205,16 +204,17 @@ class SCVI_TOOLS_705_TO_549(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns for PASSED and FAILED tests
-        passed_pattern1 = re.compile(r'(tests/[\w/]+?\.py::[\w:]+)\s+PASSED')
-        passed_pattern2 = re.compile(r'PASSED\s+(tests/[\w/]+?\.py::[\w:]+)')
+        passed_pattern1 = re.compile(r"(tests/[\w/]+?\.py::[\w:]+)\s+PASSED")
+        passed_pattern2 = re.compile(r"PASSED\s+(tests/[\w/]+?\.py::[\w:]+)")
         # Regex patterns for SKIPPED tests
-        skipped_pattern1 = re.compile(r'(tests/[\w/]+?\.py::[\w:]+)\s+SKIPPED')
-        skipped_pattern2 = re.compile(r'SKIPPED\s+(tests/[\w/]+?\.py::[\w:]+)')
-        failed_pattern1 = re.compile(r'(tests/[\w/]+?\.py::[\w:]+)\s+FAILED')
-        failed_pattern2 = re.compile(r'FAILED\s+(tests/[\w/]+?\.py::[\w:]+)')
+        skipped_pattern1 = re.compile(r"(tests/[\w/]+?\.py::[\w:]+)\s+SKIPPED")
+        skipped_pattern2 = re.compile(r"SKIPPED\s+(tests/[\w/]+?\.py::[\w:]+)")
+        failed_pattern1 = re.compile(r"(tests/[\w/]+?\.py::[\w:]+)\s+FAILED")
+        failed_pattern2 = re.compile(r"FAILED\s+(tests/[\w/]+?\.py::[\w:]+)")
         for line in lines:
             # Check for passed tests
             match = passed_pattern1.search(line)
@@ -246,9 +246,8 @@ class SCVI_TOOLS_705_TO_549(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

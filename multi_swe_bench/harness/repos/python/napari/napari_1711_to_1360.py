@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ source venv/bin/activate && pip uninstall -y napari-svg vispy && pip install --n
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libcairo2-dev libgdk-pixbuf2.0-dev && source venv/bin/activate && pip uninstall -y napari-svg vispy && pip install --no-cache-dir napari-svg==0.2.1 vispy==0.15.1 && xvfb-run -a bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ apt-get update && apt-get install -y libcairo2-dev libgdk-pixbuf2.0-dev && sourc
 cd /home/[[REPO_NAME]]
 CI=1 QT_QPA_PLATFORM=offscreen venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 CI=1 QT_QPA_PLATFORM=offscreen venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 CI=1 QT_QPA_PLATFORM=offscreen venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class NAPARI_1711_TO_1360(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,15 +257,18 @@ class NAPARI_1711_TO_1360(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex pattern to match test results with status (PASSED, FAILED, SKIPPED)
-        pattern = re.compile(r'^.*?(?:(napari/[^\s]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(napari/[^\s]+::[^\s]+))', re.MULTILINE | re.IGNORECASE)
+        pattern = re.compile(
+            r"^.*?(?:(napari/[^\s]+::[^\s]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(napari/[^\s]+::[^\s]+))",
+            re.MULTILINE | re.IGNORECASE,
+        )
         matches = pattern.findall(log)
         for match in matches:
             test_name1, status1, status2, test_name2 = match
@@ -278,20 +281,19 @@ class NAPARI_1711_TO_1360(Instance):
             else:
                 continue  # Skip invalid matches
             # Ensure the test name contains '::' to confirm it's a test identifier
-            if '::' in test_name:
+            if "::" in test_name:
                 status = status.upper()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

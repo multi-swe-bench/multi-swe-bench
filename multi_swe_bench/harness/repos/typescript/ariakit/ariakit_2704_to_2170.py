@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ npx playwright install
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ set -e
 npm run test -- --run --reporter=verbose --reporter=json
 npm run test-browser -- --reporter=json --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ set -e
 npm run test -- --run --reporter=verbose --reporter=json
 npm run test-browser -- --reporter=json --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ set -e
 npm run test -- --run --reporter=verbose --reporter=json
 npm run test-browser -- --reporter=json --reporter=list
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class ARIAKIT_2704_TO_2170(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class ARIAKIT_2704_TO_2170(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -191,43 +190,43 @@ class ARIAKIT_2704_TO_2170(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # ---------- Parse Verbose Log Lines ----------
         # Passed tests (match checkmark followed by test name)
-        passed_pattern = re.compile(r'✓\s+([^\n]+)', re.MULTILINE)
+        passed_pattern = re.compile(r"✓\s+([^\n]+)", re.MULTILINE)
         passed_tests.update(match.strip() for match in passed_pattern.findall(log))
         # Failed tests (match FAIL followed by test name)
-        failed_pattern = re.compile(r'FAIL\s+([^\n]+)', re.MULTILINE)
+        failed_pattern = re.compile(r"FAIL\s+([^\n]+)", re.MULTILINE)
         failed_tests.update(match.strip() for match in failed_pattern.findall(log))
         # Skipped tests (match SKIP or ✗ followed by test name)
-        skipped_pattern = re.compile(r'(SKIP|✗)\s+([^\n]+)', re.MULTILINE)
+        skipped_pattern = re.compile(r"(SKIP|✗)\s+([^\n]+)", re.MULTILINE)
         skipped_tests.update(match[1].strip() for match in skipped_pattern.findall(log))
         # ---------- Parse JSON Structured Data ----------
         # Extract JSON section (logs often end with a JSON object)
-        json_start = log.rfind('{')
-        json_end = log.rfind('}') + 1
+        json_start = log.rfind("{")
+        json_end = log.rfind("}") + 1
         if json_start != -1 and json_end != -1:
             try:
                 json_data = json.loads(log[json_start:json_end])
                 # Traverse JSON to find test results
-                for test in json_data.get('testResults', []):
-                    for assertion in test.get('assertionResults', [test]):
-                        status = assertion.get('status')
-                        test_name = assertion.get('fullName') or assertion.get('name')
+                for test in json_data.get("testResults", []):
+                    for assertion in test.get("assertionResults", [test]):
+                        status = assertion.get("status")
+                        test_name = assertion.get("fullName") or assertion.get("name")
                         if test_name and status:
-                            if status == 'passed':
+                            if status == "passed":
                                 passed_tests.add(test_name.strip())
-                            elif status == 'failed':
+                            elif status == "failed":
                                 failed_tests.add(test_name.strip())
-                            elif status == 'skipped':
+                            elif status == "skipped":
                                 skipped_tests.add(test_name.strip())
             except json.JSONDecodeError:
                 pass  # Ignore invalid JSON
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

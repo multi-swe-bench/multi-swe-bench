@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ sed -i 's/--use-feature=2020-resolver //g' bootstrap.sh
 ###ACTION_DELIMITER###
 echo "./test_reframe.py -v" > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./test_reframe.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class REFRAME_1612_TO_1462(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,37 +170,36 @@ class REFRAME_1612_TO_1462(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for passed tests: test name (no spaces) followed by PASSED
-        passed_pattern = re.compile(r'([^\s]+)\s+PASSED\b')
-        passed_tests = {test for test in passed_pattern.findall(log) if '::' in test}
+        passed_pattern = re.compile(r"([^\s]+)\s+PASSED\b")
+        passed_tests = {test for test in passed_pattern.findall(log) if "::" in test}
         # Pattern for failed tests: test name (no spaces) followed by FAILED or FAILED followed by test name
-        failed_pattern = re.compile(r'([^\s]+)\s+FAILED\b|FAILED\s+([^\s]+)\b')
+        failed_pattern = re.compile(r"([^\s]+)\s+FAILED\b|FAILED\s+([^\s]+)\b")
         failed_tests = set()
         for match in failed_pattern.findall(log):
             test = match[0] if match[0] else match[1]
-            if test and '::' in test:
+            if test and "::" in test:
                 failed_tests.add(test)
         # Pattern for skipped tests: test name (no spaces) followed by SKIPPED or SKIPPED followed by test name
-        skipped_pattern = re.compile(r'([^\s]+)\s+SKIPPED\b|SKIPPED\s+([^\s]+)\b')
+        skipped_pattern = re.compile(r"([^\s]+)\s+SKIPPED\b|SKIPPED\s+([^\s]+)\b")
         skipped_tests = set()
         for match in skipped_pattern.findall(log):
             test = match[0] if match[0] else match[1]
-            if test and '::' in test:
+            if test and "::" in test:
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ apt-get update && apt-get install -y libjpeg-dev
 ###ACTION_DELIMITER###
 pip install -r tests/requirements.txt
 ###ACTION_DELIMITER###
-echo 'python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 tests/' > test_commands.sh"""
+echo 'python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ echo 'python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 test
 cd /home/[[REPO_NAME]]
 python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -b -m pytest -v --cov=privacyidea --cov-append --durations=100 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class PRIVACYIDEA_2532_TO_2418(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,16 +173,20 @@ class PRIVACYIDEA_2532_TO_2418(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines and summary lines
-        test_line_pattern = re.compile(r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE)
-        summary_line_pattern = re.compile(r"^(FAILED|SKIPPED)\s+(tests/.*?)\s+-", re.MULTILINE)
+        test_line_pattern = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
+        summary_line_pattern = re.compile(
+            r"^(FAILED|SKIPPED)\s+(tests/.*?)\s+-", re.MULTILINE
+        )
         # Extract tests from individual test lines
         for match in test_line_pattern.finditer(log):
             test_name = match.group(1)
@@ -204,9 +208,8 @@ class PRIVACYIDEA_2532_TO_2418(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -534,7 +534,7 @@ gpg --batch --import test_key.asc
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a -s "-screen 0 1024x768x24" pipenv run pytest -v --full-trace tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -564,7 +564,7 @@ gpg --batch --import test_key.asc
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a -s "-screen 0 1024x768x24" pipenv run pytest -v --full-trace tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -598,7 +598,7 @@ gpg --batch --import test_key.asc
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a -s "-screen 0 1024x768x24" pipenv run pytest -v --full-trace tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -632,7 +632,7 @@ gpg --batch --import test_key.asc
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a -s "-screen 0 1024x768x24" pipenv run pytest -v --full-trace tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -694,7 +694,7 @@ class SECUREDROP_CLIENT_317_TO_176(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -708,7 +708,6 @@ class SECUREDROP_CLIENT_317_TO_176(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -716,22 +715,22 @@ class SECUREDROP_CLIENT_317_TO_176(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Extract all test names using the pattern tests/...::... (stop at first whitespace)
-        all_tests = set(re.findall(r'tests/[^:]+::\S+', log))
+        all_tests = set(re.findall(r"tests/[^:]+::\S+", log))
         # Extract failed tests (stop at first whitespace)
-        failed_matches = re.findall(r'FAILED (tests/[^:]+::\S+)', log)
+        failed_matches = re.findall(r"FAILED (tests/[^:]+::\S+)", log)
         failed_tests = set(failed_matches)
         # Extract skipped tests (stop at first whitespace)
-        skipped_matches = re.findall(r'SKIPPED (tests/[^:]+::\S+)', log)
+        skipped_matches = re.findall(r"SKIPPED (tests/[^:]+::\S+)", log)
         skipped_tests = set(skipped_matches)
         # Calculate passed tests as all tests minus failed and skipped
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

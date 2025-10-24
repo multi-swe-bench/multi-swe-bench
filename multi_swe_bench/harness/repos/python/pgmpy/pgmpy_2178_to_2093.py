@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -89,7 +89,7 @@ pip install xdoctest>=0.11.0 pytest>=3.3.1 pytest-cov pytest-xdist coverage>=4.3
 ###ACTION_DELIMITER###
 pytest -v pgmpy
 ###ACTION_DELIMITER###
-echo 'pytest -v pgmpy' > /home/pgmpy/test_commands.sh"""
+echo 'pytest -v pgmpy' > /home/pgmpy/test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ echo 'pytest -v pgmpy' > /home/pgmpy/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v pgmpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class PGMPY_2178_TO_2093(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,32 +200,34 @@ class PGMPY_2178_TO_2093(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Compile regex pattern to match test lines
-        pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(?:(.+?)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\])?|(PASSED|FAILED|SKIPPED)\s+([^\s-]+))\s*$', re.MULTILINE)
+        pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(?:(.+?)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\])?|(PASSED|FAILED|SKIPPED)\s+([^\s-]+))\s*$",
+            re.MULTILINE,
+        )
         # Find all matches in the log content
         for match in pattern.finditer(log):
             test_name = (match.group(1) or match.group(4)).strip()
             status = match.group(2) or match.group(3)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

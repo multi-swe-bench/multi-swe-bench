@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ pip install -r requirements.txt
 ###ACTION_DELIMITER###
 pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'pytest --verbose --tb=native -n auto tests tools' > test_commands.sh"""
+echo 'pytest --verbose --tb=native -n auto tests tools' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ echo 'pytest --verbose --tb=native -n auto tests tools' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest --verbose --tb=native -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose --tb=native -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --verbose --tb=native -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class CLOUD_CUSTODIAN_1477_TO_1288(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,54 +208,55 @@ class CLOUD_CUSTODIAN_1477_TO_1288(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
-        pattern = r'(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|FAILED|SKIPPED)[:\s]+(tests/[\w/\.::\-]+)'  # Allow colon or space after status
+
+        pattern = r"(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|FAILED|SKIPPED)[:\s]+(tests/[\w/\.::\-]+)"  # Allow colon or space after status
         # Capture summary to verify counts
-        summary_pattern = r'======= (\d+) failed, (\d+) passed, (\d+) skipped'
+        summary_pattern = r"======= (\d+) failed, (\d+) passed, (\d+) skipped"
         summary_match = re.search(summary_pattern, log)
         expected = {}
         if summary_match:
             expected = {
-                'failed': int(summary_match.group(1)),
-                'passed': int(summary_match.group(2)),
-                'skipped': int(summary_match.group(3))
+                "failed": int(summary_match.group(1)),
+                "passed": int(summary_match.group(2)),
+                "skipped": int(summary_match.group(3)),
             }
         matches = re.findall(pattern, log)
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Validate against summary counts
         if expected:
             # Check failed tests
-            if len(failed_tests) < expected['failed']:
-                fallback_pattern = re.compile(r'FAILED (tests/[\w/\.::\-]+)')
+            if len(failed_tests) < expected["failed"]:
+                fallback_pattern = re.compile(r"FAILED (tests/[\w/\.::\-]+)")
                 additional_failed = re.findall(fallback_pattern, log)
                 failed_tests.update(additional_failed)
             # Check passed tests
-            if len(passed_tests) < expected['passed']:
-                fallback_pattern = re.compile(r'PASSED[:\s]+(tests/[\w/\.::\-]+)')  # Handle colon or space after PASSED
+            if len(passed_tests) < expected["passed"]:
+                fallback_pattern = re.compile(
+                    r"PASSED[:\s]+(tests/[\w/\.::\-]+)"
+                )  # Handle colon or space after PASSED
                 additional_passed = re.findall(fallback_pattern, log)
                 passed_tests.update(additional_passed)
             # Check skipped tests
-            if len(skipped_tests) < expected['skipped']:
-                fallback_pattern = re.compile(r'SKIPPED (tests/[\w/\.::\-]+)')
+            if len(skipped_tests) < expected["skipped"]:
+                fallback_pattern = re.compile(r"SKIPPED (tests/[\w/\.::\-]+)")
                 additional_skipped = re.findall(fallback_pattern, log)
                 skipped_tests.update(additional_skipped)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

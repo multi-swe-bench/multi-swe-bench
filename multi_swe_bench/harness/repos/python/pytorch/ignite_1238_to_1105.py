@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ CI_PYTHON_VERSION=3.9 sh tests/run_cpu_tests.sh
 ###ACTION_DELIMITER###
 echo 'CI_PYTHON_VERSION=3.9 sh tests/run_cpu_tests.sh' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 CI_PYTHON_VERSION=3.9 sh tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 CI_PYTHON_VERSION=3.9 sh tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 CI_PYTHON_VERSION=3.9 sh tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class IGNITE_1238_TO_1105(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,7 +170,6 @@ class IGNITE_1238_TO_1105(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -184,9 +177,13 @@ class IGNITE_1238_TO_1105(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Robust regex to match test names and statuses (handles both formats)
-        test_pattern = re.compile(r'(tests/[\w/-]+\.py::[\w_]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/[\w/-]+\.py::[\w_]+)', re.IGNORECASE)
+        test_pattern = re.compile(
+            r"(tests/[\w/-]+\.py::[\w_]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/[\w/-]+\.py::[\w_]+)",
+            re.IGNORECASE,
+        )
         test_status = {}
         for match in test_pattern.finditer(log):
             # Extract test name and status from either format
@@ -200,18 +197,17 @@ class IGNITE_1238_TO_1105(Instance):
             test_status[test_name] = status
         # Populate sets based on the latest status
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

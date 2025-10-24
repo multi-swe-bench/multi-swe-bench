@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pytest -v --tb=no --no-header -rA tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --tb=no --no-header -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --tb=no --no-header -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --tb=no --no-header -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class STDPOPSIM_1664_TO_1416(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,17 +193,17 @@ class STDPOPSIM_1664_TO_1416(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Track final status of each test to avoid overlaps
         test_status = {}
         # Regex pattern to match test result lines (precise to avoid false matches)
-        pattern = re.compile(r'(PASSED|FAILED|FAIL|SKIPPED|SKIP|ERROR).*?(tests/[^ ]+)')
+        pattern = re.compile(r"(PASSED|FAILED|FAIL|SKIPPED|SKIP|ERROR).*?(tests/[^ ]+)")
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
@@ -212,18 +212,17 @@ class STDPOPSIM_1664_TO_1416(Instance):
                 test_status[test_name] = status  # Update to latest status
         # Populate sets based on final status
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status in ['FAILED', 'FAIL', 'ERROR']:
+            elif status in ["FAILED", "FAIL", "ERROR"]:
                 failed_tests.add(test)
-            elif status in ['SKIPPED', 'SKIP']:
+            elif status in ["SKIPPED", "SKIP"]:
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

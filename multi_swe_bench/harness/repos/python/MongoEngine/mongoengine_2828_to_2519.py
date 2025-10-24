@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ echo 'pytest tests/ -v -rA --tb=short' > test_commands.sh
 ###ACTION_DELIMITER###
 echo 'export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 export PYTHON_EGG_CACHE=/tmp/python-eggs && pytest tests/ -v -rA --tb=short
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class MONGOENGINE_2828_TO_2519(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,7 +198,6 @@ class MONGOENGINE_2828_TO_2519(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -212,29 +205,31 @@ class MONGOENGINE_2828_TO_2519(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse PASSED tests
-        passed_matches = re.findall(r'(tests/[\w\/.:]+)(?= PASSED)|PASSED (tests/[\w\/.:]+)', log)
+        passed_matches = re.findall(
+            r"(tests/[\w\/.:]+)(?= PASSED)|PASSED (tests/[\w\/.:]+)", log
+        )
         for match in passed_matches:
             test = match[0] if match[0] else match[1]
             passed_tests.add(test.strip())
         # Parse FAILED tests
-        failed_matches = re.findall(r'FAILED (tests/.*?)(?: |\n)', log)
+        failed_matches = re.findall(r"FAILED (tests/.*?)(?: |\n)", log)
         for test in failed_matches:
             failed_tests.add(test.strip())
         # Parse XFAIL tests (considered failed)
-        xfail_matches = re.findall(r'XFAIL (tests/.*?) -', log)
+        xfail_matches = re.findall(r"XFAIL (tests/.*?) -", log)
         for test in xfail_matches:
             failed_tests.add(test.strip())
         # Parse SKIPPED tests
-        skipped_matches = re.findall(r'SKIPPED \[\d+\] (tests/.*?:\d+):', log)
+        skipped_matches = re.findall(r"SKIPPED \[\d+\] (tests/.*?:\d+):", log)
         for test in skipped_matches:
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

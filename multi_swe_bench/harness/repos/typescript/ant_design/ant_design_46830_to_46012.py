@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm install
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/ant-design/test_commands.sh"""
+cat /home/ant-design/test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ cat /home/ant-design/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class ANT_DESIGN_46830_TO_46012(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,52 +165,57 @@ class ANT_DESIGN_46830_TO_46012(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases
         # Regex patterns with positive lookahead to handle test names with parentheses
-        passed_pattern = re.compile(r'^\s*✓\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)', re.MULTILINE)
-        failed_pattern = re.compile(r'^\s*✕\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)', re.MULTILINE)
-        skipped_pattern = re.compile(r'^\s*○\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^\s*✓\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)", re.MULTILINE
+        )
+        failed_pattern = re.compile(
+            r"^\s*✕\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)", re.MULTILINE
+        )
+        skipped_pattern = re.compile(
+            r"^\s*○\s+(.*?)(?=\s+\(\d+(?:\.\d+)?\s+(?:ms|s)\)|\s*$)", re.MULTILINE
+        )
         # Track latest status for each test (handles retries by processing log chronologically)
         test_status: dict[str, str] = {}
         # Process log line-by-line to respect chronological order
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             passed_match = passed_pattern.search(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
             # Check for failed tests (overrides passed/skipped)
             failed_match = failed_pattern.search(line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
             # Check for skipped tests (final)
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
-                test_status[test_name] = 'skipped'
+                test_status[test_name] = "skipped"
         # Populate sets based on final status
         for test_name, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test_name)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

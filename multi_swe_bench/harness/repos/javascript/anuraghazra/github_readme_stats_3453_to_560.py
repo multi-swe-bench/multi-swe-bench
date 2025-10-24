@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ npm install prettier@2.8.8
 ###ACTION_DELIMITER###
 npm test -- -u
 ###ACTION_DELIMITER###
-echo "npm test -- --verbose" > test_commands.sh"""
+echo "npm test -- --verbose" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ echo "npm test -- --verbose" > test_commands.sh"""
 cd /home/{pr.repo}
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class GITHUB_README_STATS_3453_TO_560(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,13 +170,13 @@ class GITHUB_README_STATS_3453_TO_560(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex to capture passed and failed test suites
         suite_regex = re.compile(r"^(PASS|FAIL)\s+(.*)")
         # Regex to capture passed test cases
@@ -194,9 +188,9 @@ class GITHUB_README_STATS_3453_TO_560(Instance):
             suite_match = suite_regex.match(line)
             if suite_match:
                 status, suite_name = suite_match.groups()
-                if status == 'PASS':
+                if status == "PASS":
                     passed_tests.add(suite_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(suite_name)
             # Check for passed test cases
             passed_match = passed_regex.match(line)
@@ -211,9 +205,8 @@ class GITHUB_README_STATS_3453_TO_560(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

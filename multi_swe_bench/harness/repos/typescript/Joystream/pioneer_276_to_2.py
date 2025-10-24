@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18.18.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'yarn test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class PIONEER_276_TO_2(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,27 +167,31 @@ class PIONEER_276_TO_2(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        test_case_pattern = re.compile(r'^\s*([✓✕○])\s+(.*?)(?: \(\d+ ms\))?$')  # More flexible matching for test cases
-        suite_pattern = re.compile(r'^(PASS|FAIL)\s+([^(]+)')  # Capture suite name up to '('
+
+        test_case_pattern = re.compile(
+            r"^\s*([✓✕○])\s+(.*?)(?: \(\d+ ms\))?$"
+        )  # More flexible matching for test cases
+        suite_pattern = re.compile(
+            r"^(PASS|FAIL)\s+([^(]+)"
+        )  # Capture suite name up to '('
         # Example: Matches 'test/utils/Comparator.test.ts' from 'PASS test/utils/Comparator.test.ts (5.406 s)'
         # Example: Matches 'test/utils/Comparator.test.ts' from both 'PASS test/utils/Comparator.test.ts (5.406 s)' and 'PASS test/utils/sortAccounts.test.ts'
         # Example: Matches 'PASS test/utils/Comparator.test.ts' from both 'PASS test/utils/Comparator.test.ts (5.406 s)' and 'PASS test/utils/sortAccounts.test.ts'
         current_context = []
-        for line in log.split('\n'):
-            line = line.rstrip('\r')
+        for line in log.split("\n"):
+            line = line.rstrip("\r")
             # Split line by '|' to ignore timestamp prefix
-            parts = line.split('|', 1)
+            parts = line.split("|", 1)
             if len(parts) < 2:
                 continue
             content = parts[1]  # Preserve leading spaces for indentation
-            leading_spaces = len(re.match(r'^\s*', content).group(0))
+            leading_spaces = len(re.match(r"^\s*", content).group(0))
             indent_level = leading_spaces // 2  # Assume 2 spaces per indent level
             stripped_content = content.strip()
             # Extract test suite name from PASS/FAIL lines
@@ -197,29 +201,30 @@ class PIONEER_276_TO_2(Instance):
                 current_context = [suite_name]
                 continue
             # Skip error lines
-            if stripped_content.startswith('●'):
+            if stripped_content.startswith("●"):
                 continue
             # Identify test cases (✓/✕/○)
             test_match = test_case_pattern.match(content)
             if test_match:
                 status, test_desc = test_match.group(1), test_match.group(2).strip()
-                full_test = ' '.join(current_context + [test_desc])
-                if status == '✓':
+                full_test = " ".join(current_context + [test_desc])
+                if status == "✓":
                     passed_tests.add(full_test)
-                elif status == '✕':
+                elif status == "✕":
                     failed_tests.add(full_test)
-                elif status == '○':
+                elif status == "○":
                     skipped_tests.add(full_test)
             else:
                 # Update nested context (e.g., test groups like 'Comparator' or 'By string')
                 if stripped_content:
-                    current_context = current_context[:indent_level] + [stripped_content]
+                    current_context = current_context[:indent_level] + [
+                        stripped_content
+                    ]
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

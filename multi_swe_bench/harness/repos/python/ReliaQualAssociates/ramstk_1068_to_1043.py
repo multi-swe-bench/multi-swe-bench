@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -90,7 +90,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y postgresql postgresql-contrib && service postgresql start && su - postgres -c 'createdb ramstk_test' && su - postgres -c 'psql -c "CREATE USER ramstk WITH PASSWORD \'ramstk\'; GRANT ALL PRIVILEGES ON DATABASE ramstk_test TO ramstk;"'
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ apt-get install -y postgresql postgresql-contrib && service postgresql start && 
 cd /home/[[REPO_NAME]]
 xvfb-run poetry run pytest -v -rA --cache-clear ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -112,7 +112,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run poetry run pytest -v -rA --cache-clear ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run poetry run pytest -v -rA --cache-clear ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class RAMSTK_1068_TO_1043(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,7 +201,6 @@ class RAMSTK_1068_TO_1043(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -209,11 +208,12 @@ class RAMSTK_1068_TO_1043(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Regex pattern to match test names and statuses
-        pattern = r'.*?(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED|ERROR)\b.*|.*?(PASSED|FAILED|SKIPPED|ERROR)\b.*?\s+(tests/[^\s]+)'
-        for line in log.split('\n'):
+        pattern = r".*?(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED|ERROR)\b.*|.*?(PASSED|FAILED|SKIPPED|ERROR)\b.*?\s+(tests/[^\s]+)"
+        for line in log.split("\n"):
             line = line.strip()
             match = re.search(pattern, line)
             if match:
@@ -230,18 +230,17 @@ class RAMSTK_1068_TO_1043(Instance):
                 # Clean the test name (remove any trailing whitespace or characters)
                 test_name = test_name.strip()
                 # Determine the status and add to the appropriate set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ['FAILED', 'ERROR']:
+                elif status in ["FAILED", "ERROR"]:
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

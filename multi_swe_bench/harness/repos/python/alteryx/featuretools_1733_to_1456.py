@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -111,7 +111,7 @@ python -m pip install graphviz==0.20.1 distributed==2023.3.0
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-python -m pip install graphviz==0.17"""
+python -m pip install graphviz==0.17""",
             ),
             File(
                 ".",
@@ -120,9 +120,7 @@ python -m pip install graphviz==0.17"""
 cd /home/{pr.repo}
 pytest featuretools/ -v -rA -p no:cacheprovider -n 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -135,9 +133,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest featuretools/ -v -rA -p no:cacheprovider -n 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -150,9 +146,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest featuretools/ -v -rA -p no:cacheprovider -n 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -214,7 +208,7 @@ class FEATURETOOLS_1733_TO_1456(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -228,13 +222,15 @@ class FEATURETOOLS_1733_TO_1456(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         test_status = {}  # Track latest status for each test
         import re
+
         # Use regex to find all test cases with their statuses
-        pattern = re.compile(r'(?:\[\s*\d+\] )?(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|SKIPPED|FAILED|ERROR)\s+(featuretools/[\w/]+\.py::[^\s]+)')
+        pattern = re.compile(
+            r"(?:\[\s*\d+\] )?(?:\[gw\d+\] \[\s*\d+%\] )?(PASSED|SKIPPED|FAILED|ERROR)\s+(featuretools/[\w/]+\.py::[^\s]+)"
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
             test_status[test_name] = status  # Overwrite with latest status
@@ -243,18 +239,17 @@ class FEATURETOOLS_1733_TO_1456(Instance):
         failed_tests = set()
         skipped_tests = set()
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

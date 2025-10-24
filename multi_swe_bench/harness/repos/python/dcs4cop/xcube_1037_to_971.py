@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -137,7 +137,7 @@ source venv/bin/activate && pip install --force-reinstall flask==3.1.1 moto[serv
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip install botocore==1.39.8 boto3==1.39.8
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -148,9 +148,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -165,9 +163,7 @@ fi
 source venv/bin/activate
 pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -182,9 +178,7 @@ fi
 source venv/bin/activate
 pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -246,7 +240,7 @@ class XCUBE_1037_TO_971(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -260,20 +254,20 @@ class XCUBE_1037_TO_971(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Compile regex patterns to match test cases and their statuses
         # Adjusted patterns to account for leading line numbers in brackets
         # Adjusted patterns to match actual log content (excluding sample line numbers)
-        passed_pattern = re.compile(r'(test/[^\s]+)\s+PASSED')
-        failed_pattern = re.compile(r'FAILED\s+(test/[^\s]+)')
-        skipped_pattern1 = re.compile(r'(test/[^\s]+)\s+SKIPPED')
-        skipped_pattern2 = re.compile(r'SKIPPED\s+\[\d+\]\s+(test/[^\s]+)')
+        passed_pattern = re.compile(r"(test/[^\s]+)\s+PASSED")
+        failed_pattern = re.compile(r"FAILED\s+(test/[^\s]+)")
+        skipped_pattern1 = re.compile(r"(test/[^\s]+)\s+SKIPPED")
+        skipped_pattern2 = re.compile(r"SKIPPED\s+\[\d+\]\s+(test/[^\s]+)")
         for line in log.splitlines():
             line = line.strip()
             # Check for PASSED tests
@@ -303,9 +297,8 @@ class XCUBE_1037_TO_971(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

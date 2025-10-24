@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ yarn test -- --verbose --reporter=json --color=never --no-fail-fast
 ###ACTION_DELIMITER###
 echo 'yarn test -- --verbose --reporter=json --color=never --no-fail-fast' > /home/mon-entreprise/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/mon-entreprise/test_commands.sh"""
+bash /home/mon-entreprise/test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ bash /home/mon-entreprise/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose --reporter=json --color=never --no-fail-fast
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose --reporter=json --color=never --no-fail-fast
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose --reporter=json --color=never --no-fail-fast
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class MON_ENTREPRISE_3824_TO_2903(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,24 +173,30 @@ class MON_ENTREPRISE_3824_TO_2903(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Strip ANSI escape codes (color/formatting)
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        cleaned_log = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        cleaned_log = ansi_escape.sub("", log)
         # Pattern for passed tests: ✓ followed by test name (before '(' or '[')
-        passed_pattern = re.compile(r'✓\s+(.+?)\s+[\(\[]')
+        passed_pattern = re.compile(r"✓\s+(.+?)\s+[\(\[]")
         # Pattern for failed tests: FAIL followed by test file (with .test. or .spec.)
-        failed_pattern = re.compile(r'FAIL\s+(.+?\.test\.(ts|js|tsx)|.+?\.spec\.(ts|js|tsx))\s+[\(\[]')
+        failed_pattern = re.compile(
+            r"FAIL\s+(.+?\.test\.(ts|js|tsx)|.+?\.spec\.(ts|js|tsx))\s+[\(\[]"
+        )
         # Pattern for skipped tests: Ignore leading characters before ↓, capture test file
-        skipped_pattern = re.compile(r'^.*↓\s+(.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))\s+[\(\[]')
+        skipped_pattern = re.compile(
+            r"^.*↓\s+(.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))\s+[\(\[]"
+        )
         # Pattern for stderr/failed nested tests (extract test files only)
-        stderr_pattern = re.compile(r'>(\s*.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))[^>]*$')
+        stderr_pattern = re.compile(
+            r">(\s*.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))[^>]*$"
+        )
         # Extract passed tests
         for match in passed_pattern.finditer(cleaned_log):
             test_name = match.group(1).strip()
@@ -200,8 +206,8 @@ class MON_ENTREPRISE_3824_TO_2903(Instance):
             test_name = match.group(1).strip()
             failed_tests.add(test_name)
         # Extract failed tests from stderr/nested lines
-        for line in cleaned_log.split('\n'):
-            if 'stderr' in line:
+        for line in cleaned_log.split("\n"):
+            if "stderr" in line:
                 stderr_match = stderr_pattern.search(line)
                 if stderr_match:
                     test_name = stderr_match.group(1).strip()
@@ -210,23 +216,25 @@ class MON_ENTREPRISE_3824_TO_2903(Instance):
         for match in skipped_pattern.finditer(cleaned_log):
             test_name = match.group(1).strip()
             # Remove leading non-alphanumeric characters
-            test_name = re.sub(r'^[^a-zA-Z0-9_/]+', '', test_name)
+            test_name = re.sub(r"^[^a-zA-Z0-9_/]+", "", test_name)
             skipped_tests.add(test_name)
         # Additional check for 'skipped' keyword in test counts (restricted to test files)
-        for line in cleaned_log.split('\n'):
-            if 'skipped' in line:
-                skip_match = re.search(r'^.*(.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))\s+\(\d+ tests.*\d+ skipped', line)
+        for line in cleaned_log.split("\n"):
+            if "skipped" in line:
+                skip_match = re.search(
+                    r"^.*(.+?\.test\.(ts|js|tsx|jsx)|.+?\.spec\.(ts|js|tsx|jsx))\s+\(\d+ tests.*\d+ skipped",
+                    line,
+                )
                 if skip_match:
                     test_name = skip_match.group(1).strip()
                     # Remove leading non-alphanumeric characters
-                    test_name = re.sub(r'^[^a-zA-Z0-9_/]+', '', test_name)
+                    test_name = re.sub(r"^[^a-zA-Z0-9_/]+", "", test_name)
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

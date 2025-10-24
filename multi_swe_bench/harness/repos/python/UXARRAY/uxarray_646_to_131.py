@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -123,7 +123,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install 'numpy<2.0'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -132,9 +132,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/pytest -vv --no-header -rA -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +145,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest -vv --no-header -rA -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -162,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest -vv --no-header -rA -p no:cacheprovider test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -226,7 +220,7 @@ class UXARRAY_646_TO_131(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,18 +234,22 @@ class UXARRAY_646_TO_131(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Simplified regex patterns to match test names and statuses
         # Pattern 1: test_name followed by status
-        pattern1 = re.compile(r'(test/[\w/.:]+)\s+(PASSED|FAILED|SKIPPED)', re.MULTILINE)
+        pattern1 = re.compile(
+            r"(test/[\w/.:]+)\s+(PASSED|FAILED|SKIPPED)", re.MULTILINE
+        )
         # Pattern 2: status followed by test_name
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(test/[\w/.:]+)', re.MULTILINE)
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+(test/[\w/.:]+)", re.MULTILINE
+        )
         # Track latest status for each test using a dictionary
         test_status = {}
         # Process both patterns and update status
@@ -261,18 +259,17 @@ class UXARRAY_646_TO_131(Instance):
             test_status[test_name] = status.upper()
         # Populate sets based on the latest status
         for test_name, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/kill $SERVER_PID/pkill -f "yarn serve" || true/' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -169,7 +169,7 @@ done
 xvfb-run yarn cypress run --e2e --reporter spec
 pkill -f "yarn serve" || true
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -196,7 +196,7 @@ done
 xvfb-run yarn cypress run --e2e --reporter spec
 pkill -f "yarn serve" || true
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -223,7 +223,7 @@ done
 xvfb-run yarn cypress run --e2e --reporter spec
 pkill -f "yarn serve" || true
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -285,7 +285,7 @@ class CYLC_UI_1390_TO_1218(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -299,28 +299,33 @@ class CYLC_UI_1390_TO_1218(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed tests using regex
-        passed_pattern = re.compile(r'[✓✔]\s+([^\n]+?)(?=\s{2,}|\|)')  # Match ✓/✔, capture until delimiter
+        passed_pattern = re.compile(
+            r"[✓✔]\s+([^\n]+?)(?=\s{2,}|\|)"
+        )  # Match ✓/✔, capture until delimiter
         passed_tests = set(passed_pattern.findall(log))
         # Parse failed tests using regex
-        failed_pattern = re.compile(r'[✖]\s+([^\n]+?)(?=\s{2,}|\|)')  # Match ✖, capture until delimiter
+        failed_pattern = re.compile(
+            r"[✖]\s+([^\n]+?)(?=\s{2,}|\|)"
+        )  # Match ✖, capture until delimiter
         failed_tests = set(failed_pattern.findall(log))
         # Parse skipped tests (placeholder pattern, adjust as needed)
-        skipped_pattern = re.compile(r'[sS]kipped|−\s+([^\n]+?)(?=\s{2,}|\|)')  # Match 'Skipped' or '−' for skipped tests
+        skipped_pattern = re.compile(
+            r"[sS]kipped|−\s+([^\n]+?)(?=\s{2,}|\|)"
+        )  # Match 'Skipped' or '−' for skipped tests
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

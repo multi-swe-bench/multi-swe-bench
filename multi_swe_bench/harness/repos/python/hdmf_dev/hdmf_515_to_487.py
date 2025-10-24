@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -121,7 +121,7 @@ sed -i 's/importlib-metadata<2/importlib-metadata>=3.6.0/' requirements-dev.txt
 ###ACTION_DELIMITER###
 make init
 ###ACTION_DELIMITER###
-rm -rf .tox && bash test_commands.sh"""
+rm -rf .tox && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -130,9 +130,7 @@ rm -rf .tox && bash test_commands.sh"""
 cd /home/{pr.repo}
 tox -e py39 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 tox -e py39 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 tox -e py39 -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class HDMF_515_TO_487(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,7 +232,6 @@ class HDMF_515_TO_487(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -246,34 +239,34 @@ class HDMF_515_TO_487(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern to match test rows in log tables
-        test_row_pattern = re.compile(r'\|\s*(.*?)\s*\|\s*.*?\s*\|\s*(.*?)\s*\|')
+        test_row_pattern = re.compile(r"\|\s*(.*?)\s*\|\s*.*?\s*\|\s*(.*?)\s*\|")
         # Remove ANSI color codes
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-        for line in log.split('\n'):
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+        for line in log.split("\n"):
             match = test_row_pattern.search(line)
             if match:
                 test_name_part = match.group(1)
                 status_part = match.group(2)
                 # Clean test name (remove trailing colon and whitespace)
-                test_name = test_name_part.split(':', 1)[0].strip()
+                test_name = test_name_part.split(":", 1)[0].strip()
                 if not test_name:
                     continue
                 # Clean status (remove ANSI codes and normalize)
-                cleaned_status = ansi_escape.sub('', status_part).strip().lower()
+                cleaned_status = ansi_escape.sub("", status_part).strip().lower()
                 # Categorize tests
-                if cleaned_status == 'pass':
+                if cleaned_status == "pass":
                     passed_tests.add(test_name)
-                elif cleaned_status in ['fail', 'error']:
+                elif cleaned_status in ["fail", "error"]:
                     failed_tests.add(test_name)
-                elif cleaned_status in ['skip', 'skipped']:
+                elif cleaned_status in ["skip", "skipped"]:
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

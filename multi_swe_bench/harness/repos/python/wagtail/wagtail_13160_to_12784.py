@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ echo 'python runtests.py --verbosity=2' > /home/wagtail/test_commands.sh
 ###ACTION_DELIMITER###
 pip install -e ".[testing]"
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class WAGTAIL_13160_TO_12784(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,7 +164,6 @@ class WAGTAIL_13160_TO_12784(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -178,24 +171,24 @@ class WAGTAIL_13160_TO_12784(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests
         # Pattern 1: Test name and status on the same line (e.g., "... (test.name) ... ok")
-        passed_same_line = re.findall(r'\(([\w.]+)\) \.\.\. ok', log)
+        passed_same_line = re.findall(r"\(([\w.]+)\) \.\.\. ok", log)
         passed_tests.update(passed_same_line)
         # Pattern 2: Test name on one line, status on the next (e.g., "(test.name)\n... ... ok")
-        passed_two_lines = re.findall(r'\(([\w.]+)\)\n.* \.\.\. ok', log)
+        passed_two_lines = re.findall(r"\(([\w.]+)\)\n.* \.\.\. ok", log)
         passed_tests.update(passed_two_lines)
         # Extract failed tests (e.g., "FAIL: ... (test.name)" or "ERROR: ... (test.name)")
-        failed_tests.update(re.findall(r'(?:FAIL|ERROR): .*\(([\w.]+)\)', log))
+        failed_tests.update(re.findall(r"(?:FAIL|ERROR): .*\(([\w.]+)\)", log))
         # Extract skipped tests (e.g., "SKIP: ... (test.name)" or "... (test.name) ... skipped")
-        skipped_tests.update(re.findall(r'SKIP: .*\(([\w.]+)\)', log))
-        skipped_tests.update(re.findall(r'\(([\w.]+)\) \.\.\. skipped', log))
+        skipped_tests.update(re.findall(r"SKIP: .*\(([\w.]+)\)", log))
+        skipped_tests.update(re.findall(r"\(([\w.]+)\) \.\.\. skipped", log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

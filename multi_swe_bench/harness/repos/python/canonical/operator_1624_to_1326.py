@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -55,7 +55,7 @@ pip install -e ".[testing]" pytest pytest-xdist typing_extensions jsonpatch
 ###ACTION_DELIMITER###
 echo 'pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -64,9 +64,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -79,9 +77,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +90,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -n auto --ignore=test/smoke --ignore=test/benchmark --ignore=testing/test/benchmark -v --tb native
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -158,7 +152,7 @@ class OPERATOR_1624_TO_1326(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -172,31 +166,30 @@ class OPERATOR_1624_TO_1326(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Extract passed tests
-        passed_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] PASSED (.*)', log)
+        passed_matches = re.findall(r"\[gw\d+\] \[\s*\d+%\] PASSED (.*)", log)
         passed_tests.update(passed_matches)
         # Extract failed tests from FAILED lines
-        failed_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] FAILED (.*)', log)
+        failed_matches = re.findall(r"\[gw\d+\] \[\s*\d+%\] FAILED (.*)", log)
         failed_tests.update(failed_matches)
         # Extract failed tests from ERROR lines
-        error_matches = re.findall(r'\[\d+\]\s+ERROR\s+(.*?)(?:\s+-|$)', log)
+        error_matches = re.findall(r"\[\d+\]\s+ERROR\s+(.*?)(?:\s+-|$)", log)
         failed_tests.update(error_matches)
         # Extract skipped tests
-        skipped_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] SKIPPED (.*)', log)
+        skipped_matches = re.findall(r"\[gw\d+\] \[\s*\d+%\] SKIPPED (.*)", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

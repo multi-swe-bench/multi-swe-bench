@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'xvfb-run pytest -v --maxfail=0 -p no:napari --no-header -rA --tb=no -p no:cacheprovider --ignore tools' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 xvfb-run pytest -v --maxfail=0 -p no:napari --no-header -rA --tb=no -p no:cacheprovider --ignore tools
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run pytest -v --maxfail=0 -p no:napari --no-header -rA --tb=no -p no:cacheprovider --ignore tools
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run pytest -v --maxfail=0 -p no:napari --no-header -rA --tb=no -p no:cacheprovider --ignore tools
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class NAPARI_2913_TO_2054(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,7 +203,6 @@ class NAPARI_2913_TO_2054(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -211,11 +210,12 @@ class NAPARI_2913_TO_2054(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Compile regex patterns for test cases, including ERROR
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+\[.*\]$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED|ERROR)\s+(.+)$')
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+\[.*\]$")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED|ERROR)\s+(.+)$")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match1 = pattern1.match(line)
             match2 = pattern2.match(line)
@@ -228,20 +228,19 @@ class NAPARI_2913_TO_2054(Instance):
             else:
                 continue  # Skip lines that don't match
             # Add test to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'ERROR':
+            elif status == "ERROR":
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

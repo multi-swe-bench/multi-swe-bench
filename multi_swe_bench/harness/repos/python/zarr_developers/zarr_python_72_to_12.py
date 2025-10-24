@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -157,7 +157,7 @@ echo -e '[doctest]\noptionflags = NORMALIZE_WHITESPACE' > nose2.cfg && echo -e '
 ###ACTION_DELIMITER###
 echo -e '[doctest]\noptionflags = NORMALIZE_WHITESPACE' > nose2.cfg && echo -e 'python3.9 setup.py build_ext --inplace\npython3.9 -m nose2 -v --plugin=nose2.plugins.doctests zarr\npython3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-python3.9 -m pip install nose && echo -e 'python3.9 setup.py build_ext --inplace\nnosetests -v --with-doctest --doctest-options=+NORMALIZE_WHITESPACE zarr\npython3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst' > test_commands.sh && bash test_commands.sh"""
+python3.9 -m pip install nose && echo -e 'python3.9 setup.py build_ext --inplace\nnosetests -v --with-doctest --doctest-options=+NORMALIZE_WHITESPACE zarr\npython3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -168,9 +168,7 @@ python3.9 setup.py build_ext --inplace
 nosetests -v --with-doctest --doctest-options=+NORMALIZE_WHITESPACE zarr
 python3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -185,9 +183,7 @@ python3.9 setup.py build_ext --inplace
 nosetests -v --with-doctest --doctest-options=+NORMALIZE_WHITESPACE zarr
 python3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -202,9 +198,7 @@ python3.9 setup.py build_ext --inplace
 nosetests -v --with-doctest --doctest-options=+NORMALIZE_WHITESPACE zarr
 python3.9 -m doctest -o NORMALIZE_WHITESPACE -o ELLIPSIS docs/tutorial.rst docs/spec/v2.rst
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -266,7 +260,7 @@ class ZARR_PYTHON_72_TO_12(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -280,7 +274,6 @@ class ZARR_PYTHON_72_TO_12(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -288,22 +281,22 @@ class ZARR_PYTHON_72_TO_12(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        pattern = re.compile(r'(test_\S+\s*\([^)]+\))\s*\.\.\.\s*(\w+)')
+
+        pattern = re.compile(r"(test_\S+\s*\([^)]+\))\s*\.\.\.\s*(\w+)")
         matches = pattern.findall(log)
         for test_name, status in matches:
             status_lower = status.lower()
-            if status_lower == 'ok':
+            if status_lower == "ok":
                 passed_tests.add(test_name)
-            elif status_lower in ('error', 'failed'):
+            elif status_lower in ("error", "failed"):
                 failed_tests.add(test_name)
-            elif status_lower in ('skipped', 'skip'):
+            elif status_lower in ("skipped", "skip"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

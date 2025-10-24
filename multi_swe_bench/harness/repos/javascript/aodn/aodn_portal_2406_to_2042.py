@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:11-jdk-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -69,7 +69,7 @@ ls /usr/lib/jvm/temurin-8-jdk-amd64/bin/java && update-alternatives --install /u
 mvn clean install
 ###ACTION_DELIMITER###
 echo '#!/bin/bash
-mvn clean test -Dstyle.color=never -e -Dsurefire.printSummary=always -Dsurefire.useFile=false' > /home/aodn-portal/test_commands.sh && chmod +x /home/aodn-portal/test_commands.sh"""
+mvn clean test -Dstyle.color=never -e -Dsurefire.printSummary=always -Dsurefire.useFile=false' > /home/aodn-portal/test_commands.sh && chmod +x /home/aodn-portal/test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 mvn clean test -Dstyle.color=never -e -Dsurefire.printSummary=always -Dsurefire.useFile=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ fi
 #!/bin/bash
 mvn clean test -Dstyle.color=never -e -Dsurefire.printSummary=always -Dsurefire.useFile=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ fi
 #!/bin/bash
 mvn clean test -Dstyle.color=never -e -Dsurefire.printSummary=always -Dsurefire.useFile=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class AODN_PORTAL_2406_TO_2042(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,22 +183,22 @@ class AODN_PORTAL_2406_TO_2042(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract all test names using regex patterns
         test_patterns = [
-            re.compile(r'(test[A-Za-z0-9_]+)\(([A-Za-z0-9.]+)\)'),  # testMethod(Class)
-            re.compile(r'([A-Za-z0-9.]+)\.(test[A-Za-z0-9_]+)')   # Class.testMethod
+            re.compile(r"(test[A-Za-z0-9_]+)\(([A-Za-z0-9.]+)\)"),  # testMethod(Class)
+            re.compile(r"([A-Za-z0-9.]+)\.(test[A-Za-z0-9_]+)"),  # Class.testMethod
         ]
         # Collect all unique test names (normalized to Class.testMethod)
         test_names = set()
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             for pattern in test_patterns:
                 match = pattern.search(line)
@@ -212,15 +212,17 @@ class AODN_PORTAL_2406_TO_2042(Instance):
                     test_names.add(test_name)
         # Identify failed tests by checking if their name appears in stack traces
         failed_tests = set()
-        stack_trace_re = re.compile(r'at .*?(' + '|'.join(re.escape(test) for test in test_names) + ')')  # Match test names in stack traces (escaped for special chars)
+        stack_trace_re = re.compile(
+            r"at .*?(" + "|".join(re.escape(test) for test in test_names) + ")"
+        )  # Match test names in stack traces (escaped for special chars)
         in_error = False
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Detect error start (e.g., exception messages)
-            if 'java.lang.' in line or 'NullPointerException' in line:
+            if "java.lang." in line or "NullPointerException" in line:
                 in_error = True
             # Check stack trace lines following an error
-            if in_error and 'at ' in line:
+            if in_error and "at " in line:
                 match = stack_trace_re.search(line)
                 if match:
                     failed_test = match.group(1)
@@ -231,9 +233,8 @@ class AODN_PORTAL_2406_TO_2042(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

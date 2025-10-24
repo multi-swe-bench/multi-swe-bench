@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -137,7 +137,7 @@ apt-get install -y libgdal-dev gdal-bin && pip install GDAL==3.6.2 && rm -f /hom
 conda install -c conda-forge -y setuptools-scm && pip install -e . && xvfb-run make test
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-xvfb-run make test' > /home/invest/test_commands.sh && chmod +x /home/invest/test_commands.sh"""
+xvfb-run make test' > /home/invest/test_commands.sh && chmod +x /home/invest/test_commands.sh""",
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 xvfb-run make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -161,7 +161,7 @@ fi
 #!/bin/bash
 xvfb-run make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -175,7 +175,7 @@ fi
 #!/bin/bash
 xvfb-run make test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -237,7 +237,7 @@ class INVEST_770_TO_636(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -251,22 +251,28 @@ class INVEST_770_TO_636(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Split the log into lines and process each line
         # Regex patterns to match different test result formats
         test_patterns = [
             # Format 1: [line number] STATUS test_name (strict test name format)
-            re.compile(r'\[\d+\]\s+(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\W*\s+(tests/[\w/]+\.py::[\w:]+)'),
+            re.compile(
+                r"\[\d+\]\s+(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\W*\s+(tests/[\w/]+\.py::[\w:]+)"
+            ),
             # Format 2: STATUS test_name (strict test name format)
-            re.compile(r'(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\W*\s+(tests/[\w/]+\.py::[\w:]+)'),
+            re.compile(
+                r"(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\W*\s+(tests/[\w/]+\.py::[\w:]+)"
+            ),
             # Format 3: test_name ... STATUS (strict test name format)
-            re.compile(r'(tests/[\w/]+\.py::[\w:]+).*\s+(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\b')
+            re.compile(
+                r"(tests/[\w/]+\.py::[\w:]+).*\s+(PASSED|PASS|OK|SUCCESS|FAILED|FAIL|ERROR|SKIPPED|SKIP)\b"
+            ),
         ]
         for line in log.splitlines():
             line = line.strip()
@@ -284,19 +290,18 @@ class INVEST_770_TO_636(Instance):
                     test_name = test_name.strip()
                     status = status.strip().upper()
                     # Map status variations to categories
-                    if status in ['PASSED', 'PASS', 'OK', 'SUCCESS']:
+                    if status in ["PASSED", "PASS", "OK", "SUCCESS"]:
                         passed_tests.add(test_name)
-                    elif status in ['FAILED', 'FAIL', 'ERROR']:
+                    elif status in ["FAILED", "FAIL", "ERROR"]:
                         failed_tests.add(test_name)
-                    elif status in ['SKIPPED', 'SKIP']:
+                    elif status in ["SKIPPED", "SKIP"]:
                         skipped_tests.add(test_name)
                     break  # Stop checking other patterns once matched
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

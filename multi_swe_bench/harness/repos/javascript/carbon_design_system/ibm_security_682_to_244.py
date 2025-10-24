@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class IBM_SECURITY_682_TO_244(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,16 +177,20 @@ class IBM_SECURITY_682_TO_244(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Track current test suite and test statuses
-        suite_pattern = re.compile(r'^\s*(\w+)\s*$')  # Matches suite names (e.g., UNSTABLE__Pagination, FilterPanelAccordionItem)
-        test_pattern = re.compile(r'^\s*([✓✕])\s+(.*?)\s+\(\d+ms\)$')  # Matches test lines
+        suite_pattern = re.compile(
+            r"^\s*(\w+)\s*$"
+        )  # Matches suite names (e.g., UNSTABLE__Pagination, FilterPanelAccordionItem)
+        test_pattern = re.compile(
+            r"^\s*([✓✕])\s+(.*?)\s+\(\d+ms\)$"
+        )  # Matches test lines
         current_suite = None
         test_status = {}  # Tracks the latest status of each full test name
         for line in log.splitlines():
@@ -201,13 +205,17 @@ class IBM_SECURITY_682_TO_244(Instance):
                 status, test_subname = test_match.groups()
                 full_test_name = f"{current_suite} {test_subname}"
                 # Update the test status (latest status overwrites previous)
-                if status == '✓':
-                    test_status[full_test_name] = 'passed'
-                elif status == '✕':
-                    test_status[full_test_name] = 'failed'
+                if status == "✓":
+                    test_status[full_test_name] = "passed"
+                elif status == "✕":
+                    test_status[full_test_name] = "failed"
         # Populate the sets based on the final statuses
-        passed_tests = {name for name, status in test_status.items() if status == 'passed'}
-        failed_tests = {name for name, status in test_status.items() if status == 'failed'}
+        passed_tests = {
+            name for name, status in test_status.items() if status == "passed"
+        }
+        failed_tests = {
+            name for name, status in test_status.items() if status == "failed"
+        }
         # Check for skipped tests (pattern not observed in samples, adjust if needed)
         # Example: skipped_pattern = r'\s*− (.*?) \(\d+ms\)'
         # skipped_matches = re.findall(skipped_pattern, log)
@@ -215,9 +223,8 @@ class IBM_SECURITY_682_TO_244(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

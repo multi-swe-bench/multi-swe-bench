@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ pip uninstall -y joblib && pip install joblib==0.14.1
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh"""
+echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ echo 'nosetests -v -s nilearn' > /home/nilearn/test_commands.sh"""
 cd /home/{pr.repo}
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nosetests -v -s nilearn
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class NILEARN_1845_TO_1386(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,37 +196,45 @@ class NILEARN_1845_TO_1386(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Extract test names using pattern matching for observed log formats
         # Passed tests: Lines ending with '... ok'
-        passed_pattern = r'^(.*?)\s+\.\.\.\s+ok$'
+        passed_pattern = r"^(.*?)\s+\.\.\.\s+ok$"
         passed_matches = re.findall(passed_pattern, log, re.MULTILINE | re.IGNORECASE)
-        passed_tests = set(test.strip() for test in passed_matches if 'test' in test.lower())
+        passed_tests = set(
+            test.strip() for test in passed_matches if "test" in test.lower()
+        )
         # Failed tests: Lines starting with 'ERROR:' or 'FAIL:'
-        failed_pattern = r'^(ERROR|FAIL):\s+(.*)$'
+        failed_pattern = r"^(ERROR|FAIL):\s+(.*)$"
         failed_matches = re.findall(failed_pattern, log, re.MULTILINE | re.IGNORECASE)
-        failed_tests = set(test.strip() for (_, test) in failed_matches if 'test' in test.lower())
+        failed_tests = set(
+            test.strip() for (_, test) in failed_matches if "test" in test.lower()
+        )
         # Skipped tests: Lines ending with '... SKIP' or starting with 'SKIP:'
-        skipped_pattern1 = r'^(.*?)\s+\.\.\.\s+SKIP$'
-        skipped_pattern2 = r'^SKIP:\s+(.*)$'
-        skipped_matches1 = re.findall(skipped_pattern1, log, re.MULTILINE | re.IGNORECASE)
-        skipped_matches2 = re.findall(skipped_pattern2, log, re.MULTILINE | re.IGNORECASE)
+        skipped_pattern1 = r"^(.*?)\s+\.\.\.\s+SKIP$"
+        skipped_pattern2 = r"^SKIP:\s+(.*)$"
+        skipped_matches1 = re.findall(
+            skipped_pattern1, log, re.MULTILINE | re.IGNORECASE
+        )
+        skipped_matches2 = re.findall(
+            skipped_pattern2, log, re.MULTILINE | re.IGNORECASE
+        )
         skipped_tests = set(
-            test.strip() for test in skipped_matches1 + skipped_matches2
-            if 'test' in test.lower()
+            test.strip()
+            for test in skipped_matches1 + skipped_matches2
+            if "test" in test.lower()
         )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

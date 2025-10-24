@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ pip install .[dev]
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 pytest --cov=augur -v
-cram -v tests/' > test_commands.sh && chmod +x test_commands.sh"""
+cram -v tests/' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ cd /home/[[REPO_NAME]]
 pytest --cov=augur -v
 cram -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ fi
 pytest --cov=augur -v
 cram -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ fi
 pytest --cov=augur -v
 cram -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class AUGUR_1834_TO_1278(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,7 +185,6 @@ class AUGUR_1834_TO_1278(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -193,57 +192,65 @@ class AUGUR_1834_TO_1278(Instance):
         skipped_tests = set()
         import re
         import json
-        lines = log.split('\n')
-        statuses = {'passed', 'failed', 'skipped', 'PASSED', 'FAILED', 'SKIPPED'}
+
+        lines = log.split("\n")
+        statuses = {"passed", "failed", "skipped", "PASSED", "FAILED", "SKIPPED"}
         for i in range(len(lines)):
             line = lines[i].strip()
             # Check same-line status
-            same_line_match = re.match(r'^(.*?)\s*[:\s]\s*(PASSED|FAILED|SKIPPED|passed|failed|skipped)$', line)
+            same_line_match = re.match(
+                r"^(.*?)\s*[:\s]\s*(PASSED|FAILED|SKIPPED|passed|failed|skipped)$", line
+            )
             if same_line_match:
                 test_name = same_line_match.group(1).strip()
                 status = same_line_match.group(2).lower()
-                if status == 'passed':
+                if status == "passed":
                     passed_tests.add(test_name)
-                elif status == 'failed':
+                elif status == "failed":
                     failed_tests.add(test_name)
-                elif status == 'skipped':
+                elif status == "skipped":
                     skipped_tests.add(test_name)
                 continue
             # Check if current line is a status and previous line has a test name
             if line in statuses:
                 status = line.lower()
                 if i > 0:
-                    prev_line = lines[i-1].strip()
-                    test_name_match = re.search(r'([a-zA-Z0-9/_]+\.py::[a-zA-Z0-9_]+(::[a-zA-Z0-9_]+)?|[a-zA-Z0-9/_]+\.t)', prev_line)
+                    prev_line = lines[i - 1].strip()
+                    test_name_match = re.search(
+                        r"([a-zA-Z0-9/_]+\.py::[a-zA-Z0-9_]+(::[a-zA-Z0-9_]+)?|[a-zA-Z0-9/_]+\.t)",
+                        prev_line,
+                    )
                     if test_name_match:
                         test_name = test_name_match.group(1)
-                        if status == 'passed':
+                        if status == "passed":
                             passed_tests.add(test_name)
-                        elif status == 'failed':
+                        elif status == "failed":
                             failed_tests.add(test_name)
-                        elif status == 'skipped':
+                        elif status == "skipped":
                             skipped_tests.add(test_name)
                 continue
             # Check if current line has a test name and next line is a status
-            test_name_match = re.search(r'([a-zA-Z0-9/_]+\.py::[a-zA-Z0-9_]+(::[a-zA-Z0-9_]+)?|[a-zA-Z0-9/_]+\.t)', line)
+            test_name_match = re.search(
+                r"([a-zA-Z0-9/_]+\.py::[a-zA-Z0-9_]+(::[a-zA-Z0-9_]+)?|[a-zA-Z0-9/_]+\.t)",
+                line,
+            )
             if test_name_match and i < len(lines) - 1:
-                next_line = lines[i+1].strip()
+                next_line = lines[i + 1].strip()
                 if next_line in statuses:
                     test_name = test_name_match.group(1)
                     status = next_line.lower()
-                    if status == 'passed':
+                    if status == "passed":
                         passed_tests.add(test_name)
-                    elif status == 'failed':
+                    elif status == "failed":
                         failed_tests.add(test_name)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

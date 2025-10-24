@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -115,7 +115,7 @@ sed -i '/jitclass,/d' src/cogent3/align/pairwise_pogs_numba.py && sed -i '14a fr
 ###ACTION_DELIMITER###
 python -c 'import cogent3; print(cogent3.__version__)'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ cd /home/[[REPO_NAME]]
 export PYTHONPATH="${PYTHONPATH}:/home/cogent3/src"
 cd tests && pytest -v --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ fi
 export PYTHONPATH="${PYTHONPATH}:/home/cogent3/src"
 cd tests && pytest -v --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ fi
 export PYTHONPATH="${PYTHONPATH}:/home/cogent3/src"
 cd tests && pytest -v --ignore=test_mpi.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class COGENT3_703_TO_669(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,7 +229,6 @@ class COGENT3_703_TO_669(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -237,22 +236,22 @@ class COGENT3_703_TO_669(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test cases using regular expressions
         # Pattern for passed tests: matches test file path followed by PASSED
-        passed_pattern = re.compile(r'([\w\/-]+\.py::[\w]+(?:::[\w]+)*) PASSED')
+        passed_pattern = re.compile(r"([\w\/-]+\.py::[\w]+(?:::[\w]+)*) PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: matches FAILED followed by test file path
-        failed_pattern = re.compile(r'FAILED ([\w\/-]+\.py::[\w]+(?:::[\w]+)*)')
+        failed_pattern = re.compile(r"FAILED ([\w\/-]+\.py::[\w]+(?:::[\w]+)*)")
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped tests: matches SKIPPED followed by test file path
-        skipped_pattern = re.compile(r'([\w\/-]+\.py::[\w]+(?:::[\w]+)*)\s+SKIPPED')
+        skipped_pattern = re.compile(r"([\w\/-]+\.py::[\w]+(?:::[\w]+)*)\s+SKIPPED")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

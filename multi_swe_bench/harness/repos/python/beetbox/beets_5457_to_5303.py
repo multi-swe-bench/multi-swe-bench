@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ echo 'poe test -v' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poe test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poe test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poe test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class BEETS_5457_TO_5303(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,31 +172,32 @@ class BEETS_5457_TO_5303(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Pattern for PASSED tests (test name followed by status)
-        passed_pattern = re.compile(r'(test/[\w/\.]+(?:::[\w:]+)+)\s+PASSED\b')
+        passed_pattern = re.compile(r"(test/[\w/\.]+(?:::[\w:]+)+)\s+PASSED\b")
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for FAILED tests (status followed by test name)
-        failed_pattern = re.compile(r'FAILED\s+(test/[\w/\.]+(?:::[\w:]+)+)\b')
+        failed_pattern = re.compile(r"FAILED\s+(test/[\w/\.]+(?:::[\w:]+)+)\b")
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for SKIPPED tests (test name followed by status)
-        skipped_pattern = re.compile(r'(test/[\w/\.]+(?:::[\w:]+)+)\s+SKIPPED\b')
+        skipped_pattern = re.compile(r"(test/[\w/\.]+(?:::[\w:]+)+)\s+SKIPPED\b")
         skipped_tests.update(skipped_pattern.findall(log))
         # Fallback pattern for skipped tests with reasons (extract file if full name not found)
-        skipped_fallback_pattern = re.compile(r'SKIPPED\s+\[\d+\]\s+(test/[\w/\.]+):\d+')
+        skipped_fallback_pattern = re.compile(
+            r"SKIPPED\s+\[\d+\]\s+(test/[\w/\.]+):\d+"
+        )
         skipped_tests.update(skipped_fallback_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

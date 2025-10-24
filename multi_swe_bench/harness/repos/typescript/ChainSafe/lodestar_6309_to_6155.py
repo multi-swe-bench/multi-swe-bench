@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -144,7 +144,7 @@ echo -e 'export VITEST_HOOK_TIMEOUT=30000\nyarn test -- --hook-timeout 30000 --v
 ###ACTION_DELIMITER###
 echo -e 'export VITEST_HOOK_TIMEOUT=30000\nexport VITEST_VERBOSE=1\nyarn test' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ export VITEST_HOOK_TIMEOUT=30000
 export VITEST_VERBOSE=1
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -170,7 +170,7 @@ export VITEST_HOOK_TIMEOUT=30000
 export VITEST_VERBOSE=1
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -185,7 +185,7 @@ export VITEST_HOOK_TIMEOUT=30000
 export VITEST_VERBOSE=1
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -247,7 +247,7 @@ class LODESTAR_6309_TO_6155(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -261,22 +261,24 @@ class LODESTAR_6309_TO_6155(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes to simplify parsing
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Passed tests: match ✓ followed by test file path
-        passed_matches = re.findall(r'✓\s+([\w\/\-\.]+\.test\.ts)', clean_log)
+        passed_matches = re.findall(r"✓\s+([\w\/\-\.]+\.test\.ts)", clean_log)
         passed_tests = set(passed_matches)
         # Failed tests: match FAIL followed by test file, and test files with errors
-        failed_matches = re.findall(r'FAIL\s+([\w\/\-\.]+\.test\.ts)', clean_log)
+        failed_matches = re.findall(r"FAIL\s+([\w\/\-\.]+\.test\.ts)", clean_log)
         # Match test files with compilation errors (e.g., 'test.ts:123:45 - error')
-        error_matches = re.findall(r'([\w\/\-\.]+\.test\.ts):\d+:\d+ - error', clean_log)
+        error_matches = re.findall(
+            r"([\w\/\-\.]+\.test\.ts):\d+:\d+ - error", clean_log
+        )
         failed_tests = set(failed_matches + error_matches)
         # Remove overlap: failed tests cannot be passed
         passed_tests -= failed_tests
@@ -285,9 +287,8 @@ class LODESTAR_6309_TO_6155(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

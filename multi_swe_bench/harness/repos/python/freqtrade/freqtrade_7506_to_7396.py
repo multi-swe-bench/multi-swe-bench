@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10.7-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -114,7 +114,7 @@ source .env/bin/activate && export CMAKE_ARGS="-DUSE_SYSTEM_BLOSC=ON" && pip ins
 ###ACTION_DELIMITER###
 source .env/bin/activate && export CMAKE_ARGS="-DUSE_SYSTEM_BLOSC=ON" && pip install blosc==1.10.6 && pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-echo 'pytest -v' > /home/freqtrade/test_commands.sh && chmod +x /home/freqtrade/test_commands.sh"""
+echo 'pytest -v' > /home/freqtrade/test_commands.sh && chmod +x /home/freqtrade/test_commands.sh""",
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ echo 'pytest -v' > /home/freqtrade/test_commands.sh && chmod +x /home/freqtrade/
 cd /home/[[REPO_NAME]]
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -211,7 +211,7 @@ class FREQTRADE_7506_TO_7396(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -225,7 +225,6 @@ class FREQTRADE_7506_TO_7396(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -233,8 +232,9 @@ class FREQTRADE_7506_TO_7396(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test names and their statuses
-        pattern = r'(tests\/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests\/[^:]+::[^ ]+)'
+        pattern = r"(tests\/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests\/[^:]+::[^ ]+)"
         matches = re.findall(pattern, log)
         for match in matches:
             test1, status1, status2, test2 = match
@@ -246,18 +246,17 @@ class FREQTRADE_7506_TO_7396(Instance):
                 status = status2
             else:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

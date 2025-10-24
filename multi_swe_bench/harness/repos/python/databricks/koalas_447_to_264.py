@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ apt-get install -y openjdk-8-jdk
 ###ACTION_DELIMITER###
 echo -e 'source koalas-venv/bin/activate\nexport JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64\nexport SPARK_HOME=/home/koalas/koalas-venv/lib/python3.7/site-packages/pyspark\nsource dev/env_setup.sh\n./dev/pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ export SPARK_HOME=/home/koalas/koalas-venv/lib/python3.7/site-packages/pyspark
 source dev/env_setup.sh
 ./dev/pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ export SPARK_HOME=/home/koalas/koalas-venv/lib/python3.7/site-packages/pyspark
 source dev/env_setup.sh
 ./dev/pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ export SPARK_HOME=/home/koalas/koalas-venv/lib/python3.7/site-packages/pyspark
 source dev/env_setup.sh
 ./dev/pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class KOALAS_447_TO_264(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,36 +215,35 @@ class KOALAS_447_TO_264(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: e.g., "test_name PASSED [  0%]"
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         for match in passed_pattern.findall(log):
             test_name = match.strip()
             passed_tests.add(test_name)
         # Patterns for failed tests: either "test_name FAILED [  0%]" or "FAILED test_name"
-        failed_pattern1 = re.compile(r'^(.*?)\s+FAILED\s+\[\s*\d+%\]', re.MULTILINE)
-        failed_pattern2 = re.compile(r'^FAILED\s+(.*)$', re.MULTILINE)
+        failed_pattern1 = re.compile(r"^(.*?)\s+FAILED\s+\[\s*\d+%\]", re.MULTILINE)
+        failed_pattern2 = re.compile(r"^FAILED\s+(.*)$", re.MULTILINE)
         for match in failed_pattern1.findall(log) + failed_pattern2.findall(log):
             test_name = match.strip()
             failed_tests.add(test_name)
         # Patterns for skipped tests: either "test_name SKIPPED [  0%]" or "SKIPPED test_name"
-        skipped_pattern1 = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]', re.MULTILINE)
-        skipped_pattern2 = re.compile(r'^SKIPPED\s+(.*)$', re.MULTILINE)
+        skipped_pattern1 = re.compile(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]", re.MULTILINE)
+        skipped_pattern2 = re.compile(r"^SKIPPED\s+(.*)$", re.MULTILINE)
         for match in skipped_pattern1.findall(log) + skipped_pattern2.findall(log):
             test_name = match.strip()
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

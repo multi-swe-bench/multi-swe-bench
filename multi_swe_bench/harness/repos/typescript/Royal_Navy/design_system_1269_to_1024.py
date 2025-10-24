@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ npx lerna bootstrap
 ###ACTION_DELIMITER###
 npx lerna run build
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx lerna run --parallel test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx lerna run --parallel test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx lerna run --parallel test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class DESIGN_SYSTEM_1269_TO_1024(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,24 +191,30 @@ class DESIGN_SYSTEM_1269_TO_1024(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test names and statuses
-        line_re = re.compile(r'^(\s*)(.*)$')  # Capture leading whitespace and content for all lines
-        passed_re = re.compile(r'✓ (.*?) \(\d+ ms\)$')  # Matches passed test lines
-        failed_re = re.compile(r'✕ (.*?) \(\d+ ms\)$')  # Matches failed test lines (if '✕' is used)
-        error_re = re.compile(r'^\s*>\s*\d+ \|.*$')  # Matches error lines indicating failed tests
-        skipped_re = re.compile(r'SKIPPED (.*)$')  # Matches skipped test lines
+        line_re = re.compile(
+            r"^(\s*)(.*)$"
+        )  # Capture leading whitespace and content for all lines
+        passed_re = re.compile(r"✓ (.*?) \(\d+ ms\)$")  # Matches passed test lines
+        failed_re = re.compile(
+            r"✕ (.*?) \(\d+ ms\)$"
+        )  # Matches failed test lines (if '✕' is used)
+        error_re = re.compile(
+            r"^\s*>\s*\d+ \|.*$"
+        )  # Matches error lines indicating failed tests
+        skipped_re = re.compile(r"SKIPPED (.*)$")  # Matches skipped test lines
         context_stack = []
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Remove timestamp prefix (e.g., [123] ) and package name prefix (e.g., royalnavy.io: )
-            cleaned_line = re.sub(r'^\[\d+\]\s*', '', line)
-            cleaned_line = re.sub(r'^.*?:\s*', '', cleaned_line)
+            cleaned_line = re.sub(r"^\[\d+\]\s*", "", line)
+            cleaned_line = re.sub(r"^.*?:\s*", "", cleaned_line)
             match = line_re.match(cleaned_line)
             if not match:
                 continue
@@ -219,51 +225,50 @@ class DESIGN_SYSTEM_1269_TO_1024(Instance):
             passed_match = passed_re.match(content)
             if passed_match:
                 test_desc = passed_match.group(1)
-                test_name = ' '.join(context_stack + [test_desc])
+                test_name = " ".join(context_stack + [test_desc])
                 passed_tests.add(test_name)
                 continue
             # Check for failed tests
             failed_match = failed_re.match(content)
             if failed_match:
                 test_desc = failed_match.group(1)
-                test_name = ' '.join(context_stack + [test_desc])
+                test_name = " ".join(context_stack + [test_desc])
                 failed_tests.add(test_name)
                 continue
             # Check for skipped tests
             skipped_match = skipped_re.match(content)
             if skipped_match:
                 test_desc = skipped_match.group(1)
-                test_name = ' '.join(context_stack + [test_desc])
+                test_name = " ".join(context_stack + [test_desc])
                 skipped_tests.add(test_name)
                 continue
             # Skip test suite lines (e.g., PASS, FAIL)
-            test_suite_re = re.compile(r'^(PASS|FAIL|SKIPPED) .*$')
+            test_suite_re = re.compile(r"^(PASS|FAIL|SKIPPED) .*$")
             if test_suite_re.match(content):
                 # Check for error lines in test suite lines
                 if error_re.match(line) and context_stack:
-                    test_name = ' '.join(context_stack)
+                    test_name = " ".join(context_stack)
                     failed_tests.add(test_name)
                 continue
             # Update context stack based on indentation level
             while len(context_stack) > level:
                 context_stack.pop()
             while len(context_stack) < level:
-                context_stack.append('')
+                context_stack.append("")
             if len(context_stack) == level:
                 context_stack.append(content)
             else:
                 context_stack[level] = content
             # Check for error lines indicating failed tests
             if error_re.match(line) and context_stack:
-                test_name = ' '.join(context_stack)
+                test_name = " ".join(context_stack)
                 failed_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

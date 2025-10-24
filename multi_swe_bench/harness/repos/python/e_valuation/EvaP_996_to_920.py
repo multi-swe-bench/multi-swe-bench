@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ pip3.7 install coverage
 ###ACTION_DELIMITER###
 echo 'coverage run manage.py test --verbosity 2 evap.evaluation evap.staff evap.contributor evap.results evap.student evap.grades evap.rewards evap.evaluation.tests.test_misc.TestDataTest.load_test_data' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 coverage run manage.py test --verbosity 2 evap.evaluation evap.staff evap.contributor evap.results evap.student evap.grades evap.rewards evap.evaluation.tests.test_misc.TestDataTest.load_test_data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 coverage run manage.py test --verbosity 2 evap.evaluation evap.staff evap.contributor evap.results evap.student evap.grades evap.rewards evap.evaluation.tests.test_misc.TestDataTest.load_test_data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 coverage run manage.py test --verbosity 2 evap.evaluation evap.staff evap.contributor evap.results evap.student evap.grades evap.rewards evap.evaluation.tests.test_misc.TestDataTest.load_test_data
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class EVAP_996_TO_920(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,17 +199,20 @@ class EVAP_996_TO_920(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Track the latest status of each test to avoid overlaps
         test_status = {}
         # Flexible regex to match test results (handles case, prefixes, and common statuses)
-        test_pattern = re.compile(r'\b(\w+)\s*\(([\w\.]+)\)\s*\.\.\.\s*(OK|PASSED|FAIL|FAILED|SKIP|SKIPPED|ERROR|XFAIL)\b', re.IGNORECASE)
+        test_pattern = re.compile(
+            r"\b(\w+)\s*\(([\w\.]+)\)\s*\.\.\.\s*(OK|PASSED|FAIL|FAILED|SKIP|SKIPPED|ERROR|XFAIL)\b",
+            re.IGNORECASE,
+        )
         for line in log.splitlines():
             line = line.strip()
             match = test_pattern.search(line)
@@ -226,15 +229,20 @@ class EVAP_996_TO_920(Instance):
                 elif status in ("SKIP", "SKIPPED"):
                     test_status[test_name] = "skipped"
         # Populate sets from the final statuses
-        passed_tests = {name for name, status in test_status.items() if status == "passed"}
-        failed_tests = {name for name, status in test_status.items() if status == "failed"}
-        skipped_tests = {name for name, status in test_status.items() if status == "skipped"}
+        passed_tests = {
+            name for name, status in test_status.items() if status == "passed"
+        }
+        failed_tests = {
+            name for name, status in test_status.items() if status == "failed"
+        }
+        skipped_tests = {
+            name for name, status in test_status.items() if status == "skipped"
+        }
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

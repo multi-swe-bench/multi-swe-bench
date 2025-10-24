@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -131,7 +131,7 @@ sed -i 's/codecov==2.0.15/codecov==2.1.13/' requirements_dev.txt && pip install 
 pipenv run pytest -v' > /home/saleor/test_commands.sh && chmod +x /home/saleor/test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/transifex-client==0.13.5/transifex-client==0.12.5/' requirements_dev.txt && pip install -r requirements.txt && pip install -r requirements_dev.txt && echo -e 'npm test --verbose
-pipenv run pytest -v' > /home/saleor/test_commands.sh && chmod +x /home/saleor/test_commands.sh"""
+pipenv run pytest -v' > /home/saleor/test_commands.sh && chmod +x /home/saleor/test_commands.sh""",
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ cd /home/[[REPO_NAME]]
 npm test --verbose
 pipenv run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ fi
 npm test --verbose
 pipenv run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -169,7 +169,7 @@ fi
 npm test --verbose
 pipenv run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -231,7 +231,7 @@ class SALEOR_3435_TO_3431(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -245,44 +245,45 @@ class SALEOR_3435_TO_3431(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         current_group = ""
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Extract content after the line number bracket
-            if ']' in line:
-                content = line.split(']', 1)[1].strip()
+            if "]" in line:
+                content = line.split("]", 1)[1].strip()
             else:
                 content = line.strip()
             # Check if it's a group line (e.g., "Generics / ActionDialog")
-            group_match = re.match(r'^[\w\s/]+$', content)
-            if group_match and not re.search(r'[✓✕-]', content):
+            group_match = re.match(r"^[\w\s/]+$", content)
+            if group_match and not re.search(r"[✓✕-]", content):
                 current_group = content
                 continue
             # Check if it's a test case line (e.g., "✓ default (37ms)")
-            test_match = re.match(r'^([✓✕-])\s+([^\(]+)\s*\(\d+ms\)$', content)
+            test_match = re.match(r"^([✓✕-])\s+([^\(]+)\s*\(\d+ms\)$", content)
             if test_match:
                 symbol = test_match.group(1)
                 test_case = test_match.group(2).strip()
-                full_test_name = f"{current_group} {test_case}" if current_group else test_case
-                if symbol == '✓':
+                full_test_name = (
+                    f"{current_group} {test_case}" if current_group else test_case
+                )
+                if symbol == "✓":
                     passed_tests.add(full_test_name)
-                elif symbol == '✕':
+                elif symbol == "✕":
                     failed_tests.add(full_test_name)
-                elif symbol == '-':
+                elif symbol == "-":
                     skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

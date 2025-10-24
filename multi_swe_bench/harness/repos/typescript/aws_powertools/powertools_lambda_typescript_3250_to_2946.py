@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ npm run test:parallel
 ###ACTION_DELIMITER###
 echo 'npm run test:parallel' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm run test:parallel
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm run test:parallel
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm run test:parallel
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_3250_TO_2946(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,7 +167,6 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_3250_TO_2946(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -175,15 +174,22 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_3250_TO_2946(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines with ✓ (passed) and ✕ (failed)
         # Pattern structure: [line number] package: ✓ test name (X ms)
         # Regex patterns to match passed tests
         passed_patterns = [
-            re.compile(r'@[^:]+:\s*✓\s+(.*?)\s+\(\d+\s*ms\)'),  # ✓ with description and ms
-            re.compile(r'@[^:]+:\s*✓\s+(tests/.*?)\s+\(\d+\s*test\)\s+\d+ms'),  # ✓ with test file and (test)
-            re.compile(r'@[^:]+:\s*PASS\s+.*?:\s*(tests/.*?)\s*$')  # PASS with test file
+            re.compile(
+                r"@[^:]+:\s*✓\s+(.*?)\s+\(\d+\s*ms\)"
+            ),  # ✓ with description and ms
+            re.compile(
+                r"@[^:]+:\s*✓\s+(tests/.*?)\s+\(\d+\s*test\)\s+\d+ms"
+            ),  # ✓ with test file and (test)
+            re.compile(
+                r"@[^:]+:\s*PASS\s+.*?:\s*(tests/.*?)\s*$"
+            ),  # PASS with test file
         ]
-        failed_pattern = re.compile(r'@[^:]+:\s*✕\s+(.*?)\s+\(\d+\s*ms\)')
+        failed_pattern = re.compile(r"@[^:]+:\s*✕\s+(.*?)\s+\(\d+\s*ms\)")
         # Extract passed tests
         for pattern in passed_patterns:
             for match in pattern.findall(log):
@@ -195,9 +201,8 @@ class POWERTOOLS_LAMBDA_TYPESCRIPT_3250_TO_2946(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

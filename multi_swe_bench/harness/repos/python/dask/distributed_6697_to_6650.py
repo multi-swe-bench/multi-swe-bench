@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ pip install 'pyarrow==7'
 ###ACTION_DELIMITER###
 pytest -v
 ###ACTION_DELIMITER###
-echo 'pytest -v' > /home/distributed/test_commands.sh"""
+echo 'pytest -v' > /home/distributed/test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ echo 'pytest -v' > /home/distributed/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class DISTRIBUTED_6697_TO_6650(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,21 +208,21 @@ class DISTRIBUTED_6697_TO_6650(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Strip ANSI escape codes first
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Regex patterns to match test cases and their statuses (simplified after cleaning)
-        pattern_passed = r'([\w\/]+\.py::[\w\[\]\-]+)\s+PASSED'
-        pattern_skipped = r'([\w\/]+\.py::[\w\[\]\-]+)\s+SKIPPED'
-        pattern_failed = r'FAILED\s+([\w\/]+\.py::[\w\[\]\-]+)'
-        pattern_error = r'ERROR\s+([\w\/]+\.py::[\w\[\]\-]+)'
+        pattern_passed = r"([\w\/]+\.py::[\w\[\]\-]+)\s+PASSED"
+        pattern_skipped = r"([\w\/]+\.py::[\w\[\]\-]+)\s+SKIPPED"
+        pattern_failed = r"FAILED\s+([\w\/]+\.py::[\w\[\]\-]+)"
+        pattern_error = r"ERROR\s+([\w\/]+\.py::[\w\[\]\-]+)"
         # Extract passed tests
         for test in re.findall(pattern_passed, log_clean):
             passed_tests.add(test)
@@ -244,9 +238,8 @@ class DISTRIBUTED_6697_TO_6650(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

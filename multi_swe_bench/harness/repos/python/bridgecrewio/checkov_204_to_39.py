@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -75,7 +75,7 @@ pipenv run pytest -rA --tb=no -p no:cacheprovider ./tests
 ###ACTION_DELIMITER###
 echo 'pipenv run pytest -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pipenv run pytest -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pipenv run pytest -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pipenv run pytest -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class CHECKOV_204_TO_39(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,47 +186,48 @@ class CHECKOV_204_TO_39(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match explicit status lines and pytest symbol lines
         # Explicit status lines (e.g., 'PASSED tests/...')
-        explicit_pattern = re.compile(r'^(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/.*)$', re.MULTILINE)
+        explicit_pattern = re.compile(
+            r"^(PASSED|FAILED|SKIPPED|ERROR)\s+(tests/.*)$", re.MULTILINE
+        )
         # Pytest symbol lines (e.g., 'tests/... .' where '.' = passed)
-        symbol_pattern = re.compile(r'^(tests/.*?\.py)\s+([\.FEs])', re.MULTILINE)
+        symbol_pattern = re.compile(r"^(tests/.*?\.py)\s+([\.FEs])", re.MULTILINE)
         # Process explicit status lines
         for match in explicit_pattern.finditer(log):
             status = match.group(1)
             test_name = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process pytest symbol lines (map symbols to statuses)
-        symbol_status_map = {'.': 'PASSED', 'F': 'FAILED', 's': 'SKIPPED', 'E': 'ERROR'}
+        symbol_status_map = {".": "PASSED", "F": "FAILED", "s": "SKIPPED", "E": "ERROR"}
         for match in symbol_pattern.finditer(log):
             test_name = match.group(1)
             symbol = match.group(2)
             status = symbol_status_map.get(symbol)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

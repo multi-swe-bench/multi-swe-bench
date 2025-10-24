@@ -461,10 +461,12 @@ class CliArgs:
                 if repo not in self._repo_commits:
                     self._repo_commits[repo] = repo_commits
 
-                self._repo_commits[repo].commits[
-                    instance.pr.base.sha
-                ] = instance.pr.number
-                self._repo_commits[repo].skip_id.add(f'{instance.pr.org}/{instance.pr.repo}:pr-{instance.pr.number}')
+                self._repo_commits[repo].commits[instance.pr.base.sha] = (
+                    instance.pr.number
+                )
+                self._repo_commits[repo].skip_id.add(
+                    f"{instance.pr.org}/{instance.pr.repo}:pr-{instance.pr.number}"
+                )
 
             for repo, repo_commits in self._repo_commits.items():
                 self.logger.debug(
@@ -557,7 +559,7 @@ class CliArgs:
             file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(file.content)
-        
+
         if not self.force_build and docker_util.exists(image.image_full_name()):
             self.logger.debug(
                 f"Image {image.image_full_name()} already exists, skipping..."
@@ -667,7 +669,7 @@ class CliArgs:
                 f"Report already exists for {instance.name()}, skipping..."
             )
             return
-        
+
         def run_and_save_output(
             image_full_name: str, run_command: str, output_path: Path
         ):
@@ -682,75 +684,92 @@ class CliArgs:
             )
 
             return output
-        
+
         def run_task_run(prepare_script_path):
             """执行run任务的函数"""
             from multi_swe_bench.utils.session_util import run_and_save_logs
-            return asyncio.run(run_and_save_logs(
-                "run",
-                instance.name(),
-                f"{instance.run(self.run_cmd)} >> /home/run_msb.log 2>&1",
-                self.logger,
-                instance_dir / RUN_LOG_FILE,
-                "/home/run_msb.log",
-                prepare_script_path=prepare_script_path,
-                global_env=self.global_env,
-                timeout=self.agent_timeout,
-            ))
-        
+
+            return asyncio.run(
+                run_and_save_logs(
+                    "run",
+                    instance.name(),
+                    f"{instance.run(self.run_cmd)} >> /home/run_msb.log 2>&1",
+                    self.logger,
+                    instance_dir / RUN_LOG_FILE,
+                    "/home/run_msb.log",
+                    prepare_script_path=prepare_script_path,
+                    global_env=self.global_env,
+                    timeout=self.agent_timeout,
+                )
+            )
+
         def run_task_test(prepare_script_path):
             """执行test任务的函数"""
             from multi_swe_bench.utils.session_util import run_and_save_logs
-            return asyncio.run(run_and_save_logs(
-                "test",
-                instance.name(),
-                f"{instance.test_patch_run(self.test_patch_run_cmd)} >> /home/test_msb.log 2>&1",
-                self.logger,
-                instance_dir / TEST_PATCH_RUN_LOG_FILE,
-                "/home/test_msb.log",
-                prepare_script_path=prepare_script_path,
-                global_env=self.global_env,
-                timeout=self.agent_timeout,
-            ))
-        
+
+            return asyncio.run(
+                run_and_save_logs(
+                    "test",
+                    instance.name(),
+                    f"{instance.test_patch_run(self.test_patch_run_cmd)} >> /home/test_msb.log 2>&1",
+                    self.logger,
+                    instance_dir / TEST_PATCH_RUN_LOG_FILE,
+                    "/home/test_msb.log",
+                    prepare_script_path=prepare_script_path,
+                    global_env=self.global_env,
+                    timeout=self.agent_timeout,
+                )
+            )
+
         def run_task_fix(prepare_script_path):
             """执行fix任务的函数"""
-            from multi_swe_bench.utils.session_util import run_and_save_logs_and_generate_dockerfile
-            return asyncio.run(run_and_save_logs_and_generate_dockerfile(
-                "fix",
-                instance.name(),
-                f"{instance.fix_patch_run(self.fix_patch_run_cmd)} >> /home/fix_msb.log 2>&1",
-                self.logger,
-                instance_dir / FIX_PATCH_RUN_LOG_FILE,
-                "/home/fix_msb.log",
-                prepare_script_path=prepare_script_path,
-                global_env=self.global_env,
-                timeout=self.agent_timeout,
-            ))
-            
-        if self.run_log: 
-            if not self.human_mode: #envagent mode
+            from multi_swe_bench.utils.session_util import (
+                run_and_save_logs_and_generate_dockerfile,
+            )
+
+            return asyncio.run(
+                run_and_save_logs_and_generate_dockerfile(
+                    "fix",
+                    instance.name(),
+                    f"{instance.fix_patch_run(self.fix_patch_run_cmd)} >> /home/fix_msb.log 2>&1",
+                    self.logger,
+                    instance_dir / FIX_PATCH_RUN_LOG_FILE,
+                    "/home/fix_msb.log",
+                    prepare_script_path=prepare_script_path,
+                    global_env=self.global_env,
+                    timeout=self.agent_timeout,
+                )
+            )
+
+        if self.run_log:
+            if not self.human_mode:  # envagent mode
                 from multi_swe_bench.utils.session_util import push_icm_image
-                prepare_script_path= self.workdir / instance.pr.org / instance.pr.repo / "images"  /f"pr-{instance.pr.number}"/ "prepare.sh" 
-                
+
+                prepare_script_path = (
+                    self.workdir
+                    / instance.pr.org
+                    / instance.pr.repo
+                    / "images"
+                    / f"pr-{instance.pr.number}"
+                    / "prepare.sh"
+                )
+
                 # 使用线程池并发执行三个任务
                 with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
                     future_run = executor.submit(run_task_run, prepare_script_path)
                     future_test = executor.submit(run_task_test, prepare_script_path)
                     future_fix = executor.submit(run_task_fix, prepare_script_path)
-                    
+
                     # 等待所有任务完成
                     output_run = future_run.result()
                     output_test = future_test.result()
                     result_fix = future_fix.result()
-                    
+
                     # 解包fix任务的结果
                     output_fix, envagent_image_name, temp_dir = result_fix
             else:
                 output_run = run_and_save_output(
-                    instance.name(), 
-                    instance.run(), 
-                    instance_dir / RUN_LOG_FILE
+                    instance.name(), instance.run(), instance_dir / RUN_LOG_FILE
                 )
                 output_test = run_and_save_output(
                     instance.name(),
@@ -765,15 +784,19 @@ class CliArgs:
         else:
             with open(instance_dir / RUN_LOG_FILE, "r", encoding="utf-8") as f:
                 output_run = f.read()
-            with open(instance_dir / TEST_PATCH_RUN_LOG_FILE, "r", encoding="utf-8") as f:
+            with open(
+                instance_dir / TEST_PATCH_RUN_LOG_FILE, "r", encoding="utf-8"
+            ) as f:
                 output_test = f.read()
-            with open(instance_dir / FIX_PATCH_RUN_LOG_FILE, "r", encoding="utf-8") as f:
+            with open(
+                instance_dir / FIX_PATCH_RUN_LOG_FILE, "r", encoding="utf-8"
+            ) as f:
                 output_fix = f.read()
 
         # condition1（pipeline msb scale）: human_mode=False, run_log=True, parse_log=True
         # condition2（step32）: human_mode=False, run_log=True, parse_log=False
         # condition3（step4）: human_mode=False, run_log=False, parse_log=True
-        # condition4（manual）: human_mode=True, run_log=True, parse_log=True 
+        # condition4（manual）: human_mode=True, run_log=True, parse_log=True
         if self.parse_log:
             self.logger.debug(f"Generating report for {instance.name()}...")
             report = generate_report(instance, output_run, output_test, output_fix)
@@ -784,29 +807,33 @@ class CliArgs:
                 f.write(report.json())
             self.logger.debug(f"Report for {instance.name()} saved successfully.")
 
-            if (not self.human_mode) and report.valid: 
-                    from multi_swe_bench.utils.docker_util import build
-                    try:
-                        build(
-                            workdir=Path(temp_dir),
-                            dockerfile_name="Dockerfile",
-                            image_full_name=envagent_image_name,
-                            logger=self.logger
-                        )
-                        self.logger.info(f"{instance.name()}: image build success")
-                    except Exception as e:
-                        self.logger.error(f"{instance.name()}: image build failed: {e}")
-                        raise e         
-                        
-                    # Push image to ICM with retry mechanism
-                    self.logger.info(f"{instance.name()}: push image to ICM")
-                    asyncio.run(push_icm_image(envagent_image_name,  instance.name(), self.logger))
-                    self.logger.info(f"{envagent_image_name}/{instance.name()}: push image to ICM success")        
-        
+            if (not self.human_mode) and report.valid:
+                from multi_swe_bench.utils.docker_util import build
+
+                try:
+                    build(
+                        workdir=Path(temp_dir),
+                        dockerfile_name="Dockerfile",
+                        image_full_name=envagent_image_name,
+                        logger=self.logger,
+                    )
+                    self.logger.info(f"{instance.name()}: image build success")
+                except Exception as e:
+                    self.logger.error(f"{instance.name()}: image build failed: {e}")
+                    raise e
+
+                # Push image to ICM with retry mechanism
+                self.logger.info(f"{instance.name()}: push image to ICM")
+                asyncio.run(
+                    push_icm_image(envagent_image_name, instance.name(), self.logger)
+                )
+                self.logger.info(
+                    f"{envagent_image_name}/{instance.name()}: push image to ICM success"
+                )
+
         if self.run_log and (not self.human_mode):
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
-                  
 
     def run_mode_instance_only(self):
         self.logger.info("Running instances...")
@@ -855,7 +882,7 @@ class CliArgs:
             log_dir=self.log_dir,
             log_level=self.log_level,
             log_to_console=self.log_to_console,
-            regen=False
+            regen=False,
         ).run()
 
     def run(self):
@@ -882,7 +909,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error starting nix_swe container: {e}")
         sys.exit(1)
-    
+
     parser = get_parser()
     args = parser.parse_args()
     cli = CliArgs.from_dict(vars(args))

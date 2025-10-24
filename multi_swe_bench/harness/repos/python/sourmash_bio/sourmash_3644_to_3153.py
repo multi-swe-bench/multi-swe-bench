@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -87,7 +87,7 @@ make build
 echo -e 'tox -e py311 -- -v
 cargo nextest run --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cargo install cargo-nextest"""
+cargo install cargo-nextest""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ cd /home/[[REPO_NAME]]
 tox -e py311 -- -v
 cargo nextest run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ fi
 tox -e py311 -- -v
 cargo nextest run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ fi
 tox -e py311 -- -v
 cargo nextest run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class SOURMASH_3644_TO_3153(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,7 +201,6 @@ class SOURMASH_3644_TO_3153(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -209,35 +208,35 @@ class SOURMASH_3644_TO_3153(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse test statuses using regex patterns
         # Pattern for pytest-style tests (e.g., "PASSED tests/test_xxx.py::test_yyy")
-        pytest_pattern = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)')
+        pytest_pattern = re.compile(r"(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)")
         # Pattern for other tests (e.g., "PASS [0.009s] sourmash::storage innerstorage_args")
-        other_pattern = re.compile(r'(PASS|FAIL|SKIP)\s+\[.*?\]\s+(sourmash::.*?)\s*$')
+        other_pattern = re.compile(r"(PASS|FAIL|SKIP)\s+\[.*?\]\s+(sourmash::.*?)\s*$")
         # Process pytest-style tests
         for status, test_name in pytest_pattern.findall(log):
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process other tests
         for status, test_name in other_pattern.findall(log):
             status = status.upper()
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIP':
+            elif status == "SKIP":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

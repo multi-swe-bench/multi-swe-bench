@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -70,7 +70,7 @@ make setup
 echo -e '#!/bin/bash
 poetry run pytest -v --cov runway --cov-report term-missing:skip-covered --dist loadfile --integration --numprocesses auto' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 poetry run pytest -v --cov runway --cov-report term-missing:skip-covered --dist loadfile --integration --numprocesses auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +94,7 @@ fi
 #!/bin/bash
 poetry run pytest -v --cov runway --cov-report term-missing:skip-covered --dist loadfile --integration --numprocesses auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ fi
 #!/bin/bash
 poetry run pytest -v --cov runway --cov-report term-missing:skip-covered --dist loadfile --integration --numprocesses auto
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class RUNWAY_1243_TO_866(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,7 +184,6 @@ class RUNWAY_1243_TO_866(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -198,23 +191,25 @@ class RUNWAY_1243_TO_866(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Parse passed tests with direct pattern
-        passed_matches = re.findall(r'PASSED\s+(tests/[^\s]+)', log)
+        passed_matches = re.findall(r"PASSED\s+(tests/[^\s]+)", log)
         passed_tests.update(passed_matches)
         # Parse failed tests from summary and detailed lines
-        failed_matches = re.findall(r'FAILED (tests/.*?)(?:\s|$)', log)
+        failed_matches = re.findall(r"FAILED (tests/.*?)(?:\s|$)", log)
         failed_tests.update(failed_matches)
         # Parse skipped tests (remove line number prefix)
-        skipped_matches = re.findall(r'\[gw\d+\]\s+\[\s*\d+%\]\s+SKIPPED\s+(tests/.*?)(?:\s|$)', log)
+        skipped_matches = re.findall(
+            r"\[gw\d+\]\s+\[\s*\d+%\]\s+SKIPPED\s+(tests/.*?)(?:\s|$)", log
+        )
         skipped_tests.update(skipped_matches)
         # Implement the log parsing logic here
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

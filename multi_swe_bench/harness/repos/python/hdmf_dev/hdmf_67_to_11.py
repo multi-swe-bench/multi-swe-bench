@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class HDMF_67_TO_11(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,33 +182,34 @@ class HDMF_67_TO_11(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str] # Tests that passed successfully
-        failed_tests = set[str] # Tests that failed
-        skipped_tests = set[str] # Tests that were skipped
+        passed_tests = set[str]  # Tests that passed successfully
+        failed_tests = set[str]  # Tests that failed
+        skipped_tests = set[str]  # Tests that were skipped
         import re
         import json
+
         # Extract all test names using the pattern test_<name> (module.Class)
-        all_test_pattern = r'test_\w+\s*\(\s*[\w.]+\s*\)'
+        all_test_pattern = r"test_\w+\s*\(\s*[\w.]+\s*\)"
         all_test_names = re.findall(all_test_pattern, log)
         all_tests = set(all_test_names)
         # Extract skipped tests: test name followed by ... skipped
-        skipped_pattern = r'(test_\w+\s*\(\s*[\w.]+\s*\))\s+\.\.\.\s+skipped'
+        skipped_pattern = r"(test_\w+\s*\(\s*[\w.]+\s*\))\s+\.\.\.\s+skipped"
         skipped_tests = set(re.findall(skipped_pattern, log))
         # Extract failed tests: test name followed by ... ERROR or ERROR: test name
-        failed_pattern1 = r'(test_\w+\s*\(\s*[\w.]+\s*\))\s+\.\.\.\s+ERROR'
-        failed_pattern2 = r'ERROR:\s+(test_\w+\s*\(\s*[\w.]+\s*\))'
-        failed_tests = set(re.findall(failed_pattern1, log) + re.findall(failed_pattern2, log))
+        failed_pattern1 = r"(test_\w+\s*\(\s*[\w.]+\s*\))\s+\.\.\.\s+ERROR"
+        failed_pattern2 = r"ERROR:\s+(test_\w+\s*\(\s*[\w.]+\s*\))"
+        failed_tests = set(
+            re.findall(failed_pattern1, log) + re.findall(failed_pattern2, log)
+        )
         # Calculate passed tests as all tests not skipped or failed
         passed_tests = all_tests - skipped_tests - failed_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

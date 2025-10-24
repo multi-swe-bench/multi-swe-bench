@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ apt-get update && apt-get install -y build-essential && pip install setuptools==
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y build-essential python3-dev python3-distutils && pip install --upgrade pip && pip install setuptools==59.0.1 cython==0.29.21 pandas==0.25.3 numpy==1.21.6 scipy==1.2.3 h5py==2.10.0 numba==0.55.1 && sed -i 's/from pandas.core.index import RangeIndex/from pandas.core.indexes.range import RangeIndex/' anndata/base.py && sed -i 's/from scipy.sparse.sputils import IndexMixin/from scipy.sparse.sputils import IndexMixin/' anndata/h5py/h5sparse.py && echo 'pytest -v -rA --tb=short anndata/tests' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ apt-get update && apt-get install -y build-essential python3-dev python3-distuti
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class ANNDATA_58_TO_24(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,40 +257,53 @@ class ANNDATA_58_TO_24(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test results
-        pattern1 = re.compile(r'^\s*(.+?)\s+(PASSED|FAILED|SKIPPED|√|✗|OK|ERROR)(?::?\s+\[\s*\d+%\s*\])?$', re.MULTILINE | re.IGNORECASE)  # Handles symbols, case, and colons
-        pattern2 = re.compile(r'^\s*(FAILED|PASSED|SKIPPED|√|✗|OK|ERROR):?\s+(.+?)(?:\s+-\s.*)?$', re.MULTILINE | re.IGNORECASE)  # Handles symbols, case, and colons
+        pattern1 = re.compile(
+            r"^\s*(.+?)\s+(PASSED|FAILED|SKIPPED|√|✗|OK|ERROR)(?::?\s+\[\s*\d+%\s*\])?$",
+            re.MULTILINE | re.IGNORECASE,
+        )  # Handles symbols, case, and colons
+        pattern2 = re.compile(
+            r"^\s*(FAILED|PASSED|SKIPPED|√|✗|OK|ERROR):?\s+(.+?)(?:\s+-\s.*)?$",
+            re.MULTILINE | re.IGNORECASE,
+        )  # Handles symbols, case, and colons
         # Process pattern1 matches (test name followed by status)
         for test_name, status in pattern1.findall(log):
             status_lower = status.lower()
-            if status_lower in ['passed', 'ok', '√']:  # Handle symbols and alternative keywords
+            if status_lower in [
+                "passed",
+                "ok",
+                "√",
+            ]:  # Handle symbols and alternative keywords
                 passed_tests.add(test_name)
-            elif status_lower in ['failed', 'error', '✗']:
+            elif status_lower in ["failed", "error", "✗"]:
                 failed_tests.add(test_name)
-            elif status_lower == 'skipped':
+            elif status_lower == "skipped":
                 skipped_tests.add(test_name)
         # Process pattern2 matches (status followed by test name)
         for status, test_name in pattern2.findall(log):
             status_lower = status.lower()
-            if status_lower in ['passed', 'ok', '√']:  # Handle symbols and alternative keywords
+            if status_lower in [
+                "passed",
+                "ok",
+                "√",
+            ]:  # Handle symbols and alternative keywords
                 passed_tests.add(test_name)
-            elif status_lower in ['failed', 'error', '✗']:
+            elif status_lower in ["failed", "error", "✗"]:
                 failed_tests.add(test_name)
-            elif status_lower == 'skipped':
+            elif status_lower == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

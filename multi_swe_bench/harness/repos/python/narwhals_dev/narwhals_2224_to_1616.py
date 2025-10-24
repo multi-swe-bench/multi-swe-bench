@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install -e .[dev,core]
 ###ACTION_DELIMITER###
 pip install -e .[dev,core,extra,dask,modin,pyspark,ibis]
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --runslow --no-header -rA --tb=auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --runslow --no-header -rA --tb=auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --runslow --no-header -rA --tb=auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class NARWHALS_2224_TO_1616(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,17 +172,21 @@ class NARWHALS_2224_TO_1616(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\]')  # Test name first
-        pattern2 = re.compile(r'^\[\d+\]\s+(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?:\s+-.*)?$')  # Status first (excludes trailing hyphen and info)
+        pattern1 = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\]"
+        )  # Test name first
+        pattern2 = re.compile(
+            r"^\[\d+\]\s+(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?:\s+-.*)?$"
+        )  # Status first (excludes trailing hyphen and info)
         for line in lines:
             line = line.strip()
             match1 = pattern1.match(line)
@@ -203,18 +201,17 @@ class NARWHALS_2224_TO_1616(Instance):
                 else:
                     continue  # Skip non-test lines
             # Update the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

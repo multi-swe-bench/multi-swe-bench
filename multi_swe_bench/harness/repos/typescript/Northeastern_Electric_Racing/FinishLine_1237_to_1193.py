@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -124,7 +124,7 @@ echo -e 'yarn workspace shared build
 cd src/backend && npx prisma generate && cd ../../
 CI=true yarn test' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ yarn workspace shared build
 cd src/backend && npx prisma generate && cd ../../
 CI=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -150,7 +150,7 @@ yarn workspace shared build
 cd src/backend && npx prisma generate && cd ../../
 CI=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -165,7 +165,7 @@ yarn workspace shared build
 cd src/backend && npx prisma generate && cd ../../
 CI=true yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -227,7 +227,7 @@ class FINISHLINE_1237_TO_1193(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -241,7 +241,6 @@ class FINISHLINE_1237_TO_1193(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -249,26 +248,26 @@ class FINISHLINE_1237_TO_1193(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Extract passed tests
-        passed_pattern = re.compile(r'✓\s+([^(]+?)\s+\(')
+        passed_pattern = re.compile(r"✓\s+([^(]+?)\s+\(")
         passed_matches = passed_pattern.findall(clean_log)
         passed_tests = set(match.strip() for match in passed_matches)
         # Extract failed tests
-        failed_pattern = re.compile(r'(?:FAIL|❯)\s+(.+?)(?=:\d|\\n)')
+        failed_pattern = re.compile(r"(?:FAIL|❯)\s+(.+?)(?=:\d|\\n)")
         failed_matches = failed_pattern.findall(clean_log)
         failed_tests = set(match.strip() for match in failed_matches)
         # Extract skipped tests
-        skipped_pattern = re.compile(r'❯\s+([^(]+?)\s+\(0 test\)')
+        skipped_pattern = re.compile(r"❯\s+([^(]+?)\s+\(0 test\)")
         skipped_matches = skipped_pattern.findall(clean_log)
         skipped_tests = set(match.strip() for match in skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

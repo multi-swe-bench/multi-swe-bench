@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pytest -v -rA --tb=short tests/unittest tests/functiontest' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v -rA --tb=short tests/unittest tests/functiontest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA --tb=short tests/unittest tests/functiontest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -rA --tb=short tests/unittest tests/functiontest
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class PYWBEM_2732_TO_2496(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,16 +173,16 @@ class PYWBEM_2732_TO_2496(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex pattern to match test lines with status
-        pattern = r'^(PASSED|FAILED|SKIPPED) (tests/.*)$|^(tests/.*?) (PASSED|FAILED|SKIPPED) \[\s*\d+%\]$'
-        for line in log.split('\n'):
+        pattern = r"^(PASSED|FAILED|SKIPPED) (tests/.*)$|^(tests/.*?) (PASSED|FAILED|SKIPPED) \[\s*\d+%\]$"
+        for line in log.split("\n"):
             line = line.strip()
             match = re.match(pattern, line)
             if match:
@@ -195,18 +195,17 @@ class PYWBEM_2732_TO_2496(Instance):
                     test_name = match.group(3)
                     status = match.group(4)
                 # Add to the appropriate set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ bash /home/pints/test_commands.sh
 echo -e '#!/bin/bash
 python3 run-tests.py --unit' > /home/pints/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/pints/test_commands.sh"""
+bash /home/pints/test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,9 +71,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 python3 run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ fi
 #!/bin/bash
 python3 run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +99,7 @@ fi
 #!/bin/bash
 python3 run-tests.py --unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -167,7 +161,7 @@ class PINTS_1700_TO_1435(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +175,6 @@ class PINTS_1700_TO_1435(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -189,21 +182,21 @@ class PINTS_1700_TO_1435(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests (status 'ok')
-        passed_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s*ok', re.MULTILINE)
+        passed_pattern = re.compile(r"\(([^)]+)\)\s*\.\.\.\s*ok", re.MULTILINE)
         passed_tests = set(passed_pattern.findall(log))
         # Pattern for failed tests (status 'ERROR')
-        failed_pattern = re.compile(r'ERROR:.*?\(([^)]+)\)', re.MULTILINE)
+        failed_pattern = re.compile(r"ERROR:.*?\(([^)]+)\)", re.MULTILINE)
         failed_tests = set(failed_pattern.findall(log))
         # Pattern for skipped tests (status 'skipped')
-        skipped_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s+skipped', re.MULTILINE)
+        skipped_pattern = re.compile(r"\(([^)]+)\)\s*\.\.\.\s+skipped", re.MULTILINE)
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

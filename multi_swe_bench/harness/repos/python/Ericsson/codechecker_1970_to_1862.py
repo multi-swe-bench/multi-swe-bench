@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -150,7 +150,7 @@ cd /home/codechecker/web/server/vendor && rm -rf jsplumb && mkdir -p jsplumb/dis
 ###ACTION_DELIMITER###
 cd /home/codechecker/web/server/vendor && rm -rf jsplumb && git clone https://github.com/jsplumb/jsplumb.git && cd jsplumb && git checkout v2.2.0 && cd ../../../../ && . venv/bin/activate && make package && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -160,7 +160,7 @@ cd /home/[[REPO_NAME]]
 . venv/bin/activate
 make test PYCODESTYLE_TEST_CMD="pycodestyle --ignore=E741,W504,E126,E226,W503,E123 bin codechecker_analyzer tests"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -174,7 +174,7 @@ fi
 . venv/bin/activate
 make test PYCODESTYLE_TEST_CMD="pycodestyle --ignore=E741,W504,E126,E226,W503,E123 bin codechecker_analyzer tests"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -188,7 +188,7 @@ fi
 . venv/bin/activate
 make test PYCODESTYLE_TEST_CMD="pycodestyle --ignore=E741,W504,E126,E226,W503,E123 bin codechecker_analyzer tests"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -250,7 +250,7 @@ class CODECHECKER_1970_TO_1862(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -264,7 +264,6 @@ class CODECHECKER_1970_TO_1862(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -272,23 +271,25 @@ class CODECHECKER_1970_TO_1862(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
-        test_pattern = re.compile(r'^(Test .+?) \.\.\. (ok|ERROR|FAILED|SKIPPED)$', re.MULTILINE)
+        test_pattern = re.compile(
+            r"^(Test .+?) \.\.\. (ok|ERROR|FAILED|SKIPPED)$", re.MULTILINE
+        )
         for match in test_pattern.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED'):
+            elif status in ("ERROR", "FAILED"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ npm install -g yarn && yarn setup
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 yarn test:unit --verbose
-yarn test:e2e --verbose' > test_commands.sh"""
+yarn test:e2e --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cd /home/[[REPO_NAME]]
 yarn test:unit --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ fi
 yarn test:unit --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ fi
 yarn test:unit --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class METAMASK_MOBILE_3811_TO_3458(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,29 +177,28 @@ class METAMASK_MOBILE_3811_TO_3458(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: Set[str] = set()
         failed_tests: Set[str] = set()
         skipped_tests: Set[str] = set()
         import re
+
         # Regex pattern to match PASS/FAIL/SKIP lines and extract test names
-        pattern = re.compile(r'^(PASS|FAIL|SKIP)\s+([^\s(]+)', re.MULTILINE)
+        pattern = re.compile(r"^(PASS|FAIL|SKIP)\s+([^\s(]+)", re.MULTILINE)
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIP':
+            elif status == "SKIP":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

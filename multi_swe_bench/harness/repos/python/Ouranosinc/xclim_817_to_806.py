@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install 'numpy<2' 'pint==0.18'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class XCLIM_817_TO_806(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,43 +184,46 @@ class XCLIM_817_TO_806(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Define regex patterns for test lines
-        pattern1 = re.compile(r'(?P<test_name>.+?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
-        pattern2 = re.compile(r'(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test_name>.+?)(?:\s+-\s+.*)?\s*$')
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"(?P<test_name>.+?)\s+(?P<status>PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"
+        )
+        pattern2 = re.compile(
+            r"(?P<status>PASSED|FAILED|SKIPPED)\s+(?P<test_name>.+?)(?:\s+-\s+.*)?\s*$"
+        )
+        for line in log.split("\n"):
             # Check for pattern1 (test name followed by status and percentage)
             match = pattern1.search(line)
             if match:
-                test_name = match.group('test_name').strip()
-                status = match.group('status')
+                test_name = match.group("test_name").strip()
+                status = match.group("status")
             else:
                 # Check for pattern2 (status followed by test name, optional error message)
                 match = pattern2.search(line)
                 if match:
-                    test_name = match.group('test_name').strip()
-                    status = match.group('status')
+                    test_name = match.group("test_name").strip()
+                    status = match.group("status")
                 else:
                     continue  # Skip lines that don't match
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

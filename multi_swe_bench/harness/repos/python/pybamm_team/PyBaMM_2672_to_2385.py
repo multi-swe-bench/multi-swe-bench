@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ bash /home/PyBaMM/test_commands.sh
 ###ACTION_DELIMITER###
 python3.9 -m pip install pytest
 ###ACTION_DELIMITER###
-bash /home/PyBaMM/test_commands.sh"""
+bash /home/PyBaMM/test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ bash /home/PyBaMM/test_commands.sh"""
 cd /home/{pr.repo}
 python3.9 -m pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python3.9 -m pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python3.9 -m pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class PYBAMM_2672_TO_2385(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,29 +198,37 @@ class PYBAMM_2672_TO_2385(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Patterns for PASSED tests
         passed_patterns = [
-            re.compile(r'^(tests/.*?) PASSED \[\s*\d+%\]'),  # Format 1: test ... PASSED [ X%]
-            re.compile(r'^PASSED (tests/.*)$')  # Format 2: PASSED test ...
+            re.compile(
+                r"^(tests/.*?) PASSED \[\s*\d+%\]"
+            ),  # Format 1: test ... PASSED [ X%]
+            re.compile(r"^PASSED (tests/.*)$"),  # Format 2: PASSED test ...
         ]
         # Patterns for SKIPPED tests
         skipped_patterns = [
-            re.compile(r'^\[\s*\d+\s*\]\s+SKIPPED\s+\[\d+\]\s+(tests/.*?\.py)\:\d+\:.*'),  # Format 1: [line] SKIPPED [1] test...: ...
-            re.compile(r'^\[\s*\d+\s*\]\s+(tests/.*?)\s+SKIPPED\s+\[\d+%\]')  # Format 2: test ... SKIPPED [ X%]
+            re.compile(
+                r"^\[\s*\d+\s*\]\s+SKIPPED\s+\[\d+\]\s+(tests/.*?\.py)\:\d+\:.*"
+            ),  # Format 1: [line] SKIPPED [1] test...: ...
+            re.compile(
+                r"^\[\s*\d+\s*\]\s+(tests/.*?)\s+SKIPPED\s+\[\d+%\]"
+            ),  # Format 2: test ... SKIPPED [ X%]
         ]
         # Patterns for FAILED tests (assuming similar formats)
         failed_patterns = [
-            re.compile(r'^(tests/.*?) FAILED \[\s*\d+%\]'),  # Format 1: test ... FAILED [ X%]
-            re.compile(r'^FAILED (tests/.*)$')  # Format 2: FAILED test ...
+            re.compile(
+                r"^(tests/.*?) FAILED \[\s*\d+%\]"
+            ),  # Format 1: test ... FAILED [ X%]
+            re.compile(r"^FAILED (tests/.*)$"),  # Format 2: FAILED test ...
         ]
         for line in lines:
             line = line.strip()
@@ -256,9 +258,8 @@ class PYBAMM_2672_TO_2385(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

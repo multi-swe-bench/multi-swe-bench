@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -75,7 +75,7 @@ sed -i '/orcid/d' pyproject.toml
 make test
 ###ACTION_DELIMITER###
 echo -e 'tox -e py39 -- -v
-cargo test --verbose' > /home/sourmash/test_commands.sh"""
+cargo test --verbose' > /home/sourmash/test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ cd /home/[[REPO_NAME]]
 tox -e py39 -- -v
 cargo test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ fi
 tox -e py39 -- -v
 cargo test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ fi
 tox -e py39 -- -v
 cargo test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class SOURMASH_2339_TO_1720(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,7 +189,6 @@ class SOURMASH_2339_TO_1720(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -197,12 +196,13 @@ class SOURMASH_2339_TO_1720(Instance):
         skipped_tests = set()
         import re
         import json
+
         # Regex patterns to match different test result line formats
         # Pattern 1: Pytest worker lines (e.g., [gw3] [  0%] PASSED tests/test_index_protocol.py::test_index_search_exact_match[build_sqlite_index])
         # Pattern 2: Rust test lines (e.g., test zipstorage_list_sbts ... ok)
         patterns = [
-            re.compile(r'\[gw\d+\] \[\s*\d+%\] (\w+) (tests/.*?)\s*$'),
-            re.compile(r'test (.*?) \.\.\. (\w+)\s*$')
+            re.compile(r"\[gw\d+\] \[\s*\d+%\] (\w+) (tests/.*?)\s*$"),
+            re.compile(r"test (.*?) \.\.\. (\w+)\s*$"),
         ]
         for line in log.splitlines():
             for pattern in patterns:
@@ -217,25 +217,24 @@ class SOURMASH_2339_TO_1720(Instance):
                         test_name = match.group(1)
                         status = match.group(2).upper()
                         # Map Rust statuses to standard terms
-                        if status == 'OK':
-                            status = 'PASSED'
-                        elif status == 'FAILED':
-                            status = 'FAILED'
+                        if status == "OK":
+                            status = "PASSED"
+                        elif status == "FAILED":
+                            status = "FAILED"
                     # Categorize based on status
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                     # Add handling for other statuses (e.g., XFAIL) if observed in logs
                     break  # Stop checking other patterns once a match is found
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

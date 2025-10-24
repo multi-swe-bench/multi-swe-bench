@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ make test
 ###ACTION_DELIMITER###
 echo 'python runtests.py --verbosity=2' > /home/wagtail/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/wagtail/test_commands.sh"""
+cat /home/wagtail/test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ cat /home/wagtail/test_commands.sh"""
 cd /home/{pr.repo}
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py --verbosity=2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class WAGTAIL_12784_TO_12619(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,16 +188,18 @@ class WAGTAIL_12784_TO_12619(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses
         passed_pattern = re.compile(r"\(([\w.]+.test_\w+)\) ... ok")
-        failed_pattern = re.compile(r"FAIL: .*?\(([\w.]+\.test_\w+)\)(?:\s*\(.*\))?|.*?\(([\w.]+\.test_\w+)\)(?:\s*\(.*\))? ... FAIL")
+        failed_pattern = re.compile(
+            r"FAIL: .*?\(([\w.]+\.test_\w+)\)(?:\s*\(.*\))?|.*?\(([\w.]+\.test_\w+)\)(?:\s*\(.*\))? ... FAIL"
+        )
         skipped_pattern = re.compile(r"\(([\w.]+.test_\w+)\) ... skipped")
         # Extract passed tests
         for match in passed_pattern.finditer(log):
@@ -219,9 +215,8 @@ class WAGTAIL_12784_TO_12619(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

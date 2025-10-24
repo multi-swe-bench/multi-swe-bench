@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -130,7 +130,7 @@ pytest -v -rA' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 rm -rf venv && python3 -m venv venv && source venv/bin/activate && pip install setuptools==68.0.0 numpy==1.26.0 pint==0.19 matplotlib==3.7.3 pytest-mpl==0.17.0 pyproj==3.7.1 cartopy==0.24.0 && pip install -e ".[test]" && echo -e 'export MPLBACKEND=Agg
 source venv/bin/activate
-pytest -v -rA --mpl' > test_commands.sh && bash test_commands.sh"""
+pytest -v -rA --mpl' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -141,9 +141,7 @@ export MPLBACKEND=Agg
 source venv/bin/activate
 pytest -v -rA --mpl
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +156,7 @@ export MPLBACKEND=Agg
 source venv/bin/activate
 pytest -v -rA --mpl
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -175,9 +171,7 @@ export MPLBACKEND=Agg
 source venv/bin/activate
 pytest -v -rA --mpl
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -239,7 +233,7 @@ class METPY_1639_TO_1483(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -253,7 +247,6 @@ class METPY_1639_TO_1483(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -261,22 +254,27 @@ class METPY_1639_TO_1483(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines
         # Pattern 1: test name followed by status (e.g., "tests/...::test... PASSED [  0%]")
-        pattern1 = re.compile(r'^(tests/[^:]+::test[\w\-\[\]_]+) (PASSED|FAILED|SKIPPED) \[\s*\d+%\]')
+        pattern1 = re.compile(
+            r"^(tests/[^:]+::test[\w\-\[\]_]+) (PASSED|FAILED|SKIPPED) \[\s*\d+%\]"
+        )
         # Pattern 2: status followed by test name (e.g., "FAILED tests/...::test... - ...")
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED) (tests/[^:]+::test[\w\-\[\]_]+) -')
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED) (tests/[^:]+::test[\w\-\[\]_]+) -"
+        )
         for line in log.splitlines():
             # Check pattern 1
             match = pattern1.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue  # Move to next line
             # Check pattern 2
@@ -284,19 +282,18 @@ class METPY_1639_TO_1483(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

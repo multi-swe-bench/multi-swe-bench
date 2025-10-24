@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -118,7 +118,7 @@ ls -la data
 ###ACTION_DELIMITER###
 rm -rf data && mkdir -p data && wget -v https://github.com/natcap/invest-test-data/archive/refs/heads/main.zip -O data/test-data.zip && unzip -v data/test-data.zip -d data && mv data/invest-test-data-main data/invest-test-data && rm data/test-data.zip
 ###ACTION_DELIMITER###
-rm -rf data && mkdir -p data && wget -v https://github.com/natcap/invest-test-data/archive/main.zip -O data/test-data.zip && unzip -v data/test-data.zip -d data && mv data/invest-test-data-main data/invest-test-data && rm data/test-data.zip"""
+rm -rf data && mkdir -p data && wget -v https://github.com/natcap/invest-test-data/archive/main.zip -O data/test-data.zip && unzip -v data/test-data.zip -d data && mv data/invest-test-data-main data/invest-test-data && rm data/test-data.zip""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ rm -rf data && mkdir -p data && wget -v https://github.com/natcap/invest-test-da
 cd /home/[[REPO_NAME]]
 pytest -v --import-mode=importlib --durations=0 tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -140,7 +140,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --import-mode=importlib --durations=0 tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --import-mode=importlib --durations=0 tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class INVEST_1247_TO_1222(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,30 +229,34 @@ class INVEST_1247_TO_1222(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Updated patterns to handle optional parentheses, colons, and percentage indicators
         # More flexible patterns to handle varied whitespace and trailing content
-        pattern1 = re.compile(r'^\s*(tests/[^:]+::[^:]+::test_\w+)\s+(PASSED|FAILED|SKIPPED)\b.*$')
-        pattern2 = re.compile(r'^\s*(PASSED|FAILED|SKIPPED)\b.*?(tests/[^:]+::[^:]+::test_\w+)\b.*$')
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"^\s*(tests/[^:]+::[^:]+::test_\w+)\s+(PASSED|FAILED|SKIPPED)\b.*$"
+        )
+        pattern2 = re.compile(
+            r"^\s*(PASSED|FAILED|SKIPPED)\b.*?(tests/[^:]+::[^:]+::test_\w+)\b.*$"
+        )
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern 1: test name followed by status
             match = pattern1.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2: status followed by test name
@@ -260,19 +264,18 @@ class INVEST_1247_TO_1222(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

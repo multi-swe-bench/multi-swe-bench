@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -109,7 +109,7 @@ EOF
 echo -e '#!/bin/bash
 ./node_modules/.bin/ng test igniteui-angular --watch=false --no-progress --code-coverage --reporters spec --karma-config=karma.temp.conf.js' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 ./node_modules/.bin/ng test igniteui-angular --watch=false --no-progress --code-coverage --reporters spec --karma-config=karma.temp.conf.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/ng test igniteui-angular --watch=false --no-progress --code-coverage --reporters spec --karma-config=karma.temp.conf.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/ng test igniteui-angular --watch=false --no-progress --code-coverage --reporters spec --karma-config=karma.temp.conf.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -209,7 +209,7 @@ class IGNITEUI_ANGULAR_13922_TO_13914(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -223,56 +223,61 @@ class IGNITEUI_ANGULAR_13922_TO_13914(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Track final status to avoid overlaps (a test can only have one status)
         test_status = {}
         # Refined regex patterns (stop at ANSI codes or line end)
-        passed_pattern = re.compile(r'.*?\x1b\[\d*;?32m✓ \x1b\[39m(.*?)(?:\x1b|$)')  # Green checkmark (handle optional ANSI styles)
-        failed_pattern = re.compile(r'.*?\x1b\[.*?31m\d+\)\s*(.*?)(?:\x1b|$)')       # Red failed (permissive test name capture)
-        skipped_pattern = re.compile(r'\x1b\[33m(.*?) \(skipped\)')  # Assume skipped is yellow (adjust if needed)
-        for line in log.split('\n'):
+        passed_pattern = re.compile(
+            r".*?\x1b\[\d*;?32m✓ \x1b\[39m(.*?)(?:\x1b|$)"
+        )  # Green checkmark (handle optional ANSI styles)
+        failed_pattern = re.compile(
+            r".*?\x1b\[.*?31m\d+\)\s*(.*?)(?:\x1b|$)"
+        )  # Red failed (permissive test name capture)
+        skipped_pattern = re.compile(
+            r"\x1b\[33m(.*?) \(skipped\)"
+        )  # Assume skipped is yellow (adjust if needed)
+        for line in log.split("\n"):
             line = line.strip()
             # Prioritize failed > passed > skipped (adjust if logs use different priority)
             failed_match = failed_pattern.search(line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 # Remove any remaining ANSI codes from the test name
-                test_name = re.sub(r'\x1b\[\d*;?\d*m', '', test_name)
+                test_name = re.sub(r"\x1b\[\d*;?\d*m", "", test_name)
                 if test_name not in test_status:
-                    test_status[test_name] = 'failed'
+                    test_status[test_name] = "failed"
                 continue
             passed_match = passed_pattern.search(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 if test_name not in test_status:
-                    test_status[test_name] = 'passed'
+                    test_status[test_name] = "passed"
                 continue
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 if test_name not in test_status:
-                    test_status[test_name] = 'skipped'
+                    test_status[test_name] = "skipped"
                 continue
         # Populate sets from final statuses
         for test, status in test_status.items():
-            if status == 'passed':
+            if status == "passed":
                 passed_tests.add(test)
-            elif status == 'failed':
+            elif status == "failed":
                 failed_tests.add(test)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

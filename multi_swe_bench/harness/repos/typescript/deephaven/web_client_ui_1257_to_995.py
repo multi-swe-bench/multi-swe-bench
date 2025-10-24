@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ npm run test:unit -- --verbose
 npm run test:lint -- --verbose
 npm run e2e -- --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ npm run test:unit -- --verbose
 npm run test:lint -- --verbose
 npm run e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ npm run test:unit -- --verbose
 npm run test:lint -- --verbose
 npm run e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ npm run test:unit -- --verbose
 npm run test:lint -- --verbose
 npm run e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class WEB_CLIENT_UI_1257_TO_995(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class WEB_CLIENT_UI_1257_TO_995(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -187,11 +186,14 @@ class WEB_CLIENT_UI_1257_TO_995(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex patterns to match test status lines
         passed_pattern = re.compile(r"PASS.*?(packages\/.*?)\s+(?:\(|$)")
         failed_pattern = re.compile(r"FAIL\s+(packages\/.*?)\s+(?:\(|$)")
-        skipped_pattern = re.compile(r"SKIPPED\s+(?:@\w+\/\w+\s+)?(packages\/.*?)\s+(?:\(|$)")
+        skipped_pattern = re.compile(
+            r"SKIPPED\s+(?:@\w+\/\w+\s+)?(packages\/.*?)\s+(?:\(|$)"
+        )
         # Extract passed tests
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
@@ -204,9 +206,8 @@ class WEB_CLIENT_UI_1257_TO_995(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

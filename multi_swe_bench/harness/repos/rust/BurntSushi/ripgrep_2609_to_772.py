@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rustembedded/cross:x86_64-unknown-linux-musl"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -86,7 +86,7 @@ cross test --test integration
 source "$HOME/.cargo/env"
 cargo test --test integration
 ###ACTION_DELIMITER###
-echo 'source "$HOME/.cargo/env" && cargo test --test integration' > /home/ripgrep/test_commands.sh"""
+echo 'source "$HOME/.cargo/env" && cargo test --test integration' > /home/ripgrep/test_commands.sh""",
             ),
             File(
                 ".",
@@ -95,9 +95,7 @@ echo 'source "$HOME/.cargo/env" && cargo test --test integration' > /home/ripgre
 cd /home/{pr.repo}
 source "$HOME/.cargo/env" && cargo test --test integration
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source "$HOME/.cargo/env" && cargo test --test integration
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -125,9 +121,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source "$HOME/.cargo/env" && cargo test --test integration
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -189,7 +183,7 @@ class RIPGREP_2609_TO_772(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,13 +197,13 @@ class RIPGREP_2609_TO_772(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex to capture test status
         passed_regex = re.compile(r"^test (.*) ... ok$")
         failed_regex = re.compile(r"^test (.*) ... FAILED$")
@@ -229,9 +223,8 @@ class RIPGREP_2609_TO_772(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

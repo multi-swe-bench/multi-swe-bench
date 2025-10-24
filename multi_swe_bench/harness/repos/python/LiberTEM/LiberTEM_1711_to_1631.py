@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ python3 -m venv libertem-venv && source libertem-venv/bin/activate && pip instal
 echo -e '#!/bin/bash
 source libertem-venv/bin/activate
 pytest --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=pyproject.toml --junitxml=junit.xml -v tests/
-pytest --doctest-modules --ignore=src/libertem/common/win_tweaks.py --ignore=src/libertem/analysis/fullmatch.py --ignore=src/libertem/udf/holography.py -v src/libertem/' > test_commands.sh && chmod +x test_commands.sh"""
+pytest --doctest-modules --ignore=src/libertem/common/win_tweaks.py --ignore=src/libertem/analysis/fullmatch.py --ignore=src/libertem/udf/holography.py -v src/libertem/' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ source libertem-venv/bin/activate
 pytest --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=pyproject.toml --junitxml=junit.xml -v tests/
 pytest --doctest-modules --ignore=src/libertem/common/win_tweaks.py --ignore=src/libertem/analysis/fullmatch.py --ignore=src/libertem/udf/holography.py -v src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ source libertem-venv/bin/activate
 pytest --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=pyproject.toml --junitxml=junit.xml -v tests/
 pytest --doctest-modules --ignore=src/libertem/common/win_tweaks.py --ignore=src/libertem/analysis/fullmatch.py --ignore=src/libertem/udf/holography.py -v src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ source libertem-venv/bin/activate
 pytest --durations=10 --cov=libertem --cov-report=term --cov-report=html --cov-report=xml --cov-config=pyproject.toml --junitxml=junit.xml -v tests/
 pytest --doctest-modules --ignore=src/libertem/common/win_tweaks.py --ignore=src/libertem/analysis/fullmatch.py --ignore=src/libertem/udf/holography.py -v src/libertem/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class LIBERTEM_1711_TO_1631(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,31 +187,30 @@ class LIBERTEM_1711_TO_1631(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex pattern to match test lines
-        pattern = r'^(.+?)\s+(PASSED|SKIPPED|XFAIL|FAILED)'
+        pattern = r"^(.+?)\s+(PASSED|SKIPPED|XFAIL|FAILED)"
         # Find all matches in the log content
         matches = re.findall(pattern, log, re.MULTILINE)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ('XFAIL', 'FAILED'):
+            elif status in ("XFAIL", "FAILED"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

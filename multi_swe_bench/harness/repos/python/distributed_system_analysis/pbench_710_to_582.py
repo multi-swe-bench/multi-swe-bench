@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -117,7 +117,7 @@ rm -rf /var/tmp/pbench-test-bench /var/tmp/pbench-test-server && bash /home/pben
 ###ACTION_DELIMITER###
 echo 'export PYTHONWARNINGS="ignore::DeprecationWarning"' >> /home/pbench/test_commands.sh && bash /home/pbench/test_commands.sh
 ###ACTION_DELIMITER###
-sed -i '1i export PYTHONWARNINGS="ignore::DeprecationWarning"' /home/pbench/test_commands.sh && bash /home/pbench/test_commands.sh"""
+sed -i '1i export PYTHONWARNINGS="ignore::DeprecationWarning"' /home/pbench/test_commands.sh && bash /home/pbench/test_commands.sh""",
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ LANG=C ./agent/util-scripts/unittests
 LANG=C ./server/pbench/bin/unittests
 export PYTHONWARNINGS="ignore::DeprecationWarning"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ LANG=C ./agent/util-scripts/unittests
 LANG=C ./server/pbench/bin/unittests
 export PYTHONWARNINGS="ignore::DeprecationWarning"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -167,7 +167,7 @@ LANG=C ./agent/util-scripts/unittests
 LANG=C ./server/pbench/bin/unittests
 export PYTHONWARNINGS="ignore::DeprecationWarning"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -229,7 +229,7 @@ class PBENCH_710_TO_582(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -243,7 +243,6 @@ class PBENCH_710_TO_582(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -251,34 +250,40 @@ class PBENCH_710_TO_582(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         test_status = {}
         # Track test statuses by processing each line to capture the final status
         for line in log.splitlines():
             # Match failed tests (e.g., 'FAIL - test-11')
-            fail_match = re.search(r'FAIL - (test-\d+)', line)
+            fail_match = re.search(r"FAIL - (test-\d+)", line)
             if fail_match:
                 test_name = fail_match.group(1)
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
             # Match passed tests (e.g., 'PASS - test-00')
-            pass_match = re.search(r'PASS - (test-\d+)', line)
+            pass_match = re.search(r"PASS - (test-\d+)", line)
             if pass_match:
                 test_name = pass_match.group(1)
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
             # Match skipped tests (e.g., 'SKIP - test-02')
-            skip_match = re.search(r'SKIP - (test-\d+)', line)
+            skip_match = re.search(r"SKIP - (test-\d+)", line)
             if skip_match:
                 test_name = skip_match.group(1)
-                test_status[test_name] = 'skipped'
+                test_status[test_name] = "skipped"
         # Populate sets based on the final statuses
-        passed_tests = {test for test, status in test_status.items() if status == 'passed'}
-        failed_tests = {test for test, status in test_status.items() if status == 'failed'}
-        skipped_tests = {test for test, status in test_status.items() if status == 'skipped'}
+        passed_tests = {
+            test for test, status in test_status.items() if status == "passed"
+        }
+        failed_tests = {
+            test for test, status in test_status.items() if status == "failed"
+        }
+        skipped_tests = {
+            test for test, status in test_status.items() if status == "skipped"
+        }
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

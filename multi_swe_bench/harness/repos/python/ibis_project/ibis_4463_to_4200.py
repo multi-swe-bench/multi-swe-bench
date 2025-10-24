@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ apt-get update && apt-get install -y gcc libkrb5-dev
 ###ACTION_DELIMITER###
 pip install -r requirements.txt
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short -p no:cacheprovider' > /home/ibis/test_commands.sh"""
+echo 'pytest -v --no-header -rA --tb=short -p no:cacheprovider' > /home/ibis/test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ echo 'pytest -v --no-header -rA --tb=short -p no:cacheprovider' > /home/ibis/tes
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class IBIS_4463_TO_4200(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,7 +190,6 @@ class IBIS_4463_TO_4200(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -204,9 +197,10 @@ class IBIS_4463_TO_4200(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
-        pattern1 = re.compile(r'^(.*?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[.*$')
-        pattern2 = re.compile(r'^(PASSED|FAILED|ERROR|SKIPPED)\s+(.*?)(\s+-.*)?$')
+
+        lines = log.split("\n")
+        pattern1 = re.compile(r"^(.*?)\s+(PASSED|FAILED|ERROR|SKIPPED)\s+\[.*$")
+        pattern2 = re.compile(r"^(PASSED|FAILED|ERROR|SKIPPED)\s+(.*?)(\s+-.*)?$")
         for line in lines:
             line = line.strip()
             match = pattern1.match(line)
@@ -220,18 +214,17 @@ class IBIS_4463_TO_4200(Instance):
                     test_name = match.group(2).strip()
                 else:
                     continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

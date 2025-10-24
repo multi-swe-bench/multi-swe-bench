@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -110,7 +110,7 @@ ls -l database/migrations/schema && tern migrate --config ~/.cfg/tern.conf --mig
 ###ACTION_DELIMITER###
 cd web && yarn install && yarn build
 ###ACTION_DELIMITER###
-cd .. && echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_commands.sh"""
+cd .. && echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ cd .. && echo 'go test -v -count=1 ./...' > test_commands.sh && chmod +x test_co
 cd /home/[[REPO_NAME]]
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 go test -v -count=1 ./...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -207,7 +207,7 @@ class HUB_852_TO_804(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -221,7 +221,6 @@ class HUB_852_TO_804(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -229,6 +228,7 @@ class HUB_852_TO_804(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Capture test statuses using combined patterns
         # Passed tests: match both '--- PASS: TestName (duration)' and '=== RUN TestName ... PASS'
         test_status = {}
@@ -257,9 +257,8 @@ class HUB_852_TO_804(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

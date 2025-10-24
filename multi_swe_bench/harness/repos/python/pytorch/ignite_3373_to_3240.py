@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
 python setup.py install
 ###ACTION_DELIMITER###
-echo 'bash tests/run_cpu_tests.sh' > /home/ignite/test_commands.sh"""
+echo 'bash tests/run_cpu_tests.sh' > /home/ignite/test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo 'bash tests/run_cpu_tests.sh' > /home/ignite/test_commands.sh"""
 cd /home/{pr.repo}
 bash tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 bash tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 bash tests/run_cpu_tests.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class IGNITE_3373_TO_3240(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,31 +164,30 @@ class IGNITE_3373_TO_3240(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract passed tests
-        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED')
+        passed_pattern = re.compile(r"(tests/.*?)\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Extract skipped tests
-        skipped_pattern = re.compile(r'(tests/.*?)\s+SKIPPED')
+        skipped_pattern = re.compile(r"(tests/.*?)\s+SKIPPED")
         skipped_tests.update(skipped_pattern.findall(log))
         # Extract failed tests (explicit failures)
-        failed_pattern = re.compile(r'(tests/.*?)\s+FAILED')
+        failed_pattern = re.compile(r"(tests/.*?)\s+FAILED")
         failed_tests.update(failed_pattern.findall(log))
         # Extract error tests (considered failed)
-        error_pattern = re.compile(r'ERROR\s+(tests/.*?)\s+-')
+        error_pattern = re.compile(r"ERROR\s+(tests/.*?)\s+-")
         failed_tests.update(error_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ npm test -- --verbose' > test_commands.sh
 echo -e '#!/bin/bash
 npm run test:unit:forge -- --verbose
 npm run test:unit:frontend -- --verbose
-npm run test:system -- --verbose' > test_commands.sh"""
+npm run test:system -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,7 +70,7 @@ npm run test:unit:forge -- --verbose
 npm run test:unit:frontend -- --verbose
 npm run test:system -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ npm run test:unit:forge -- --verbose
 npm run test:unit:frontend -- --verbose
 npm run test:system -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ npm run test:unit:forge -- --verbose
 npm run test:unit:frontend -- --verbose
 npm run test:system -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -164,7 +164,7 @@ class FLOWFUSE_5562_TO_5485(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,25 +178,33 @@ class FLOWFUSE_5562_TO_5485(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test suites and results
         current_suite = ""
         # Regex patterns to match test suites and test cases
-        suite_pattern = re.compile(r'^\s+(?!\d+\))(\w+.*?)\s*$')  # Matches suites, excluding failed tests
-        passed_pattern = re.compile(r'^\s+✔\s+(.*)$')      # Matches passed tests (flexible indentation)
-        failed_pattern = re.compile(r'^\s+\d+\)\s*(?!.*at )(?:"([^"]+)" hook (?:for|in) "([^"]+)"|([^:]+))$')  # Excludes stack traces and limits direct test capture
-        skipped_pattern = re.compile(r'^\s+(?:✖|SKIPPED)\s+(.*)$')  # Matches skipped tests (flexible indentation)
-        for line in log.split('\n'):
+        suite_pattern = re.compile(
+            r"^\s+(?!\d+\))(\w+.*?)\s*$"
+        )  # Matches suites, excluding failed tests
+        passed_pattern = re.compile(
+            r"^\s+✔\s+(.*)$"
+        )  # Matches passed tests (flexible indentation)
+        failed_pattern = re.compile(
+            r'^\s+\d+\)\s*(?!.*at )(?:"([^"]+)" hook (?:for|in) "([^"]+)"|([^:]+))$'
+        )  # Excludes stack traces and limits direct test capture
+        skipped_pattern = re.compile(
+            r"^\s+(?:✖|SKIPPED)\s+(.*)$"
+        )  # Matches skipped tests (flexible indentation)
+        for line in log.split("\n"):
             # Remove leading line number and brackets
-            cleaned_line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            cleaned_line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Skip stack trace lines
-            if 'at ' in cleaned_line:
+            if "at " in cleaned_line:
                 continue
             # Update current test suite if cleaned line matches a suite
             suite_match = suite_pattern.match(cleaned_line)
@@ -206,7 +214,11 @@ class FLOWFUSE_5562_TO_5485(Instance):
             # Check for passed tests in cleaned line
             passed_match = passed_pattern.match(cleaned_line)
             if passed_match:
-                test_name = f"{current_suite} > {passed_match.group(1).strip()}" if current_suite else passed_match.group(1).strip()
+                test_name = (
+                    f"{current_suite} > {passed_match.group(1).strip()}"
+                    if current_suite
+                    else passed_match.group(1).strip()
+                )
                 passed_tests.add(test_name)
                 continue
             # Check for failed tests in cleaned line
@@ -216,9 +228,17 @@ class FLOWFUSE_5562_TO_5485(Instance):
                 hook_test = failed_match.group(2)
                 direct_test = failed_match.group(3)
                 if hook_test:
-                    test_name = f"{current_suite} > {hook_test.strip()}" if current_suite else hook_test.strip()
+                    test_name = (
+                        f"{current_suite} > {hook_test.strip()}"
+                        if current_suite
+                        else hook_test.strip()
+                    )
                 elif direct_test:
-                    test_name = f"{current_suite} > {direct_test.strip()}" if current_suite else direct_test.strip()
+                    test_name = (
+                        f"{current_suite} > {direct_test.strip()}"
+                        if current_suite
+                        else direct_test.strip()
+                    )
                 else:
                     test_name = "Unknown test (fix parser)"
                 failed_tests.add(test_name)
@@ -226,15 +246,18 @@ class FLOWFUSE_5562_TO_5485(Instance):
             # Check for skipped tests in cleaned line
             skipped_match = skipped_pattern.match(cleaned_line)
             if skipped_match:
-                test_name = f"{current_suite} > {skipped_match.group(1).strip()}" if current_suite else skipped_match.group(1).strip()
+                test_name = (
+                    f"{current_suite} > {skipped_match.group(1).strip()}"
+                    if current_suite
+                    else skipped_match.group(1).strip()
+                )
                 skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

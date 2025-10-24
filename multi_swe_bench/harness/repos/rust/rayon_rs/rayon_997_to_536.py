@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rust:1.56"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -95,7 +95,7 @@ rustup default stable
 ###ACTION_DELIMITER###
 echo "cargo test --verbose --package rayon && cargo test --verbose --package rayon-core" > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ echo "cargo test --verbose --package rayon && cargo test --verbose --package ray
 cd /home/{pr.repo}
 cargo test --verbose --package rayon && cargo test --verbose --package rayon-core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -119,9 +117,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test --verbose --package rayon && cargo test --verbose --package rayon-core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +130,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test --verbose --package rayon && cargo test --verbose --package rayon-core
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -198,7 +192,7 @@ class RAYON_997_TO_536(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -212,18 +206,20 @@ class RAYON_997_TO_536(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         passed_pattern = re.compile(r"^test (.*) \.\.\. ok$")
         failed_pattern = re.compile(r"^test (.*) \.\.\. FAILED$")
         ignored_pattern = re.compile(r"^test (.*) \.\.\. ignored$")
-        timeout_pattern = re.compile(r"^test (.*) has been running for over \d+ seconds$")
+        timeout_pattern = re.compile(
+            r"^test (.*) has been running for over \d+ seconds$"
+        )
         for line in log.splitlines():
             if passed_match := passed_pattern.match(line):
                 passed_tests.add(passed_match.group(1).strip())
@@ -236,9 +232,8 @@ class RAYON_997_TO_536(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

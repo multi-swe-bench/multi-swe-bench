@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -158,7 +158,7 @@ EOF && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 cd /home/pipelines && echo '#!/bin/bash' > test_commands.sh && echo 'set -e' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Frontend tests' >> test_commands.sh && echo 'cd frontend' >> test_commands.sh && echo 'npm run test:coveralls' >> test_commands.sh && echo 'cd ..' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Backend tests' >> test_commands.sh && echo 'cd backend/src' >> test_commands.sh && echo 'bazel test --test_output=all --define=grpc_no_ares=true //backend/...' >> test_commands.sh && echo 'cd ../../' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Python SDK tests' >> test_commands.sh && echo 'cd sdk/python' >> test_commands.sh && echo 'python3 tests/dsl/main.py' >> test_commands.sh && echo 'python3 tests/compiler/main.py' >> test_commands.sh && echo './tests/run_tests.sh' >> test_commands.sh && echo 'cd ../../' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Visualization tests' >> test_commands.sh && echo 'cd backend/src/apiserver/visualization' >> test_commands.sh && echo 'python3 test_exporter.py' >> test_commands.sh && echo 'python3 test_server.py' >> test_commands.sh && echo 'cd ../../../../' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Component SDK tests' >> test_commands.sh && echo 'cd components/gcp/container/component_sdk/python' >> test_commands.sh && echo './run_test.sh' >> test_commands.sh && echo 'cd ../../../../' >> test_commands.sh && echo '' >> test_commands.sh && echo '# Test loading all components' >> test_commands.sh && echo './components/test_load_all_components.sh' >> test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-ls -l /home/pipelines/test_commands.sh"""
+ls -l /home/pipelines/test_commands.sh""",
             ),
             File(
                 ".",
@@ -199,7 +199,7 @@ cd ../../../../
 # Test loading all components
 ./components/test_load_all_components.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -244,7 +244,7 @@ cd ../../../../
 # Test loading all components
 ./components/test_load_all_components.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -289,7 +289,7 @@ cd ../../../../
 # Test loading all components
 ./components/test_load_all_components.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -351,7 +351,7 @@ class PIPELINES_1827_TO_135(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -365,7 +365,6 @@ class PIPELINES_1827_TO_135(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -373,27 +372,27 @@ class PIPELINES_1827_TO_135(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse log lines to extract test statuses
-        lines = log.split('\n')
-        pattern = re.compile(r'^(PASS|FAIL|SKIPPED)\s+([^\(]+)')
+        lines = log.split("\n")
+        pattern = re.compile(r"^(PASS|FAIL|SKIPPED)\s+([^\(]+)")
         for line in lines:
             stripped_line = line.strip()
             match = pattern.match(stripped_line)
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'PASS':
+                if status == "PASS":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ yarn e2e --verbose --reporter=list
 
 yarn type-check
 
-yarn lint' > test_commands.sh"""
+yarn lint' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ yarn type-check
 
 yarn lint
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ yarn type-check
 
 yarn lint
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ yarn type-check
 
 yarn lint
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class CAL_COM_10896_TO_10780(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,7 +213,6 @@ class CAL_COM_10896_TO_10780(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -221,14 +220,23 @@ class CAL_COM_10896_TO_10780(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract JSON part from log (handles non-JSON content)
-        json_match = re.search(r'\{.*\}', log, re.DOTALL)
+        json_match = re.search(r"\{.*\}", log, re.DOTALL)
         if not json_match:
-            return {"passed_tests": set(), "failed_tests": set(), "skipped_tests": set()}
+            return {
+                "passed_tests": set(),
+                "failed_tests": set(),
+                "skipped_tests": set(),
+            }
         try:
             parsed_log = json.loads(json_match.group())
         except json.JSONDecodeError:
-            return {"passed_tests": set(), "failed_tests": set(), "skipped_tests": set()}
+            return {
+                "passed_tests": set(),
+                "failed_tests": set(),
+                "skipped_tests": set(),
+            }
         # Iterate through test results and assertion results
         for test_suite in parsed_log.get("testResults", []):
             for assertion in test_suite.get("assertionResults", []):
@@ -245,9 +253,8 @@ class CAL_COM_10896_TO_10780(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

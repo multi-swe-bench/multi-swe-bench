@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ pip install nbconvert
 ###ACTION_DELIMITER###
 pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics' > test_commands.sh"""
+echo 'pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ echo 'pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/int
 cd /home/{pr.repo}
 pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-sqlalchemy --no-spark --ignore=tests/cli --ignore=tests/integration/usage_statistics
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class GREAT_EXPECTATIONS_3710_TO_3612(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,7 +226,6 @@ class GREAT_EXPECTATIONS_3710_TO_3612(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -240,19 +233,22 @@ class GREAT_EXPECTATIONS_3710_TO_3612(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
-        pattern1 = re.compile(r'^(tests/.*\.py::.*)\s+(SKIPPED|PASSED)\s+\[\s*\d+%\s*\]$')
-        pattern2 = re.compile(r'^(FAILED|ERROR)\s+(tests/.*\.py::.*)$')
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"^(tests/.*\.py::.*)\s+(SKIPPED|PASSED)\s+\[\s*\d+%\s*\]$"
+        )
+        pattern2 = re.compile(r"^(FAILED|ERROR)\s+(tests/.*\.py::.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Match lines with SKIPPED/PASSED at the end (e.g., [...].py::test [...] SKIPPED [  0%])
             match1 = pattern1.match(line)
             if match1:
                 test_name = match1.group(1).strip()
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Match lines with FAILED/ERROR at the start (e.g., [...]) FAILED tests/...)
@@ -260,15 +256,14 @@ class GREAT_EXPECTATIONS_3710_TO_3612(Instance):
             if match2:
                 status = match2.group(1)
                 test_name = match2.group(2).strip()
-                if status in ('FAILED', 'ERROR'):
+                if status in ("FAILED", "ERROR"):
                     failed_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

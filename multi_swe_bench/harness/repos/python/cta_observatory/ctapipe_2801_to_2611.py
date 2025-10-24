@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ mamba run -n cta-dev pip install -e ./test_plugin
 ###ACTION_DELIMITER###
 mamba install -y -n cta-dev -c conda-forge astroquery
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 mamba run -n cta-dev pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 mamba run -n cta-dev pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 mamba run -n cta-dev pytest --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class CTAPIPE_2801_TO_2611(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,19 +219,25 @@ class CTAPIPE_2801_TO_2611(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'(src/.*?\.py::test_\w+(?:\[[^\]]+\])?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s*\[\s*\d+%\s*\]')
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED|XFAIL)\s+(src/.*?\.py::test_\w+(?:\[[^\]]+\])?)')
-        pattern3 = re.compile(r'SKIPPED\s+\[\d+\]\s+(src/.*?\.py):\d+.*?\((test_\w+(?:\[[^\]]+\])?)\)')
+        pattern1 = re.compile(
+            r"(src/.*?\.py::test_\w+(?:\[[^\]]+\])?)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s*\[\s*\d+%\s*\]"
+        )
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED|XFAIL)\s+(src/.*?\.py::test_\w+(?:\[[^\]]+\])?)"
+        )
+        pattern3 = re.compile(
+            r"SKIPPED\s+\[\d+\]\s+(src/.*?\.py):\d+.*?\((test_\w+(?:\[[^\]]+\])?)\)"
+        )
         test_status = {}
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern1.search(line)
             if match:
@@ -249,23 +255,22 @@ class CTAPIPE_2801_TO_2611(Instance):
             if match:
                 file_path = match.group(1)
                 test_func = match.group(2)
-                test_name = f'{file_path}::{test_func}'
-                test_status[test_name] = 'SKIPPED'
+                test_name = f"{file_path}::{test_func}"
+                test_status[test_name] = "SKIPPED"
                 continue
         # Populate sets based on the latest status
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

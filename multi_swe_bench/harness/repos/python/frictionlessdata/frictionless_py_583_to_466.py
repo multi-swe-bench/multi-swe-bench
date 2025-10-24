@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ apt-get update && apt-get install -y pkg-config libmysqlclient-dev && pip instal
 ###ACTION_DELIMITER###
 sed -i 's/local   all             all                                     peer/local   all             all                                     md5/' /etc/postgresql/16/main/pg_hba.conf && service postgresql restart && mysql -u root -e "DROP USER IF EXISTS 'testuser'@'localhost';" && mysql -u root -e "CREATE USER 'testuser'@'%' IDENTIFIED BY 'testpass';" && mysql -u root -e "GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'%';" && mysql -u root -e 'FLUSH PRIVILEGES;' && service mysql restart && pip install --upgrade pytest && export POSTGRESQL_URL='postgresql://testuser:testpass@localhost/testdb' && export MYSQL_URL='mysql://testuser:testpass@localhost/testdb' && pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci
 ###ACTION_DELIMITER###
-echo 'pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci' > /home/frictionless-py/test_commands.sh && chmod +x /home/frictionless-py/test_commands.sh"""
+echo 'pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci' > /home/frictionless-py/test_commands.sh && chmod +x /home/frictionless-py/test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ echo 'pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80
 cd /home/[[REPO_NAME]]
 pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --cov frictionless --cov-report term-missing --cov-fail-under 80 --ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class FRICTIONLESS_PY_583_TO_466(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,7 +193,6 @@ class FRICTIONLESS_PY_583_TO_466(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -203,40 +202,39 @@ class FRICTIONLESS_PY_583_TO_466(Instance):
         for line in log.splitlines():
             line = line.strip()
             # Remove leading line number bracket
-            if line.startswith('['):
-                split_line = line.split(']', 1)
+            if line.startswith("["):
+                split_line = line.split("]", 1)
                 if len(split_line) > 1:
                     line = split_line[1].strip()
                 else:
-                    line = ''
+                    line = ""
             # Extract passed tests
-            if 'PASSED' in line:
-                test_name = line.split(' PASSED')[0].strip()
+            if "PASSED" in line:
+                test_name = line.split(" PASSED")[0].strip()
                 passed_tests.add(test_name)
             # Extract failed tests
-            elif 'FAILED' in line:
-                test_part = line.partition('FAILED ')[2]
+            elif "FAILED" in line:
+                test_part = line.partition("FAILED ")[2]
                 if test_part:
-                    test_name = test_part.partition(' - ')[0].strip()
+                    test_name = test_part.partition(" - ")[0].strip()
                     failed_tests.add(test_name)
-            elif 'ERROR' in line:
-                test_part = line.partition('ERROR ')[2]
+            elif "ERROR" in line:
+                test_part = line.partition("ERROR ")[2]
                 if test_part:
-                    test_name = test_part.partition(' - ')[0].strip()
+                    test_name = test_part.partition(" - ")[0].strip()
                     failed_tests.add(test_name)
             # Extract skipped tests
-            elif 'SKIPPED' in line:
-                if line.startswith('SKIPPED'):
-                    test_name = line.split('SKIPPED ')[1].strip()
+            elif "SKIPPED" in line:
+                if line.startswith("SKIPPED"):
+                    test_name = line.split("SKIPPED ")[1].strip()
                 else:
-                    test_name = line.split(' SKIPPED')[0].strip()
+                    test_name = line.split(" SKIPPED")[0].strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

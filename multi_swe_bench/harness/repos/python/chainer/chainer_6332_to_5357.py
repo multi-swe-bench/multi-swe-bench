@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -82,7 +82,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'python -m pytest -v -rA --timeout=60 -m "not gpu and not cudnn and not ideep and not slow" --ignore=tests/chainer_tests/exporters_tests/test_caffe.py --ignore=tests/chainer_tests/links_tests/caffe_tests tests/chainer_tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python -m pytest -v -rA --timeout=60 -m "not gpu and not cudnn and not ideep and not slow" --ignore=tests/chainer_tests/exporters_tests/test_caffe.py --ignore=tests/chainer_tests/links_tests/caffe_tests tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v -rA --timeout=60 -m "not gpu and not cudnn and not ideep and not slow" --ignore=tests/chainer_tests/exporters_tests/test_caffe.py --ignore=tests/chainer_tests/links_tests/caffe_tests tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -m pytest -v -rA --timeout=60 -m "not gpu and not cudnn and not ideep and not slow" --ignore=tests/chainer_tests/exporters_tests/test_caffe.py --ignore=tests/chainer_tests/links_tests/caffe_tests tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class CHAINER_6332_TO_5357(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,15 +193,18 @@ class CHAINER_6332_TO_5357(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        pattern = re.compile(r'(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]|(PASSED|FAILED|SKIPPED)\s+(tests/.*)', re.IGNORECASE)
+        pattern = re.compile(
+            r"(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]|(PASSED|FAILED|SKIPPED)\s+(tests/.*)",
+            re.IGNORECASE,
+        )
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
@@ -215,18 +218,17 @@ class CHAINER_6332_TO_5357(Instance):
                 else:
                     continue  # No valid groups matched
                 # Add test name to the corresponding set based on status
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -86,7 +86,7 @@ sed -i 's/types-pkg_resources/types-setuptools/' requirements_dev.txt
 tox -e dbt150-py38 --devenv .venv
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-.venv/bin/pytest -vv -rsfE test/' > test_commands.sh && chmod +x test_commands.sh"""
+.venv/bin/pytest -vv -rsfE test/' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 .venv/bin/pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +110,7 @@ fi
 #!/bin/bash
 .venv/bin/pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ fi
 #!/bin/bash
 .venv/bin/pytest -vv -rsfE test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class SQLFLUFF_5053_TO_4813(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,18 +200,18 @@ class SQLFLUFF_5053_TO_4813(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases and their statuses
-        passed_pattern = re.compile(r'.*?(test/[^\s]+)\s+PASSED', re.IGNORECASE)
-        failed_pattern = re.compile(r'.*?FAILED\s+(test/[^\s]+)\s+-', re.IGNORECASE)
-        skipped_pattern1 = re.compile(r'.*?(test/[^\s]+)\s+SKIPPED', re.IGNORECASE)
-        skipped_pattern2 = re.compile(r'^SKIPPED\s+(test/.*?)\s+-', re.IGNORECASE)
+        passed_pattern = re.compile(r".*?(test/[^\s]+)\s+PASSED", re.IGNORECASE)
+        failed_pattern = re.compile(r".*?FAILED\s+(test/[^\s]+)\s+-", re.IGNORECASE)
+        skipped_pattern1 = re.compile(r".*?(test/[^\s]+)\s+SKIPPED", re.IGNORECASE)
+        skipped_pattern2 = re.compile(r"^SKIPPED\s+(test/.*?)\s+-", re.IGNORECASE)
         for line in log.splitlines():
             line = line.strip()
             # Check for passed tests
@@ -231,16 +225,17 @@ class SQLFLUFF_5053_TO_4813(Instance):
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
             # Check for skipped tests
-            skipped_match = skipped_pattern1.search(line) or skipped_pattern2.search(line)
+            skipped_match = skipped_pattern1.search(line) or skipped_pattern2.search(
+                line
+            )
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

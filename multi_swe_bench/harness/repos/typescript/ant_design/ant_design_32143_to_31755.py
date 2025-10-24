@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ npm install --save-dev web-streams-polyfill --legacy-peer-deps && bash test_comm
 ###ACTION_DELIMITER###
 sed -i 's/npm test -- --verbose/npm test -- --verbose -u/' test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-sed -i 's/npm test -- --verbose -u/npm test -- --verbose/' test_commands.sh && bash test_commands.sh"""
+sed -i 's/npm test -- --verbose -u/npm test -- --verbose/' test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ sed -i 's/npm test -- --verbose -u/npm test -- --verbose/' test_commands.sh && b
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class ANT_DESIGN_32143_TO_31755(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +219,6 @@ class ANT_DESIGN_32143_TO_31755(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -227,11 +226,12 @@ class ANT_DESIGN_32143_TO_31755(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex patterns for passed, failed, and skipped tests
-        passed_pattern = re.compile(r'\s*✓\s+(.*?)\s+\(\d+\s+ms\)')
-        failed_pattern = re.compile(r'\s*✕\s+(.*?)\s+\(\d+\s+ms\)')
-        skipped_pattern = re.compile(r'\s*○ skipped\s+(.*)')
+        passed_pattern = re.compile(r"\s*✓\s+(.*?)\s+\(\d+\s+ms\)")
+        failed_pattern = re.compile(r"\s*✕\s+(.*?)\s+\(\d+\s+ms\)")
+        skipped_pattern = re.compile(r"\s*○ skipped\s+(.*)")
         # Find all matches
         passed_matches = passed_pattern.findall(log)
         failed_matches = failed_pattern.findall(log)
@@ -243,9 +243,8 @@ class ANT_DESIGN_32143_TO_31755(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

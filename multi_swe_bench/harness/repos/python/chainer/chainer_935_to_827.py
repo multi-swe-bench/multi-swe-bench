@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -71,7 +71,7 @@ python setup.py install
 pip install nose mock flake8
 ###ACTION_DELIMITER###
 echo -e 'flake8
-nosetests -v -A "gpu<1" tests/chainer_tests' > test_commands.sh"""
+nosetests -v -A "gpu<1" tests/chainer_tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ cd /home/[[REPO_NAME]]
 flake8
 nosetests -v -A "gpu<1" tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ fi
 flake8
 nosetests -v -A "gpu<1" tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ fi
 flake8
 nosetests -v -A "gpu<1" tests/chainer_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class CHAINER_935_TO_827(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,28 +185,27 @@ class CHAINER_935_TO_827(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Capture all test names (prefixed with 'test_') from the log
-        all_tests = set(re.findall(r'test_[a-zA-Z0-9_]+', log))
+        all_tests = set(re.findall(r"test_[a-zA-Z0-9_]+", log))
         # Extract failed tests (FAIL or ERROR) using consistent pattern
-        failed_matches = re.findall(r'(FAIL|ERROR):?\s+(test_[a-zA-Z0-9_]+)', log)
+        failed_matches = re.findall(r"(FAIL|ERROR):?\s+(test_[a-zA-Z0-9_]+)", log)
         failed_tests = set(test for (status, test) in failed_matches)
         # Extract skipped tests using consistent pattern
-        skipped_tests = set(re.findall(r'SKIP:?\s+(test_[a-zA-Z0-9_]+)', log))
+        skipped_tests = set(re.findall(r"SKIP:?\s+(test_[a-zA-Z0-9_]+)", log))
         # Passed tests are all tests not in failed or skipped
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -84,7 +84,7 @@ npm run test:ct -- --verbose --workers=4 --retries=0' > test_commands.sh
 ###ACTION_DELIMITER###
 npx playwright install
 ###ACTION_DELIMITER###
-apt-get install -y libglib2.0-0 libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2"""
+apt-get install -y libglib2.0-0 libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2""",
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ cd /home/[[REPO_NAME]]
 npm test -- --verbose --maxWorkers=4
 npm run test:ct -- --verbose --workers=4 --retries=0
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ fi
 npm test -- --verbose --maxWorkers=4
 npm run test:ct -- --verbose --workers=4 --retries=0
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ fi
 npm test -- --verbose --maxWorkers=4
 npm run test:ct -- --verbose --workers=4 --retries=0
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class CARBON_7359_TO_3672(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,7 +201,6 @@ class CARBON_7359_TO_3672(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -209,14 +208,15 @@ class CARBON_7359_TO_3672(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Extract passed tests (✓)
-        passed_pattern = re.compile(r'^\s+✓\s+(.*)$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s+✓\s+(.*)$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests (✕)
-        failed_pattern = re.compile(r'^\s+✕\s+(.*)$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s+✕\s+(.*)$", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Extract skipped tests (placeholder for common patterns; adjust if needed)
-        skipped_pattern = re.compile(r'^\s+[○↷]\s+(.*)$|SKIPPED\s+(.*)$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s+[○↷]\s+(.*)$|SKIPPED\s+(.*)$", re.MULTILINE)
         skipped_matches = skipped_pattern.findall(log)
         for match in skipped_matches:
             test_name = match[0] if match[0] else match[1]
@@ -225,9 +225,8 @@ class CARBON_7359_TO_3672(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

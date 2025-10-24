@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ EOF
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cd /home/[[REPO_NAME]]
 set -e
 NODE_PATH=submodules/katex-fonts yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ fi
 set -e
 NODE_PATH=submodules/katex-fonts yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ fi
 set -e
 NODE_PATH=submodules/katex-fonts yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class KATEX_2040_TO_1497(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,20 +177,26 @@ class KATEX_2040_TO_1497(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: matches lines with ✓ followed by test name
-        passed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(✓|√)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$')
+        passed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(✓|√)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$"
+        )
         # Pattern for failed tests: matches lines with ✗ followed by test name (adjust based on log patterns)
-        failed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(✕|✖|FAILED)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$')
+        failed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(✕|✖|FAILED)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$"
+        )
         # Pattern for skipped tests: matches lines with SKIPPED or other indicators (adjust based on log patterns)
-        skipped_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(SKIPPED|SKIP|∅|XSKIP)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$')
-        for line in log.split('\n'):
+        skipped_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(SKIPPED|SKIP|∅|XSKIP)\s+(.*?)(?:\s*\(?\d+\.?\d*(ms|s)\)?)?$"
+        )
+        for line in log.split("\n"):
             # Check for passed tests
             passed_match = passed_pattern.search(line)
             if passed_match:
@@ -212,9 +218,8 @@ class KATEX_2040_TO_1497(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

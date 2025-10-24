@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -147,7 +147,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i '1i export OPENDevin_RUNTIME=docker' test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -161,9 +161,7 @@ export SCRIPT_DIR="/home/OpenHands"
 export WORKSPACE_BASE="/home/OpenHands/workspace"
 poetry run pytest --verbose ./tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -181,9 +179,7 @@ export SCRIPT_DIR="/home/OpenHands"
 export WORKSPACE_BASE="/home/OpenHands/workspace"
 poetry run pytest --verbose ./tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -201,9 +197,7 @@ export SCRIPT_DIR="/home/OpenHands"
 export WORKSPACE_BASE="/home/OpenHands/workspace"
 poetry run pytest --verbose ./tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -265,7 +259,7 @@ class OPENHANDS_3099_TO_1660(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -279,30 +273,29 @@ class OPENHANDS_3099_TO_1660(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Use regex to find test cases and their statuses
-        pattern = r'(\btests/.*?::.*?) (PASSED|FAILED|SKIPPED|ERROR)\b'
+        pattern = r"(\btests/.*?::.*?) (PASSED|FAILED|SKIPPED|ERROR)\b"
         matches = re.findall(pattern, log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

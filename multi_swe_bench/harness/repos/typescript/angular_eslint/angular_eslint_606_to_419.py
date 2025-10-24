@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ yarn nx run-many --target=test --all --parallel --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn nx run-many --target=test --all --parallel --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ fi
 #!/bin/bash
 yarn nx run-many --target=test --all --parallel --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ fi
 #!/bin/bash
 yarn nx run-many --target=test --all --parallel --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -166,7 +166,7 @@ class ANGULAR_ESLINT_606_TO_419(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,36 +180,35 @@ class ANGULAR_ESLINT_606_TO_419(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1B\[.*?m', '', log)
+        clean_log = re.sub(r"\x1B\[.*?m", "", log)
         # Extract passed tests
-        pass_pattern = re.compile(r'PASS\s+([^\s(]+)')
+        pass_pattern = re.compile(r"PASS\s+([^\s(]+)")
         passed_matches = pass_pattern.findall(clean_log)
         for test in passed_matches:
             passed_tests.add(test.strip())
         # Extract failed tests (matches FAIL or FAILED)
-        fail_pattern = re.compile(r'FAIL(?:ED)?\s+([^\s(]+)')
+        fail_pattern = re.compile(r"FAIL(?:ED)?\s+([^\s(]+)")
         failed_matches = fail_pattern.findall(clean_log)
         for test in failed_matches:
             failed_tests.add(test.strip())
         # Extract skipped tests
-        skip_pattern = re.compile(r'SKIPPED\s+([^\s(]+)')
+        skip_pattern = re.compile(r"SKIPPED\s+([^\s(]+)")
         skipped_matches = skip_pattern.findall(clean_log)
         for test in skipped_matches:
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

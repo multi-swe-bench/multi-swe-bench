@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo -e '#!/bin/bash
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ cd /home/[[REPO_NAME]]
 ./node_modules/.bin/mocha test/unit --verbose --reporter json
 ./node_modules/.bin/mocha test/runner --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ fi
 ./node_modules/.bin/mocha test/unit --verbose --reporter json
 ./node_modules/.bin/mocha test/runner --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 ./node_modules/.bin/mocha test/unit --verbose --reporter json
 ./node_modules/.bin/mocha test/runner --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class CODECEPTJS_1066_TO_369(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,28 +173,27 @@ class CODECEPTJS_1066_TO_369(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Preprocess log to remove line number prefixes
-        processed_log = re.sub(r'^\[\s*\d+\]\s*', '', log, flags=re.MULTILINE)
+        processed_log = re.sub(r"^\[\s*\d+\]\s*", "", log, flags=re.MULTILINE)
         # Regex pattern to extract test fullTitle and err status
         test_pattern = re.compile(
-            r'"fullTitle":\s*"([^"]+)"[^}]*"err":\s*(\{.*?\})',
-            re.DOTALL
+            r'"fullTitle":\s*"([^"]+)"[^}]*"err":\s*(\{.*?\})', re.DOTALL
         )
         # Find all matches in the processed log
         test_matches = test_pattern.findall(processed_log)
         # Process test matches to determine status
         for full_title, err in test_matches:
             # Clean up err field to check if it's empty
-            err_clean = re.sub(r'\s+', '', err)
-            if err_clean == '{}':
+            err_clean = re.sub(r"\s+", "", err)
+            if err_clean == "{}":
                 passed_tests.add(full_title)
             else:
                 failed_tests.add(full_title)
@@ -202,9 +201,8 @@ class CODECEPTJS_1066_TO_369(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

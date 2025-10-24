@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ python3 -m pip install -e .[tests]
 ###ACTION_DELIMITER###
 echo 'python3 -m pytest -v -rA --tb=short Tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python3 -m pytest -v -rA --tb=short Tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 -m pytest -v -rA --tb=short Tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python3 -m pytest -v -rA --tb=short Tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class PILLOW_8974_TO_8592(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,42 +170,45 @@ class PILLOW_8974_TO_8592(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Parse each line
-        for line in log_clean.split('\n'):
+        for line in log_clean.split("\n"):
             line = line.strip()
             # Extract PASSED tests
-            if 'PASSED' in line:
-                match = re.search(r'(Tests/.*?)\s+PASSED|PASSED\s+(Tests/.*?)(?:\s|$)', line)
+            if "PASSED" in line:
+                match = re.search(
+                    r"(Tests/.*?)\s+PASSED|PASSED\s+(Tests/.*?)(?:\s|$)", line
+                )
                 if match:
                     test_name = match.group(1) or match.group(2)
                     passed_tests.add(test_name)
             # Extract FAILED tests
-            if 'FAILED' in line:
-                match = re.search(r'(Tests/.*?)\s+FAILED|FAILED\s+(Tests/.*?)(?:\s|-)', line)
+            if "FAILED" in line:
+                match = re.search(
+                    r"(Tests/.*?)\s+FAILED|FAILED\s+(Tests/.*?)(?:\s|-)", line
+                )
                 if match:
                     test_name = match.group(1) or match.group(2)
                     failed_tests.add(test_name)
             # Extract SKIPPED tests
-            if 'SKIPPED' in line:
-                match = re.search(r'SKIPPED\s+\[\d+\]\s+(Tests/[^:]+:\d+)', line)
+            if "SKIPPED" in line:
+                match = re.search(r"SKIPPED\s+\[\d+\]\s+(Tests/[^:]+:\d+)", line)
                 if match:
                     test_name = match.group(1)
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

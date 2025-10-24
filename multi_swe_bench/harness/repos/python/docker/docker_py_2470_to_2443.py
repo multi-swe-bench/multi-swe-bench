@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -121,7 +121,7 @@ sed -i 's/cryptography==2.3/cryptography>=2.5/' requirements.txt
 ###ACTION_DELIMITER###
 pip install -r requirements.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -130,9 +130,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class DOCKER_PY_2470_TO_2443(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,27 +232,29 @@ class DOCKER_PY_2470_TO_2443(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match individual test lines
-        test_pattern = re.compile(r'^\s*(.*?)\s+(PASSED|SKIPPED|FAILED)\s+\[\s*\d+%\]', re.MULTILINE)
+        test_pattern = re.compile(
+            r"^\s*(.*?)\s+(PASSED|SKIPPED|FAILED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
         test_matches = test_pattern.findall(log)
         for test_name, status in test_matches:
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         # Regex pattern to match XFAIL in summary lines
-        xfail_pattern = re.compile(r'^XFAIL\s+(.*?)(?:\s|$)', re.MULTILINE)
+        xfail_pattern = re.compile(r"^XFAIL\s+(.*?)(?:\s|$)", re.MULTILINE)
         xfail_matches = xfail_pattern.findall(log)
         for test_name in xfail_matches:
             test_name = test_name.strip()
@@ -266,9 +262,8 @@ class DOCKER_PY_2470_TO_2443(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

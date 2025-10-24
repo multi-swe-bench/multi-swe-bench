@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -89,7 +89,7 @@ apt-get install -y chromium-browser && export CHROME_BIN=/usr/bin/chromium-brows
 ###ACTION_DELIMITER###
 apt-get install -y wget && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y && export CHROME_BIN=/usr/bin/google-chrome && yarn test
 ###ACTION_DELIMITER###
-cd /home/comixed && bash test_commands.sh"""
+cd /home/comixed && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ mvn clean test -Dstyle.color=never
 cd comixed-webui
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ mvn clean test -Dstyle.color=never
 cd comixed-webui
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ mvn clean test -Dstyle.color=never
 cd comixed-webui
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -195,7 +195,7 @@ class COMIXED_1432_TO_1236(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -209,13 +209,13 @@ class COMIXED_1432_TO_1236(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex pattern to match test summary lines
         pattern = r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+).* - in (.*)"
@@ -235,9 +235,8 @@ class COMIXED_1432_TO_1236(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

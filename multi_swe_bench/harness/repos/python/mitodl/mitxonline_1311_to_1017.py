@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9.6"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -120,7 +120,7 @@ su - postgres -c "psql -c \"ALTER USER mitxonline PASSWORD 'dummy_password';\"" 
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL="http://localhost"; export MAILGUN_SENDER_DOMAIN="example.com"; export MAILGUN_KEY="dummy_key"; export MITX_ONLINE_ADMIN_EMAIL="admin@example.com"; export OPENEDX_API_CLIENT_ID="dummy_id"; export OPENEDX_API_CLIENT_SECRET="dummy_secret"; export OPENEDX_API_KEY="dummy_key"; export DATABASE_URL="postgres://mitxonline:dummy_password@localhost/mitxonline"; pytest -v -p no:cov -o addopts=""' > test_commands.sh"""
+echo 'export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL="http://localhost"; export MAILGUN_SENDER_DOMAIN="example.com"; export MAILGUN_KEY="dummy_key"; export MITX_ONLINE_ADMIN_EMAIL="admin@example.com"; export OPENEDX_API_CLIENT_ID="dummy_id"; export OPENEDX_API_CLIENT_SECRET="dummy_secret"; export OPENEDX_API_KEY="dummy_key"; export DATABASE_URL="postgres://mitxonline:dummy_password@localhost/mitxonline"; pytest -v -p no:cov -o addopts=""' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ echo 'export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL=
 cd /home/[[REPO_NAME]]
 export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL="http://localhost"; export MAILGUN_SENDER_DOMAIN="example.com"; export MAILGUN_KEY="dummy_key"; export MITX_ONLINE_ADMIN_EMAIL="admin@example.com"; export OPENEDX_API_CLIENT_ID="dummy_id"; export OPENEDX_API_CLIENT_SECRET="dummy_secret"; export OPENEDX_API_KEY="dummy_key"; export DATABASE_URL="postgres://mitxonline:dummy_password@localhost/mitxonline"; pytest -v -p no:cov -o addopts=""
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -142,7 +142,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL="http://localhost"; export MAILGUN_SENDER_DOMAIN="example.com"; export MAILGUN_KEY="dummy_key"; export MITX_ONLINE_ADMIN_EMAIL="admin@example.com"; export OPENEDX_API_CLIENT_ID="dummy_id"; export OPENEDX_API_CLIENT_SECRET="dummy_secret"; export OPENEDX_API_KEY="dummy_key"; export DATABASE_URL="postgres://mitxonline:dummy_password@localhost/mitxonline"; pytest -v -p no:cov -o addopts=""
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 export SECRET_KEY="django-insecure-test-key"; export MITX_ONLINE_BASE_URL="http://localhost"; export MAILGUN_SENDER_DOMAIN="example.com"; export MAILGUN_KEY="dummy_key"; export MITX_ONLINE_ADMIN_EMAIL="admin@example.com"; export OPENEDX_API_CLIENT_ID="dummy_id"; export OPENEDX_API_CLIENT_SECRET="dummy_secret"; export OPENEDX_API_KEY="dummy_key"; export DATABASE_URL="postgres://mitxonline:dummy_password@localhost/mitxonline"; pytest -v -p no:cov -o addopts=""
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -217,7 +217,7 @@ class MITXONLINE_1311_TO_1017(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -231,19 +231,25 @@ class MITXONLINE_1311_TO_1017(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases with leading line numbers
         # Pattern 1: [line_num] test_name STATUS [percentage]
-        pattern1 = re.compile(r'''^\s*([\w\/\.\:\s\[\]()'"\-]+)\s+(ERROR|FAILED|PASSED|SKIPPED)\s+(\[\s*\d+%\s*\])?''', re.IGNORECASE)
+        pattern1 = re.compile(
+            r"""^\s*([\w\/\.\:\s\[\]()'"\-]+)\s+(ERROR|FAILED|PASSED|SKIPPED)\s+(\[\s*\d+%\s*\])?""",
+            re.IGNORECASE,
+        )
         # Pattern 2: STATUS test_name - message (matches status followed by test name)
-        pattern2 = re.compile(r'''^\s*(ERROR|FAILED|PASSED|SKIPPED)\s+([\w\/\.\:\s\[\]()'"\-]+)\s+\-?''', re.IGNORECASE)
-        for line in log.split('\n'):
+        pattern2 = re.compile(
+            r"""^\s*(ERROR|FAILED|PASSED|SKIPPED)\s+([\w\/\.\:\s\[\]()'"\-]+)\s+\-?""",
+            re.IGNORECASE,
+        )
+        for line in log.split("\n"):
             # Check pattern 1
             match = pattern1.search(line)
             if match:
@@ -258,18 +264,17 @@ class MITXONLINE_1311_TO_1017(Instance):
                 else:
                     continue  # No match
             # Categorize based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

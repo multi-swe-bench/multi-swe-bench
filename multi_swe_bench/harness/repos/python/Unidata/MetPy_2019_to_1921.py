@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ bash /home/MetPy/test_commands.sh
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash /home/MetPy/test_commands.sh"""
+bash /home/MetPy/test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash /home/MetPy/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class METPY_2019_TO_1921(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,29 +182,40 @@ class METPY_2019_TO_1921(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse test names and statuses using regex (handles trailing content and line numbers)
         # Passed tests: Exclude line number, capture test path
-        passed_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+PASSED', log, re.MULTILINE | re.IGNORECASE)
+        passed_matches = re.findall(
+            r"^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+PASSED",
+            log,
+            re.MULTILINE | re.IGNORECASE,
+        )
         passed_tests = set(passed_matches)
         # Skipped tests: Optional line number, handle optional reason
-        skipped_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+SKIPPED(?:\s*\(.*?\))?', log, re.MULTILINE | re.IGNORECASE)
+        skipped_matches = re.findall(
+            r"^\s*(?:\[\s*\d+\s*\]\s+)?(tests/.*?)\s+SKIPPED(?:\s*\(.*?\))?",
+            log,
+            re.MULTILINE | re.IGNORECASE,
+        )
         skipped_tests = set(skipped_matches)
         # Failed tests: Optional line number, handle optional text after hyphen
-        failed_matches = re.findall(r'^\s*(?:\[\s*\d+\s*\]\s+)?FAILED\s+(tests/.*?)(?:\s+-.*|$)', log, re.MULTILINE | re.IGNORECASE)
+        failed_matches = re.findall(
+            r"^\s*(?:\[\s*\d+\s*\]\s+)?FAILED\s+(tests/.*?)(?:\s+-.*|$)",
+            log,
+            re.MULTILINE | re.IGNORECASE,
+        )
         failed_tests = set(failed_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

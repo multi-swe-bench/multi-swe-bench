@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "openjdk:17-jdk-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -126,7 +126,7 @@ cd /home/comixed/comixed-webui && ./node_modules/.bin/ng test --code-coverage --
 ###ACTION_DELIMITER###
 cd /home/comixed/comixed-webui && ./node_modules/.bin/ng test --code-coverage --browsers ChromeHeadless --no-watch --no-progress && cd /home/comixed && bash test_commands.sh
 ###ACTION_DELIMITER###
-cd /home/comixed/comixed-webui && echo '{ "extends": "./tsconfig.json", "compilerOptions": { "outDir": "./out-tsc/spec", "types": [ "jasmine", "node" ] }, "files": [ "src/test.ts", "src/polyfills.ts" ], "include": [ "src/**/*.spec.ts", "src/**/*.d.ts" ] }' > tsconfig.spec.json && ./node_modules/.bin/ng test --code-coverage --browsers ChromeHeadless --no-watch --no-progress && cd /home/comixed && bash test_commands.sh"""
+cd /home/comixed/comixed-webui && echo '{ "extends": "./tsconfig.json", "compilerOptions": { "outDir": "./out-tsc/spec", "types": [ "jasmine", "node" ] }, "files": [ "src/test.ts", "src/polyfills.ts" ], "include": [ "src/**/*.spec.ts", "src/**/*.d.ts" ] }' > tsconfig.spec.json && ./node_modules/.bin/ng test --code-coverage --browsers ChromeHeadless --no-watch --no-progress && cd /home/comixed && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ cd /home/[[REPO_NAME]]
 export CHROME_BIN=/usr/bin/chromium
 mvn clean test -Dstyle.color=never -Dmaven.test.verbose=true -X -fae
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -150,7 +150,7 @@ fi
 export CHROME_BIN=/usr/bin/chromium
 mvn clean test -Dstyle.color=never -Dmaven.test.verbose=true -X -fae
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ fi
 export CHROME_BIN=/usr/bin/chromium
 mvn clean test -Dstyle.color=never -Dmaven.test.verbose=true -X -fae
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -226,7 +226,7 @@ class COMIXED_2221_TO_1523(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,31 +240,32 @@ class COMIXED_2221_TO_1523(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Use regex to find all test results
-        pattern = re.compile(r'\[INFO\]\s+([\w-]+)\s+\.{2,}\s+(SUCCESS|FAILURE|SKIPPED)\s+\[.+\]')
+        pattern = re.compile(
+            r"\[INFO\]\s+([\w-]+)\s+\.{2,}\s+(SUCCESS|FAILURE|SKIPPED)\s+\[.+\]"
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'SUCCESS':
+            if status == "SUCCESS":
                 passed_tests.add(test_name)
-            elif status == 'FAILURE':
+            elif status == "FAILURE":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

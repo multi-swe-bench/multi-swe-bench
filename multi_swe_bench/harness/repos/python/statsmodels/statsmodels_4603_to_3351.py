@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -121,7 +121,7 @@ grep -r 'scipy\.misc' statsmodels/ && bash test_commands.sh
 ###ACTION_DELIMITER###
 grep -rl --include='*.py' 'scipy\.misc' statsmodels/ | xargs sed -i 's/scipy\.misc/scipy.special/g'
 ###ACTION_DELIMITER###
-grep -rl --include='*.py' 'scipy\.misc' statsmodels/ && pip install -e . --no-use-pep517 && bash test_commands.sh"""
+grep -rl --include='*.py' 'scipy\.misc' statsmodels/ && pip install -e . --no-use-pep517 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -130,9 +130,7 @@ grep -rl --include='*.py' 'scipy\.misc' statsmodels/ && pip install -e . --no-us
 cd /home/{pr.repo}
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nosetests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class STATSMODELS_4603_TO_3351(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,54 +232,66 @@ class STATSMODELS_4603_TO_3351(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         test_status = {}  # Track the latest status of each test
         # Regex patterns for additional status lines
-        error_pattern = re.compile(r'(?:(AssertionError|Error|FAILED|ERROR):\s*([\w.]+)|([\w.]+):\s*(AssertionError|Error|FAILED|ERROR)|([\w.]+)\s+(?:failed|error)|test (?:failed|error):\s*([\w.]+)|(?:failed|error) in\s*([\w.]+))', re.IGNORECASE | re.MULTILINE)
-        skip_pattern = re.compile(r'^(SKIP|SKIPPED):\s*([\w.]+)$', re.MULTILINE)
+        error_pattern = re.compile(
+            r"(?:(AssertionError|Error|FAILED|ERROR):\s*([\w.]+)|([\w.]+):\s*(AssertionError|Error|FAILED|ERROR)|([\w.]+)\s+(?:failed|error)|test (?:failed|error):\s*([\w.]+)|(?:failed|error) in\s*([\w.]+))",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        skip_pattern = re.compile(r"^(SKIP|SKIPPED):\s*([\w.]+)$", re.MULTILINE)
         # Process lines with '...' (primary status lines)
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
-            if '...' in line:
-                parts = line.split('...', 1)
+            if "..." in line:
+                parts = line.split("...", 1)
                 if len(parts) != 2:
                     continue
                 test_part = parts[0].strip()
                 status_part = parts[1].strip()
                 # Extract test name (remove line number prefix)
-                test_name = test_part.split(']', 1)[1].strip() if ']' in test_part else test_part
+                test_name = (
+                    test_part.split("]", 1)[1].strip()
+                    if "]" in test_part
+                    else test_part
+                )
                 # Extract status
-                status = status_part.split()[0].lower() if status_part else ''
+                status = status_part.split()[0].lower() if status_part else ""
                 test_status[test_name] = status  # Update with latest status
         # Process ERROR lines (update status to 'error')
         for match in error_pattern.finditer(log):
-            test_name = match.group(2) or match.group(3) or match.group(5) or match.group(6) or match.group(7)
+            test_name = (
+                match.group(2)
+                or match.group(3)
+                or match.group(5)
+                or match.group(6)
+                or match.group(7)
+            )
             if test_name:
-                test_status[test_name.strip()] = 'error'  # Override with error status
+                test_status[test_name.strip()] = "error"  # Override with error status
         # Process SKIP/SKIPPED lines (update status to 'skipped')
         for match in skip_pattern.finditer(log):
             test_name = match.group(2).strip()
-            test_status[test_name] = 'skipped'  # Override with skipped status
+            test_status[test_name] = "skipped"  # Override with skipped status
         # Categorize tests based on latest status
         for test_name, status in test_status.items():
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status.startswith('fail') or status == 'error':
+            elif status.startswith("fail") or status == "error":
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

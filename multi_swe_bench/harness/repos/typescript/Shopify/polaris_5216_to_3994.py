@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -119,7 +119,7 @@ sed -i 's/moduleNameMapper: {/moduleNameMapper: { "\\.(css|scss)$": "identity-ob
 npx jest --config jest.config.js --verbose
 ###ACTION_DELIMITER###
 echo '#!/bin/bash
-npx jest --config jest.config.js --verbose --maxWorkers=2 --testTimeout=30000' > /home/polaris/test_commands.sh && chmod +x /home/polaris/test_commands.sh"""
+npx jest --config jest.config.js --verbose --maxWorkers=2 --testTimeout=30000' > /home/polaris/test_commands.sh && chmod +x /home/polaris/test_commands.sh""",
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 npx jest --config jest.config.js --verbose --maxWorkers=2 --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ fi
 #!/bin/bash
 npx jest --config jest.config.js --verbose --maxWorkers=2 --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ fi
 #!/bin/bash
 npx jest --config jest.config.js --verbose --maxWorkers=2 --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class POLARIS_5216_TO_3994(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,23 +233,32 @@ class POLARIS_5216_TO_3994(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse test results, excluding timestamps and capturing skipped tests
-        passed_tests = set(re.findall(r'^PASS (.*?)(?: \(\d+\.\d+ s\))?$', log, re.MULTILINE))
-        failed_tests = set(re.findall(r'^FAIL (.*?)(?: \(\d+\.\d+ s\))?$', log, re.MULTILINE))
-        skipped_tests = set(re.findall(r'^(?:SKIP|SKIPPED|XSKIP):? (.*?)(?: \(\d+\.\d+ s\))?$', log, re.MULTILINE))
+        passed_tests = set(
+            re.findall(r"^PASS (.*?)(?: \(\d+\.\d+ s\))?$", log, re.MULTILINE)
+        )
+        failed_tests = set(
+            re.findall(r"^FAIL (.*?)(?: \(\d+\.\d+ s\))?$", log, re.MULTILINE)
+        )
+        skipped_tests = set(
+            re.findall(
+                r"^(?:SKIP|SKIPPED|XSKIP):? (.*?)(?: \(\d+\.\d+ s\))?$",
+                log,
+                re.MULTILINE,
+            )
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

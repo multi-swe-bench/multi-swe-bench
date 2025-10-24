@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.6"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -89,7 +89,7 @@ pytest
 ###ACTION_DELIMITER###
 echo 'pytest --verbose' > /home/requests/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ echo 'pytest --verbose' > /home/requests/test_commands.sh
 cd /home/{pr.repo}
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -128,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -192,7 +186,7 @@ class REQUESTS_4245_TO_4137(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -206,17 +200,19 @@ class REQUESTS_4245_TO_4137(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex to capture test status and name
-        pattern = re.compile(r"^(tests\/test_.*\.py::test_\S+)(?:\s|\w)*\s(PASSED|FAILED|SKIPPED|XFAIL)")
-        for line in log.split('\n'):
+        pattern = re.compile(
+            r"^(tests\/test_.*\.py::test_\S+)(?:\s|\w)*\s(PASSED|FAILED|SKIPPED|XFAIL)"
+        )
+        for line in log.split("\n"):
             match = pattern.match(line)
             if match:
                 test_name = match.group(1)
@@ -230,9 +226,8 @@ class REQUESTS_4245_TO_4137(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

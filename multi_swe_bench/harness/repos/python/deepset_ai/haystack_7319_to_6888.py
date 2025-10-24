@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -98,7 +98,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install pyproject-parser
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,9 +108,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 venv/bin/pytest -v test/ --ignore=test/components/generators/chat/test_hugging_face_tgi.py --ignore=test/components/generators/test_hugging_face_tgi.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +122,7 @@ fi
 #!/bin/bash
 venv/bin/pytest -v test/ --ignore=test/components/generators/chat/test_hugging_face_tgi.py --ignore=test/components/generators/test_hugging_face_tgi.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ fi
 #!/bin/bash
 venv/bin/pytest -v test/ --ignore=test/components/generators/chat/test_hugging_face_tgi.py --ignore=test/components/generators/test_hugging_face_tgi.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class HAYSTACK_7319_TO_6888(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,7 +212,6 @@ class HAYSTACK_7319_TO_6888(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -226,9 +219,10 @@ class HAYSTACK_7319_TO_6888(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Regex patterns to match test lines and error lines
-        test_pattern = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
-        error_pattern = re.compile(r'^ERROR\s+(.+)$')
+        test_pattern = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$")
+        error_pattern = re.compile(r"^ERROR\s+(.+)$")
         for line in log.splitlines():
             line = line.strip()
             # Check for PASSED/FAILED/SKIPPED tests
@@ -236,11 +230,11 @@ class HAYSTACK_7319_TO_6888(Instance):
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             # Check for ERROR tests (treated as failed)
             error_match = error_pattern.match(line)
@@ -250,9 +244,8 @@ class HAYSTACK_7319_TO_6888(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

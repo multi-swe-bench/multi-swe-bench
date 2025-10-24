@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -132,7 +132,7 @@ echo -e '#!/bin/bash\nsource /tmp/.hypothesis-runtimes/virtualenvs/build-efbe04e
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nsource /tmp/.hypothesis-runtimes/virtualenvs/build-efbe04e210/bin/activate\npip uninstall -y numpy pandas\npip install numpy==1.19.5 pandas==1.1.5 faker --no-cache-dir\npip install -e hypothesis-python\ncd hypothesis-python\npytest -v --ignore=tests/py2/ --ignore=tests/pandas/ --ignore=tests/django/ tests/' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ pip install -e hypothesis-python
 cd hypothesis-python
 pytest -v --ignore=tests/py2/ --ignore=tests/pandas/ --ignore=tests/django/ tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -166,7 +166,7 @@ pip install -e hypothesis-python
 cd hypothesis-python
 pytest -v --ignore=tests/py2/ --ignore=tests/pandas/ --ignore=tests/django/ tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -185,7 +185,7 @@ pip install -e hypothesis-python
 cd hypothesis-python
 pytest -v --ignore=tests/py2/ --ignore=tests/pandas/ --ignore=tests/django/ tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -247,7 +247,7 @@ class HYPOTHESIS_1559_TO_1524(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -261,33 +261,34 @@ class HYPOTHESIS_1559_TO_1524(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        pattern = re.compile(r'(tests/[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]')
-        for line in log.split('\n'):
+        pattern = re.compile(
+            r"(tests/[^ ]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]"
+        )
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern.search(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

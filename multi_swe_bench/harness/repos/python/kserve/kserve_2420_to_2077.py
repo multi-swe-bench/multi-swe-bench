@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 ###ACTION_DELIMITER###
 go mod download
 ###ACTION_DELIMITER###
-echo 'KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1 ./pkg/... ./cmd/...' > test_commands.sh"""
+echo 'KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1 ./pkg/... ./cmd/...' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ echo 'KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1
 cd /home/[[REPO_NAME]]
 KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 KUBEBUILDER_ASSETS="$(setup-envtest use 1.22 -p path)" go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class KSERVE_2420_TO_2077(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class KSERVE_2420_TO_2077(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,12 +180,13 @@ class KSERVE_2420_TO_2077(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names from '=== RUN' lines
-        test_runs = re.findall(r'=== RUN\s+(\S+)', log)
+        test_runs = re.findall(r"=== RUN\s+(\S+)", log)
         # Extract passed, failed, and skipped tests
-        passed = re.findall(r'--- PASS:\s+(\S+)', log)
-        failed = re.findall(r'--- FAIL:\s+(\S+)', log)
-        skipped = re.findall(r'--- SKIP:\s+(\S+)', log)
+        passed = re.findall(r"--- PASS:\s+(\S+)", log)
+        failed = re.findall(r"--- FAIL:\s+(\S+)", log)
+        skipped = re.findall(r"--- SKIP:\s+(\S+)", log)
         # Populate the sets
         passed_tests = set(passed)
         failed_tests = set(failed)
@@ -194,9 +194,8 @@ class KSERVE_2420_TO_2077(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

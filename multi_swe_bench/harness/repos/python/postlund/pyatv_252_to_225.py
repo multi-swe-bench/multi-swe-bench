@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -133,7 +133,7 @@ source bin/activate && pip install -r requirements_test.txt && pytest
 ###ACTION_DELIMITER###
 sed -i 's/def fake_asyncio_sleep(self):/def fake_asyncio_sleep(self, seconds):/' tests/airplay/test_airplay.py
 ###ACTION_DELIMITER###
-echo 'pytest -v' > /home/pyatv/test_commands.sh"""
+echo 'pytest -v' > /home/pyatv/test_commands.sh""",
             ),
             File(
                 ".",
@@ -142,9 +142,7 @@ echo 'pytest -v' > /home/pyatv/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +155,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -172,9 +168,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -236,7 +230,7 @@ class PYATV_252_TO_225(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -250,28 +244,29 @@ class PYATV_252_TO_225(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_matches = re.findall(r'^(tests/.*?) PASSED', log, re.MULTILINE)
+        passed_matches = re.findall(r"^(tests/.*?) PASSED", log, re.MULTILINE)
         passed_tests = set(passed_matches)
         # Parse failed tests
-        failed_matches = re.findall(r'^FAILED (tests/.*?)(?: - .*)?$', log, re.MULTILINE)
+        failed_matches = re.findall(
+            r"^FAILED (tests/.*?)(?: - .*)?$", log, re.MULTILINE
+        )
         failed_tests = set(failed_matches)
         # Parse skipped tests
-        skipped_matches = re.findall(r'^\s*(tests/.*?)\s+SKIPPED', log, re.MULTILINE)
+        skipped_matches = re.findall(r"^\s*(tests/.*?)\s+SKIPPED", log, re.MULTILINE)
         skipped_tests = set(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class STDPOPSIM_896_TO_777(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,7 +171,6 @@ class STDPOPSIM_896_TO_777(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -179,9 +178,13 @@ class STDPOPSIM_896_TO_777(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test status and name
         # Refined regex to match line numbers, worker info, status, and test name
-        pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?(?:\[gw\d+\]\s*\[\s*\d+%\]\s*)?(SKIPPED|PASSED|FAILED)\s+(tests/\S+)', re.IGNORECASE | re.MULTILINE)
+        pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?(?:\[gw\d+\]\s*\[\s*\d+%\]\s*)?(SKIPPED|PASSED|FAILED)\s+(tests/\S+)",
+            re.IGNORECASE | re.MULTILINE,
+        )
         # Track the latest status for each test
         test_status = {}
         # Find all matches in the log content
@@ -191,18 +194,17 @@ class STDPOPSIM_896_TO_777(Instance):
             test_status[test_name] = status
         # Populate sets based on final statuses
         for test_name, status in test_status.items():
-            if status.upper() == 'PASSED':
+            if status.upper() == "PASSED":
                 passed_tests.add(test_name)
-            elif status.upper() == 'FAILED':
+            elif status.upper() == "FAILED":
                 failed_tests.add(test_name)
-            elif status.upper() == 'SKIPPED':
+            elif status.upper() == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

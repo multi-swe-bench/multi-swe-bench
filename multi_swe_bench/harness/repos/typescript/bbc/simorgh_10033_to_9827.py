@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ yarn test:puppeteer --verbose
 yarn test:unit --verbose
 yarn test:integration --verbose
 yarn cypress run --reporter spec
-EOF"""
+EOF""",
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn cypress run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn cypress run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn cypress run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -184,7 +184,7 @@ class SIMORGH_10033_TO_9827(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,7 +198,6 @@ class SIMORGH_10033_TO_9827(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -206,19 +205,23 @@ class SIMORGH_10033_TO_9827(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Parse passed tests using regex pattern for green checkmark and dim text
-        passed_matches = re.findall(r'\x1b\[32m✓\x1b\[39m\s*\x1b\[2m(.*?)\x1b\[22m', log)
+        passed_matches = re.findall(
+            r"\x1b\[32m✓\x1b\[39m\s*\x1b\[2m(.*?)\x1b\[22m", log
+        )
         passed_tests.update(passed_matches)
         # Parse failed tests using regex pattern for red cross and dim text
-        failed_matches = re.findall(r'\x1b\[31m✕\x1b\[39m\s*\x1b\[2m(.*?)\x1b\[22m', log)
+        failed_matches = re.findall(
+            r"\x1b\[31m✕\x1b\[39m\s*\x1b\[2m(.*?)\x1b\[22m", log
+        )
         failed_tests.update(failed_matches)
         # Note: Skipped tests are not detected as no patterns were found in sampled logs
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

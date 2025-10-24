@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install --reinstall -y unrar && pip install --force-reinstall rarfile
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --cov=torchgeo --cov-report=xml --durations=10 -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --cov=torchgeo --cov-report=xml --durations=10 -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --cov=torchgeo --cov-report=xml --durations=10 -W ignore::DeprecationWarning -W ignore::PendingDeprecationWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class TORCHGEO_1441_TO_928(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,44 +188,43 @@ class TORCHGEO_1441_TO_928(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Extract passed tests
             # Skip leading line numbers in brackets (e.g., [  11])
-            line = re.sub(r'^\[.*?\]\s*', '', line)
+            line = re.sub(r"^\[.*?\]\s*", "", line)
             # Extract passed tests
-            passed_match = re.match(r'^(.*?)\s+PASSED\b', line)
+            passed_match = re.match(r"^(.*?)\s+PASSED\b", line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 passed_tests.add(test_name)
             # Extract failed tests
-            failed_match = re.match(r'^(.*?)\s+FAILED\b', line)
+            failed_match = re.match(r"^(.*?)\s+FAILED\b", line)
             if not failed_match:
-                failed_match = re.match(r'^FAILED\s+(.*?)(\s+-|$)', line)
+                failed_match = re.match(r"^FAILED\s+(.*?)(\s+-|$)", line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
             # Extract skipped tests
-            skipped_match = re.match(r'^(.*?)\s+SKIPPED\b', line)
+            skipped_match = re.match(r"^(.*?)\s+SKIPPED\b", line)
             if not skipped_match:
-                skipped_match = re.match(r'^SKIPPED\s+(.*?)(\s+-|$)', line)
+                skipped_match = re.match(r"^SKIPPED\s+(.*?)(\s+-|$)", line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -125,7 +125,7 @@ python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --
 ###ACTION_DELIMITER###
 pip2.7 install matplotlib && python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs
 ###ACTION_DELIMITER###
-echo 'python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs' > test_commands.sh"""
+echo 'python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -134,9 +134,7 @@ echo 'python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend
 cd /home/{pr.repo}
 python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -149,9 +147,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -164,9 +160,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python2.7 -m pytest -v --ignore=IPython/deathrow --ignore=IPython/frontend/qt --ignore=IPython/frontend/html --ignore=IPython/parallel/tests/test_mongodb.py --ignore=docs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -228,7 +222,7 @@ class IPYTHON_1019_TO_734(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -242,16 +236,18 @@ class IPYTHON_1019_TO_734(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Use regex to extract test names and statuses
-        pattern = re.compile(r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE)
+        pattern = re.compile(
+            r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
             if status == "PASSED":
@@ -263,9 +259,8 @@ class IPYTHON_1019_TO_734(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

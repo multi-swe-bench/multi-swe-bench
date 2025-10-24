@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -228,7 +228,7 @@ venv/bin/pip install --upgrade setuptools wheel
 ###ACTION_DELIMITER###
 venv/bin/pip install --force-reinstall napari-svg && venv/bin/pip install scikit-image==0.18.3
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -237,7 +237,7 @@ venv/bin/pip install --force-reinstall napari-svg && venv/bin/pip install scikit
 cd /home/[[REPO_NAME]]
 xvfb-run -a venv/bin/python run_tests.py -v --no-header -rA --tb=auto -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -250,7 +250,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a venv/bin/python run_tests.py -v --no-header -rA --tb=auto -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -263,7 +263,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a venv/bin/python run_tests.py -v --no-header -rA --tb=auto -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -325,7 +325,7 @@ class NAPARI_1360_TO_1359(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -339,19 +339,27 @@ class NAPARI_1360_TO_1359(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse each line to find test results
-        lines = log.split('\n')
-        pattern1 = re.compile(r'\[\s*\d+\]\s+(.+?::.+?)\s+(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+\[\s*\d+%\]')  # [line] test::name status [percent]
-        pattern2 = re.compile(r'\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+(.+?::.+?)(?:\s+[:-].*)?$')  # [line] status test::name
-        pattern3 = re.compile(r'^(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+(.+?::.+?)(?:\s+[:-].*)?$')  # status test::name
-        pattern4 = re.compile(r'\[\s*\d+\]\s+(.+?\.py):\d+:\s+.*')  # Skipped test lines (e.g., [1] test.py:7: ...)
+        lines = log.split("\n")
+        pattern1 = re.compile(
+            r"\[\s*\d+\]\s+(.+?::.+?)\s+(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+\[\s*\d+%\]"
+        )  # [line] test::name status [percent]
+        pattern2 = re.compile(
+            r"\[\s*\d+\]\s+(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+(.+?::.+?)(?:\s+[:-].*)?$"
+        )  # [line] status test::name
+        pattern3 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED|SKIP|XFAIL)\s+(.+?::.+?)(?:\s+[:-].*)?$"
+        )  # status test::name
+        pattern4 = re.compile(
+            r"\[\s*\d+\]\s+(.+?\.py):\d+:\s+.*"
+        )  # Skipped test lines (e.g., [1] test.py:7: ...)
         # Adjust pattern4 to capture test names with optional ::function
         for line in lines:
             match = pattern1.search(line)
@@ -373,22 +381,21 @@ class NAPARI_1360_TO_1359(Instance):
                         match = pattern4.search(line)
                         if match:
                             test_name = match.group(1)
-                            status = 'SKIPPED'
+                            status = "SKIPPED"
                         else:
                             continue
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status in ('SKIPPED', 'SKIP', 'XFAIL'):
+            elif status in ("SKIPPED", "SKIP", "XFAIL"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

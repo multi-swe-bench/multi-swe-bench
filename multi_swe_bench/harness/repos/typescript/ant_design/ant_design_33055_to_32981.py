@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ npm install cheerio@1.0.0-rc.12
 ###ACTION_DELIMITER###
 npx jest --clearCache && npm test -- --verbose
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh"""
+echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ echo 'npm test -- --verbose' > /home/ant-design/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -94,7 +94,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -169,7 +169,7 @@ class ANT_DESIGN_33055_TO_32981(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -183,7 +183,6 @@ class ANT_DESIGN_33055_TO_32981(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -191,23 +190,23 @@ class ANT_DESIGN_33055_TO_32981(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Remove ANSI escape codes
-        log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Parse failed tests (indicated by ●)
-        failed_matches = re.findall(r'^  ●\s+(.*)$', log, re.MULTILINE)
+        failed_matches = re.findall(r"^  ●\s+(.*)$", log, re.MULTILINE)
         failed_tests = set(failed_matches)
         # Parse passed tests (indicated by ✓)
-        passed_matches = re.findall(r'^  ✓\s+(.*?)\s+\(\d+.*?\)$', log, re.MULTILINE)
+        passed_matches = re.findall(r"^  ✓\s+(.*?)\s+\(\d+.*?\)$", log, re.MULTILINE)
         passed_tests = set(passed_matches)
         # Parse skipped tests (indicated by ○ and 'skipped' prefix)
-        skipped_matches = re.findall(r'^  ○\s+skipped\s+(.*)$', log, re.MULTILINE)
+        skipped_matches = re.findall(r"^  ○\s+skipped\s+(.*)$", log, re.MULTILINE)
         skipped_tests = set(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

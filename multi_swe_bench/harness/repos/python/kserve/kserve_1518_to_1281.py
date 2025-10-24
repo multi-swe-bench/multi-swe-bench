@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -106,7 +106,7 @@ curl -L -O https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3
 ###ACTION_DELIMITER###
 export KUBEBUILDER_ASSETS=/usr/local/kubebuilder/bin && go test ./pkg/... ./cmd/... -v
 ###ACTION_DELIMITER###
-echo 'go test -v -count=1 ./pkg/... ./cmd/...' > /home/kserve/test_commands.sh && chmod +x /home/kserve/test_commands.sh"""
+echo 'go test -v -count=1 ./pkg/... ./cmd/...' > /home/kserve/test_commands.sh && chmod +x /home/kserve/test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ echo 'go test -v -count=1 ./pkg/... ./cmd/...' > /home/kserve/test_commands.sh &
 cd /home/[[REPO_NAME]]
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class KSERVE_1518_TO_1281(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,7 +217,6 @@ class KSERVE_1518_TO_1281(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -225,22 +224,22 @@ class KSERVE_1518_TO_1281(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Use regex to find test results
-        test_pattern = re.compile(r'--- (PASS|FAIL|SKIPPED): (\S+)')
+        test_pattern = re.compile(r"--- (PASS|FAIL|SKIPPED): (\S+)")
         matches = test_pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

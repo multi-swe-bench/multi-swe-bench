@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -179,7 +179,7 @@ echo -e 'source venv/bin/activate
 python -c "import pystac.validation; from pystac.validation.stac_validator import JsonSchemaSTACValidator; from pystac.validation.schema_uri_map import DefaultSchemaUriMap; pystac.validation.set_validator(JsonSchemaSTACValidator(schema_uri_map=DefaultSchemaUriMap()))"
 python -m unittest discover -v -s tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -190,7 +190,7 @@ source venv/bin/activate
 python -c "import pystac.validation; from pystac.validation.stac_validator import JsonSchemaSTACValidator; from pystac.validation.schema_uri_map import DefaultSchemaUriMap; pystac.validation.set_validator(JsonSchemaSTACValidator(schema_uri_map=DefaultSchemaUriMap()))"
 python -m unittest discover -v -s tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -205,7 +205,7 @@ source venv/bin/activate
 python -c "import pystac.validation; from pystac.validation.stac_validator import JsonSchemaSTACValidator; from pystac.validation.schema_uri_map import DefaultSchemaUriMap; pystac.validation.set_validator(JsonSchemaSTACValidator(schema_uri_map=DefaultSchemaUriMap()))"
 python -m unittest discover -v -s tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -220,7 +220,7 @@ source venv/bin/activate
 python -c "import pystac.validation; from pystac.validation.stac_validator import JsonSchemaSTACValidator; from pystac.validation.schema_uri_map import DefaultSchemaUriMap; pystac.validation.set_validator(JsonSchemaSTACValidator(schema_uri_map=DefaultSchemaUriMap()))"
 python -m unittest discover -v -s tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -282,7 +282,7 @@ class PYSTAC_826_TO_406(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -296,21 +296,21 @@ class PYSTAC_826_TO_406(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: lines starting with [number], then test name, (test_id), ... ok
-        passed_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s*ok', re.MULTILINE)
+        passed_pattern = re.compile(r"\(([^)]+)\)\s*\.\.\.\s*ok", re.MULTILINE)
         # Pattern for failed tests: lines starting with [number], FAIL: ... (test_id)
-        failed_pattern = re.compile(r'FAIL:\s*[^(]+\s*\(([^)]+)\)', re.MULTILINE)
+        failed_pattern = re.compile(r"FAIL:\s*[^(]+\s*\(([^)]+)\)", re.MULTILINE)
         # Pattern for error tests: lines starting with [number], ERROR: ... (test_id)
-        error_pattern = re.compile(r'ERROR:\s*[^(]+\s*\(([^)]+)\)', re.MULTILINE)
+        error_pattern = re.compile(r"ERROR:\s*[^(]+\s*\(([^)]+)\)", re.MULTILINE)
         # Pattern for skipped tests: lines starting with [number], ... skipped
-        skipped_pattern = re.compile(r'\(([^)]+)\)\s*\.\.\.\s*skipped', re.MULTILINE)
+        skipped_pattern = re.compile(r"\(([^)]+)\)\s*\.\.\.\s*skipped", re.MULTILINE)
         # Find all passed tests
         passed_tests.update(passed_pattern.findall(log))
         # Find all failed tests
@@ -322,9 +322,8 @@ class PYSTAC_826_TO_406(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

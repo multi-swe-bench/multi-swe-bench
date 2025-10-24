@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -131,7 +131,7 @@ SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt bundle update mimemagic && bund
 echo -e '#!/bin/bash
 set -e
 cd client && yarn test -- --maxWorkers=4 --verbose
-cd ../api && bundle exec rspec spec -fd --tag ~@integration -v' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh"""
+cd ../api && bundle exec rspec spec -fd --tag ~@integration -v' > /home/manifold/test_commands.sh && chmod +x /home/manifold/test_commands.sh""",
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4 --verbose
 cd ../api && bundle exec rspec spec -fd --tag ~@integration -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -159,7 +159,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4 --verbose
 cd ../api && bundle exec rspec spec -fd --tag ~@integration -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -175,7 +175,7 @@ set -e
 cd client && yarn test -- --maxWorkers=4 --verbose
 cd ../api && bundle exec rspec spec -fd --tag ~@integration -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -237,7 +237,7 @@ class MANIFOLD_1074_TO_783(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -251,21 +251,29 @@ class MANIFOLD_1074_TO_783(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse the log content to extract test names and statuses
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns to identify test suites, suite names, test cases, and errors
-        suite_pattern = re.compile(r'^(PASS|FAIL|SKIPPED)\s+(.+)$')  # Identifies suite status and file path
-        suite_name_pattern = re.compile(r'^\s+(.+)$')  # Captures indented suite names
-        test_case_pattern = re.compile(r'^\s+(✓|x|s|○)\s+(.+?)(?:\s*\(\d+ms\))?$')  # Captures passed (✓), failed (x), or skipped (s/○) test descriptions
-        error_line_pattern = re.compile(r'^\s+>\s+\d+\s\|\s+expect\(.+\)')  # Identifies error lines in failed tests
-        test_desc_pattern = re.compile(r'^\s+\d+\s\|\s+it\("(.+?)",')  # Extracts test description from error context
+        suite_pattern = re.compile(
+            r"^(PASS|FAIL|SKIPPED)\s+(.+)$"
+        )  # Identifies suite status and file path
+        suite_name_pattern = re.compile(r"^\s+(.+)$")  # Captures indented suite names
+        test_case_pattern = re.compile(
+            r"^\s+(✓|x|s|○)\s+(.+?)(?:\s*\(\d+ms\))?$"
+        )  # Captures passed (✓), failed (x), or skipped (s/○) test descriptions
+        error_line_pattern = re.compile(
+            r"^\s+>\s+\d+\s\|\s+expect\(.+\)"
+        )  # Identifies error lines in failed tests
+        test_desc_pattern = re.compile(
+            r'^\s+\d+\s\|\s+it\("(.+?)",'
+        )  # Extracts test description from error context
         i = 0
         current_suite_status = None
         current_suite_name = None
@@ -276,7 +284,7 @@ class MANIFOLD_1074_TO_783(Instance):
                 current_suite_status, _ = suite_match.groups()
                 i += 1
                 # Skip empty lines to find suite name
-                while i < len(lines) and lines[i].strip() == '':
+                while i < len(lines) and lines[i].strip() == "":
                     i += 1
                 if i < len(lines):
                     suite_name_match = suite_name_pattern.match(lines[i])
@@ -289,11 +297,11 @@ class MANIFOLD_1074_TO_783(Instance):
                 if test_match:
                     test_status, test_desc = test_match.groups()
                     test_name = f"{current_suite_name} {test_desc.strip()}"
-                    if test_status == '✓':
+                    if test_status == "✓":
                         passed_tests.add(test_name)
-                    elif test_status == 'x':
+                    elif test_status == "x":
                         failed_tests.add(test_name)
-                    elif test_status in ('s', '○'):
+                    elif test_status in ("s", "○"):
                         skipped_tests.add(test_name)
                     i += 1
                 # Check for error lines indicating failed tests
@@ -301,7 +309,7 @@ class MANIFOLD_1074_TO_783(Instance):
                     # Look back to find the test description
                     j = i - 1
                     test_desc = None
-                    while j >= 0 and lines[j].strip() != '':
+                    while j >= 0 and lines[j].strip() != "":
                         desc_match = test_desc_pattern.match(lines[j])
                         if desc_match:
                             test_desc = desc_match.group(1)
@@ -318,9 +326,8 @@ class MANIFOLD_1074_TO_783(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

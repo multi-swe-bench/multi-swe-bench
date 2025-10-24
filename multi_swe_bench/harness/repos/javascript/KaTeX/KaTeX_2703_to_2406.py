@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/jest --verbose/yarn test:jest --verbose/' test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ set -e
  yarn test:flow
  yarn test:jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ set -e
  yarn test:flow
  yarn test:jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ set -e
  yarn test:flow
  yarn test:jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class KATEX_2703_TO_2406(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,7 +189,6 @@ class KATEX_2703_TO_2406(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -197,24 +196,28 @@ class KATEX_2703_TO_2406(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: matches lines with ✓ followed by test name (optional duration)
-        passed_pattern = re.compile(r'✓ (.*?)(?: \(\d+ ms\))?$', re.MULTILINE)
+        passed_pattern = re.compile(r"✓ (.*?)(?: \(\d+ ms\))?$", re.MULTILINE)
         for match in passed_pattern.findall(log):
             passed_tests.add(match.strip())
         # Pattern for failed tests: assuming ✗ marker (adjust if needed)
-        failed_pattern = re.compile(r'(?:✕|FAILED) (.*?)(?: \(\d+ ms\))?$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"(?:✕|FAILED) (.*?)(?: \(\d+ ms\))?$", re.MULTILINE
+        )
         for match in failed_pattern.findall(log):
             failed_tests.add(match.strip())
         # Pattern for skipped tests: assuming SKIPPED or ✕ marker (adjust if needed)
-        skipped_pattern = re.compile(r'SKIPPED (.*?)(?: \((?:\d+ ms)\))?$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"SKIPPED (.*?)(?: \((?:\d+ ms)\))?$", re.MULTILINE
+        )
         for match in skipped_pattern.findall(log):
             skipped_tests.add(match.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ echo 'poetry run pytest --cov-report term-missing --cov=textual tests/ -vv' > /h
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poetry run pytest --cov-report term-missing --cov=textual tests/ -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest --cov-report term-missing --cov=textual tests/ -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest --cov-report term-missing --cov=textual tests/ -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class TEXTUAL_3112_TO_1922(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,41 +174,40 @@ class TEXTUAL_3112_TO_1922(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test cases and their statuses
         # Pattern 1: Test name followed by status (PASSED, SKIPPED, FAILED) with percentage
-        pattern1 = r'(?:\[\s*\d+\]\s+)?([\w/.:\[\]()\-:]+)\s+(PASSED|SKIPPED|FAILED)(?:\s+\[\s*\d+%\])?'
+        pattern1 = r"(?:\[\s*\d+\]\s+)?([\w/.:\[\]()\-:]+)\s+(PASSED|SKIPPED|FAILED)(?:\s+\[\s*\d+%\])?"
         matches1 = re.findall(pattern1, log)
         for test_name, status in matches1:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         # Pattern 2: FAILED followed by test name (summary lines)
-        pattern2 = r'\[\s*\d+\]\s*.*?FAILED\s+([^\s]+)'
+        pattern2 = r"\[\s*\d+\]\s*.*?FAILED\s+([^\s]+)"
         matches2 = re.findall(pattern2, log)
         for test_name in matches2:
             failed_tests.add(test_name)
         # Pattern 3: SKIPPED followed by test name (summary lines)
-        pattern3 = r'\[\s*\d+\]\s+SKIPPED\s+([\w/.:\[\]()\-]+)(?:\s+-)?'
+        pattern3 = r"\[\s*\d+\]\s+SKIPPED\s+([\w/.:\[\]()\-]+)(?:\s+-)?"
         matches3 = re.findall(pattern3, log)
         for test_name in matches3:
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ pnpm exec playwright install --with-deps
 ###ACTION_DELIMITER###
 pnpm test
 ###ACTION_DELIMITER###
-echo 'pnpm exec vitest run --reporter=verbose' > /home/svelte/test_commands.sh"""
+echo 'pnpm exec vitest run --reporter=verbose' > /home/svelte/test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'pnpm exec vitest run --reporter=verbose' > /home/svelte/test_commands.sh""
 cd /home/{pr.repo}
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pnpm exec vitest run --reporter=verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class SVELTE_11469_TO_10441(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,15 +168,15 @@ class SVELTE_11469_TO_10441(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # In Vitest, snapshots are not tests, so we need to filter them out
-        log = re.sub(r'created snapshot .+?\.snap', '', log)
+        log = re.sub(r"created snapshot .+?\.snap", "", log)
         # Passed tests are marked with ✓ and failed tests with ❯ or x
         # Skipped tests are marked with -
         # Test names are extracted from the line after the marker
@@ -200,9 +194,8 @@ class SVELTE_11469_TO_10441(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

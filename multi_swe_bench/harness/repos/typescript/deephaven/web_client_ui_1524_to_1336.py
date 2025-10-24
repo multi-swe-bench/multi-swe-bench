@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm install
 ###ACTION_DELIMITER###
 npm run test:unit
 ###ACTION_DELIMITER###
-echo 'npm run test:unit -- --verbose' > test_commands.sh"""
+echo 'npm run test:unit -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'npm run test:unit -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm run test:unit -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm run test:unit -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm run test:unit -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class WEB_CLIENT_UI_1524_TO_1336(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,25 +165,27 @@ class WEB_CLIENT_UI_1524_TO_1336(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests (marked with ✓ and duration)
-        passed_pattern = re.compile(r'✓\s+(.+?)\s+\(\d+ ms\)')
+        passed_pattern = re.compile(r"✓\s+(.+?)\s+\(\d+ ms\)")
         passed_tests = set(match.strip() for match in passed_pattern.findall(log))
         # Extract failed test suites
-        fail_suite_pattern = re.compile(r'FAIL\s+[^\n]+\n(.*?)(?=\nPASS|$)', re.DOTALL)
+        fail_suite_pattern = re.compile(r"FAIL\s+[^\n]+\n(.*?)(?=\nPASS|$)", re.DOTALL)
         failed_suites = fail_suite_pattern.findall(log)
         # Extract test names from failed suites (marked with ●)
-        fail_test_pattern = re.compile(r'●\s+(.+?)(?=\n|$)')
+        fail_test_pattern = re.compile(r"●\s+(.+?)(?=\n|$)")
         failed_suite_tests = set()
         for suite in failed_suites:
-            failed_suite_tests.update(match.strip() for match in fail_test_pattern.findall(suite))
+            failed_suite_tests.update(
+                match.strip() for match in fail_test_pattern.findall(suite)
+            )
         # Failed tests are in failed suites and not passed
         failed_tests = failed_suite_tests - passed_tests
         # Remove overlaps
@@ -192,9 +194,8 @@ class WEB_CLIENT_UI_1524_TO_1336(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

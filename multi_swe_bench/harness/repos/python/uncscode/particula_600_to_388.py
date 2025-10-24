@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class PARTICULA_600_TO_388(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,7 +168,6 @@ class PARTICULA_600_TO_388(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -182,12 +175,13 @@ class PARTICULA_600_TO_388(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # TODO: Implement the log parsing logic here
         # Regex patterns for test statuses
-        passed_pattern = re.compile(r'PASSED (.*)')
-        failed_pattern = re.compile(r'FAILED (.*)')
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (.*?):')
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"PASSED (.*)")
+        failed_pattern = re.compile(r"FAILED (.*)")
+        skipped_pattern = re.compile(r"SKIPPED \[\d+\] (.*?):")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             passed_match = passed_pattern.search(line)
@@ -202,14 +196,13 @@ class PARTICULA_600_TO_388(Instance):
             # Check for skipped tests
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
-                test_name = skipped_match.group(1).strip().split(':')[0]
+                test_name = skipped_match.group(1).strip().split(":")[0]
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

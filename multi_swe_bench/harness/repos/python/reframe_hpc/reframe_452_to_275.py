@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -545,7 +545,7 @@ settings = ReframeSettings()' > minimal_config.py && ./bin/reframe -C minimal_co
 echo '#!/bin/bash
 pytest -v' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -555,9 +555,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -571,9 +569,7 @@ fi
 #!/bin/bash
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -587,9 +583,7 @@ fi
 #!/bin/bash
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -651,7 +645,7 @@ class REFRAME_452_TO_275(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -665,21 +659,21 @@ class REFRAME_452_TO_275(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines (execution and summary)
         # Pattern 1: Execution lines (test name first, e.g., "test_name PASSED [ 0%]")
-        pattern_exec = r'^(.+?)\s+(PASSED|FAILED|SKIPPED)(?:\s*\(.*?\))?\s+\[\s*\d+%\]'
+        pattern_exec = r"^(.+?)\s+(PASSED|FAILED|SKIPPED)(?:\s*\(.*?\))?\s+\[\s*\d+%\]"
         # Pattern 2: Summary lines (status first, e.g., "FAILED test_name")
-        pattern_sum = r'^(PASSED|FAILED|SKIPPED)\s+(.+?)(?:\s*\(.*?\))?$'
+        pattern_sum = r"^(PASSED|FAILED|SKIPPED)\s+(.+?)(?:\s*\(.*?\))?$"
         regex_exec = re.compile(pattern_exec)
         regex_sum = re.compile(pattern_sum)
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             stripped_line = line.strip()
             # Check execution line pattern
             match = regex_exec.match(stripped_line)
@@ -695,18 +689,17 @@ class REFRAME_452_TO_275(Instance):
                 else:
                     continue  # No match
             # Add to appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

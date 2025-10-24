@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ sed -i 's|\$SCRIPT_DIR/epyccel/\$SCRIPT_DIR/epyccel/|\$SCRIPT_DIR/epyccel/|g' te
 ###ACTION_DELIMITER###
 sed -i 's|mpirun --allow-run-as-root -n 4 python3 -m pytest .* -v|mpirun --allow-run-as-root -n 4 python3 -m pytest "$SCRIPT_DIR/epyccel/test_mpi_collective.py" "$SCRIPT_DIR/epyccel/test_mpi_point_to_point.py" -v|' tests/run_tests_py3.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 ./tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./tests/run_tests_py3.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class PYCCEL_1210_TO_845(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,7 +208,6 @@ class PYCCEL_1210_TO_845(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -222,23 +215,25 @@ class PYCCEL_1210_TO_845(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines and capture test name and status
-        pattern = re.compile(r'(tests/[^:]+::[^ ]+) (?:\x1b\[\d+m)?(PASSED|FAILED|XFAIL|SKIPPED)(?:\x1b\[0m)?')
+        pattern = re.compile(
+            r"(tests/[^:]+::[^ ]+) (?:\x1b\[\d+m)?(PASSED|FAILED|XFAIL|SKIPPED)(?:\x1b\[0m)?"
+        )
         # Find all matches in the log content
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status in ('XFAIL', 'SKIPPED'):
+            elif status in ("XFAIL", "SKIPPED"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -88,7 +88,7 @@ rm -rf venv && python3 -m venv venv && . venv/bin/activate && pip install -r req
 echo -e '#!/bin/bash
 poetry run pytest -v -n auto tests tools' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -98,9 +98,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 poetry run pytest -v -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +112,7 @@ fi
 #!/bin/bash
 poetry run pytest -v -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ fi
 #!/bin/bash
 poetry run pytest -v -n auto tests tools
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class CLOUD_CUSTODIAN_7659_TO_7084(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,29 +202,30 @@ class CLOUD_CUSTODIAN_7659_TO_7084(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract passed tests using regex
-        passed_matches = re.findall(r'\[gw\d+\] \[\s*\d+%\] PASSED (\S+)', log)
+        passed_matches = re.findall(r"\[gw\d+\] \[\s*\d+%\] PASSED (\S+)", log)
         passed_tests.update(passed_matches)
         # Extract failed tests using regex
-        failed_matches = re.findall(r'(?:\[gw\d+\] \[\s*\d+%\] )?(?:FAILED|ERROR)\s+(\S+)', log)
+        failed_matches = re.findall(
+            r"(?:\[gw\d+\] \[\s*\d+%\] )?(?:FAILED|ERROR)\s+(\S+)", log
+        )
         failed_tests.update(failed_matches)
         # Extract skipped tests using regex
-        skipped_matches = re.findall(r'(?:\[gw\d+\] \[\s*\d+%\] )?SKIPPED\s+(\S+)', log)
+        skipped_matches = re.findall(r"(?:\[gw\d+\] \[\s*\d+%\] )?SKIPPED\s+(\S+)", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

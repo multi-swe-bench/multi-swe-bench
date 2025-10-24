@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -105,7 +105,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-pip install -e ."""
+pip install -e .""",
             ),
             File(
                 ".",
@@ -116,9 +116,7 @@ cd /home/{pr.repo}
 set -e
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ fi
 set -e
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -150,9 +146,7 @@ fi
 set -e
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -214,7 +208,7 @@ class IGNITE_563_TO_43(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -228,7 +222,6 @@ class IGNITE_563_TO_43(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -236,19 +229,24 @@ class IGNITE_563_TO_43(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex patterns to match test cases and their statuses
         # Pattern for PASSED and SKIPPED tests during execution
-        execution_pattern = re.compile(r'^(tests/[^\s]+)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\s*\]', re.MULTILINE)
+        execution_pattern = re.compile(
+            r"^(tests/[^\s]+)\s+(PASSED|SKIPPED)\s+\[\s*\d+%\s*\]", re.MULTILINE
+        )
         # Pattern for FAILED tests in the summary
-        failed_pattern = re.compile(r'^FAILED (tests/.*?::.*?)(?: - .*)?$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^FAILED (tests/.*?::.*?)(?: - .*)?$", re.MULTILINE
+        )
         # Extract PASSED and SKIPPED tests
         for match in execution_pattern.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract FAILED tests
         for match in failed_pattern.finditer(log):
@@ -257,9 +255,8 @@ class IGNITE_563_TO_43(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -95,7 +95,7 @@ pip install 'matplotlib==3.2.2'
 ###ACTION_DELIMITER###
 MPLLOCALFREETYPE=1 pip install 'matplotlib==3.2.2'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --doctest-modules --durations=10 --pyargs networkx
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -119,9 +117,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --doctest-modules --durations=10 --pyargs networkx
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +130,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --doctest-modules --durations=10 --pyargs networkx
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -198,7 +192,7 @@ class NETWORKX_3764_TO_3639(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -212,20 +206,20 @@ class NETWORKX_3764_TO_3639(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Compile regex patterns to match test statuses
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]$')
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]$')
-        failed_pattern = re.compile(r'^FAILED\s+(.*)$')
-        error_pattern = re.compile(r'^ERROR\s+(.*)$')
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]$")
+        skipped_pattern = re.compile(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]$")
+        failed_pattern = re.compile(r"^FAILED\s+(.*)$")
+        error_pattern = re.compile(r"^ERROR\s+(.*)$")
         # Process each line to extract test names and statuses
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Check for passed tests
             match = passed_pattern.match(line)
@@ -250,9 +244,8 @@ class NETWORKX_3764_TO_3639(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

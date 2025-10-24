@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ sed -i 's/pympler==0.5/pympler==1.0.1/' test-requirements.txt && pip install -r 
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y graphviz"""
+apt-get update && apt-get install -y graphviz""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ apt-get update && apt-get install -y graphviz"""
 cd /home/{pr.repo}
 pytest -v -rA featuretools/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA featuretools/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA featuretools/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class FEATURETOOLS_587_TO_511(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,18 +208,22 @@ class FEATURETOOLS_587_TO_511(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Compile regex patterns for test cases
-        test_pattern1 = re.compile(r'([\w\/\-\.]+\.py::[\w\-\:]+)\s+(PASSED|FAILED|SKIPPED)')
-        test_pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\s+([\w\/\-\.]+\.py::[\w\-\:]+)')
+        test_pattern1 = re.compile(
+            r"([\w\/\-\.]+\.py::[\w\-\:]+)\s+(PASSED|FAILED|SKIPPED)"
+        )
+        test_pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+([\w\/\-\.]+\.py::[\w\-\:]+)"
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for pattern 1: test name followed by status
             match = test_pattern1.search(line)
             if match:
@@ -240,18 +238,17 @@ class FEATURETOOLS_587_TO_511(Instance):
                 else:
                     continue  # No test case in this line
             # Add test to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -84,7 +84,7 @@ apt-get update && apt-get install -y python3-setuptools
 ###ACTION_DELIMITER###
 echo 'yarn test:unit --verbose' > /home/metamask-mobile/test_commands.sh
 ###ACTION_DELIMITER###
-echo 'yarn test:unit --verbose && yarn test:e2e --verbose' > /home/metamask-mobile/test_commands.sh"""
+echo 'yarn test:unit --verbose && yarn test:e2e --verbose' > /home/metamask-mobile/test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ echo 'yarn test:unit --verbose && yarn test:e2e --verbose' > /home/metamask-mobi
 cd /home/[[REPO_NAME]]
 yarn test:unit --verbose && yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test:unit --verbose && yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test:unit --verbose && yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class METAMASK_MOBILE_2109_TO_1793(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,28 +195,27 @@ class METAMASK_MOBILE_2109_TO_1793(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_pattern = re.compile(r'PASS\s+([^\s]+)')
+        passed_pattern = re.compile(r"PASS\s+([^\s]+)")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'FAIL\s+([^\s]+)')
+        failed_pattern = re.compile(r"FAIL\s+([^\s]+)")
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests (if any)
-        skipped_pattern = re.compile(r'SKIP\s+([^\s]+)')
+        skipped_pattern = re.compile(r"SKIP\s+([^\s]+)")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

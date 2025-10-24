@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -135,7 +135,7 @@ venv/bin/pip install pillow
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'venv/bin/pytest tests -v --junitxml=test-results.xml' > test_commands.sh"""
+echo 'venv/bin/pytest tests -v --junitxml=test-results.xml' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -144,9 +144,7 @@ echo 'venv/bin/pytest tests -v --junitxml=test-results.xml' > test_commands.sh""
 cd /home/{pr.repo}
 venv/bin/pytest tests -v --junitxml=test-results.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -159,9 +157,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest tests -v --junitxml=test-results.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -174,9 +170,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest tests -v --junitxml=test-results.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -238,7 +232,7 @@ class SCRAPY_4279_TO_4042(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -252,7 +246,6 @@ class SCRAPY_4279_TO_4042(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -260,27 +253,27 @@ class SCRAPY_4279_TO_4042(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines with either test name first or status first
         pattern = re.compile(
-            r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/.*?)',
-            re.MULTILINE
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/.*?)",
+            re.MULTILINE,
         )
         for match in pattern.finditer(log):
             # Check which group matched
             test_name = match.group(1) if match.group(1) is not None else match.group(4)
             status = match.group(2) if match.group(2) is not None else match.group(3)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

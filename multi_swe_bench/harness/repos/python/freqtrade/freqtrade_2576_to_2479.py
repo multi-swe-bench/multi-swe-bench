@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ rm -rf .env && python3.7 -m venv .env && . .env/bin/activate && pip install --up
 ###ACTION_DELIMITER###
 . .env/bin/activate && pip uninstall -y werkzeug && pip install werkzeug==1.0.1 && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -163,7 +163,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 . .env/bin/activate
 pytest -v --full-trace -rA --tb=short -p no:cacheprovider 
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -184,7 +184,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 . .env/bin/activate
 pytest -v --full-trace -rA --tb=short -p no:cacheprovider 
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -205,7 +205,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 . .env/bin/activate
 pytest -v --full-trace -rA --tb=short -p no:cacheprovider 
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -267,7 +267,7 @@ class FREQTRADE_2576_TO_2479(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -281,7 +281,6 @@ class FREQTRADE_2576_TO_2479(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -289,10 +288,15 @@ class FREQTRADE_2576_TO_2479(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
-        pattern1 = re.compile(r'(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)')  # test name followed by status
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ -]+)')  # status followed by test name
-        for line in log.split('\n'):
+        pattern1 = re.compile(
+            r"(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)"
+        )  # test name followed by status
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ -]+)"
+        )  # status followed by test name
+        for line in log.split("\n"):
             match = pattern1.search(line)
             if match:
                 test_name = match.group(1)
@@ -304,18 +308,17 @@ class FREQTRADE_2576_TO_2479(Instance):
                     test_name = match.group(2)
                 else:
                     continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

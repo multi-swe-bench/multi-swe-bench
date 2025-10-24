@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -131,7 +131,7 @@ python -m pip install pytest-mpl jupyter_client && PYHF_BACKEND=numpy python -m 
 python -m pip install scrapbook && PYHF_BACKEND=numpy python -m pytest -v
 ###ACTION_DELIMITER###
 echo '#!/bin/bash
-PYHF_BACKEND=numpy python -m pytest -v' > /home/pyhf/test_commands.sh && chmod +x /home/pyhf/test_commands.sh"""
+PYHF_BACKEND=numpy python -m pytest -v' > /home/pyhf/test_commands.sh && chmod +x /home/pyhf/test_commands.sh""",
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 PYHF_BACKEND=numpy python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ fi
 #!/bin/bash
 PYHF_BACKEND=numpy python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -169,7 +169,7 @@ fi
 #!/bin/bash
 PYHF_BACKEND=numpy python -m pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -231,7 +231,7 @@ class PYHF_993_TO_983(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -245,53 +245,54 @@ class PYHF_993_TO_983(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Uncomment if needed for JSON parsing
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Remove line number (e.g., [  12])
-            clean_line = re.sub(r'^\[\s*\d+\]\s*', '', line).strip()
+            clean_line = re.sub(r"^\[\s*\d+\]\s*", "", line).strip()
             if not clean_line:
                 continue
             # Check for PASSED status
-            if 'PASSED' in clean_line:
+            if "PASSED" in clean_line:
                 # Capture test name before 'PASSED' (ignores trailing content like [0%])
-                match = re.search(r'^(.*?)\s+PASSED\b', clean_line)
+                match = re.search(r"^(.*?)\s+PASSED\b", clean_line)
                 if match:
                     test_name = match.group(1).strip()
                     passed_tests.add(test_name)
             # Check for FAILED status
-            elif 'FAILED' in clean_line:
+            elif "FAILED" in clean_line:
                 # Capture test name before 'FAILED' (ignores trailing content)
-                match = re.search(r'^(.*?)\s+FAILED\b', clean_line)
+                match = re.search(r"^(.*?)\s+FAILED\b", clean_line)
                 if match:
                     test_name = match.group(1).strip()
                     failed_tests.add(test_name)
             # Check for ERROR status (considered a failure)
-            elif 'ERROR' in clean_line:
+            elif "ERROR" in clean_line:
                 # Extract test name after 'ERROR' (handles trailing hyphens/characters)
-                match = re.search(r'ERROR\s+(.*?)(?:\s|-|$)', clean_line)
+                match = re.search(r"ERROR\s+(.*?)(?:\s|-|$)", clean_line)
                 if match:
                     test_name = match.group(1).strip()
                     if test_name:
                         failed_tests.add(test_name)
             # Check for SKIPPED status
-            elif 'SKIPPED' in clean_line:
-                test_name = clean_line.split('SKIPPED')[0].strip()
-                if test_name and not any(status in test_name for status in ['PASSED', 'FAILED', 'ERROR']):
+            elif "SKIPPED" in clean_line:
+                test_name = clean_line.split("SKIPPED")[0].strip()
+                if test_name and not any(
+                    status in test_name for status in ["PASSED", "FAILED", "ERROR"]
+                ):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

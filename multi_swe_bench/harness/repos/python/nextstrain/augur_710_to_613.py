@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.8-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -107,7 +107,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install pytest-mock
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,7 +118,7 @@ export PYTHONWARNINGS="ignore::RuntimeWarning"
 python3 -m pytest -v -c pytest.python3.ini --json-report
 cram -v --shell=/bin/bash tests/functional/*.t tests/builds/*.t
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ export PYTHONWARNINGS="ignore::RuntimeWarning"
 python3 -m pytest -v -c pytest.python3.ini --json-report
 cram -v --shell=/bin/bash tests/functional/*.t tests/builds/*.t
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -148,7 +148,7 @@ export PYTHONWARNINGS="ignore::RuntimeWarning"
 python3 -m pytest -v -c pytest.python3.ini --json-report
 cram -v --shell=/bin/bash tests/functional/*.t tests/builds/*.t
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -210,7 +210,7 @@ class AUGUR_710_TO_613(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -224,7 +224,6 @@ class AUGUR_710_TO_613(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -232,37 +231,41 @@ class AUGUR_710_TO_613(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json  # Retained as per skeleton
+
         # Regex patterns to match test statuses
         # Pattern 1: Uppercase statuses (e.g., 'PASSED')
-        pattern_uppercase = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)$', re.MULTILINE)
+        pattern_uppercase = re.compile(
+            r"^(.+?)\s+(PASSED|FAILED|SKIPPED)$", re.MULTILINE
+        )
         # Pattern 2: Lowercase statuses (e.g., 'passed')
-        pattern_lowercase = re.compile(r'^(.+?):\s+(passed|failed|skipped)$', re.MULTILINE)
+        pattern_lowercase = re.compile(
+            r"^(.+?):\s+(passed|failed|skipped)$", re.MULTILINE
+        )
         # Process uppercase statuses
         for match in pattern_uppercase.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process lowercase statuses
         for match in pattern_lowercase.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2).upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

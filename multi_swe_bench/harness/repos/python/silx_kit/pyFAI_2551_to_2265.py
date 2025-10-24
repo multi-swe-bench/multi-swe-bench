@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -116,7 +116,7 @@ python -c "import pyFAI; print('pyFAI imported successfully')"
 ###ACTION_DELIMITER###
 echo 'python run_tests.py -v -x -g -o -l' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python run_tests.py -v -x -g -o -l
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python run_tests.py -v -x -g -o -l
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python run_tests.py -v -x -g -o -l
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -213,7 +213,7 @@ class PYFAI_2551_TO_2265(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -227,31 +227,33 @@ class PYFAI_2551_TO_2265(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             # Pattern 1: test method, class, and status on the same line (e.g., "test_helium (module.Class) ... ERROR")
-            same_line_match = re.match(r'^\s*(test\w+) \(([\w.]+)\) \.\.\. (\w+)\s*', line)
+            same_line_match = re.match(
+                r"^\s*(test\w+) \(([\w.]+)\) \.\.\. (\w+)\s*", line
+            )
             if same_line_match:
                 test_method = same_line_match.group(1)
                 module_class = same_line_match.group(2)
                 status = same_line_match.group(3).lower()
                 full_test_name = f"{module_class}.{test_method}"
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(full_test_name)
-                elif status in ['error', 'failed']:
+                elif status in ["error", "failed"]:
                     failed_tests.add(full_test_name)
-                elif status == 'skipped':
+                elif status == "skipped":
                     skipped_tests.add(full_test_name)
                 continue
             # Pattern 2: SKIPPED: test method and class (e.g., "SKIPPED: test_sigma_clip_hor (module.Class)")
-            skipped_match = re.match(r'^\s*SKIPPED: (test\w+) \(([\w.]+)\)\s*', line)
+            skipped_match = re.match(r"^\s*SKIPPED: (test\w+) \(([\w.]+)\)\s*", line)
             if skipped_match:
                 test_method = skipped_match.group(1)
                 module_class = skipped_match.group(2)
@@ -259,29 +261,28 @@ class PYFAI_2551_TO_2265(Instance):
                 skipped_tests.add(full_test_name)
                 continue
             # Pattern 3: test method and class on current line, status on next line (e.g., "test_XYZ (module.Class)" followed by "... ok")
-            test_line_match = re.match(r'^\s*(test\w+) \(([\w.]+)\)\s*$', line)
+            test_line_match = re.match(r"^\s*(test\w+) \(([\w.]+)\)\s*$", line)
             if test_line_match:
                 test_method = test_line_match.group(1)
                 module_class = test_line_match.group(2)
                 full_test_name = f"{module_class}.{test_method}"
                 if i + 1 < len(lines):
-                    next_line = lines[i+1]
-                    status_match = re.search(r'\.\.\. (\w+)\s*$', next_line)
+                    next_line = lines[i + 1]
+                    status_match = re.search(r"\.\.\. (\w+)\s*$", next_line)
                     if status_match:
                         status = status_match.group(1).lower()
-                        if status == 'ok':
+                        if status == "ok":
                             passed_tests.add(full_test_name)
-                        elif status in ['error', 'failed']:
+                        elif status in ["error", "failed"]:
                             failed_tests.add(full_test_name)
-                        elif status == 'skipped':
+                        elif status == "skipped":
                             skipped_tests.add(full_test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

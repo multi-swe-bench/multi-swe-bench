@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ echo 'python -m pytest --no-header -rA --tb=no -p no:cacheprovider -v --rootdir 
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest --no-header -rA --tb=no -p no:cacheprovider -v --rootdir . --log-info=sqlalchemy.testing -n auto -m "not memory_intensive and not timing-intensive" -k "not aaa_profiling"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest --no-header -rA --tb=no -p no:cacheprovider -v --rootdir . --log-info=sqlalchemy.testing -n auto -m "not memory_intensive and not timing-intensive" -k "not aaa_profiling"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest --no-header -rA --tb=no -p no:cacheprovider -v --rootdir . --log-info=sqlalchemy.testing -n auto -m "not memory_intensive and not timing-intensive" -k "not aaa_profiling"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class SQLALCHEMY_11942_TO_8496(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,31 +176,30 @@ class SQLALCHEMY_11942_TO_8496(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Regex pattern to match test status and name (handles SKIPPED in quotes and direct matches)
-        pattern = r'(PASSED|FAILED|SKIPPED).*?\s(test/\S+)'  # Capture test names with non-whitespace characters
+        pattern = r"(PASSED|FAILED|SKIPPED).*?\s(test/\S+)"  # Capture test names with non-whitespace characters
         matches = re.findall(pattern, log)
         for status, test_name in matches:
             test_name = test_name.strip()  # Remove trailing/leading whitespace
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

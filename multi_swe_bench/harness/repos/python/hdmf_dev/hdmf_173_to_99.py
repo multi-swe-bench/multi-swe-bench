@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python test.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class HDMF_173_TO_99(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,20 +182,20 @@ class HDMF_173_TO_99(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         current_group = None
         # Regex patterns
-        group_pattern = re.compile(r'^\s*([\w.]+\.Test[\w]+)\s*$')
-        test_pattern = re.compile(r'^\s*\|\s*(.*?)\s*\|\s*.*?\s*\|\s*(.*?)\s*\|\s*$')
-        ansi_escape = re.compile(r'\x1b\[.*?m')
+        group_pattern = re.compile(r"^\s*([\w.]+\.Test[\w]+)\s*$")
+        test_pattern = re.compile(r"^\s*\|\s*(.*?)\s*\|\s*.*?\s*\|\s*(.*?)\s*\|\s*$")
+        ansi_escape = re.compile(r"\x1b\[.*?m")
         for line in lines:
             # Check for test group
             group_match = group_pattern.match(line)
@@ -211,28 +205,27 @@ class HDMF_173_TO_99(Instance):
             # Check for test row
             test_match = test_pattern.match(line)
             if test_match and current_group:
-                test_name = test_match.group(1).strip().rstrip(':')
+                test_name = test_match.group(1).strip().rstrip(":")
                 # Skip header line
-                if test_name.lower() == 'test name':
+                if test_name.lower() == "test name":
                     continue
                 status_str = test_match.group(2).strip()
                 # Remove ANSI codes
-                status = ansi_escape.sub('', status_str).lower()
+                status = ansi_escape.sub("", status_str).lower()
                 # Form full test name
                 full_test_name = f"{current_group}.{test_name}"
                 # Categorize
-                if status == 'pass':
+                if status == "pass":
                     passed_tests.add(full_test_name)
-                elif status in ['fail', 'failure', 'error']:
+                elif status in ["fail", "failure", "error"]:
                     failed_tests.add(full_test_name)
-                elif status == 'skipped':
+                elif status == "skipped":
                     skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

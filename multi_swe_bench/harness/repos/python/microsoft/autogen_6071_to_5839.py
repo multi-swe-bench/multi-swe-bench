@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ bash /home/autogen/test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nsource python/.venv/bin/activate\ncd python\nexport OPENAI_API_KEY=dummy\npoe test -v' > /home/autogen/test_commands.sh && chmod +x /home/autogen/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/autogen/test_commands.sh"""
+bash /home/autogen/test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ cd python
 export OPENAI_API_KEY=dummy
 poe test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ cd python
 export OPENAI_API_KEY=dummy
 poe test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ cd python
 export OPENAI_API_KEY=dummy
 poe test -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class AUTOGEN_6071_TO_5839(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,32 +197,36 @@ class AUTOGEN_6071_TO_5839(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status and percentage (e.g., "test_name PASSED [ 10%]")
-        pattern1 = re.compile(r'^\[\s*\d+\]\s*(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$')
+        pattern1 = re.compile(
+            r"^\[\s*\d+\]\s*(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$"
+        )
         # Pattern 2: Parallel test output with status followed by test name (e.g., "[gw0] [ 40%] PASSED test_name")
-        pattern2 = re.compile(r'^\[.*?\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.+?)$')
+        pattern2 = re.compile(
+            r"^\[.*?\]\s+\[\s*\d+%\]\s+(PASSED|FAILED|SKIPPED)\s+(.+?)$"
+        )
         # Pattern 3: Summary lines for failed/skipped tests (e.g., "FAILED test_name - error...")
-        pattern3 = re.compile(r'^(FAILED|SKIPPED)\s+(.+?)\s+-')
-        for line in log.split('\n'):
+        pattern3 = re.compile(r"^(FAILED|SKIPPED)\s+(.+?)\s+-")
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern 1
             match = pattern1.match(line)
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2
@@ -230,11 +234,11 @@ class AUTOGEN_6071_TO_5839(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 3
@@ -242,17 +246,16 @@ class AUTOGEN_6071_TO_5839(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'FAILED':
+                if status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

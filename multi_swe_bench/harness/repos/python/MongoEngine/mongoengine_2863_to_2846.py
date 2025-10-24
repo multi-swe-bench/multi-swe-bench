@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ pytest -v tests/
 ###ACTION_DELIMITER###
 echo 'pytest -v tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class MONGOENGINE_2863_TO_2846(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,29 +182,28 @@ class MONGOENGINE_2863_TO_2846(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse test names and statuses using regex patterns
         # Pattern for passed tests (e.g., 'tests/... PASSED [  0%]')
-        passed_pattern = re.compile(r'(tests/.*?)\s+PASSED\s+\[\s*\d+%\]')
+        passed_pattern = re.compile(r"(tests/.*?)\s+PASSED\s+\[\s*\d+%\]")
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests (e.g., 'FAILED tests/...')
-        failed_pattern = re.compile(r'FAILED (tests/.*)')
+        failed_pattern = re.compile(r"FAILED (tests/.*)")
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped tests (e.g., 'tests/... SKIPPED [  0%]')
-        skipped_pattern = re.compile(r'(tests/.*?) SKIPPED \[\s*\d+%\]')
+        skipped_pattern = re.compile(r"(tests/.*?) SKIPPED \[\s*\d+%\]")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -25,10 +25,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:18.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -94,7 +94,7 @@ source "$HOME/.cargo/env" && cargo build --workspace --features=stable
 ###ACTION_DELIMITER###
 echo 'source "$HOME/.cargo/env" && cargo test --workspace --features=stable -- --nocapture' > /home/nushell/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -103,9 +103,7 @@ echo 'source "$HOME/.cargo/env" && cargo test --workspace --features=stable -- -
 cd /home/{pr.repo}
 source "$HOME/.cargo/env" && cargo test --workspace --features=stable -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source "$HOME/.cargo/env" && cargo test --workspace --features=stable -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +129,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source "$HOME/.cargo/env" && cargo test --workspace --features=stable -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -197,7 +191,7 @@ class NUSHELL_2082_TO_1739(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,7 +205,6 @@ class NUSHELL_2082_TO_1739(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
@@ -223,7 +216,11 @@ class NUSHELL_2082_TO_1739(Instance):
                 in_failures_block = True
                 continue
             if in_failures_block:
-                if line.strip() and not line.strip().startswith("====") and not line.strip().startswith("failures"):
+                if (
+                    line.strip()
+                    and not line.strip().startswith("====")
+                    and not line.strip().startswith("failures")
+                ):
                     failed_tests.add(line.strip().split(" ")[0])
                 else:
                     in_failures_block = False
@@ -241,9 +238,8 @@ class NUSHELL_2082_TO_1739(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

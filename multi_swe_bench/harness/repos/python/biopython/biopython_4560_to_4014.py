@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ python setup.py test --offline
 ###ACTION_DELIMITER###
 echo 'python setup.py test --offline' > /home/biopython/test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python setup.py test --offline
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python setup.py test --offline
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python setup.py test --offline
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class BIOPYTHON_4560_TO_4014(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,34 +168,33 @@ class BIOPYTHON_4560_TO_4014(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Split log into lines and process each line
         for line in log.splitlines():
-            if '...' in line:
+            if "..." in line:
                 # Split line into test part (before ...) and status part (after ...)
-                test_part, status_part = line.split('...', 1)
+                test_part, status_part = line.split("...", 1)
                 # Extract test name by removing line number prefix
-                test_name = re.sub(r'^\[\s*\d+\]\s*', '', test_part).strip()
+                test_name = re.sub(r"^\[\s*\d+\]\s*", "", test_part).strip()
                 # Extract status
                 status = status_part.strip()
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
-                elif 'skip' in status.lower():
+                elif "skip" in status.lower():
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -151,7 +151,7 @@ conda activate mantidimaging && pip install cil
 ###ACTION_DELIMITER###
 conda activate mantidimaging && conda install -c ccpi -y cil
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ conda activate mantidimaging
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a python -m pytest -v --tb=short -rA -p no:cacheprovider -p no:randomly
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ conda activate mantidimaging
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a python -m pytest -v --tb=short -rA -p no:cacheprovider -p no:randomly
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -198,7 +198,7 @@ conda activate mantidimaging
 export QT_QPA_PLATFORM=offscreen
 xvfb-run -a python -m pytest -v --tb=short -rA -p no:cacheprovider -p no:randomly
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -260,7 +260,7 @@ class MANTIDIMAGING_1096_TO_1033(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -274,25 +274,33 @@ class MANTIDIMAGING_1096_TO_1033(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex patterns to match test names and statuses
         # Regex patterns to match valid test names (mantidimaging/...::TestClass::test_method)
-        test_name_pattern = r'mantidimaging/.*?::.*?::.*?'
-        passed_pattern1 = re.compile(r'^(' + test_name_pattern + ') PASSED')  # Test name before PASSED
-        passed_pattern2 = re.compile(r'PASSED (' + test_name_pattern + ')$')  # Test name after PASSED
-        failed_pattern = re.compile(r'FAILED (' + test_name_pattern + ')$')    # Test name after FAILED
+        test_name_pattern = r"mantidimaging/.*?::.*?::.*?"
+        passed_pattern1 = re.compile(
+            r"^(" + test_name_pattern + ") PASSED"
+        )  # Test name before PASSED
+        passed_pattern2 = re.compile(
+            r"PASSED (" + test_name_pattern + ")$"
+        )  # Test name after PASSED
+        failed_pattern = re.compile(
+            r"FAILED (" + test_name_pattern + ")$"
+        )  # Test name after FAILED
         # Skipped tests: capture test name from file path and line (fallback)
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (.*?\.py(?::\d+)?):')  # File path with optional line number for skipped tests
-        for line in log.split('\n'):
+        skipped_pattern = re.compile(
+            r"SKIPPED \[\d+\] (.*?\.py(?::\d+)?):"
+        )  # File path with optional line number for skipped tests
+        for line in log.split("\n"):
             line = line.strip()
             # Extract PASSED tests
-            if 'PASSED' in line:
+            if "PASSED" in line:
                 match1 = passed_pattern1.search(line)
                 if match1:
                     test_name = match1.group(1).strip()
@@ -305,14 +313,14 @@ class MANTIDIMAGING_1096_TO_1033(Instance):
                         if test_name:
                             passed_tests.add(test_name)
             # Extract FAILED tests
-            elif 'FAILED' in line:
+            elif "FAILED" in line:
                 match = failed_pattern.search(line)
                 if match:
                     test_name = match.group(1).strip()
                     if test_name:
                         failed_tests.add(test_name)
             # Extract SKIPPED tests
-            elif 'SKIPPED' in line:
+            elif "SKIPPED" in line:
                 match = skipped_pattern.search(line)
                 if match:
                     test_name = match.group(1).strip()
@@ -321,9 +329,8 @@ class MANTIDIMAGING_1096_TO_1033(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

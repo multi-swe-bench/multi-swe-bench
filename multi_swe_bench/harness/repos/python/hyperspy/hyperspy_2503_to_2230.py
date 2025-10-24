@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'export HYPERSPY_GUI=none' > test_commands.sh && echo 'export MPLBACKEND=Agg' >> test_commands.sh && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider -m "not gui"' >> test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ export HYPERSPY_GUI=none
 export MPLBACKEND=Agg
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -m "not gui"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ export HYPERSPY_GUI=none
 export MPLBACKEND=Agg
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -m "not gui"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ export HYPERSPY_GUI=none
 export MPLBACKEND=Agg
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -m "not gui"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class HYPERSPY_2503_TO_2230(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,35 +193,34 @@ class HYPERSPY_2503_TO_2230(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with PASSED, FAILED, or SKIPPED
         pattern = re.compile(
-            r'(?P<test_name>hyperspy/[\w/.:\[\]-]+)\s+(?P<status>PASSED|FAILED|SKIPPED)\s*\[\s*\d+%\]?|'
-            r'(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test_name2>hyperspy/[\w/.:\[\]-]+)(?:\s*-\s.*)?$'
+            r"(?P<test_name>hyperspy/[\w/.:\[\]-]+)\s+(?P<status>PASSED|FAILED|SKIPPED)\s*\[\s*\d+%\]?|"
+            r"(?P<status2>PASSED|FAILED|SKIPPED)\s+(?P<test_name2>hyperspy/[\w/.:\[\]-]+)(?:\s*-\s.*)?$"
         )
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
-                status = match.group('status') or match.group('status2')
-                test_name = match.group('test_name') or match.group('test_name2')
-                if status == 'PASSED':
+                status = match.group("status") or match.group("status2")
+                test_name = match.group("test_name") or match.group("test_name2")
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

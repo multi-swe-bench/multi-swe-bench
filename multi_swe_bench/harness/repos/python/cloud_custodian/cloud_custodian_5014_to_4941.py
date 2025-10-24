@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -75,7 +75,7 @@ echo -e '#!/bin/bash
 pytest -v -rA tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-pytest -v -rA -n auto tests/' > test_commands.sh && chmod +x test_commands.sh"""
+pytest -v -rA -n auto tests/' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,9 +85,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -v -rA -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ fi
 #!/bin/bash
 pytest -v -rA -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +113,7 @@ fi
 #!/bin/bash
 pytest -v -rA -n auto tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -181,7 +175,7 @@ class CLOUD_CUSTODIAN_5014_TO_4941(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,17 +189,17 @@ class CLOUD_CUSTODIAN_5014_TO_4941(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns for test statuses
-        pattern_passed = r'PASSED\s+(tests/.*)$'
-        pattern_failed = r'FAILED\s+(tests/.*?)\s+-'
-        pattern_skipped = r'SKIPPED\s+\[\d+\]\s+(tests/.*?)\s*:'
+        pattern_passed = r"PASSED\s+(tests/.*)$"
+        pattern_failed = r"FAILED\s+(tests/.*?)\s+-"
+        pattern_skipped = r"SKIPPED\s+\[\d+\]\s+(tests/.*?)\s*:"
         # Extract test names using regex
         passed_tests = set(re.findall(pattern_passed, log, re.MULTILINE))
         failed_tests = set(re.findall(pattern_failed, log, re.MULTILINE))
@@ -213,9 +207,8 @@ class CLOUD_CUSTODIAN_5014_TO_4941(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ pip install -r requirements/ci.txt
 ###ACTION_DELIMITER###
 pytest -vv -rA tests
 ###ACTION_DELIMITER###
-echo 'pytest -vv -rA tests' > test_commands.sh"""
+echo 'pytest -vv -rA tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ echo 'pytest -vv -rA tests' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -vv -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -vv -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -vv -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class PYPDF_1364_TO_814(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,38 +185,49 @@ class PYPDF_1364_TO_814(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex to match full test names and statuses, ignoring trailing characters
         # Pattern 1: Test name first (e.g., "tests/...::test_name[params] PASSED [  0%]")
-        pattern1 = re.compile(r'^\s*(tests/[^:]+::test_\S+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b.*$', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^\s*(tests/[^:]+::test_\S+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b.*$",
+            re.MULTILINE,
+        )
         # Pattern 2: Status first (e.g., "FAILED tests/...::test_name[params]")
-        pattern2 = re.compile(r'^\s*(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(tests/[^:]+::test_\S+)\b.*$', re.MULTILINE)
+        pattern2 = re.compile(
+            r"^\s*(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\s+(tests/[^:]+::test_\S+)\b.*$",
+            re.MULTILINE,
+        )
         # Combine and reverse matches to process final statuses first
-        all_matches = pattern1.findall(log) + [(status, test_name) for status, test_name in pattern2.findall(log)]
+        all_matches = pattern1.findall(log) + [
+            (status, test_name) for status, test_name in pattern2.findall(log)
+        ]
         all_matches.reverse()
         for test_name, status in all_matches:
             test_name = test_name.strip()
             status = status.strip()
-            if test_name in passed_tests or test_name in failed_tests or test_name in skipped_tests:
+            if (
+                test_name in passed_tests
+                or test_name in failed_tests
+                or test_name in skipped_tests
+            ):
                 continue  # Skip if already captured
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XPASS'):  # XPASS is unexpected pass (failure)
+            elif status in ("FAILED", "XPASS"):  # XPASS is unexpected pass (failure)
                 failed_tests.add(test_name)
-            elif status in ('SKIPPED', 'XFAIL'):  # XFAIL is expected failure (skipped)
+            elif status in ("SKIPPED", "XFAIL"):  # XFAIL is expected failure (skipped)
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ rm -rf anaconda3 && bash buildscripts/install_anaconda_python35.sh -b
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nsource /home/mantidimaging/anaconda3/bin/activate py35\nnosetests -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cd /home/[[REPO_NAME]]
 source /home/mantidimaging/anaconda3/bin/activate py35
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ fi
 source /home/mantidimaging/anaconda3/bin/activate py35
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ fi
 source /home/mantidimaging/anaconda3/bin/activate py35
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class MANTIDIMAGING_125_TO_90(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,7 +197,6 @@ class MANTIDIMAGING_125_TO_90(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -205,25 +204,25 @@ class MANTIDIMAGING_125_TO_90(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json  # Note: json import may not be needed, but kept as per skeleton
+
         # Regex pattern to match test lines
-        pattern = re.compile(r'#\d+\s+([^\(]+?)\s*\([^)]*\)\s*\.\.\.\s*(\w+)')
+        pattern = re.compile(r"#\d+\s+([^\(]+?)\s*\([^)]*\)\s*\.\.\.\s*(\w+)")
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status in ['ERROR', 'FAILED']:
+                elif status in ["ERROR", "FAILED"]:
                     failed_tests.add(test_name)
-                elif status in ['SKIPPED', 'skipped']:
+                elif status in ["SKIPPED", "skipped"]:
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

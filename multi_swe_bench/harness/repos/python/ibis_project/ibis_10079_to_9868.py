@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -74,7 +74,7 @@ python3 -m venv venv && venv/bin/pip install 'poetry==1.8.3'
 venv/bin/poetry install --without dev --without docs --extras 'visualization decompiler'
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs' > test_commands.sh && chmod +x test_commands.sh"""
+venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +98,7 @@ fi
 #!/bin/bash
 venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ fi
 #!/bin/bash
 venv/bin/poetry run pytest -v -m "core or benchmark" --numprocesses auto -rfEs
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class IBIS_10079_TO_9868(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,7 +188,6 @@ class IBIS_10079_TO_9868(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -202,25 +195,25 @@ class IBIS_10079_TO_9868(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Regex pattern to match test result lines with [gw...], percentage, status, and test name
-        pattern = r'(?:\[\d+\]\s+)?\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|SKIPPED|FAILED)\s+([^\n]+)'
+        pattern = r"(?:\[\d+\]\s+)?\[gw\d+\]\s+\[\s*\d+%\]\s+(PASSED|SKIPPED|FAILED)\s+([^\n]+)"
         matches = re.findall(pattern, log)
         for status, test_name in matches:
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

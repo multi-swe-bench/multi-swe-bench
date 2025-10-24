@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -125,7 +125,7 @@ jq '.resolutions += {"chai": "^4.3.7"}' package.json > temp.json && mv temp.json
 jq '.resolutions += {"nanoid": "2.1.11"}' package.json > temp.json && mv temp.json package.json && yarn cache clean && rm -rf node_modules && yarn install
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-./node_modules/.bin/jest --verbose --no-bail' > test_commands.sh && chmod +x test_commands.sh"""
+./node_modules/.bin/jest --verbose --no-bail' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 ./node_modules/.bin/jest --verbose --no-bail
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/jest --verbose --no-bail
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -163,7 +163,7 @@ fi
 #!/bin/bash
 ./node_modules/.bin/jest --verbose --no-bail
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -225,7 +225,7 @@ class PARABOL_1551_TO_1549(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -239,7 +239,6 @@ class PARABOL_1551_TO_1549(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -247,19 +246,26 @@ class PARABOL_1551_TO_1549(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Define regex patterns for test statuses
         # Account for ANSI escape codes and line structure
-        ansi_escape = re.compile(r'\x1B\[[0-9;]*[mK]')  # Regex to remove ANSI codes
+        ansi_escape = re.compile(r"\x1B\[[0-9;]*[mK]")  # Regex to remove ANSI codes
         # Patterns to match test status lines with line numbers and escape codes
         # Adjust pattern to match the sample failed test line
         # Increase flexibility with whitespace and ensure symbol matching
         # Simplify pattern to focus on bullet and test name
-        failed_pattern = re.compile(r'●\s+(.*?)\s*$')  # Match any line with '●' followed by test name
-        passed_pattern = re.compile(r'\[\d+\]\s+✓\s+(.*?)\s*$')  # Adjust for possible space differences
-        skipped_pattern = re.compile(r'\[\d+\]\s+[○−]\s+(.*?)\s*$')  # Match skipped test symbols
+        failed_pattern = re.compile(
+            r"●\s+(.*?)\s*$"
+        )  # Match any line with '●' followed by test name
+        passed_pattern = re.compile(
+            r"\[\d+\]\s+✓\s+(.*?)\s*$"
+        )  # Adjust for possible space differences
+        skipped_pattern = re.compile(
+            r"\[\d+\]\s+[○−]\s+(.*?)\s*$"
+        )  # Match skipped test symbols
         # Extract all test names from 'RUNS ...test.js' lines
         # Process log by removing ANSI codes first
-        cleaned_log = ansi_escape.sub('', log)
+        cleaned_log = ansi_escape.sub("", log)
         # Account for line numbers and ANSI codes in RUNS lines
         # Increase flexibility with whitespace and characters after RUNS
         # Explicitly match three dots and handle whitespace
@@ -293,23 +299,31 @@ class PARABOL_1551_TO_1549(Instance):
         # Explicitly match dots after RUNS to capture test filenames
         # Handle both dots and ellipsis
         # Extract all test names from 'RUNS ...test.js' lines
-        ansi_escape = re.compile(r'\x1B\[[0-9;]*[mK]')
-        cleaned_log = ansi_escape.sub('', log)
-        test_name_pattern = re.compile(r'RUNS\s+[\.…]+\s*([^\s]+\.test\.js)')
+        ansi_escape = re.compile(r"\x1B\[[0-9;]*[mK]")
+        cleaned_log = ansi_escape.sub("", log)
+        test_name_pattern = re.compile(r"RUNS\s+[\.…]+\s*([^\s]+\.test\.js)")
         all_tests = set(test_name_pattern.findall(cleaned_log))
         # Patterns to match test status lines
-        failed_pattern = re.compile(r'.*●\s+(.*?)\s*$')  # Ignore leading chars before '●'
-        skipped_pattern = re.compile(r'.*[○−]\s+(.*?)\s*$')  # Ignore leading chars before '○' or '−'
+        failed_pattern = re.compile(
+            r".*●\s+(.*?)\s*$"
+        )  # Ignore leading chars before '●'
+        skipped_pattern = re.compile(
+            r".*[○−]\s+(.*?)\s*$"
+        )  # Ignore leading chars before '○' or '−'
         # Extract failed tests (capture base name and append .test.js)
-        failed_pattern = re.compile(r'.*●\s+([^›]+)›.*')  # Capture part before first '›'
-        for line in cleaned_log.split('\n'):
+        failed_pattern = re.compile(
+            r".*●\s+([^›]+)›.*"
+        )  # Capture part before first '›'
+        for line in cleaned_log.split("\n"):
             failed_match = failed_pattern.search(line)
             if failed_match:
                 test_file = failed_match.group(1).strip() + ".test.js"
                 failed_tests.add(test_file)
         # Extract skipped tests (capture base name and append .test.js)
-        skipped_pattern = re.compile(r'.*[○−]\s+([^›]+)›.*')  # Capture part before first '›'
-        for line in cleaned_log.split('\n'):
+        skipped_pattern = re.compile(
+            r".*[○−]\s+([^›]+)›.*"
+        )  # Capture part before first '›'
+        for line in cleaned_log.split("\n"):
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
                 test_file = skipped_match.group(1).strip() + ".test.js"
@@ -319,9 +333,8 @@ class PARABOL_1551_TO_1549(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

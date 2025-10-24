@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -107,7 +107,7 @@ sed -i '/^import /i from google import resumable_media' tests/unit/test_blob.py
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-head -n 10 tests/unit/test_blob.py"""
+head -n 10 tests/unit/test_blob.py""",
             ),
             File(
                 ".",
@@ -116,9 +116,7 @@ head -n 10 tests/unit/test_blob.py"""
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=short tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -131,9 +129,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -146,9 +142,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=short tests/unit/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -191,6 +185,7 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
+
 @Instance.register("googleapis", "python_storage_526_to_325")
 class PYTHON_STORAGE_526_TO_325(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -209,7 +204,7 @@ class PYTHON_STORAGE_526_TO_325(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -223,7 +218,6 @@ class PYTHON_STORAGE_526_TO_325(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -231,11 +225,14 @@ class PYTHON_STORAGE_526_TO_325(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Split log into lines and process each line
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns for test name followed by status or vice versa
-        pattern = re.compile(r'.*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
+        pattern = re.compile(
+            r".*(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|.*(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)"
+        )
         for line in lines:
             match = pattern.search(line)
             if not match:
@@ -245,18 +242,17 @@ class PYTHON_STORAGE_526_TO_325(Instance):
             status = match.group(2) or match.group(3)
             if not test_name or not status:
                 continue
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

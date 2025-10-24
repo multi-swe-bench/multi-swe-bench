@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ yarn install --immutable
 ###ACTION_DELIMITER###
 yarn test
 ###ACTION_DELIMITER###
-echo 'yarn test --verbose' > test_commands.sh"""
+echo 'yarn test --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ echo 'yarn test --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class VKUI_8325_TO_8268(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,22 +179,22 @@ class VKUI_8325_TO_8268(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         current_suite_parts = []
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             stripped_line = line.strip()
             if not stripped_line:
                 continue
             # Check for suite header (0 leading spaces, starts with [num])
-            if leading_spaces == 0 and re.match(r'^\[\s*\d+\]', stripped_line):
+            if leading_spaces == 0 and re.match(r"^\[\s*\d+\]", stripped_line):
                 current_suite_parts = []
                 continue
             # Main suite (2 leading spaces)
@@ -203,38 +203,41 @@ class VKUI_8325_TO_8268(Instance):
                 continue
             # Level 2 (4 leading spaces): sub-suite or test case under main suite
             if leading_spaces == 4:
-                if stripped_line.startswith(('✓', '✕', '○', 'x')):
+                if stripped_line.startswith(("✓", "✕", "○", "x")):
                     symbol = stripped_line[0]
-                    test_name_part = stripped_line[1:].split('(')[0].strip()
-                    full_test_name = ' '.join(current_suite_parts) + ' ' + test_name_part
-                    if symbol in ('✓',):
+                    test_name_part = stripped_line[1:].split("(")[0].strip()
+                    full_test_name = (
+                        " ".join(current_suite_parts) + " " + test_name_part
+                    )
+                    if symbol in ("✓",):
                         passed_tests.add(full_test_name)
-                    elif symbol in ('✕', 'x'):
+                    elif symbol in ("✕", "x"):
                         failed_tests.add(full_test_name)
-                    elif symbol in ('○',):
+                    elif symbol in ("○",):
                         skipped_tests.add(full_test_name)
                 else:
                     current_suite_parts.append(stripped_line)
                 continue
             # Level 3 (6 leading spaces): test case under sub-suite
             if leading_spaces == 6:
-                if stripped_line.startswith(('✓', '✕', '○', 'x')):
+                if stripped_line.startswith(("✓", "✕", "○", "x")):
                     symbol = stripped_line[0]
-                    test_name_part = stripped_line[1:].split('(')[0].strip()
-                    full_test_name = ' '.join(current_suite_parts) + ' ' + test_name_part
-                    if symbol in ('✓',):
+                    test_name_part = stripped_line[1:].split("(")[0].strip()
+                    full_test_name = (
+                        " ".join(current_suite_parts) + " " + test_name_part
+                    )
+                    if symbol in ("✓",):
                         passed_tests.add(full_test_name)
-                    elif symbol in ('✕', 'x'):
+                    elif symbol in ("✕", "x"):
                         failed_tests.add(full_test_name)
-                    elif symbol in ('○',):
+                    elif symbol in ("○",):
                         skipped_tests.add(full_test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

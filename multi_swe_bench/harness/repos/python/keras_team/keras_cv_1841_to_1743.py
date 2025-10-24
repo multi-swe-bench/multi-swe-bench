@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -126,7 +126,7 @@ rm -rf venv && python3.9 -m venv venv && source venv/bin/activate && pip install
 ###ACTION_DELIMITER###
 rm -rf venv && python3.9 -m venv venv && source venv/bin/activate && pip install --upgrade pip && pip install tensorflow==2.11.0 "numpy<1.24" && pip install -r requirements.txt && pip install -e . && python -c 'import tensorflow as tf; print("TensorFlow version:", tf.__version__)' && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -137,9 +137,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +152,7 @@ fi
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -171,9 +167,7 @@ fi
 source venv/bin/activate
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -235,7 +229,7 @@ class KERAS_CV_1841_TO_1743(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -249,38 +243,39 @@ class KERAS_CV_1841_TO_1743(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract all test names from 'call' lines (preserving order)
-        test_names_ordered = re.findall(r'call\s+([^\s]+)', log)
+        test_names_ordered = re.findall(r"call\s+([^\s]+)", log)
         # Extract failed tests from 'FAILED' lines in summary
-        failed_tests = set(re.findall(r'FAILED\s+([^\s]+)', log))
+        failed_tests = set(re.findall(r"FAILED\s+([^\s]+)", log))
         # Extract skipped tests from progress lines (marked with 's')
         skipped_tests = set()
         # Parse progress lines (e.g., 'keras_cv/.../test.py ..s')
-        progress_matches = re.findall(r'^(\S+\.py)\s+([\.s\s]+)$', log, re.MULTILINE)
+        progress_matches = re.findall(r"^(\S+\.py)\s+([\.s\s]+)$", log, re.MULTILINE)
         for file_path, status_str in progress_matches:
             # Clean status string (remove spaces between characters)
-            status_chars = re.sub(r'\s', '', status_str)
+            status_chars = re.sub(r"\s", "", status_str)
             # Get all tests in order for this file
-            file_tests = [test for test in test_names_ordered if test.startswith(file_path)]
+            file_tests = [
+                test for test in test_names_ordered if test.startswith(file_path)
+            ]
             # Map 's' characters to skipped tests
             for i, char in enumerate(status_chars):
-                if char == 's' and i < len(file_tests):
+                if char == "s" and i < len(file_tests):
                     skipped_tests.add(file_tests[i])
         # Calculate passed tests (all tests not failed or skipped)
         passed_tests = set(test_names_ordered) - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -106,7 +106,7 @@ def foo(a, b):
 jfoo = thunder.jit(foo)
 print(jfoo(torch.tensor(1), torch.tensor(2)))' > test_driver.py && THUNDER_DRIVER=nvfuser python3.10 test_driver.py
 ###ACTION_DELIMITER###
-echo 'THUNDER_DRIVER=nvfuser pytest thunder/tests -v' > test_commands.sh"""
+echo 'THUNDER_DRIVER=nvfuser pytest thunder/tests -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,9 +115,7 @@ echo 'THUNDER_DRIVER=nvfuser pytest thunder/tests -v' > test_commands.sh"""
 cd /home/{pr.repo}
 THUNDER_DRIVER=nvfuser pytest thunder/tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 THUNDER_DRIVER=nvfuser pytest thunder/tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 THUNDER_DRIVER=nvfuser pytest thunder/tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -209,7 +203,7 @@ class LIGHTNING_THUNDER_802_TO_577(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -223,19 +217,19 @@ class LIGHTNING_THUNDER_802_TO_577(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI color codes (handles complex codes like \x1b[31m, \x1b[0m)
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Pattern to match test execution lines (timestamp + test name + status)
-        exec_pattern = r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)'
+        exec_pattern = r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)"
         # Pattern to match summary lines (flexible capture)
-        summary_pattern = r'\[\d+\]\s+.*?(FAILED|XFAIL)\s+(thunder/.*?)\s+-'
+        summary_pattern = r"\[\d+\]\s+.*?(FAILED|XFAIL)\s+(thunder/.*?)\s+-"
         # Extract from execution lines
         exec_matches = re.findall(exec_pattern, log_clean)
         # Extract from summary lines
@@ -243,25 +237,24 @@ class LIGHTNING_THUNDER_802_TO_577(Instance):
         for test_name, status in exec_matches:
             test_name = test_name.strip()
             status = status.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ['FAILED', 'XFAIL']:
+            elif status in ["FAILED", "XFAIL"]:
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'XPASSED':
+            elif status == "XPASSED":
                 passed_tests.add(test_name)
         # Handle summary lines (e.g., failed tests not captured in execution lines)
         for status, test_name in summary_matches:
             test_name = test_name.strip()
-            if status in ['FAILED', 'XFAIL']:
+            if status in ["FAILED", "XFAIL"]:
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

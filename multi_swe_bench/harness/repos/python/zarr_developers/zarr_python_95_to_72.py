@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -101,7 +101,7 @@ sed -i 's/np.product/np.prod/g' zarr/util.py
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y liblzma-dev"""
+apt-get update && apt-get install -y liblzma-dev""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ python setup.py build_ext --inplace
 pytest -v --cov=zarr --cov-fail-under=100 --doctest-modules zarr
 python -c "import zarr; import doctest; doctest.testfile(\"docs/tutorial.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS); doctest.testfile(\"docs/spec/v2.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -129,9 +127,7 @@ python setup.py build_ext --inplace
 pytest -v --cov=zarr --cov-fail-under=100 --doctest-modules zarr
 python -c "import zarr; import doctest; doctest.testfile(\"docs/tutorial.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS); doctest.testfile(\"docs/spec/v2.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -146,9 +142,7 @@ python setup.py build_ext --inplace
 pytest -v --cov=zarr --cov-fail-under=100 --doctest-modules zarr
 python -c "import zarr; import doctest; doctest.testfile(\"docs/tutorial.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS); doctest.testfile(\"docs/spec/v2.rst\", optionflags=doctest.NORMALIZE_WHITESPACE|doctest.ELLIPSIS)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -210,7 +204,7 @@ class ZARR_PYTHON_95_TO_72(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -224,18 +218,20 @@ class ZARR_PYTHON_95_TO_72(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status and percentage (e.g., "module::test PASSED [  0%]")
-        pattern1 = re.compile(r'^([\w/.:]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$')
+        pattern1 = re.compile(
+            r"^([\w/.:]+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$"
+        )
         # Pattern 2: Status followed by test name (e.g., "FAILED module::test")
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+([\w/.:]+)$')
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+([\w/.:]+)$")
         for line in log.splitlines():
             line = line.strip()
             # Check for pattern 1 match
@@ -252,18 +248,17 @@ class ZARR_PYTHON_95_TO_72(Instance):
                 else:
                     continue  # No match, skip the line
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -128,7 +128,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 rm pytest.ini && echo 'pytest -v --ignore=statsmodels/tsa/tests/test_stattools.py --noconftest' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -137,9 +137,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --ignore=statsmodels/tsa/tests/test_stattools.py --noconftest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -152,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --ignore=statsmodels/tsa/tests/test_stattools.py --noconftest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -167,9 +163,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --ignore=statsmodels/tsa/tests/test_stattools.py --noconftest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -231,7 +225,7 @@ class STATSMODELS_5860_TO_5028(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -245,17 +239,17 @@ class STATSMODELS_5860_TO_5028(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
-        class_pattern = re.compile(r'\[\s*\d+\s*\]\s*class (\w+):')
-        test_pattern = re.compile(r'\[\s*\d+\s*\]\s*def (test_.+?)\(')
-        file_pattern = re.compile(r'file (.+?), line')
+
+        lines = log.split("\n")
+        class_pattern = re.compile(r"\[\s*\d+\s*\]\s*class (\w+):")
+        test_pattern = re.compile(r"\[\s*\d+\s*\]\s*def (test_.+?)\(")
+        file_pattern = re.compile(r"file (.+?), line")
         current_test = None
         current_file = None
         current_class = None
@@ -263,7 +257,9 @@ class STATSMODELS_5860_TO_5028(Instance):
             # Extract test file from 'file ...' lines
             file_match = file_pattern.search(line)
             if file_match:
-                current_file = file_match.group(1).replace('/home/statsmodels/', '')  # Remove absolute path
+                current_file = file_match.group(1).replace(
+                    "/home/statsmodels/", ""
+                )  # Remove absolute path
                 current_class = None  # Reset class when new file is processed
             # Extract class name from 'class ...' lines
             class_match = class_pattern.search(line)
@@ -273,31 +269,34 @@ class STATSMODELS_5860_TO_5028(Instance):
             test_match = test_pattern.search(line)
             if test_match and current_file:
                 if current_class:
-                    current_test = f"{current_file}::{current_class}::{test_match.group(1)}"
+                    current_test = (
+                        f"{current_file}::{current_class}::{test_match.group(1)}"
+                    )
                 else:
                     current_test = f"{current_file}::{test_match.group(1)}"
             # Check for failure indicators
-            if re.search(r'E\s+', line) and current_test:
+            if re.search(r"E\s+", line) and current_test:
                 failed_tests.add(current_test)
                 current_test = None  # Reset after capturing failure
             # Check for status lines (PASSED/SKIPPED)
-            status_pattern = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)(\s+\[.*\])?$')
+            status_pattern = re.compile(
+                r"^(.+?)\s+(PASSED|FAILED|SKIPPED|XFAILED|XPASSED)(\s+\[.*\])?$"
+            )
             status_match = status_pattern.match(line.strip())
             if status_match:
                 test_name = status_match.group(1)
                 status = status_match.group(2)
-                if status in ('PASSED', 'XPASSED'):
+                if status in ("PASSED", "XPASSED"):
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
-                elif status in ('FAILED', 'XFAILED'):
+                elif status in ("FAILED", "XFAILED"):
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

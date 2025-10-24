@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:16-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ bash /home/arco-design/test_commands.sh
 ###ACTION_DELIMITER###
 echo 'export TZ=Asia/Shanghai && yarn icon && yarn build:cjs && yarn build:es && yarn test:client --silent=false -u && yarn test:node --silent=false' > /home/arco-design/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/arco-design/test_commands.sh"""
+bash /home/arco-design/test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash /home/arco-design/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 export TZ=Asia/Shanghai && yarn icon && yarn build:cjs && yarn build:es && yarn test:client --silent=false -u && yarn test:node --silent=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 export TZ=Asia/Shanghai && yarn icon && yarn build:cjs && yarn build:es && yarn test:client --silent=false -u && yarn test:node --silent=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 export TZ=Asia/Shanghai && yarn icon && yarn build:cjs && yarn build:es && yarn test:client --silent=false -u && yarn test:node --silent=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class ARCO_DESIGN_2008_TO_1720(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,28 +191,27 @@ class ARCO_DESIGN_2008_TO_1720(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Extract passed tests using regex pattern
-        pass_pattern = re.compile(r'PASS\s+([^\s(]+)')
+        pass_pattern = re.compile(r"PASS\s+([^\s(]+)")
         passed_tests.update(pass_pattern.findall(log))
         # Extract failed tests using regex pattern
-        fail_pattern = re.compile(r'FAIL\s+([^\s(]+)')
+        fail_pattern = re.compile(r"FAIL\s+([^\s(]+)")
         failed_tests.update(fail_pattern.findall(log))
         # Extract skipped tests using regex pattern (if present)
-        skip_pattern = re.compile(r'SKIPPED\s+([^\s(]+)')
+        skip_pattern = re.compile(r"SKIPPED\s+([^\s(]+)")
         skipped_tests.update(skip_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ source venv/bin/activate
 ###ACTION_DELIMITER###
 pip install -r requirements.txt
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ chmod +x test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --pyargs plasmapy --durations=25 --showlocals -n=auto --dist=loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --pyargs plasmapy --durations=25 --showlocals -n=auto --dist=loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --pyargs plasmapy --durations=25 --showlocals -n=auto --dist=loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class PLASMAPY_2300_TO_2237(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,7 +214,6 @@ class PLASMAPY_2300_TO_2237(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -228,11 +221,12 @@ class PLASMAPY_2300_TO_2237(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex patterns to match test statuses and extract test names
-        passed_pattern = re.compile(r'PASSED (plasmapy/.*)\s*$', re.MULTILINE)
-        failed_pattern = re.compile(r'FAILED (plasmapy/.*)\s*$', re.MULTILINE)
-        skipped_pattern = re.compile(r'SKIPPED (plasmapy/.*)\s*$', re.MULTILINE)
+        passed_pattern = re.compile(r"PASSED (plasmapy/.*)\s*$", re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED (plasmapy/.*)\s*$", re.MULTILINE)
+        skipped_pattern = re.compile(r"SKIPPED (plasmapy/.*)\s*$", re.MULTILINE)
         # Extract passed tests
         for match in passed_pattern.findall(log):
             passed_tests.add(match.strip())
@@ -245,9 +239,8 @@ class PLASMAPY_2300_TO_2237(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

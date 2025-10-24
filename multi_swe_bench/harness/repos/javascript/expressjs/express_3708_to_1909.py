@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 npm install
 ###ACTION_DELIMITER###
-echo "npm test -- --verbose" > test_commands.sh"""
+echo "npm test -- --verbose" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo "npm test -- --verbose" > test_commands.sh"""
 cd /home/{pr.repo}
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test -- --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class EXPRESS_3708_TO_1909(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,14 +162,14 @@ class EXPRESS_3708_TO_1909(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         passed_pattern = re.compile(r"\s*✓ (.*)")
         failed_pattern = re.compile(r"\s*\d+\) (.*)")
         lines = log.splitlines()
@@ -190,12 +184,12 @@ class EXPRESS_3708_TO_1909(Instance):
             failed_match = failed_pattern.search(line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
-                current_indent = len(line) - len(line.lstrip(' '))
+                current_indent = len(line) - len(line.lstrip(" "))
                 if i + 1 < len(lines):
-                    next_line = lines[i+1]
-                    next_indent = len(next_line) - len(next_line.lstrip(' '))
+                    next_line = lines[i + 1]
+                    next_indent = len(next_line) - len(next_line.lstrip(" "))
                     if next_indent > current_indent:
-                        test_name += " " + next_line.strip().rstrip(':')
+                        test_name += " " + next_line.strip().rstrip(":")
                         i += 1
                 failed_tests.add(test_name)
                 i += 1
@@ -204,9 +198,8 @@ class EXPRESS_3708_TO_1909(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

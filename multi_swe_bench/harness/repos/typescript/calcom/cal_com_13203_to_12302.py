@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ yarn install
 ###ACTION_DELIMITER###
 sed -i 's/yarn e2e -- --reporter=json/yarn test-e2e -- --reporter=json --verbose/' test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ set -e
 yarn test -- --reporter json --verbose
 yarn test-e2e -- --reporter=json --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ set -e
 yarn test -- --reporter json --verbose
 yarn test-e2e -- --reporter=json --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ set -e
 yarn test -- --reporter json --verbose
 yarn test-e2e -- --reporter=json --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class CAL_COM_13203_TO_12302(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,7 +179,6 @@ class CAL_COM_13203_TO_12302(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -187,28 +186,28 @@ class CAL_COM_13203_TO_12302(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for failed tests: matches lines starting with FAIL, captures the test name
-        failed_pattern = r'FAIL\s+\|.*?\| (.*)'
+        failed_pattern = r"FAIL\s+\|.*?\| (.*)"
         failed_matches = re.findall(failed_pattern, log)
         for test_name in failed_matches:
             failed_tests.add(test_name.strip())
         # Pattern for passed tests: matches lines starting with stdout, captures the test name
-        passed_pattern = r'stdout\s+\| (.*?test\.ts > .*)'
+        passed_pattern = r"stdout\s+\| (.*?test\.ts > .*)"
         passed_matches = re.findall(passed_pattern, log)
         for test_name in passed_matches:
             passed_tests.add(test_name.strip())
         passed_tests = passed_tests - failed_tests
         # Pattern for skipped tests: matches lines with 'skipped' and captures the test name
-        skipped_pattern = r'\| (.*?) \(.*? skipped\)'
+        skipped_pattern = r"\| (.*?) \(.*? skipped\)"
         skipped_matches = re.findall(skipped_pattern, log)
         for test_name in skipped_matches:
             skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

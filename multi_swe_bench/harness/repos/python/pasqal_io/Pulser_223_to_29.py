@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ pytest -v --cov pulser
 ###ACTION_DELIMITER###
 pip install numpy==1.24.0
 ###ACTION_DELIMITER###
-pytest -v --cov pulser"""
+pytest -v --cov pulser""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ pytest -v --cov pulser"""
 cd /home/{pr.repo}
 pytest -v --cov pulser
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --cov pulser
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --cov pulser
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class PULSER_223_TO_29(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,37 +196,40 @@ class PULSER_223_TO_29(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not needed for this parsing
         # Regex patterns to match test lines and summary lines
-        detailed_pattern = re.compile(r'^(pulser/tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]', re.MULTILINE)
-        summary_pattern = re.compile(r'^(FAILED|SKIPPED)\s+(pulser/tests/.*?)\s+-', re.MULTILINE)
+        detailed_pattern = re.compile(
+            r"^(pulser/tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]", re.MULTILINE
+        )
+        summary_pattern = re.compile(
+            r"^(FAILED|SKIPPED)\s+(pulser/tests/.*?)\s+-", re.MULTILINE
+        )
         # Process detailed test lines
         for test_name, status in detailed_pattern.findall(log):
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process summary lines for failed or skipped tests
         for status, test_name in summary_pattern.findall(log):
-            if status == 'FAILED':
+            if status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

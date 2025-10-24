@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -101,7 +101,7 @@ sed -i 's/--no-header //' test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip uninstall -y greenlet gevent && pip install greenlet==0.4.15 gevent==1.3.6 && bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get install -y libsqlcipher-dev && source venv/bin/activate && pip install pysqlcipher3==1.0.3 && bash test_commands.sh"""
+apt-get install -y libsqlcipher-dev && source venv/bin/activate && pip install pysqlcipher3==1.0.3 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ cd /home/[[REPO_NAME]]
 source venv/bin/activate
 pytest -v -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ fi
 source venv/bin/activate
 pytest -v -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class ROTKI_351_TO_254(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,7 +215,6 @@ class ROTKI_351_TO_254(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -223,34 +222,38 @@ class ROTKI_351_TO_254(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines
-        pattern1 = re.compile(r'(?P<test_name>.*?::.*?)\s+(?P<status>PASSED|SKIPPED)\s+\[.*?\]')
-        pattern2 = re.compile(r'(?P<status>ERROR|FAILED|SKIPPED)\s+(?P<test_name>.*?::.*?)\s+-')
+        pattern1 = re.compile(
+            r"(?P<test_name>.*?::.*?)\s+(?P<status>PASSED|SKIPPED)\s+\[.*?\]"
+        )
+        pattern2 = re.compile(
+            r"(?P<status>ERROR|FAILED|SKIPPED)\s+(?P<test_name>.*?::.*?)\s+-"
+        )
         for line in log.splitlines():
             line = line.strip()
             match1 = pattern1.match(line)
             if match1:
-                test_name = match1.group('test_name').strip()
-                status = match1.group('status')
-                if status == 'PASSED':
+                test_name = match1.group("test_name").strip()
+                status = match1.group("status")
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
             else:
                 match2 = pattern2.match(line)
                 if match2:
-                    test_name = match2.group('test_name').strip()
-                    status = match2.group('status')
-                    if status in ('FAILED', 'ERROR'):
+                    test_name = match2.group("test_name").strip()
+                    status = match2.group("status")
+                    if status in ("FAILED", "ERROR"):
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

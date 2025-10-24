@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install cloudpickle==1.6.0
 ###ACTION_DELIMITER###
 pytest -v
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh"""
+echo 'pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo 'pytest -v' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class PREFECT_131_TO_47(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,40 +172,43 @@ class PREFECT_131_TO_47(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns for individual test lines and summary lines
-        pattern_individual = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$', re.MULTILINE)
-        pattern_summary = re.compile(r'^(FAILED|SKIPPED)\s+(tests/.*?)(\s+-.*)?$', re.MULTILINE)
+        pattern_individual = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$", re.MULTILINE
+        )
+        pattern_summary = re.compile(
+            r"^(FAILED|SKIPPED)\s+(tests/.*?)(\s+-.*)?$", re.MULTILINE
+        )
         # Parse individual test lines
         for match in pattern_individual.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Parse summary lines for failed and skipped tests
         for match in pattern_summary.finditer(log):
             status = match.group(1)
             test_name = match.group(2)
-            if status == 'FAILED':
+            if status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

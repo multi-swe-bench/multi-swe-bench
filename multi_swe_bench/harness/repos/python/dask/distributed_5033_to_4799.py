@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install -e .
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rsxfE --durations=20 --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/comm/tests/test_ws.py --ignore=distributed/protocol/tests/test_collection_cuda.py --ignore=distributed/protocol/tests/test_highlevelgraph.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rsxfE --durations=20 --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/comm/tests/test_ws.py --ignore=distributed/protocol/tests/test_collection_cuda.py --ignore=distributed/protocol/tests/test_highlevelgraph.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rsxfE --durations=20 --ignore=distributed/comm/tests/test_comms.py --ignore=distributed/comm/tests/test_ws.py --ignore=distributed/protocol/tests/test_collection_cuda.py --ignore=distributed/protocol/tests/test_highlevelgraph.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class DISTRIBUTED_5033_TO_4799(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,33 +208,35 @@ class DISTRIBUTED_5033_TO_4799(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test cases with their statuses
-        test_pattern = re.compile(r'([\w\/]+\.py::[\w_-]+)(?: <- .+?)? (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)')
+        test_pattern = re.compile(
+            r"([\w\/]+\.py::[\w_-]+)(?: <- .+?)? (PASSED|FAILED|SKIPPED|XFAIL|XPASSED)"
+        )
         # Regex pattern to match FAILED test cases in summary lines
-        failed_summary_pattern = re.compile(r'FAILED ([\w\/]+\.py::[\w_-]+)')
+        failed_summary_pattern = re.compile(r"FAILED ([\w\/]+\.py::[\w_-]+)")
         # Extract all test matches
         test_matches = test_pattern.findall(log)
         failed_summary_matches = failed_summary_pattern.findall(log)
         # Process test matches
         for test_name, status in test_matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 # XFAIL is an expected failure, consider it as failed for this context
                 failed_tests.add(test_name)
-            elif status == 'XPASSED':
+            elif status == "XPASSED":
                 # XPASSED is an unexpected pass, consider it as passed
                 passed_tests.add(test_name)
         # Process failed summary matches
@@ -249,9 +245,8 @@ class DISTRIBUTED_5033_TO_4799(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

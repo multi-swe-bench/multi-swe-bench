@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'NODE_ENV=test ./node_modules/.bin/mocha --recursive --exit --verbose --reporter json' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 NODE_ENV=test ./node_modules/.bin/mocha --recursive --exit --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_ENV=test ./node_modules/.bin/mocha --recursive --exit --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_ENV=test ./node_modules/.bin/mocha --recursive --exit --verbose --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class CVE_SERVICES_918_TO_869(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class CVE_SERVICES_918_TO_869(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -183,21 +182,26 @@ class CVE_SERVICES_918_TO_869(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         try:
             log_data = json.loads(log)
         except json.JSONDecodeError:
             # If log is not valid JSON, return empty sets
-            return {"passed_tests": passed_tests, "failed_tests": failed_tests, "skipped_tests": skipped_tests}
-        tests = log_data.get('tests', [])
+            return {
+                "passed_tests": passed_tests,
+                "failed_tests": failed_tests,
+                "skipped_tests": skipped_tests,
+            }
+        tests = log_data.get("tests", [])
         for test in tests:
-            test_name = test.get('fullTitle', test.get('title', 'Unknown Test'))
-            err = test.get('err', {})
+            test_name = test.get("fullTitle", test.get("title", "Unknown Test"))
+            err = test.get("err", {})
             if err:
                 failed_tests.add(test_name)
             else:
                 passed_tests.add(test_name)
             # Check for skipped/pending tests
-            if test.get('pending', False) or test.get('skipped', False):
+            if test.get("pending", False) or test.get("skipped", False):
                 skipped_tests.add(test_name)
                 if test_name in passed_tests:
                     passed_tests.remove(test_name)
@@ -206,9 +210,8 @@ class CVE_SERVICES_918_TO_869(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

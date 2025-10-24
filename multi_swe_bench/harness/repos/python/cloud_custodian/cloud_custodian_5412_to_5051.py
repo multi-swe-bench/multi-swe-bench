@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -119,7 +119,7 @@ echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_comm
 ###ACTION_DELIMITER###
 pip install pytest-xdist
 ###ACTION_DELIMITER###
-echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh"""
+echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -128,9 +128,7 @@ echo 'pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests' > t
 cd /home/{pr.repo}
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +154,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -n auto --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -222,7 +216,7 @@ class CLOUD_CUSTODIAN_5412_TO_5051(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -236,7 +230,6 @@ class CLOUD_CUSTODIAN_5412_TO_5051(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -244,23 +237,26 @@ class CLOUD_CUSTODIAN_5412_TO_5051(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement regex pattern to find test statuses and names
-        pattern = re.compile(r'(PASSED|FAILED|SKIPPED|SKIP|skipped).*?(tests/[\w\/]+\.py::[^\s]+)', re.IGNORECASE)
+        pattern = re.compile(
+            r"(PASSED|FAILED|SKIPPED|SKIP|skipped).*?(tests/[\w\/]+\.py::[^\s]+)",
+            re.IGNORECASE,
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
             status_upper = status.upper()
-            if status_upper == 'PASSED':
+            if status_upper == "PASSED":
                 passed_tests.add(test_name)
-            elif status_upper == 'FAILED':
+            elif status_upper == "FAILED":
                 failed_tests.add(test_name)
-            elif status_upper in ('SKIPPED', 'SKIP'):
+            elif status_upper in ("SKIPPED", "SKIP"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -113,7 +113,7 @@ nox -s tests -- --run-podman' > test_commands.sh && chmod +x test_commands.sh &&
 echo -e '#!/bin/bash
 export CIBW_CONTAINER_ENGINE=podman
 pytest -v unit_test --durations 0 --timeout=2400
-pytest -v test --run-podman --durations 0 --timeout=2400' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+pytest -v test --run-podman --durations 0 --timeout=2400' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,9 +125,7 @@ export CIBW_CONTAINER_ENGINE=podman
 pytest -v unit_test --durations 0 --timeout=2400
 pytest -v test --run-podman --durations 0 --timeout=2400
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +141,7 @@ export CIBW_CONTAINER_ENGINE=podman
 pytest -v unit_test --durations 0 --timeout=2400
 pytest -v test --run-podman --durations 0 --timeout=2400
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -161,9 +157,7 @@ export CIBW_CONTAINER_ENGINE=podman
 pytest -v unit_test --durations 0 --timeout=2400
 pytest -v test --run-podman --durations 0 --timeout=2400
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -225,7 +219,7 @@ class CIBUILDWHEEL_1588_TO_1091(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -239,21 +233,23 @@ class CIBUILDWHEEL_1588_TO_1091(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Extract passed tests (lines like 'test_name PASSED ...')
-        passed_pattern = re.compile(r'^(.*?) PASSED\b', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?) PASSED\b", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests (lines like 'FAILED test_name - ...')
-        failed_pattern = re.compile(r'^FAILED (.*?)(?: -|$)', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED (.*?)(?: -|$)", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Extract skipped tests (lines like 'test_name SKIPPED ...' or 'SKIPPED test_name')
-        skipped_pattern = re.compile(r'^(.*?) SKIPPED\b|^SKIPPED (.*?)(?: -|$)', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(.*?) SKIPPED\b|^SKIPPED (.*?)(?: -|$)", re.MULTILINE
+        )
         for match in skipped_pattern.findall(log):
             test = match[0] if match[0] else match[1]
             if test:
@@ -261,9 +257,8 @@ class CIBUILDWHEEL_1588_TO_1091(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ apt-get update && apt-get install -y libegl1
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libqt6gui6
 ###ACTION_DELIMITER###
-bash /home/ert/test_commands.sh"""
+bash /home/ert/test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ bash /home/ert/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 uv run pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 uv run pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 uv run pytest -v tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class ERT_10682_TO_10361(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,22 +187,27 @@ class ERT_10682_TO_10361(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns to capture full test paths (including file names) for all statuses
-        passed_skipped_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(tests/.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%', re.MULTILINE)
-        failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?FAILED\s+(tests/.*?)(?:\s+-|$)', re.MULTILINE)
+        passed_skipped_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(tests/.*?)\s+(PASSED|SKIPPED)\s+\[\s*\d+%",
+            re.MULTILINE,
+        )
+        failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?FAILED\s+(tests/.*?)(?:\s+-|$)", re.MULTILINE
+        )
         # Extract passed and skipped tests with full paths
         for test_path, status in passed_skipped_pattern.findall(log):
             test_name = test_path.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract failed tests with full paths
         for test_path in failed_pattern.findall(log):
@@ -211,9 +216,8 @@ class ERT_10682_TO_10361(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

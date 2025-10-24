@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ npm install cross-env@~7.0.0 --legacy-peer-deps
 ###ACTION_DELIMITER###
 ./node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2
 ###ACTION_DELIMITER###
-echo './node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2' > /home/hospitalrun-frontend/test_commands.sh"""
+echo './node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2' > /home/hospitalrun-frontend/test_commands.sh""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ echo './node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts te
 cd /home/[[REPO_NAME]]
 ./node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/.bin/cross-env CI=true ./node_modules/.bin/react-scripts test --verbose --testPathIgnorePatterns=src/__tests__/test-utils --env=jest-environment-jsdom-sixteen --maxWorkers=2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class HOSPITALRUN_FRONTEND_2644_TO_2479(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,37 +211,39 @@ class HOSPITALRUN_FRONTEND_2644_TO_2479(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
-    # Split log into lines
-        lines = log.split('\n')
+        # Split log into lines
+        lines = log.split("\n")
         hierarchy = []
         for line in lines:
             stripped = line.strip()
             if not stripped:
                 continue
             # Calculate leading spaces to determine indentation level (2 spaces per level)
-            leading_spaces = len(line) - len(line.lstrip(' '))
+            leading_spaces = len(line) - len(line.lstrip(" "))
             current_level = leading_spaces // 2
             # Check if the line is a test case (passed or failed)
-            if stripped.startswith(('✓', '✕', '○')) or 'SKIPPED' in stripped:
+            if stripped.startswith(("✓", "✕", "○")) or "SKIPPED" in stripped:
                 # Extract test name (remove status symbol and duration)
-                match = re.match(r'^[✓✕○] (.*?) \(\d+ms\)$', stripped) or re.search(r'SKIPPED (.*)', stripped)
+                match = re.match(r"^[✓✕○] (.*?) \(\d+ms\)$", stripped) or re.search(
+                    r"SKIPPED (.*)", stripped
+                )
                 if match:
                     test_name_part = match.group(1)
-                    full_test_name = ' '.join(hierarchy + [test_name_part])
-                    if stripped.startswith('✓'):
+                    full_test_name = " ".join(hierarchy + [test_name_part])
+                    if stripped.startswith("✓"):
                         passed_tests.add(full_test_name)
-                    elif stripped.startswith('✕'):
+                    elif stripped.startswith("✕"):
                         failed_tests.add(full_test_name)
-                    elif stripped.startswith('○') or 'SKIPPED' in stripped:
+                    elif stripped.startswith("○") or "SKIPPED" in stripped:
                         skipped_tests.add(full_test_name)
             else:
                 # Update hierarchy for group lines
@@ -261,15 +263,14 @@ class HOSPITALRUN_FRONTEND_2644_TO_2479(Instance):
                     # Move down the hierarchy (add new level)
                     # Fill in any missing levels (if indentation skips levels)
                     while len(hierarchy) < current_level:
-                        hierarchy.append('')  # Placeholder, though unlikely
+                        hierarchy.append("")  # Placeholder, though unlikely
                     hierarchy.append(group_name)
         # Implement the log parsing logic here
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

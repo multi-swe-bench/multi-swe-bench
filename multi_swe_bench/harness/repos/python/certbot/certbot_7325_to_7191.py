@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/ignore:pkg_resources is deprecated:UserWarning/ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning/' pytest.ini
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --numprocesses auto --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --numprocesses auto --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --numprocesses auto --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class CERTBOT_7325_TO_7191(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,7 +196,6 @@ class CERTBOT_7325_TO_7191(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -210,22 +203,23 @@ class CERTBOT_7325_TO_7191(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse skipped tests
-        skipped_pattern = re.compile(r'SKIPPED (\S+)')
+        skipped_pattern = re.compile(r"SKIPPED (\S+)")
         for line in log.splitlines():
             match = skipped_pattern.search(line)
             if match:
                 test_name = match.group(1).strip()
                 skipped_tests.add(test_name)
         # Parse passed tests
-        passed_pattern = re.compile(r'PASSED (.*)')
+        passed_pattern = re.compile(r"PASSED (.*)")
         for line in log.splitlines():
             match = passed_pattern.search(line)
             if match:
                 test_name = match.group(1).strip()
                 passed_tests.add(test_name)
         # Parse failed tests
-        failed_pattern = re.compile(r'FAILED (\S+)')
+        failed_pattern = re.compile(r"FAILED (\S+)")
         for line in log.splitlines():
             match = failed_pattern.search(line)
             if match:
@@ -234,9 +228,8 @@ class CERTBOT_7325_TO_7191(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -192,7 +192,7 @@ python -m pytest -v
 ###ACTION_DELIMITER###
 echo 'python -m pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -201,9 +201,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -216,9 +214,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -231,9 +227,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -295,7 +289,7 @@ class DOCKER_PY_1682_TO_1528(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -309,23 +303,25 @@ class DOCKER_PY_1682_TO_1528(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Capture passed tests from lines with "PASSED"
-        passed_pattern = re.compile(r'(tests/[^\s]+\.py::[^\s]+)\s+PASSED', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"(tests/[^\s]+\.py::[^\s]+)\s+PASSED", re.MULTILINE
+        )
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
         # Capture failed tests (ERROR, FAILED, XFAIL)
         failed_patterns = [
             # Match detailed lines with ERROR or FAILED
-            re.compile(r'(tests/[^\s]+\.py::[^\s]+)\s+(ERROR|FAILED)', re.MULTILINE),
+            re.compile(r"(tests/[^\s]+\.py::[^\s]+)\s+(ERROR|FAILED)", re.MULTILINE),
             # Match summary lines with XFAIL
-            re.compile(r'XFAIL\s+(tests/[^\s]+\.py::[^\s]+)', re.MULTILINE)
+            re.compile(r"XFAIL\s+(tests/[^\s]+\.py::[^\s]+)", re.MULTILINE),
         ]
         for pattern in failed_patterns:
             matches = pattern.findall(log)
@@ -333,7 +329,9 @@ class DOCKER_PY_1682_TO_1528(Instance):
                 test_name = match[0] if isinstance(match, tuple) else match
                 failed_tests.add(test_name)
         # Capture skipped tests from lines with "SKIPPED"
-        skipped_pattern = re.compile(r'(tests/[^\s]+\.py::[^\s]+)\s+SKIPPED', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"(tests/[^\s]+\.py::[^\s]+)\s+SKIPPED", re.MULTILINE
+        )
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests.update(skipped_matches)
         # Resolve conflicts: ensure tests are only in one category
@@ -344,9 +342,8 @@ class DOCKER_PY_1682_TO_1528(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

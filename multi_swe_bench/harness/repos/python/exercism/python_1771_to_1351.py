@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ python3 test/check-exercises.py
 ###ACTION_DELIMITER###
 echo 'python3 test/check-exercises.py' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python3 test/check-exercises.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 test/check-exercises.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python3 test/check-exercises.py
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class PYTHON_1771_TO_1351(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class PYTHON_1771_TO_1351(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -189,14 +188,15 @@ class PYTHON_1771_TO_1351(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names from # lines and failure lines
-        test_names_from_comments = re.findall(r'#\s*(\w[\w-]+)', log)
-        test_names_from_failures = re.findall(r'FAILURES:\s*(\w[\w-]+)', log)
+        test_names_from_comments = re.findall(r"#\s*(\w[\w-]+)", log)
+        test_names_from_failures = re.findall(r"FAILURES:\s*(\w[\w-]+)", log)
         all_test_names = set(test_names_from_comments + test_names_from_failures)
         # Extract failed tests
-        failed_tests.update(re.findall(r'FAILURES:\s*(\w[\w-]+)', log))
+        failed_tests.update(re.findall(r"FAILURES:\s*(\w[\w-]+)", log))
         # Determine passed tests based on success or failure
-        if re.search(r'SUCCESS!', log):
+        if re.search(r"SUCCESS!", log):
             passed_tests.update(all_test_names)
         else:
             passed_tests.update(all_test_names - failed_tests)
@@ -204,9 +204,8 @@ class PYTHON_1771_TO_1351(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

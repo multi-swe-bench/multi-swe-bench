@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -91,7 +91,7 @@ pip install -e . && python -m pytest -v gammapy
 ###ACTION_DELIMITER###
 pip install scipy==1.9.3 && python -m pytest -v gammapy
 ###ACTION_DELIMITER###
-echo 'python -m pytest -v gammapy' > test_commands.sh"""
+echo 'python -m pytest -v gammapy' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -100,9 +100,7 @@ echo 'python -m pytest -v gammapy' > test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v gammapy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v gammapy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v gammapy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class GAMMAPY_4978_TO_4116(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,17 +202,23 @@ class GAMMAPY_4978_TO_4116(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses
-        passed_pattern = re.compile(r'.*?([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)\s+PASSED')
-        skipped_pattern = re.compile(r'.*?([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)\s+SKIPPED')
-        failed_pattern = re.compile(r'.*?FAILED\s+([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)')
+        passed_pattern = re.compile(
+            r".*?([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)\s+PASSED"
+        )
+        skipped_pattern = re.compile(
+            r".*?([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)\s+SKIPPED"
+        )
+        failed_pattern = re.compile(
+            r".*?FAILED\s+([\w/]+/tests/[\w.]+\.py::[\w\[\]_-]+(?:\[[^\]]+\])?)"
+        )
         # Extract test names for each status
         passed_tests.update(passed_pattern.findall(log))
         skipped_tests.update(skipped_pattern.findall(log))
@@ -226,9 +226,8 @@ class GAMMAPY_4978_TO_4116(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

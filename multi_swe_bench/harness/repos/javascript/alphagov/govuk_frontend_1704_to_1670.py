@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ apt-get install -y libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 lib
 ###ACTION_DELIMITER###
 npm test
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class GOVUK_FRONTEND_1704_TO_1670(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class GOVUK_FRONTEND_1704_TO_1670(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -189,21 +188,21 @@ class GOVUK_FRONTEND_1704_TO_1670(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Extract passed tests using regex
-        passed_pattern = re.compile(r'\s*✓\s+([^()]+?)\s*\(\d+ms\)')
+        passed_pattern = re.compile(r"\s*✓\s+([^()]+?)\s*\(\d+ms\)")
         passed_tests = set(test.strip() for test in passed_pattern.findall(log))
         # Extract failed tests using regex
-        failed_pattern = re.compile(r'\s*✕\s+([^()]+?)\s*\(\d+ms\)')
+        failed_pattern = re.compile(r"\s*✕\s+([^()]+?)\s*\(\d+ms\)")
         failed_tests = set(test.strip() for test in failed_pattern.findall(log))
         # Skipped tests are not observed in the sampled logs, so leaving as empty set
         # If skipped tests are present, add regex pattern here
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

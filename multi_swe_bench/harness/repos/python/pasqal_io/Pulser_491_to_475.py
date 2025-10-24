@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -112,7 +112,7 @@ echo 'export PASQAL_CLIENT_ID=dummy
 export PASQAL_CLIENT_SECRET=dummy
 pytest -v -rA --cov' > /home/Pulser/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/Pulser/test_commands.sh"""
+bash /home/Pulser/test_commands.sh""",
             ),
             File(
                 ".",
@@ -123,9 +123,7 @@ export PASQAL_CLIENT_ID=dummy
 export PASQAL_CLIENT_SECRET=dummy
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +138,7 @@ export PASQAL_CLIENT_ID=dummy
 export PASQAL_CLIENT_SECRET=dummy
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +153,7 @@ export PASQAL_CLIENT_ID=dummy
 export PASQAL_CLIENT_SECRET=dummy
 pytest -v -rA --cov
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -221,7 +215,7 @@ class PULSER_491_TO_475(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -235,20 +229,20 @@ class PULSER_491_TO_475(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
         pattern = re.compile(
-            r'^(?:\[\s*\d+\s*\]\s*)?'  # Optional line number
-            r'(?:(\S+)\s+(PASSED|FAILED|ERROR|SKIPPED)|(PASSED|FAILED|ERROR|SKIPPED)\s+(\S+))'  # Test + status or status + test
-            r'(?:\s+\[.+\]|\s*-.*)?$'  # Optional [percentage] or error message
+            r"^(?:\[\s*\d+\s*\]\s*)?"  # Optional line number
+            r"(?:(\S+)\s+(PASSED|FAILED|ERROR|SKIPPED)|(PASSED|FAILED|ERROR|SKIPPED)\s+(\S+))"  # Test + status or status + test
+            r"(?:\s+\[.+\]|\s*-.*)?$"  # Optional [percentage] or error message
         )
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern.match(line)
             if match:
@@ -262,18 +256,17 @@ class PULSER_491_TO_475(Instance):
                 else:
                     continue  # No valid groups
                 # Categorize the test based on status
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR'):
+                elif status in ("FAILED", "ERROR"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y pkg-config libglib2.0-dev
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,9 +89,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ fi
 #!/bin/bash
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +117,7 @@ fi
 #!/bin/bash
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -185,7 +179,7 @@ class MESON_12897_TO_12226(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,68 +193,77 @@ class MESON_12897_TO_12226(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Process unit tests (handles multi-line entries where status is on a separate line)
-        lines = log.split('\n')
+        lines = log.split("\n")
         current_test = None
         for line in lines:
             # Identify test start lines (e.g., "[  10] test_name (...) ...")
             # Match test name and status in one regex (handles same-line statuses with trailing text)
-            test_status_match = re.match(r'^\s*\[\s*\d+\s*\]\s*(test_[\w-]+)\s*\([^)]*\)\s*\.\.\.\s*(ok|skipped|failed).*', line)
+            test_status_match = re.match(
+                r"^\s*\[\s*\d+\s*\]\s*(test_[\w-]+)\s*\([^)]*\)\s*\.\.\.\s*(ok|skipped|failed).*",
+                line,
+            )
             if test_status_match:
                 test_name = test_status_match.group(1)
                 status = test_status_match.group(2)
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status == 'skipped':
+                elif status == "skipped":
                     skipped_tests.add(test_name)
-                elif status == 'failed':
+                elif status == "failed":
                     failed_tests.add(test_name)
             # Handle multi-line statuses (status on next line)
             else:
-                test_match = re.match(r'^\s*\[\s*\d+\s*\]\s*(test_\w+)\s*\([^)]*\)\s*\.\.\.', line)
+                test_match = re.match(
+                    r"^\s*\[\s*\d+\s*\]\s*(test_\w+)\s*\([^)]*\)\s*\.\.\.", line
+                )
                 if test_match:
                     current_test = test_match.group(1)
                 elif current_test:
-                    status_match = re.search(r'(ok|skipped|failed)\b', line)
+                    status_match = re.search(r"(ok|skipped|failed)\b", line)
                     if status_match:
                         status = status_match.group(1)
-                        if status == 'ok':
+                        if status == "ok":
                             passed_tests.add(current_test)
-                        elif status == 'skipped':
+                        elif status == "skipped":
                             skipped_tests.add(current_test)
-                        elif status == 'failed':
+                        elif status == "failed":
                             failed_tests.add(current_test)
                         current_test = None  # Reset after capturing status
         # Process SUCCESS/SKIPPED/FAILED tagged tests (e.g., "[SUCCESS] common: 246 ...")
-        status_pattern = re.compile(r'^\s*(\[\s*\d+\s*\]\s*)?\[\s*(SUCCESS|SKIPPED|FAILED)\s*\]\s+(.*)', re.MULTILINE)
+        status_pattern = re.compile(
+            r"^\s*(\[\s*\d+\s*\]\s*)?\[\s*(SUCCESS|SKIPPED|FAILED)\s*\]\s+(.*)",
+            re.MULTILINE,
+        )
         for match in status_pattern.finditer(log):
             status = match.group(2)
             test_name = match.group(3).strip()
-            if status == 'SUCCESS':
+            if status == "SUCCESS":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         # Process failed tests in "All failures:" section
-        failure_section = re.search(r'All failures:\s*(.*?)(?=\n\s*Total|$)', log, re.DOTALL | re.IGNORECASE)
+        failure_section = re.search(
+            r"All failures:\s*(.*?)(?=\n\s*Total|$)", log, re.DOTALL | re.IGNORECASE
+        )
         if failure_section:
-            failure_lines = re.findall(r'->\s*([^\n]+)', failure_section.group(1))
+            failure_lines = re.findall(r"->\s*([^\n]+)", failure_section.group(1))
             for line in failure_lines:
                 failed_tests.add(line.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

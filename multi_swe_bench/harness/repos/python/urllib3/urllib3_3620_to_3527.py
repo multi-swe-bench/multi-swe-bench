@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ uv add --dev pytest-xdist && echo 'uv run pytest -v -ra -n auto --tb=native --du
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ chmod +x test_commands.sh"""
 cd /home/{pr.repo}
 uv run pytest -v -ra -n auto --tb=native --durations=10 --strict-config --strict-markers --disable-socket --allow-unix-socket --allow-hosts=localhost,127.0.0.1,::1,127.0.0.0,240.0.0.0 test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 uv run pytest -v -ra -n auto --tb=native --durations=10 --strict-config --strict-markers --disable-socket --allow-unix-socket --allow-hosts=localhost,127.0.0.1,::1,127.0.0.0,240.0.0.0 test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 uv run pytest -v -ra -n auto --tb=native --durations=10 --strict-config --strict-markers --disable-socket --allow-unix-socket --allow-hosts=localhost,127.0.0.1,::1,127.0.0.0,240.0.0.0 test/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class URLLIB3_3620_TO_3527(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,7 +198,6 @@ class URLLIB3_3620_TO_3527(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -212,20 +205,22 @@ class URLLIB3_3620_TO_3527(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names and their statuses using regular expressions
         # Pattern for test names (includes '::' to ensure full test identifier)
-        passed_matches = re.findall(r'.*PASSED (test/.*::.*?)(?:\s|$)', log)
+        passed_matches = re.findall(r".*PASSED (test/.*::.*?)(?:\s|$)", log)
         passed_tests.update(passed_matches)
-        failed_matches = re.findall(r'.*FAILED (test/.*::.*?)(?:\s|$)', log)
+        failed_matches = re.findall(r".*FAILED (test/.*::.*?)(?:\s|$)", log)
         failed_tests.update(failed_matches)
-        skipped_matches = re.findall(r'.*?SKIPPED (?:\[\d+\] )?(test/(?:.*?::.*?|.*?\.py:\d+))(?:[:\s]|$)', log)
+        skipped_matches = re.findall(
+            r".*?SKIPPED (?:\[\d+\] )?(test/(?:.*?::.*?|.*?\.py:\d+))(?:[:\s]|$)", log
+        )
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ echo 'pytest tests --verbose -rA --runslow' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest tests --verbose -rA --runslow
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest tests --verbose -rA --runslow
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest tests --verbose -rA --runslow
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class NARWHALS_2322_TO_2224(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,7 +174,6 @@ class NARWHALS_2322_TO_2224(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -188,10 +181,11 @@ class NARWHALS_2322_TO_2224(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Define regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b')
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)$')
+        pattern1 = re.compile(r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b")
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)$")
         for line in log.splitlines():
             line = line.strip()
             match1 = pattern1.match(line)
@@ -215,9 +209,8 @@ class NARWHALS_2322_TO_2224(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

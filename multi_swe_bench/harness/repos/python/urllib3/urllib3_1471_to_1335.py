@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -98,7 +98,7 @@ source venv/bin/activate && pip install pytest-xdist
 source venv/bin/activate && PYTHONPATH=src pytest -v -n auto
 ###ACTION_DELIMITER###
 echo -e 'source venv/bin/activate
-PYTHONPATH=src pytest -v -n 4' > test_commands.sh"""
+PYTHONPATH=src pytest -v -n 4' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,9 +108,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 PYTHONPATH=src pytest -v -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +122,7 @@ fi
 source venv/bin/activate
 PYTHONPATH=src pytest -v -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ fi
 source venv/bin/activate
 PYTHONPATH=src pytest -v -n 4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class URLLIB3_1471_TO_1335(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,25 +212,24 @@ class URLLIB3_1471_TO_1335(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         test_status = {}
         import re
+
         # Use regex to extract test statuses and names
-        pattern = r'\[gw\d+\] \[\s*\d+%\] (SKIPPED|PASSED|FAILED) ([\w\/:\.-]+)\s*$'
+        pattern = r"\[gw\d+\] \[\s*\d+%\] (SKIPPED|PASSED|FAILED) ([\w\/:\.-]+)\s*$"
         matches = re.findall(pattern, log, re.MULTILINE)
         for status, test_name in matches:
             test_status[test_name] = status  # Overwrite with latest status
-        passed_tests = {t for t, s in test_status.items() if s == 'PASSED'}
-        failed_tests = {t for t, s in test_status.items() if s == 'FAILED'}
-        skipped_tests = {t for t, s in test_status.items() if s == 'SKIPPED'}
+        passed_tests = {t for t, s in test_status.items() if s == "PASSED"}
+        failed_tests = {t for t, s in test_status.items() if s == "FAILED"}
+        skipped_tests = {t for t, s in test_status.items() if s == "SKIPPED"}
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

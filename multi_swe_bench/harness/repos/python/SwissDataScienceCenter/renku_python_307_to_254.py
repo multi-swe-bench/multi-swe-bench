@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -119,7 +119,7 @@ bash /home/renku-python/test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y nodejs
 ###ACTION_DELIMITER###
-apt-get install -y npm"""
+apt-get install -y npm""",
             ),
             File(
                 ".",
@@ -128,9 +128,7 @@ apt-get install -y npm"""
 cd /home/{pr.repo}
 pytest -v -rA --tb=short -p no:yapf tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA --tb=short -p no:yapf tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -158,9 +154,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA --tb=short -p no:yapf tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -222,7 +216,7 @@ class RENKU_PYTHON_307_TO_254(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -236,35 +230,34 @@ class RENKU_PYTHON_307_TO_254(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        test_pattern = re.compile(r'tests/[^:]+::[^ ]+')
-        for line in log.split('\n'):
+        test_pattern = re.compile(r"tests/[^:]+::[^ ]+")
+        for line in log.split("\n"):
             line = line.strip()
-            if 'PASSED' in line:
+            if "PASSED" in line:
                 match = test_pattern.search(line)
                 if match:
                     passed_tests.add(match.group())
-            elif 'FAILED' in line:
+            elif "FAILED" in line:
                 match = test_pattern.search(line)
                 if match:
                     failed_tests.add(match.group())
-            elif 'SKIPPED' in line:
+            elif "SKIPPED" in line:
                 match = test_pattern.search(line)
                 if match:
                     skipped_tests.add(match.group())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

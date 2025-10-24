@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ bash /home/agents-aea/test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pipenv run pytest --doctest-modules aea tests/ --cov-report=html --cov-report=term --cov=aea -v --ignore=tests/test_connections/test_oef/' > /home/agents-aea/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/agents-aea/test_commands.sh"""
+bash /home/agents-aea/test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash /home/agents-aea/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pipenv run pytest --doctest-modules aea tests/ --cov-report=html --cov-report=term --cov=aea -v --ignore=tests/test_connections/test_oef/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pipenv run pytest --doctest-modules aea tests/ --cov-report=html --cov-report=term --cov=aea -v --ignore=tests/test_connections/test_oef/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pipenv run pytest --doctest-modules aea tests/ --cov-report=html --cov-report=term --cov=aea -v --ignore=tests/test_connections/test_oef/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class AGENTS_AEA_158_TO_147(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,7 +203,6 @@ class AGENTS_AEA_158_TO_147(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -212,33 +211,42 @@ class AGENTS_AEA_158_TO_147(Instance):
         summary_failed: set[str] = set()  # Summary failed tests (authoritative)
         summary_skipped: set[str] = set()  # Summary skipped tests (authoritative)
         import re
+
         # Parse test cases from log content
         # Pattern for test cases with status on the same line (e.g., "test_name PASSED [  2%]")
-        same_line_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?([\w/]+\.py::[\w.:]+(?:\[\S+\])?).*(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%?\])?', re.MULTILINE)
+        same_line_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?([\w/]+\.py::[\w.:]+(?:\[\S+\])?).*(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%?\])?",
+            re.MULTILINE,
+        )
         for match in same_line_pattern.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Pattern for summary section test cases (e.g., "FAILED test_name")
-        summary_pattern = re.compile(r'^(FAILED|ERROR|SKIPPED)\s+(.*)$', re.MULTILINE)
+        summary_pattern = re.compile(r"^(FAILED|ERROR|SKIPPED)\s+(.*)$", re.MULTILINE)
         # Find the summary section to avoid false positives
-        summary_start = log.find('=========================== short test summary info ============================')
+        summary_start = log.find(
+            "=========================== short test summary info ============================"
+        )
         if summary_start != -1:
             summary_log = log[summary_start:]
             for match in summary_pattern.finditer(summary_log):
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status in ['FAILED', 'ERROR']:
+                if status in ["FAILED", "ERROR"]:
                     summary_failed.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     summary_skipped.add(test_name)
         # Handle test cases where name and status are on separate lines (e.g., test name on one line, PASSED on next)
-        separate_line_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?([\w/]+\.py::[\w.:]+(?:\[\S+\])?)\n.*?^(?:\[\s*\d+\]\s+)?PASSED(?:\s+\[\s*\d+%?\])?', re.MULTILINE | re.DOTALL)
+        separate_line_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?([\w/]+\.py::[\w.:]+(?:\[\S+\])?)\n.*?^(?:\[\s*\d+\]\s+)?PASSED(?:\s+\[\s*\d+%?\])?",
+            re.MULTILINE | re.DOTALL,
+        )
         for match in separate_line_pattern.finditer(log):
             test_name = match.group(1).strip()
             passed_tests.add(test_name)
@@ -258,9 +266,8 @@ class AGENTS_AEA_158_TO_147(Instance):
         parsed_results = {
             "passed_tests": {t for t, s in final_status.items() if s == "passed"},
             "failed_tests": {t for t, s in final_status.items() if s == "failed"},
-            "skipped_tests": {t for t, s in final_status.items() if s == "skipped"}
+            "skipped_tests": {t for t, s in final_status.items() if s == "skipped"},
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

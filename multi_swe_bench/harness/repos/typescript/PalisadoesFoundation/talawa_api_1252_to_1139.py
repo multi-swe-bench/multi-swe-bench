@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ sed -i 's/^MONGO_DB_URL=$/MONGO_DB_URL=mongodb:\/\/localhost:27017/' .env
 ###ACTION_DELIMITER###
 sed -i 's/^ACCESS_TOKEN_SECRET=$/ACCESS_TOKEN_SECRET=$(openssl rand -hex 16)/' .env && sed -i 's/^REFRESH_TOKEN_SECRET=$/REFRESH_TOKEN_SECRET=$(openssl rand -hex 16)/' .env
 ###ACTION_DELIMITER###
-bash /home/talawa-api/test_commands.sh"""
+bash /home/talawa-api/test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash /home/talawa-api/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx dotenv-cli -e .env -- npm run test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx dotenv-cli -e .env -- npm run test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx dotenv-cli -e .env -- npm run test -- --reporter verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class TALAWA_API_1252_TO_1139(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,29 +191,28 @@ class TALAWA_API_1252_TO_1139(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Pattern for passed tests: matches "✓ " followed by test name (including indented lines)
-        passed_pattern = re.compile(r'^\s*✓\s+([^>]+)', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s+([^>]+)", re.MULTILINE)
         for match in passed_pattern.findall(log):
-            test_name = re.sub(r'\s+', ' ', match.strip())
+            test_name = re.sub(r"\s+", " ", match.strip())
             passed_tests.add(test_name)
         # Pattern for failed tests: matches "FAIL " followed by test name (excluding [path] suffix)
-        failed_pattern = re.compile(r'^\s*FAIL\s+(.*?)\s+\[', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*FAIL\s+(.*?)\s+\[", re.MULTILINE)
         for match in failed_pattern.findall(log):
             test_name = match.strip()
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

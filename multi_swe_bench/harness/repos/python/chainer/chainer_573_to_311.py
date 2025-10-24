@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ apt-get install -y python3.7 python3.7-venv
 ###ACTION_DELIMITER###
 python3.7 -m venv venv37 && source venv37/bin/activate && pip install setuptools numpy six mock nose filelock protobuf && python setup.py install && nosetests -v
 ###ACTION_DELIMITER###
-echo 'source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ echo 'source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v' > test
 cd /home/[[REPO_NAME]]
 source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 source venv37/bin/activate && CHAINER_TEST_CPU_ONLY=1 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class CHAINER_573_TO_311(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,7 +213,6 @@ class CHAINER_573_TO_311(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -221,40 +220,42 @@ class CHAINER_573_TO_311(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json  # Note: json may not be needed, but kept as per skeleton
+
         # Regex patterns to match test lines
-        line_pattern = re.compile(r'\[\s*\d+\]\s*(test_.+?)\s+\.\.\.\s+(ok|ERROR|FAIL|SKIPPED)\s*$')
-        error_pattern = re.compile(r'(ERROR|FAIL|SKIPPED):\s*(.*)')
+        line_pattern = re.compile(
+            r"\[\s*\d+\]\s*(test_.+?)\s+\.\.\.\s+(ok|ERROR|FAIL|SKIPPED)\s*$"
+        )
+        error_pattern = re.compile(r"(ERROR|FAIL|SKIPPED):\s*(.*)")
         # Process line number lines
         for line in log.splitlines():
             line_stripped = line.strip()
-            if '...' in line_stripped:
-                parts = re.split(r'\s+\.\.\.\s+', line_stripped)
+            if "..." in line_stripped:
+                parts = re.split(r"\s+\.\.\.\s+", line_stripped)
                 if len(parts) == 2:
                     test_part = parts[0].strip()
                     status = parts[1].strip()
                     # Extract test name by removing leading line number
-                    test_name = re.sub(r'^\[\s*\d+\]\s*', '', test_part)
-                    if test_name.startswith('test_'):
-                        if status == 'ok':
+                    test_name = re.sub(r"^\[\s*\d+\]\s*", "", test_part)
+                    if test_name.startswith("test_"):
+                        if status == "ok":
                             passed_tests.add(test_name)
-                        elif status in ('ERROR', 'FAIL'):
+                        elif status in ("ERROR", "FAIL"):
                             failed_tests.add(test_name)
-                        elif status == 'SKIPPED':
+                        elif status == "SKIPPED":
                             skipped_tests.add(test_name)
         # Process error/fail/skipped lines
         for match in error_pattern.findall(log):
             status = match[0]
             test_name = match[1].strip()
-            if status in ('ERROR', 'FAIL'):
+            if status in ("ERROR", "FAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

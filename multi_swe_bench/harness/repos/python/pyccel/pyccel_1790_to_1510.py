@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ pip install -e ".[test]"
 ###ACTION_DELIMITER###
 echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class PYCCEL_1790_TO_1510(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,7 +164,6 @@ class PYCCEL_1790_TO_1510(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -178,39 +171,45 @@ class PYCCEL_1790_TO_1510(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Remove leading [number] part
-            cleaned_line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            cleaned_line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Check if the line contains relevant statuses
-            if 'PASSED' in cleaned_line or 'FAILED' in cleaned_line or 'SKIPPED' in cleaned_line:
+            if (
+                "PASSED" in cleaned_line
+                or "FAILED" in cleaned_line
+                or "SKIPPED" in cleaned_line
+            ):
                 # Try to match test name before status
-                match = re.match(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\b', cleaned_line)
+                match = re.match(r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\b", cleaned_line)
                 if match:
                     test_name = match.group(1).strip()
                     status = match.group(2)
                 else:
                     # Try to match status before test name
-                    match = re.match(r'^(PASSED|FAILED|SKIPPED)\s+(.*?)\b', cleaned_line)
+                    match = re.match(
+                        r"^(PASSED|FAILED|SKIPPED)\s+(.*?)\b", cleaned_line
+                    )
                     if match:
                         test_name = match.group(2).strip()
                         status = match.group(1)
                     else:
                         continue  # No match, skip
                 # Ensure test name is valid (starts with 'tests/')
-                if test_name.startswith('tests/'):
-                    if status == 'PASSED':
+                if test_name.startswith("tests/"):
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -111,7 +111,7 @@ echo -e '#!/bin/bash\n\npytest thunder/tests/ --ignore=thunder/tests/distributed
 ###ACTION_DELIMITER###
 sed -i 's/pytest/\/miniconda\/envs\/py310\/bin\/pytest/g' test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,9 +125,7 @@ cd /home/{pr.repo}
 /miniconda/envs/py310/bin/pytest thunder/tests/test_ops.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 /miniconda/envs/py310/bin/pytest thunder/tests/test_grad.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ fi
 /miniconda/envs/py310/bin/pytest thunder/tests/test_ops.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 /miniconda/envs/py310/bin/pytest thunder/tests/test_grad.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -165,9 +161,7 @@ fi
 /miniconda/envs/py310/bin/pytest thunder/tests/test_ops.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 /miniconda/envs/py310/bin/pytest thunder/tests/test_grad.py -v --datefmt="%Y%m%d-%H:%M:%S.%f" --random-order -n 4 --durations=250
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -229,7 +223,7 @@ class LIGHTNING_THUNDER_2262_TO_1907(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -243,30 +237,31 @@ class LIGHTNING_THUNDER_2262_TO_1907(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status and test name
         # Captures status (PASSED, SKIPPED, XFAILED, FAILED) and test name
-        pattern = re.compile(r'\[gw\d+\]\x1b\[\d+m \[\s*\d+%\] \x1b\[0m\x1b\[\d+m(PASSED|SKIPPED|XFAILED|FAILED)\x1b\[0m \[.*?\] (thunder/tests/[^ \n]+)')
+        pattern = re.compile(
+            r"\[gw\d+\]\x1b\[\d+m \[\s*\d+%\] \x1b\[0m\x1b\[\d+m(PASSED|SKIPPED|XFAILED|FAILED)\x1b\[0m \[.*?\] (thunder/tests/[^ \n]+)"
+        )
         matches = pattern.findall(log)
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ['XFAILED', 'FAILED']:
+            elif status in ["XFAILED", "FAILED"]:
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

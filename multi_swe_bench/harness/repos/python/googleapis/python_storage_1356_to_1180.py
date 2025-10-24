@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ pip install -e . -c testing/constraints-3.10.txt
 ###ACTION_DELIMITER###
 pytest -v tests/unit
 ###ACTION_DELIMITER###
-echo 'pytest -v tests/unit' > /home/python-storage/test_commands.sh"""
+echo 'pytest -v tests/unit' > /home/python-storage/test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'pytest -v tests/unit' > /home/python-storage/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v tests/unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests/unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests/unit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class PYTHON_STORAGE_1356_TO_1180(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,7 +168,6 @@ class PYTHON_STORAGE_1356_TO_1180(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -182,9 +175,10 @@ class PYTHON_STORAGE_1356_TO_1180(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test names and statuses
-        pattern = r'(tests/[^.]+\.py::[\w:]+)\s+(PASSED|FAILED|ERROR|SKIPPED)|(PASSED|FAILED|ERROR|SKIPPED)\s+(tests/[^.]+\.py::[\w:]+)'
+        pattern = r"(tests/[^.]+\.py::[\w:]+)\s+(PASSED|FAILED|ERROR|SKIPPED)|(PASSED|FAILED|ERROR|SKIPPED)\s+(tests/[^.]+\.py::[\w:]+)"
         matches = re.findall(pattern, log)
         for match in matches:
             # Check if the first alternative matched (test name followed by status)
@@ -198,18 +192,17 @@ class PYTHON_STORAGE_1356_TO_1180(Instance):
             else:
                 continue  # no match
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

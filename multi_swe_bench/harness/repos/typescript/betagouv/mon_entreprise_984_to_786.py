@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\n\nyarn test --verbose\n\nyarn test-cypress --verbose\n\nyarn test-regressions --verbose\n\nyarn test-bundlesize' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ yarn test-regressions --verbose
 
 yarn test-bundlesize
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ yarn test-regressions --verbose
 
 yarn test-bundlesize
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ yarn test-regressions --verbose
 
 yarn test-bundlesize
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class MON_ENTREPRISE_984_TO_786(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,25 +197,23 @@ class MON_ENTREPRISE_984_TO_786(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         # Extract passed tests (marked with ✓)
-        passed_pattern = re.compile(r'✓\s+(.+?)\s*\(\d+ms\)')
+        passed_pattern = re.compile(r"✓\s+(.+?)\s*\(\d+ms\)")
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(match.strip() for match in passed_matches)
         # Extract failed tests (marked with ●)
-        failed_pattern = re.compile(r'●\s+(.+)')
+        failed_pattern = re.compile(r"●\s+(.+)")
         failed_matches = failed_pattern.findall(log)
         failed_tests.update(match.strip() for match in failed_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

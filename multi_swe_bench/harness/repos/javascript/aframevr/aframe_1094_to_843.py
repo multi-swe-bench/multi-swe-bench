@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -179,7 +179,7 @@ module.exports = function (config) {
 };
 EOF
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -188,7 +188,7 @@ EOF
 cd /home/[[REPO_NAME]]
 xvfb-run -a npm run test:ci -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -201,7 +201,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run -a npm run test:ci -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -214,7 +214,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 xvfb-run -a npm run test:ci -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -276,7 +276,7 @@ class AFRAME_1094_TO_843(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -290,50 +290,49 @@ class AFRAME_1094_TO_843(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', log)
-        lines = log_clean.split('\n')
+        log_clean = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", log)
+        lines = log_clean.split("\n")
         hierarchy = []
         for line in lines:
             # Process test lines with ✔/✖ and optional (skipped)
-            test_match = re.match(r'^(\s+)([✔✖])(\s+)(.*?)(\s*\(skipped\))?$', line)
+            test_match = re.match(r"^(\s+)([✔✖])(\s+)(.*?)(\s*\(skipped\))?$", line)
             if test_match:
                 leading_spaces = test_match.group(1)
                 symbol = test_match.group(2)
                 test_name_part = test_match.group(4).strip()
                 skipped = test_match.group(5) is not None
                 level = len(leading_spaces) // 2  # Assume 2 spaces per hierarchy level
-                current_hierarchy = hierarchy[:level-1]
-                full_test_name = ' '.join(current_hierarchy + [test_name_part])
+                current_hierarchy = hierarchy[: level - 1]
+                full_test_name = " ".join(current_hierarchy + [test_name_part])
                 if skipped:
                     skipped_tests.add(full_test_name)
                 else:
-                    if symbol == '✔':
+                    if symbol == "✔":
                         passed_tests.add(full_test_name)
-                    elif symbol == '✖':
+                    elif symbol == "✖":
                         failed_tests.add(full_test_name)
                 continue
             # Process group lines to build hierarchy
-            group_match = re.match(r'^(\s+)(\w.*)$', line)
+            group_match = re.match(r"^(\s+)(\w.*)$", line)
             if group_match:
                 leading_spaces = group_match.group(1)
                 group_name = group_match.group(2).strip()
                 level = len(leading_spaces) // 2
-                hierarchy = hierarchy[:level-1] + [group_name]
+                hierarchy = hierarchy[: level - 1] + [group_name]
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

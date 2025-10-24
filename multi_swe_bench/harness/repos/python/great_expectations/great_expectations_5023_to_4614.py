@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -91,7 +91,7 @@ export LC_ALL=en_US.UTF-8 && pytest --collect-only -v tests
 ###ACTION_DELIMITER###
 echo 'export LC_ALL=en_US.UTF-8 && pytest -v -rA tests' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -100,9 +100,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 export LC_ALL=en_US.UTF-8 && pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 export LC_ALL=en_US.UTF-8 && pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 export LC_ALL=en_US.UTF-8 && pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class GREAT_EXPECTATIONS_5023_TO_4614(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,24 +202,26 @@ class GREAT_EXPECTATIONS_5023_TO_4614(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regular expressions to match test cases and their statuses
-        passed_skipped_pattern = re.compile(r'([\w\/-]+\.py::[\w\[\]-]+) (PASSED|SKIPPED)')
-        failed_pattern = re.compile(r'FAILED ([\w\/-]+\.py::[\w\[\]-]+)')
+        passed_skipped_pattern = re.compile(
+            r"([\w\/-]+\.py::[\w\[\]-]+) (PASSED|SKIPPED)"
+        )
+        failed_pattern = re.compile(r"FAILED ([\w\/-]+\.py::[\w\[\]-]+)")
         # Extract passed and skipped tests
         for match in passed_skipped_pattern.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract failed tests
         for match in failed_pattern.finditer(log):
@@ -234,9 +230,8 @@ class GREAT_EXPECTATIONS_5023_TO_4614(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

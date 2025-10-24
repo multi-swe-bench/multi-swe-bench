@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ echo -e 'nosetests -v acme
 nosetests -v certbot
 nosetests -v certbot_apache
 nosetests -v certbot_nginx
-nosetests -v letshelp_certbot' > test_commands.sh"""
+nosetests -v letshelp_certbot' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ nosetests -v certbot_apache
 nosetests -v certbot_nginx
 nosetests -v letshelp_certbot
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ nosetests -v certbot_apache
 nosetests -v certbot_nginx
 nosetests -v letshelp_certbot
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ nosetests -v certbot_apache
 nosetests -v certbot_nginx
 nosetests -v letshelp_certbot
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class CERTBOT_3626_TO_3204(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,32 +194,49 @@ class CERTBOT_3626_TO_3204(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not needed for regex parsing
         # Implement the log parsing logic here
         # Regex patterns to match test cases and their statuses
         # Pattern for passed tests (ends with ... ok)
-        passed_pattern = re.compile(r'^(?:\s*\[\s*\d+\s*\]\s*)?(test_[a-z_]+)\s*\(([^)]+)\)\s*\.\.\.\s*ok\s*$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^(?:\s*\[\s*\d+\s*\]\s*)?(test_[a-z_]+)\s*\(([^)]+)\)\s*\.\.\.\s*ok\s*$",
+            re.MULTILINE,
+        )
         # Pattern for failed tests (starts with ERROR:)
-        failed_pattern = re.compile(r'^(?:\s*\[\s*\d+\s*\]\s*)?ERROR:\s*(test_[a-z_]+)\s*\(([^)]+)\)\s*$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^(?:\s*\[\s*\d+\s*\]\s*)?ERROR:\s*(test_[a-z_]+)\s*\(([^)]+)\)\s*$",
+            re.MULTILINE,
+        )
         # Pattern for skipped tests (ends with ... skipped)
-        skipped_pattern = re.compile(r'^\s*\[\s*\d+\s*\]\s*(test_[a-z_]+)\s*\(([\w.]+)\)\s*\.\.\.\s*skipped\s*$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*\[\s*\d+\s*\]\s*(test_[a-z_]+)\s*\(([\w.]+)\)\s*\.\.\.\s*skipped\s*$",
+            re.MULTILINE,
+        )
         # Extract test names and strip any surrounding whitespace
-        passed_tests = set(f"{class_module}.{test_method}" for test_method, class_module in passed_pattern.findall(log))
-        failed_tests = set(f"{class_module}.{test_method}" for test_method, class_module in failed_pattern.findall(log))
-        skipped_tests = set(f"{class_module}.{test_method}" for test_method, class_module in skipped_pattern.findall(log))
+        passed_tests = set(
+            f"{class_module}.{test_method}"
+            for test_method, class_module in passed_pattern.findall(log)
+        )
+        failed_tests = set(
+            f"{class_module}.{test_method}"
+            for test_method, class_module in failed_pattern.findall(log)
+        )
+        skipped_tests = set(
+            f"{class_module}.{test_method}"
+            for test_method, class_module in skipped_pattern.findall(log)
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

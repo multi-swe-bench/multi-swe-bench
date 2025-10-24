@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -61,7 +61,7 @@ yarn install
 echo -e '#!/bin/bash
 yarn test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ fi
 #!/bin/bash
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ fi
 #!/bin/bash
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class LISK_MOBILE_1817_TO_1786(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,27 +175,32 @@ class LISK_MOBILE_1817_TO_1786(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Pattern to match passed (✓), failed (✕), and skipped (−/○/•/s/S/-) tests
         # Makes the time component optional to handle skipped tests without timing
-        test_pattern = re.compile(r'^\s*([✓✕−○•sS-])\s+(.+?)(?:\s*\(\d+\s*ms\))?$', re.MULTILINE)
+        test_pattern = re.compile(
+            r"^\s*([✓✕−○•sS-])\s+(.+?)(?:\s*\(\d+\s*ms\))?$", re.MULTILINE
+        )
         for match in test_pattern.finditer(log):
             symbol, test_name = match.groups()
             test_name = test_name.strip()
-            if symbol == '✓':
+            if symbol == "✓":
                 passed_tests.add(test_name)
-            elif symbol == '✕':
+            elif symbol == "✕":
                 failed_tests.add(test_name)
-            elif symbol in ('−', '○', '•', 's', 'S', '-'):
+            elif symbol in ("−", "○", "•", "s", "S", "-"):
                 skipped_tests.add(test_name)
         # Pattern to capture skipped tests from explicit notations (flexible format)
-        skipped_pattern = re.compile(r'(?:^|\s)(?:SKIPPED|skipped|skip)\s*[:]?\s+(.+?)(?:\s|$)|(.+?)\s+\(skipped\)|(?:skipped|skip)\s*:\s*([^,]+(?:,[^,]+)*)', re.IGNORECASE)
+        skipped_pattern = re.compile(
+            r"(?:^|\s)(?:SKIPPED|skipped|skip)\s*[:]?\s+(.+?)(?:\s|$)|(.+?)\s+\(skipped\)|(?:skipped|skip)\s*:\s*([^,]+(?:,[^,]+)*)",
+            re.IGNORECASE,
+        )
         for match in skipped_pattern.finditer(log):
             suite = match.group(1)
             test_name = match.group(2)
@@ -205,16 +210,15 @@ class LISK_MOBILE_1817_TO_1786(Instance):
             elif test_name:
                 skipped_tests.add(test_name.strip())
             elif test_list:
-                for test in test_list.split(','):
+                for test in test_list.split(","):
                     stripped = test.strip()
                     if stripped:
                         skipped_tests.add(stripped)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

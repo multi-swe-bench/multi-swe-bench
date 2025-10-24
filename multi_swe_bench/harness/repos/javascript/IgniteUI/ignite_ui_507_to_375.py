@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ sed -i 's/npm install -g grunt-cli/npm install -g grunt-cli@1.3.2/' package.json
 ###ACTION_DELIMITER###
 sed -i 's/grunt-cli@1.3.2/grunt-cli@1.2.0/' package.json && nvm use 6 && npm install --unsafe-perm && grunt qunit
 ###ACTION_DELIMITER###
-echo 'grunt qunit --verbose' > test_commands.sh"""
+echo 'grunt qunit --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ echo 'grunt qunit --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 grunt qunit --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class IGNITE_UI_507_TO_375(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,56 +179,69 @@ class IGNITE_UI_507_TO_375(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
-        same_line_passed = re.compile(r'^(.*?)\x1b\[32mOK\x1b\[39m')
-        same_line_failed = re.compile(r'^(.*?)\x1b\[31mERROR\x1b\[39m')
-        same_line_skipped = re.compile(r'^(.*?)\x1b\[33mSKIPPED\x1b\[39m')  # Assuming SKIPPED uses yellow (33m)
+
+        lines = log.split("\n")
+        same_line_passed = re.compile(r"^(.*?)\x1b\[32mOK\x1b\[39m")
+        same_line_failed = re.compile(r"^(.*?)\x1b\[31mERROR\x1b\[39m")
+        same_line_skipped = re.compile(
+            r"^(.*?)\x1b\[33mSKIPPED\x1b\[39m"
+        )  # Assuming SKIPPED uses yellow (33m)
         for i, line in enumerate(lines):
             # Check same-line status
             passed_match = same_line_passed.search(line)
             if passed_match:
-                test_name = passed_match.group(1).rstrip('. ').strip()
+                test_name = passed_match.group(1).rstrip(". ").strip()
                 passed_tests.add(test_name)
                 continue
             failed_match = same_line_failed.search(line)
             if failed_match:
-                test_name = failed_match.group(1).rstrip('. ').strip()
+                test_name = failed_match.group(1).rstrip(". ").strip()
                 failed_tests.add(test_name)
                 continue
             # Check same-line skipped
             skipped_match = same_line_skipped.search(line)
             if skipped_match:
-                test_name = skipped_match.group(1).rstrip('. ').strip()
+                test_name = skipped_match.group(1).rstrip(". ").strip()
                 skipped_tests.add(test_name)
                 continue
             # Check if line ends with '...'
-            if line.endswith('...'):
-                test_name = line.rstrip('...').strip()
+            if line.endswith("..."):
+                test_name = line.rstrip("...").strip()
                 # Check next line for status
                 if i + 1 < len(lines):
-                    next_line = lines[i+1]
+                    next_line = lines[i + 1]
                     # Check for error indicators in next line
-                    if any(indicator in next_line for indicator in ['ERROR', 'timed out', 'TypeError', 'Expected', 'Message:']):
+                    if any(
+                        indicator in next_line
+                        for indicator in [
+                            "ERROR",
+                            "timed out",
+                            "TypeError",
+                            "Expected",
+                            "Message:",
+                        ]
+                    ):
                         failed_tests.add(test_name)
                     # Check for skipped indicators in next line
-                    elif any(indicator in next_line for indicator in ['SKIPPED', '\x1b\[33mSKIPPED\x1b\[39m']):
+                    elif any(
+                        indicator in next_line
+                        for indicator in ["SKIPPED", "\x1b\[33mSKIPPED\x1b\[39m"]
+                    ):
                         skipped_tests.add(test_name)
                     # Check for passed indicators in next line
-                    elif 'OK' in next_line or '\x1b\[32mOK\x1b\[39m' in next_line:
+                    elif "OK" in next_line or "\x1b\[32mOK\x1b\[39m" in next_line:
                         passed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

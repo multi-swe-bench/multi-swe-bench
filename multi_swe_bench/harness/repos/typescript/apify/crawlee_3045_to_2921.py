@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:22.17.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ echo -e '#!/bin/bash
 yarn test -- --verbose
 yarn test:e2e' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 yarn test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ fi
 yarn test -- --verbose
 yarn test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ fi
 yarn test -- --verbose
 yarn test:e2e
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class CRAWLEE_3045_TO_2921(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,7 +189,6 @@ class CRAWLEE_3045_TO_2921(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -197,21 +196,28 @@ class CRAWLEE_3045_TO_2921(Instance):
         skipped_tests = set()
         import re
         import json
+
         # Pattern for passed test files (with (N tests))
-        passed_file_pattern = re.compile(r'\s*✓\s+([^\(]+?)\s+\(\d+ tests\)\s+\d+ms')  # Capture test files with leading spaces
+        passed_file_pattern = re.compile(
+            r"\s*✓\s+([^\(]+?)\s+\(\d+ tests\)\s+\d+ms"
+        )  # Capture test files with leading spaces
         # Pattern for passed individual tests
-        passed_individual_pattern = re.compile(r'\s*✓\s+(.*?)\s+\d+ms')  # Handle indented passed tests
+        passed_individual_pattern = re.compile(
+            r"\s*✓\s+(.*?)\s+\d+ms"
+        )  # Handle indented passed tests
         # Pattern for failed tests
-        failed_pattern = re.compile(r'\s*×\s+(.*?)\s+\d+ms')  # Handle indented failed tests
+        failed_pattern = re.compile(
+            r"\s*×\s+(.*?)\s+\d+ms"
+        )  # Handle indented failed tests
         # Pattern for skipped tests
-        skipped_pattern = re.compile(r'\s*↓\s+(.*)')  # Handle indented skipped tests
+        skipped_pattern = re.compile(r"\s*↓\s+(.*)")  # Handle indented skipped tests
         # Find all passed test files
         for match in passed_file_pattern.finditer(log):
             passed_tests.add(match.group(1).strip())
         # Find all passed individual tests (excluding those already captured by the file pattern)
         for match in passed_individual_pattern.finditer(log):
             test_name = match.group(1).strip()
-            if not re.search(r'\(\d+ tests\)', test_name):
+            if not re.search(r"\(\d+ tests\)", test_name):
                 passed_tests.add(test_name)
         # Find all failed tests
         for match in failed_pattern.finditer(log):
@@ -222,9 +228,8 @@ class CRAWLEE_3045_TO_2921(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

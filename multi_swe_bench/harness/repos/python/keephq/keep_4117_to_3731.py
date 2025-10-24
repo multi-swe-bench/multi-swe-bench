@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ poetry install
 ###ACTION_DELIMITER###
 echo 'poetry run pytest -v -rA --tb=short ./tests' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ chmod +x test_commands.sh"""
 cd /home/[[REPO_NAME]]
 poetry run pytest -v -rA --tb=short ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -v -rA --tb=short ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 poetry run pytest -v -rA --tb=short ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class KEEP_4117_TO_3731(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,19 +167,19 @@ class KEEP_4117_TO_3731(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Define regex patterns for different test statuses
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]$')
-        failed_pattern = re.compile(r'^FAILED\s+(.*?)(\s+-.*)?$')
-        error_pattern = re.compile(r'^ERROR\s+(.*)$')
-        skipped_pattern = re.compile(r'^SKIPPED\s+(.*)$')
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]$")
+        failed_pattern = re.compile(r"^FAILED\s+(.*?)(\s+-.*)?$")
+        error_pattern = re.compile(r"^ERROR\s+(.*)$")
+        skipped_pattern = re.compile(r"^SKIPPED\s+(.*)$")
+        for line in log.split("\n"):
             line = line.strip()
             # Check for PASSED tests
             match = passed_pattern.match(line)
@@ -208,9 +208,8 @@ class KEEP_4117_TO_3731(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ echo 'source venv38/bin/activate && python -m twisted.trial tests' > test_comman
 ###ACTION_DELIMITER###
 source venv38/bin/activate && pip install pytest-twisted && pytest tests -v
 ###ACTION_DELIMITER###
-source venv38/bin/activate && pip install Pillow testfixtures && echo 'source venv38/bin/activate && pytest tests -v' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+source venv38/bin/activate && pip install Pillow testfixtures && echo 'source venv38/bin/activate && pytest tests -v' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ source venv38/bin/activate && pip install Pillow testfixtures && echo 'source ve
 cd /home/{pr.repo}
 source venv38/bin/activate && pytest tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source venv38/bin/activate && pytest tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source venv38/bin/activate && pytest tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class SCRAPY_3722_TO_3377(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,20 +208,25 @@ class SCRAPY_3722_TO_3377(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases and their statuses
         # Pattern for passed tests: e.g., "tests/test_closespider.py::TestCloseSpider::test_closespider_errorcount PASSED [  0%]"
-        passed_pattern = re.compile(r'^(tests/.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^(tests/.*?)\s+PASSED\s+\[\s*\d+%\s*\]$", re.MULTILINE
+        )
         # Pattern for failed tests: e.g., "FAILED tests/test_squeues.py::ChunkSize2MarshalFifoDiskQueueTest::test_peek_one_element"
-        failed_pattern = re.compile(r'^FAILED\s+(tests/.*?)(?:\s+-.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(tests/.*?)(?:\s+-.*)?$", re.MULTILINE)
         # Pattern for skipped tests: e.g., "tests/test_xyz.py::TestXYZ::test_1 SKIPPED [  0%]" or "SKIPPED tests/test_xyz.py::TestXYZ::test_1"
-        skipped_pattern = re.compile(r'^(tests/.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$|^SKIPPED\s+(tests/.*?)$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(tests/.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$|^SKIPPED\s+(tests/.*?)$",
+            re.MULTILINE,
+        )
         # Extract passed tests
         passed_tests.update(passed_pattern.findall(log))
         # Extract failed tests
@@ -240,9 +239,8 @@ class SCRAPY_3722_TO_3377(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

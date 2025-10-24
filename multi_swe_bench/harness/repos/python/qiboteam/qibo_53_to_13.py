@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -75,7 +75,7 @@ pip3.7 install pytest
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA -p no:cacheprovider src/qibo/tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -84,9 +84,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v --no-header -rA -p no:cacheprovider src/qibo/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -99,9 +97,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA -p no:cacheprovider src/qibo/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -114,9 +110,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA -p no:cacheprovider src/qibo/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -178,7 +172,7 @@ class QIBO_53_TO_13(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -192,18 +186,22 @@ class QIBO_53_TO_13(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         test_status = {}  # Track latest status for each test
         import re
+
         # Pattern 1: test name (src/...::test) followed by status
-        pattern1 = re.compile(r'(src/[\w/\.]+\.py::[\w\[\]_-]+)\s+(PASSED|FAILED|SKIPPED)')
+        pattern1 = re.compile(
+            r"(src/[\w/\.]+\.py::[\w\[\]_-]+)\s+(PASSED|FAILED|SKIPPED)"
+        )
         # Pattern 2: status followed by test name (src/...::test)
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(src/[\w/\.]+\.py::[\w\[\]_-]+)')
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+(src/[\w/\.]+\.py::[\w\[\]_-]+)"
+        )
         # Update status for pattern1 matches (test first)
         for test, status in pattern1.findall(log):
             test_status[test] = status.upper()
@@ -212,18 +210,17 @@ class QIBO_53_TO_13(Instance):
             test_status[test] = status.upper()
         # Populate sets based on the latest status
         for test, status in test_status.items():
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

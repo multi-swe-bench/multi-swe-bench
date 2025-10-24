@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ echo -e '#!/bin/bash
 pytest -v -s
 python -X dev -m pytest --cov-append -v -s -m dev_mode' > /home/aiohttp/test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x /home/aiohttp/test_commands.sh"""
+chmod +x /home/aiohttp/test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ cd /home/{pr.repo}
 pytest -v -s
 python -X dev -m pytest --cov-append -v -s -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -113,9 +111,7 @@ fi
 pytest -v -s
 python -X dev -m pytest --cov-append -v -s -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +126,7 @@ fi
 pytest -v -s
 python -X dev -m pytest --cov-append -v -s -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -194,7 +188,7 @@ class AIOHTTP_8951_TO_8630(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -208,30 +202,29 @@ class AIOHTTP_8951_TO_8630(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
-        pattern = r'\b(tests/[^ ]*\.py::[^ ]*)\s+(PASSED|XFAIL|FAILED|SKIPPED)\b'
+        pattern = r"\b(tests/[^ ]*\.py::[^ ]*)\s+(PASSED|XFAIL|FAILED|SKIPPED)\b"
         matches = re.findall(pattern, log)
         for test, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status in ('XFAIL', 'FAILED'):
+            elif status in ("XFAIL", "FAILED"):
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

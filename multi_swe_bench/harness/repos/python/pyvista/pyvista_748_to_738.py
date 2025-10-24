@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -99,7 +99,7 @@ pip install contourpy==1.0.5
 ###ACTION_DELIMITER###
 echo 'xvfb-run python -m pytest -v --cov pyvista' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,9 +108,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 xvfb-run python -m pytest -v --cov pyvista
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -123,9 +121,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 xvfb-run python -m pytest -v --cov pyvista
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -138,9 +134,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 xvfb-run python -m pytest -v --cov pyvista
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -202,7 +196,7 @@ class PYVISTA_748_TO_738(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -216,46 +210,45 @@ class PYVISTA_748_TO_738(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             # Remove leading line number in brackets
-            if line.startswith('['):
-                line = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            if line.startswith("["):
+                line = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Check for test status
-            if 'PASSED' in line:
-                status = 'PASSED'
-            elif 'FAILED' in line:
-                status = 'FAILED'
-            elif 'SKIPPED' in line:
-                status = 'SKIPPED'
+            if "PASSED" in line:
+                status = "PASSED"
+            elif "FAILED" in line:
+                status = "FAILED"
+            elif "SKIPPED" in line:
+                status = "SKIPPED"
             else:
                 continue
             # Extract test name by splitting on status
             parts = line.split(status)
             test_name = parts[0].strip() if parts[0].strip() else parts[1].strip()
             # Clean test name (remove trailing characters like '- ' or ' [')
-            test_name = re.sub(r'\s*-.*$|\s*\[.*$', '', test_name).strip()
+            test_name = re.sub(r"\s*-.*$|\s*\[.*$", "", test_name).strip()
             if test_name:
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

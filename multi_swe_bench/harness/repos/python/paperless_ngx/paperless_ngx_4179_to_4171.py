@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -104,7 +104,7 @@ mkdir -p consume media
 ###ACTION_DELIMITER###
 export PAPERLESS_SECRET_KEY='dummy-secret-key' && pipenv run python src/manage.py migrate && bash /home/paperless-ngx/test_commands.sh
 ###ACTION_DELIMITER###
-redis-server --daemonize yes && export PAPERLESS_SECRET_KEY='dummy-secret-key' && pipenv run python src/manage.py migrate && bash /home/paperless-ngx/test_commands.sh"""
+redis-server --daemonize yes && export PAPERLESS_SECRET_KEY='dummy-secret-key' && pipenv run python src/manage.py migrate && bash /home/paperless-ngx/test_commands.sh""",
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ redis-server --daemonize yes && export PAPERLESS_SECRET_KEY='dummy-secret-key' &
 cd /home/[[REPO_NAME]]
 PYTHONPATH=src pipenv run pytest --verbose --ds=paperless.settings --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=src pipenv run pytest --verbose --ds=paperless.settings --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 PYTHONPATH=src pipenv run pytest --verbose --ds=paperless.settings --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -201,7 +201,7 @@ class PAPERLESS_NGX_4179_TO_4171(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -215,20 +215,22 @@ class PAPERLESS_NGX_4179_TO_4171(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status either before or after the test name
-        pattern = re.compile(r'(?P<test1>src/[\w/\.::\-]+) (?P<status1>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED) (?P<test2>src/[\w/\.::\-]+)')
+        pattern = re.compile(
+            r"(?P<test1>src/[\w/\.::\-]+) (?P<status1>PASSED|FAILED|SKIPPED)|(?P<status2>PASSED|FAILED|SKIPPED) (?P<test2>src/[\w/\.::\-]+)"
+        )
         for match in pattern.finditer(log):
-            test1 = match.group('test1')
-            status1 = match.group('status1')
-            status2 = match.group('status2')
-            test2 = match.group('test2')
+            test1 = match.group("test1")
+            status1 = match.group("status1")
+            status2 = match.group("status2")
+            test2 = match.group("test2")
             if test1 and status1:
                 test_name = test1
                 status = status1
@@ -238,18 +240,17 @@ class PAPERLESS_NGX_4179_TO_4171(Instance):
             else:
                 continue  # No match
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ pdm venv create --venv-options="--system-site-packages" -n .venv && pdm install
 ###ACTION_DELIMITER###
 rm -rf .venv && virtualenv --system-site-packages .venv && . .venv/bin/activate && pdm install
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pdm run pytest -v -rA --tb=short --color=yes --import-mode=importlib ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pdm run pytest -v -rA --tb=short --color=yes --import-mode=importlib ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pdm run pytest -v -rA --tb=short --color=yes --import-mode=importlib ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class PYMATGEN_3994_TO_3819(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +205,6 @@ class PYMATGEN_3994_TO_3819(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -213,23 +212,23 @@ class PYMATGEN_3994_TO_3819(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
-        cleaned_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        cleaned_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Extract passed tests
-        passed_pattern = r'PASSED (.*)'
+        passed_pattern = r"PASSED (.*)"
         passed_tests = set(re.findall(passed_pattern, cleaned_log))
         # Extract failed tests
-        failed_pattern = r'FAILED (.*?) - '
+        failed_pattern = r"FAILED (.*?) - "
         failed_tests = set(re.findall(failed_pattern, cleaned_log))
         # Extract skipped tests
-        skipped_pattern = r'SKIPPED \[1\] (.*?): '
+        skipped_pattern = r"SKIPPED \[1\] (.*?): "
         skipped_tests = set(re.findall(skipped_pattern, cleaned_log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ pytest -v
 ###ACTION_DELIMITER###
 echo 'pytest -v' > /home/aiohttp/test_commands.sh
 ###ACTION_DELIMITER###
-cat /home/aiohttp/test_commands.sh"""
+cat /home/aiohttp/test_commands.sh""",
             ),
             File(
                 ".",
@@ -102,9 +102,7 @@ cat /home/aiohttp/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -117,9 +115,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -132,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -196,7 +190,7 @@ class AIOHTTP_11132_TO_10101(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,28 +204,27 @@ class AIOHTTP_11132_TO_10101(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests using regex
-        passed_pattern = re.compile(r'PASSED (tests/[^ ]+)')
+        passed_pattern = re.compile(r"PASSED (tests/[^ ]+)")
         passed_tests = set(passed_pattern.findall(log))
         # Extract failed tests using regex
-        failed_pattern = re.compile(r'FAILED (tests/[^ ]+)')
+        failed_pattern = re.compile(r"FAILED (tests/[^ ]+)")
         failed_tests = set(failed_pattern.findall(log))
         # Extract skipped tests using regex
-        skipped_pattern = re.compile(r'SKIPPED (?:\[\d+\] )?(tests/[^:]+:\d+)')
+        skipped_pattern = re.compile(r"SKIPPED (?:\[\d+\] )?(tests/[^:]+:\d+)")
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

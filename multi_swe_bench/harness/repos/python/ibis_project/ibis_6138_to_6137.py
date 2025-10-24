@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -113,7 +113,7 @@ echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands
 ###ACTION_DELIMITER###
 echo 'poetry run pytest -v -n auto --junitxml=junit.xml' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands.sh"""
+echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -122,9 +122,7 @@ echo 'poetry run pytest -m core -v -n auto --junitxml=junit.xml' > test_commands
 cd /home/{pr.repo}
 poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -137,9 +135,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -152,9 +148,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run pytest -m core -v -n auto --junitxml=junit.xml
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -216,7 +210,7 @@ class IBIS_6138_TO_6137(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -230,7 +224,6 @@ class IBIS_6138_TO_6137(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -238,19 +231,19 @@ class IBIS_6138_TO_6137(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Use regex to find test cases and their statuses
-        passed_pattern = re.compile(r'PASSED (ibis/.*?)(?=\s|$)')
-        failed_pattern = re.compile(r'FAILED (ibis/.*?)(?=\s|$)')
-        skipped_pattern = re.compile(r'SKIPPED (ibis/.*?)(?=\s|$)')
+        passed_pattern = re.compile(r"PASSED (ibis/.*?)(?=\s|$)")
+        failed_pattern = re.compile(r"FAILED (ibis/.*?)(?=\s|$)")
+        skipped_pattern = re.compile(r"SKIPPED (ibis/.*?)(?=\s|$)")
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

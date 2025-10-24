@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn test:e2e:local --verbose' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn test:e2e:local --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -112,7 +112,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn test:e2e:local --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ yarn test:unit --verbose
 yarn test:integration --verbose
 yarn test:e2e:local --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -193,7 +193,7 @@ class SIMORGH_9567_TO_8834(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -207,58 +207,61 @@ class SIMORGH_9567_TO_8834(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes from the log
-        cleaned_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
-        lines = cleaned_log.split('\n')
+        cleaned_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
+        lines = cleaned_log.split("\n")
         current_group = ""
         for line in lines:
             # Reset current group when a new test suite starts (PASS/FAIL)
-            if 'PASS' in line or 'FAIL' in line:
+            if "PASS" in line or "FAIL" in line:
                 current_group = ""
             # Identify group lines (indented, no test symbols)
-            elif '✕' not in line and '✓' not in line and '○' not in line:
-                group_match = re.match(r'^\s*(\w[\w\s]*?)\s*$', line)
+            elif "✕" not in line and "✓" not in line and "○" not in line:
+                group_match = re.match(r"^\s*(\w[\w\s]*?)\s*$", line)
                 if group_match and group_match.group(1):
                     current_group = group_match.group(1)
             # Process test case lines
             else:
                 test_case = None
                 # Check for failed tests (✕)
-                if '✕' in line:
-                    match = re.match(r'^\s*✕\s+(.*?)(?:\s*\(\d+ ms\))?\s*$', line)
+                if "✕" in line:
+                    match = re.match(r"^\s*✕\s+(.*?)(?:\s*\(\d+ ms\))?\s*$", line)
                     if match:
                         test_case = match.group(1).strip()
                 # Check for passed tests (✓)
-                elif '✓' in line:
-                    match = re.match(r'^\s*✓\s+(.*?)(?:\s*\(\d+ ms\))?\s*$', line)
+                elif "✓" in line:
+                    match = re.match(r"^\s*✓\s+(.*?)(?:\s*\(\d+ ms\))?\s*$", line)
                     if match:
                         test_case = match.group(1).strip()
                 # Check for skipped tests (○)
-                elif '○' in line:
-                    match = re.match(r'^\s*○\s*(?:skipped\s+)?(.*?)(?:\s*\(\d+ ms\))?\s*$', line)
+                elif "○" in line:
+                    match = re.match(
+                        r"^\s*○\s*(?:skipped\s+)?(.*?)(?:\s*\(\d+ ms\))?\s*$", line
+                    )
                     if match:
                         test_case = match.group(1).strip()
                 if test_case:
-                    full_test_name = f"{current_group} {test_case}" if current_group else test_case
-                    if '✕' in line:
+                    full_test_name = (
+                        f"{current_group} {test_case}" if current_group else test_case
+                    )
+                    if "✕" in line:
                         failed_tests.add(full_test_name)
-                    elif '✓' in line:
+                    elif "✓" in line:
                         passed_tests.add(full_test_name)
-                    elif '○' in line:
+                    elif "○" in line:
                         skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

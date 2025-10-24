@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:24.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ testflo -v openmdao
 ###ACTION_DELIMITER###
 echo 'testflo -v openmdao' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 testflo -v openmdao
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 testflo -v openmdao
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 testflo -v openmdao
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class OPENMDAO_3570_TO_3241(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,31 +179,33 @@ class OPENMDAO_3570_TO_3241(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines and capture name + status
-        test_pattern = re.compile(r'.*?([\w\/\-\.]+\.py:.+?)\s+\.\.\.\s+(?:\x1b\[.*?m)?(√|OK|PASS|PASSED|SKIP|FAIL|FAILED|ERROR)(?:\x1b\[.*?m)?.*', re.IGNORECASE)
+        test_pattern = re.compile(
+            r".*?([\w\/\-\.]+\.py:.+?)\s+\.\.\.\s+(?:\x1b\[.*?m)?(√|OK|PASS|PASSED|SKIP|FAIL|FAILED|ERROR)(?:\x1b\[.*?m)?.*",
+            re.IGNORECASE,
+        )
         # Categorize tests based on status
         for match in test_pattern.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status in ['√', 'OK', 'PASS', 'PASSED']:
+            if status in ["√", "OK", "PASS", "PASSED"]:
                 passed_tests.add(test_name)
-            elif status == 'SKIP':
+            elif status == "SKIP":
                 skipped_tests.add(test_name)
-            elif status in ['FAIL', 'FAILED', 'ERROR']:
+            elif status in ["FAIL", "FAILED", "ERROR"]:
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

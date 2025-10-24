@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -109,7 +109,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo '/home/scout/venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider --maxfail=0' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,9 +118,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 /home/scout/venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider --maxfail=0
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 /home/scout/venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider --maxfail=0
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -148,9 +144,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 /home/scout/venv/bin/pytest --no-header -rA --tb=no -p no:cacheprovider --maxfail=0
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -212,7 +206,7 @@ class SCOUT_4230_TO_4027(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -226,19 +220,21 @@ class SCOUT_4230_TO_4027(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Pattern for PASSED tests: captures test name followed by PASSED
-        passed_pattern = re.compile(r'(?<=PASSED\s)tests/[^\s]+|tests/[^\s]+(?=\s+PASSED)')
+        passed_pattern = re.compile(
+            r"(?<=PASSED\s)tests/[^\s]+|tests/[^\s]+(?=\s+PASSED)"
+        )
         # Pattern for FAILED tests: captures test name preceded by FAILED
-        failed_pattern = re.compile(r'FAILED\s+(tests/[^\s]+)')
+        failed_pattern = re.compile(r"FAILED\s+(tests/[^\s]+)")
         # Find all passed tests
         passed_tests.update(passed_pattern.findall(log))
         # Find all failed tests
@@ -246,9 +242,8 @@ class SCOUT_4230_TO_4027(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

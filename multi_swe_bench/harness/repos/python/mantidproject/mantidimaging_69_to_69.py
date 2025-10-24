@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ pip uninstall -y tomopy && pip install tomopy==1.4.0 && python -c 'import tomopy
 ###ACTION_DELIMITER###
 pip uninstall -y tomopy && rm -rf tomopy && git clone https://github.com/tomopy/tomopy.git && cd tomopy && git checkout 2c94ed18a06f7908b018c6f8e43d320f8a8488f2 && git submodule update --init --recursive && pip install --no-binary :all: -v . && cd .. && python -c 'import tomopy.io; print("tomopy.io imported successfully")' && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ pip uninstall -y tomopy && rm -rf tomopy && git clone https://github.com/tomopy/
 cd /home/[[REPO_NAME]]
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 nosetests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class MANTIDIMAGING_69_TO_69(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,31 +257,33 @@ class MANTIDIMAGING_69_TO_69(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Use regex to match test result lines and extract test name and status
-        pattern = re.compile(r'^(test_\w+)\s*\([^)]+\)\s*\.+\s*(ok|passed|error|fail|failed|skipped)$', re.IGNORECASE | re.MULTILINE)
+        pattern = re.compile(
+            r"^(test_\w+)\s*\([^)]+\)\s*\.+\s*(ok|passed|error|fail|failed|skipped)$",
+            re.IGNORECASE | re.MULTILINE,
+        )
         for match in pattern.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2).strip().lower()
-            if status in ('ok', 'passed'):
+            if status in ("ok", "passed"):
                 passed_tests.add(test_name)
-            elif status in ('error', 'fail'):
+            elif status in ("error", "fail"):
                 failed_tests.add(test_name)
             # Add handling for SKIPPED if present in logs
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

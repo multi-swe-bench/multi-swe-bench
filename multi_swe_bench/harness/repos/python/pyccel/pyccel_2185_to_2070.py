@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -64,7 +64,7 @@ echo "./tests/run_tests_py3.sh" > test_commands.sh
 echo -e '#!/bin/bash
 python3 -m pytest tests/pyccel -v -n auto
 python3 -m pytest tests/epyccel -v -m "not parallel" -n auto
-mpirun -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v' > test_commands.sh"""
+mpirun -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ python3 -m pytest tests/pyccel -v -n auto
 python3 -m pytest tests/epyccel -v -m "not parallel" -n auto
 mpirun -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +92,7 @@ python3 -m pytest tests/pyccel -v -n auto
 python3 -m pytest tests/epyccel -v -m "not parallel" -n auto
 mpirun -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ python3 -m pytest tests/pyccel -v -n auto
 python3 -m pytest tests/epyccel -v -m "not parallel" -n auto
 mpirun -n 4 python3 -m pytest tests/epyccel/test_epyccel_mpi_modules.py -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class PYCCEL_2185_TO_2070(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,28 +184,27 @@ class PYCCEL_2185_TO_2070(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_matches = re.findall(r'PASSED (tests/.*?)(?=\s)', log)
+        passed_matches = re.findall(r"PASSED (tests/.*?)(?=\s)", log)
         passed_tests.update(passed_matches)
         # Parse failed tests
-        failed_matches = re.findall(r'FAILED (tests/.*?) -', log)
+        failed_matches = re.findall(r"FAILED (tests/.*?) -", log)
         failed_tests.update(failed_matches)
         # Parse skipped tests
-        skipped_matches = re.findall(r'SKIPPED (tests/.*?)[ -]', log)
+        skipped_matches = re.findall(r"SKIPPED (tests/.*?)[ -]", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

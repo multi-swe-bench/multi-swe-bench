@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ sed -i 's/^black.*/black==21.12b0/' dev-requirements.txt && sed -i 's/^mypy.*/my
 ###ACTION_DELIMITER###
 sed -i 's/^mypy.*/mypy>=0.990/' dev-requirements.txt && grep -qxF 'mypy_extensions<1.0' dev-requirements.txt || echo 'mypy_extensions<1.0' >> dev-requirements.txt && venv/bin/pip install -r dev-requirements.txt
 ###ACTION_DELIMITER###
-echo 'venv/bin/pytest -v tests/' > test_commands.sh"""
+echo 'venv/bin/pytest -v tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ echo 'venv/bin/pytest -v tests/' > test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class PREFECT_1673_TO_1118(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,7 +182,6 @@ class PREFECT_1673_TO_1118(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -196,13 +189,14 @@ class PREFECT_1673_TO_1118(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns for test lines
         # Pattern 1: test_name followed by status and [percentage]
-        pattern1 = re.compile(r'^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$')
+        pattern1 = re.compile(r"^(.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]$")
         # Pattern 2: status followed by test_name
-        pattern2 = re.compile(r'^(XFAIL|XPASS|SKIPPED)\s+(.+)$')
+        pattern2 = re.compile(r"^(XFAIL|XPASS|SKIPPED)\s+(.+)$")
         for line in lines:
             line = line.strip()
             # Check pattern1
@@ -210,11 +204,11 @@ class PREFECT_1673_TO_1118(Instance):
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern2
@@ -222,19 +216,18 @@ class PREFECT_1673_TO_1118(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'XFAIL':
+                if status == "XFAIL":
                     failed_tests.add(test_name)
-                elif status == 'XPASS':
+                elif status == "XPASS":
                     passed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

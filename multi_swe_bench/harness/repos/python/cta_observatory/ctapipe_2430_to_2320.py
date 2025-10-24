@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -127,7 +127,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 venv/bin/pip install -e ./test_plugin && venv/bin/pip install setuptools_scm
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -162,7 +162,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -224,7 +224,7 @@ class CTAPIPE_2430_TO_2320(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,7 +238,6 @@ class CTAPIPE_2430_TO_2320(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
@@ -246,34 +245,34 @@ class CTAPIPE_2430_TO_2320(Instance):
         skipped_tests: set[str] = set()
         import re
         import json
+
         # Regex pattern to match test names and their statuses
         pattern = re.compile(
-            r'(?P<test>.+?\.py::test[^ ]+)\s+(?P<status>PASSED|FAILED|SKIPPED|SKIP|XFAIL):?|'
-            r'(?P<status2>PASSED|FAILED|SKIPPED|SKIP|XFAIL):?\s+(?P<test2>.+?\.py::test[^ ]+)',
-            re.IGNORECASE
+            r"(?P<test>.+?\.py::test[^ ]+)\s+(?P<status>PASSED|FAILED|SKIPPED|SKIP|XFAIL):?|"
+            r"(?P<status2>PASSED|FAILED|SKIPPED|SKIP|XFAIL):?\s+(?P<test2>.+?\.py::test[^ ]+)",
+            re.IGNORECASE,
         )
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
-                test_name = match.group('test') or match.group('test2')
-                status = (match.group('status') or match.group('status2')).upper()
+                test_name = match.group("test") or match.group("test2")
+                status = (match.group("status") or match.group("status2")).upper()
                 if test_name and status:
                     test_name = test_name.strip()
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status in ('SKIPPED', 'SKIP'):
+                    elif status in ("SKIPPED", "SKIP"):
                         skipped_tests.add(test_name)
-                    elif status == 'XFAIL':
+                    elif status == "XFAIL":
                         # XFAIL is expected failure, considered passed
                         passed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -106,7 +106,7 @@ pip install -e .
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y libssl-dev libffi-dev zlib1g-dev && bash test_commands.sh"""
+apt-get update && apt-get install -y libssl-dev libffi-dev zlib1g-dev && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,9 +115,7 @@ apt-get update && apt-get install -y libssl-dev libffi-dev zlib1g-dev && bash te
 cd /home/{pr.repo}
 PYTHONPATH=src pytest --timeout 300 -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -130,9 +128,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=src pytest --timeout 300 -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +141,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 PYTHONPATH=src pytest --timeout 300 -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -209,7 +203,7 @@ class PIP_7704_TO_7500(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -223,29 +217,28 @@ class PIP_7704_TO_7500(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'^(tests/.*?)\s+([A-Z]+)\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        pattern = re.compile(r"^(tests/.*?)\s+([A-Z]+)\s+\[\s*\d+%\s*\]$", re.MULTILINE)
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR', 'XFAIL'):
+            elif status in ("FAILED", "ERROR", "XFAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

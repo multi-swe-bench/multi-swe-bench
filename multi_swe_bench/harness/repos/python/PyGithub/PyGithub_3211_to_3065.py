@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install cryptography
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=short -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class PYGITHUB_3211_TO_3065(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,7 +187,6 @@ class PYGITHUB_3211_TO_3065(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -195,19 +194,20 @@ class PYGITHUB_3211_TO_3065(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes from the log content
-        cleaned_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        cleaned_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Split the cleaned log into individual lines
-        lines = cleaned_log.split('\n')
+        lines = cleaned_log.split("\n")
         # Regular expression pattern to identify test names
-        test_name_pattern = re.compile(r'tests/[\w/]+\.py::\w+::\w+')
+        test_name_pattern = re.compile(r"tests/[\w/]+\.py::\w+::\w+")
         # Mapping of statuses to their respective categories
         status_categories = {
-            'PASSED': 'passed',
-            'SUBPASS': 'passed',
-            'FAILED': 'failed',
-            'SUBFAIL': 'failed',
-            'SKIPPED': 'skipped'
+            "PASSED": "passed",
+            "SUBPASS": "passed",
+            "FAILED": "failed",
+            "SUBFAIL": "failed",
+            "SKIPPED": "skipped",
         }
         for line in lines:
             # Check for each status in the line to determine the category
@@ -219,24 +219,23 @@ class PYGITHUB_3211_TO_3065(Instance):
                         continue
                     test_name = test_match.group(0)
                     # Extract subtest information (if any) from the line
-                    subtest_match = re.search(r'\((.*?)\)', line)
-                    subtest_info = subtest_match.group(0) if subtest_match else ''
+                    subtest_match = re.search(r"\((.*?)\)", line)
+                    subtest_info = subtest_match.group(0) if subtest_match else ""
                     # Construct full test name with subtest info
                     full_test_name = f"{test_name} {subtest_info}".strip()
                     # Add to the appropriate set
-                    if status_categories[status] == 'passed':
+                    if status_categories[status] == "passed":
                         passed_tests.add(full_test_name)
-                    elif status_categories[status] == 'failed':
+                    elif status_categories[status] == "failed":
                         failed_tests.add(full_test_name)
-                    elif status_categories[status] == 'skipped':
+                    elif status_categories[status] == "skipped":
                         skipped_tests.add(full_test_name)
                     break  # Assume one status per line
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

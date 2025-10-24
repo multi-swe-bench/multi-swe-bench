@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ make
 ###ACTION_DELIMITER###
 apt-get install -y nodejs npm
 ###ACTION_DELIMITER###
-make"""
+make""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ make"""
 cd /home/{pr.repo}
 pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -107,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class AIOHTTP_7079_TO_6201(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,29 +194,29 @@ class AIOHTTP_7079_TO_6201(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             # Check for PASSED tests (e.g., 'tests/test___all__.py::test___all__ PASSED')
-            passed_match = re.match(r'\s*(tests/.*?) PASSED\b', line)
+            passed_match = re.match(r"\s*(tests/.*?) PASSED\b", line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
                 passed_tests.add(test_name)
             # Check for FAILED tests (e.g., 'FAILED tests/test_client_session.py::test_client_session_timeout_zero - ...')
-            failed_match = re.match(r'\s*FAILED (tests/.*?)(?: -|$)', line)
+            failed_match = re.match(r"\s*FAILED (tests/.*?)(?: -|$)", line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
             # Check for SKIPPED tests (two formats: 'tests/... SKIPPED' or 'SKIPPED [1] tests/...')
-            skipped_match1 = re.match(r'\s*(tests/.*?) SKIPPED\b', line)
-            skipped_match2 = re.match(r'\s*SKIPPED \[\d+\] (tests/.*?):', line)
+            skipped_match1 = re.match(r"\s*(tests/.*?) SKIPPED\b", line)
+            skipped_match2 = re.match(r"\s*SKIPPED \[\d+\] (tests/.*?):", line)
             if skipped_match1:
                 test_name = skipped_match1.group(1).strip()
                 skipped_tests.add(test_name)
@@ -230,15 +224,14 @@ class AIOHTTP_7079_TO_6201(Instance):
                 test_name = skipped_match2.group(1).strip()
                 skipped_tests.add(test_name)
             # Ignore XFAIL tests (not counted as failed)
-            xfail_match = re.match(r'\s*XFAIL (tests/.*?)(?:$|\s)', line)
+            xfail_match = re.match(r"\s*XFAIL (tests/.*?)(?:$|\s)", line)
             if xfail_match:
                 pass  # XFAIL is not a failure, so no action
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

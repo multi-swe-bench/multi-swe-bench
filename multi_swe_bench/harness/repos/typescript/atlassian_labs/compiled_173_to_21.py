@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:14-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo 'yarn test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class COMPILED_173_TO_21(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class COMPILED_173_TO_21(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -184,17 +183,33 @@ class COMPILED_173_TO_21(Instance):
         suite_stack = []
         current_test_name = None
         import re
+
         # Define regex patterns with flexible matching
-        passed_pattern = re.compile(r'✓\s+(.*)', re.UNICODE)  # Capture everything after ✓
-        skipped_pattern = re.compile(r'○ skipped\s+(.*)', re.UNICODE)  # Capture everything after ○ skipped
-        test_name_pattern = re.compile(r'^\s*(?:\[\s*\d+\s*\]\s*)?(?:it|test)\(\s*["\'](.*?)["\']\s*\)', re.UNICODE)
-        failed_pattern = re.compile(r'^\s*(?:\[\s*\d+\s*\]\s*)?(✗|✕|×|x|●|✖|✘)\s+(.*)|^\s*(?:\[\s*\d+\s*\]\s*)?at Object\.<anonymous>.*', re.UNICODE)  # Capture failure symbols or error lines
+        passed_pattern = re.compile(
+            r"✓\s+(.*)", re.UNICODE
+        )  # Capture everything after ✓
+        skipped_pattern = re.compile(
+            r"○ skipped\s+(.*)", re.UNICODE
+        )  # Capture everything after ○ skipped
+        test_name_pattern = re.compile(
+            r'^\s*(?:\[\s*\d+\s*\]\s*)?(?:it|test)\(\s*["\'](.*?)["\']\s*\)', re.UNICODE
+        )
+        failed_pattern = re.compile(
+            r"^\s*(?:\[\s*\d+\s*\]\s*)?(✗|✕|×|x|●|✖|✘)\s+(.*)|^\s*(?:\[\s*\d+\s*\]\s*)?at Object\.<anonymous>.*",
+            re.UNICODE,
+        )  # Capture failure symbols or error lines
         # Pattern for top-level PASS/FAIL suite lines (ignore line numbers)
-        suite_pass_pattern = re.compile(r'^\s*\[\s*\d+\s*\]\s*PASS\s+(.*?)(?:\s+\(\d+ms\))?$', re.UNICODE)  # Greedy match for full suite name
-        suite_fail_pattern = re.compile(r'^\s*\[\s*\d+\s*\]\s*FAIL\s+(.*?)(?:\s+\(\d+ms\))?$', re.UNICODE)  # Greedy match for full suite name
+        suite_pass_pattern = re.compile(
+            r"^\s*\[\s*\d+\s*\]\s*PASS\s+(.*?)(?:\s+\(\d+ms\))?$", re.UNICODE
+        )  # Greedy match for full suite name
+        suite_fail_pattern = re.compile(
+            r"^\s*\[\s*\d+\s*\]\s*FAIL\s+(.*?)(?:\s+\(\d+ms\))?$", re.UNICODE
+        )  # Greedy match for full suite name
         # Pattern for indented suite lines (ignore line numbers, capture indentation)
-        indented_suite_pattern = re.compile(r'^\s*\[\s*\d+\s*\]\s*(\s+)(.*)$', re.UNICODE)
-        for line in log.split('\n'):
+        indented_suite_pattern = re.compile(
+            r"^\s*\[\s*\d+\s*\]\s*(\s+)(.*)$", re.UNICODE
+        )
+        for line in log.split("\n"):
             line = line.rstrip()  # Remove trailing whitespace
             if not line:
                 continue
@@ -230,30 +245,41 @@ class COMPILED_173_TO_21(Instance):
             passed_match = passed_pattern.search(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
-                full_test_name = ' > '.join(suite_stack + [test_name]) if suite_stack else test_name
+                full_test_name = (
+                    " > ".join(suite_stack + [test_name]) if suite_stack else test_name
+                )
                 passed_tests.add(full_test_name)
                 continue
             # Check for skipped tests
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
-                full_test_name = ' > '.join(suite_stack + [test_name]) if suite_stack else test_name
+                full_test_name = (
+                    " > ".join(suite_stack + [test_name]) if suite_stack else test_name
+                )
                 skipped_tests.add(full_test_name)
                 continue
             # Check for failed tests
             failed_match = failed_pattern.search(line)
             if failed_match:
-                test_name = failed_match.group(2).strip() if failed_match.group(2) else current_test_name
+                test_name = (
+                    failed_match.group(2).strip()
+                    if failed_match.group(2)
+                    else current_test_name
+                )
                 if test_name:
-                    full_test_name = ' > '.join(suite_stack + [test_name]) if suite_stack else test_name
+                    full_test_name = (
+                        " > ".join(suite_stack + [test_name])
+                        if suite_stack
+                        else test_name
+                    )
                     failed_tests.add(full_test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

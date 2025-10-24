@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ apt-get update && apt-get install -y libglib2.0-dev
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-python3 run_tests.py --help"""
+python3 run_tests.py --help""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ python3 run_tests.py --help"""
 cd /home/{pr.repo}
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python3 run_tests.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class MESON_9294_TO_8596(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,66 +196,75 @@ class MESON_9294_TO_8596(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse unittest-style tests (handles multi-line entries with warnings)
-        lines = log.split('\n')
+        lines = log.split("\n")
         current_test = None
         for line in lines:
             line_strip = line.strip()
             # Track test name and check for same-line status
-            if not current_test and '...' in line_strip and '(' in line_strip and ')' in line_strip:
-                parts = line_strip.split('...', 1)
+            if (
+                not current_test
+                and "..." in line_strip
+                and "(" in line_strip
+                and ")" in line_strip
+            ):
+                parts = line_strip.split("...", 1)
                 test_part = parts[0].strip()
-                if test_part.startswith('test_'):
+                if test_part.startswith("test_"):
                     current_test = test_part
                     # Check if status is in the same line
                     if len(parts) > 1:
                         after_part = parts[1].strip().lower()
-                        if any(after_part.startswith(s) for s in ['ok', 'skipped', 'failed']):
+                        if any(
+                            after_part.startswith(s)
+                            for s in ["ok", "skipped", "failed"]
+                        ):
                             status = after_part.split()[0]
-                            if status == 'ok':
+                            if status == "ok":
                                 passed_tests.add(current_test)
-                            elif status == 'skipped':
+                            elif status == "skipped":
                                 skipped_tests.add(current_test)
-                            elif status == 'failed':
+                            elif status == "failed":
                                 failed_tests.add(current_test)
                             current_test = None
             # Check for status in subsequent lines (case-insensitive, handles messages)
             elif current_test:
                 lower_line = line_strip.lower()
                 # Match exact status or status with trailing messages
-                if any(lower_line.startswith(s) for s in ['ok', 'skipped', 'failed']):
+                if any(lower_line.startswith(s) for s in ["ok", "skipped", "failed"]):
                     status = lower_line.split()[0]
-                    if status == 'ok':
+                    if status == "ok":
                         passed_tests.add(current_test)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(current_test)
-                    elif status == 'failed':
+                    elif status == "failed":
                         failed_tests.add(current_test)
                     current_test = None
         # Parse Meson-style tests (captures full test description)
-        meson_pattern = re.compile(r'\[\s*(SUCCESS|SKIPPED|FAILED)\s*\]\s+(.*)', re.IGNORECASE)
+        meson_pattern = re.compile(
+            r"\[\s*(SUCCESS|SKIPPED|FAILED)\s*\]\s+(.*)", re.IGNORECASE
+        )
         for match in meson_pattern.finditer(log):
             status = match.group(1).upper()
             test_name = match.group(2).strip()
-            if status == 'SUCCESS':
+            if status == "SUCCESS":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

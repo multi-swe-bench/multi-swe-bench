@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -125,7 +125,7 @@ python -c 'import torch; print("CUDA available: ", torch.cuda.is_available())' &
 ###ACTION_DELIMITER###
 export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:/usr/local/cuda-12.3/extras/CUPTI/lib64 && pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu123 && python -c 'import torch; print("CUDA available: ", torch.cuda.is_available())' && bash test_commands.sh
 ###ACTION_DELIMITER###
-export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:/usr/local/cuda-12.3/extras/CUPTI/lib64 && pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu121 && python -c 'import torch; print("CUDA available: ", torch.cuda.is_available())' && bash test_commands.sh"""
+export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:/usr/local/cuda-12.3/extras/CUPTI/lib64 && pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu121 && python -c 'import torch; print("CUDA available: ", torch.cuda.is_available())' && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -134,9 +134,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64:/usr/local/cuda-12.3/extras/CU
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=no -p no:cacheprovider thunder/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -149,9 +147,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider thunder/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -164,9 +160,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider thunder/tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -228,7 +222,7 @@ class LIGHTNING_THUNDER_538_TO_350(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -242,7 +236,6 @@ class LIGHTNING_THUNDER_538_TO_350(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -250,12 +243,15 @@ class LIGHTNING_THUNDER_538_TO_350(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
         lines = clean_log.splitlines()
         # Define regex patterns
-        pattern1 = re.compile(r'(?:\[\s*\d+\] )?\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|SKIPPED|FAILED) \[\s*\d+%\](?:.*)')
-        pattern2 = re.compile(r'\[\s*\d+\] (PASSED|FAILED) (.*?) (?:- |$)')
+        pattern1 = re.compile(
+            r"(?:\[\s*\d+\] )?\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] (.*?) (PASSED|SKIPPED|FAILED) \[\s*\d+%\](?:.*)"
+        )
+        pattern2 = re.compile(r"\[\s*\d+\] (PASSED|FAILED) (.*?) (?:- |$)")
         for line in lines:
             line = line.strip()
             # Check pattern1 (timestamp lines)
@@ -263,11 +259,11 @@ class LIGHTNING_THUNDER_538_TO_350(Instance):
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern2 (status first lines)
@@ -276,18 +272,17 @@ class LIGHTNING_THUNDER_538_TO_350(Instance):
                 status = match.group(1)
                 test_name = match.group(2).strip()
                 # Ensure test name contains '::' to avoid false positives
-                if '::' in test_name:
-                    if status == 'PASSED':
+                if "::" in test_name:
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
                 continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

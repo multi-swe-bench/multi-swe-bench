@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ mkdir -p /home/gammapy/gammapy-data && export GAMMAPY_DATA=/home/gammapy/gammapy
 ###ACTION_DELIMITER###
 pip install tqdm requests && mkdir -p /home/gammapy/gammapy-data && export GAMMAPY_DATA=/home/gammapy/gammapy-data && gammapy download datasets --out $GAMMAPY_DATA
 ###ACTION_DELIMITER###
-echo 'make test' > /home/gammapy/test_commands.sh"""
+echo 'make test' > /home/gammapy/test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ echo 'make test' > /home/gammapy/test_commands.sh"""
 cd /home/{pr.repo}
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class GAMMAPY_3335_TO_2905(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,30 +198,29 @@ class GAMMAPY_3335_TO_2905(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for test names
-        test_name_pattern = r'gammapy/[\w/-]+/tests/[\w_]+\.py::[\w\[\]_,-]+'
+        test_name_pattern = r"gammapy/[\w/-]+/tests/[\w_]+\.py::[\w\[\]_,-]+"
         # Parse passed tests
-        passed_pattern = re.compile(rf'({test_name_pattern})\s+PASSED')
+        passed_pattern = re.compile(rf"({test_name_pattern})\s+PASSED")
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(rf'FAILED\s+({test_name_pattern})')
+        failed_pattern = re.compile(rf"FAILED\s+({test_name_pattern})")
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests
-        skipped_pattern = re.compile(rf'({test_name_pattern})\s+SKIPPED')
+        skipped_pattern = re.compile(rf"({test_name_pattern})\s+SKIPPED")
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

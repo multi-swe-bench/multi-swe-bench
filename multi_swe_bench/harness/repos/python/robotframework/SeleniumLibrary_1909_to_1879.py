@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -145,7 +145,7 @@ echo 'python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no
 ###ACTION_DELIMITER###
 echo 'python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no-sandbox --disable-dev-shm-usage --user-data-dir=\$(mktemp -d) --binary=/usr/bin/chromium"' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -154,9 +154,7 @@ echo 'python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no
 cd /home/{pr.repo}
 python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no-sandbox --disable-dev-shm-usage --user-data-dir=\$(mktemp -d) --binary=/usr/bin/chromium"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -169,9 +167,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no-sandbox --disable-dev-shm-usage --user-data-dir=\$(mktemp -d) --binary=/usr/bin/chromium"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -184,9 +180,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python atest/run.py chrome --variable BROWSER_OPTIONS="--headless=new --no-sandbox --disable-dev-shm-usage --user-data-dir=\$(mktemp -d) --binary=/usr/bin/chromium"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -248,7 +242,7 @@ class SELENIUMLIBRARY_1909_TO_1879(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -262,7 +256,6 @@ class SELENIUMLIBRARY_1909_TO_1879(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -270,23 +263,26 @@ class SELENIUMLIBRARY_1909_TO_1879(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test cases with status
-        pattern = re.compile(r'^(?:\[\s*\d+\s*\]\s*)?([^|]+)\s*\|\s*(PASS|FAIL|SKIP|PASSED|FAILED|SKIPPED)\s*\|?.*$', re.MULTILINE | re.IGNORECASE)
+        pattern = re.compile(
+            r"^(?:\[\s*\d+\s*\]\s*)?([^|]+)\s*\|\s*(PASS|FAIL|SKIP|PASSED|FAILED|SKIPPED)\s*\|?.*$",
+            re.MULTILINE | re.IGNORECASE,
+        )
         for match in pattern.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2).upper()
-            if status in ('PASS', 'PASSED'):
+            if status in ("PASS", "PASSED"):
                 passed_tests.add(test_name)
-            elif status in ('FAIL', 'FAILED'):
+            elif status in ("FAIL", "FAILED"):
                 failed_tests.add(test_name)
-            elif status in ('SKIP', 'SKIPPED'):
+            elif status in ("SKIP", "SKIPPED"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

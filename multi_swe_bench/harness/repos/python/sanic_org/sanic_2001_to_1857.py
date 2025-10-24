@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -117,7 +117,7 @@ echo 'pytest -v tests --cov sanic --full-trace --forked --timeout=240' > test_co
 ###ACTION_DELIMITER###
 pip3 install -r <(grep -A 20 'deps =' tox.ini | grep -v 'deps =' | grep -v '^$' | sed 's/^[ 	]*//') && echo 'pytest -v tests --cov sanic --timeout=300' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-awk '/\[testenv\]/{flag=1} flag && /deps =/{flag=2; next} flag==2 && /^[^ 	]/{flag=0} flag==2' tox.ini | sed 's/^[ 	]*//' > requirements.txt && pip3 install -r requirements.txt && echo 'pytest -v tests --cov sanic --timeout=300' > test_commands.sh && bash test_commands.sh"""
+awk '/\[testenv\]/{flag=1} flag && /deps =/{flag=2; next} flag==2 && /^[^ 	]/{flag=0} flag==2' tox.ini | sed 's/^[ 	]*//' > requirements.txt && pip3 install -r requirements.txt && echo 'pytest -v tests --cov sanic --timeout=300' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -126,9 +126,7 @@ awk '/\[testenv\]/{flag=1} flag && /deps =/{flag=2; next} flag==2 && /^[^ 	]/{fl
 cd /home/{pr.repo}
 pytest -v tests --cov sanic --timeout=300
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -141,9 +139,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests --cov sanic --timeout=300
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +152,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests --cov sanic --timeout=300
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -220,7 +214,7 @@ class SANIC_2001_TO_1857(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -234,35 +228,34 @@ class SANIC_2001_TO_1857(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not needed for this parsing
         # Regex pattern to match test lines with their status
-        pattern = re.compile(r'^(tests/.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\b')
+        pattern = re.compile(r"^(tests/.*?::.*?)\s+(PASSED|FAILED|SKIPPED)\b")
         # Split log content into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             stripped_line = line.strip()
             match = pattern.match(stripped_line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

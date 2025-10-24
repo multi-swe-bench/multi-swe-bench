@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -63,7 +63,7 @@ echo -e 'yarn diff:sample-json
  yarn run unit-viewer --verbose
  yarn type-check' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ yarn diff:sample-json
  yarn run unit-viewer --verbose
  yarn type-check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ yarn diff:sample-json
  yarn run unit-viewer --verbose
  yarn type-check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ yarn diff:sample-json
  yarn run unit-viewer --verbose
  yarn type-check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class LIGHTHOUSE_7007_TO_5270(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,7 +189,6 @@ class LIGHTHOUSE_7007_TO_5270(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -197,22 +196,32 @@ class LIGHTHOUSE_7007_TO_5270(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Pattern for passed tests (handles spaces in line numbers, excludes durations)
-        passed_pattern = re.compile(r'^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(✓|PASS)\s+([^\(]+?)\s*(?:\(\d+ms\))?\s*(?:\x1B\[[0-9;]*m)*$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(✓|PASS)\s+([^\(]+?)\s*(?:\(\d+ms\))?\s*(?:\x1B\[[0-9;]*m)*$",
+            re.MULTILINE,
+        )
         for match in passed_pattern.findall(log):
             test_name = match[1].strip()
             if test_name:
                 passed_tests.add(test_name)
         # Pattern for failed tests (handles spaces in line numbers, excludes durations)
-        failed_pattern = re.compile(r'^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(FAIL)\s+([^\(]+?)\s*(?:\(\d+ms\))?\s*(?:\x1B\[[0-9;]*m)*$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(FAIL)\s+([^\(]+?)\s*(?:\(\d+ms\))?\s*(?:\x1B\[[0-9;]*m)*$",
+            re.MULTILINE,
+        )
         for match in failed_pattern.findall(log):
             test_name = match[1].strip()
             if test_name:
                 failed_tests.add(test_name)
         # Pattern for skipped tests (handles spaces in line numbers, excludes durations)
-        skipped_pattern = re.compile(r'^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(SKIPPED|→)\s+([^\(]+?)\s*(?:\x1B\[[0-9;]*m)*$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*(?:\[ *\d+ *\]\s*)?(?:\x1B\[[0-9;]*m)*\s*(SKIPPED|→)\s+([^\(]+?)\s*(?:\x1B\[[0-9;]*m)*$",
+            re.MULTILINE,
+        )
         for match in skipped_pattern.findall(log):
             test_name = match[1].strip()
             if test_name:
@@ -220,9 +229,8 @@ class LIGHTHOUSE_7007_TO_5270(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ cat packages/react/src/shared/connect.ts | grep 'props:' && sed -i 's/\(props:\s
 ###ACTION_DELIMITER###
 sed -i 's/Partial<React.ComponentProps<T>>/PropsWithoutRef<React.ComponentProps<T>>/' packages/react/src/shared/connect.ts && grep 'PropsWithoutRef<React.ComponentProps<T>>' packages/react/src/shared/connect.ts && yarn build
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -156,7 +156,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -170,7 +170,7 @@ fi
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -184,7 +184,7 @@ fi
 #!/bin/bash
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -246,7 +246,7 @@ class FORMILY_3481_TO_3305(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -260,29 +260,24 @@ class FORMILY_3481_TO_3305(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern to remove log numbers (e.g., [   16])
-        log_number_pattern = re.compile(r'^\[\s*\d+\]\s*')
-        test_suite_pattern = re.compile(r'^(PASS|FAIL|SKIP) (.*)$')
-        lines = log.split('\n')
+        log_number_pattern = re.compile(r"^\[\s*\d+\]\s*")
+        test_suite_pattern = re.compile(r"^(PASS|FAIL|SKIP) (.*)$")
+        lines = log.split("\n")
         current_test = None  # (status, indent_level, parts)
         current_groups = []  # List of (indent_level, group_name) to track test groups
         current_suite = ""  # Current test suite path
-        status_map = {
-            '✓': 'passed',
-            '✔': 'passed',
-            '✕': 'failed',
-            '○': 'skipped'
-        }
+        status_map = {"✓": "passed", "✔": "passed", "✕": "failed", "○": "skipped"}
         for line in lines:
             # Remove leading log number
-            line = log_number_pattern.sub('', line)
+            line = log_number_pattern.sub("", line)
             # Check for test suite lines
             suite_match = test_suite_pattern.match(line)
             if suite_match:
@@ -293,7 +288,7 @@ class FORMILY_3481_TO_3305(Instance):
             marker_found = False
             for marker in status_map.keys():
                 # Use regex to find marker with whitespace around it
-                match = re.search(rf'(^|\s){re.escape(marker)}(?=\s|$|[:(])', line)
+                match = re.search(rf"(^|\s){re.escape(marker)}(?=\s|$|[:(])", line)
                 if match:
                     marker_pos = match.start()
                     # Found a test line
@@ -301,26 +296,30 @@ class FORMILY_3481_TO_3305(Instance):
                         # Add previous test
                         status, _, parts = current_test
                         group_names = [g[1] for g in current_groups]
-                        test_name = ' '.join(group_names + parts).strip()
+                        test_name = " ".join(group_names + parts).strip()
                         if test_name:
-                            if status == 'passed':
+                            if status == "passed":
                                 passed_tests.add(test_name)
-                            elif status == 'failed':
+                            elif status == "failed":
                                 failed_tests.add(test_name)
-                            elif status == 'skipped':
+                            elif status == "skipped":
                                 skipped_tests.add(test_name)
                         current_test = None
                     # Calculate indent level (spaces before the marker)
-                    indent_level = marker_pos + 1  # +1 because marker is preceded by a space
+                    indent_level = (
+                        marker_pos + 1
+                    )  # +1 because marker is preceded by a space
                     # Extract test part (after marker, before duration)
-                    test_part = line[match.end():]
+                    test_part = line[match.end() :]
                     # Remove leading punctuation/whitespace after marker
-                    test_part = re.sub(r'^[✓✔✕○\s:(]+', '', test_part)
+                    test_part = re.sub(r"^[✓✔✕○\s:(]+", "", test_part)
                     # Remove duration info
-                    test_part = re.sub(r'\s*\(\d+\s*ms\)$', '', test_part)
+                    test_part = re.sub(r"\s*\(\d+\s*ms\)$", "", test_part)
                     test_part = test_part.strip()
                     # Filter out test parts with file patterns
-                    if re.search(r'[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)', test_part):
+                    if re.search(
+                        r"[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)", test_part
+                    ):
                         current_test = None
                         marker_found = False
                         continue
@@ -331,7 +330,9 @@ class FORMILY_3481_TO_3305(Instance):
                 # Check if line is a test group (no marker but has indentation)
                 stripped_line = line.lstrip()
                 # Filter out non-test group lines (e.g., file patterns)
-                if re.search(r'[✓✔✕○]', stripped_line) or re.match(r'[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)', stripped_line):
+                if re.search(r"[✓✔✕○]", stripped_line) or re.match(
+                    r"[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)", stripped_line
+                ):
                     continue
                 if stripped_line and not current_test:
                     group_indent = len(line) - len(stripped_line)
@@ -345,17 +346,21 @@ class FORMILY_3481_TO_3305(Instance):
                 # Calculate current line's indent level
                 stripped_line = line.lstrip()
                 # Filter out non-test group lines (e.g., file patterns)
-                if re.search(r'[✓✔✕○]', stripped_line) or re.match(r'[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)', stripped_line):
+                if re.search(r"[✓✔✕○]", stripped_line) or re.match(
+                    r"[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)", stripped_line
+                ):
                     continue
                 current_indent = len(line) - len(stripped_line)
                 if current_indent >= indent_level:
                     # Part of the test name
                     test_part = stripped_line
-                    if ' (' in test_part:
-                        test_part = test_part.split(' (')[0]
+                    if " (" in test_part:
+                        test_part = test_part.split(" (")[0]
                     test_part = test_part.strip()
                     # Filter out test parts with file patterns
-                    if re.search(r'[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)', test_part):
+                    if re.search(
+                        r"[\*\.\/\\]|(\.less$)|(\.scss$)|(\.js$)|(\*\*)", test_part
+                    ):
                         current_test = None
                         marker_found = False
                         continue
@@ -363,33 +368,32 @@ class FORMILY_3481_TO_3305(Instance):
                 else:
                     # End of test name
                     group_names = [g[1] for g in current_groups]
-                    test_name = ' '.join(group_names + parts).strip()
+                    test_name = " ".join(group_names + parts).strip()
                     if test_name:
-                        if status == 'passed':
+                        if status == "passed":
                             passed_tests.add(test_name)
-                        elif status == 'failed':
+                        elif status == "failed":
                             failed_tests.add(test_name)
-                        elif status == 'skipped':
+                        elif status == "skipped":
                             skipped_tests.add(test_name)
                     current_test = None
         # Add the last test if any
         if current_test:
             status, _, parts = current_test
             group_names = [g[1] for g in current_groups]
-            test_name = ' '.join(group_names + parts).strip()
+            test_name = " ".join(group_names + parts).strip()
             if test_name:
-                if status == 'passed':
+                if status == "passed":
                     passed_tests.add(test_name)
-                elif status == 'failed':
+                elif status == "failed":
                     failed_tests.add(test_name)
-                elif status == 'skipped':
+                elif status == "skipped":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

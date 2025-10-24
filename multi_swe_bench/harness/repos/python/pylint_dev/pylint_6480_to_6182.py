@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ pip install tomlkit==0.10.1
 ###ACTION_DELIMITER###
 pytest --benchmark-disable tests/
 ###ACTION_DELIMITER###
-echo 'pytest --benchmark-disable -v tests/' > test_commands.sh"""
+echo 'pytest --benchmark-disable -v tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo 'pytest --benchmark-disable -v tests/' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest --benchmark-disable -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --benchmark-disable -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --benchmark-disable -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class PYLINT_6480_TO_6182(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,7 +172,6 @@ class PYLINT_6480_TO_6182(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -186,6 +179,7 @@ class PYLINT_6480_TO_6182(Instance):
         skipped_tests = set()
         import re
         import json
+
         # Regex to capture test name and status
         test_pattern = re.compile(r"^(tests/.*?) (PASSED|FAILED|SKIPPED)")
         summary_pattern = re.compile(r"^(FAILED|SKIPPED) (.*?) -")
@@ -208,7 +202,7 @@ class PYLINT_6480_TO_6182(Instance):
         # In pytest, sometimes the summary line is the only place to get the failure info
         short_summary_line = re.search(r"short test summary info", log)
         if short_summary_line:
-            summary_section = log[short_summary_line.end():]
+            summary_section = log[short_summary_line.end() :]
             for line in summary_section.splitlines():
                 if line.startswith("FAILED"):
                     parts = line.split()
@@ -221,7 +215,6 @@ class PYLINT_6480_TO_6182(Instance):
             "failed_tests": failed_tests,
             "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

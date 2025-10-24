@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -106,7 +106,7 @@ export DATABASE_URL='sqlite:///test.db' && pipenv run pytest -v --no-header -rA 
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y gdal-bin libgdal-dev python3-gdal && export DATABASE_URL='sqlite:///test.db' && pipenv run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
-echo 'export DATABASE_URL="sqlite:///test.db"' > /home/tenants2/test_commands.sh && echo 'pipenv run pytest -v -rA --tb=no -p no:cacheprovider' >> /home/tenants2/test_commands.sh && chmod +x /home/tenants2/test_commands.sh && bash /home/tenants2/test_commands.sh"""
+echo 'export DATABASE_URL="sqlite:///test.db"' > /home/tenants2/test_commands.sh && echo 'pipenv run pytest -v -rA --tb=no -p no:cacheprovider' >> /home/tenants2/test_commands.sh && chmod +x /home/tenants2/test_commands.sh && bash /home/tenants2/test_commands.sh""",
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ cd /home/[[REPO_NAME]]
 export DATABASE_URL="sqlite:///test.db"
 pipenv run pytest -v -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ fi
 export DATABASE_URL="sqlite:///test.db"
 pipenv run pytest -v -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -144,7 +144,7 @@ fi
 export DATABASE_URL="sqlite:///test.db"
 pipenv run pytest -v -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -206,7 +206,7 @@ class TENANTS2_531_TO_341(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,7 +220,6 @@ class TENANTS2_531_TO_341(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -228,26 +227,26 @@ class TENANTS2_531_TO_341(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
-        for line in log.split('\n'):
+        pattern = re.compile(r"^(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]")
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern.match(line)
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

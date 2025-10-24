@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -161,7 +161,7 @@ NODE_OPTIONS=--openssl-legacy-provider xvfb-run npx cypress run' > test_commands
 ###ACTION_DELIMITER###
 rm -f cypress.json && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -172,7 +172,7 @@ cd /home/[[REPO_NAME]]
 NODE_OPTIONS=--openssl-legacy-provider npm run test:unit
 NODE_OPTIONS=--openssl-legacy-provider xvfb-run npx cypress run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -187,7 +187,7 @@ fi
 NODE_OPTIONS=--openssl-legacy-provider npm run test:unit
 NODE_OPTIONS=--openssl-legacy-provider xvfb-run npx cypress run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -202,7 +202,7 @@ fi
 NODE_OPTIONS=--openssl-legacy-provider npm run test:unit
 NODE_OPTIONS=--openssl-legacy-provider xvfb-run npx cypress run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -264,7 +264,7 @@ class CYLC_UI_249_TO_72(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -278,7 +278,6 @@ class CYLC_UI_249_TO_72(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -286,21 +285,21 @@ class CYLC_UI_249_TO_72(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests using regex
-        passed_matches = re.findall(r'^\s*✓\s+(.*)$', log, re.MULTILINE)
+        passed_matches = re.findall(r"^\s*✓\s+(.*)$", log, re.MULTILINE)
         passed_tests.update(passed_matches)
         # Parse failed tests using regex
-        failed_matches = re.findall(r'^\s{6,}\d+\)\s+(.*)$', log, re.MULTILINE)
+        failed_matches = re.findall(r"^\s{6,}\d+\)\s+(.*)$", log, re.MULTILINE)
         failed_tests.update(failed_matches)
         # Parse skipped tests (adjust pattern based on log format)
-        skipped_matches = re.findall(r'^\s*-\s+(.*?)\s+\(skipped\)$', log, re.MULTILINE)
+        skipped_matches = re.findall(r"^\s*-\s+(.*?)\s+\(skipped\)$", log, re.MULTILINE)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ cargo clean && pip install --upgrade setuptools wheel && RUST_BACKTRACE=1 pip in
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y build-essential && cargo clean && RUST_BACKTRACE=full pip install -e . -v
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 QISKIT_TEST_CAPTURE_STREAMS=1 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 QISKIT_TEST_CAPTURE_STREAMS=1 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 QISKIT_TEST_CAPTURE_STREAMS=1 stestr run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class QISKIT_11432_TO_10850(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,33 +185,32 @@ class QISKIT_11432_TO_10850(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines
-        pattern = r'^\s*(?:\[\s*\d+\]\s*)?(?:\{[^}]+\}\s*)?(test\.[\w._-]+)\s*(?:\[.*?\]\s*)?\.\.\.\s*(\w+)'
+        pattern = r"^\s*(?:\[\s*\d+\]\s*)?(?:\{[^}]+\}\s*)?(test\.[\w._-]+)\s*(?:\[.*?\]\s*)?\.\.\.\s*(\w+)"
         matches = re.finditer(pattern, log, re.MULTILINE)
         for match in matches:
             test_name = match.group(1)
             status = match.group(2)
             status_lower = status.lower()
-            if status_lower in ('ok', 'passed'):
+            if status_lower in ("ok", "passed"):
                 passed_tests.add(test_name)
-            elif status_lower == 'skipped':
+            elif status_lower == "skipped":
                 skipped_tests.add(test_name)
-            elif status_lower in ('failed', 'fail'):
+            elif status_lower in ("failed", "fail"):
                 failed_tests.add(test_name)
             # Add other statuses if necessary
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

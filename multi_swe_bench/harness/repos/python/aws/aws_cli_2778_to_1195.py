@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -123,7 +123,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip install pytest pytest-nose && echo 'venv/bin/pytest -v --nosecompat tests/unit tests/functional' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'venv/bin/nosetests -v tests/unit tests/functional' > test_commands.sh && bash test_commands.sh"""
+echo 'venv/bin/nosetests -v tests/unit tests/functional' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -132,9 +132,7 @@ echo 'venv/bin/nosetests -v tests/unit tests/functional' > test_commands.sh && b
 cd /home/{pr.repo}
 venv/bin/nosetests -v tests/unit tests/functional
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +145,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/nosetests -v tests/unit tests/functional
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -162,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/nosetests -v tests/unit tests/functional
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -226,7 +220,7 @@ class AWS_CLI_2778_TO_1195(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,37 +234,40 @@ class AWS_CLI_2778_TO_1195(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines and process each line
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
-            if re.search(r'\.\.\.|\u2026', line):
+            if re.search(r"\.\.\.|\u2026", line):
                 # Split into test part (before '...') and status part (after '...')
-                test_part, status_part = re.split(r'\.\.\.|\u2026', line, 1)
+                test_part, status_part = re.split(r"\.\.\.|\u2026", line, 1)
                 # Extract test name (remove [number] prefix)
-                test_name = re.sub(r'^.*?\[\s*\d+\s*\]\s*', '', test_part).strip()
+                test_name = re.sub(r"^.*?\[\s*\d+\s*\]\s*", "", test_part).strip()
                 # Extract status (take first word after '...')
-                status = status_part.strip().split()[0].lower() if status_part.strip() else ''
+                status = (
+                    status_part.strip().split()[0].lower()
+                    if status_part.strip()
+                    else ""
+                )
                 # Map status to category
-                if status in ('ok', 'passed', '√'):
+                if status in ("ok", "passed", "√"):
                     passed_tests.add(test_name)
-                elif status in ('fail', 'failed', 'error', 'x', 'exception'):
+                elif status in ("fail", "failed", "error", "x", "exception"):
                     failed_tests.add(test_name)
-                elif status in ('skip', 'skipped', 'xfail'):
+                elif status in ("skip", "skipped", "xfail"):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

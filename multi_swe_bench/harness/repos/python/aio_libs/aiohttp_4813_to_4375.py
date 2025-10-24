@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ pip install setuptools==66.0.0
 ###ACTION_DELIMITER###
 make vtest
 ###ACTION_DELIMITER###
-echo 'make vtest' > /home/aiohttp/test_commands.sh"""
+echo 'make vtest' > /home/aiohttp/test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ echo 'make vtest' > /home/aiohttp/test_commands.sh"""
 cd /home/{pr.repo}
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make vtest
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class AIOHTTP_4813_TO_4375(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,21 +192,29 @@ class AIOHTTP_4813_TO_4375(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not used
         # Define regex patterns for different test statuses (revised to capture test names)
         # Strict regex patterns matching log lines with statuses
         # Final regex adjustments for accurate test name capture
-        passed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+PASSED\s*$')
-        failed_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?(?:_______\s+)(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+________\s*$|(?:\[\s*\d+\]\s+)?(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+FAILED\s*$')
-        xfail_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?XFAIL\s+(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s*$')
-        skipped_pattern = re.compile(r'(?:\[\s*\d+\]\s+)?SKIPPED\s+\[\d+\]\s+(tests/[\w/]+\.py:\d+)\s*:')
+        passed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+PASSED\s*$"
+        )
+        failed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?(?:_______\s+)(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+________\s*$|(?:\[\s*\d+\]\s+)?(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s+FAILED\s*$"
+        )
+        xfail_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?XFAIL\s+(tests/[\w/]+\.py::[\w:]+(?:\[.*?\])?)\s*$"
+        )
+        skipped_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?SKIPPED\s+\[\d+\]\s+(tests/[\w/]+\.py:\d+)\s*:"
+        )
         # Extract and classify tests by processing lines sequentially
         for line in log.splitlines():
             # Check for PASSED tests
@@ -229,8 +231,8 @@ class AIOHTTP_4813_TO_4375(Instance):
                 test_name = failed_match.group(1) or failed_match.group(2)
                 test_name = test_name.strip()
                 # Handle parameterized tests (e.g., [pyloop])
-                if '[' in test_name and ']' in test_name:
-                    test_name = test_name[:test_name.rindex(']')+1]
+                if "[" in test_name and "]" in test_name:
+                    test_name = test_name[: test_name.rindex("]") + 1]
                 failed_tests.add(test_name)
                 passed_tests.discard(test_name)
                 skipped_tests.discard(test_name)
@@ -254,9 +256,8 @@ class AIOHTTP_4813_TO_4375(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

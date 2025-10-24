@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ python runtests.py --help
 ###ACTION_DELIMITER###
 python runtests.py -v --multiprocess --junit
 ###ACTION_DELIMITER###
-echo 'python runtests.py -v --multiprocess --junit' > test_commands.sh"""
+echo 'python runtests.py -v --multiprocess --junit' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ echo 'python runtests.py -v --multiprocess --junit' > test_commands.sh"""
 cd /home/{pr.repo}
 python runtests.py -v --multiprocess --junit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python runtests.py -v --multiprocess --junit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python runtests.py -v --multiprocess --junit
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class NUMBA_9572_TO_9334(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,23 +192,23 @@ class NUMBA_9572_TO_9334(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Pattern for ok and skipped tests (single line)
-        pattern_ok_skipped = r'\((numba\.tests\..*?)\)\s+\.\.\.\s+(ok|skipped)'
+        pattern_ok_skipped = r"\((numba\.tests\..*?)\)\s+\.\.\.\s+(ok|skipped)"
         matches_ok_skipped = re.findall(pattern_ok_skipped, log)
         for test_name, status in matches_ok_skipped:
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         # Pattern for error tests
-        pattern_error = r'ERROR:\s+.*?\((numba\.tests\..*?)\)'
+        pattern_error = r"ERROR:\s+.*?\((numba\.tests\..*?)\)"
         matches_error = re.findall(pattern_error, log, re.DOTALL)
         for test_name in matches_error:
             failed_tests.add(test_name)
@@ -225,9 +219,8 @@ class NUMBA_9572_TO_9334(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

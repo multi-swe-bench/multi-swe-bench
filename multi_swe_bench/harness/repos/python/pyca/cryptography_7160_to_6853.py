@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ pip install -r dev-requirements.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v -n auto --cov=cryptography --cov=tests --durations=10 -rA --tb=short tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v -n auto --cov=cryptography --cov=tests --durations=10 -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto --cov=cryptography --cov=tests --durations=10 -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -n auto --cov=cryptography --cov=tests --durations=10 -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class CRYPTOGRAPHY_7160_TO_6853(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,13 +173,13 @@ class CRYPTOGRAPHY_7160_TO_6853(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract all test names from the initial scheduled tests
         # Extract total number of tests from the session start line
         total_tests_match = re.search(r"(\d+) items", log)
@@ -187,23 +187,28 @@ class CRYPTOGRAPHY_7160_TO_6853(Instance):
         # Extract all main test names from the initial scheduled tests
         all_tests = set(re.findall(r"tests/.*?\.py::[^\s]+", log))
         # Extract failed tests from FAILED lines
-        failed_matches = re.findall(r"FAILED (tests/[\w/]+?\.py::[\w:]+(?:::[\w:]+)*)", log)
+        failed_matches = re.findall(
+            r"FAILED (tests/[\w/]+?\.py::[\w:]+(?:::[\w:]+)*)", log
+        )
         failed_tests.update(failed_matches)
         # Extract skipped file paths and counts from SKIPPED lines
-        skipped_files = re.findall(r"SKIPPED \[\s*(\d+)\s*\] (tests/[\w/]+?\.py):\d+", log)
+        skipped_files = re.findall(
+            r"SKIPPED \[\s*(\d+)\s*\] (tests/[\w/]+?\.py):\d+", log
+        )
         # Map skipped file paths to test names in all_tests
         for count, file_path in skipped_files:
             count = int(count)
-            matching_tests = [test for test in all_tests if test.startswith(f"{file_path}::")]
+            matching_tests = [
+                test for test in all_tests if test.startswith(f"{file_path}::")
+            ]
             skipped_tests.update(matching_tests[:count])
         # Calculate passed tests as remaining tests
         passed_tests = all_tests - failed_tests - skipped_tests
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:14-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -107,7 +107,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apk add --no-cache libstdc++ && npm install cheerio@1.0.0-rc.12 --legacy-peer-deps && echo 'npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand --testTimeout=10000 --json --outputFile=test-results.json' > test_commands.sh && bash test_commands.sh"""
+echo 'npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand --testTimeout=10000 --json --outputFile=test-results.json' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ echo 'npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chrom
 cd /home/[[REPO_NAME]]
 npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand --testTimeout=10000 --json --outputFile=test-results.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand --testTimeout=10000 --json --outputFile=test-results.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -142,7 +142,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm run build:dev && export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-browser && ./node_modules/.bin/jest -c jest.json --verbose --forceExit --runInBand --testTimeout=10000 --json --outputFile=test-results.json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -204,7 +204,7 @@ class MIRADOR_3192_TO_2976(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,7 +218,6 @@ class MIRADOR_3192_TO_2976(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -227,47 +226,60 @@ class MIRADOR_3192_TO_2976(Instance):
         import re
         import json
         import itertools
+
         # Track nested test context (describe blocks) using indentation
         context_stack = []
         test_status = {}
         current_test = None
         # Split log into lines and process line-by-line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.rstrip()
             # Detect describe blocks (indentation level 0 or 1)
-            describe_match = re.match(r'^(\s*)(describe|context)\s+(.+?):$', line)
+            describe_match = re.match(r"^(\s*)(describe|context)\s+(.+?):$", line)
             if describe_match:
                 indent, block_name = describe_match.groups()
                 indent_level = len(indent)
                 # Update context stack based on indentation
-                while len(context_stack) > 0 and indent_level <= context_stack[-1]['indent']:
+                while (
+                    len(context_stack) > 0
+                    and indent_level <= context_stack[-1]["indent"]
+                ):
                     context_stack.pop()
-                context_stack.append({'name': block_name, 'indent': indent_level})
+                context_stack.append({"name": block_name, "indent": indent_level})
                 continue
             # Detect test cases (passed/failed/skipped)
-            test_match = re.match(r'^(\s*)(✓|✕|×|●|○)\s+(.*?)(\s+\(\d+ ms\)|\s+\(skipped\))?$', line)
+            test_match = re.match(
+                r"^(\s*)(✓|✕|×|●|○)\s+(.*?)(\s+\(\d+ ms\)|\s+\(skipped\))?$", line
+            )
             if test_match:
                 indent, status, test_name, _ = test_match.groups()
                 # Build full test name from context stack + test name
-                full_test_name = ' › '.join([ctx['name'] for ctx in context_stack] + [test_name])
+                full_test_name = " › ".join(
+                    [ctx["name"] for ctx in context_stack] + [test_name]
+                )
                 # Update status (last occurrence takes precedence)
-                if status == '✓':
-                    test_status[full_test_name] = 'passed'
-                elif status == '✕':
-                    test_status[full_test_name] = 'failed'
-                elif status == '○':
-                    test_status[full_test_name] = 'skipped'
+                if status == "✓":
+                    test_status[full_test_name] = "passed"
+                elif status == "✕":
+                    test_status[full_test_name] = "failed"
+                elif status == "○":
+                    test_status[full_test_name] = "skipped"
                 continue
         # Populate sets from test_status
-        passed_tests = set(name for name, status in test_status.items() if status == 'passed')
-        failed_tests = set(name for name, status in test_status.items() if status == 'failed')
-        skipped_tests = set(name for name, status in test_status.items() if status == 'skipped')
+        passed_tests = set(
+            name for name, status in test_status.items() if status == "passed"
+        )
+        failed_tests = set(
+            name for name, status in test_status.items() if status == "failed"
+        )
+        skipped_tests = set(
+            name for name, status in test_status.items() if status == "skipped"
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

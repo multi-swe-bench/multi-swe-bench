@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ source $HOME/mambaforge/etc/profile.d/conda.sh && conda activate uxarray_build &
 ###ACTION_DELIMITER###
 echo 'python -m pytest test -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest test -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class UXARRAY_879_TO_819(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,7 +182,6 @@ class UXARRAY_879_TO_819(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -196,21 +189,21 @@ class UXARRAY_879_TO_819(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests using regex
-        passed_pattern = re.compile(r'(test/[\w/]+\.py::(?:\w+::)?\w+)\s+PASSED')
+        passed_pattern = re.compile(r"(test/[\w/]+\.py::(?:\w+::)?\w+)\s+PASSED")
         passed_tests = set(passed_pattern.findall(log))
         # Extract failed tests using regex
-        failed_pattern = re.compile(r'FAILED (test/[\w/]+\.py::(?:\w+::)?\w+) -')
+        failed_pattern = re.compile(r"FAILED (test/[\w/]+\.py::(?:\w+::)?\w+) -")
         failed_tests = set(failed_pattern.findall(log))
         # Extract skipped tests (if any)
-        skipped_pattern = re.compile(r'(test/[\w/]+\.py::(?:\w+::)?\w+)\s+SKIPPED')
+        skipped_pattern = re.compile(r"(test/[\w/]+\.py::(?:\w+::)?\w+)\s+SKIPPED")
         skipped_tests = set(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -96,7 +96,7 @@ sed -i '3s/^/\/\//' airbyte-cdk/python/build.gradle
 ###ACTION_DELIMITER###
 ./gradlew build --scan
 ###ACTION_DELIMITER###
-sed -i '2s/^/\/\//' airbyte-integrations/bases/base/build.gradle"""
+sed -i '2s/^/\/\//' airbyte-integrations/bases/base/build.gradle""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ SUB_BUILD=PLATFORM ./gradlew newIntegrationTest --info --continue
 SUB_BUILD=PLATFORM ./gradlew slowIntegrationTest --info --continue
 ./tools/bin/e2e_test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ SUB_BUILD=PLATFORM ./gradlew newIntegrationTest --info --continue
 SUB_BUILD=PLATFORM ./gradlew slowIntegrationTest --info --continue
 ./tools/bin/e2e_test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ SUB_BUILD=PLATFORM ./gradlew newIntegrationTest --info --continue
 SUB_BUILD=PLATFORM ./gradlew slowIntegrationTest --info --continue
 ./tools/bin/e2e_test.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class AIRBYTE_14650_TO_14251(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +219,6 @@ class AIRBYTE_14650_TO_14251(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -227,8 +226,9 @@ class AIRBYTE_14650_TO_14251(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines
-        test_pattern = re.compile(r'(\w+Test) > (\w+)\(\) .*')
+        test_pattern = re.compile(r"(\w+Test) > (\w+)\(\) .*")
         matches = list(test_pattern.finditer(log))
         for i, match in enumerate(matches):
             test_class = match.group(1)
@@ -236,19 +236,18 @@ class AIRBYTE_14650_TO_14251(Instance):
             test_name = f"{test_class}.{test_method}"
             # Determine the end of the current test section
             end = match.end()
-            next_start = matches[i+1].start() if (i + 1) < len(matches) else len(log)
+            next_start = matches[i + 1].start() if (i + 1) < len(matches) else len(log)
             test_section = log[end:next_start]
             # Check for ERROR in the test section to classify as failed
-            if 'ERROR' in test_section:
+            if "ERROR" in test_section:
                 failed_tests.add(test_name)
             else:
                 passed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

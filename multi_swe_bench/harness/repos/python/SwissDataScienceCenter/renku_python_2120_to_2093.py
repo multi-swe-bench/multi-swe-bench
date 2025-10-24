@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'poetry run ./run-tests.sh --tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poetry run ./run-tests.sh --tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run ./run-tests.sh --tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run ./run-tests.sh --tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class RENKU_PYTHON_2120_TO_2093(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,32 +190,34 @@ class RENKU_PYTHON_2120_TO_2093(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'(tests/[^ ]+)\s+(PASSED|SKIPPED|ERROR|FAILED)|(PASSED|SKIPPED|ERROR|FAILED)\s+(tests/[^ ]+)', re.MULTILINE)
+        pattern = re.compile(
+            r"(tests/[^ ]+)\s+(PASSED|SKIPPED|ERROR|FAILED)|(PASSED|SKIPPED|ERROR|FAILED)\s+(tests/[^ ]+)",
+            re.MULTILINE,
+        )
         matches = pattern.findall(log)
         for match in matches:
             # Extract test name and status from either group 1+2 or 4+3
             test_name = match[0] if match[0] else match[3]
             status = match[1] if match[1] else match[2]
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED'):
+            elif status in ("ERROR", "FAILED"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

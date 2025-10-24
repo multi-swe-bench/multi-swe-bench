@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ npx stylelint src/katex.less static/main.css contrib/**/*.css website/static/**/
 npx flow
 npx jest --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ npx stylelint src/katex.less static/main.css contrib/**/*.css website/static/**/
 npx flow
 npx jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ npx stylelint src/katex.less static/main.css contrib/**/*.css website/static/**/
 npx flow
 npx jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ npx stylelint src/katex.less static/main.css contrib/**/*.css website/static/**/
 npx flow
 npx jest --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -184,7 +184,7 @@ class KATEX_3006_TO_2703(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,16 +198,20 @@ class KATEX_3006_TO_2703(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases (multi-line support)
-        passed_pattern = re.compile(r'✓\s*(.*?)\s*(?:\(\d+ ms\))?(?=\s*\[|\s*✓|✕|$)', re.DOTALL)
-        failed_pattern = re.compile(r'✕\s*(.*?)\s*(?:\(\d+ ms\))?(?=\s*\[|\s*✓|✕|$)', re.DOTALL)
+        passed_pattern = re.compile(
+            r"✓\s*(.*?)\s*(?:\(\d+ ms\))?(?=\s*\[|\s*✓|✕|$)", re.DOTALL
+        )
+        failed_pattern = re.compile(
+            r"✕\s*(.*?)\s*(?:\(\d+ ms\))?(?=\s*\[|\s*✓|✕|$)", re.DOTALL
+        )
         # Extract all passed tests
         for match in passed_pattern.findall(log):
             test_name = match.strip()
@@ -221,9 +225,8 @@ class KATEX_3006_TO_2703(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

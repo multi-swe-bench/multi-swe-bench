@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -73,7 +73,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install greenlet
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,9 +82,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v --rootdir . --log-info=sqlalchemy.testing -n4 ./test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -97,9 +95,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v --rootdir . --log-info=sqlalchemy.testing -n4 ./test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +108,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v --rootdir . --log-info=sqlalchemy.testing -n4 ./test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -176,7 +170,7 @@ class SQLALCHEMY_7601_TO_7443(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -190,36 +184,41 @@ class SQLALCHEMY_7601_TO_7443(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for passed tests (matches PASSED followed by test path)
-        passed_pattern = re.compile(r'PASSED\s+(test/[^ \n]+)', re.MULTILINE)
+        passed_pattern = re.compile(r"PASSED\s+(test/[^ \n]+)", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests (matches FAILED followed by test path)
-        failed_pattern = re.compile(r'(?:\[\s*\d+\]\s*)?(?:\[gw\d+\]\s*\[\s*\d+%\]\s*)?FAILED\s+(test/[^ \n]+)', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s*)?(?:\[gw\d+\]\s*\[\s*\d+%\]\s*)?FAILED\s+(test/[^ \n]+)",
+            re.MULTILINE,
+        )
         failed_tests.update(failed_pattern.findall(log))
         # Patterns for skipped tests (handles worker logs and summary logs)
-        skipped_pattern1 = re.compile(r'(?:\[\s*\d+\]\s*)?\[gw\d+\]\s*\[\s*\d+%\]\s*SKIPPED\s+([^ \n]+)', re.MULTILINE)
+        skipped_pattern1 = re.compile(
+            r"(?:\[\s*\d+\]\s*)?\[gw\d+\]\s*\[\s*\d+%\]\s*SKIPPED\s+([^ \n]+)",
+            re.MULTILINE,
+        )
         skipped_pattern2 = re.compile(r"SKIPPED \[\d+\] .*?: '(.*?)'")
         skipped_matches = skipped_pattern1.findall(log) + skipped_pattern2.findall(log)
         # Clean up (call) from skipped tests
         cleaned_skipped = []
         for test in skipped_matches:
-            cleaned = re.sub(r'\s*\(call\)$', '', test)
+            cleaned = re.sub(r"\s*\(call\)$", "", test)
             cleaned_skipped.append(cleaned)
         skipped_tests.update(cleaned_skipped)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

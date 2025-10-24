@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm install -g pnpm@10.6.1
 ###ACTION_DELIMITER###
 pnpm install
 ###ACTION_DELIMITER###
-echo 'pnpm test -- --verbose' > test_commands.sh"""
+echo 'pnpm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ echo 'pnpm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class ANGULAR_ESLINT_2307_TO_1971(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,21 +165,27 @@ class ANGULAR_ESLINT_2307_TO_1971(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex patterns for test statuses
         # Passed tests: green checkmark (✓) with ANSI code 32m, followed by dim text (2m) and duration
         # Patterns matching ANSI codes, test name, and duration (no line numbers)
-        passed_pattern = re.compile(r'\x1b\[32m✓\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m')
+        passed_pattern = re.compile(
+            r"\x1b\[32m✓\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m"
+        )
         # Failed tests: red ANSI, test name + duration
-        failed_pattern = re.compile(r'\x1b\[31m[✕x]\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m')
+        failed_pattern = re.compile(
+            r"\x1b\[31m[✕x]\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m"
+        )
         # Skipped tests: yellow ANSI, test name + duration
-        skipped_pattern = re.compile(r'\x1b\[33m[○-]\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m')
+        skipped_pattern = re.compile(
+            r"\x1b\[33m[○-]\x1b\[39m\s+\x1b\[2m(.*?) \(\d+ ms\)\x1b\[22m"
+        )
         # Extract passed tests
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
@@ -192,9 +198,8 @@ class ANGULAR_ESLINT_2307_TO_1971(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

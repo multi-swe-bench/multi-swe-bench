@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ pip install -r test_requirements.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=short tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=short tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class LIBERTEM_1742_TO_1717(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,15 +179,18 @@ class LIBERTEM_1742_TO_1717(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test lines
-        pattern = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b|(FAILED|SKIPPED)\s+(tests/.*?)\b|collected .*? (\d+) skipped|.*_{20,} (.*?) _{20,}', re.IGNORECASE)
+        pattern = re.compile(
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b|(FAILED|SKIPPED)\s+(tests/.*?)\b|collected .*? (\d+) skipped|.*_{20,} (.*?) _{20,}",
+            re.IGNORECASE,
+        )
         for line in log.splitlines():
             match = pattern.search(line.strip())
             if match:
@@ -198,31 +201,30 @@ class LIBERTEM_1742_TO_1717(Instance):
                 skipped_count = match.group(5)
                 separator_test = match.group(6)
                 if status:
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                 elif status2 and test_name2:
-                    if status2 == 'FAILED':
+                    if status2 == "FAILED":
                         failed_tests.add(test_name2)
-                    elif status2 == 'SKIPPED':
+                    elif status2 == "SKIPPED":
                         skipped_tests.add(test_name2)
                 elif separator_test:
                     failed_tests.add(separator_test.strip())
                 # Handle skipped count (if test names are listed elsewhere)
-                if skipped_count and 'skipped' in line:
+                if skipped_count and "skipped" in line:
                     # Attempt to capture skipped test names (adjust based on log format)
-                    skipped_test = re.search(r'skipped (tests/.*)', line)
+                    skipped_test = re.search(r"skipped (tests/.*)", line)
                     if skipped_test:
                         skipped_tests.add(skipped_test.group(1))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

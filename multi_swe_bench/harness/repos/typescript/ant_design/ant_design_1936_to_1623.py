@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -127,7 +127,7 @@ npm install --legacy-peer-deps
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'npm run jest -- --verbose' > test_commands.sh"""
+echo 'npm run jest -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -136,7 +136,7 @@ echo 'npm run jest -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm run jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -149,7 +149,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm run jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -162,7 +162,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm run jest -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -224,7 +224,7 @@ class ANT_DESIGN_1936_TO_1623(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,7 +238,6 @@ class ANT_DESIGN_1936_TO_1623(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -246,48 +245,52 @@ class ANT_DESIGN_1936_TO_1623(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json  # Included as per skeleton
+
         # Clean log by removing leading [  n] line numbers
-        log_clean = re.sub(r'^\[\s*\d+\]\s*', '', log, flags=re.MULTILINE)
-        lines = log_clean.split('\n')
+        log_clean = re.sub(r"^\[\s*\d+\]\s*", "", log, flags=re.MULTILINE)
+        lines = log_clean.split("\n")
         current_suite = None
         current_file_status = None
         for i, line in enumerate(lines):
             # Match test file lines to get status and suite name
-            file_match = re.match(r'^(PASS|FAIL)\s+tests/[\w-]+\.test\.js\s+\(\d+\.\d+s\)$', line.strip())
+            file_match = re.match(
+                r"^(PASS|FAIL)\s+tests/[\w-]+\.test\.js\s+\(\d+\.\d+s\)$", line.strip()
+            )
             if file_match:
                 current_file_status = file_match.group(1)
                 # Find first non-blank line for suite name
                 j = i + 1
-                while j < len(lines) and lines[j].strip() == '':
+                while j < len(lines) and lines[j].strip() == "":
                     j += 1
                 if j < len(lines):
                     current_suite = lines[j].strip()
                 continue
             # Match test cases with ✓ (pass) or ✕ (fail) using 2-space indent
-            test_match = re.match(r'^  (✓|✕) (.*)$', line)  # 2 spaces before, 1 space after symbol
+            test_match = re.match(
+                r"^  (✓|✕) (.*)$", line
+            )  # 2 spaces before, 1 space after symbol
             if test_match and current_suite and current_file_status:
                 status_symbol, test_desc = test_match.groups()
                 test_name = f"{current_suite} {test_desc}"
-                if status_symbol == '✓' and current_file_status == 'PASS':
+                if status_symbol == "✓" and current_file_status == "PASS":
                     passed_tests.add(test_name)
-                elif status_symbol == '✕' and current_file_status == 'FAIL':
+                elif status_symbol == "✕" and current_file_status == "FAIL":
                     failed_tests.add(test_name)
                 continue
             # Match failed tests: error line (-) linked to previous test case line
-            if current_suite and current_file_status == 'FAIL':
-                error_match = re.match(r'^  - (.*)$', line)  # 2 spaces before error
+            if current_suite and current_file_status == "FAIL":
+                error_match = re.match(r"^  - (.*)$", line)  # 2 spaces before error
                 if error_match and i > 0:
-                    prev_line = lines[i-1].strip()
-                    prev_test_match = re.match(rf'^{current_suite} › (.*)$', prev_line)
+                    prev_line = lines[i - 1].strip()
+                    prev_test_match = re.match(rf"^{current_suite} › (.*)$", prev_line)
                     if prev_test_match:
                         test_name = f"{current_suite} {prev_test_match.group(1)}"
                         failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

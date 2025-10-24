@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo './node_modules/.bin/xo; ./node_modules/.bin/nyc ./node_modules/.bin/tape -v test/*.js' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./node_modules/.bin/xo; ./node_modules/.bin/nyc ./node_modules/.bin/tape -v test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/.bin/xo; ./node_modules/.bin/nyc ./node_modules/.bin/tape -v test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/.bin/xo; ./node_modules/.bin/nyc ./node_modules/.bin/tape -v test/*.js
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class AVA_82_TO_66(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,55 +173,64 @@ class AVA_82_TO_66(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match TAP test lines (ok/not ok followed by test number and name, excluding comments)
-        test_pattern = re.compile(r'^(ok|not ok) (\d+) (.*?)(?: #.*)?$')  # Capture status, test number, and test name (excluding comments)
-        lines = log.split('\n')
+        test_pattern = re.compile(
+            r"^(ok|not ok) (\d+) (.*?)(?: #.*)?$"
+        )  # Capture status, test number, and test name (excluding comments)
+        lines = log.split("\n")
         tap_started = False
         current_test_name = None
         for line in lines:
             line = line.strip()
             # Start processing after TAP version line
-            if line.startswith('TAP version 13'):
+            if line.startswith("TAP version 13"):
                 tap_started = True
                 continue
             if not tap_started:
                 continue
             # Stop processing after plan line (no more tests)
-            if line.startswith('1..'):
+            if line.startswith("1.."):
                 break
             # Capture test name from comment lines
-            if line.startswith('# '):
+            if line.startswith("# "):
                 current_test_name = line[2:].strip()  # Extract test name from comment
             # Check if the line is a test result line
-            elif line.startswith(('ok', 'not ok')):
+            elif line.startswith(("ok", "not ok")):
                 match = test_pattern.match(line)
                 if match:
                     status, test_num, line_test_name = match.groups()
                     line_test_name = line_test_name.strip()
                     # Check for skipped tests
-                    if '# SKIP' in line:
-                        test_name = f"{current_test_name}: {test_num} {line_test_name}" if current_test_name else f"{test_num} {line_test_name}"
+                    if "# SKIP" in line:
+                        test_name = (
+                            f"{current_test_name}: {test_num} {line_test_name}"
+                            if current_test_name
+                            else f"{test_num} {line_test_name}"
+                        )
                         skipped_tests.add(test_name)
                         continue
                     # Determine test name with test number for uniqueness
-                    test_name = f"{current_test_name}: {test_num} {line_test_name}" if current_test_name else f"{test_num} {line_test_name}"
-                    if status == 'ok':
+                    test_name = (
+                        f"{current_test_name}: {test_num} {line_test_name}"
+                        if current_test_name
+                        else f"{test_num} {line_test_name}"
+                    )
+                    if status == "ok":
                         passed_tests.add(test_name)
-                    elif status == 'not ok':
+                    elif status == "not ok":
                         failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -55,7 +55,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -64,9 +64,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -79,9 +77,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +90,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -140,7 +134,6 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
 @Instance.register("planetlabs", "planet_client_python_641_to_296")
 class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -159,7 +152,7 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,15 +166,15 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed and failed tests
-        passed_failed_pattern = r'(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))'
+        passed_failed_pattern = r"(?:(PASSED|FAILED)\s+([\w/]+/[\w.]+\.py::[\w\[\]-]+)|([\w/]+/[\w.]+\.py::[\w\[\]-]+)\s+(PASSED|FAILED))"
         matches = re.findall(passed_failed_pattern, log)
         for match in matches:
             status1, test1, test2, status2 = match
@@ -191,21 +184,20 @@ class PLANET_CLIENT_PYTHON_641_TO_296(Instance):
             else:
                 status = status2
                 test_name = test2.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
         # Parse skipped tests
-        skipped_pattern = r'SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):'
+        skipped_pattern = r"SKIPPED\s+\[\d+\]\s+([\w/]+/[\w.]+\.py:\d+):"
         skipped_matches = re.findall(skipped_pattern, log)
         for test_name in skipped_matches:
             skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

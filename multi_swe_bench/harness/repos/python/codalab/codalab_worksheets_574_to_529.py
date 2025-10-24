@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -129,7 +129,7 @@ echo '#define MYSQL_CONFIG_H' > /usr/include/mysql/my_config.h && ./venv/bin/pip
 ###ACTION_DELIMITER###
 echo './venv/bin/nosetests -v tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -138,9 +138,7 @@ chmod +x test_commands.sh"""
 cd /home/{pr.repo}
 ./venv/bin/nosetests -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -153,9 +151,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./venv/bin/nosetests -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -168,9 +164,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./venv/bin/nosetests -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -232,7 +226,7 @@ class CODALAB_WORKSHEETS_574_TO_529(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -246,32 +240,33 @@ class CODALAB_WORKSHEETS_574_TO_529(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        pattern = re.compile(r'^\s*(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*(\w+)\s*$', re.MULTILINE)  # Handle optional [number] prefix
+        pattern = re.compile(
+            r"^\s*(?:\[\s*\d+\]\s*)?(.*?)\s*\.\.\.\s*(\w+)\s*$", re.MULTILINE
+        )  # Handle optional [number] prefix
         matches = pattern.findall(log)
         for test_name, status in matches:
             test_name = test_name.strip()
             status_lower = status.lower()  # Case-insensitive check
-            if status_lower == 'ok':
+            if status_lower == "ok":
                 passed_tests.add(test_name)
-            elif status_lower in ['error', 'failed']:  # Handle ERROR/FAILED
+            elif status_lower in ["error", "failed"]:  # Handle ERROR/FAILED
                 failed_tests.add(test_name)
-            elif status_lower in ['skipped', 'skip']:  # Handle skipped tests
+            elif status_lower in ["skipped", "skip"]:  # Handle skipped tests
                 skipped_tests.add(test_name)
             # Add handling for other statuses if needed
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

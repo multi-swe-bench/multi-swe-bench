@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ echo 'cd core && TOGA_BACKEND=toga_dummy python -m pytest -vv' > test_commands.s
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 cd core && TOGA_BACKEND=toga_dummy python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd core && TOGA_BACKEND=toga_dummy python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd core && TOGA_BACKEND=toga_dummy python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class TOGA_3401_TO_3395(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class TOGA_3401_TO_3395(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -183,27 +182,27 @@ class TOGA_3401_TO_3395(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         # Implement the log parsing logic here
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Extract passed tests (captures test name before PASSED [%)
-            passed_match = re.search(r'(.*?)\s+PASSED\s*\[', line)
+            passed_match = re.search(r"(.*?)\s+PASSED\s*\[", line)
             if passed_match:
                 passed_tests.add(passed_match.group(1))
             # Extract failed tests (captures test name after FAILED)
-            failed_match = re.search(r'FAILED\s+(.*?)\s+-', line)
+            failed_match = re.search(r"FAILED\s+(.*?)\s+-", line)
             if failed_match:
                 failed_tests.add(failed_match.group(1))
             # Extract skipped tests (captures test name before SKIPPED [%)
-            skipped_match = re.search(r'(.*?)\s+SKIPPED\s*\[', line)
+            skipped_match = re.search(r"(.*?)\s+SKIPPED\s*\[", line)
             if skipped_match:
                 skipped_tests.add(skipped_match.group(1))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

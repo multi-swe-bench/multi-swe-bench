@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -93,7 +93,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/scikit-learn/scikit-learn<1.1/' requirements-dev.txt && sed -i 's/joblib/joblib<1.0/' requirements-dev.txt && pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -105,9 +105,7 @@ export MPLBACKEND=Agg
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst doc/ doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -123,9 +121,7 @@ export MPLBACKEND=Agg
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst doc/ doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -141,9 +137,7 @@ export MPLBACKEND=Agg
 python -m pytest -v --pyargs nilearn
 pytest -v --doctest-glob=*.rst doc/ doc/_additional_doctests.txt
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -205,7 +199,7 @@ class NILEARN_2770_TO_2559(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +213,6 @@ class NILEARN_2770_TO_2559(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -227,9 +220,10 @@ class NILEARN_2770_TO_2559(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to identify test names
-        test_name_pattern = re.compile(r'(nilearn/[^:]+::[\w_.]+)')
-        lines = log.split('\n')
+        test_name_pattern = re.compile(r"(nilearn/[^:]+::[\w_.]+)")
+        lines = log.split("\n")
         processed_tests = set()
         for i, line in enumerate(lines):
             test_names = test_name_pattern.findall(line)
@@ -237,13 +231,13 @@ class NILEARN_2770_TO_2559(Instance):
                 if test_name in processed_tests:
                     continue
                 # Check current line for status
-                if 'PASSED' in line:
+                if "PASSED" in line:
                     passed_tests.add(test_name)
                     processed_tests.add(test_name)
-                elif 'FAILED' in line:
+                elif "FAILED" in line:
                     failed_tests.add(test_name)
                     processed_tests.add(test_name)
-                elif 'SKIPPED' in line:
+                elif "SKIPPED" in line:
                     skipped_tests.add(test_name)
                     processed_tests.add(test_name)
                 else:
@@ -253,24 +247,23 @@ class NILEARN_2770_TO_2559(Instance):
                         if test_name_pattern.search(lines[j]):
                             break
                         next_line = lines[j]
-                        if 'PASSED' in next_line:
+                        if "PASSED" in next_line:
                             passed_tests.add(test_name)
                             processed_tests.add(test_name)
                             break
-                        elif 'FAILED' in next_line:
+                        elif "FAILED" in next_line:
                             failed_tests.add(test_name)
                             processed_tests.add(test_name)
                             break
-                        elif 'SKIPPED' in next_line:
+                        elif "SKIPPED" in next_line:
                             skipped_tests.add(test_name)
                             processed_tests.add(test_name)
                             break
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

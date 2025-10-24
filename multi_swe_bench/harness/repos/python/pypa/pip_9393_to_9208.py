@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -125,7 +125,7 @@ bash /home/pip/test_commands.sh
 ###ACTION_DELIMITER###
 echo -e 'export SETUPTOOLS_USE_DISTUTILS=local\npytest -v --tb=short --no-header -rA tests/' > /home/pip/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/pip/test_commands.sh"""
+bash /home/pip/test_commands.sh""",
             ),
             File(
                 ".",
@@ -135,9 +135,7 @@ cd /home/{pr.repo}
 export SETUPTOOLS_USE_DISTUTILS=local
 pytest -v --tb=short --no-header -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -151,9 +149,7 @@ fi
 export SETUPTOOLS_USE_DISTUTILS=local
 pytest -v --tb=short --no-header -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -167,9 +163,7 @@ fi
 export SETUPTOOLS_USE_DISTUTILS=local
 pytest -v --tb=short --no-header -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -231,7 +225,7 @@ class PIP_9393_TO_9208(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -245,17 +239,17 @@ class PIP_9393_TO_9208(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex pattern to match test lines with status
-        pattern = r'^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\s+\[\s*\d+%\s*\]$|^(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\s+(.+)$'
+        pattern = r"^(.+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\s+\[\s*\d+%\s*\]$|^(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\s+(.+)$"
         regex = re.compile(pattern)
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match = regex.match(line)
             if match:
@@ -267,18 +261,17 @@ class PIP_9393_TO_9208(Instance):
                     test_name = match.group(4)
                     status = match.group(3)
                 # Categorize based on status
-                if status in ('PASSED', 'XPASSED'):
+                if status in ("PASSED", "XPASSED"):
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'ERROR', 'XFAILED'):
+                elif status in ("FAILED", "ERROR", "XFAILED"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

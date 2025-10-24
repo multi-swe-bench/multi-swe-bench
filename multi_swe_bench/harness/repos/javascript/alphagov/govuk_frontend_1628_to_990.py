@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ apt-get update && apt-get install -y libx11-xcb1 libxcomposite1 libxcursor1 libx
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libnss3 libcups2t64 libxss1 libxrandr2 libasound2t64 libpangocairo-1.0-0 libatk1.0-0t64 libatk-bridge2.0-0t64 libgtk-3-0t64
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx standard && npx gulp test && npx gulp copy-assets && npx jest --testPathIgnorePatterns="after-*" --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx standard && npx gulp test && npx gulp copy-assets && npx jest --testPathIgnorePatterns="after-*" --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx standard && npx gulp test && npx gulp copy-assets && npx jest --testPathIgnorePatterns="after-*" --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class GOVUK_FRONTEND_1628_TO_990(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +205,6 @@ class GOVUK_FRONTEND_1628_TO_990(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -213,25 +212,25 @@ class GOVUK_FRONTEND_1628_TO_990(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: matches lines with ✓ followed by test name and duration
-        passed_pattern = re.compile(r'^\s+✓\s+(.*?)\s*\(\d+ms\)$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s+✓\s+(.*?)\s*\(\d+ms\)$", re.MULTILINE)
         passed_tests = set(passed_pattern.findall(log))
         # Extract all test names (passed/failed) by matching lines with mandatory ✓/✕ and duration
-        all_tests_pattern = re.compile(r'^\s+[✓✕]\s+(.*?)\s*\(\d+ms\)$', re.MULTILINE)
+        all_tests_pattern = re.compile(r"^\s+[✓✕]\s+(.*?)\s*\(\d+ms\)$", re.MULTILINE)
         all_tests = set(all_tests_pattern.findall(log))
         # Failed tests are test names in all_tests but not in passed_tests
         failed_tests = all_tests - passed_tests
         # Pattern for skipped tests: assuming '-' as marker (adjust if needed)
-        skipped_pattern = re.compile(r'^\s+-\s+(.*?)\s*\(\d+ms\)$', re.MULTILINE)
+        skipped_pattern = re.compile(r"^\s+-\s+(.*?)\s*\(\d+ms\)$", re.MULTILINE)
         skipped_matches = skipped_pattern.findall(log)
         for match in skipped_matches:
             skipped_tests.add(match.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

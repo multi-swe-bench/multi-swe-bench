@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rust:1.74.1"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ cargo build
 ###ACTION_DELIMITER###
 cargo test --workspace --profile ci --exclude nu_plugin_*
 ###ACTION_DELIMITER###
-echo "cargo test --workspace --profile ci --exclude nu_plugin_*" > test_commands.sh"""
+echo "cargo test --workspace --profile ci --exclude nu_plugin_*" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ echo "cargo test --workspace --profile ci --exclude nu_plugin_*" > test_commands
 cd /home/{pr.repo}
 cargo test --workspace --profile ci --exclude nu_plugin_*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test --workspace --profile ci --exclude nu_plugin_*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test --workspace --profile ci --exclude nu_plugin_*
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class NUSHELL_12234_TO_4725(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,28 +170,30 @@ class NUSHELL_12234_TO_4725(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Pattern for lines like: test path::to::test ... ok
         test_status_pattern = re.compile(r"^test (.*?) \.\.\. (ok|FAILED|ignored)$")
         # Pattern for the failures block.
-        failures_block_pattern = re.compile(r"^failures:\s*\n((?:    .*\n)+)", re.MULTILINE)
+        failures_block_pattern = re.compile(
+            r"^failures:\s*\n((?:    .*\n)+)", re.MULTILINE
+        )
         # Pattern for panicked threads
         panicked_pattern = re.compile(r"thread '(.*)' panicked at")
         for line in log.splitlines():
             match = test_status_pattern.match(line)
             if match:
                 test_name, status = match.groups()
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name.strip())
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name.strip())
-                elif status == 'ignored':
+                elif status == "ignored":
                     skipped_tests.add(test_name.strip())
             match = panicked_pattern.search(line)
             if match:
@@ -211,9 +207,8 @@ class NUSHELL_12234_TO_4725(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -116,7 +116,7 @@ ls -l /var/run/docker.sock && docker info && cat /var/log/docker.log 2>/dev/null
 ###ACTION_DELIMITER###
 service docker restart && service docker status && cat /var/log/docker.log 2>/dev/null
 ###ACTION_DELIMITER###
-echo 'FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests' > /home/feast/test_commands.sh && chmod +x /home/feast/test_commands.sh"""
+echo 'FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests' > /home/feast/test_commands.sh && chmod +x /home/feast/test_commands.sh""",
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ echo 'FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests' 
 cd /home/[[REPO_NAME]]
 FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 FEAST_USAGE=False IS_TEST=True python -m pytest -v -n 8 sdk/python/tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -213,7 +213,7 @@ class FEAST_3089_TO_2666(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -227,7 +227,6 @@ class FEAST_3089_TO_2666(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -235,21 +234,21 @@ class FEAST_3089_TO_2666(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_tests = set(re.findall(r'PASSED (sdk/.*?::test_[^\s]+)', log))
+        passed_tests = set(re.findall(r"PASSED (sdk/.*?::test_[^\s]+)", log))
         # Parse failed tests
-        failed_tests = set(re.findall(r'FAILED (sdk/.*?::test_[^\s]+)', log))
+        failed_tests = set(re.findall(r"FAILED (sdk/.*?::test_[^\s]+)", log))
         # Parse error tests and add to failed
-        error_tests = set(re.findall(r'ERROR (sdk/.*?::test_[^\s]+)', log))
+        error_tests = set(re.findall(r"ERROR (sdk/.*?::test_[^\s]+)", log))
         failed_tests.update(error_tests)
         # Parse skipped tests (if any)
-        skipped_tests = set(re.findall(r'SKIPPED (sdk/.*?::test_.*?)\s*', log))
+        skipped_tests = set(re.findall(r"SKIPPED (sdk/.*?::test_.*?)\s*", log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

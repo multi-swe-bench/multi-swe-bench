@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 echo 'venv/bin/pytest -v --no-header -rA -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -107,9 +105,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -122,9 +118,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 venv/bin/pytest -v --no-header -rA -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -186,7 +180,7 @@ class NETWORKX_8105_TO_5065(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,7 +194,6 @@ class NETWORKX_8105_TO_5065(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -208,30 +201,35 @@ class NETWORKX_8105_TO_5065(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        for line in log.split('\n'):
+
+        for line in log.split("\n"):
             # Remove leading line number bracket
-            stripped_line = re.sub(r'^\[\s*\d+\s*\]\s*', '', line)
+            stripped_line = re.sub(r"^\[\s*\d+\s*\]\s*", "", line)
             if not stripped_line:
                 continue
             # Check for PASSED cases
-            passed_match1 = re.match(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', stripped_line)
+            passed_match1 = re.match(
+                r"^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$", stripped_line
+            )
             if passed_match1:
                 test_name = passed_match1.group(1).strip()
                 passed_tests.add(test_name)
                 continue
-            passed_match2 = re.match(r'^PASSED\s+(.*)$', stripped_line)
+            passed_match2 = re.match(r"^PASSED\s+(.*)$", stripped_line)
             if passed_match2:
                 test_name = passed_match2.group(1).strip()
                 passed_tests.add(test_name)
                 continue
             # Check for FAILED case
-            failed_match = re.match(r'^FAILED\s+(.*)$', stripped_line)
+            failed_match = re.match(r"^FAILED\s+(.*)$", stripped_line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
                 failed_tests.add(test_name)
                 continue
             # Check for SKIPPED case
-            skipped_match = re.match(r'^SKIPPED\s+\[\d+\]\s+(.*?):(\d+):\s+.*$', stripped_line)
+            skipped_match = re.match(
+                r"^SKIPPED\s+\[\d+\]\s+(.*?):(\d+):\s+.*$", stripped_line
+            )
             if skipped_match:
                 test_file = skipped_match.group(1)
                 line_number = skipped_match.group(2)
@@ -241,9 +239,8 @@ class NETWORKX_8105_TO_5065(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

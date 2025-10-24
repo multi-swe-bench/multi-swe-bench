@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -112,7 +112,7 @@ sed -i 's/^django-webtest==.*/django-webtest==1.9.13/' requirements.txt && sed -
 ###ACTION_DELIMITER###
 sed -i 's/^django-webtest==.*/django-webtest==1.9.13/' requirements.txt && sed -i 's/^WebTest==.*/WebTest==2.0.35/' requirements.txt && pip3 install -r requirements.txt
 ###ACTION_DELIMITER###
-python3 manage.py test --verbosity 2"""
+python3 manage.py test --verbosity 2""",
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ python3 manage.py test --verbosity 2"""
 cd /home/[[REPO_NAME]]
 python3 manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -134,7 +134,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python3 manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -147,7 +147,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python3 manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -209,7 +209,7 @@ class EVAP_1416_TO_1360(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -223,27 +223,33 @@ class EVAP_1416_TO_1360(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Expanded patterns to include more statuses and allow dots in test names
         # Matches lines with varied statuses and test names: e.g., [ 310] test_wrong_state (module) ... ok or test.wrong_state ... pass
-        status_pattern = re.compile(r'(?:\[\s*\d+\]\s*)?(test_[\w.]+)\s*(?:\(.*?\))?\s*\.\.\.\s*(ok|passed|pass|skipped|failed|fail|error)', re.IGNORECASE)
+        status_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s*)?(test_[\w.]+)\s*(?:\(.*?\))?\s*\.\.\.\s*(ok|passed|pass|skipped|failed|fail|error)",
+            re.IGNORECASE,
+        )
         # Matches error lines with varied error indicators and test names: e.g., [ 603] ERROR: test_put_delegates (module) or FAIL: test.put_delegates
-        error_pattern = re.compile(r'(?:\[\s*\d+\]\s*)?(error|failed|fail):\s*(test_[\w.]+)\s*(?:\(.*?\))?', re.IGNORECASE)
+        error_pattern = re.compile(
+            r"(?:\[\s*\d+\]\s*)?(error|failed|fail):\s*(test_[\w.]+)\s*(?:\(.*?\))?",
+            re.IGNORECASE,
+        )
         # Extract tests from status lines
         for match in status_pattern.finditer(log):
             test_name, status = match.groups()
             status = status.lower()
-            if status in ('ok', 'passed'):
+            if status in ("ok", "passed"):
                 passed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
-            elif status in ('failed', 'error'):
+            elif status in ("failed", "error"):
                 failed_tests.add(test_name)
         # Extract failed tests from error lines
         for match in error_pattern.finditer(log):
@@ -254,9 +260,8 @@ class EVAP_1416_TO_1360(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

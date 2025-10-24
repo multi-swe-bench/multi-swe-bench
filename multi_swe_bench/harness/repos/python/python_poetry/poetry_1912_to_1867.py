@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -77,7 +77,7 @@ apt-get install -y software-properties-common
 ###ACTION_DELIMITER###
 add-apt-repository -y ppa:deadsnakes/ppa && apt-get update && apt-get install -y python3.7 python3.7-venv && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1 && export PATH="/root/.local/bin:$PATH" && poetry env use python3.7 && poetry install
 ###ACTION_DELIMITER###
-bash /home/poetry/test_commands.sh"""
+bash /home/poetry/test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 poetry run pytest -v -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ fi
 #!/bin/bash
 poetry run pytest -v -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ fi
 #!/bin/bash
 poetry run pytest -v -rA tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class POETRY_1912_TO_1867(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,17 +191,17 @@ class POETRY_1912_TO_1867(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
-        status_re = re.compile(r'\b(PASSED|FAILED|SKIPPED)\b')
-        test_name_re = re.compile(r'tests/[\w/]+\.py::\w+\[?[^\]]*\]?')
+
+        status_re = re.compile(r"\b(PASSED|FAILED|SKIPPED)\b")
+        test_name_re = re.compile(r"tests/[\w/]+\.py::\w+\[?[^\]]*\]?")
         # Process each line to extract test names and statuses
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             if not line:
                 continue
@@ -210,25 +210,24 @@ class POETRY_1912_TO_1867(Instance):
                 continue
             status = status_match.group(1)
             # Extract test name from before or after the status
-            before = line[:status_match.start()].strip()
-            after = line[status_match.end():].strip()
+            before = line[: status_match.start()].strip()
+            after = line[status_match.end() :].strip()
             test_match = test_name_re.search(before) or test_name_re.search(after)
             if not test_match:
                 continue
             test_name = test_match.group()
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

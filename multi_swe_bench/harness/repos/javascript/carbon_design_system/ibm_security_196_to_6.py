@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ yarn test --verbose
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class IBM_SECURITY_196_TO_6(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,7 +185,6 @@ class IBM_SECURITY_196_TO_6(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -193,14 +192,15 @@ class IBM_SECURITY_196_TO_6(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Track test context (describe blocks) and indentation
         context = []
-        passed_pattern = re.compile(r'^(\s+)✓\s+(.*?)(?:\s+\(\d+ms\))?$', re.MULTILINE)
-        failed_pattern = re.compile(r'^(\s+)✕\s+(.*?)(?:\s+\(\d+ms\))?$', re.MULTILINE)
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"^(\s+)✓\s+(.*?)(?:\s+\(\d+ms\))?$", re.MULTILINE)
+        failed_pattern = re.compile(r"^(\s+)✕\s+(.*?)(?:\s+\(\d+ms\))?$", re.MULTILINE)
+        for line in log.split("\n"):
             # Update context based on describe blocks (lines with no ✓/✕ but indentation)
-            describe_match = re.match(r'^(\s+)(\w+.*)$', line)
-            if describe_match and '✓' not in line and '✕' not in line:
+            describe_match = re.match(r"^(\s+)(\w+.*)$", line)
+            if describe_match and "✓" not in line and "✕" not in line:
                 indent = len(describe_match.group(1))
                 # Remove context entries with greater or equal indentation
                 while context and context[-1][0] >= indent:
@@ -212,30 +212,29 @@ class IBM_SECURITY_196_TO_6(Instance):
                 indent = len(passed_match.group(1))
                 test_name = passed_match.group(2).strip()
                 # Build full test name from context
-                full_name = ' '.join([ctx[1] for ctx in context]) + ' ' + test_name
+                full_name = " ".join([ctx[1] for ctx in context]) + " " + test_name
                 passed_tests.add(full_name.strip())
             # Check for failed tests
             failed_match = failed_pattern.match(line)
             if failed_match:
                 indent = len(failed_match.group(1))
                 test_name = failed_match.group(2).strip()
-                full_name = ' '.join([ctx[1] for ctx in context]) + ' ' + test_name
+                full_name = " ".join([ctx[1] for ctx in context]) + " " + test_name
                 failed_tests.add(full_name.strip())
         # Skipped tests (assuming similar structure)
-        skipped_pattern = re.compile(r'^(\s+)○\s+(.*?)(?:\s+\(\d+ms\))?$', re.MULTILINE)
-        for line in log.split('\n'):
+        skipped_pattern = re.compile(r"^(\s+)○\s+(.*?)(?:\s+\(\d+ms\))?$", re.MULTILINE)
+        for line in log.split("\n"):
             skipped_match = skipped_pattern.match(line)
             if skipped_match:
                 indent = len(skipped_match.group(1))
                 test_name = skipped_match.group(2).strip()
-                full_name = ' '.join([ctx[1] for ctx in context]) + ' ' + test_name
+                full_name = " ".join([ctx[1] for ctx in context]) + " " + test_name
                 skipped_tests.add(full_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -24,10 +24,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -35,7 +35,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'nosetests -v --exclude=system_tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 nosetests -v --exclude=system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v --exclude=system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 nosetests -v --exclude=system_tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class GOOGLE_CLOUD_PYTHON_1787_TO_1518(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,7 +191,6 @@ class GOOGLE_CLOUD_PYTHON_1787_TO_1518(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: Set[str] = set()  # Tests that passed successfully
@@ -201,32 +200,31 @@ class GOOGLE_CLOUD_PYTHON_1787_TO_1518(Instance):
         for line in log.splitlines():
             line = line.strip()
             # Remove leading [line number] if present
-            if line.startswith('['):
+            if line.startswith("["):
                 # Split off the [number] part
-                line = line.split(']', 1)[1].strip()
+                line = line.split("]", 1)[1].strip()
             # Handle passed/skipped tests (lines with '...')
-            if ' ... ' in line:
-                test_part, status_part = line.rsplit(' ... ', 1)
+            if " ... " in line:
+                test_part, status_part = line.rsplit(" ... ", 1)
                 test_name = test_part.strip()
                 status = status_part.strip()
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status.startswith('SKIP'):
+                elif status.startswith("SKIP"):
                     skipped_tests.add(test_name)
             # Handle failed tests (lines with 'FAIL:' or 'ERROR:')
-            elif 'FAIL:' in line or 'ERROR:' in line:
+            elif "FAIL:" in line or "ERROR:" in line:
                 # Extract test name after 'FAIL:' or 'ERROR:'
-                if 'FAIL:' in line:
-                    test_name = line.split('FAIL:', 1)[1].strip()
+                if "FAIL:" in line:
+                    test_name = line.split("FAIL:", 1)[1].strip()
                 else:
-                    test_name = line.split('ERROR:', 1)[1].strip()
+                    test_name = line.split("ERROR:", 1)[1].strip()
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

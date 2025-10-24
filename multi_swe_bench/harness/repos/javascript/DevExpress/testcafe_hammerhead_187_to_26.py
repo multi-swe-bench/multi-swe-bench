@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -81,7 +81,7 @@ GULP_TASK=server-tests npm test -- --verbose || true
 GULP_TASK=client-tests npm test -- --verbose || true' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-GULP_TASK=server-tests npm test -- --verbose' > test_commands.sh && chmod +x test_commands.sh"""
+GULP_TASK=server-tests npm test -- --verbose' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 GULP_TASK=server-tests npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ fi
 #!/bin/bash
 GULP_TASK=server-tests npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ fi
 #!/bin/bash
 GULP_TASK=server-tests npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class TESTCAFE_HAMMERHEAD_187_TO_26(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,7 +195,6 @@ class TESTCAFE_HAMMERHEAD_187_TO_26(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -203,22 +202,24 @@ class TESTCAFE_HAMMERHEAD_187_TO_26(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: lines starting with ✓ (with possible leading whitespace)
-        passed_pattern = re.compile(r'^\s*✓\s*(Should .*)$', re.MULTILINE)
+        passed_pattern = re.compile(r"^\s*✓\s*(Should .*)$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: lines starting with number) (with possible leading whitespace)
-        failed_pattern = re.compile(r'^\s*\d+\)\s*(Should .*)$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*\d+\)\s*(Should .*)$", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped/pending tests: lines starting with - (with possible leading whitespace)
         # Pattern for skipped/pending tests: lines indicating pending status
-        skipped_pattern = re.compile(r'^\s*(?:-|pending)\s*(Should .*)$', re.IGNORECASE | re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*(?:-|pending)\s*(Should .*)$", re.IGNORECASE | re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

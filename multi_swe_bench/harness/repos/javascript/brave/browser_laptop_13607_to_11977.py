@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ export CHROMEDRIVER_SKIP_DOWNLOAD=true && export CHROMEDRIVER_PATH=/usr/local/bi
 ###ACTION_DELIMITER###
 export NODE_OPTIONS=--openssl-legacy-provider && export CHROMEDRIVER_SKIP_DOWNLOAD=true && export CHROMEDRIVER_PATH=/usr/local/bin/chromedriver && npm run postinstall
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ echo 'npm test -- --verbose' > test_commands.sh && chmod +x test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class BROWSER_LAPTOP_13607_TO_11977(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,60 +189,70 @@ class BROWSER_LAPTOP_13607_TO_11977(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Patterns to capture test name, skipping recoveryWallet errors and metadata
-        passed_pattern = re.compile(r'^\s+✓\s+(?:Error in "recoveryWallet": ".*?" )?(.*?)(?:\s+should loosely deep-equal.*|\s*\} \+.*)?$', re.MULTILINE)
-        failed_pattern = re.compile(r'^\s+\d+\)\s+(?:Error in "recoveryWallet": ".*?" )?(.*?)(?:\s+should loosely deep-equal.*|\s*\} \+.*)?$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r'^\s+✓\s+(?:Error in "recoveryWallet": ".*?" )?(.*?)(?:\s+should loosely deep-equal.*|\s*\} \+.*)?$',
+            re.MULTILINE,
+        )
+        failed_pattern = re.compile(
+            r'^\s+\d+\)\s+(?:Error in "recoveryWallet": ".*?" )?(.*?)(?:\s+should loosely deep-equal.*|\s*\} \+.*)?$',
+            re.MULTILINE,
+        )
         # Remove leading warnings
-        warning_pattern = re.compile(r'^\(Use `node.*?\) ', re.DOTALL)
+        warning_pattern = re.compile(r"^\(Use `node.*?\) ", re.DOTALL)
         context = []  # Track nested describe blocks
-        for line in log.split('\n'):
-            line = line.rstrip('\r')
+        for line in log.split("\n"):
+            line = line.rstrip("\r")
             indent = len(line) - len(line.lstrip())
             # Update context, excluding errors and command lines
             if not (passed_pattern.match(line) or failed_pattern.match(line)):
                 describe_name = line.strip()
                 if describe_name and not (
-                    describe_name.startswith('>') or  # Skip command lines
-                    'Error in "recoveryWallet"' in describe_name or  # Skip recoveryWallet errors
-                    describe_name.startswith('(node:') or
-                    describe_name.startswith('(Use `node') or
-                    'Warning' in describe_name or
-                    'Error:' in describe_name or
-                    'at ' in describe_name or
-                    '{}'.format('{}') in describe_name
+                    describe_name.startswith(">")  # Skip command lines
+                    or 'Error in "recoveryWallet"'
+                    in describe_name  # Skip recoveryWallet errors
+                    or describe_name.startswith("(node:")
+                    or describe_name.startswith("(Use `node")
+                    or "Warning" in describe_name
+                    or "Error:" in describe_name
+                    or "at " in describe_name
+                    or "{}".format("{}") in describe_name
                 ):
                     # Remove deeper contexts
-                    while context and context[-1]['indent'] >= indent:
+                    while context and context[-1]["indent"] >= indent:
                         context.pop()
-                    context.append({'indent': indent, 'name': describe_name})
+                    context.append({"indent": indent, "name": describe_name})
             # Capture passed tests with full context
             passed_match = passed_pattern.match(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
-                test_name = warning_pattern.sub('', test_name)  # Remove warning prefixes
-                full_name = ' '.join([c['name'] for c in context] + [test_name])
+                test_name = warning_pattern.sub(
+                    "", test_name
+                )  # Remove warning prefixes
+                full_name = " ".join([c["name"] for c in context] + [test_name])
                 passed_tests.add(full_name)
             # Capture failed tests with full context
             failed_match = failed_pattern.match(line)
             if failed_match:
                 test_name = failed_match.group(1).strip()
-                test_name = warning_pattern.sub('', test_name)  # Remove warning prefixes
-                full_name = ' '.join([c['name'] for c in context] + [test_name])
+                test_name = warning_pattern.sub(
+                    "", test_name
+                )  # Remove warning prefixes
+                full_name = " ".join([c["name"] for c in context] + [test_name])
                 failed_tests.add(full_name)
         # Skipped tests: no pattern identified in logs, leaving as empty set
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

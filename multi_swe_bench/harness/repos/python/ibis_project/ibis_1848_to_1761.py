@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -131,7 +131,7 @@ make testlocal
 ###ACTION_DELIMITER###
 echo 'pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"' > test_commands.sh"""
+echo 'PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -140,9 +140,7 @@ echo 'PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs o
 cd /home/{pr.repo}
 PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -155,9 +153,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -170,9 +166,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 PYTHONHASHSEED="random" pytest -v -n auto -m "not (udf or impala or hdfs or bigquery or mysql or mapd or postgresql or clickhouse)" -k "not test_import_time"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -234,7 +228,7 @@ class IBIS_1848_TO_1761(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -248,31 +242,32 @@ class IBIS_1848_TO_1761(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Define regex pattern to match test status and name
-        pattern = re.compile(r'\b(PASSED|FAILED|SKIPPED)\b\s+(ibis/.*?)\s*$', re.MULTILINE)
+        pattern = re.compile(
+            r"\b(PASSED|FAILED|SKIPPED)\b\s+(ibis/.*?)\s*$", re.MULTILINE
+        )
         # Find all matches in the log content
         matches = pattern.findall(log)
         # Categorize test names into respective sets
         for status, test_name in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ echo 'protobuf==3.20.3' >> requirements.txt
 ###ACTION_DELIMITER###
 echo 'PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python tox -epy3 -- -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python tox -epy3 -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python tox -epy3 -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python tox -epy3 -- -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class SHAKENFIST_427_TO_206(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,31 +185,30 @@ class SHAKENFIST_427_TO_206(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test cases and their statuses (accounts for worker ID prefix)
-        pattern = r'.*shakenfist\.tests\.([^\[]+)\s+\[\d+\.\d+s\]\s+\.\.\.\s+(\w+)'
+        pattern = r".*shakenfist\.tests\.([^\[]+)\s+\[\d+\.\d+s\]\s+\.\.\.\s+(\w+)"
         matches = re.findall(pattern, log)
         for test_part, status in matches:
-            test_name = f'shakenfist.tests.{test_part.strip()}'
+            test_name = f"shakenfist.tests.{test_part.strip()}"
             status = status.strip()
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status.lower() == 'skipped':
+            elif status.lower() == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

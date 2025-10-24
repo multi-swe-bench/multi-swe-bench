@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -109,7 +109,7 @@ sed -i 's/asyncio.async/asyncio.ensure_future/g' aiohttp/server.py
 ###ACTION_DELIMITER###
 nosetests -v
 ###ACTION_DELIMITER###
-echo 'nosetests -v --processes=4' > test_commands.sh"""
+echo 'nosetests -v --processes=4' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,9 +118,7 @@ echo 'nosetests -v --processes=4' > test_commands.sh"""
 cd /home/{pr.repo}
 nosetests -v --processes=4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nosetests -v --processes=4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -148,9 +144,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nosetests -v --processes=4
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -212,7 +206,7 @@ class AIOHTTP_488_TO_408(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -226,47 +220,50 @@ class AIOHTTP_488_TO_408(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Split log into lines and process each line
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Skip setup syntax errors
-            if 'Failure: SyntaxError' in line:
+            if "Failure: SyntaxError" in line:
                 continue
             # Handle SKIP lines
-            if line.upper().startswith(('SKIP:', 'SKIPPED:')):
-                test_name = line.split(':', 1)[1].strip()
+            if line.upper().startswith(("SKIP:", "SKIPPED:")):
+                test_name = line.split(":", 1)[1].strip()
                 skipped_tests.add(test_name)
             # Handle test lines with '...'
-            if '...' in line:
-                test_part, status_part = line.split('...', 1)
-                test_name = test_part.split(']')[-1].strip() if ']' in test_part else test_part.strip()
-                status = re.sub(r'[^A-Z]', '', status_part.strip().upper())
-                if status == 'OK':
+            if "..." in line:
+                test_part, status_part = line.split("...", 1)
+                test_name = (
+                    test_part.split("]")[-1].strip()
+                    if "]" in test_part
+                    else test_part.strip()
+                )
+                status = re.sub(r"[^A-Z]", "", status_part.strip().upper())
+                if status == "OK":
                     passed_tests.add(test_name)
-                elif status in ('FAIL', 'ERROR'):
+                elif status in ("FAIL", "ERROR"):
                     # Clean test name by removing trailing warnings
-                    clean_test_name = test_name.split('/')[0].strip()
+                    clean_test_name = test_name.split("/")[0].strip()
                     failed_tests.add(clean_test_name)
-                elif status.startswith(('SKIP', 'SKIPPED', 'SK', 'S')):
+                elif status.startswith(("SKIP", "SKIPPED", "SK", "S")):
                     skipped_tests.add(test_name)
             # Handle FAIL/ERROR lines
-            elif line.startswith(('FAIL:', 'ERROR:')):
-                test_name = line.split(':', 1)[1].strip()
+            elif line.startswith(("FAIL:", "ERROR:")):
+                test_name = line.split(":", 1)[1].strip()
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

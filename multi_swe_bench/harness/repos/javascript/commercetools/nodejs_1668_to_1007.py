@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo -e '#!/bin/bash
 yarn test -- --verbose
 yarn test:integration -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ cd /home/[[REPO_NAME]]
 yarn test -- --verbose
 yarn test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ fi
 yarn test -- --verbose
 yarn test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 yarn test -- --verbose
 yarn test:integration -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class NODEJS_1668_TO_1007(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,18 +173,22 @@ class NODEJS_1668_TO_1007(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
-        test_file_pattern = re.compile(r'^(PASS|FAIL)\s+(test .*?\.spec\.js)')  # Capture test file path
-        test_case_pattern = re.compile(r'[✓✕]\s+([^\(]+?)(?:\s*\(\d+ ms\))?$')  # Handle optional execution time
+
+        test_file_pattern = re.compile(
+            r"^(PASS|FAIL)\s+(test .*?\.spec\.js)"
+        )  # Capture test file path
+        test_case_pattern = re.compile(
+            r"[✓✕]\s+([^\(]+?)(?:\s*\(\d+ ms\))?$"
+        )  # Handle optional execution time
         group_stack = []
         current_test_file = None
-        for line in log.split('\n'):
-            content = re.sub(r'^\[\s*\d+\]\s*', '', line).rstrip()
+        for line in log.split("\n"):
+            content = re.sub(r"^\[\s*\d+\]\s*", "", line).rstrip()
             if not content:
                 continue
             # Detect new test file and reset hierarchy
@@ -194,23 +198,23 @@ class NODEJS_1668_TO_1007(Instance):
                 group_stack = [current_test_file]  # Start stack with test file
                 continue
             # Process test cases (✓/✕)
-            if '✓' in content or '✕' in content:
+            if "✓" in content or "✕" in content:
                 if not current_test_file:
                     continue  # Skip if no test file context
                 leading_spaces = len(content) - len(content.lstrip())
-                status = '✓' if '✓' in content else '✕'
+                status = "✓" if "✓" in content else "✕"
                 # Extract test name (with optional execution time)
                 case_match = test_case_pattern.search(content)
                 if not case_match:
                     continue
                 test_name = case_match.group(1).strip()
                 # Calculate depth (test file is level 0, groups start at level 1)
-                depth = (leading_spaces // 2)  # 2 spaces per level
+                depth = leading_spaces // 2  # 2 spaces per level
                 while len(group_stack) > depth:
                     group_stack.pop()
                 # Build full unique test name
-                full_test_name = ' > '.join(group_stack + [test_name])
-                if status == '✓':
+                full_test_name = " > ".join(group_stack + [test_name])
+                if status == "✓":
                     passed_tests.add(full_test_name)
                 else:
                     failed_tests.add(full_test_name)
@@ -219,11 +223,11 @@ class NODEJS_1668_TO_1007(Instance):
                 if not current_test_file:
                     continue  # Skip if no test file context
                 # Skip error lines (e.g., Jest failure messages)
-                if '●' in content:
+                if "●" in content:
                     continue
                 leading_spaces = len(content) - len(content.lstrip())
                 group_name = content.strip()
-                depth = (leading_spaces // 2)  # 2 spaces per level
+                depth = leading_spaces // 2  # 2 spaces per level
                 # Adjust stack to current depth (test file is level 0)
                 while len(group_stack) > depth:
                     group_stack.pop()
@@ -232,9 +236,8 @@ class NODEJS_1668_TO_1007(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

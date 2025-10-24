@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "pytorch/pytorch:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ pip install functorch==1.13.1
 ###ACTION_DELIMITER###
 pip install git+https://github.com/pytorch/functorch.git@v2.0.0
 ###ACTION_DELIMITER###
-pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117 && pip install git+https://github.com/pytorch/functorch.git@v2.0.0"""
+pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https://download.pytorch.org/whl/cu117 && pip install git+https://github.com/pytorch/functorch.git@v2.0.0""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ pip install torch==2.0.0+cu117 torchvision==0.15.0+cu117 --extra-index-url https
 cd /home/[[REPO_NAME]]
 pytest test/ -v -rA --no-header  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest test/ -v -rA --no-header  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest test/ -v -rA --no-header  -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class RL_443_TO_295(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,44 +203,43 @@ class RL_443_TO_295(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Matches lines like "test/... <STATUS> [  x%]"
-        pattern1 = r'^\s*(test/[\w/\.]+::[\w:\[\]\-]+)\s+(PASSED|FAILED|SKIPPED|SKIP|passed|failed|skipped|skip):?\s*(?:\[\s*\d+%\])?'  # Allows optional colon and additional status keywords
+        pattern1 = r"^\s*(test/[\w/\.]+::[\w:\[\]\-]+)\s+(PASSED|FAILED|SKIPPED|SKIP|passed|failed|skipped|skip):?\s*(?:\[\s*\d+%\])?"  # Allows optional colon and additional status keywords
         # Pattern 2: Matches lines like "[123] <STATUS> test/..."
-        pattern2 = r'^\s*(?:\[\d+\]\s*)?(PASSED|FAILED|SKIPPED|SKIP|passed|failed|skipped|skip):?\s+(test/[\w/\.]+::[\w:\[\]\-\,\=\.]+)$'  # Includes SKIP, optional colon, and expanded test name characters
+        pattern2 = r"^\s*(?:\[\d+\]\s*)?(PASSED|FAILED|SKIPPED|SKIP|passed|failed|skipped|skip):?\s+(test/[\w/\.]+::[\w:\[\]\-\,\=\.]+)$"  # Includes SKIP, optional colon, and expanded test name characters
         # Process Pattern 1 matches
         for match in re.finditer(pattern1, log, re.MULTILINE):
             test_name = match.group(1)
             status = match.group(2).upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status in ('SKIPPED', 'SKIP'):
+            elif status in ("SKIPPED", "SKIP"):
                 skipped_tests.add(test_name)
         # Process Pattern 2 matches
         for match in re.finditer(pattern2, log, re.MULTILINE):
             status = match.group(1).upper()
             test_name = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status in ('SKIPPED', 'SKIP'):
+            elif status in ("SKIPPED", "SKIP"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

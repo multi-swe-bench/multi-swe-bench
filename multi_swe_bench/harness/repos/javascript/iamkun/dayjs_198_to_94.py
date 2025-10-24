@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -61,7 +61,7 @@ npm test
 ###ACTION_DELIMITER###
 npm test -- --testEnvironment=node
 ###ACTION_DELIMITER###
-echo 'npm test -- --testEnvironment=node' > test_commands.sh"""
+echo 'npm test -- --testEnvironment=node' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ echo 'npm test -- --testEnvironment=node' > test_commands.sh"""
 cd /home/{pr.repo}
 npm test -- --testEnvironment=node
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -85,9 +83,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --testEnvironment=node
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -100,9 +96,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 npm test -- --testEnvironment=node
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -164,7 +158,7 @@ class DAYJS_198_TO_94(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,25 +172,24 @@ class DAYJS_198_TO_94(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         for line in log.splitlines():
-            if line.startswith('PASS'):
-                passed_tests.add(line.split(' ')[1])
-            elif line.startswith('FAIL'):
-                failed_tests.add(line.split(' ')[1])
+            if line.startswith("PASS"):
+                passed_tests.add(line.split(" ")[1])
+            elif line.startswith("FAIL"):
+                failed_tests.add(line.split(" ")[1])
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

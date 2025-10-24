@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:lts-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose --testPathIgnorePatterns=node_modules/@senecacdot/satellite --updateSnapshot --runInBand --testTimeout=30000' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose --testPathIgnorePatterns=node_modules/@senecacdot/satellite --updateSnapshot --runInBand --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose --testPathIgnorePatterns=node_modules/@senecacdot/satellite --updateSnapshot --runInBand --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose --testPathIgnorePatterns=node_modules/@senecacdot/satellite --updateSnapshot --runInBand --testTimeout=30000
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class TELESCOPE_2200_TO_2173(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +205,6 @@ class TELESCOPE_2200_TO_2173(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
@@ -213,39 +212,47 @@ class TELESCOPE_2200_TO_2173(Instance):
         skipped_tests = set[str]()
         import re
         import json
+
         # Regex patterns to match test results with duration
         # Regex patterns to match test results with duration (adjusted for indentation and line boundaries)
-        passed_pattern = re.compile(r'^\s*✓\s+(.+?)\s*(\(\d+ ms\))?\s*$')
-        failed_pattern = re.compile(r'^\s*(✕|●)\s+(?!Test suite failed)(.+?)\s*(\(\d+ ms\))?\s*$')
-        skipped_pattern = re.compile(r'^\s*○\s+(.+?)\s*(\(\d+ ms\))?\s*$')
+        passed_pattern = re.compile(r"^\s*✓\s+(.+?)\s*(\(\d+ ms\))?\s*$")
+        failed_pattern = re.compile(
+            r"^\s*(✕|●)\s+(?!Test suite failed)(.+?)\s*(\(\d+ ms\))?\s*$"
+        )
+        skipped_pattern = re.compile(r"^\s*○\s+(.+?)\s*(\(\d+ ms\))?\s*$")
         # Track test statuses, keeping the last occurrence
         test_status = {}
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for passed tests
             passed_match = passed_pattern.match(line)
             if passed_match:
                 test_name = passed_match.group(1).strip()
-                test_status[test_name] = 'passed'
+                test_status[test_name] = "passed"
             # Check for failed tests
             failed_match = failed_pattern.match(line)
             if failed_match:
                 test_name = failed_match.group(2).strip()
-                test_status[test_name] = 'failed'
+                test_status[test_name] = "failed"
             # Check for skipped tests
             skipped_match = skipped_pattern.match(line)
             if skipped_match:
                 test_name = skipped_match.group(1).strip()
-                test_status[test_name] = 'skipped'
+                test_status[test_name] = "skipped"
         # Populate the sets based on the final status
-        passed_tests = set(name for name, status in test_status.items() if status == 'passed')
-        failed_tests = set(name for name, status in test_status.items() if status == 'failed')
-        skipped_tests = set(name for name, status in test_status.items() if status == 'skipped')
+        passed_tests = set(
+            name for name, status in test_status.items() if status == "passed"
+        )
+        failed_tests = set(
+            name for name, status in test_status.items() if status == "failed"
+        )
+        skipped_tests = set(
+            name for name, status in test_status.items() if status == "skipped"
+        )
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

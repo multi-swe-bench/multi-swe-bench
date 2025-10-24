@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -136,7 +136,7 @@ cat test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 rm -rf nilearn-venv && python3.8 -m venv nilearn-venv && source nilearn-venv/bin/activate && pip install -r requirements-dev.txt && echo 'nilearn-venv/bin/python -m pytest --pyargs nilearn -v' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-rm -rf nilearn-venv && python3.8 -m venv nilearn-venv && source nilearn-venv/bin/activate && pip install setuptools==58.0.0 && pip install numpy==1.19.5 && pip install scikit-learn==0.23.2 && pip install scipy==1.5.4 pandas==1.1.5 matplotlib==3.3.4 nibabel==3.2.1 pytest==6.2.5 pytest-cov==2.12.1 cython==0.29.24 && echo 'nilearn-venv/bin/python -m pytest --pyargs nilearn -v' > test_commands.sh && bash test_commands.sh"""
+rm -rf nilearn-venv && python3.8 -m venv nilearn-venv && source nilearn-venv/bin/activate && pip install setuptools==58.0.0 && pip install numpy==1.19.5 && pip install scikit-learn==0.23.2 && pip install scipy==1.5.4 pandas==1.1.5 matplotlib==3.3.4 nibabel==3.2.1 pytest==6.2.5 pytest-cov==2.12.1 cython==0.29.24 && echo 'nilearn-venv/bin/python -m pytest --pyargs nilearn -v' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -145,9 +145,7 @@ rm -rf nilearn-venv && python3.8 -m venv nilearn-venv && source nilearn-venv/bin
 cd /home/{pr.repo}
 nilearn-venv/bin/python -m pytest --pyargs nilearn -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 nilearn-venv/bin/python -m pytest --pyargs nilearn -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -175,9 +171,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 nilearn-venv/bin/python -m pytest --pyargs nilearn -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -239,7 +233,7 @@ class NILEARN_2451_TO_2272(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -253,18 +247,18 @@ class NILEARN_2451_TO_2272(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Regex pattern to capture test names and their statuses
         pattern = re.compile(
             r"(nilearn/[^:]+::[^ ]+)\s+.*?(PASSED|FAILED|SKIPPED|XFAIL)",
-            re.DOTALL | re.IGNORECASE
+            re.DOTALL | re.IGNORECASE,
         )
         matches = pattern.findall(log)
         for test_name, status in matches:
@@ -278,9 +272,8 @@ class NILEARN_2451_TO_2272(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class TYPESCRIPTTOLUA_475_TO_275(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,40 +167,39 @@ class TYPESCRIPTTOLUA_475_TO_275(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse log lines to extract test statuses
         for line in log.splitlines():
-            line = re.sub(r'^\[\s*\d+\]\s*', '', line.strip())
-            if line.startswith('ok'):
+            line = re.sub(r"^\[\s*\d+\]\s*", "", line.strip())
+            if line.startswith("ok"):
                 # Check for skipped tests
-                skip_match = re.match(r'^ok \d+ # SKIP (.*)$', line)
+                skip_match = re.match(r"^ok \d+ # SKIP (.*)$", line)
                 if skip_match:
                     test_name = skip_match.group(1).strip()
                     skipped_tests.add(test_name)
                 else:
                     # Check for passed tests
-                    passed_match = re.match(r'^ok \d+ (.*)$', line)
+                    passed_match = re.match(r"^ok \d+ (.*)$", line)
                     if passed_match:
                         test_name = passed_match.group(1).strip()
                         passed_tests.add(test_name)
-            elif line.startswith('not ok'):
+            elif line.startswith("not ok"):
                 # Check for failed tests
-                failed_match = re.match(r'^not ok \d+ (.*)$', line)
+                failed_match = re.match(r"^not ok \d+ (.*)$", line)
                 if failed_match:
                     test_name = failed_match.group(1).strip()
                     failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

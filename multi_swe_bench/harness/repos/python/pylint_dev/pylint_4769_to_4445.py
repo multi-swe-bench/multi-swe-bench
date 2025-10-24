@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ ls -F .github
 ###ACTION_DELIMITER###
 ls -F .github/workflows
 ###ACTION_DELIMITER###
-echo 'pytest --benchmark-disable -rA tests/' > test_commands.sh"""
+echo 'pytest --benchmark-disable -rA tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'pytest --benchmark-disable -rA tests/' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest --benchmark-disable -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --benchmark-disable -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --benchmark-disable -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class PYLINT_4769_TO_4445(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,14 +168,14 @@ class PYLINT_4769_TO_4445(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         passed_pattern = re.compile(r"^PASSED\s+(.*)$")
         failed_pattern = re.compile(r"^FAILED\s+(.*)$")
         skipped_pattern = re.compile(r"^SKIPPED.*\s+(.+):")
@@ -195,9 +189,8 @@ class PYLINT_4769_TO_4445(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

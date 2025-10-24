@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -82,7 +82,7 @@ echo -e '#!/bin/bash
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
-pytest -v --no-header -rA --tb=no -p no:cacheprovider --timeout=300 tests/' > test_commands.sh"""
+pytest -v --no-header -rA --tb=no -p no:cacheprovider --timeout=300 tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --timeout=300 tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -108,9 +106,7 @@ fi
 #!/bin/bash
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --timeout=300 tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ fi
 #!/bin/bash
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --timeout=300 tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class IGNITE_3240_TO_2896(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,21 +196,21 @@ class IGNITE_3240_TO_2896(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes and parse test results
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
         test_pattern = re.compile(
-            r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b|'  # Test name first
-            r'^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?:\s+-.*)?$'  # Status first
+            r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\b|"  # Test name first
+            r"^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?:\s+-.*)?$"  # Status first
         )
         for line in log.splitlines():
-            cleaned_line = ansi_escape.sub('', line)
+            cleaned_line = ansi_escape.sub("", line)
             match = test_pattern.match(cleaned_line)
             if match:
                 if match.group(1) and match.group(2):
@@ -227,18 +221,17 @@ class IGNITE_3240_TO_2896(Instance):
                     status = match.group(3)
                 else:
                     continue
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

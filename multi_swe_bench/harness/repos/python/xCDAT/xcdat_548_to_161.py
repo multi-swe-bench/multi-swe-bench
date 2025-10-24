@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ pip install 'xarray>=2022.02.0' cftime dask lxml netcdf4 'numpy>=1.23.0' pandas 
 ###ACTION_DELIMITER###
 pip install 'xarray>=2022.02.0' cftime dask lxml netcdf4 'numpy>=1.23.0' pandas python-dateutil xgcm 'xesmf>=0.7.0' matplotlib 'nc-time-axis==1.4.1'
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class XCDAT_548_TO_161(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,31 +192,32 @@ class XCDAT_548_TO_161(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse PASSED tests
-        passed_pattern = re.compile(r'^PASSED (tests/.*)$', re.MULTILINE)
+        passed_pattern = re.compile(r"^PASSED (tests/.*)$", re.MULTILINE)
         passed_tests = set(passed_pattern.findall(log))
         # Parse FAILED tests
-        failed_pattern = re.compile(r'^FAILED (tests/.*)$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED (tests/.*)$", re.MULTILINE)
         failed_tests = set(failed_pattern.findall(log))
         # Parse SKIPPED tests
-        skipped_pattern = re.compile(r'^SKIPPED \[(\d+)\] (tests/.*?:\d+):', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^SKIPPED \[(\d+)\] (tests/.*?:\d+):", re.MULTILINE
+        )
         for count, test in skipped_pattern.findall(log):
             for i in range(int(count)):
-                skipped_tests.add(f"{test}:{i+1}")
+                skipped_tests.add(f"{test}:{i + 1}")
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

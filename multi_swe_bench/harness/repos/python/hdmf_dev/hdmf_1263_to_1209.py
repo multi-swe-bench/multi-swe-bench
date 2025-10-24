@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -60,7 +60,7 @@ venv/bin/pip install -e ".[test]"
 echo -e 'export HDMF_SPEC_PATH=src/hdmf/spec:src/hdmf/common/hdmf-common-schema
 venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -70,9 +70,7 @@ cd /home/{pr.repo}
 export HDMF_SPEC_PATH=src/hdmf/spec:src/hdmf/common/hdmf-common-schema
 venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -86,9 +84,7 @@ fi
 export HDMF_SPEC_PATH=src/hdmf/spec:src/hdmf/common/hdmf-common-schema
 venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ fi
 export HDMF_SPEC_PATH=src/hdmf/spec:src/hdmf/common/hdmf-common-schema
 venv/bin/pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class HDMF_1263_TO_1209(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,7 +174,6 @@ class HDMF_1263_TO_1209(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -188,40 +181,40 @@ class HDMF_1263_TO_1209(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json  # Unused, but kept as per skeleton
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             # Determine the status
             status = None
-            if 'PASSED' in line:
-                status = 'PASSED'
-            elif 'FAILED' in line:
-                status = 'FAILED'
-            elif 'SKIPPED' in line:
-                status = 'SKIPPED'
-            elif 'XFAIL' in line:
-                status = 'XFAIL'
+            if "PASSED" in line:
+                status = "PASSED"
+            elif "FAILED" in line:
+                status = "FAILED"
+            elif "SKIPPED" in line:
+                status = "SKIPPED"
+            elif "XFAIL" in line:
+                status = "XFAIL"
             else:
                 continue
             # Extract test name using regex
-            test_match = re.search(r'tests/[^:]+(?:\:\d+)?(?:\:\:\w+)*', line)
+            test_match = re.search(r"tests/[^:]+(?:\:\d+)?(?:\:\:\w+)*", line)
             if test_match:
                 test_name = test_match.group()
                 # Categorize the test
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status in ('FAILED', 'XFAIL'):
+                elif status in ("FAILED", "XFAIL"):
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

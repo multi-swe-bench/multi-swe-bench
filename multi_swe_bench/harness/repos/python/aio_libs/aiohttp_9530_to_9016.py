@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -78,7 +78,7 @@ make install-dev
 make vtest
 ###ACTION_DELIMITER###
 echo -e 'pytest -s -v
-python -X dev -m pytest --cov-append -s -v -m dev_mode' > test_commands.sh"""
+python -X dev -m pytest --cov-append -s -v -m dev_mode' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ cd /home/{pr.repo}
 pytest -s -v
 python -X dev -m pytest --cov-append -s -v -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +102,7 @@ fi
 pytest -s -v
 python -X dev -m pytest --cov-append -s -v -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ fi
 pytest -s -v
 python -X dev -m pytest --cov-append -s -v -m dev_mode
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class AIOHTTP_9530_TO_9016(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,19 +192,23 @@ class AIOHTTP_9530_TO_9016(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Compile regex patterns to match test cases and their statuses
-        test_status_pattern = re.compile(r'(tests/[^\s]+)\s+(PASSED|XFAIL|FAILED|SKIPPED)')
-        status_test_pattern = re.compile(r'(PASSED|XFAIL|FAILED|SKIPPED)\s+(tests/[^\s]+)')
+        test_status_pattern = re.compile(
+            r"(tests/[^\s]+)\s+(PASSED|XFAIL|FAILED|SKIPPED)"
+        )
+        status_test_pattern = re.compile(
+            r"(PASSED|XFAIL|FAILED|SKIPPED)\s+(tests/[^\s]+)"
+        )
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for test name followed by status (e.g., "tests/...::test_name PASSED")
             match = test_status_pattern.search(line)
             if match:
@@ -225,18 +223,17 @@ class AIOHTTP_9530_TO_9016(Instance):
                 else:
                     continue  # No test case found in this line
             # Categorize the test based on its status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('XFAIL', 'FAILED'):
+            elif status in ("XFAIL", "FAILED"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

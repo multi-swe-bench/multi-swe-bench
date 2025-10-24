@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -118,7 +118,7 @@ ls -l oss-cad-suite-20240801/bin/sby && export PATH=$PWD/oss-cad-suite-20240801/
 ###ACTION_DELIMITER###
 ls -l && ls -l oss-cad-suite/bin && export PATH=$PWD/oss-cad-suite/bin:$PATH && which sby && pytest -v ./nmigen
 ###ACTION_DELIMITER###
-echo 'pytest -v ./nmigen' > test_commands.sh"""
+echo 'pytest -v ./nmigen' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ echo 'pytest -v ./nmigen' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v ./nmigen
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -140,7 +140,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v ./nmigen
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v ./nmigen
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -215,7 +215,7 @@ class AMARANTH_459_TO_401(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -229,7 +229,6 @@ class AMARANTH_459_TO_401(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -237,21 +236,21 @@ class AMARANTH_459_TO_401(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED\s+(.*)$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(.*)$", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests (placeholder)
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\]', re.MULTILINE)
+        skipped_pattern = re.compile(r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\]", re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -142,7 +142,7 @@ sed -i 's|10.5281/zenodo\.764696|10.5281/zenodo.764696|g' src/pudl/workspace/dat
 ###ACTION_DELIMITER###
 sed -i 's|https://zenodo.org/api/records/764696|10.5281/zenodo.764696|g' src/pudl/workspace/datastore.py && python -m pudl.workspace.datastore --dataset ferc1 --pudl_in $PUDL_IN
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -151,7 +151,7 @@ sed -i 's|https://zenodo.org/api/records/764696|10.5281/zenodo.764696|g' src/pud
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider test/unit test/integration test/validate
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider test/unit test/integration test/validate
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -177,7 +177,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider test/unit test/integration test/validate
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -239,7 +239,7 @@ class PUDL_1616_TO_1608(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -253,42 +253,45 @@ class PUDL_1616_TO_1608(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses in both orders
-        pattern_test_first = re.compile(r'^(?:\[\s*\d+\]\s+)?(?P<test_name>test/[^\s]+)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL)\b')
-        pattern_status_first = re.compile(r'^(?:\[\s*\d+\]\s+)?(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL)\b\s+(?P<test_name>test/[^\s]+)')
+        pattern_test_first = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(?P<test_name>test/[^\s]+)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL)\b"
+        )
+        pattern_status_first = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL)\b\s+(?P<test_name>test/[^\s]+)"
+        )
         for line in log.splitlines():
             # Check for test name followed by status
             match = pattern_test_first.search(line)
             if match:
-                test_name = match.group('test_name').strip()
-                status = match.group('status')
+                test_name = match.group("test_name").strip()
+                status = match.group("status")
             else:
                 # Check for status followed by test name
                 match = pattern_status_first.search(line)
                 if not match:
                     continue
-                test_name = match.group('test_name').strip()
-                status = match.group('status')
+                test_name = match.group("test_name").strip()
+                status = match.group("status")
             # Categorize the test based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status in ('SKIPPED', 'XFAIL'):
+            elif status in ("SKIPPED", "XFAIL"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ echo 'pnpm run --recursive --workspace-concurrency 1 --no-bail test -- --verbose
 echo -e '#!/bin/bash
 pnpm run --recursive --workspace-concurrency 1 --no-bail test -- --verbose' > /home/hardhat/test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x /home/hardhat/test_commands.sh"""
+chmod +x /home/hardhat/test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 pnpm run --recursive --workspace-concurrency 1 --no-bail test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ fi
 #!/bin/bash
 pnpm run --recursive --workspace-concurrency 1 --no-bail test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 #!/bin/bash
 pnpm run --recursive --workspace-concurrency 1 --no-bail test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class HARDHAT_6721_TO_5246(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,19 +173,21 @@ class HARDHAT_6721_TO_5246(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Refined regex to capture test names without symbols
-        passed_pattern = re.compile(r'^\s*✔\s+(.*?)\s*$')  # Matches lines starting with ✔
-        failed_pattern = re.compile(r'fail|error', re.IGNORECASE)
-        summary_pattern = re.compile(r'Summary: (\d+) fails')
-        lines = log.split('\n')
+        passed_pattern = re.compile(
+            r"^\s*✔\s+(.*?)\s*$"
+        )  # Matches lines starting with ✔
+        failed_pattern = re.compile(r"fail|error", re.IGNORECASE)
+        summary_pattern = re.compile(r"Summary: (\d+) fails")
+        lines = log.split("\n")
         failed_count = 0
         for i, line in enumerate(lines):
             # Extract passed tests
@@ -200,17 +202,25 @@ class HARDHAT_6721_TO_5246(Instance):
             # Extract failed tests (capture test names preceding error messages)
             if failed_pattern.search(line) and i > 0:
                 # Check if previous line is a test name (avoids capturing non-test errors)
-                prev_line = lines[i-1].strip()
-                if prev_line and not failed_pattern.search(prev_line) and (prev_line.startswith(('Should', 'should', 'Handles', 'handles', 'Test', 'test'))):
+                prev_line = lines[i - 1].strip()
+                if (
+                    prev_line
+                    and not failed_pattern.search(prev_line)
+                    and (
+                        prev_line.startswith(
+                            ("Should", "should", "Handles", "handles", "Test", "test")
+                        )
+                    )
+                ):
                     # Remove trailing colon and strip whitespace
-                    test_name = prev_line.rstrip(':').strip()
+                    test_name = prev_line.rstrip(":").strip()
                     failed_tests.add(test_name)
                 # Capture exit status indicating failure
-                elif 'exit status' in line.lower() and failed_count > 0:
-                    test_name = 'Hardhat core test suite'
+                elif "exit status" in line.lower() and failed_count > 0:
+                    test_name = "Hardhat core test suite"
                     failed_tests.add(test_name)
         # Add skipped tests if patterns exist (e.g., 'SKIPPED' keyword)
-        skipped_pattern = re.compile(r'^\s*SKIPPED\s+(.*?)\s*$')
+        skipped_pattern = re.compile(r"^\s*SKIPPED\s+(.*?)\s*$")
         for line in lines:
             skipped_match = skipped_pattern.search(line)
             if skipped_match:
@@ -219,9 +229,8 @@ class HARDHAT_6721_TO_5246(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

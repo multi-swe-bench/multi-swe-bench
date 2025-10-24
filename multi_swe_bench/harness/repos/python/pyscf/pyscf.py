@@ -368,7 +368,6 @@ python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
         if not pyscf_version:
             raise ValueError(f"No PySCF version found for PR #{self.pr.number}")
 
-
         print(self.pr.base.sha)
 
         dockerfile_content = f"""

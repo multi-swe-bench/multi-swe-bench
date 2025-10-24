@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ pytest -v tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile
 ###ACTION_DELIMITER###
 echo 'pytest -v tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests --cov-config pyproject.toml --numprocesses 4 --dist loadfile
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class KEDRO_1543_TO_1182(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,7 +176,6 @@ class KEDRO_1543_TO_1182(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -190,18 +183,18 @@ class KEDRO_1543_TO_1182(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Find all failed tests
-        failed_tests.update(re.findall(r'FAILED (tests/.*)', log))
+        failed_tests.update(re.findall(r"FAILED (tests/.*)", log))
         # Find all passed tests
-        passed_tests.update(re.findall(r'PASSED (tests/.*)', log))
+        passed_tests.update(re.findall(r"PASSED (tests/.*)", log))
         # Find all skipped tests
-        skipped_tests.update(re.findall(r'SKIPPED (tests/.*)', log))
+        skipped_tests.update(re.findall(r"SKIPPED (tests/.*)", log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

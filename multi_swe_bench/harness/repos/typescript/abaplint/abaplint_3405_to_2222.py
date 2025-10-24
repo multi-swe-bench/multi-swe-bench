@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ npm test
 ###ACTION_DELIMITER###
 echo 'MOCHA_OPTS="--reporter spec" npm test' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'MOCHA_OPTS="--reporter json" npm test' > test_commands.sh"""
+echo 'MOCHA_OPTS="--reporter json" npm test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ echo 'MOCHA_OPTS="--reporter json" npm test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 MOCHA_OPTS="--reporter json" npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 MOCHA_OPTS="--reporter json" npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 MOCHA_OPTS="--reporter json" npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class ABAPLINT_3405_TO_2222(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,7 +167,6 @@ class ABAPLINT_3405_TO_2222(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -175,38 +174,46 @@ class ABAPLINT_3405_TO_2222(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes to handle colored logs
-        log = re.sub(r'\x1B\[[0-9;]*m', '', log)
+        log = re.sub(r"\x1B\[[0-9;]*m", "", log)
         # Extract failed tests from error lines (e.g., 'test/...ts:line:col - error')
-        failed_pattern = re.compile(r'(test/(?!\*\*/).*?\.ts):\d+:\d+ - error', re.IGNORECASE | re.MULTILINE)
+        failed_pattern = re.compile(
+            r"(test/(?!\*\*/).*?\.ts):\d+:\d+ - error", re.IGNORECASE | re.MULTILINE
+        )
         failed_tests.update(failed_pattern.findall(log))
         # Extract passed tests from success indicators (e.g., 'test/...ts passed')
-        passed_pattern = re.compile(r'(test/(?!\*\*/).*?\.ts) - passed', re.IGNORECASE | re.MULTILINE)
+        passed_pattern = re.compile(
+            r"(test/(?!\*\*/).*?\.ts) - passed", re.IGNORECASE | re.MULTILINE
+        )
         passed_tests.update(passed_pattern.findall(log))
         # Extract skipped tests from skipped indicators (e.g., 'test/...ts skipped')
-        skipped_pattern = re.compile(r'(test/(?!\*\*/).*?\.ts) - skipped', re.IGNORECASE | re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"(test/(?!\*\*/).*?\.ts) - skipped", re.IGNORECASE | re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         # Handle cases where only failed tests are logged; infer passed tests from total test files
         # If no passed tests are found, assume all non-failed/skipped test files are passed
         if not passed_tests:
-            all_tests_pattern = re.compile(r'(test/(?!\*\*/).*?\.ts)', re.IGNORECASE | re.MULTILINE)
+            all_tests_pattern = re.compile(
+                r"(test/(?!\*\*/).*?\.ts)", re.IGNORECASE | re.MULTILINE
+            )
             all_tests = set(all_tests_pattern.findall(log))
             # Fallback to default test names if none are found (from test-patch-run.log)
             if not all_tests:
                 default_tests = {
-                    'test/abap/flow/statement_flow.ts',
-                    'test/rules/add_test_attributes.ts',
-                    'test/rules/empty_event.ts',
-                    'test/rules/implicit_start_of_selection.ts'
+                    "test/abap/flow/statement_flow.ts",
+                    "test/rules/add_test_attributes.ts",
+                    "test/rules/empty_event.ts",
+                    "test/rules/implicit_start_of_selection.ts",
                 }
                 all_tests = default_tests
             passed_tests.update(all_tests - failed_tests - skipped_tests)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

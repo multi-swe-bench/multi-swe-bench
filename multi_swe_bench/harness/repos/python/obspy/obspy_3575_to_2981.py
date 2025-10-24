@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -98,7 +98,7 @@ pip install -e .[tests]
 ###ACTION_DELIMITER###
 echo 'pytest --verbose -n 4' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest --verbose -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -120,7 +120,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --verbose -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -133,7 +133,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --verbose -n 4
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -195,7 +195,7 @@ class OBSPY_3575_TO_2981(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -209,32 +209,37 @@ class OBSPY_3575_TO_2981(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract passed tests using regex
-        passed_matches = re.findall(r'(?:\[.*?\] \[.*?\] )?PASSED (.*?)(?:\s|$)', log, re.MULTILINE)
+        passed_matches = re.findall(
+            r"(?:\[.*?\] \[.*?\] )?PASSED (.*?)(?:\s|$)", log, re.MULTILINE
+        )
         for test in passed_matches:
             passed_tests.add(test.strip())
         # Extract failed tests using regex
-        failed_matches = re.findall(r'(?:\[.*?\] \[.*?\] )?FAILED (.*?)(?:\s|$)', log, re.MULTILINE)
+        failed_matches = re.findall(
+            r"(?:\[.*?\] \[.*?\] )?FAILED (.*?)(?:\s|$)", log, re.MULTILINE
+        )
         for test in failed_matches:
             failed_tests.add(test.strip())
         # Extract skipped tests using regex
-        skipped_matches = re.findall(r'(?:\[.*?\] \[.*?\] )?SKIPPED (.*?)(?:\s|$)', log, re.MULTILINE)
+        skipped_matches = re.findall(
+            r"(?:\[.*?\] \[.*?\] )?SKIPPED (.*?)(?:\s|$)", log, re.MULTILINE
+        )
         for test in skipped_matches:
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -135,7 +135,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/unit -k "not (test_create_bucket_w_custom_endpoint or test_ctor_w_custom_endpoint_use_auth or test_list_buckets_w_custom_endpoint)"' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -144,9 +144,7 @@ echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/unit -k "not (
 cd /home/{pr.repo}
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/unit -k "not (test_create_bucket_w_custom_endpoint or test_ctor_w_custom_endpoint_use_auth or test_list_buckets_w_custom_endpoint)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -159,9 +157,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/unit -k "not (test_create_bucket_w_custom_endpoint or test_ctor_w_custom_endpoint_use_auth or test_list_buckets_w_custom_endpoint)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -174,9 +170,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider tests/unit -k "not (test_create_bucket_w_custom_endpoint or test_ctor_w_custom_endpoint_use_auth or test_list_buckets_w_custom_endpoint)"
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -238,7 +232,7 @@ class PYTHON_STORAGE_1172_TO_703(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -252,17 +246,19 @@ class PYTHON_STORAGE_1172_TO_703(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex pattern to match test names and statuses
-        pattern = re.compile(r'(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
+        pattern = re.compile(
+            r"(tests/[^\s]+)\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)"
+        )
         for line in lines:
             match = pattern.search(line)
             if match:
@@ -275,18 +271,17 @@ class PYTHON_STORAGE_1172_TO_703(Instance):
                 else:
                     continue  # No match, skip
                 # Add to the appropriate set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

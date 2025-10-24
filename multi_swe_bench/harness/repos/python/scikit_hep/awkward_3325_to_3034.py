@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -101,7 +101,7 @@ pip install -r requirements-test-full.txt
 ###ACTION_DELIMITER###
 python -m pytest -v -n auto tests
 ###ACTION_DELIMITER###
-echo 'python -m pytest -v -n auto tests' > test_commands.sh"""
+echo 'python -m pytest -v -n auto tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -110,9 +110,7 @@ echo 'python -m pytest -v -n auto tests' > test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest -v -n auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -125,9 +123,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -v -n auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest -v -n auto tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class AWKWARD_3325_TO_3034(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,7 +212,6 @@ class AWKWARD_3325_TO_3034(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -226,6 +219,7 @@ class AWKWARD_3325_TO_3034(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests
         passed_matches = re.findall(r"PASSED (tests/[^ \]]+)", log)
         passed_tests.update(passed_matches)
@@ -238,9 +232,8 @@ class AWKWARD_3325_TO_3034(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

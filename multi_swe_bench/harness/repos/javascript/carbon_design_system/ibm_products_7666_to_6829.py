@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libx11-xcb1 libxcursor1 libgtk-3-0 libpangocairo-1.0-0 libcairo-gobject2 libgdk-pixbuf-2.0-0
 ###ACTION_DELIMITER###
-yarn build && bash test_commands.sh"""
+yarn build && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 yarn ci-check:tests -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ fi
 #!/bin/bash
 yarn ci-check:tests -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ fi
 #!/bin/bash
 yarn ci-check:tests -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -166,7 +166,7 @@ class IBM_PRODUCTS_7666_TO_6829(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,35 +180,35 @@ class IBM_PRODUCTS_7666_TO_6829(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        cleaned_log = ansi_escape.sub('', log)
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        cleaned_log = ansi_escape.sub("", log)
         # Regex pattern to match test filenames (e.g., Tearsheet.test.js, options-tile.test.ts)
-        test_file_pattern = re.compile(r'(src/components/[\w/-]+\.test\.(js|ts))')
+        test_file_pattern = re.compile(r"(src/components/[\w/-]+\.test\.(js|ts))")
         # Process each line to determine test status
-        for line in cleaned_log.split('\n'):
+        for line in cleaned_log.split("\n"):
             line = line.strip()
             # Check for passed tests
-            if 'PASS' in line or '✓' in line:
+            if "PASS" in line or "✓" in line:
                 match = test_file_pattern.search(line)
                 if match:
                     test_name = match.group(1)
                     passed_tests.add(test_name)
             # Check for failed tests
-            elif 'FAIL' in line or '✗' in line:
+            elif "FAIL" in line or "✗" in line:
                 match = test_file_pattern.search(line)
                 if match:
                     test_name = match.group(1)
                     failed_tests.add(test_name)
             # Check for SKIPPED files (entire file skipped)
-            elif 'SKIPPED' in line:
+            elif "SKIPPED" in line:
                 match = test_file_pattern.search(line)
                 if match:
                     test_name = match.group(1)
@@ -220,9 +220,8 @@ class IBM_PRODUCTS_7666_TO_6829(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

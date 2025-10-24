@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ echo 'npm test' > test_commands.sh
 ###ACTION_DELIMITER###
 echo 'npm test -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-echo -e 'cd packages/core && npm test --verbose && cd ../../\ncd packages/cli && npm test --verbose && cd ../../\ncd packages/monaco && npm test --verbose && cd ../../' > test_commands.sh"""
+echo -e 'cd packages/core && npm test --verbose && cd ../../\ncd packages/cli && npm test --verbose && cd ../../\ncd packages/monaco && npm test --verbose && cd ../../' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ cd packages/core && npm test --verbose && cd ../../
 cd packages/cli && npm test --verbose && cd ../../
 cd packages/monaco && npm test --verbose && cd ../../
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ cd packages/core && npm test --verbose && cd ../../
 cd packages/cli && npm test --verbose && cd ../../
 cd packages/monaco && npm test --verbose && cd ../../
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ cd packages/core && npm test --verbose && cd ../../
 cd packages/cli && npm test --verbose && cd ../../
 cd packages/monaco && npm test --verbose && cd ../../
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class ABAPLINT_1312_TO_1223(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class ABAPLINT_1312_TO_1223(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,11 +180,16 @@ class ABAPLINT_1312_TO_1223(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test packages from test lines
-        test_package_pattern = re.compile(r"> @abaplint/([a-z]+)@\d+\.\d+\.\d+ (?:pretest|compile|test)")
+        test_package_pattern = re.compile(
+            r"> @abaplint/([a-z]+)@\d+\.\d+\.\d+ (?:pretest|compile|test)"
+        )
         test_packages = set(test_package_pattern.findall(log))
         # Extract skipped packages from 'cd' errors
-        skipped_pattern = re.compile(r"cd: packages/([a-z]+): No such file or directory")
+        skipped_pattern = re.compile(
+            r"cd: packages/([a-z]+): No such file or directory"
+        )
         skipped_packages = set(skipped_pattern.findall(log))
         skipped_tests.update(skipped_packages)
         # Identify failed packages (errors after test execution)
@@ -193,9 +197,11 @@ class ABAPLINT_1312_TO_1223(Instance):
         for package in test_packages:
             if package in skipped_packages:
                 continue
-            test_line = re.search(rf"> @abaplint/{package}@\d+\.\d+\.\d+ (pretest|compile|test)", log)
+            test_line = re.search(
+                rf"> @abaplint/{package}@\d+\.\d+\.\d+ (pretest|compile|test)", log
+            )
             if test_line:
-                subsequent_log = log[test_line.end():]
+                subsequent_log = log[test_line.end() :]
                 if failed_pattern.search(subsequent_log):
                     failed_tests.add(package)
         # Determine passed packages (tested but not failed/skipped)
@@ -203,9 +209,8 @@ class ABAPLINT_1312_TO_1223(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

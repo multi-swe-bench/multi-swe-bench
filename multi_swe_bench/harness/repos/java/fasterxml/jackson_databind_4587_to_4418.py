@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bi
 ###ACTION_DELIMITER###
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify
 ###ACTION_DELIMITER###
-echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify' > /home/jackson-databind/test_commands.sh"""
+echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify' > /home/jackson-databind/test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_H
 cd /home/{pr.repo}
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && ./mvnw -B -ff -ntp clean verify
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class JACKSON_DATABIND_4587_TO_4418(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,33 +214,37 @@ class JACKSON_DATABIND_4587_TO_4418(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Pattern for compilation failures
-        compilation_failure_pattern = re.compile(r'\[ERROR\] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:.*:testCompile')
-        test_class_pattern = re.compile(r'src/test(?:-jdk\d+)?/java/(.*)\.java')
+        compilation_failure_pattern = re.compile(
+            r"\[ERROR\] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:.*:testCompile"
+        )
+        test_class_pattern = re.compile(r"src/test(?:-jdk\d+)?/java/(.*)\.java")
         # Patterns for test execution
-        running_pattern = re.compile(r'\[INFO\] Running (.*)')
-        summary_pattern = re.compile(r'\[INFO\] Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: .* s -- in (.*)')
-        error_pattern = re.compile(r'\[ERROR\]   (.*):\d+')
-        lines = log.split('\n')
+        running_pattern = re.compile(r"\[INFO\] Running (.*)")
+        summary_pattern = re.compile(
+            r"\[INFO\] Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: .* s -- in (.*)"
+        )
+        error_pattern = re.compile(r"\[ERROR\]   (.*):\d+")
+        lines = log.split("\n")
         running_tests = {}
         if compilation_failure_pattern.search(log):
             for line in lines:
                 if match := test_class_pattern.search(line):
-                    test_class = match.group(1).replace('/', '.')
+                    test_class = match.group(1).replace("/", ".")
                     failed_tests.add(test_class)
             return {
                 "passed_tests": passed_tests,
                 "failed_tests": failed_tests,
-                "skipped_tests": skipped_tests
+                "skipped_tests": skipped_tests,
             }
         for i, line in enumerate(lines):
             if match := running_pattern.search(line):
@@ -268,15 +266,17 @@ class JACKSON_DATABIND_4587_TO_4418(Instance):
         # Second pass for error section
         in_error_section = False
         for line in lines:
-            if line.startswith('[ERROR] Errors:'):
+            if line.startswith("[ERROR] Errors:"):
                 in_error_section = True
-            elif in_error_section and line.startswith('[INFO] Tests run:'):
+            elif in_error_section and line.startswith("[INFO] Tests run:"):
                 in_error_section = False
             elif in_error_section:
                 if match := error_pattern.search(line):
-                    failed_test_name = match.group(1).split('.')[0]
+                    failed_test_name = match.group(1).split(".")[0]
                     # Find the full test name
-                    for test in list(passed_tests) + list(failed_tests) + list(skipped_tests):
+                    for test in (
+                        list(passed_tests) + list(failed_tests) + list(skipped_tests)
+                    ):
                         if failed_test_name in test:
                             failed_tests.add(test)
                             if test in passed_tests:
@@ -284,9 +284,8 @@ class JACKSON_DATABIND_4587_TO_4418(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

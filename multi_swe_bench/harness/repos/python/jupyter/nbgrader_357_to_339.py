@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -123,7 +123,7 @@ cat tasks.py
 ###ACTION_DELIMITER###
 py.test --cov nbgrader --no-cov-on-fail -v -x
 ###ACTION_DELIMITER###
-echo 'py.test --cov nbgrader --no-cov-on-fail -v' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'py.test --cov nbgrader --no-cov-on-fail -v' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -132,9 +132,7 @@ echo 'py.test --cov nbgrader --no-cov-on-fail -v' > test_commands.sh && chmod +x
 cd /home/{pr.repo}
 py.test --cov nbgrader --no-cov-on-fail -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -147,9 +145,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 py.test --cov nbgrader --no-cov-on-fail -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -162,9 +158,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 py.test --cov nbgrader --no-cov-on-fail -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -226,7 +220,7 @@ class NBGRADER_357_TO_339(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,28 +234,29 @@ class NBGRADER_357_TO_339(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse test cases using regex pattern
-        pattern = re.compile(r'\s+(nbgrader/tests/.*?\.py::.*?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+')
+        pattern = re.compile(
+            r"\s+(nbgrader/tests/.*?\.py::.*?)\s+(PASSED|FAILED|SKIPPED|ERROR)\s+"
+        )
         for test_name, status in pattern.findall(log):
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR'):
+            elif status in ("FAILED", "ERROR"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ nvm install 6
 ###ACTION_DELIMITER###
 yarn install
 ###ACTION_DELIMITER###
-echo 'npm test -- --verbose' > test_commands.sh"""
+echo 'npm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ echo 'npm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class HMDA_PLATFORM_UI_529_TO_480(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,32 +177,31 @@ class HMDA_PLATFORM_UI_529_TO_480(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Remove all ANSI escape codes (including cursor movements)
-        cleaned_log = re.sub(r'\x1B\[[0-9;]*[a-zA-Z]', '', log)
+        cleaned_log = re.sub(r"\x1B\[[0-9;]*[a-zA-Z]", "", log)
         # Extract test names using flexible patterns
         # Adjust regex to handle varying whitespace and line endings
         # Extract passed tests (marked with ✓)
-        passed_matches = re.findall(r'\s+✓\s+(.*?)\s*\(', cleaned_log)
+        passed_matches = re.findall(r"\s+✓\s+(.*?)\s*\(", cleaned_log)
         passed_tests.update([match.strip() for match in passed_matches])
         # Extract failed tests (marked with ✕)
-        failed_matches = re.findall(r'\s+✕\s+(.*?)\s*\(', cleaned_log)
+        failed_matches = re.findall(r"\s+✕\s+(.*?)\s*\(", cleaned_log)
         failed_tests.update([match.strip() for match in failed_matches])
         # Extract skipped tests (marked with ○, if present)
-        skipped_matches = re.findall(r'○\s+([^(\n]+)', cleaned_log)
+        skipped_matches = re.findall(r"○\s+([^(\n]+)", cleaned_log)
         skipped_tests.update([match.strip() for match in skipped_matches])
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

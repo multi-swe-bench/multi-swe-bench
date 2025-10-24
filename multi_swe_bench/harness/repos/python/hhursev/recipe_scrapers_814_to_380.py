@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
 echo 'python -m unittest -v' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 python -m unittest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m unittest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m unittest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -149,6 +143,7 @@ RUN git checkout {pr.base.sha}
 """
         return dockerfile_content.format(pr=self.pr)
 
+
 @Instance.register("hhursev", "recipe_scrapers_814_to_380")
 class RECIPE_SCRAPERS_814_TO_380(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -167,7 +162,7 @@ class RECIPE_SCRAPERS_814_TO_380(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,31 +176,32 @@ class RECIPE_SCRAPERS_814_TO_380(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # import json  # Not used in this implementation
         # Regex pattern to match test entries. Captures the full test name (inside parentheses) and the status.
         # The pattern accounts for possible multi-line entries with warnings/errors between "..." and the status.
-        pattern = r'\(([^)]+)\)\s*\.\.\.\s*(?:.|\n)*?\b(ok|FAIL|FAILED|ERROR|error|skipped)\b'
+        pattern = (
+            r"\(([^)]+)\)\s*\.\.\.\s*(?:.|\n)*?\b(ok|FAIL|FAILED|ERROR|error|skipped)\b"
+        )
         matches = re.findall(pattern, log, re.DOTALL)
         for test_name, status in matches:
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status in ('FAIL', 'FAILED', 'ERROR', 'error'):
+            elif status in ("FAIL", "FAILED", "ERROR", "error"):
                 failed_tests.add(test_name)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

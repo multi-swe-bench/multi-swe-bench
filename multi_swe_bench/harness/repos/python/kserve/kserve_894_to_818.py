@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -75,7 +75,7 @@ curl -L -O https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3
 echo -e 'export PATH=$PATH:/usr/local/kubebuilder/bin
 go test -v -count=1 ./pkg/... ./cmd/...' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ cd /home/[[REPO_NAME]]
 export PATH=$PATH:/usr/local/kubebuilder/bin
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ fi
 export PATH=$PATH:/usr/local/kubebuilder/bin
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ fi
 export PATH=$PATH:/usr/local/kubebuilder/bin
 go test -v -count=1 ./pkg/... ./cmd/...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class KSERVE_894_TO_818(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,17 +189,17 @@ class KSERVE_894_TO_818(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status lines
         status_pattern = re.compile(r"--- (PASS|FAIL|SKIPPED): (.*?) \(\d+\.?\d*s\)")
         # Split log into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = status_pattern.search(line)
             if match:
                 status = match.group(1)
@@ -213,9 +213,8 @@ class KSERVE_894_TO_818(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

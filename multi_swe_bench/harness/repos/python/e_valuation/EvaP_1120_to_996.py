@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -106,7 +106,7 @@ python manage.py migrate
 ###ACTION_DELIMITER###
 echo './manage.py test -v 2' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./manage.py test -v 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -128,7 +128,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./manage.py test -v 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./manage.py test -v 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -203,7 +203,7 @@ class EVAP_1120_TO_996(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -217,7 +217,6 @@ class EVAP_1120_TO_996(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -225,33 +224,36 @@ class EVAP_1120_TO_996(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         i = 0
         while i < len(lines):
             current_line = lines[i].strip()
             # Handle single-line test entries (test name and status on same line)
-            single_line_match = re.match(r'^\[\s*\d+\]\s*(.*?)\s*\.\.\.\s*(\w+)$', current_line)
+            single_line_match = re.match(
+                r"^\[\s*\d+\]\s*(.*?)\s*\.\.\.\s*(\w+)$", current_line
+            )
             if single_line_match:
                 test_name = single_line_match.group(1).strip()
                 status = single_line_match.group(2).strip()
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status in ('failed', 'FAIL', 'ERROR'):
+                elif status in ("failed", "FAIL", "ERROR"):
                     failed_tests.add(test_name)
-                elif status in ('skipped', 'SKIP'):
+                elif status in ("skipped", "SKIP"):
                     skipped_tests.add(test_name)
             # Handle two-line test entries (test name on current line, status on next line)
             if i + 1 < len(lines):
-                next_line = lines[i+1].strip()
-                if re.search(r'\.\.\.\s*\w+$', next_line):
-                    test_name = re.sub(r'^\[\s*\d+\]\s*', '', current_line).strip()
-                    status = next_line.rsplit('...', 1)[1].strip()
-                    if status == 'ok':
+                next_line = lines[i + 1].strip()
+                if re.search(r"\.\.\.\s*\w+$", next_line):
+                    test_name = re.sub(r"^\[\s*\d+\]\s*", "", current_line).strip()
+                    status = next_line.rsplit("...", 1)[1].strip()
+                    if status == "ok":
                         passed_tests.add(test_name)
-                    elif status in ('failed', 'FAIL', 'ERROR'):
+                    elif status in ("failed", "FAIL", "ERROR"):
                         failed_tests.add(test_name)
-                    elif status in ('skipped', 'SKIP'):
+                    elif status in ("skipped", "SKIP"):
                         skipped_tests.add(test_name)
                     i += 2  # Skip next line as it's processed
                     continue
@@ -259,9 +261,8 @@ class EVAP_1120_TO_996(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

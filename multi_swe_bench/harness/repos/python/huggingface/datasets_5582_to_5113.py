@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.7-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ pip install --upgrade huggingface-hub>=0.17.0
 ###ACTION_DELIMITER###
 pip show huggingface-hub && pip install --upgrade --force-reinstall huggingface-hub>=0.17.0
 ###ACTION_DELIMITER###
-pip install huggingface-hub==0.17.0"""
+pip install huggingface-hub==0.17.0""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ pip install huggingface-hub==0.17.0"""
 cd /home/[[REPO_NAME]]
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -m pytest -n auto --dist=loadfile -s -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class DATASETS_5582_TO_5113(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,7 +187,6 @@ class DATASETS_5582_TO_5113(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -195,22 +194,23 @@ class DATASETS_5582_TO_5113(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         # Regex patterns to match test status lines
-        pattern_gw = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)')
-        pattern_error = re.compile(r'ERROR\s+(tests/[^\s]+)')
+        pattern_gw = re.compile(r"(PASSED|FAILED|SKIPPED)\s+(tests/[^\s]+)")
+        pattern_error = re.compile(r"ERROR\s+(tests/[^\s]+)")
         for line in lines:
             # Check for PASSED, FAILED, or SKIPPED tests
             match = pattern_gw.search(line)
             if match:
                 status = match.group(1)
                 test_name = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check for ERROR tests
@@ -222,9 +222,8 @@ class DATASETS_5582_TO_5113(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

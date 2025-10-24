@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -71,7 +71,7 @@ pip install -e .[passport,http2] && pip install tornado
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install -e .[all] && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider --asyncio-mode=auto -n 4 --junitxml=test-results.xml tests/' > test_commands.sh && bash test_commands.sh"""
+pip install -e .[all] && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider --asyncio-mode=auto -n 4 --junitxml=test-results.xml tests/' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ pip install -e .[all] && echo 'pytest -v --no-header -rA --tb=no -p no:cacheprov
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --asyncio-mode=auto -n 4 --junitxml=test-results.xml tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --asyncio-mode=auto -n 4 --junitxml=test-results.xml tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -106,7 +106,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider --asyncio-mode=auto -n 4 --junitxml=test-results.xml tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -168,7 +168,7 @@ class PYTHON_TELEGRAM_BOT_4640_TO_4388(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,34 +182,33 @@ class PYTHON_TELEGRAM_BOT_4640_TO_4388(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_matches = re.findall(r'PASSED (tests/.*?)(\s-|$)', log, re.MULTILINE)
+        passed_matches = re.findall(r"PASSED (tests/.*?)(\s-|$)", log, re.MULTILINE)
         for match in passed_matches:
             test_name = match[0].strip()
             passed_tests.add(test_name)
         # Parse failed tests
-        failed_matches = re.findall(r'FAILED (tests/.*?)(\s-|$)', log, re.MULTILINE)
+        failed_matches = re.findall(r"FAILED (tests/.*?)(\s-|$)", log, re.MULTILINE)
         for match in failed_matches:
             test_name = match[0].strip()
             failed_tests.add(test_name)
         # Parse skipped tests
-        skipped_matches = re.findall(r'SKIPPED (tests/.*?)(\s-|$)', log, re.MULTILINE)
+        skipped_matches = re.findall(r"SKIPPED (tests/.*?)(\s-|$)", log, re.MULTILINE)
         for match in skipped_matches:
             test_name = match[0].strip()
             skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

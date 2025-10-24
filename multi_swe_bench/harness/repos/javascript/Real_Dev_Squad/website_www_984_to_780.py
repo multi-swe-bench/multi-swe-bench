@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18.19.1"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -94,7 +94,7 @@ sed -i "s|process\.env\.CI \? '--no-sandbox' : null|'--no-sandbox'|g" testem.js
 ###ACTION_DELIMITER###
 yarn test
 ###ACTION_DELIMITER###
-echo 'yarn test' > test_commands.sh && chmod +x test_commands.sh"""
+echo 'yarn test' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ echo 'yarn test' > test_commands.sh && chmod +x test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -116,7 +116,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -191,7 +191,7 @@ class WEBSITE_WWW_984_TO_780(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +205,6 @@ class WEBSITE_WWW_984_TO_780(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -213,21 +212,21 @@ class WEBSITE_WWW_984_TO_780(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests from "ok" lines (TAP format)
-        passed_pattern = r'ok \d+ .*? - \[.*? ms\] - (.*)'
+        passed_pattern = r"ok \d+ .*? - \[.*? ms\] - (.*)"
         passed_tests.update(re.findall(passed_pattern, log))
         # Extract failed tests from error messages
         failed_pattern = r'\[test:ember\] .*?Error while executing test: (.*?)["}]'
         failed_tests.update(test.strip() for test in re.findall(failed_pattern, log))
         # Extract skipped tests from TAP skip directives
-        skipped_pattern = r'skip \d+ .*? - \[\d+ ms\] - (.*)'
+        skipped_pattern = r"skip \d+ .*? - \[\d+ ms\] - (.*)"
         skipped_tests.update(re.findall(skipped_pattern, log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

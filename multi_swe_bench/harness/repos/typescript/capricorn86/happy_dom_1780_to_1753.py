@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ npm test
 ###ACTION_DELIMITER###
 echo 'npm test' > /home/happy-dom/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ echo 'npm test' > /home/happy-dom/test_commands.sh
 cd /home/[[REPO_NAME]]
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class HAPPY_DOM_1780_TO_1753(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,29 +181,29 @@ class HAPPY_DOM_1780_TO_1753(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', log)
+        log_clean = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", log)
         # Pattern for passed tests with ✓
-        passed_pattern1 = r'happy-dom:test:\s*✓\s*([^\(\n]+?\.test\.[tjsx]+)\s*(?:\(\d+ tests\)|\(\d+ ms\)|\(\d+\))'
+        passed_pattern1 = r"happy-dom:test:\s*✓\s*([^\(\n]+?\.test\.[tjsx]+)\s*(?:\(\d+ tests\)|\(\d+ ms\)|\(\d+\))"
         passed_matches1 = re.findall(passed_pattern1, log_clean)
         for match in passed_matches1:
             test_name = match.strip()
             passed_tests.add(test_name)
         # Pattern for failed tests with ×
-        failed_pattern = r'happy-dom:test:\s*❯\s*([^\(\n]+?\.test\.[tjsx]+)\s*\(\d+ tests \| \d+ failed\)'
+        failed_pattern = r"happy-dom:test:\s*❯\s*([^\(\n]+?\.test\.[tjsx]+)\s*\(\d+ tests \| \d+ failed\)"
         failed_matches = re.findall(failed_pattern, log_clean)
         for match in failed_matches:
             test_name = match.strip()
             failed_tests.add(test_name)
         # Pattern for skipped tests with ·
-        skipped_pattern = r'·\s*((?!test/)(?!.*\.test\.)[^\(\n]+?)\s*\('
+        skipped_pattern = r"·\s*((?!test/)(?!.*\.test\.)[^\(\n]+?)\s*\("
         skipped_matches = re.findall(skipped_pattern, log_clean)
         for match in skipped_matches:
             test_name = match.strip()
@@ -211,9 +211,8 @@ class HAPPY_DOM_1780_TO_1753(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

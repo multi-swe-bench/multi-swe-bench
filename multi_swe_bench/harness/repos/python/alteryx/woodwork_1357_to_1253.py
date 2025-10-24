@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -87,7 +87,7 @@ venv/bin/pip install 'dask[dataframe]==2023.12.0' 'pandas==1.5.3'
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-venv/bin/pip uninstall -y dask pyspark && venv/bin/pip install 'pandas==1.5.3' && bash test_commands.sh"""
+venv/bin/pip uninstall -y dask pyspark && venv/bin/pip install 'pandas==1.5.3' && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ cd /home/[[REPO_NAME]]
 source venv/bin/activate
 pytest -v --doctest-modules -rA --tb=short woodwork/tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ fi
 source venv/bin/activate
 pytest -v --doctest-modules -rA --tb=short woodwork/tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -125,7 +125,7 @@ fi
 source venv/bin/activate
 pytest -v --doctest-modules -rA --tb=short woodwork/tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -187,7 +187,7 @@ class WOODWORK_1357_TO_1253(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -201,31 +201,35 @@ class WOODWORK_1357_TO_1253(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern 1: test name followed by status (e.g., "test.py::test PASSED")
-        pattern1 = re.compile(r'(woodwork/tests/[^.]+\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED|ERROR)')
+        pattern1 = re.compile(
+            r"(woodwork/tests/[^.]+\.py::[^ ]+)\s+(PASSED|FAILED|SKIPPED|ERROR)"
+        )
         # Pattern 2: status followed by test name (e.g., "PASSED test.py::test")
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED|ERROR)\s+(woodwork/tests/[^.]+\.py::[^ ]+)')
-        for line in log.split('\n'):
+        pattern2 = re.compile(
+            r"(PASSED|FAILED|SKIPPED|ERROR)\s+(woodwork/tests/[^.]+\.py::[^ ]+)"
+        )
+        for line in log.split("\n"):
             line = line.strip()
             # Check pattern 1 first
             match = pattern1.search(line)
             if match:
                 test_name = match.group(1).strip()
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'ERROR':
+                elif status == "ERROR":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2
@@ -233,20 +237,19 @@ class WOODWORK_1357_TO_1253(Instance):
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'ERROR':
+                elif status == "ERROR":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -65,7 +65,7 @@ apt-get install -y file
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo 'make -C tests test' > test_commands.sh"""
+echo 'make -C tests test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -74,9 +74,7 @@ echo 'make -C tests test' > test_commands.sh"""
 cd /home/{pr.repo}
 make -C tests test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -89,9 +87,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 make -C tests test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -104,9 +100,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 make -C tests test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -168,7 +162,7 @@ class ZSTD_630_TO_325(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -182,13 +176,13 @@ class ZSTD_630_TO_325(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Handle cases where all tests pass
         if "tests completed: OK" in log:
             test_run_pattern = re.compile(r"test : (.+)")
@@ -203,7 +197,7 @@ class ZSTD_630_TO_325(Instance):
             # Define patterns for failed tests
             failed_test_patterns = [
                 re.compile(r"test : (.+?) \n.*?Error"),
-                re.compile(r"test : (.+?) \n.*?make: \*\*\*")
+                re.compile(r"test : (.+?) \n.*?make: \*\*\*"),
             ]
             # Assume all tests are passed initially
             test_run_pattern = re.compile(r"test : (.+)")
@@ -213,7 +207,9 @@ class ZSTD_630_TO_325(Instance):
                 if "(must fail)" in cleaned_name:
                     passed_tests.add(cleaned_name)
                 else:
-                    passed_tests.add(cleaned_name) # Temporarily add, will be moved if failed
+                    passed_tests.add(
+                        cleaned_name
+                    )  # Temporarily add, will be moved if failed
             # Check for failures and move tests from passed to failed
             for line in log.splitlines():
                 if "Error" in line or "make: ***" in line:
@@ -240,9 +236,8 @@ class ZSTD_630_TO_325(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

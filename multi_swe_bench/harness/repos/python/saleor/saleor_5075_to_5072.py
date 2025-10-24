@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -128,7 +128,7 @@ poetry run python manage.py test --verbosity 2 --keepdb' > test_commands.sh && b
 ###ACTION_DELIMITER###
 echo 'export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run pytest --verbosity=2 tests/ saleor/' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run python manage.py test --verbosity 2' > test_commands.sh && bash test_commands.sh"""
+echo 'export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run python manage.py test --verbosity 2' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ echo 'export SECRET_KEY=$(poetry run python -c "from django.core.management.util
 cd /home/[[REPO_NAME]]
 export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run python manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -150,7 +150,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run python manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -163,7 +163,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 export SECRET_KEY=$(poetry run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())") && poetry run python manage.py test --verbosity 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -225,7 +225,7 @@ class SALEOR_5075_TO_5072(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -239,7 +239,6 @@ class SALEOR_5075_TO_5072(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -247,19 +246,19 @@ class SALEOR_5075_TO_5072(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
-        passed_pattern = r'PASSED (tests/.*?)(?:\s|$)'
+        passed_pattern = r"PASSED (tests/.*?)(?:\s|$)"
         passed_tests = set(re.findall(passed_pattern, log))
-        failed_pattern = r'.*?(?:ERROR|FAILED) (tests/.*?)(?:[ -]|$)'
+        failed_pattern = r".*?(?:ERROR|FAILED) (tests/.*?)(?:[ -]|$)"
         failed_tests = set(re.findall(failed_pattern, log))
         skipped_tests = set()  # Placeholder as no skipped tests found in logs
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rust:1.72"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -51,7 +51,7 @@ class ImageDefault(Image):
 ###ACTION_DELIMITER###
 cargo test
 ###ACTION_DELIMITER###
-echo 'cargo test -- --nocapture' > /home/nushell/test_commands.sh"""
+echo 'cargo test -- --nocapture' > /home/nushell/test_commands.sh""",
             ),
             File(
                 ".",
@@ -60,9 +60,7 @@ echo 'cargo test -- --nocapture' > /home/nushell/test_commands.sh"""
 cd /home/{pr.repo}
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -75,9 +73,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -90,9 +86,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -154,7 +148,7 @@ class NUSHELL_4725_TO_3600(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -168,13 +162,13 @@ class NUSHELL_4725_TO_3600(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for passed tests: "test ... ok"
         passed_pattern = re.compile(r"test (.*) \.\.\. ok")
         # Pattern for ignored tests: "test ... ignored"
@@ -193,7 +187,9 @@ class NUSHELL_4725_TO_3600(Instance):
                 continue
         # A bit of a hacky way to find the failed tests, but it works for the given logs.
         # We look for the "failures:" block and then extract the test names from it.
-        failed_block_match = re.search(r"failures:\n\nfailures:\n((?:(?:    .*\n)|(?:\n))+)", log.replace("\r", ""))
+        failed_block_match = re.search(
+            r"failures:\n\nfailures:\n((?:(?:    .*\n)|(?:\n))+)", log.replace("\r", "")
+        )
         if failed_block_match:
             failed_tests_str = failed_block_match.group(1)
             for line in failed_tests_str.splitlines():
@@ -202,9 +198,8 @@ class NUSHELL_4725_TO_3600(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

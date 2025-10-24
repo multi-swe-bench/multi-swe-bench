@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -100,7 +100,7 @@ pip install boto3==1.17.106
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install huggingface-hub==0.12.1"""
+pip install huggingface-hub==0.12.1""",
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ pip install huggingface-hub==0.12.1"""
 cd /home/[[REPO_NAME]]
 pytest -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -122,7 +122,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -135,7 +135,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v ./tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -197,7 +197,7 @@ class DATASETS_4322_TO_3382(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -211,25 +211,27 @@ class DATASETS_4322_TO_3382(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases and their statuses
         # Pattern 1: Test name followed by status (PASSED, FAILED, SKIPPED, XFAIL, XPASS)
-        pattern1 = re.compile(r'^(tests/[\w/\.::]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^(tests/[\w/\.::]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS)\b", re.MULTILINE
+        )
         # Pattern 2: ERROR followed by test name
-        pattern2 = re.compile(r'^ERROR\s+(tests/[\w/\.::]+)\b', re.MULTILINE)
+        pattern2 = re.compile(r"^ERROR\s+(tests/[\w/\.::]+)\b", re.MULTILINE)
         # Process matches from pattern1
         for test_name, status in pattern1.findall(log):
-            if status in ('PASSED', 'XPASS'):
+            if status in ("PASSED", "XPASS"):
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'XFAIL'):
+            elif status in ("FAILED", "XFAIL"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process matches from pattern2 (ERROR status)
         for test_name in pattern2.findall(log):
@@ -237,9 +239,8 @@ class DATASETS_4322_TO_3382(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

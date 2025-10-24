@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -152,7 +152,7 @@ source .venv/bin/activate
 uv run alembic upgrade head
 uv run pytest tests/cli/ -n 2 --verbose --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -164,9 +164,7 @@ source .venv/bin/activate
 uv run alembic upgrade head
 uv run pytest tests/cli/ -n 2 --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -182,9 +180,7 @@ source .venv/bin/activate
 uv run alembic upgrade head
 uv run pytest tests/cli/ -n 2 --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -200,9 +196,7 @@ source .venv/bin/activate
 uv run alembic upgrade head
 uv run pytest tests/cli/ -n 2 --verbose --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -264,7 +258,7 @@ class PREFECT_18410_TO_18363(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -278,7 +272,6 @@ class PREFECT_18410_TO_18363(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -286,25 +279,27 @@ class PREFECT_18410_TO_18363(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Regex pattern to match test status lines (e.g., [gw8] [  0%] SKIPPED tests/...)
-        pattern = r'^(?:\[\s*\d+\s*\]\s+)?\[gw\d+\]\s+\[\s*\d+%\]\s+(\w+)\s+(tests/.*)\s*$'
+        pattern = (
+            r"^(?:\[\s*\d+\s*\]\s+)?\[gw\d+\]\s+\[\s*\d+%\]\s+(\w+)\s+(tests/.*)\s*$"
+        )
         matches = re.finditer(pattern, log, re.MULTILINE)
         for match in matches:
             status = match.group(1)
             test_name = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status in ('ERROR', 'FAILED'):
+            elif status in ("ERROR", "FAILED"):
                 failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

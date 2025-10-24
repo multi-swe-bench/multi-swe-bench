@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ poetry install
 ###ACTION_DELIMITER###
 poetry add --dev langdetect
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 poetry run poe test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 poetry run poe test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 poetry run poe test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class BEETS_5791_TO_5457(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,42 +182,43 @@ class BEETS_5791_TO_5457(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Extract test results from progress lines (each char represents a test)
-        progress_pattern = re.compile(r'(test/.*?\.py) ([\.sFx]+)', re.MULTILINE)
+        progress_pattern = re.compile(r"(test/.*?\.py) ([\.sFx]+)", re.MULTILINE)
         for match in progress_pattern.finditer(log):
             test_file = match.group(1)
             results = match.group(2)
             for i, char in enumerate(results, start=1):
                 test_name = f"{test_file}::test_{i}"
-                if char == '.':
+                if char == ".":
                     passed_tests.add(test_name)
-                elif char == 's':
+                elif char == "s":
                     skipped_tests.add(test_name)
-                elif char == 'F':
+                elif char == "F":
                     failed_tests.add(test_name)
-                elif char == 'x':
+                elif char == "x":
                     failed_tests.add(test_name)
         # Refine with explicit failure/skip/xfail details (overwrite generated names if needed)
-        explicit_skipped_pattern = re.compile(r'SKIPPED \[\d+\] (test/.*?):', re.MULTILINE)
+        explicit_skipped_pattern = re.compile(
+            r"SKIPPED \[\d+\] (test/.*?):", re.MULTILINE
+        )
         skipped_tests.update(explicit_skipped_pattern.findall(log))
-        explicit_failed_pattern = re.compile(r'FAILED (test/.*?) - ', re.MULTILINE)
+        explicit_failed_pattern = re.compile(r"FAILED (test/.*?) - ", re.MULTILINE)
         failed_tests.update(explicit_failed_pattern.findall(log))
-        explicit_xfail_pattern = re.compile(r'XFAIL (test/.*?) -', re.MULTILINE)
+        explicit_xfail_pattern = re.compile(r"XFAIL (test/.*?) -", re.MULTILINE)
         failed_tests.update(explicit_xfail_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ SCM_VERSION=4.0.0.dev0 pip install -e ".[test]"
 ###ACTION_DELIMITER###
 SETUPTOOLS_SCM_PRETEND_VERSION=4.0.0.dev0 pip install -e ".[test]"
 ###ACTION_DELIMITER###
-echo 'pytest -v -rA' > test_commands.sh"""
+echo 'pytest -v -rA' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ echo 'pytest -v -rA' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rA
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class ANYIO_595_TO_421(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,29 +182,31 @@ class ANYIO_595_TO_421(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Compile regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'(tests/[\w/\.::\[\]+-]+) (PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]')
-        pattern2 = re.compile(r'(PASSED|FAILED|SKIPPED) (tests/[\w/\.::\[\]+-]+)')
+        pattern1 = re.compile(
+            r"(tests/[\w/\.::\[\]+-]+) (PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"
+        )
+        pattern2 = re.compile(r"(PASSED|FAILED|SKIPPED) (tests/[\w/\.::\[\]+-]+)")
         # Split log content into lines for processing
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Check for pattern where status is at the end (e.g., "test_name PASSED [0%]")
             match1 = pattern1.search(line)
             if match1:
                 test_name = match1.group(1)
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue  # Skip to next line to avoid duplicate processing
             # Check for pattern where status is at the start (e.g., "FAILED test_name - ...")
@@ -219,19 +215,18 @@ class ANYIO_595_TO_421(Instance):
                 status = match2.group(1)
                 test_name = match2.group(2)
                 # Clean up test name by removing any trailing whitespace or hyphens
-                test_name = test_name.rstrip(' -')
-                if status == 'PASSED':
+                test_name = test_name.rstrip(" -")
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

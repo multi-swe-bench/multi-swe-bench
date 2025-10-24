@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install tox
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 tox -e py -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 tox -e py -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 tox -e py -- -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class CERTBOT_10353_TO_9597(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,30 +174,29 @@ class CERTBOT_10353_TO_9597(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse test results using regular expressions
         # Pattern for passed tests: lines containing 'PASSED' followed by the test name
-        passed_pattern = re.compile(r'PASSED (.*)$', re.MULTILINE)
+        passed_pattern = re.compile(r"PASSED (.*)$", re.MULTILINE)
         passed_tests = set(match.strip() for match in passed_pattern.findall(log))
         # Pattern for failed tests: lines containing 'FAILED' followed by the test name
-        failed_pattern = re.compile(r'FAILED (.*)$', re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED (.*)$", re.MULTILINE)
         failed_tests = set(match.strip() for match in failed_pattern.findall(log))
         # Pattern for skipped tests: lines containing 'SKIPPED' followed by the test name
-        skipped_pattern = re.compile(r'SKIPPED (.*)$', re.MULTILINE)
+        skipped_pattern = re.compile(r"SKIPPED (.*)$", re.MULTILINE)
         skipped_tests = set(match.strip() for match in skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

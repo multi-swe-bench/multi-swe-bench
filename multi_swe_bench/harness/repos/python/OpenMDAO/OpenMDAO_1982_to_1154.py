@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ pip install pandas==1.3.5 matplotlib==3.5.3 contourpy==1.0.6
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libgfortran5 libopenblas-dev libfreetype6-dev
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 testflo openmdao -n 1 -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 testflo openmdao -n 1 -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 testflo openmdao -n 1 -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class OPENMDAO_1982_TO_1154(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,7 +189,6 @@ class OPENMDAO_1982_TO_1154(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -197,28 +196,28 @@ class OPENMDAO_1982_TO_1154(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Split log lines at '...' to extract test names and statuses
-        for line in log.split('\n'):
-            if '...' in line:
+        for line in log.split("\n"):
+            if "..." in line:
                 # Split into test part (before '...') and status part (after '...')
-                test_part, status_part = line.split('...', 1)
+                test_part, status_part = line.split("...", 1)
                 # Extract test name by removing the leading line number
-                test_name = test_part.split(']', 1)[-1].strip()
+                test_name = test_part.split("]", 1)[-1].strip()
                 # Extract status (first word in the status part)
                 status = status_part.strip().split()[0]
                 # Categorize the test
-                if status == 'OK':
+                if status == "OK":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
-                elif status == 'SKIP':
+                elif status == "SKIP":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

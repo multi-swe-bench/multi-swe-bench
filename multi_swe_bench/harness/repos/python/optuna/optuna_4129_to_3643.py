@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -101,7 +101,7 @@ pytest -v
 ###ACTION_DELIMITER###
 apt-get install -y openmpi-bin libopenmpi-dev
 ###ACTION_DELIMITER###
-echo 'pytest -v' > /home/optuna/test_commands.sh"""
+echo 'pytest -v' > /home/optuna/test_commands.sh""",
             ),
             File(
                 ".",
@@ -110,9 +110,7 @@ echo 'pytest -v' > /home/optuna/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -125,9 +123,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +136,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -204,7 +198,7 @@ class OPTUNA_4129_TO_3643(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -218,44 +212,47 @@ class OPTUNA_4129_TO_3643(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Remove ANSI escape codes from the log
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Pattern to match test names and statuses in either order (test first or status first)
         test_pattern = re.compile(
-            r'(tests/.*?::(.*?))\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/.*?::(.*?))',
-            re.IGNORECASE
+            r"(tests/.*?::(.*?))\s+(PASSED|FAILED|SKIPPED)|(PASSED|FAILED|SKIPPED)\s+(tests/.*?::(.*?))",
+            re.IGNORECASE,
         )
         matches = test_pattern.findall(log_clean)
         for match in matches:
             # Extract test name and status from the match
-            if match[0]:  # Test-first pattern (group1: test path, group2: test name, group3: status)
+            if match[
+                0
+            ]:  # Test-first pattern (group1: test path, group2: test name, group3: status)
                 test_name = match[0]  # group1: full test identifier
-                status = match[2]     # group3: status
-            elif match[3]:  # Status-first pattern (group4: status, group5: test path, group6: test name)
+                status = match[2]  # group3: status
+            elif match[
+                3
+            ]:  # Status-first pattern (group4: status, group5: test path, group6: test name)
                 test_name = match[4]  # group5: full test identifier
-                status = match[3]     # group4: status
+                status = match[3]  # group4: status
             else:
                 continue  # Skip invalid matches
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

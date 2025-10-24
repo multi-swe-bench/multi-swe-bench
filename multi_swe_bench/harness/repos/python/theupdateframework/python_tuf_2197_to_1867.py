@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install tox
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 tox -e py -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ fi
 #!/bin/bash
 tox -e py -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 #!/bin/bash
 tox -e py -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class PYTHON_TUF_2197_TO_1867(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,39 +193,38 @@ class PYTHON_TUF_2197_TO_1867(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract result line (allowing whitespace)
-        result_match = re.search(r'^\s*[.EFs]+\s*$', log, re.MULTILINE)
-        result_line = result_match.group().strip() if result_match else ''
+        result_match = re.search(r"^\s*[.EFs]+\s*$", log, re.MULTILINE)
+        result_line = result_match.group().strip() if result_match else ""
         # Extract test names in execution order (matches result line sequence)
-        test_names = re.findall(r'(test_\w+ \(.*?\))', log)
+        test_names = re.findall(r"(test_\w+ \(.*?\))", log)
         # Ensure test names count matches result line length (critical for mapping)
         if len(test_names) != len(result_line):
-            test_names = [f'test_{i}' for i in range(len(result_line))]
+            test_names = [f"test_{i}" for i in range(len(result_line))]
         # Categorize tests based on result line
         for i, char in enumerate(result_line):
             if i >= len(test_names):
                 break
             test_name = test_names[i]
-            if char == '.':
+            if char == ".":
                 passed_tests.add(test_name)
-            elif char in ('E', 'F'):
+            elif char in ("E", "F"):
                 failed_tests.add(test_name)
-            elif char == 's':
+            elif char == "s":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

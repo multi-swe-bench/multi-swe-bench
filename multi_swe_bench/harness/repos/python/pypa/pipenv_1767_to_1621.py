@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -120,7 +120,7 @@ pipenv install --deploy --system --dev
 ###ACTION_DELIMITER###
 sed -i '/\[dev-packages\]/a sphinx = "<=7.4.7"' Pipfile
 ###ACTION_DELIMITER###
-echo 'pytest -v -n auto tests' > test_commands.sh"""
+echo 'pytest -v -n auto tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -129,7 +129,7 @@ echo 'pytest -v -n auto tests' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v -n auto tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -142,7 +142,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -n auto tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -n auto tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -217,7 +217,7 @@ class PIPENV_1767_TO_1621(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -231,31 +231,33 @@ class PIPENV_1767_TO_1621(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test status and name
-        pattern = re.compile(r'(PASSED|FAILED|SKIPPED)\s+(tests/[\w:./\[\]*,=*\-]+)(?=\s+-|\s*$)', re.MULTILINE)
+        pattern = re.compile(
+            r"(PASSED|FAILED|SKIPPED)\s+(tests/[\w:./\[\]*,=*\-]+)(?=\s+-|\s*$)",
+            re.MULTILINE,
+        )
         # Find all matches in the log content
         matches = pattern.findall(log)
         for status, test_name in matches:
             test_name = test_name.strip()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

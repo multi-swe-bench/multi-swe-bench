@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ yarn install
 ###ACTION_DELIMITER###
 yarn test --verbose
 ###ACTION_DELIMITER###
-echo 'yarn test --verbose' > test_commands.sh"""
+echo 'yarn test --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ echo 'yarn test --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class MAAS_UI_1092_TO_1058(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,29 +179,28 @@ class MAAS_UI_1092_TO_1058(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # import json  # Not needed for this parsing
         # Parse passed tests using regex
-        pass_pattern = re.compile(r'PASS\s+([^\s]+)(?:\s+\(\d+\.\d+s\))?')
+        pass_pattern = re.compile(r"PASS\s+([^\s]+)(?:\s+\(\d+\.\d+s\))?")
         passed_tests.update(pass_pattern.findall(log))
         # Parse failed tests from error lines
-        fail_pattern = re.compile(r'at .+? \((src/app/[^:]+)\:\d+\:\d+\)')
+        fail_pattern = re.compile(r"at .+? \((src/app/[^:]+)\:\d+\:\d+\)")
         failed_tests.update(fail_pattern.findall(log))
         # Parse skipped tests (assuming SKIPPED lines)
-        skip_pattern = re.compile(r'SKIPPED\s+([^\s]+)')
+        skip_pattern = re.compile(r"SKIPPED\s+([^\s]+)")
         skipped_tests.update(skip_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

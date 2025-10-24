@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -70,7 +70,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install numpy==1.21.6
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -79,7 +79,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=short ./
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -92,7 +92,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short ./
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=short ./
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class PVLIB_PYTHON_1231_TO_1160(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,7 +181,6 @@ class PVLIB_PYTHON_1231_TO_1160(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -189,32 +188,34 @@ class PVLIB_PYTHON_1231_TO_1160(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse test lines using regex patterns
         # Flexible regex to match test lines with/without line numbers and brackets
         # Regex to match both test name first and status first patterns
-        test_pattern = re.compile(r'^(?:\[.*?\]\s+)?(?:(?P<tn1>.*?)\s+(?P<st1>PASSED|FAILED|SKIPPED|XFAILED|XPASSED)|(?P<st2>PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+(?P<tn2>.*?))(?:\s*\(.*?\))?(?:\s+\[.*?\])?$')
-        for line in log.split('\n'):
+        test_pattern = re.compile(
+            r"^(?:\[.*?\]\s+)?(?:(?P<tn1>.*?)\s+(?P<st1>PASSED|FAILED|SKIPPED|XFAILED|XPASSED)|(?P<st2>PASSED|FAILED|SKIPPED|XFAILED|XPASSED)\s+(?P<tn2>.*?))(?:\s*\(.*?\))?(?:\s+\[.*?\])?$"
+        )
+        for line in log.split("\n"):
             line = line.strip()
             match = test_pattern.match(line)
             if match:
                 # Extract test name and status from the correct groups
-                test_name = match.group('tn1') or match.group('tn2')
-                status = match.group('st1') or match.group('st2')
+                test_name = match.group("tn1") or match.group("tn2")
+                status = match.group("st1") or match.group("st2")
                 if test_name and status:
                     test_name = test_name.strip()
                     status = status.strip()
-                    if status in ['PASSED', 'XPASSED']:
+                    if status in ["PASSED", "XPASSED"]:
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status in ['SKIPPED', 'XFAILED']:
+                    elif status in ["SKIPPED", "XFAILED"]:
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

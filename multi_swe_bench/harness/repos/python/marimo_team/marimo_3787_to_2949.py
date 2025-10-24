@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.13-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ echo -e '#!/bin/bash
 set -e
 hatch run test:test -v
 hatch run test-optional:test -v
-make e2e VERBOSE=1' > /home/marimo/test_commands.sh && chmod +x /home/marimo/test_commands.sh"""
+make e2e VERBOSE=1' > /home/marimo/test_commands.sh && chmod +x /home/marimo/test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ hatch run test:test -v
 hatch run test-optional:test -v
 make e2e VERBOSE=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ hatch run test:test -v
 hatch run test-optional:test -v
 make e2e VERBOSE=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ hatch run test:test -v
 hatch run test-optional:test -v
 make e2e VERBOSE=1
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -183,7 +183,7 @@ class MARIMO_3787_TO_2949(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -197,13 +197,13 @@ class MARIMO_3787_TO_2949(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses
         passed_pattern = re.compile(r"tests/[\w/.-]+\.py::[\w:[\]]+ PASSED")
         skipped_pattern = re.compile(r"tests/[\w/.-]+\.py::[\w:[\]]+ SKIPPED")
@@ -227,9 +227,8 @@ class MARIMO_3787_TO_2949(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

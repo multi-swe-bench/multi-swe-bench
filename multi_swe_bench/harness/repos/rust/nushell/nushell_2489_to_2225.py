@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:18.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ source /root/.cargo/env && cargo test --workspace --features=extra -- --nocaptur
 ###ACTION_DELIMITER###
 echo 'source /root/.cargo/env && cargo test --workspace --features=extra -- --nocapture' > /home/nushell/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ echo 'source /root/.cargo/env && cargo test --workspace --features=extra -- --no
 cd /home/{pr.repo}
 source /root/.cargo/env && cargo test --workspace --features=extra -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source /root/.cargo/env && cargo test --workspace --features=extra -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source /root/.cargo/env && cargo test --workspace --features=extra -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class NUSHELL_2489_TO_2225(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,23 +208,23 @@ class NUSHELL_2489_TO_2225(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
         import json
+
         passed_pattern = re.compile(r"test (.*) ... ok")
         failed_pattern = re.compile(r"^\s+(.+)$")
         lines = log.splitlines()
         in_failures_section = False
         for line in lines:
-            if 'failures:' in line:
+            if "failures:" in line:
                 in_failures_section = True
                 continue
-            if in_failures_section and line.strip() and 'test result:' not in line:
+            if in_failures_section and line.strip() and "test result:" not in line:
                 # Check if the line is not empty and not the summary line
                 if line.strip():
                     failed_tests.add(line.strip())
@@ -241,9 +235,8 @@ class NUSHELL_2489_TO_2225(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

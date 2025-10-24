@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ pnpm install
 ###ACTION_DELIMITER###
 echo 'pnpm test' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pnpm test -- --verbose' > test_commands.sh"""
+echo 'pnpm test -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ echo 'pnpm test -- --verbose' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class ROUTER_2679_TO_2543(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,7 +169,6 @@ class ROUTER_2679_TO_2543(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -177,13 +176,18 @@ class ROUTER_2679_TO_2543(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract project names from the 'Running targets' section
-        project_pattern = re.compile(r"NX   Running targets .* for \d+ projects:\n\n((?:- .*\n)+)")
+        project_pattern = re.compile(
+            r"NX   Running targets .* for \d+ projects:\n\n((?:- .*\n)+)"
+        )
         project_match = project_pattern.search(log)
         projects = []
         if project_match:
             project_lines = project_match.group(1).splitlines()
-            projects = [line.strip("- ").strip() for line in project_lines if line.strip()]
+            projects = [
+                line.strip("- ").strip() for line in project_lines if line.strip()
+            ]
         # Extract package names from error stack traces
         error_pattern = re.compile(r"/home/router/packages/(.*?)/src/")
         error_packages = set(error_pattern.findall(log))
@@ -204,9 +208,8 @@ class ROUTER_2679_TO_2543(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

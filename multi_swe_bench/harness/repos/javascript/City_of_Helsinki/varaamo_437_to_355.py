@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -88,7 +88,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo './node_modules/karma/bin/karma start config/karma.conf.js --single-run --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./node_modules/karma/bin/karma start config/karma.conf.js --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/karma/bin/karma start config/karma.conf.js --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/karma/bin/karma start config/karma.conf.js --single-run --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class VARAAMO_437_TO_355(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,34 +199,34 @@ class VARAAMO_437_TO_355(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Remove ANSI escape codes
-        log_clean = re.sub(r'\x1B\[[0-9;]*[mK]', '', log)
-        status_re = re.compile(r'^(✔|✖|SKIPPED)\s*(.*)$')
-        lines = log_clean.split('\n')
+        log_clean = re.sub(r"\x1B\[[0-9;]*[mK]", "", log)
+        status_re = re.compile(r"^(✔|✖|SKIPPED)\s*(.*)$")
+        lines = log_clean.split("\n")
         current_groups = []
         indent_levels = []
         for line in lines:
-            leading_spaces = len(line) - len(line.lstrip(' '))
-            content = line.lstrip(' ')
+            leading_spaces = len(line) - len(line.lstrip(" "))
+            content = line.lstrip(" ")
             if leading_spaces > 0:
                 match = status_re.match(content)
             else:
                 match = None
             if match:
                 status, test_case = match.groups()
-                full_test = ' '.join(current_groups + [test_case.strip()])
-                if status == '✔':
+                full_test = " ".join(current_groups + [test_case.strip()])
+                if status == "✔":
                     passed_tests.add(full_test)
-                elif status == '✖':
+                elif status == "✖":
                     failed_tests.add(full_test)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(full_test)
             else:
                 current_level = leading_spaces // 2
@@ -234,15 +234,22 @@ class VARAAMO_437_TO_355(Instance):
                     indent_levels.pop()
                     current_groups.pop()
                 # Filter out non-test lines (log messages, etc.)
-                if leading_spaces > 0 and content and not (content.startswith(('INFO', 'webpack', 'Time:', 'Child', 'START:', 'Connected'))):
+                if (
+                    leading_spaces > 0
+                    and content
+                    and not (
+                        content.startswith(
+                            ("INFO", "webpack", "Time:", "Child", "START:", "Connected")
+                        )
+                    )
+                ):
                     current_groups.append(content)
                     indent_levels.append(current_level)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

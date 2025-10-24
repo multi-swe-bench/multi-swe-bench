@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -87,7 +87,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install mpi4py
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ python doc/doctest_rsts.py -f cookbook -1 -s rst
 python doc/doctest_rsts.py -f draw -1 -s rst
 python doc/doctest_rsts.py -f examples -1 -s rst
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ python doc/doctest_rsts.py -f cookbook -1 -s rst
 python doc/doctest_rsts.py -f draw -1 -s rst
 python doc/doctest_rsts.py -f examples -1 -s rst
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ python doc/doctest_rsts.py -f cookbook -1 -s rst
 python doc/doctest_rsts.py -f draw -1 -s rst
 python doc/doctest_rsts.py -f examples -1 -s rst
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class COGENT3_2017_TO_1381(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,34 +219,33 @@ class COGENT3_2017_TO_1381(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Compile regex pattern to match test lines
         test_pattern = re.compile(
-            r'(?:^\[\s*\d+\]\s*)?([\w/-]+\.py::[\w:.-\[\]]+)\s+(?:\x1b\[.*?m)*?(PASS(?:ED)?|FAIL(?:ED)?|SKIP(?:PED)?)(?:\x1b\[.*?m)*?$',
-            re.MULTILINE | re.IGNORECASE
+            r"(?:^\[\s*\d+\]\s*)?([\w/-]+\.py::[\w:.-\[\]]+)\s+(?:\x1b\[.*?m)*?(PASS(?:ED)?|FAIL(?:ED)?|SKIP(?:PED)?)(?:\x1b\[.*?m)*?$",
+            re.MULTILINE | re.IGNORECASE,
         )
         # Find all matches in the log content
         for match in test_pattern.finditer(log):
             test_name = match.group(1).strip()
             status = match.group(2).upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

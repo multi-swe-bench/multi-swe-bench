@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ echo -e '#!/bin/bash
 python -m pytest -v ./tests/unit --cov=sdv --cov-report=xml
 python -m pytest -v ./tests/integration --reruns 3' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-pip install -e .[test]"""
+pip install -e .[test]""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ cd /home/[[REPO_NAME]]
 python -m pytest -v ./tests/unit --cov=sdv --cov-report=xml
 python -m pytest -v ./tests/integration --reruns 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ fi
 python -m pytest -v ./tests/unit --cov=sdv --cov-report=xml
 python -m pytest -v ./tests/integration --reruns 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ fi
 python -m pytest -v ./tests/unit --cov=sdv --cov-report=xml
 python -m pytest -v ./tests/integration --reruns 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class SDV_1909_TO_1791(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,25 +171,26 @@ class SDV_1909_TO_1791(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Parse passed tests
-        passed_matches = re.findall(r'^(tests/.*?) PASSED \[\s*\d+%\]', log, re.MULTILINE)
+        passed_matches = re.findall(
+            r"^(tests/.*?) PASSED \[\s*\d+%\]", log, re.MULTILINE
+        )
         passed_tests.update(passed_matches)
         # Parse failed tests from summary
-        failed_matches = re.findall(r'^FAILED (tests/.*)$', log, re.MULTILINE)
+        failed_matches = re.findall(r"^FAILED (tests/.*)$", log, re.MULTILINE)
         failed_tests.update(failed_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

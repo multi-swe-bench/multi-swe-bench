@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -97,7 +97,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install matplotlib==3.5.3
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -106,9 +106,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python run-tests.py --folder all --allexamples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -121,9 +119,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python run-tests.py --folder all --allexamples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -136,9 +132,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python run-tests.py --folder all --allexamples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -200,7 +194,7 @@ class PYBAMM_1086_TO_1028(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -214,7 +208,6 @@ class PYBAMM_1086_TO_1028(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -222,24 +215,24 @@ class PYBAMM_1086_TO_1028(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines (e.g., 'Test path/to/test ... status (time)')
-        test_pattern = re.compile(r'Test (.*?) \.\.\. (\w+)', re.MULTILINE)
+        test_pattern = re.compile(r"Test (.*?) \.\.\. (\w+)", re.MULTILINE)
         matches = test_pattern.findall(log)
         for test_name, status in matches:
             test_name = test_name.strip()
             status = status.strip().lower()
-            if status == 'ok':
+            if status == "ok":
                 passed_tests.add(test_name)
-            elif status in ['error', 'failed']:
+            elif status in ["error", "failed"]:
                 failed_tests.add(test_name)
-            elif status in ['skipped', 'xfail']:
+            elif status in ["skipped", "xfail"]:
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

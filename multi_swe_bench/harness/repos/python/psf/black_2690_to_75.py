@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -121,7 +121,7 @@ echo 'pytest -v -p no:tests.optional tests' > test_commands.sh && bash test_comm
 ###ACTION_DELIMITER###
 echo 'pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests' > test_commands.sh"""
+echo 'pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -130,9 +130,7 @@ echo 'pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests' > te
 cd /home/{pr.repo}
 pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -p no:tests.optional --ignore=tests/test_no_ipynb.py tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class BLACK_2690_TO_75(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,53 +232,52 @@ class BLACK_2690_TO_75(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to identify test cases and their statuses
         # Pattern 1: Matches lines like "tests/...::... PASSED [  0%]"
         pattern1 = re.compile(
-            r'^(tests/[\w\/\.\-::\[\]]+)\s+'  # Test name (includes tests/, colons, brackets)
-            r'(passed|failed|skipped|xfailed|xfail) '  # Status (case-insensitive)
-            r'\s*\[.+\]$',  # Percentage in brackets
-            re.MULTILINE | re.IGNORECASE
+            r"^(tests/[\w\/\.\-::\[\]]+)\s+"  # Test name (includes tests/, colons, brackets)
+            r"(passed|failed|skipped|xfailed|xfail) "  # Status (case-insensitive)
+            r"\s*\[.+\]$",  # Percentage in brackets
+            re.MULTILINE | re.IGNORECASE,
         )
         # Pattern 2: Matches summary lines like "FAILED tests/...::..."
         pattern2 = re.compile(
-            r'(passed|failed|skipped|xfailed|xfail) '  # Status (case-insensitive)
-            r'(tests/[\w\/\.::\[\]]+)',  # Test name
-            re.MULTILINE | re.IGNORECASE
+            r"(passed|failed|skipped|xfailed|xfail) "  # Status (case-insensitive)
+            r"(tests/[\w\/\.::\[\]]+)",  # Test name
+            re.MULTILINE | re.IGNORECASE,
         )
         # Process matches from pattern1
         for match in pattern1.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status.upper() == 'PASSED':
+            if status.upper() == "PASSED":
                 passed_tests.add(test_name)
-            elif status.upper() == 'FAILED':
+            elif status.upper() == "FAILED":
                 failed_tests.add(test_name)
-            elif status.upper() in ('SKIPPED', 'XFAILED', 'XFAIL'):
+            elif status.upper() in ("SKIPPED", "XFAILED", "XFAIL"):
                 skipped_tests.add(test_name)
         # Process matches from pattern2
         for match in pattern2.finditer(log):
             status = match.group(1)
             test_name = match.group(2)
-            if status.upper() == 'PASSED':
+            if status.upper() == "PASSED":
                 passed_tests.add(test_name)
-            elif status.upper() == 'FAILED':
+            elif status.upper() == "FAILED":
                 failed_tests.add(test_name)
-            elif status.upper() in ('SKIPPED', 'XFAILED', 'XFAIL'):
+            elif status.upper() in ("SKIPPED", "XFAILED", "XFAIL"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

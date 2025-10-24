@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -164,7 +164,7 @@ xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py' > t
 echo -e '#!/bin/bash
 source venv/bin/activate
 export PYVISTA_OFF_SCREEN=True
-xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py --ignore=tests/test_filters.py --ignore=tests/test_composite.py' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py --ignore=tests/test_filters.py --ignore=tests/test_composite.py' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -176,9 +176,7 @@ source venv/bin/activate
 export PYVISTA_OFF_SCREEN=True
 xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py --ignore=tests/test_filters.py --ignore=tests/test_composite.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -194,9 +192,7 @@ source venv/bin/activate
 export PYVISTA_OFF_SCREEN=True
 xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py --ignore=tests/test_filters.py --ignore=tests/test_composite.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -212,9 +208,7 @@ source venv/bin/activate
 export PYVISTA_OFF_SCREEN=True
 xvfb-run -a python -m pytest -v --ignore=tests/jupyter/test_itk_plotting.py --ignore=tests/test_filters.py --ignore=tests/test_composite.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -276,7 +270,7 @@ class PYVISTA_3687_TO_3230(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -290,32 +284,36 @@ class PYVISTA_3687_TO_3230(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Pattern for PASSED and SKIPPED tests in execution lines
-        test_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(tests[\w\/.:\[\]-]+)\s+(PASSED|SKIPPED)\s+.*$', re.MULTILINE)
+        test_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(tests[\w\/.:\[\]-]+)\s+(PASSED|SKIPPED)\s+.*$",
+            re.MULTILINE,
+        )
         matches = test_pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Pattern for FAILED tests in summary lines
-        failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?FAILED\s+(tests[\w\/.:\[\]-]+)\s+-\s+.*$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?FAILED\s+(tests[\w\/.:\[\]-]+)\s+-\s+.*$", re.MULTILINE
+        )
         failed_matches = failed_pattern.findall(log)
         for test_name in failed_matches:
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

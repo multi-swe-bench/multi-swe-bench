@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -111,7 +111,7 @@ echo -e 'export LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\npytest --no-header 
 ###ACTION_DELIMITER###
 echo -e 'export LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\npytest --no-header -rA -v -m "not integration and not docs" -k "not test_expectations and not test_expectations_cfe"' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo -e 'export LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\npytest --no-header -rA -v -m "not integration and not docs" --ignore=tests/test_definitions/test_expectations.py --ignore=tests/test_definitions/test_expectations_cfe.py' > test_commands.sh && bash test_commands.sh"""
+echo -e 'export LANG=en_US.UTF-8\nexport LC_ALL=en_US.UTF-8\npytest --no-header -rA -v -m "not integration and not docs" --ignore=tests/test_definitions/test_expectations.py --ignore=tests/test_definitions/test_expectations_cfe.py' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -122,9 +122,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 pytest --no-header -rA -v -m "not integration and not docs" --ignore=tests/test_definitions/test_expectations.py --ignore=tests/test_definitions/test_expectations_cfe.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 pytest --no-header -rA -v -m "not integration and not docs" --ignore=tests/test_definitions/test_expectations.py --ignore=tests/test_definitions/test_expectations_cfe.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +152,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 pytest --no-header -rA -v -m "not integration and not docs" --ignore=tests/test_definitions/test_expectations.py --ignore=tests/test_definitions/test_expectations_cfe.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -220,7 +214,7 @@ class GREAT_EXPECTATIONS_4531_TO_4530(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -234,7 +228,6 @@ class GREAT_EXPECTATIONS_4531_TO_4530(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -242,22 +235,26 @@ class GREAT_EXPECTATIONS_4531_TO_4530(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names using regex patterns
         # Pattern for passed tests: e.g., 'tests/...::test_name PASSED'
-        passed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?(tests/.*?)\s+PASSED\b', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(tests/.*?)\s+PASSED\b", re.MULTILINE
+        )
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: e.g., 'FAILED tests/...::test_name'
-        failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s+)?FAILED\s+(tests/[^\s]+)', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?FAILED\s+(tests/[^\s]+)", re.MULTILINE
+        )
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped tests: assuming 'tests/...::test_name SKIPPED'
-        skipped_pattern = re.compile(r'^(tests/.*?):\d+:', re.MULTILINE)
+        skipped_pattern = re.compile(r"^(tests/.*?):\d+:", re.MULTILINE)
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

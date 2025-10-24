@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "quay.io/packit/base"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -128,7 +128,7 @@ pip3 install distro
 ###ACTION_DELIMITER###
 pip3 install marshmallow==3.20.1
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 make check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -150,7 +150,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 make check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -163,7 +163,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 make check
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -225,7 +225,7 @@ class PACKIT_1366_TO_1016(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -239,7 +239,6 @@ class PACKIT_1366_TO_1016(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -247,13 +246,14 @@ class PACKIT_1366_TO_1016(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines
         # Pattern for passed tests: captures everything before " PASSED [ %]"
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         # Pattern for failed tests: captures everything after "FAILED " until "-" or end of line
-        failed_pattern = re.compile(r'^FAILED\s+(.*?)(?:\s+-.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(.*?)(?:\s+-.*)?$", re.MULTILINE)
         # Pattern for skipped tests: captures everything before " SKIPPED"
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\b', re.MULTILINE)
+        skipped_pattern = re.compile(r"^(.*?)\s+SKIPPED\b", re.MULTILINE)
         # Extract test names
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -261,9 +261,8 @@ class PACKIT_1366_TO_1016(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

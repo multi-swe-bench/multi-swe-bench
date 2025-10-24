@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -114,7 +114,7 @@ pip install lxml-html-clean && export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ig
 echo 'export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 echo '#!/bin/bash
- export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+ export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ cd /home/{pr.repo}
 #!/bin/bash
  export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -140,9 +138,7 @@ fi
 #!/bin/bash
  export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -156,9 +152,7 @@ fi
 #!/bin/bash
  export JUPYTER_PLATFORM_DIRS=1 && pytest -v -W ignore::DeprecationWarning -W ignore::astropy.units.core.UnitsWarning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -220,7 +214,7 @@ class JDAVIZ_1841_TO_1447(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -234,19 +228,23 @@ class JDAVIZ_1841_TO_1447(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set() # Tests that passed successfully
-        failed_tests: set[str] = set() # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Define regex patterns to match test cases and their statuses
-        pattern1 = re.compile(r'^(?:\[\s*\d+\]\s+)?(.+::.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]')  # Capture test names with :: separators
-        pattern2 = re.compile(r'^(?:\[\s*\d+\]\s+)?(PASSED|FAILED|SKIPPED)\s+(.+::.+?)(?::|\s+-|$)')      # Capture test names with :: separators
+        pattern1 = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(.+::.+?)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%?\s*\]"
+        )  # Capture test names with :: separators
+        pattern2 = re.compile(
+            r"^(?:\[\s*\d+\]\s+)?(PASSED|FAILED|SKIPPED)\s+(.+::.+?)(?::|\s+-|$)"
+        )  # Capture test names with :: separators
         # Split log content into lines and process each line
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             line = line.strip()
             match = pattern1.match(line)
             if match:
@@ -260,18 +258,17 @@ class JDAVIZ_1841_TO_1447(Instance):
                 else:
                     continue  # Skip lines that don't match
             # Add test to the appropriate set based on status
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

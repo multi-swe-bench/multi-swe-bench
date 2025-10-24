@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -156,7 +156,7 @@ echo -e 'source .env
 poetry run pytest -v --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/' > test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
 echo -e 'source .env
-poetry run pytest -v -k "not test_read_log_file" --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/' > test_commands.sh && bash test_commands.sh"""
+poetry run pytest -v -k "not test_read_log_file" --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/' > test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -166,7 +166,7 @@ cd /home/[[REPO_NAME]]
 source .env
 poetry run pytest -v -k "not test_read_log_file" --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -180,7 +180,7 @@ fi
 source .env
 poetry run pytest -v -k "not test_read_log_file" --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -194,7 +194,7 @@ fi
 source .env
 poetry run pytest -v -k "not test_read_log_file" --ignore=tests/no_version/ --ignore=tests/v2/test_00_ssh/ --ignore=tests/v2/test_06_tasks_lifecycle/ --ignore=tests/v2/test_07_full_workflow/ --ignore=tests/v2/test_08_backends/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -256,7 +256,7 @@ class FRACTAL_SERVER_2692_TO_2549(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -270,23 +270,22 @@ class FRACTAL_SERVER_2692_TO_2549(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Extract test names and statuses using regex
-        passed_tests = set(re.findall(r'(tests/[^:]+::[^ ]+) PASSED', log))
-        failed_tests = set(re.findall(r'FAILED (tests/[^:]+::[^ \n-]+)', log))
-        skipped_tests = set(re.findall(r'SKIPPED (tests/[^:]+::[^ ]+)', log))
+        passed_tests = set(re.findall(r"(tests/[^:]+::[^ ]+) PASSED", log))
+        failed_tests = set(re.findall(r"FAILED (tests/[^:]+::[^ \n-]+)", log))
+        skipped_tests = set(re.findall(r"SKIPPED (tests/[^:]+::[^ ]+)", log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ pip install google-cloud-core google-cloud-functions
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-pytest -vv tests/integrations/gcp/test_gcp.py::test_performance_error"""
+pytest -vv tests/integrations/gcp/test_gcp.py::test_performance_error""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ pytest -vv tests/integrations/gcp/test_gcp.py::test_performance_error"""
 cd /home/{pr.repo}
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class SENTRY_PYTHON_2441_TO_2260(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,26 +174,32 @@ class SENTRY_PYTHON_2441_TO_2260(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests
-        passed_pattern = re.compile(r"(tests/[\w/]+\.py::[\w\[\]\-]+)\s+PASSED", re.MULTILINE)
+        passed_pattern = re.compile(
+            r"(tests/[\w/]+\.py::[\w\[\]\-]+)\s+PASSED", re.MULTILINE
+        )
         passed_tests = set(passed_pattern.findall(log))
         # Pattern for failed tests
-        failed_pattern = re.compile(r"FAILED\s+(tests/[\w/]+\.py::[\w\[\]\-]+)", re.MULTILINE)
+        failed_pattern = re.compile(
+            r"FAILED\s+(tests/[\w/]+\.py::[\w\[\]\-]+)", re.MULTILINE
+        )
         failed_tests = set(failed_pattern.findall(log))
         # Pattern for skipped tests (before the PytestUnhandledCoroutineWarning)
-        skip_warning_pattern = re.compile(r"PytestUnhandledCoroutineWarning: .*? skipped", re.DOTALL)
+        skip_warning_pattern = re.compile(
+            r"PytestUnhandledCoroutineWarning: .*? skipped", re.DOTALL
+        )
         warning_match = skip_warning_pattern.search(log)
         if warning_match:
-            log_before = log[:warning_match.start()]
-            lines = log_before.split('\n')[::-1]
+            log_before = log[: warning_match.start()]
+            lines = log_before.split("\n")[::-1]
             for line in lines:
                 test_match = re.search(r"tests/[\w/]+\.py::[\w\[\]\-]+", line)
                 if test_match:
@@ -211,9 +211,8 @@ class SENTRY_PYTHON_2441_TO_2260(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

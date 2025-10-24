@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -146,7 +146,7 @@ npm install git+https://github.com/ebmdatalab/alpine.git#v3.10.3-csp && npm run 
 ###ACTION_DELIMITER###
 git config --global url."https://github.com/".insteadOf "git@github.com:" && git config --global url."https://".insteadOf "git://" && rm -rf node_modules package-lock.json && npm cache clean --force && npm install git+https://github.com/ebmdatalab/alpine.git#v3.10.3-csp && npm install && npm run build && python manage.py collectstatic --noinput && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ git config --global url."https://github.com/".insteadOf "git@github.com:" && git
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider .
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -243,7 +243,7 @@ class JOB_SERVER_2420_TO_1684(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -257,16 +257,16 @@ class JOB_SERVER_2420_TO_1684(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse log content to extract test names and statuses
         # Regex pattern matches lines with test names and PASSED/FAILED/SKIPPED status
-        pattern = r'(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?=\s|\[|$)|(tests/.*?)\s+(PASSED|FAILED|SKIPPED)(?=\s|\[|$)'
+        pattern = r"(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(?=\s|\[|$)|(tests/.*?)\s+(PASSED|FAILED|SKIPPED)(?=\s|\[|$)"
         matches = re.findall(pattern, log)
         for match in matches:
             # Handle both pattern groups (status before or after test name)
@@ -275,18 +275,17 @@ class JOB_SERVER_2420_TO_1684(Instance):
             else:
                 test, status = match[2].strip(), match[3].strip()
             # Categorize tests into respective sets
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

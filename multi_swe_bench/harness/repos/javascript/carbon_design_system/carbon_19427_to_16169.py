@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ yarn install
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash\nyarn test --verbose\nyarn test:e2e --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ cd /home/[[REPO_NAME]]
 yarn test --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ fi
 yarn test --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ fi
 yarn test --verbose
 yarn test:e2e --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class CARBON_19427_TO_16169(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,25 +171,25 @@ class CARBON_19427_TO_16169(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        for line in log.split('\n'):
+
+        for line in log.split("\n"):
             line = line.strip()
             if not line:
                 continue
             # Extract passed tests
-            if 'PASS' in line:
-                test_name = line.split('PASS', 1)[-1].strip()
+            if "PASS" in line:
+                test_name = line.split("PASS", 1)[-1].strip()
                 if test_name:
                     passed_tests.add(test_name)
             # Extract failed tests
-            elif 'FAIL' in line:
-                test_name = line.split('FAIL', 1)[-1].strip()
+            elif "FAIL" in line:
+                test_name = line.split("FAIL", 1)[-1].strip()
                 if test_name:
                     failed_tests.add(test_name)
         # Add skipped tests if present (adjust pattern to match log format)
@@ -198,9 +198,8 @@ class CARBON_19427_TO_16169(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

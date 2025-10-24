@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -93,7 +93,7 @@ make setup
 echo -e 'python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=tests' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ cd /home/[[REPO_NAME]]
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -131,7 +131,7 @@ fi
 python manage.py collectstatic --no-input
 pytest -v --cov=jobserver --cov=tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -193,7 +193,7 @@ class JOB_SERVER_131_TO_38(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -207,28 +207,33 @@ class JOB_SERVER_131_TO_38(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()
         failed_tests = set[str]()
         skipped_tests = set[str]()
         import re
+
         # Parse PASSED tests from execution lines
         passed_pattern = re.compile(r"^(tests/.*?) PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         passed_tests = set(passed_pattern.findall(log))
         # Parse FAILED tests from execution lines and summary
-        failed_exec_pattern = re.compile(r"^(tests/.*?) FAILED\s+\[\s*\d+%\]", re.MULTILINE)
-        failed_summary_pattern = re.compile(r"^FAILED (tests/.*?)(?: -|$)", re.MULTILINE)
-        failed_tests = set(failed_exec_pattern.findall(log) + failed_summary_pattern.findall(log))
+        failed_exec_pattern = re.compile(
+            r"^(tests/.*?) FAILED\s+\[\s*\d+%\]", re.MULTILINE
+        )
+        failed_summary_pattern = re.compile(
+            r"^FAILED (tests/.*?)(?: -|$)", re.MULTILINE
+        )
+        failed_tests = set(
+            failed_exec_pattern.findall(log) + failed_summary_pattern.findall(log)
+        )
         # Skipped tests (not observed in provided logs, placeholder)
         skipped_tests = set()
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

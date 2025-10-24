@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -74,7 +74,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ bash test_commands.sh
 cd /home/[[REPO_NAME]]
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn ci-check:tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class IBM_PRODUCTS_6686_TO_6463(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,7 +185,6 @@ class IBM_PRODUCTS_6686_TO_6463(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -193,29 +192,30 @@ class IBM_PRODUCTS_6686_TO_6463(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Remove ANSI escape codes
-        clean_log = re.sub(r'\x1b\[[0-9;]*m', '', log)
-        lines = clean_log.split('\n')
+        clean_log = re.sub(r"\x1b\[[0-9;]*m", "", log)
+        lines = clean_log.split("\n")
         # Patterns for test statuses
         pass_patterns = [
-            re.compile(r'✓[:\s]+([^\s(]+)'),
-            re.compile(r'([^\s(]+)[:\s]+✓'),
-            re.compile(r'PASS[:\s]+([^\s(]+)'),
-            re.compile(r'([^\s(]+)[:\s]+PASS'),
-            re.compile(r'PASSED[:\s]+([^\s(]+)'),
-            re.compile(r'([^\s(]+)[:\s]+PASSED')
+            re.compile(r"✓[:\s]+([^\s(]+)"),
+            re.compile(r"([^\s(]+)[:\s]+✓"),
+            re.compile(r"PASS[:\s]+([^\s(]+)"),
+            re.compile(r"([^\s(]+)[:\s]+PASS"),
+            re.compile(r"PASSED[:\s]+([^\s(]+)"),
+            re.compile(r"([^\s(]+)[:\s]+PASSED"),
         ]
         fail_patterns = [
-            re.compile(r'✗[:\s]+([^\s(]+)'),
-            re.compile(r'FAIL[:\s]+([^\s(]+)'),
-            re.compile(r'FAILED[:\s]+([^\s(]+)'),
-            re.compile(r'([^\s(]+)\s+\(failed\)')
+            re.compile(r"✗[:\s]+([^\s(]+)"),
+            re.compile(r"FAIL[:\s]+([^\s(]+)"),
+            re.compile(r"FAILED[:\s]+([^\s(]+)"),
+            re.compile(r"([^\s(]+)\s+\(failed\)"),
         ]
         skip_patterns = [
-            re.compile(r'(src/[^\s(]+).*?skipped', re.IGNORECASE),
-            re.compile(r'skipped.*?(src/[^\s(]+)', re.IGNORECASE),
-            re.compile(r'(src/[^\s(]+).*?skip', re.IGNORECASE),
-            re.compile(r'skip.*?(src/[^\s(]+)', re.IGNORECASE)
+            re.compile(r"(src/[^\s(]+).*?skipped", re.IGNORECASE),
+            re.compile(r"skipped.*?(src/[^\s(]+)", re.IGNORECASE),
+            re.compile(r"(src/[^\s(]+).*?skip", re.IGNORECASE),
+            re.compile(r"skip.*?(src/[^\s(]+)", re.IGNORECASE),
         ]
         for line in lines:
             # Check for passed tests
@@ -241,9 +241,8 @@ class IBM_PRODUCTS_6686_TO_6463(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ apt-get install -y python3.12-venv
 ###ACTION_DELIMITER###
 python3 -m venv venv && source venv/bin/activate && pip install -e ".[testing]"
 ###ACTION_DELIMITER###
-echo -e '#!/bin/bash\nsource venv/bin/activate\nexport JAX_NUMPY_RANK_PROMOTION=raise\nexport FLAX_PROFILE=1\npytest -v -n auto tests\npytest -v -n auto flax/nnx/tests\npytest -v -n auto docs/_ext/codediff_test.py\nfor egd in $(find examples -maxdepth 1 -mindepth 1 -type d); do\n  if [[ $egd != *"_"* ]]; then\n    pytest -v $egd\n  fi\ndone\nfor egd in $(find flax/nnx/examples -maxdepth 1 -mindepth 1 -type d); do\n  if [[ $egd != *"_"* && $egd != *"toy_examples"* ]]; then\n    pytest -v $egd\n  fi\ndone' > test_commands.sh && chmod +x test_commands.sh"""
+echo -e '#!/bin/bash\nsource venv/bin/activate\nexport JAX_NUMPY_RANK_PROMOTION=raise\nexport FLAX_PROFILE=1\npytest -v -n auto tests\npytest -v -n auto flax/nnx/tests\npytest -v -n auto docs/_ext/codediff_test.py\nfor egd in $(find examples -maxdepth 1 -mindepth 1 -type d); do\n  if [[ $egd != *"_"* ]]; then\n    pytest -v $egd\n  fi\ndone\nfor egd in $(find flax/nnx/examples -maxdepth 1 -mindepth 1 -type d); do\n  if [[ $egd != *"_"* && $egd != *"toy_examples"* ]]; then\n    pytest -v $egd\n  fi\ndone' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -92,9 +92,7 @@ for egd in $(find flax/nnx/examples -maxdepth 1 -mindepth 1 -type d); do
   fi
 done
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -123,9 +121,7 @@ for egd in $(find flax/nnx/examples -maxdepth 1 -mindepth 1 -type d); do
   fi
 done
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ for egd in $(find flax/nnx/examples -maxdepth 1 -mindepth 1 -type d); do
   fi
 done
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class FLAX_4766_TO_3697(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,7 +226,6 @@ class FLAX_4766_TO_3697(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -240,22 +233,26 @@ class FLAX_4766_TO_3697(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names and statuses using regex
         # Pattern for passed tests: matches "PASSED " followed by test name (non-whitespace)
         passed_pattern = re.compile(r"PASSED ((?:tests|examples)/[\w/]+?\.py::[\w:]+)")
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: matches line number, "FAILED", and test name
-        failed_pattern = re.compile(r"FAILED\s+((?:examples|tests)/[\w/]+?\.py::[\w:]+)", re.MULTILINE)
+        failed_pattern = re.compile(
+            r"FAILED\s+((?:examples|tests)/[\w/]+?\.py::[\w:]+)", re.MULTILINE
+        )
         failed_tests.update(failed_pattern.findall(log))
         # Pattern for skipped tests: matches "SKIPPED " followed by test name (if any)
-        skipped_pattern = re.compile(r"SKIPPED ((?:examples|tests)/[\w/]+?\.py::[\w:]+)")
+        skipped_pattern = re.compile(
+            r"SKIPPED ((?:examples|tests)/[\w/]+?\.py::[\w:]+)"
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

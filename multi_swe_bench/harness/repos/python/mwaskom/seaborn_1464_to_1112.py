@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.6-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -81,7 +81,7 @@ apt-get update
 ###ACTION_DELIMITER###
 apt-get install -y tk-dev
 ###ACTION_DELIMITER###
-echo "export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cacheprovider" > /home/seaborn/test_commands.sh"""
+echo "export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cacheprovider" > /home/seaborn/test_commands.sh""",
             ),
             File(
                 ".",
@@ -90,9 +90,7 @@ echo "export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cach
 cd /home/{pr.repo}
 export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -105,9 +103,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -120,9 +116,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 export MPLBACKEND=agg && pytest seaborn --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -184,7 +178,7 @@ class SEABORN_1464_TO_1112(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -198,13 +192,13 @@ class SEABORN_1464_TO_1112(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         passed_pattern = re.compile(r"^PASSED (.*)")
         failed_pattern = re.compile(r"^FAILED (.*?)(?: -|$)")
         skipped_pattern = re.compile(r"Skipping test: (.*?):")
@@ -218,9 +212,8 @@ class SEABORN_1464_TO_1112(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

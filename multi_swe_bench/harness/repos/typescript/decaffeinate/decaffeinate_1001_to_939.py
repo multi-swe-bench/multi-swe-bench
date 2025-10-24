@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ npm test -- --verbose
 ###ACTION_DELIMITER###
 ./node_modules/.bin/mocha
 ###ACTION_DELIMITER###
-echo './node_modules/.bin/mocha --reporter json' > test_commands.sh"""
+echo './node_modules/.bin/mocha --reporter json' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ echo './node_modules/.bin/mocha --reporter json' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 ./node_modules/.bin/mocha --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 ./node_modules/.bin/mocha --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 ./node_modules/.bin/mocha --reporter json
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class DECAFFEINATE_1001_TO_939(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class DECAFFEINATE_1001_TO_939(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,15 +180,16 @@ class DECAFFEINATE_1001_TO_939(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract the JSON part from the log (skip leading non-JSON content)
         # Remove leading non-JSON content
-        log = re.sub(r'^.*?\{', '{', log, flags=re.DOTALL)
-        json_match = re.search(r'\{.*\}', log, re.DOTALL)
+        log = re.sub(r"^.*?\{", "{", log, flags=re.DOTALL)
+        json_match = re.search(r"\{.*\}", log, re.DOTALL)
         if not json_match:
             return {
                 "passed_tests": passed_tests,
                 "failed_tests": failed_tests,
-                "skipped_tests": skipped_tests
+                "skipped_tests": skipped_tests,
             }
         try:
             data = json.loads(json_match.group())
@@ -197,26 +197,25 @@ class DECAFFEINATE_1001_TO_939(Instance):
             return {
                 "passed_tests": passed_tests,
                 "failed_tests": failed_tests,
-                "skipped_tests": skipped_tests
+                "skipped_tests": skipped_tests,
             }
-        tests = data.get('tests', [])
+        tests = data.get("tests", [])
         for test in tests:
-            full_title = test.get('fullTitle')
+            full_title = test.get("fullTitle")
             if not full_title:
                 continue  # Skip tests without a full title
             # Determine test status
-            if test.get('pending', False):
+            if test.get("pending", False):
                 skipped_tests.add(full_title)
-            elif test.get('err', {}) != {}:
+            elif test.get("err", {}) != {}:
                 failed_tests.add(full_title)
             else:
                 passed_tests.add(full_title)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ test/system/run-solid-test-suite.sh' > test_commands.sh
 echo -e '#!/bin/bash
 set -e
 npm test -- --verbose
-test/system/run-solid-test-suite.sh' > test_commands.sh"""
+test/system/run-solid-test-suite.sh' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,7 +72,7 @@ set -e
 npm test -- --verbose
 test/system/run-solid-test-suite.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ set -e
 npm test -- --verbose
 test/system/run-solid-test-suite.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -104,7 +104,7 @@ set -e
 npm test -- --verbose
 test/system/run-solid-test-suite.sh
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -166,7 +166,7 @@ class COMMUNITYSOLIDSERVER_392_TO_271(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,26 +180,25 @@ class COMMUNITYSOLIDSERVER_392_TO_271(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Extract test results using regex
         # Capture passed tests from PASS lines
-        passed_tests = set(re.findall(r'^PASS\s+([^\s(]+)', log, re.MULTILINE))
+        passed_tests = set(re.findall(r"^PASS\s+([^\s(]+)", log, re.MULTILINE))
         # Capture failed tests from error lines (e.g., 'at Object.<anonymous> (test/...test.ts:line)')
-        failed_tests = set(re.findall(r'\((test/[^:]+\.test\.ts)', log))
+        failed_tests = set(re.findall(r"\((test/[^:]+\.test\.ts)", log))
         # Capture skipped tests from SKIP lines or summary
-        skipped_tests = set(re.findall(r'^SKIP(?:PED)?\s+([^\s(]+)', log, re.MULTILINE))
+        skipped_tests = set(re.findall(r"^SKIP(?:PED)?\s+([^\s(]+)", log, re.MULTILINE))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

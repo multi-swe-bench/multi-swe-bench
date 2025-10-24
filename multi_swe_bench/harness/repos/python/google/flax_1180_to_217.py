@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -149,7 +149,7 @@ venv38/bin/python -m pytest -v --disable-warnings tests/' > test_commands.sh && 
 ###ACTION_DELIMITER###
 pip install https://github.com/google/jax/releases/download/jax-v0.2.21/jaxlib-0.2.21-cp38-none-manylinux2010_x86_64.whl && pip install jax==0.2.21 && ./test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -159,9 +159,7 @@ cd /home/{pr.repo}
 #!/bin/bash
 venv38/bin/python -m pytest -v --disable-warnings tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -175,9 +173,7 @@ fi
 #!/bin/bash
 venv38/bin/python -m pytest -v --disable-warnings tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -191,9 +187,7 @@ fi
 #!/bin/bash
 venv38/bin/python -m pytest -v --disable-warnings tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -255,7 +249,7 @@ class FLAX_1180_TO_217(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -269,7 +263,6 @@ class FLAX_1180_TO_217(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -277,34 +270,34 @@ class FLAX_1180_TO_217(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regular expressions to match test cases
-        pattern1 = r'^(\S+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]'  # Test name first, then status and percentage
-        pattern2 = r'^(PASSED|FAILED|SKIPPED)\s+(\S+)(?:\s+-.*)?$'    # Status first, then test name (optional message)
+        pattern1 = r"^(\S+)\s+(PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\]"  # Test name first, then status and percentage
+        pattern2 = r"^(PASSED|FAILED|SKIPPED)\s+(\S+)(?:\s+-.*)?$"  # Status first, then test name (optional message)
         # Find all matches for both patterns
         matches1 = re.findall(pattern1, log, re.MULTILINE)
         matches2 = re.findall(pattern2, log, re.MULTILINE)
         # Process matches from pattern1
         for test_name, status in matches1:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Process matches from pattern2
         for status, test_name in matches2:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

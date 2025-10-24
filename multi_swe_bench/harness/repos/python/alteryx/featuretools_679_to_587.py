@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -95,7 +95,7 @@ make installdeps
 ###ACTION_DELIMITER###
 make test
 ###ACTION_DELIMITER###
-echo 'pytest -v featuretools/' > test_commands.sh"""
+echo 'pytest -v featuretools/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -104,9 +104,7 @@ echo 'pytest -v featuretools/' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v featuretools/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -119,9 +117,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v featuretools/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +130,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v featuretools/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -198,7 +192,7 @@ class FEATURETOOLS_679_TO_587(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -212,7 +206,6 @@ class FEATURETOOLS_679_TO_587(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -220,13 +213,14 @@ class FEATURETOOLS_679_TO_587(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test cases and their statuses
         # Pattern for PASSED tests (e.g., "test_name PASSED [  0%]")
-        passed_re = re.compile(r'^\s*(.*?)\s+PASSED.*', re.MULTILINE)
+        passed_re = re.compile(r"^\s*(.*?)\s+PASSED.*", re.MULTILINE)
         # Pattern for FAILED and ERROR tests (e.g., "FAILED test_name" or "ERROR test_name")
-        failed_error_re = re.compile(r'^\s*(FAILED|ERROR)\s+(.*?)\s*$', re.MULTILINE)
+        failed_error_re = re.compile(r"^\s*(FAILED|ERROR)\s+(.*?)\s*$", re.MULTILINE)
         # Pattern for SKIPPED tests (e.g., "SKIPPED test_name")
-        skipped_re = re.compile(r'^SKIPPED\s+(.*)$', re.MULTILINE)
+        skipped_re = re.compile(r"^SKIPPED\s+(.*)$", re.MULTILINE)
         # Extract passed tests
         passed_tests = set(passed_re.findall(log))
         # Extract failed and error tests
@@ -238,9 +232,8 @@ class FEATURETOOLS_679_TO_587(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

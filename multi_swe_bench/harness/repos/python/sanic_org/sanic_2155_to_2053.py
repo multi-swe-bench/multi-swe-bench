@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -129,7 +129,7 @@ echo 'env SANIC_PORT=0 SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v' > /home/sa
 ###ACTION_DELIMITER###
 bash /home/sanic/test_commands.sh
 ###ACTION_DELIMITER###
-echo 'env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v' > /home/sanic/test_commands.sh"""
+echo 'env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v' > /home/sanic/test_commands.sh""",
             ),
             File(
                 ".",
@@ -138,9 +138,7 @@ echo 'env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --co
 cd /home/{pr.repo}
 env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -153,9 +151,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -168,9 +164,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 env SANIC_PORT=0 SANIC_REUSE_PORT=True SANIC_NO_UVLOOP=1 pytest tests --cov sanic -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -232,7 +226,7 @@ class SANIC_2155_TO_2053(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -246,7 +240,6 @@ class SANIC_2155_TO_2053(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -254,9 +247,13 @@ class SANIC_2155_TO_2053(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Regular expression to match test cases and their statuses
-        pattern = re.compile(r'(?:\[\s*\d+\]\s+)?((?:tests/)?[\w/\.]+::[\w_\-\[\]]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?', re.IGNORECASE)
+        pattern = re.compile(
+            r"(?:\[\s*\d+\]\s+)?((?:tests/)?[\w/\.]+::[\w_\-\[\]]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?",
+            re.IGNORECASE,
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
             if status.upper() == "PASSED":
@@ -268,9 +265,8 @@ class SANIC_2155_TO_2053(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python -m pytest --ignore examples/ -v -Werror -Wignore::DeprecationWarning:tqdm.std -Wignore::pytest.PytestRemovedIn9Warning
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -144,7 +138,6 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
 @Instance.register("planetlabs", "planet_client_python_984_to_701")
 class PLANET_CLIENT_PYTHON_984_TO_701(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -163,7 +156,7 @@ class PLANET_CLIENT_PYTHON_984_TO_701(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,29 +170,31 @@ class PLANET_CLIENT_PYTHON_984_TO_701(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Regex pattern to match test cases with their statuses
-        pattern = re.compile(r'tests/.*?::([^\s]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?', re.MULTILINE)
+        pattern = re.compile(
+            r"tests/.*?::([^\s]+)\s+(PASSED|FAILED|SKIPPED)(?:\s+\[\s*\d+%\s*\])?",
+            re.MULTILINE,
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

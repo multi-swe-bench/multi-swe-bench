@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ pytest -v --no-header -rA --tb=no -p no:cacheprovider
 ###ACTION_DELIMITER###
 echo "./quicktest.sh" > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 ./quicktest.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ./quicktest.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ./quicktest.sh
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class VYPER_3398_TO_3304(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,7 +178,6 @@ class VYPER_3398_TO_3304(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -192,6 +185,7 @@ class VYPER_3398_TO_3304(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Extract progress bar (sequence of .xF) from line with line number
         # Extract progress bar (sequence of .xF) from line with line number, allowing text after
         # Capture .xF sequence even with text between line number and progress bar
@@ -201,10 +195,14 @@ class VYPER_3398_TO_3304(Instance):
         # Capture long progress bar sequences (at least 50 characters)
         # Capture progress bar with possible text between line number and .xF sequence
         # Extract failed tests from explicit failure lines
-        failed_pattern = re.compile(r"FAILED (tests/[\w/-]+\.py::test[\w\[\]\+\-]+(?:\[.*?\])?)")
+        failed_pattern = re.compile(
+            r"FAILED (tests/[\w/-]+\.py::test[\w\[\]\+\-]+(?:\[.*?\])?)"
+        )
         failed_tests = set(failed_pattern.findall(log))
         # Extract skipped tests from xfail mentions
-        skipped_pattern = re.compile(r"(?:XFAIL|xfail) (tests/[\w/-]+\.py::test[\w\[\]\+\-]+(?:\[.*?\])?)")
+        skipped_pattern = re.compile(
+            r"(?:XFAIL|xfail) (tests/[\w/-]+\.py::test[\w\[\]\+\-]+(?:\[.*?\])?)"
+        )
         skipped_tests = set(skipped_pattern.findall(log))
         # Extract all test names from the log
         test_pattern = re.compile(r"tests/[\w/-]+\.py::test[\w\[\]\+\-]+(?:\[.*?\])?")
@@ -214,9 +212,8 @@ class VYPER_3398_TO_3304(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

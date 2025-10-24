@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -76,7 +76,7 @@ npm test -- --verbose
 ###ACTION_DELIMITER###
 npm test -- --verbose --watchAll=false
 ###ACTION_DELIMITER###
-echo 'cd client && npm test -- --verbose --watchAll=false' > /home/renku-ui/test_commands.sh"""
+echo 'cd client && npm test -- --verbose --watchAll=false' > /home/renku-ui/test_commands.sh""",
             ),
             File(
                 ".",
@@ -85,7 +85,7 @@ echo 'cd client && npm test -- --verbose --watchAll=false' > /home/renku-ui/test
 cd /home/[[REPO_NAME]]
 cd client && npm test -- --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -98,7 +98,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd client && npm test -- --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd client && npm test -- --verbose --watchAll=false
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -173,7 +173,7 @@ class RENKU_UI_1333_TO_1042(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -187,33 +187,40 @@ class RENKU_UI_1333_TO_1042(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
+
         # Parse passed tests: handle test names with parentheses and durations
-        passed_pattern = re.compile(r'^\s*✓\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^\s*✓\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$", re.MULTILINE
+        )
         for match in passed_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name:
                 passed_tests.add(test_name)
         # Parse failed tests: handle test names with parentheses and durations
-        failed_pattern = re.compile(r'^\s*✕\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"^\s*✕\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$", re.MULTILINE
+        )
         for match in failed_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name:
                 failed_tests.add(test_name)
         # Parse skipped tests: handle test names with parentheses and durations
-        skipped_pattern = re.compile(r'^\s*(?:→|SKIPPED|○)\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*(?:→|SKIPPED|○)\s*((?:(?!\(\d+ms\)).)*?)\s*(?:\(\d+ms\))?\s*$",
+            re.MULTILINE,
+        )
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1).strip()
             if test_name:
                 skipped_tests.add(test_name)
         # Parse suite-level failures (count 1 per failed suite to match summary)
-        suite_failure_pattern = re.compile(r'^FAIL\s+(.+?\.test\.js)\s*$', re.MULTILINE)
+        suite_failure_pattern = re.compile(r"^FAIL\s+(.+?\.test\.js)\s*$", re.MULTILINE)
         suite_failures = set()
         for match in suite_failure_pattern.finditer(log):
             suite_path = match.group(1)
@@ -224,9 +231,8 @@ class RENKU_UI_1333_TO_1042(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

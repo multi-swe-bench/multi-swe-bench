@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ ls -l src/borg/testsuite/
 ###ACTION_DELIMITER###
 echo 'pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rs --cov=borg --cov-config=.coveragerc --benchmark-skip --override-ini=python_files=*.py src/borg/testsuite/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class BORG_1652_TO_1468(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,17 +196,17 @@ class BORG_1652_TO_1468(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and their statuses
-        passed_pattern = re.compile(r'(src/.*?)\s+PASSED')
-        failed_pattern = re.compile(r'(src/.*?)\s+FAILED')
-        skipped_pattern = re.compile(r'SKIPPED \[\d+\] (src/[^:]+(?::\d+)?):')
+        passed_pattern = re.compile(r"(src/.*?)\s+PASSED")
+        failed_pattern = re.compile(r"(src/.*?)\s+FAILED")
+        skipped_pattern = re.compile(r"SKIPPED \[\d+\] (src/[^:]+(?::\d+)?):")
         # Extract test names for each status
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -220,9 +214,8 @@ class BORG_1652_TO_1468(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

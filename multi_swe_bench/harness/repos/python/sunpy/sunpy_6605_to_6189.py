@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -87,7 +87,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'ASTROPY_SKIP_LEAP_SECOND_UPDATE=1 SQLALCHEMY_SILENCE_UBER_WARNING=1 pytest -vvv -r a -W ignore::pytest.PytestRemovedIn9Warning -W ignore::astropy.utils.iers.iers.IERSStaleWarning -W ignore::astropy.utils.exceptions.AstropyWarning --override-ini=filterwarnings=ignore::DeprecationWarning:numpy.core.fromnumeric --pyargs sunpy' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 ASTROPY_SKIP_LEAP_SECOND_UPDATE=1 SQLALCHEMY_SILENCE_UBER_WARNING=1 pytest -vvv -r a -W ignore::pytest.PytestRemovedIn9Warning -W ignore::astropy.utils.iers.iers.IERSStaleWarning -W ignore::astropy.utils.exceptions.AstropyWarning --override-ini=filterwarnings=ignore::DeprecationWarning:numpy.core.fromnumeric --pyargs sunpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -111,9 +109,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 ASTROPY_SKIP_LEAP_SECOND_UPDATE=1 SQLALCHEMY_SILENCE_UBER_WARNING=1 pytest -vvv -r a -W ignore::pytest.PytestRemovedIn9Warning -W ignore::astropy.utils.iers.iers.IERSStaleWarning -W ignore::astropy.utils.exceptions.AstropyWarning --override-ini=filterwarnings=ignore::DeprecationWarning:numpy.core.fromnumeric --pyargs sunpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +122,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 ASTROPY_SKIP_LEAP_SECOND_UPDATE=1 SQLALCHEMY_SILENCE_UBER_WARNING=1 pytest -vvv -r a -W ignore::pytest.PytestRemovedIn9Warning -W ignore::astropy.utils.iers.iers.IERSStaleWarning -W ignore::astropy.utils.exceptions.AstropyWarning --override-ini=filterwarnings=ignore::DeprecationWarning:numpy.core.fromnumeric --pyargs sunpy
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -190,7 +184,7 @@ class SUNPY_6605_TO_6189(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -204,7 +198,6 @@ class SUNPY_6605_TO_6189(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -212,11 +205,15 @@ class SUNPY_6605_TO_6189(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test results
         # Pattern for passed and skipped tests (lines with [  X%])
-        status_pattern = re.compile(r'^(sunpy/.*?)\s+(PASSED|SKIPPED)(?:\s+\[\s*\d+%\])?$|^(SKIPPED)\s+(sunpy/.*?)(?:\s+-.*)?$|^(?:skipped:?)\s+(sunpy/.*)$', re.MULTILINE | re.IGNORECASE)
+        status_pattern = re.compile(
+            r"^(sunpy/.*?)\s+(PASSED|SKIPPED)(?:\s+\[\s*\d+%\])?$|^(SKIPPED)\s+(sunpy/.*?)(?:\s+-.*)?$|^(?:skipped:?)\s+(sunpy/.*)$",
+            re.MULTILINE | re.IGNORECASE,
+        )
         # Pattern for failed tests (lines starting with FAILED)
-        failed_pattern = re.compile(r'^FAILED\s+(sunpy/.*?)\s+-', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+(sunpy/.*?)\s+-", re.MULTILINE)
         # Extract passed and skipped tests
         for match in status_pattern.finditer(log):
             if match.group(2):  # Matches test_name followed by status
@@ -227,10 +224,10 @@ class SUNPY_6605_TO_6189(Instance):
                 status = match.group(3)
             elif match.group(5):  # Matches 'skipped: test_name'
                 test_name = match.group(5).strip()
-                status = 'SKIPPED'
-            if status == 'PASSED':
+                status = "SKIPPED"
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract failed tests
         for match in failed_pattern.finditer(log):
@@ -239,9 +236,8 @@ class SUNPY_6605_TO_6189(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

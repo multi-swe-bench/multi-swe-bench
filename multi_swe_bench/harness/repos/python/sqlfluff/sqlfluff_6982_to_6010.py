@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ tox -e py39
 ###ACTION_DELIMITER###
 echo 'tox -e py39' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ cat test_commands.sh"""
 cd /home/{pr.repo}
 tox -e py39
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 tox -e py39
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 tox -e py39
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class SQLFLUFF_6982_TO_6010(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,7 +164,6 @@ class SQLFLUFF_6982_TO_6010(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -178,29 +171,29 @@ class SQLFLUFF_6982_TO_6010(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regular expression pattern to match test names and their statuses
         pattern = re.compile(
-            r'(?P<status>PASSED|FAILED|SKIPPED).*?(?P<test>test/[^:]+\.py::test_\w+\[?[^\]]*\]?)\s*|'
-            r'(?P<test2>test/[^:]+\.py::test_\w+\[?[^\]]*\]?)\s+(?P<status2>PASSED|FAILED|SKIPPED)'
+            r"(?P<status>PASSED|FAILED|SKIPPED).*?(?P<test>test/[^:]+\.py::test_\w+\[?[^\]]*\]?)\s*|"
+            r"(?P<test2>test/[^:]+\.py::test_\w+\[?[^\]]*\]?)\s+(?P<status2>PASSED|FAILED|SKIPPED)"
         )
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             match = pattern.search(line)
             if match:
-                status = match.group('status') or match.group('status2')
-                test_name = match.group('test') or match.group('test2')
+                status = match.group("status") or match.group("status2")
+                test_name = match.group("test") or match.group("test2")
                 test_name = test_name.strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

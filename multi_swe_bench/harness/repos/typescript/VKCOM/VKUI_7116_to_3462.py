@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-alpine"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -56,7 +56,7 @@ yarn test:ci
 ###ACTION_DELIMITER###
 echo 'yarn test:ci' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test:ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -78,7 +78,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test:ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test:ci
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -153,7 +153,7 @@ class VKUI_7116_TO_3462(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -167,7 +167,6 @@ class VKUI_7116_TO_3462(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -175,23 +174,24 @@ class VKUI_7116_TO_3462(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests using regex pattern
-        passed_pattern = re.compile(r'PASS\s+(.+)')
-        for line in log.split('\n'):
+        passed_pattern = re.compile(r"PASS\s+(.+)")
+        for line in log.split("\n"):
             match = passed_pattern.search(line)
             if match:
                 test_name = match.group(1).strip()
                 passed_tests.add(test_name)
         # Parse failed tests using regex pattern
-        failed_pattern = re.compile(r'FAIL\s+(.+?)(?:\s*\(.*\))?$')
-        for line in log.split('\n'):
+        failed_pattern = re.compile(r"FAIL\s+(.+?)(?:\s*\(.*\))?$")
+        for line in log.split("\n"):
             match = failed_pattern.search(line)
             if match:
                 test_name = match.group(1).strip()
                 failed_tests.add(test_name)
         # Parse skipped tests using regex pattern
-        skipped_pattern = re.compile(r'SKIP(PED)?\s+(.+)')
-        for line in log.split('\n'):
+        skipped_pattern = re.compile(r"SKIP(PED)?\s+(.+)")
+        for line in log.split("\n"):
             match = skipped_pattern.search(line)
             if match:
                 test_name = match.group(2).strip()
@@ -199,9 +199,8 @@ class VKUI_7116_TO_3462(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

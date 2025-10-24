@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -88,7 +88,7 @@ echo 'pytest --collect-only --verbose --no-header -rA --tb=no -p no:cacheprovide
 ###ACTION_DELIMITER###
 pytest -v certbot/tests/client_test.py
 ###ACTION_DELIMITER###
-echo 'tox' > /home/certbot/test_commands.sh && bash /home/certbot/test_commands.sh"""
+echo 'tox' > /home/certbot/test_commands.sh && bash /home/certbot/test_commands.sh""",
             ),
             File(
                 ".",
@@ -97,9 +97,7 @@ echo 'tox' > /home/certbot/test_commands.sh && bash /home/certbot/test_commands.
 cd /home/{pr.repo}
 tox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -112,9 +110,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 tox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +123,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 tox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -191,7 +185,7 @@ class CERTBOT_9359_TO_8884(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -205,7 +199,6 @@ class CERTBOT_9359_TO_8884(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -213,6 +206,7 @@ class CERTBOT_9359_TO_8884(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract test names using regex patterns
         skipped_pattern = re.compile(r"SKIPPED:\s*(\S+):")
         failed_pattern = re.compile(r"ERROR:\s*(\S+):")
@@ -223,9 +217,8 @@ class CERTBOT_9359_TO_8884(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

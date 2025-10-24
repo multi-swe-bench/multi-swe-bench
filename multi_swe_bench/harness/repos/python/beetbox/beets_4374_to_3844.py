@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -55,7 +55,7 @@ apt-get update && apt-get install -y build-essential
 ###ACTION_DELIMITER###
 pip install -e .[test]
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh"""
+echo 'pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -64,9 +64,7 @@ echo 'pytest -v' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -79,9 +77,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -94,9 +90,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -158,7 +152,7 @@ class BEETS_4374_TO_3844(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -172,7 +166,6 @@ class BEETS_4374_TO_3844(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -180,43 +173,41 @@ class BEETS_4374_TO_3844(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test lines
         # Pattern for execution lines (test name followed by status)
         execution_pattern = re.compile(
-            r'^(test/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[.*?\]',
-            re.MULTILINE
+            r"^(test/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[.*?\]", re.MULTILINE
         )
         # Pattern for summary lines (status followed by test name)
         summary_pattern = re.compile(
-            r'^(FAILED|SKIPPED|PASSED)\s+(test/.*?)(?:\s+-.*)?$',
-            re.MULTILINE
+            r"^(FAILED|SKIPPED|PASSED)\s+(test/.*?)(?:\s+-.*)?$", re.MULTILINE
         )
         # Extract matches from execution lines
         execution_matches = execution_pattern.findall(log)
         for test_name, status in execution_matches:
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract matches from summary lines
         summary_matches = summary_pattern.findall(log)
         for status, test_name in summary_matches:
             status = status.upper()
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

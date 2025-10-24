@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ npm install --legacy-peer-deps --ignore-scripts
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 npm run jest -- --verbose --coverage -w 2
-npm run jest:node -- --verbose -w 2' > test_commands.sh"""
+npm run jest:node -- --verbose -w 2' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 npm run jest -- --verbose --coverage -w 2
 npm run jest:node -- --verbose -w 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ fi
 npm run jest -- --verbose --coverage -w 2
 npm run jest:node -- --verbose -w 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ fi
 npm run jest -- --verbose --coverage -w 2
 npm run jest:node -- --verbose -w 2
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class ANT_DESIGN_4013_TO_2177(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class ANT_DESIGN_4013_TO_2177(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -183,12 +182,17 @@ class ANT_DESIGN_4013_TO_2177(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test statuses and names
         # Assuming patterns: ✓ (passed), ✕ (failed), ○ (skipped) followed by test name
         # Account for ANSI escape codes and capture test names
-        passed_pattern = re.compile(r'[^a-zA-Z]*PASS[^a-zA-Z]*\s+(.+?)\s*(?=\n|$)', re.MULTILINE)
-        failed_pattern = re.compile(r'[^a-zA-Z]*FAIL[^a-zA-Z]*\s+(.+?)\s*(?=\n|$)', re.MULTILINE)
-        skipped_pattern = re.compile(r'○\s+(tests/.+?)\s*(?=\n|$)', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"[^a-zA-Z]*PASS[^a-zA-Z]*\s+(.+?)\s*(?=\n|$)", re.MULTILINE
+        )
+        failed_pattern = re.compile(
+            r"[^a-zA-Z]*FAIL[^a-zA-Z]*\s+(.+?)\s*(?=\n|$)", re.MULTILINE
+        )
+        skipped_pattern = re.compile(r"○\s+(tests/.+?)\s*(?=\n|$)", re.MULTILINE)
         # Extract test names based on patterns
         passed_tests.update(passed_pattern.findall(log))
         failed_tests.update(failed_pattern.findall(log))
@@ -196,9 +200,8 @@ class ANT_DESIGN_4013_TO_2177(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

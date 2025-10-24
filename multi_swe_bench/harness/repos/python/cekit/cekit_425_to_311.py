@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:20.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -59,7 +59,7 @@ echo 'pipenv run pytest -vv --junit-xml test-results.xml tests/' > test_commands
 ###ACTION_DELIMITER###
 cat test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -68,9 +68,7 @@ chmod +x test_commands.sh"""
 cd /home/{pr.repo}
 pipenv run pytest -vv --junit-xml test-results.xml tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -83,9 +81,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pipenv run pytest -vv --junit-xml test-results.xml tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -98,9 +94,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pipenv run pytest -vv --junit-xml test-results.xml tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -162,7 +156,7 @@ class CEKIT_425_TO_311(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -176,42 +170,45 @@ class CEKIT_425_TO_311(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test cases and statuses
-        pattern1 = re.compile(r'^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\b', re.MULTILINE)
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)\b', re.MULTILINE)
+        pattern1 = re.compile(
+            r"^(tests/[^:]+::[^ ]+)\s+(PASSED|FAILED|SKIPPED)\b", re.MULTILINE
+        )
+        pattern2 = re.compile(
+            r"^(PASSED|FAILED|SKIPPED)\s+(tests/[^:]+::[^ ]+)\b", re.MULTILINE
+        )
         # Extract tests from pattern1 matches
         for match in pattern1.finditer(log):
             test_name = match.group(1)
             status = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         # Extract tests from pattern2 matches
         for match in pattern2.finditer(log):
             status = match.group(1)
             test_name = match.group(2)
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

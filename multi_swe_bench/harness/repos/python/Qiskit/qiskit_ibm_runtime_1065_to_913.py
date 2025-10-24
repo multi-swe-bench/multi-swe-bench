@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -110,7 +110,7 @@ pip uninstall -y qiskit qiskit-terra qiskit-ibm-runtime qiskit-ibm-provider qisk
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y libopenblas-dev && pip uninstall -y qiskit qiskit-terra qiskit-ibm-runtime qiskit-ibm-provider qiskit-aer && pip install qiskit==0.46.0 qiskit-terra==0.46.0 qiskit-ibm-provider==0.11.0 qiskit-ibm-runtime==0.19.0 qiskit-aer==0.12.0 && python -c "from qiskit.providers.backend import BackendV1; from qiskit.circuit import QuantumCircuit; from qiskit.providers.fake_provider import FakeQasmSimulator; print('Imports successful')" && bash test_commands.sh
 ###ACTION_DELIMITER###
-apt-get update && apt-get install -y libopenblas-dev libgomp1 && pip uninstall -y qiskit qiskit-terra qiskit-ibm-runtime qiskit-ibm-provider qiskit-aer && pip install --force-reinstall qiskit==0.46.0 qiskit-terra==0.46.0 qiskit-ibm-provider==0.11.0 qiskit-ibm-runtime==0.19.0 qiskit-aer==0.12.0 && python -c "from qiskit.providers.backend import BackendV1; from qiskit.circuit import QuantumCircuit; from qiskit.providers.fake_provider import FakeQasmSimulator; print('Imports successful')" && bash test_commands.sh"""
+apt-get update && apt-get install -y libopenblas-dev libgomp1 && pip uninstall -y qiskit qiskit-terra qiskit-ibm-runtime qiskit-ibm-provider qiskit-aer && pip install --force-reinstall qiskit==0.46.0 qiskit-terra==0.46.0 qiskit-ibm-provider==0.11.0 qiskit-ibm-runtime==0.19.0 qiskit-aer==0.12.0 && python -c "from qiskit.providers.backend import BackendV1; from qiskit.circuit import QuantumCircuit; from qiskit.providers.fake_provider import FakeQasmSimulator; print('Imports successful')" && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ apt-get update && apt-get install -y libopenblas-dev libgomp1 && pip uninstall -
 cd /home/[[REPO_NAME]]
 python -m unittest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -m unittest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -m unittest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -207,7 +207,7 @@ class QISKIT_IBM_RUNTIME_1065_TO_913(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -221,44 +221,43 @@ class QISKIT_IBM_RUNTIME_1065_TO_913(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         test_name = None
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             # Strip leading line number (e.g., [123] )
-            stripped_line = re.sub(r'^\[\s*\d+\]\s*', '', line).strip()
+            stripped_line = re.sub(r"^\[\s*\d+\]\s*", "", line).strip()
             # Check if this line is a test name (starts with test_ and has class in parentheses)
-            if re.match(r'^test_\w+ \([\w\.]+\)$', stripped_line):
+            if re.match(r"^test_\w+ \([\w\.]+\)$", stripped_line):
                 test_name = stripped_line
             # Check for status in the line (ok, ERROR, skipped)
-            status_match = re.search(r'(\.\.\. |^)(ok|ERROR|skipped)$', stripped_line)
+            status_match = re.search(r"(\.\.\. |^)(ok|ERROR|skipped)$", stripped_line)
             if status_match:
                 status = status_match.group(2)
                 if test_name:
-                    if status == 'ok':
+                    if status == "ok":
                         passed_tests.add(test_name)
-                    elif status == 'ERROR':
+                    elif status == "ERROR":
                         failed_tests.add(test_name)
-                    elif status == 'skipped':
+                    elif status == "skipped":
                         skipped_tests.add(test_name)
                     test_name = None  # Reset after processing
             # Check for FAIL lines (e.g., "FAIL: test_name (test.module.Class)")
-            fail_match = re.match(r'^FAIL:\s*(test_\w+ \([\w\.]+\))$', stripped_line)
+            fail_match = re.match(r"^FAIL:\s*(test_\w+ \([\w\.]+\))$", stripped_line)
             if fail_match:
                 failed_test = fail_match.group(1)
                 failed_tests.add(failed_test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18.12.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -68,7 +68,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get install -y libasound2
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -90,7 +90,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npm test -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -165,7 +165,7 @@ class GOVUK_FRONTEND_4261_TO_3318(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -179,36 +179,41 @@ class GOVUK_FRONTEND_4261_TO_3318(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests: set[str] = set() # Tests that passed successfully
-        failed_tests: set[str] = set() # Tests that failed
-        skipped_tests: set[str] = set() # Tests that were skipped
+        passed_tests: set[str] = set()  # Tests that passed successfully
+        failed_tests: set[str] = set()  # Tests that failed
+        skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the parse_log function
         # Regex pattern for passed tests
-        passed_pattern = re.compile(r'\x1b\[32m✓\x1b\[39m\s+\x1b\[2m(.*?)\s*\(\d+\s*ms\)\x1b\[22m')
+        passed_pattern = re.compile(
+            r"\x1b\[32m✓\x1b\[39m\s+\x1b\[2m(.*?)\s*\(\d+\s*ms\)\x1b\[22m"
+        )
         passed_matches = passed_pattern.findall(log)
         for test_name in passed_matches:
             passed_tests.add(test_name.strip())
         # Regex pattern for failed tests
-        failed_pattern = re.compile(r'\x1b\[31m[✗x✕]\x1b\[39m\s+\x1b\[2m(.*?)\s*(?:\(\d+\s*ms\))?\x1b\[22m')
+        failed_pattern = re.compile(
+            r"\x1b\[31m[✗x✕]\x1b\[39m\s+\x1b\[2m(.*?)\s*(?:\(\d+\s*ms\))?\x1b\[22m"
+        )
         failed_matches = failed_pattern.findall(log)
         for test_name in failed_matches:
             failed_tests.add(test_name.strip())
         # Regex pattern for skipped tests
-        skipped_pattern = re.compile(r'\x1b\[33m↷\x1b\[39m\s+\x1b\[2m(.*?)\s*\(\d+\s*ms\)\x1b\[22m')
+        skipped_pattern = re.compile(
+            r"\x1b\[33m↷\x1b\[39m\s+\x1b\[2m(.*?)\s*\(\d+\s*ms\)\x1b\[22m"
+        )
         skipped_matches = skipped_pattern.findall(log)
         for test_name in skipped_matches:
             skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

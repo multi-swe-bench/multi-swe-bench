@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -57,7 +57,7 @@ pip install -r requirements-devenv.txt
 ###ACTION_DELIMITER###
 pre-commit install
 ###ACTION_DELIMITER###
-echo 'pytest -v -rA tests/' > /home/sentry-python/test_commands.sh"""
+echo 'pytest -v -rA tests/' > /home/sentry-python/test_commands.sh""",
             ),
             File(
                 ".",
@@ -66,9 +66,7 @@ echo 'pytest -v -rA tests/' > /home/sentry-python/test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -81,9 +79,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -96,9 +92,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v -rA tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -160,7 +154,7 @@ class SENTRY_PYTHON_2444_TO_2441(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -174,19 +168,23 @@ class SENTRY_PYTHON_2444_TO_2441(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test names and statuses
-        passed_pattern = re.compile(r'^(tests/[\w/]+\.py::test_\w+)\s+PASSED$')
-        passed_next_line_pattern = re.compile(r'^tests/[\w/]+\.py::test_\w+$')
-        failed_pattern = re.compile(r'^FAILED\s+(tests/[\w/]+\.py::test_\w+)')
-        skipped_same_line_pattern = re.compile(r'^(tests/[\w/]+\.py::test_\w+)\s+SKIPPED$')
-        skipped_prefix_pattern = re.compile(r'^SKIPPED\s+\[\d+\]\s+(tests/[\w/]+\.py::test_\w+)')
+        passed_pattern = re.compile(r"^(tests/[\w/]+\.py::test_\w+)\s+PASSED$")
+        passed_next_line_pattern = re.compile(r"^tests/[\w/]+\.py::test_\w+$")
+        failed_pattern = re.compile(r"^FAILED\s+(tests/[\w/]+\.py::test_\w+)")
+        skipped_same_line_pattern = re.compile(
+            r"^(tests/[\w/]+\.py::test_\w+)\s+SKIPPED$"
+        )
+        skipped_prefix_pattern = re.compile(
+            r"^SKIPPED\s+\[\d+\]\s+(tests/[\w/]+\.py::test_\w+)"
+        )
         lines = log.splitlines()
         for i in range(len(lines)):
             line = lines[i].strip()
@@ -198,7 +196,7 @@ class SENTRY_PYTHON_2444_TO_2441(Instance):
                 continue
             # Check for passed tests (next line)
             if passed_next_line_pattern.match(line):
-                if i + 1 < len(lines) and lines[i+1].strip() == 'PASSED':
+                if i + 1 < len(lines) and lines[i + 1].strip() == "PASSED":
                     passed_tests.add(line.strip())
                     continue
             # Check for failed tests
@@ -226,9 +224,8 @@ class SENTRY_PYTHON_2444_TO_2441(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

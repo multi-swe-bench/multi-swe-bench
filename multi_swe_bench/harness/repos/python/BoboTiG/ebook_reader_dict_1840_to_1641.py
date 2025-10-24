@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -83,7 +83,7 @@ cat test_commands.sh
 ###ACTION_DELIMITER###
 chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,9 +96,7 @@ python3.11 -m flake8 wikidict tests
 python3.11 -m mypy wikidict
 python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -115,9 +113,7 @@ python3.11 -m flake8 wikidict tests
 python3.11 -m mypy wikidict
 python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -134,9 +130,7 @@ python3.11 -m flake8 wikidict tests
 python3.11 -m mypy wikidict
 python3.11 -Wd -m pytest -v tests --doctest-modules wikidict
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,6 @@ RUN git checkout {pr.base.sha}
         return dockerfile_content.format(pr=self.pr)
 
 
-
 @Instance.register("BoboTiG", "ebook_reader_dict_1840_to_1641")
 class EBOOK_READER_DICT_1840_TO_1641(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
@@ -199,7 +192,7 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,7 +206,6 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -221,21 +213,23 @@ class EBOOK_READER_DICT_1840_TO_1641(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests
-        passed_pattern = re.compile(r'^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        passed_pattern = re.compile(r"^(.*?)\s+PASSED\s+\[\s*\d+%\s*\]$", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Parse failed tests
-        failed_pattern = re.compile(r'^FAILED (.*?)(?:\s+-.*)?$', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED (.*?)(?:\s+-.*)?$", re.MULTILINE)
         failed_tests.update(failed_pattern.findall(log))
         # Parse skipped tests
-        skipped_pattern = re.compile(r'^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(.*?)\s+SKIPPED\s+\[\s*\d+%\s*\]$", re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

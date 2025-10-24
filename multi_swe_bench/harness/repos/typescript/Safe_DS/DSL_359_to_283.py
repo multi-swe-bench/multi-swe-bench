@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ cd ../safe-ds && poetry install --no-interaction --no-root && poetry install --n
 ###ACTION_DELIMITER###
 bash -c 'echo -e "#!/bin/bash\nset -e\n\n# Test DSL component\ncd /home/DSL/DSL\n./gradlew check -i\n\n# Test Runtime Runner component\ncd /home/DSL/Runtime/safe-ds-runner\npoetry run pytest --doctest-modules --cov=safe_ds_runner --cov-report=xml -v\n\n# Test Runtime Stdlib component\ncd /home/DSL/Runtime/safe-ds\npoetry run pytest -v" > /home/DSL/test_commands.sh && chmod +x /home/DSL/test_commands.sh'
 ###ACTION_DELIMITER###
-bash -c 'echo -e "#!/bin/bash\nset -e\n\n# Test DSL component (parallel execution)\ncd /home/DSL/DSL\n./gradlew check --parallel -i\n\n# Test Runtime Runner component (verbose, no coverage)\ncd /home/DSL/Runtime/safe-ds-runner\npoetry run pytest --doctest-modules -v\n\n# Test Runtime Stdlib component (verbose, no coverage)\ncd /home/DSL/Runtime/safe-ds\npoetry run pytest -v" > /home/DSL/test_commands.sh && chmod +x /home/DSL/test_commands.sh'"""
+bash -c 'echo -e "#!/bin/bash\nset -e\n\n# Test DSL component (parallel execution)\ncd /home/DSL/DSL\n./gradlew check --parallel -i\n\n# Test Runtime Runner component (verbose, no coverage)\ncd /home/DSL/Runtime/safe-ds-runner\npoetry run pytest --doctest-modules -v\n\n# Test Runtime Stdlib component (verbose, no coverage)\ncd /home/DSL/Runtime/safe-ds\npoetry run pytest -v" > /home/DSL/test_commands.sh && chmod +x /home/DSL/test_commands.sh'""",
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ poetry run pytest --doctest-modules -v
 cd /home/DSL/Runtime/safe-ds
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -134,7 +134,7 @@ poetry run pytest --doctest-modules -v
 cd /home/DSL/Runtime/safe-ds
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -160,7 +160,7 @@ poetry run pytest --doctest-modules -v
 cd /home/DSL/Runtime/safe-ds
 poetry run pytest -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -222,7 +222,7 @@ class DSL_359_TO_283(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -236,18 +236,18 @@ class DSL_359_TO_283(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Extract passed tests: pattern matches "tests/.../test.py::test_name PASSED [percentage]"
-        passed_pattern = r'(tests/.*?)\s+PASSED'
+        passed_pattern = r"(tests/.*?)\s+PASSED"
         passed_tests = set(re.findall(passed_pattern, log))
         # Extract failed tests: pattern matches "FAILED tests/.../test.py::test_name"
-        failed_pattern = r'FAILED\s+(tests/.*)'
+        failed_pattern = r"FAILED\s+(tests/.*)"
         failed_tests = set(re.findall(failed_pattern, log))
         # Skipped tests: pattern not identified in provided logs; adjust if necessary
         # skipped_pattern = r'(tests/.*?)\s+SKIPPED'
@@ -255,9 +255,8 @@ class DSL_359_TO_283(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

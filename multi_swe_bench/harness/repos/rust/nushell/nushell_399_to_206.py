@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:16.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -133,7 +133,7 @@ cargo test --locked --all --verbose
 ###ACTION_DELIMITER###
 echo 'cargo test --locked --all --verbose' > /home/nushell/test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -142,9 +142,7 @@ echo 'cargo test --locked --all --verbose' > /home/nushell/test_commands.sh
 cd /home/{pr.repo}
 cargo test --locked --all --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +155,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test --locked --all --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -172,9 +168,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test --locked --all --verbose
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -236,7 +230,7 @@ class NUSHELL_399_TO_206(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -250,46 +244,50 @@ class NUSHELL_399_TO_206(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         for line in log.splitlines():
-          if line.startswith("test "):
-            parts = line.split(" ... ")
-            test_name = parts[0].replace("test ", "").strip()
-            if len(parts) > 1:
-              status = parts[1].strip()
-              if status == "ok":
-                passed_tests.add(test_name)
-              elif status == "FAILED":
-                failed_tests.add(test_name)
-              else:
-                # Handle other statuses if needed
-                pass
+            if line.startswith("test "):
+                parts = line.split(" ... ")
+                test_name = parts[0].replace("test ", "").strip()
+                if len(parts) > 1:
+                    status = parts[1].strip()
+                    if status == "ok":
+                        passed_tests.add(test_name)
+                    elif status == "FAILED":
+                        failed_tests.add(test_name)
+                    else:
+                        # Handle other statuses if needed
+                        pass
         # Look for the failures block
         in_failures_block = False
         for line in log.splitlines():
-          if line.strip() == "failures:":
-            in_failures_block = True
-            continue
-          if in_failures_block and line.strip().startswith("----"):
-              # Ignore the stdout block for failures
-              in_failures_block = False
-              continue
-          if in_failures_block and line.strip() and line.startswith("    ") and not line.strip().startswith("----"):
-            failed_tests.add(line.strip())
+            if line.strip() == "failures:":
+                in_failures_block = True
+                continue
+            if in_failures_block and line.strip().startswith("----"):
+                # Ignore the stdout block for failures
+                in_failures_block = False
+                continue
+            if (
+                in_failures_block
+                and line.strip()
+                and line.startswith("    ")
+                and not line.strip().startswith("----")
+            ):
+                failed_tests.add(line.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

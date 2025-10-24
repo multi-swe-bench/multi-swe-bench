@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -61,7 +61,7 @@ pip install coverage 'setuptools<58'
 echo -e '#!/bin/bash
 coverage run --branch --include=github/*.py --omit=github/tests/*.py setup.py test --verbose
 coverage report --show-missing
-python3 setup.py test --verbose' > test_commands.sh"""
+python3 setup.py test --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ coverage run --branch --include=github/*.py --omit=github/tests/*.py setup.py te
 coverage report --show-missing
 python3 setup.py test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ coverage run --branch --include=github/*.py --omit=github/tests/*.py setup.py te
 coverage report --show-missing
 python3 setup.py test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ coverage run --branch --include=github/*.py --omit=github/tests/*.py setup.py te
 coverage report --show-missing
 python3 setup.py test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -167,7 +167,7 @@ class PYGITHUB_938_TO_148(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -181,19 +181,19 @@ class PYGITHUB_938_TO_148(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: [digits] test_name ... ok
-        passed_pattern = re.compile(r'^(test.*?)\s+\.\.\.\s+ok', re.MULTILINE)
+        passed_pattern = re.compile(r"^(test.*?)\s+\.\.\.\s+ok", re.MULTILINE)
         passed_tests.update(passed_pattern.findall(log))
         # Pattern for failed tests: ERROR: test_name
-        failed_pattern = re.compile(r'ERROR:\s+(.*)')
+        failed_pattern = re.compile(r"ERROR:\s+(.*)")
         failed_tests.update(failed_pattern.findall(log))
         # Placeholder for skipped tests (adjust pattern if needed)
         # skipped_pattern = re.compile(r'\[\d+\]\s+(.*?)\s+\.\.\.\s+skipped')
@@ -201,9 +201,8 @@ class PYGITHUB_938_TO_148(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

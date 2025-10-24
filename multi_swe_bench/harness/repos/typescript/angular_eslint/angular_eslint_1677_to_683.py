@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ yarn test --verbose
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -63,7 +63,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -151,7 +151,7 @@ class ANGULAR_ESLINT_1677_TO_683(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -165,32 +165,34 @@ class ANGULAR_ESLINT_1677_TO_683(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Process log line-by-line to extract test statuses
         # Regex patterns
-        ansi_escape = re.compile(r'\x1B\[[0-9;]*[mK]')  # Match ANSI codes
-        line_number = re.compile(r'\[\s*\d+\s*\]')      # Match line numbers with spaces
+        ansi_escape = re.compile(r"\x1B\[[0-9;]*[mK]")  # Match ANSI codes
+        line_number = re.compile(r"\[\s*\d+\s*\]")  # Match line numbers with spaces
         status_pattern = re.compile(
-            r'(PASS|FAIL|SKIP|FAILED|PASSED|SKIPPED|√|✖|ERROR|x)\s*[:-]?\s*(?:.*?/tests/(?:rules|unit|integration)/([a-z-]+)/spec\.ts|([a-z-]+))',
-            re.IGNORECASE
+            r"(PASS|FAIL|SKIP|FAILED|PASSED|SKIPPED|√|✖|ERROR|x)\s*[:-]?\s*(?:.*?/tests/(?:rules|unit|integration)/([a-z-]+)/spec\.ts|([a-z-]+))",
+            re.IGNORECASE,
         )
         for line in log.splitlines():
             # Clean the line: remove ANSI codes and line numbers
-            cleaned_line = ansi_escape.sub('', line)
-            cleaned_line = line_number.sub('', cleaned_line).strip()
+            cleaned_line = ansi_escape.sub("", line)
+            cleaned_line = line_number.sub("", cleaned_line).strip()
             # Extract status and test name
             match = status_pattern.search(cleaned_line)
             if match:
                 status = match.group(1).upper()
-                test_name = match.group(2) if match.group(2) is not None else match.group(3)
+                test_name = (
+                    match.group(2) if match.group(2) is not None else match.group(3)
+                )
                 # Validate test name format (lowercase hyphenated)
-                if not re.match(r'^[a-z-]+$', test_name):
+                if not re.match(r"^[a-z-]+$", test_name):
                     continue  # Skip invalid test names
                 # Update status, resolving conflicts (e.g., a test can't be both PASS and FAIL)
                 if status in ("PASS", "PASSED", "√"):
@@ -208,9 +210,8 @@ class ANGULAR_ESLINT_1677_TO_683(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

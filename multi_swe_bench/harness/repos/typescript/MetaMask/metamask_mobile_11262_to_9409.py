@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20.12.2"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -113,7 +113,7 @@ yarn test:e2e:android:debug:build
 yarn test:e2e:android:debug:run --verbose
 
 # Stop Metro server
-kill $METRO_PID' > test_commands.sh && chmod +x test_commands.sh"""
+kill $METRO_PID' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ yarn test:e2e:android:debug:run --verbose
 # Stop Metro server
 kill $METRO_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -181,7 +181,7 @@ yarn test:e2e:android:debug:run --verbose
 # Stop Metro server
 kill $METRO_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -217,7 +217,7 @@ yarn test:e2e:android:debug:run --verbose
 # Stop Metro server
 kill $METRO_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -279,7 +279,7 @@ class METAMASK_MOBILE_11262_TO_9409(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -293,36 +293,45 @@ class METAMASK_MOBILE_11262_TO_9409(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Parse passed test suites and individual tests (optional line number prefix and indentation)
         # Capture passed test suites (e.g., 'PASS app/components/UI/Stake/utils/value/value.test.ts')
-        suite_passed_pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?PASS\s+(.*?)\s*$', re.MULTILINE)
+        suite_passed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?PASS\s+(.*?)\s*$", re.MULTILINE
+        )
         passed_tests.update(suite_passed_pattern.findall(log))
         # Capture individual passed tests (e.g., '    ✓ handles different input formats...')
-        test_passed_pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?\s*✓\s+(.*?)(?:\s+\(\d+ ms\))?$', re.MULTILINE)
+        test_passed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?\s*✓\s+(.*?)(?:\s+\(\d+ ms\))?$", re.MULTILINE
+        )
         passed_tests.update(test_passed_pattern.findall(log))
         # Parse failed test suites and individual tests using regex (optional line number prefix)
         # Capture failed test suites (e.g., 'FAIL app/reducers/fiatOrders/index.test.ts' or '[  123] FAIL ...')
-        suite_failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?FAIL\s+([^\s]+)\s*', re.MULTILINE)
+        suite_failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?FAIL\s+([^\s]+)\s*", re.MULTILINE
+        )
         failed_tests.update(suite_failed_pattern.findall(log))
         # Capture individual failed tests (e.g., '✕ should only get owned collectibles' or '[  123]     ✕ ...')
-        test_failed_pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?✕\s+([^\(]+?)\s*(?:\(\d+ ms\))?$', re.MULTILINE)
+        test_failed_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?✕\s+([^\(]+?)\s*(?:\(\d+ ms\))?$", re.MULTILINE
+        )
         failed_tests.update(test_failed_pattern.findall(log))
         # Parse skipped tests (optional line number prefix; adjust keyword if needed)
-        skipped_pattern = re.compile(r'^(?:\[\s*\d+\]\s*)?SKIPPED\s+(.*?)\s+\(\d+ ms\)$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(?:\[\s*\d+\]\s*)?SKIPPED\s+(.*?)\s+\(\d+ ms\)$", re.MULTILINE
+        )
         skipped_tests.update(skipped_pattern.findall(log))
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

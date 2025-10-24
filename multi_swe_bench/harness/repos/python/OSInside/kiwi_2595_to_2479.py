@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:22.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ pip install poetry
 ###ACTION_DELIMITER###
 sed -i 's/types-pkg_resources/types-setuptools/' pyproject.toml
 ###ACTION_DELIMITER###
-poetry install --all-extras"""
+poetry install --all-extras""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ poetry install --all-extras"""
 cd /home/[[REPO_NAME]]
 cd test/unit && poetry run pytest -v --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 cd test/unit && poetry run pytest -v --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 cd test/unit && poetry run pytest -v --doctest-modules --no-cov-on-fail --cov=kiwi --cov-report=term-missing --cov-fail-under=100 --cov-config .coveragerc
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class KIWI_2595_TO_2479(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,7 +177,6 @@ class KIWI_2595_TO_2479(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -185,33 +184,33 @@ class KIWI_2595_TO_2479(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Implement the log parsing logic here
         # Parse passed tests
-        passed_pattern = re.compile(r'^([^\s]+)\s+PASSED\b', re.MULTILINE)
+        passed_pattern = re.compile(r"^([^\s]+)\s+PASSED\b", re.MULTILINE)
         for match in passed_pattern.finditer(log):
             test_name = match.group(1)
             passed_tests.add(test_name.strip())
         # Parse failed tests from FAILED lines
-        failed_pattern = re.compile(r'^FAILED\s+([^\s-]+)', re.MULTILINE)
+        failed_pattern = re.compile(r"^FAILED\s+([^\s-]+)", re.MULTILINE)
         for match in failed_pattern.finditer(log):
             test_name = match.group(1)
             failed_tests.add(test_name.strip())
         # Parse failed tests from ERROR lines
-        error_pattern = re.compile(r'^ERROR\s+([^\s-]+)', re.MULTILINE)
+        error_pattern = re.compile(r"^ERROR\s+([^\s-]+)", re.MULTILINE)
         for match in error_pattern.finditer(log):
             test_name = match.group(1)
             failed_tests.add(test_name.strip())
         # Parse skipped tests
-        skipped_pattern = re.compile(r'^([^\s]+)\s+SKIPPED\b', re.MULTILINE)
+        skipped_pattern = re.compile(r"^([^\s]+)\s+SKIPPED\b", re.MULTILINE)
         for match in skipped_pattern.finditer(log):
             test_name = match.group(1)
             skipped_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

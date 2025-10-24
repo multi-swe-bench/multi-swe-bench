@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -54,7 +54,7 @@ npm install --legacy-peer-deps
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 npm run test:unit -- --verbose
-npm run test:runner -- --verbose' > test_commands.sh"""
+npm run test:runner -- --verbose' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -65,7 +65,7 @@ cd /home/[[REPO_NAME]]
 npm run test:unit -- --verbose
 npm run test:runner -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ fi
 npm run test:unit -- --verbose
 npm run test:runner -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ fi
 npm run test:unit -- --verbose
 npm run test:runner -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class CODECEPTJS_3393_TO_2834(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,30 +171,38 @@ class CODECEPTJS_3393_TO_2834(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Track suite hierarchy and parse test results
-        lines = log.split('\n')
+        lines = log.split("\n")
         suite_stack = []
         current_indent = 0
         # Regex patterns
-        passed_test_pattern = re.compile(r'✓\s+(.*?)\s*(?:\(\d+ms\))?$')
-        failed_section_pattern = re.compile(r'(\d+ failing)\n(.*?)(?=\n\n|\Z)', re.DOTALL)
+        passed_test_pattern = re.compile(r"✓\s+(.*?)\s*(?:\(\d+ms\))?$")
+        failed_section_pattern = re.compile(
+            r"(\d+ failing)\n(.*?)(?=\n\n|\Z)", re.DOTALL
+        )
         # Process lines to track suites and passed tests
         for line in lines:
             stripped_line = line.strip()
             if not stripped_line:
                 continue
             # Determine indent level (number of leading spaces)
-            indent = len(line) - len(line.lstrip(' '))
+            indent = len(line) - len(line.lstrip(" "))
             # Check if line is a suite (no test marker, not an error)
             # Refine suite detection to exclude commands and internal functions
-            if '✓' not in line and 'x' not in line and ')' not in line and not stripped_line.startswith(('Error:', 'at ', '>', '#')) and not stripped_line.endswith((':', ';')):
+            if (
+                "✓" not in line
+                and "x" not in line
+                and ")" not in line
+                and not stripped_line.startswith(("Error:", "at ", ">", "#"))
+                and not stripped_line.endswith((":", ";"))
+            ):
                 # Update suite stack based on indentation
                 while len(suite_stack) > 0 and indent <= current_indent:
                     suite_stack.pop()
@@ -205,7 +213,7 @@ class CODECEPTJS_3393_TO_2834(Instance):
             passed_match = passed_test_pattern.search(line)
             if passed_match:
                 test_desc = passed_match.group(1).strip()
-                full_test_name = ' '.join(suite_stack + [test_desc])
+                full_test_name = " ".join(suite_stack + [test_desc])
                 passed_tests.add(full_test_name)
                 continue
         # Process failed tests section
@@ -213,28 +221,31 @@ class CODECEPTJS_3393_TO_2834(Instance):
         if failed_match:
             failed_content = failed_match.group(2)
             # Split failed tests by numbered entries
-            failed_tests_list = re.split(r'\n\s*\d+\)', failed_content)
+            failed_tests_list = re.split(r"\n\s*\d+\)", failed_content)
             for test in failed_tests_list:
                 test = test.strip()
                 if not test:
                     continue
                 # Combine lines and clean up
-                test_clean = re.split(r'(Error:|at )', test, maxsplit=1)[0].strip()
-                test_lines = [l.strip() for l in test_clean.split('\n') if l.strip()]
-                full_test_name = ' '.join(test_lines).replace('  ', ' ').rstrip(':')
+                test_clean = re.split(r"(Error:|at )", test, maxsplit=1)[0].strip()
+                test_lines = [l.strip() for l in test_clean.split("\n") if l.strip()]
+                full_test_name = " ".join(test_lines).replace("  ", " ").rstrip(":")
                 failed_tests.add(full_test_name)
         # Handle skipped tests (adjust pattern based on log analysis)
-        skipped_pattern = re.compile(r'^\s*(?:✗|SKIPPED|XFAIL)\s+(.*?)\s*(?:\(\d+ms\))?$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*(?:✗|SKIPPED|XFAIL)\s+(.*?)\s*(?:\(\d+ms\))?$", re.MULTILINE
+        )
         for match in skipped_pattern.finditer(log):
             test_desc = match.group(1).strip()
-            full_test_name = ' '.join(suite_stack + [test_desc]) if suite_stack else test_desc
+            full_test_name = (
+                " ".join(suite_stack + [test_desc]) if suite_stack else test_desc
+            )
             skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

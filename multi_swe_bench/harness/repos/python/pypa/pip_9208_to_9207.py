@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -102,7 +102,7 @@ python tools/tox_pip.py install -r tests/requirements.txt
 python tools/tox_pip.py install -e .
 pytest -v' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v' > test_commands.sh"""
+echo 'pytest -v' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,9 +111,7 @@ echo 'pytest -v' > test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -126,9 +124,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -141,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -205,7 +199,7 @@ class PIP_9208_TO_9207(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,7 +213,6 @@ class PIP_9208_TO_9207(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -227,12 +220,17 @@ class PIP_9208_TO_9207(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json  # Note: json is imported but not used; may be removed if unnecessary
+
         # Remove ANSI escape codes from the log content
-        log_clean = re.sub(r'\x1b\[[0-9;]*m', '', log)
+        log_clean = re.sub(r"\x1b\[[0-9;]*m", "", log)
         # Regular expressions to match test lines with status
-        pattern_test_before_status = r'^(tests/.*?)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAILED|XPASSED)\b'
-        pattern_status_before_test = r'^(PASSED|FAILED|ERROR|SKIPPED|XFAILED|XPASSED)\s+(tests/.*?)\b'
-        for line in log_clean.split('\n'):
+        pattern_test_before_status = (
+            r"^(tests/.*?)\s+(PASSED|FAILED|ERROR|SKIPPED|XFAILED|XPASSED)\b"
+        )
+        pattern_status_before_test = (
+            r"^(PASSED|FAILED|ERROR|SKIPPED|XFAILED|XPASSED)\s+(tests/.*?)\b"
+        )
+        for line in log_clean.split("\n"):
             line = line.strip()
             # Check if the line matches test name before status
             match = re.match(pattern_test_before_status, line)
@@ -248,18 +246,17 @@ class PIP_9208_TO_9207(Instance):
                 else:
                     continue  # Skip lines that don't match test patterns
             # Categorize the test based on its status
-            if status in ('PASSED', 'XPASSED'):
+            if status in ("PASSED", "XPASSED"):
                 passed_tests.add(test_name)
-            elif status in ('FAILED', 'ERROR', 'XFAILED'):
+            elif status in ("FAILED", "ERROR", "XFAILED"):
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

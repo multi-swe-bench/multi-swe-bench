@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -78,7 +78,7 @@ apt-get update && apt-get install -y libx11-6 libxrandr2 libxshmfence1 && ldconf
 ###ACTION_DELIMITER###
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run
 ###ACTION_DELIMITER###
-echo 'NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run' > test_commands.sh"""
+echo 'NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -87,7 +87,7 @@ echo 'NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run' > test_c
 cd /home/[[REPO_NAME]]
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -100,7 +100,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -113,7 +113,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 NODE_OPTIONS=--openssl-legacy-provider yarn test -- --single-run
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -175,7 +175,7 @@ class SEMANTIC_UI_REACT_4449_TO_4145(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -189,26 +189,26 @@ class SEMANTIC_UI_REACT_4449_TO_4145(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+
+        lines = log.split("\n")
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
         stack = []
         for line in lines:
             # Remove line number prefix
-            content = re.sub(r'^\[\s*\d+\]\s*', '', line)
+            content = re.sub(r"^\[\s*\d+\]\s*", "", line)
             # Strip ANSI escape codes
-            content = ansi_escape.sub('', content)
+            content = ansi_escape.sub("", content)
             # Skip empty lines
             if not content.strip():
                 continue
             # Calculate leading spaces and indentation level (2 spaces per level)
-            leading_spaces = len(content) - len(content.lstrip(' '))
+            leading_spaces = len(content) - len(content.lstrip(" "))
             level = leading_spaces // 2
             # Check for test case indicators
             # Match test lines with symbol as first non-whitespace character
@@ -219,32 +219,73 @@ class SEMANTIC_UI_REACT_4449_TO_4145(Instance):
             # Capture status symbol even if preceded by metadata
             # Require status symbol to be the first non-whitespace character
             # Allow leading content before the status symbol
-            test_match = re.search(r'^\s*([✔√✖x])\s+(.*)$', content)
+            test_match = re.search(r"^\s*([✔√✖x])\s+(.*)$", content)
             if test_match:
                 status_symbol, test_text = test_match.groups()
                 test_text = test_text.strip()
                 # Remove metadata prefixes from test text
                 # Skip lines with irrelevant metadata
-                if re.search(r'(Error from chokidar|Browserslist|WARN|ERROR|404|Chrome Headless|AssertionError|INFO|ℹ|｢wdm｣|Entrypoint|Built at)', content):
+                if re.search(
+                    r"(Error from chokidar|Browserslist|WARN|ERROR|404|Chrome Headless|AssertionError|INFO|ℹ|｢wdm｣|Entrypoint|Built at)",
+                    content,
+                ):
                     continue
                 if test_text:
-                    full_test_name = ' '.join(stack) + ' ' + test_text if stack else test_text
+                    full_test_name = (
+                        " ".join(stack) + " " + test_text if stack else test_text
+                    )
                     full_test_name = full_test_name.strip()
-                    if status_symbol in ['✔', '√']:
+                    if status_symbol in ["✔", "√"]:
                         passed_tests.add(full_test_name)
-                    elif status_symbol in ['✖', 'x']:
+                    elif status_symbol in ["✖", "x"]:
                         failed_tests.add(full_test_name)
             else:
                 # Update group stack only for valid test hierarchy lines
                 group_text = content.strip()
                 # Skip lines starting with timestamps (e.g., [17:21:10])
-                if re.match(r'^\[\d+:\d+:\d+\]', group_text) or re.match(r'^\(node:', group_text) or re.match(r'^\(Use `node --trace-deprecation', group_text) or re.match(r'^Warning: Setting `displayName`', group_text) or re.match(r'^\$ yarn', group_text) or re.match(r'^warning From Yarn 1.0 onwards', group_text) or re.match(r'^yarn run', group_text):
+                if (
+                    re.match(r"^\[\d+:\d+:\d+\]", group_text)
+                    or re.match(r"^\(node:", group_text)
+                    or re.match(r"^\(Use `node --trace-deprecation", group_text)
+                    or re.match(r"^Warning: Setting `displayName`", group_text)
+                    or re.match(r"^\$ yarn", group_text)
+                    or re.match(r"^warning From Yarn 1.0 onwards", group_text)
+                    or re.match(r"^yarn run", group_text)
+                ):
                     continue
                 if not group_text:
                     continue
                 # Skip non-hierarchy lines (errors, summaries, etc.)
                 # Explicitly skip non-hierarchy lines
-                skip_substrings = ['Error from chokidar', 'SUMMARY', 'Finished in', 'Done in', 'error Command failed', 'WARN', 'ERROR', '404', 'Chrome Headless', 'INFO', 'ℹ', '｢wdm｣', 'Entrypoint', 'Built at', 'START:', 'Browserslist: caniuse-lite is outdated', 'npx browserslist@latest --update-db', 'Finished \'build:docs:docgen\'', '(Use `node --trace-deprecation', '[DEP0111]', 'DeprecationWarning', 'Warning: Setting `displayName`', 'warning From Yarn 1.0 onwards', 'yarn run', '$ satisfied', '$ yarn', '$ cross-env']
+                skip_substrings = [
+                    "Error from chokidar",
+                    "SUMMARY",
+                    "Finished in",
+                    "Done in",
+                    "error Command failed",
+                    "WARN",
+                    "ERROR",
+                    "404",
+                    "Chrome Headless",
+                    "INFO",
+                    "ℹ",
+                    "｢wdm｣",
+                    "Entrypoint",
+                    "Built at",
+                    "START:",
+                    "Browserslist: caniuse-lite is outdated",
+                    "npx browserslist@latest --update-db",
+                    "Finished 'build:docs:docgen'",
+                    "(Use `node --trace-deprecation",
+                    "[DEP0111]",
+                    "DeprecationWarning",
+                    "Warning: Setting `displayName`",
+                    "warning From Yarn 1.0 onwards",
+                    "yarn run",
+                    "$ satisfied",
+                    "$ yarn",
+                    "$ cross-env",
+                ]
                 if any(substr in group_text for substr in skip_substrings):
                     continue
                 # Adjust stack to current level (2 spaces per level)
@@ -258,9 +299,8 @@ class SEMANTIC_UI_REACT_4449_TO_4145(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

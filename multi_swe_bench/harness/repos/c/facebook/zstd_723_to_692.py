@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:18.04"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ make test
 ###ACTION_DELIMITER###
 cd ..
 ###ACTION_DELIMITER###
-echo 'cd tests && make test' > /home/zstd/test_commands.sh"""
+echo 'cd tests && make test' > /home/zstd/test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ echo 'cd tests && make test' > /home/zstd/test_commands.sh"""
 cd /home/{pr.repo}
 cd tests && make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cd tests && make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cd tests && make test
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class ZSTD_723_TO_692(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,7 +174,6 @@ class ZSTD_723_TO_692(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -188,6 +181,7 @@ class ZSTD_723_TO_692(Instance):
         skipped_tests = set()
         import re
         import json
+
         passed_pattern = re.compile(r"PASS: (.*)")
         failed_pattern = re.compile(r"make\[\d+\]: \*\*\* \[(.+)\] Error \d+")
         test_case_pattern = re.compile(r"-e test : (.*)")
@@ -207,7 +201,11 @@ class ZSTD_723_TO_692(Instance):
                     m = passed_pattern.match(l)
                     if m:
                         passed_tests.add(m.group(1).strip())
-                return { "passed_tests": passed_tests, "failed_tests": set(), "skipped_tests": set() }
+                return {
+                    "passed_tests": passed_tests,
+                    "failed_tests": set(),
+                    "skipped_tests": set(),
+                }
             match = passed_pattern.match(line)
             if match:
                 passed_tests.add(match.group(1).strip())
@@ -225,9 +223,8 @@ class ZSTD_723_TO_692(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

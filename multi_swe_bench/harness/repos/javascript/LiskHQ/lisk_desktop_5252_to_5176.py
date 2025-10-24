@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -111,7 +111,7 @@ echo -e '#!/bin/bash
  xvfb-run yarn cypress:run --reporter json || true
  kill $SERVER_PID' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -126,7 +126,7 @@ cd /home/[[REPO_NAME]]
  xvfb-run yarn cypress:run --reporter json || true
  kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -145,7 +145,7 @@ fi
  xvfb-run yarn cypress:run --reporter json || true
  kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -164,7 +164,7 @@ fi
  xvfb-run yarn cypress:run --reporter json || true
  kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -226,7 +226,7 @@ class LISK_DESKTOP_5252_TO_5176(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -240,42 +240,45 @@ class LISK_DESKTOP_5252_TO_5176(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         current_suite = None  # Track the current test suite name
         current_block = None  # Track if we're in a FAIL or PASS block
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Update current block based on FAIL/PASS lines
-            if line.startswith('FAIL '):
-                current_block = 'fail'
-            elif line.startswith('PASS '):
-                current_block = 'pass'
+            if line.startswith("FAIL "):
+                current_block = "fail"
+            elif line.startswith("PASS "):
+                current_block = "pass"
             # Track test suite names (indented, no status symbol)
-            suite_match = re.match(r'^\s{2,}([^\s✕✓]+)\s*$', line)  # 2+ spaces, no ✕/✓
+            suite_match = re.match(r"^\s{2,}([^\s✕✓]+)\s*$", line)  # 2+ spaces, no ✕/✓
             if suite_match:
                 current_suite = suite_match.group(1).strip()
                 continue
             # Match individual test lines (4+ spaces, ✕/✓, test name, duration)
-            jest_test = re.match(r'^\s{4,}(✕|✓)\s+(.+?)\s+\(\d+\s+ms\)$', line)  # 4+ spaces for tests
+            jest_test = re.match(
+                r"^\s{4,}(✕|✓)\s+(.+?)\s+\(\d+\s+ms\)$", line
+            )  # 4+ spaces for tests
             if jest_test and current_suite and current_block:
                 status, test_name = jest_test.groups()
-                full_test_name = f"{current_suite} {test_name.strip()}"  # Combine suite + test name
-                if status == '✕' and current_block == 'fail':
+                full_test_name = (
+                    f"{current_suite} {test_name.strip()}"  # Combine suite + test name
+                )
+                if status == "✕" and current_block == "fail":
                     failed_tests.add(full_test_name)
-                elif status == '✓' and current_block == 'pass':
+                elif status == "✓" and current_block == "pass":
                     passed_tests.add(full_test_name)
             # Remove feature test logic (optional, if not needed)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

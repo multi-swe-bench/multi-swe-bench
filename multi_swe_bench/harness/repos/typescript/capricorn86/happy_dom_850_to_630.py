@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ npx turbo run compile
 ###ACTION_DELIMITER###
 npx turbo run test --verbosity 3
 ###ACTION_DELIMITER###
-echo 'npx turbo run test --verbosity 3' > test_commands.sh"""
+echo 'npx turbo run test --verbosity 3' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ echo 'npx turbo run test --verbosity 3' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 npx turbo run test --verbosity 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx turbo run test --verbosity 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx turbo run test --verbosity 3
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class HAPPY_DOM_850_TO_630(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,7 +173,6 @@ class HAPPY_DOM_850_TO_630(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -181,6 +180,7 @@ class HAPPY_DOM_850_TO_630(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract passed tests
         passed_pattern = re.compile(r":test:\s+PASS\s+([^\s(]+)")
         passed_tests = set(passed_pattern.findall(log))
@@ -193,9 +193,8 @@ class HAPPY_DOM_850_TO_630(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

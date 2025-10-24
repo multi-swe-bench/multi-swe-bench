@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -130,7 +130,7 @@ export DATASTORE_READER_HOST=localhost DATASTORE_READER_PORT=9010 DATASTORE_WRIT
 ###ACTION_DELIMITER###
 export DATASTORE_READER_HOST=localhost DATASTORE_READER_PORT=9010 DATASTORE_WRITER_HOST=localhost DATASTORE_WRITER_PORT=9011 DATASTORE_DATABASE_HOST=localhost DATASTORE_DATABASE_USER=openslides DATASTORE_DATABASE_NAME=openslides DATABASE_PASSWORD_FILE=/tmp/db_password REDIS_URL=redis://localhost:6379 AUTH_HOST=localhost && bash test_commands.sh
 ###ACTION_DELIMITER###
-export DATASTORE_READER_HOST=localhost DATASTORE_READER_PORT=9010 DATASTORE_WRITER_HOST=localhost DATASTORE_WRITER_PORT=9011 DATASTORE_DATABASE_HOST=localhost DATASTORE_DATABASE_USER=openslides DATASTORE_DATABASE_PASSWORD=openslides DATASTORE_DATABASE_NAME=openslides AUTH_HOST=localhost AUTH_PORT=9004 REDIS_URL=redis://localhost:6379 OPENSLIDES_DEVELOPMENT=1 && bash test_commands.sh"""
+export DATASTORE_READER_HOST=localhost DATASTORE_READER_PORT=9010 DATASTORE_WRITER_HOST=localhost DATASTORE_WRITER_PORT=9011 DATASTORE_DATABASE_HOST=localhost DATASTORE_DATABASE_USER=openslides DATASTORE_DATABASE_PASSWORD=openslides DATASTORE_DATABASE_NAME=openslides AUTH_HOST=localhost AUTH_PORT=9004 REDIS_URL=redis://localhost:6379 OPENSLIDES_DEVELOPMENT=1 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -139,7 +139,7 @@ export DATASTORE_READER_HOST=localhost DATASTORE_READER_PORT=9010 DATASTORE_WRIT
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -152,7 +152,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -165,7 +165,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -227,7 +227,7 @@ class OPENSLIDES_BACKEND_1288_TO_1223(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -241,39 +241,40 @@ class OPENSLIDES_BACKEND_1288_TO_1223(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Pattern for PASSED tests (e.g., "tests/... PASSED [  0%]")
-        passed_pattern = re.compile(r'^(tests/.*?) PASSED\s+\[\s*\d+%\]', re.MULTILINE)
+        passed_pattern = re.compile(r"^(tests/.*?) PASSED\s+\[\s*\d+%\]", re.MULTILINE)
         passed_matches = passed_pattern.findall(log)
         for test in passed_matches:
             passed_tests.add(test.strip())
         # Pattern for FAILED tests (case 1: "tests/... FAILED [  0%]")
-        failed_pattern1 = re.compile(r'^(tests/.*?) FAILED\s+\[\s*\d+%\]', re.MULTILINE)
+        failed_pattern1 = re.compile(r"^(tests/.*?) FAILED\s+\[\s*\d+%\]", re.MULTILINE)
         failed_matches1 = failed_pattern1.findall(log)
         for test in failed_matches1:
             failed_tests.add(test.strip())
         # Pattern for FAILED tests (case 2: "FAILED tests/...")
-        failed_pattern2 = re.compile(r'^FAILED (tests/.*)$', re.MULTILINE)
+        failed_pattern2 = re.compile(r"^FAILED (tests/.*)$", re.MULTILINE)
         failed_matches2 = failed_pattern2.findall(log)
         for test in failed_matches2:
             failed_tests.add(test.strip())
         # Pattern for SKIPPED tests (e.g., "tests/... SKIPPED [  0%]")
-        skipped_pattern = re.compile(r'^(tests/.*?) SKIPPED\s+\[\s*\d+%\]', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^(tests/.*?) SKIPPED\s+\[\s*\d+%\]", re.MULTILINE
+        )
         skipped_matches = skipped_pattern.findall(log)
         for test in skipped_matches:
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

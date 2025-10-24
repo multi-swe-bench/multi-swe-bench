@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -79,7 +79,7 @@ export PATH=$PATH:/usr/local/go/bin && make envtest
 echo -e 'export KUBEBUILDER_ASSETS="$(./bin/setup-envtest use 1.26 -p path)"
 go test -v -json -count=1 ./pkg/... ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ cd /home/[[REPO_NAME]]
 export KUBEBUILDER_ASSETS="$(./bin/setup-envtest use 1.26 -p path)"
 go test -v -json -count=1 ./pkg/... ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -103,7 +103,7 @@ fi
 export KUBEBUILDER_ASSETS="$(./bin/setup-envtest use 1.26 -p path)"
 go test -v -json -count=1 ./pkg/... ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ fi
 export KUBEBUILDER_ASSETS="$(./bin/setup-envtest use 1.26 -p path)"
 go test -v -json -count=1 ./pkg/... ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class KSERVE_3014_TO_2869(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,15 +193,15 @@ class KSERVE_3014_TO_2869(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             if not line:
@@ -210,34 +210,33 @@ class KSERVE_3014_TO_2869(Instance):
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            action = entry.get('Action')
-            test_name = entry.get('Test')
-            if action == 'pass' and test_name:
+            action = entry.get("Action")
+            test_name = entry.get("Test")
+            if action == "pass" and test_name:
                 passed_tests.add(test_name)
-            elif action == 'fail' and test_name:
+            elif action == "fail" and test_name:
                 failed_tests.add(test_name)
-            elif action in ('skip', 'skipped') and test_name:
+            elif action in ("skip", "skipped") and test_name:
                 skipped_tests.add(test_name)
-            if action == 'output':
-                output = entry.get('Output', '')
-                for output_line in output.split('\n'):
+            if action == "output":
+                output = entry.get("Output", "")
+                for output_line in output.split("\n"):
                     stripped_line = output_line.strip()
-                    match = re.match(r'--- (PASS|FAIL|SKIP):\s*([^\s]+)', stripped_line)
+                    match = re.match(r"--- (PASS|FAIL|SKIP):\s*([^\s]+)", stripped_line)
                     if match:
                         status = match.group(1)
                         test = match.group(2)
-                        if status == 'PASS':
+                        if status == "PASS":
                             passed_tests.add(test)
-                        elif status == 'FAIL':
+                        elif status == "FAIL":
                             failed_tests.add(test)
-                        elif status == 'SKIP':
+                        elif status == "SKIP":
                             skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

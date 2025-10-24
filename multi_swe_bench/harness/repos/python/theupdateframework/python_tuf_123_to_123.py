@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ rm -f python; ln -s /usr/bin/python2.7 python; PYTHONPATH=/home/python-tuf pytho
 ###ACTION_DELIMITER###
 rm -f python; ln -s /usr/bin/python2.7 python; python2.7 simple_server.py 30000 > server.log 2>&1 & sleep 10; cat server.log; PYTHONPATH=/home/python-tuf python2.7 -m unittest -v test_download; kill $!
 ###ACTION_DELIMITER###
-echo 'PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v' > /home/python-tuf/test_commands.sh && chmod +x /home/python-tuf/test_commands.sh"""
+echo 'PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v' > /home/python-tuf/test_commands.sh && chmod +x /home/python-tuf/test_commands.sh""",
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ echo 'PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v' > 
 cd /home/[[REPO_NAME]]
 PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -130,7 +130,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -143,7 +143,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 PYTHONPATH=/home/python-tuf python2.7 -m unittest discover -s tests -v
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -205,7 +205,7 @@ class PYTHON_TUF_123_TO_123(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -219,16 +219,18 @@ class PYTHON_TUF_123_TO_123(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: [ 136] test_name (class) ... ok/ERROR/skipped
-        line_pattern = re.compile(r"^\s*([\w_.]+)\s+\(.*?\)\s+\.\.\.\s+(ok|ERROR|skipped)")
+        line_pattern = re.compile(
+            r"^\s*([\w_.]+)\s+\(.*?\)\s+\.\.\.\s+(ok|ERROR|skipped)"
+        )
         # Pattern 2: [ 363] ERROR: test_name (class) or [ 599] FAIL: test_name (class)
         prefix_pattern = re.compile(r"^\s*(ERROR|FAIL):\s+([\w_.]+)\s+")
         for line in log.split("\n"):
@@ -252,9 +254,8 @@ class PYTHON_TUF_123_TO_123(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

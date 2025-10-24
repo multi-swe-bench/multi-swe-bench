@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:22"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -60,7 +60,7 @@ pnpm test run -- --verbose
 ###ACTION_DELIMITER###
 echo 'pnpm test run -- --verbose' > test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ echo 'pnpm test run -- --verbose' > test_commands.sh
 cd /home/[[REPO_NAME]]
 pnpm test run -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pnpm test run -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -95,7 +95,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pnpm test run -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -157,7 +157,7 @@ class CREATE_TYPESCRIPT_APP_2066_TO_1470(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -171,32 +171,35 @@ class CREATE_TYPESCRIPT_APP_2066_TO_1470(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
-        log = re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', log)
+
+        log = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", log)
         # Pattern for passed tests: indented with two spaces, ✓, test name, then duration (e.g., 123ms)
-        passed_pattern = re.compile(r'^\s*✓\s+([^()]+?)\s+(?:\(\d+ tests\)\s+)?\d+ms$', re.MULTILINE)
+        passed_pattern = re.compile(
+            r"^\s*✓\s+([^()]+?)\s+(?:\(\d+ tests\)\s+)?\d+ms$", re.MULTILINE
+        )
         passed_matches = passed_pattern.findall(log)
         passed_tests.update(passed_matches)
         # Pattern for failed tests: indented with two spaces, ×, test name, then duration
-        failed_pattern = re.compile(r'^\s*×\s+(.*?)\s+\d+ms$', re.MULTILINE)
+        failed_pattern = re.compile(r"^\s*×\s+(.*?)\s+\d+ms$", re.MULTILINE)
         failed_matches = failed_pattern.findall(log)
         failed_tests.update(failed_matches)
         # Pattern for skipped tests: indented with two spaces, ⚠ or SKIPPED, test name, then duration (if present)
-        skipped_pattern = re.compile(r'^\s*(?:⚠|SKIPPED)\s+(.*?)(?:\s+\d+ms)?$', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"^\s*(?:⚠|SKIPPED)\s+(.*?)(?:\s+\d+ms)?$", re.MULTILINE
+        )
         skipped_matches = skipped_pattern.findall(log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

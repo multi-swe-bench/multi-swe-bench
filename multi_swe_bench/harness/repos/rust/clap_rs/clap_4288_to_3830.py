@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "rust:1.60.0"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -63,7 +63,7 @@ cargo test -p clap_derive -- --nocapture
 ###ACTION_DELIMITER###
 cargo test -p clap -- --nocapture
 ###ACTION_DELIMITER###
-echo 'cargo test --workspace -- --nocapture' > test_commands.sh"""
+echo 'cargo test --workspace -- --nocapture' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -72,9 +72,7 @@ echo 'cargo test --workspace -- --nocapture' > test_commands.sh"""
 cd /home/{pr.repo}
 cargo test --workspace -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -87,9 +85,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cargo test --workspace -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -102,9 +98,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cargo test --workspace -- --nocapture
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -166,7 +160,7 @@ class CLAP_4288_TO_3830(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -180,13 +174,13 @@ class CLAP_4288_TO_3830(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
-        failed_tests = set() 
-        skipped_tests = set() 
+        passed_tests = set()
+        failed_tests = set()
+        skipped_tests = set()
         import re
+
         # Regex to find passed tests
         passed_regex = re.compile(r"test (.*) \.\.\. ok")
         # Regex to find failed tests more accurately
@@ -199,7 +193,7 @@ class CLAP_4288_TO_3830(Instance):
         if failure_block_match:
             failure_block = failure_block_match.group(1)
             # Split the block into individual test names
-            test_names = [name.strip() for name in failure_block.strip().split('\n')]
+            test_names = [name.strip() for name in failure_block.strip().split("\n")]
             for test_name in test_names:
                 # Additional check to exclude empty strings that may result from splitting
                 if test_name:
@@ -207,16 +201,15 @@ class CLAP_4288_TO_3830(Instance):
         # In case of panics, which are also failures.
         panic_regex = re.compile(r"thread '(.+?)' panicked at", re.MULTILINE)
         for match in panic_regex.finditer(log):
-          test_name = match.group(1).strip()
-          # Avoid adding already identified tests from other regexes if they are also in panics
-          if test_name not in passed_tests and test_name not in failed_tests:
-            failed_tests.add(test_name)
+            test_name = match.group(1).strip()
+            # Avoid adding already identified tests from other regexes if they are also in panics
+            if test_name not in passed_tests and test_name not in failed_tests:
+                failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

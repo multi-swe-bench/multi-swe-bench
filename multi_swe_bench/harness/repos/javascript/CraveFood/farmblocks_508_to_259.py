@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 yarn build
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test -- --verbose --all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test -- --verbose --all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test -- --verbose --all
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class FARMBLOCKS_508_TO_259(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,47 +177,54 @@ class FARMBLOCKS_508_TO_259(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         current_context = []
-        test_file_pattern = re.compile(r'^(PASS|FAIL|SKIPPED)\s+(.+)$')
-        for line in log.split('\n'):
+        test_file_pattern = re.compile(r"^(PASS|FAIL|SKIPPED)\s+(.+)$")
+        for line in log.split("\n"):
             # Reset context for new test files
             file_match = test_file_pattern.match(line)
             if file_match:
                 current_context = []
                 continue
             # Track nested describe blocks (exclude test file lines)
-            describe_match = re.match(r'^(?!PASS|FAIL|SKIPPED)(\s*)(\w.*?)(?:\s*\(\d+ms\))?$', line)
+            describe_match = re.match(
+                r"^(?!PASS|FAIL|SKIPPED)(\s*)(\w.*?)(?:\s*\(\d+ms\))?$", line
+            )
             if describe_match:
                 indent = len(describe_match.group(1))
                 desc = describe_match.group(2).strip()
-                current_context = [ctx for ctx in current_context if ctx[0] < indent] + [(indent, desc)]
+                current_context = [
+                    ctx for ctx in current_context if ctx[0] < indent
+                ] + [(indent, desc)]
                 continue
             # Match test cases with status markers
-            test_match = re.match(r'^(\s*)([✓√✕×xX✖○-])\s+(.+?)(?:\s+\(\d+(?:ms|s)\))?$', line)
+            test_match = re.match(
+                r"^(\s*)([✓√✕×xX✖○-])\s+(.+?)(?:\s+\(\d+(?:ms|s)\))?$", line
+            )
             if test_match:
                 status = test_match.group(2)
                 test_name = test_match.group(3).strip()
                 # Build full test name from context + test name
-                full_test_name = ' '.join([ctx[1] for ctx in current_context] + [test_name])
-                if status in ['✓', '√']:
+                full_test_name = " ".join(
+                    [ctx[1] for ctx in current_context] + [test_name]
+                )
+                if status in ["✓", "√"]:
                     passed_tests.add(full_test_name)
-                elif status in ['✕', '×', 'x', 'X', '✖']:
+                elif status in ["✕", "×", "x", "X", "✖"]:
                     failed_tests.add(full_test_name)
-                elif status in ['○', '-']:
+                elif status in ["○", "-"]:
                     skipped_tests.add(full_test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

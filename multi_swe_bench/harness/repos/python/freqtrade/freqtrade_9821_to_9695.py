@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ pip install -r requirements-dev.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests' > /home/freqtrade/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/freqtrade/test_commands.sh"""
+bash /home/freqtrade/test_commands.sh""",
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ bash /home/freqtrade/test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -114,7 +114,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider ./tests
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -189,7 +189,7 @@ class FREQTRADE_9821_TO_9695(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -203,64 +203,63 @@ class FREQTRADE_9821_TO_9695(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             # Check for PASSED tests
-            if 'PASSED' in line:
+            if "PASSED" in line:
                 # Match test name before PASSED (e.g., 'test_name PASSED [0%]')
-                match = re.match(r'^(.*?)\s+PASSED\s+\[.*\]$', line)
+                match = re.match(r"^(.*?)\s+PASSED\s+\[.*\]$", line)
                 if match:
                     test_name = match.group(1).strip()
                     passed_tests.add(test_name)
                 else:
                     # Match PASSED before test name (e.g., 'PASSED test_name')
-                    match = re.match(r'^PASSED\s+(.*?)$', line)
+                    match = re.match(r"^PASSED\s+(.*?)$", line)
                     if match:
                         test_name = match.group(1).strip()
                         passed_tests.add(test_name)
             # Check for FAILED tests
-            elif 'FAILED' in line:
+            elif "FAILED" in line:
                 # Match test name before FAILED (e.g., 'test_name FAILED [0%]')
-                match = re.match(r'^(.*?)\s+FAILED\s+\[.*\]$', line)
+                match = re.match(r"^(.*?)\s+FAILED\s+\[.*\]$", line)
                 if match:
                     test_name = match.group(1).strip()
                     failed_tests.add(test_name)
                 else:
                     # Match FAILED before test name (e.g., 'FAILED test_name - error')
-                    match = re.match(r'^FAILED\s+(.*?)(\s+-.*)?$', line)
+                    match = re.match(r"^FAILED\s+(.*?)(\s+-.*)?$", line)
                     if match:
                         test_name = match.group(1).strip()
                         failed_tests.add(test_name)
             # Check for SKIPPED tests
-            elif 'SKIPPED' in line:
+            elif "SKIPPED" in line:
                 # Match test name before SKIPPED (e.g., 'test_name SKIPPED [1]')
-                match = re.match(r'^(.*?)\s+SKIPPED\s+\[.*\]$', line)
+                match = re.match(r"^(.*?)\s+SKIPPED\s+\[.*\]$", line)
                 if match:
                     test_name = match.group(1).strip()
                     skipped_tests.add(test_name)
                 else:
                     # Match SKIPPED before test name (e.g., 'SKIPPED [1] test_name:251: ...')
-                    match = re.match(r'^SKIPPED\s+\[\d+\]\s+(.*?)(:\d+:\s.*)?$', line)
+                    match = re.match(r"^SKIPPED\s+\[\d+\]\s+(.*?)(:\d+:\s.*)?$", line)
                     if match:
                         test_name = match.group(1).strip()
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

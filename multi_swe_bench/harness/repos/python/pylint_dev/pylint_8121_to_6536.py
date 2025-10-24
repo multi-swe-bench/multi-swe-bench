@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10.0-alpine3.15"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -53,7 +53,7 @@ pip install -r requirements_test.txt
 ###ACTION_DELIMITER###
 pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/
 ###ACTION_DELIMITER###
-echo 'pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh"""
+echo 'pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -62,9 +62,7 @@ echo 'pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/' > test_
 cd /home/{pr.repo}
 pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -77,9 +75,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -92,9 +88,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest --benchmark-disable -rA --tb=no -p no:cacheprovider tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -156,7 +150,7 @@ class PYLINT_8121_TO_6536(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -170,7 +164,6 @@ class PYLINT_8121_TO_6536(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -178,6 +171,7 @@ class PYLINT_8121_TO_6536(Instance):
         skipped_tests = set()
         import re
         import json
+
         # TODO: Implement the parse_log function
         passed_regex = re.compile(r"PASSED\s+(.*)")
         failed_regex = re.compile(r"FAILED\s+(.*)")
@@ -192,9 +186,8 @@ class PYLINT_8121_TO_6536(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

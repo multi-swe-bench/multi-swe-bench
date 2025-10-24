@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -59,7 +59,7 @@ echo 'poetry run pytest -v' > test_commands.sh
 echo -e '#!/bin/bash
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-chmod +x test_commands.sh"""
+chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -69,7 +69,7 @@ cd /home/[[REPO_NAME]]
 #!/bin/bash
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -83,7 +83,7 @@ fi
 #!/bin/bash
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ fi
 #!/bin/bash
 poetry run pytest -v --no-header -rA --tb=no -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class LITESTAR_1038_TO_902(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,48 +173,51 @@ class LITESTAR_1038_TO_902(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test cases and their statuses (captures full test names)
         # Pattern 1: Test name followed by status (e.g., "tests/...py::... PASSED [  0%]")
-        pattern_test_first = re.compile(r'(tests/.*?\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL).*')
+        pattern_test_first = re.compile(
+            r"(tests/.*?\.py::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL).*"
+        )
         # Pattern 2: Status followed by test name (e.g., "PASSED tests/...py::...")
-        pattern_status_first = re.compile(r'(PASSED|FAILED|SKIPPED|XFAIL).*?\s+(tests/.*?\.py::[^\s]+).*')
+        pattern_status_first = re.compile(
+            r"(PASSED|FAILED|SKIPPED|XFAIL).*?\s+(tests/.*?\.py::[^\s]+).*"
+        )
         # Split the log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Check for test name first pattern
             for match in pattern_test_first.findall(line):
                 test_name, status = match
-                if test_name.startswith('tests/'):
-                    if status == 'PASSED':
+                if test_name.startswith("tests/"):
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
             # Check for status first pattern
             for match in pattern_status_first.findall(line):
                 status, test_name = match
-                if test_name.startswith('tests/'):
-                    if status == 'PASSED':
+                if test_name.startswith("tests/"):
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status == 'FAILED':
+                    elif status == "FAILED":
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -85,7 +85,7 @@ pip install selenium==3.141.0
 ###ACTION_DELIMITER###
 python atest/run.py firefox
 ###ACTION_DELIMITER###
-echo 'python atest/run.py firefox' > test_commands.sh"""
+echo 'python atest/run.py firefox' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -94,9 +94,7 @@ echo 'python atest/run.py firefox' > test_commands.sh"""
 cd /home/{pr.repo}
 python atest/run.py firefox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -109,9 +107,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 python atest/run.py firefox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -124,9 +120,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 python atest/run.py firefox
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -188,7 +182,7 @@ class SELENIUMLIBRARY_1532_TO_1450(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -202,17 +196,17 @@ class SELENIUMLIBRARY_1532_TO_1450(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Implement the log parsing logic here
         # Parse result strings to extract test files and generate test names
-        file_results_pattern = r'^(utest/.*?\.py) (.*?)\s+\['
+        file_results_pattern = r"^(utest/.*?\.py) (.*?)\s+\["
         file_results = re.findall(file_results_pattern, log, re.MULTILINE)
         all_tests = []
         test_status = {}
@@ -221,53 +215,59 @@ class SELENIUMLIBRARY_1532_TO_1450(Instance):
             num_tests = len(result_str)
             # Generate test names (e.g., file_path::test_1, file_path::test_2)
             for i in range(num_tests):
-                test_name = f'{file_path}::test_{i+1}'
+                test_name = f"{file_path}::test_{i + 1}"
                 all_tests.append(test_name)
                 # Map result character to status
                 result = result_str[i]
-                if result == 'F':
-                    test_status[test_name] = 'failed'
-                elif result == 's':
-                    test_status[test_name] = 'skipped'
+                if result == "F":
+                    test_status[test_name] = "failed"
+                elif result == "s":
+                    test_status[test_name] = "skipped"
                 else:  # '.' or other passing indicators
-                    test_status[test_name] = 'passed'
+                    test_status[test_name] = "passed"
         all_tests_set = set(all_tests)
         # Extract explicit failed tests (to overwrite generated names with actual names)
-        explicit_failed = re.findall(r'FAILED (utest/.*?)(?:\s|$)', log)
+        explicit_failed = re.findall(r"FAILED (utest/.*?)(?:\s|$)", log)
         for test in explicit_failed:
             if test not in all_tests_set:
                 all_tests.append(test)
                 all_tests_set.add(test)
-            test_status[test] = 'failed'
+            test_status[test] = "failed"
         # Extract explicit skipped tests
-        explicit_skipped = re.findall(r'SKIPPED (utest/.*?)(?:\s|$)', log)
+        explicit_skipped = re.findall(r"SKIPPED (utest/.*?)(?:\s|$)", log)
         for test in explicit_skipped:
             if test not in all_tests_set:
                 all_tests.append(test)
                 all_tests_set.add(test)
-            test_status[test] = 'skipped'
+            test_status[test] = "skipped"
         # Populate test sets from test_status
         for test, status in test_status.items():
-            if status == 'failed':
+            if status == "failed":
                 failed_tests.add(test)
-            elif status == 'skipped':
+            elif status == "skipped":
                 skipped_tests.add(test)
             else:
                 passed_tests.add(test)
         # Validate with summary (adjust counts if needed)
-        summary_match = re.search(r'=+ (\d+) failed, (\d+) passed, (\d+) skipped,?.*', log)
+        summary_match = re.search(
+            r"=+ (\d+) failed, (\d+) passed, (\d+) skipped,?.*", log
+        )
         if summary_match:
             exp_failed, exp_passed, exp_skipped = map(int, summary_match.groups())
             # Adjust failed tests
             if len(failed_tests) < exp_failed:
                 missing = exp_failed - len(failed_tests)
-                failed_tests.update(set(all_tests) - failed_tests - skipped_tests - passed_tests)
+                failed_tests.update(
+                    set(all_tests) - failed_tests - skipped_tests - passed_tests
+                )
             elif len(failed_tests) > exp_failed:
                 failed_tests = set(list(failed_tests)[:exp_failed])
             # Adjust skipped tests
             if len(skipped_tests) < exp_skipped:
                 missing = exp_skipped - len(skipped_tests)
-                skipped_tests.update(set(all_tests) - failed_tests - skipped_tests - passed_tests)
+                skipped_tests.update(
+                    set(all_tests) - failed_tests - skipped_tests - passed_tests
+                )
             elif len(skipped_tests) > exp_skipped:
                 skipped_tests = set(list(skipped_tests)[:exp_skipped])
             # Recalculate passed tests to match summary
@@ -275,9 +275,8 @@ class SELENIUMLIBRARY_1532_TO_1450(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

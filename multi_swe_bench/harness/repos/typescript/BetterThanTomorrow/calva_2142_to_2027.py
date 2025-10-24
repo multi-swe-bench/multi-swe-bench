@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ set -e
 npm run calva-lib-test
 npx mocha -v --reporter spec --require ts-node/register "src/extension-test/unit/**/*-test.ts"
 npm run integration-test
-npm run e2e-test' > test_commands.sh && chmod +x test_commands.sh"""
+npm run e2e-test' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -81,7 +81,7 @@ npx mocha -v --reporter spec --require ts-node/register "src/extension-test/unit
 npm run integration-test
 npm run e2e-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ npx mocha -v --reporter spec --require ts-node/register "src/extension-test/unit
 npm run integration-test
 npm run e2e-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -117,7 +117,7 @@ npx mocha -v --reporter spec --require ts-node/register "src/extension-test/unit
 npm run integration-test
 npm run e2e-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -179,7 +179,7 @@ class CALVA_2142_TO_2027(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -193,7 +193,6 @@ class CALVA_2142_TO_2027(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
@@ -201,27 +200,30 @@ class CALVA_2142_TO_2027(Instance):
         skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
+
         # Parse test suites and cases using indentation and status markers
         test_hierarchy = []
         current_indent = 0
-        summary_pattern = re.compile(r'.*\d+ (failures|errors|passing|failing)')  # Ignore summary lines, excluding pending to capture skipped tests
-        current_suite = ''
-        for line in log.split('\n'):
-            line = line.rstrip('\r')
+        summary_pattern = re.compile(
+            r".*\d+ (failures|errors|passing|failing)"
+        )  # Ignore summary lines, excluding pending to capture skipped tests
+        current_suite = ""
+        for line in log.split("\n"):
+            line = line.rstrip("\r")
             indent = len(line) - len(line.lstrip())
             stripped_line = line.strip()
             # Skip summary headers
             if summary_pattern.match(stripped_line):
                 continue
             # Track top-level test suites
-            if stripped_line.startswith('Testing '):
-                suite_name = stripped_line.split('Testing ')[1].strip()
+            if stripped_line.startswith("Testing "):
+                suite_name = stripped_line.split("Testing ")[1].strip()
                 test_hierarchy = [suite_name]
                 current_suite = suite_name
                 current_indent = indent
                 continue
             # Track parent test cases (indented, no status)
-            if not stripped_line.startswith(('✔', '1)', 'pending')) and stripped_line:
+            if not stripped_line.startswith(("✔", "1)", "pending")) and stripped_line:
                 if indent > current_indent:
                     test_hierarchy.append(stripped_line)
                     current_indent = indent
@@ -239,18 +241,18 @@ class CALVA_2142_TO_2027(Instance):
                 current_indent = indent
                 continue
             # Process test results
-            if '✔' in stripped_line:
-                test_name = stripped_line.lstrip('✔ ').strip()
-                full_name = ' > '.join(test_hierarchy + [test_name])
+            if "✔" in stripped_line:
+                test_name = stripped_line.lstrip("✔ ").strip()
+                full_name = " > ".join(test_hierarchy + [test_name])
                 passed_tests.add(full_name)
-            elif '1)' in stripped_line:
+            elif "1)" in stripped_line:
                 # Map failed tests to full hierarchy
-                test_name = stripped_line.lstrip('1) ').strip()
+                test_name = stripped_line.lstrip("1) ").strip()
                 # Extract parent context from previous lines
                 parent_hierarchy = test_hierarchy.copy()
-                full_name = ' > '.join(parent_hierarchy + [test_name])
+                full_name = " > ".join(parent_hierarchy + [test_name])
                 failed_tests.add(full_name)
-            elif 'pending' in stripped_line:
+            elif "pending" in stripped_line:
                 # Capture pending tests from summary (e.g., '5 pending')
                 # Capture pending tests from summary using the current suite
                 if current_suite:
@@ -258,9 +260,8 @@ class CALVA_2142_TO_2027(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

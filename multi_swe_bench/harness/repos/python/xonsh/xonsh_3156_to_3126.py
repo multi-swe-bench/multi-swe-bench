@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ echo -e 'pytest -v -p no:xonsh --ignore tests/test_main.py --ignore tests/test_p
 pytest -v -p no:xonsh tests/test_main.py
 pytest -v -p no:xonsh tests/test_ptk_highlight.py' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -126,9 +126,7 @@ pytest -v -p no:xonsh --ignore tests/test_main.py --ignore tests/test_ptk_highli
 pytest -v -p no:xonsh tests/test_main.py
 pytest -v -p no:xonsh tests/test_ptk_highlight.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -143,9 +141,7 @@ pytest -v -p no:xonsh --ignore tests/test_main.py --ignore tests/test_ptk_highli
 pytest -v -p no:xonsh tests/test_main.py
 pytest -v -p no:xonsh tests/test_ptk_highlight.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ pytest -v -p no:xonsh --ignore tests/test_main.py --ignore tests/test_ptk_highli
 pytest -v -p no:xonsh tests/test_main.py
 pytest -v -p no:xonsh tests/test_ptk_highlight.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class XONSH_3156_TO_3126(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,16 +232,16 @@ class XONSH_3156_TO_3126(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Regex pattern to match test cases with their statuses
         # Pattern: matches "tests/...::test_name STATUS ["
-        pattern = r"tests/.*?::(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[" 
+        pattern = r"tests/.*?::(.*?)\s+(PASSED|FAILED|SKIPPED)\s+\["
         matches = re.findall(pattern, log)
         for test_name, status in matches:
             if status == "PASSED":
@@ -259,9 +253,8 @@ class XONSH_3156_TO_3126(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

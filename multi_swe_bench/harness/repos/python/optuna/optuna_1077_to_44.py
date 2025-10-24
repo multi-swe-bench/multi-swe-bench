@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -109,7 +109,7 @@ echo 'pytest -v' > /home/optuna/test_commands.sh
 ###ACTION_DELIMITER###
 bash /home/optuna/test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/integration_tests/test_cma.py --ignore tests/integration_tests/test_fastai.py --ignore tests/integration_tests/test_keras.py --ignore tests/integration_tests/test_mxnet.py --ignore tests/integration_tests/test_pytorch_ignite.py --ignore tests/integration_tests/test_pytorch_lightning.py --ignore tests/integration_tests/test_skopt.py --ignore tests/integration_tests/test_tensorflow.py --ignore tests/integration_tests/test_tfkeras.py --ignore tests/integration_tests/test_xgboost.py' > /home/optuna/test_commands.sh"""
+echo 'pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/integration_tests/test_cma.py --ignore tests/integration_tests/test_fastai.py --ignore tests/integration_tests/test_keras.py --ignore tests/integration_tests/test_mxnet.py --ignore tests/integration_tests/test_pytorch_ignite.py --ignore tests/integration_tests/test_pytorch_lightning.py --ignore tests/integration_tests/test_skopt.py --ignore tests/integration_tests/test_tensorflow.py --ignore tests/integration_tests/test_tfkeras.py --ignore tests/integration_tests/test_xgboost.py' > /home/optuna/test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,9 +118,7 @@ echo 'pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/
 cd /home/{pr.repo}
 pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/integration_tests/test_cma.py --ignore tests/integration_tests/test_fastai.py --ignore tests/integration_tests/test_keras.py --ignore tests/integration_tests/test_mxnet.py --ignore tests/integration_tests/test_pytorch_ignite.py --ignore tests/integration_tests/test_pytorch_lightning.py --ignore tests/integration_tests/test_skopt.py --ignore tests/integration_tests/test_tensorflow.py --ignore tests/integration_tests/test_tfkeras.py --ignore tests/integration_tests/test_xgboost.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -133,9 +131,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/integration_tests/test_cma.py --ignore tests/integration_tests/test_fastai.py --ignore tests/integration_tests/test_keras.py --ignore tests/integration_tests/test_mxnet.py --ignore tests/integration_tests/test_pytorch_ignite.py --ignore tests/integration_tests/test_pytorch_lightning.py --ignore tests/integration_tests/test_skopt.py --ignore tests/integration_tests/test_tensorflow.py --ignore tests/integration_tests/test_tfkeras.py --ignore tests/integration_tests/test_xgboost.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -148,9 +144,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v --ignore tests/integration_tests/test_chainer.py --ignore tests/integration_tests/test_cma.py --ignore tests/integration_tests/test_fastai.py --ignore tests/integration_tests/test_keras.py --ignore tests/integration_tests/test_mxnet.py --ignore tests/integration_tests/test_pytorch_ignite.py --ignore tests/integration_tests/test_pytorch_lightning.py --ignore tests/integration_tests/test_skopt.py --ignore tests/integration_tests/test_tensorflow.py --ignore tests/integration_tests/test_tfkeras.py --ignore tests/integration_tests/test_xgboost.py
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -212,7 +206,7 @@ class OPTUNA_1077_TO_44(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -226,20 +220,20 @@ class OPTUNA_1077_TO_44(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test lines
         # Pattern 1: Matches lines like 'tests/... PASSED [ 0%]'
-        pattern1 = re.compile(r'^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[')
+        pattern1 = re.compile(r"^(tests/.*?)\s+(PASSED|FAILED|SKIPPED)\s+\[")
         # Pattern 2: Matches lines like 'FAILED tests/...' (ignores trailing error messages)
-        pattern2 = re.compile(r'^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(\s+-.*)?$')
+        pattern2 = re.compile(r"^(PASSED|FAILED|SKIPPED)\s+(tests/.*?)(\s+-.*)?$")
         # Split log into lines
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             match1 = pattern1.match(line)
@@ -254,18 +248,17 @@ class OPTUNA_1077_TO_44(Instance):
                 else:
                     continue  # No match, skip
             # Add to the appropriate set
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

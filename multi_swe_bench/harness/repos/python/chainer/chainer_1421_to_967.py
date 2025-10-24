@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -86,7 +86,7 @@ bash test_commands.sh
 echo -e 'export CHAINER_BACKEND=numpy
 nosetests -v -e ".*(gpu|cuda|cudnn|cupy|deconvolution).*" -e "test_debug_print_cpu"' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ cd /home/[[REPO_NAME]]
 export CHAINER_BACKEND=numpy
 nosetests -v -e ".*(gpu|cuda|cudnn|cupy|deconvolution).*" -e "test_debug_print_cpu"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ fi
 export CHAINER_BACKEND=numpy
 nosetests -v -e ".*(gpu|cuda|cudnn|cupy|deconvolution).*" -e "test_debug_print_cpu"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ fi
 export CHAINER_BACKEND=numpy
 nosetests -v -e ".*(gpu|cuda|cudnn|cupy|deconvolution).*" -e "test_debug_print_cpu"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -186,7 +186,7 @@ class CHAINER_1421_TO_967(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -200,34 +200,35 @@ class CHAINER_1421_TO_967(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        line_number_pattern = re.compile(r'^\[\s*\d+\]\s*')  # Remove [  n] line number prefix
-        for line in log.split('\n'):
-            cleaned_line = line_number_pattern.sub('', line)  # Strip line number
-            if '...' in cleaned_line:
-                test_part, status_part = cleaned_line.split('...', 1)
+
+        line_number_pattern = re.compile(
+            r"^\[\s*\d+\]\s*"
+        )  # Remove [  n] line number prefix
+        for line in log.split("\n"):
+            cleaned_line = line_number_pattern.sub("", line)  # Strip line number
+            if "..." in cleaned_line:
+                test_part, status_part = cleaned_line.split("...", 1)
                 test_name = test_part.strip()  # Full test name including parameters
-                if not test_name.startswith('test_'):
+                if not test_name.startswith("test_"):
                     continue  # Skip non-test lines
                 status = status_part.strip().lower()
-                if status.startswith('ok'):
+                if status.startswith("ok"):
                     passed_tests.add(test_name)
-                elif status in ['error', 'fail', 'failure', 'failed']:
+                elif status in ["error", "fail", "failure", "failed"]:
                     failed_tests.add(test_name)
-                elif status.startswith('skip'):
+                elif status.startswith("skip"):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

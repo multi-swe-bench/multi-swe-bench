@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -67,7 +67,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'npx gulp test-server' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh
 ###ACTION_DELIMITER###
-echo 'CipherString = DEFAULT@SECLEVEL=1' > openssl.cnf && OPENSSL_CONF=./openssl.cnf bash test_commands.sh"""
+echo 'CipherString = DEFAULT@SECLEVEL=1' > openssl.cnf && OPENSSL_CONF=./openssl.cnf bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,7 +76,7 @@ echo 'CipherString = DEFAULT@SECLEVEL=1' > openssl.cnf && OPENSSL_CONF=./openssl
 cd /home/[[REPO_NAME]]
 npx gulp test-server
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 npx gulp test-server
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 npx gulp test-server
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -164,7 +164,7 @@ class TESTCAFE_HAMMERHEAD_584_TO_187(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -178,7 +178,6 @@ class TESTCAFE_HAMMERHEAD_584_TO_187(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -186,26 +185,33 @@ class TESTCAFE_HAMMERHEAD_584_TO_187(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # TODO: Implement the log parsing logic here
         # Extract all test lines and classify by status
-        test_pattern = re.compile(r'^\s*(✓|FAILED|\d+\)|x|✗|−|SKIPPED)\s+(.*)\s*$', re.MULTILINE | re.IGNORECASE)
+        test_pattern = re.compile(
+            r"^\s*(✓|FAILED|\d+\)|x|✗|−|SKIPPED)\s+(.*)\s*$",
+            re.MULTILINE | re.IGNORECASE,
+        )
         for match in test_pattern.finditer(log):
             marker = match.group(1)
             test_name = match.group(2).strip()
-            if not test_name or 'before' in test_name.lower() or 'after' in test_name.lower():
+            if (
+                not test_name
+                or "before" in test_name.lower()
+                or "after" in test_name.lower()
+            ):
                 continue
-            if marker == '✓':
+            if marker == "✓":
                 passed_tests.add(test_name)
-            elif marker in ('x', '✗') or re.match(r'\d+\)', marker):
+            elif marker in ("x", "✗") or re.match(r"\d+\)", marker):
                 failed_tests.add(test_name)
-            elif marker in ('−', 'SKIPPED'):
+            elif marker in ("−", "SKIPPED"):
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

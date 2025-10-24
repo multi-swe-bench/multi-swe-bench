@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.6-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -67,7 +67,7 @@ pip install "pytest<4"
 ###ACTION_DELIMITER###
 coverage run -p -m pytest tests examples
 ###ACTION_DELIMITER###
-echo "coverage run -p -m pytest tests examples" > test_commands.sh"""
+echo "coverage run -p -m pytest tests examples" > test_commands.sh""",
             ),
             File(
                 ".",
@@ -76,9 +76,7 @@ echo "coverage run -p -m pytest tests examples" > test_commands.sh"""
 cd /home/{pr.repo}
 coverage run -p -m pytest tests examples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -91,9 +89,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 coverage run -p -m pytest tests examples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -106,9 +102,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 coverage run -p -m pytest tests examples
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -170,7 +164,7 @@ class FLASK_2765_TO_1593(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -184,13 +178,13 @@ class FLASK_2765_TO_1593(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() 
+        passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex to find lines with test results
         test_line_regex = re.compile(r"^(tests/.*|examples/.*) ([\.sF]+)")
         for line in log.splitlines():
@@ -199,17 +193,19 @@ class FLASK_2765_TO_1593(Instance):
                 test_file = match.group(1).split(" ")[0]
                 results = match.group(2)
                 # Assuming each character in the results string represents a single test
-                # and the test name is the file name. 
+                # and the test name is the file name.
                 # A more sophisticated approach would be needed if individual test names are required.
-                if 'F' in results:
+                if "F" in results:
                     failed_tests.add(test_file)
-                elif 's' in results:
+                elif "s" in results:
                     skipped_tests.add(test_file)
                 else:
                     passed_tests.add(test_file)
         # Fallback to summary line if no test lines were found
         if not any([passed_tests, failed_tests, skipped_tests]):
-            summary_line_regex = re.compile(r"=============== ((\d+) failed, )?((\d+) passed, )?((\d+) skipped) in .* ===============")
+            summary_line_regex = re.compile(
+                r"=============== ((\d+) failed, )?((\d+) passed, )?((\d+) skipped) in .* ==============="
+            )
             summary_match = summary_line_regex.search(log)
             if summary_match:
                 # This part is tricky as we don't have test names from the summary line.
@@ -219,9 +215,8 @@ class FLASK_2765_TO_1593(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

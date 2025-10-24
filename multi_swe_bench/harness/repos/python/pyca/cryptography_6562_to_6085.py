@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -66,7 +66,7 @@ pip install -r dev-requirements.txt
 ###ACTION_DELIMITER###
 echo 'pytest -v --no-header -rA --tb=no -p no:cacheprovider -n auto --cov=cryptography --cov=tests --capture=no --strict-markers --durations=10 tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -75,7 +75,7 @@ cat test_commands.sh"""
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -n auto --cov=cryptography --cov=tests --capture=no --strict-markers --durations=10 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -88,7 +88,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -n auto --cov=cryptography --cov=tests --capture=no --strict-markers --durations=10 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -101,7 +101,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=no -p no:cacheprovider -n auto --cov=cryptography --cov=tests --capture=no --strict-markers --durations=10 tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -163,7 +163,7 @@ class CRYPTOGRAPHY_6562_TO_6085(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -177,7 +177,6 @@ class CRYPTOGRAPHY_6562_TO_6085(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -185,27 +184,31 @@ class CRYPTOGRAPHY_6562_TO_6085(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Pattern for passed tests: [gw<num>] PASSED tests/...
-        passed_pattern = re.compile(r'\[gw\d+\] PASSED (tests/[^ ]+)', re.MULTILINE)
+        passed_pattern = re.compile(r"\[gw\d+\] PASSED (tests/[^ ]+)", re.MULTILINE)
         passed_matches = passed_pattern.findall(log)
         for test in passed_matches:
             passed_tests.add(test)
         # Pattern for failed tests: [gw<num>] FAILED tests/... or FAILED tests/...
-        failed_pattern = re.compile(r'(?:\[gw\d+\] )?FAILED (tests/[^ ]+)', re.MULTILINE)
+        failed_pattern = re.compile(
+            r"(?:\[gw\d+\] )?FAILED (tests/[^ ]+)", re.MULTILINE
+        )
         failed_matches = failed_pattern.findall(log)
         for test in failed_matches:
             failed_tests.add(test)
         # Pattern for skipped tests: [gw<num>] SKIPPED tests/... or SKIPPED [1] tests/...
-        skipped_pattern = re.compile(r'(?:\[gw\d+\] )?SKIPPED (?:\[\d+\] )?(tests/[^ :]+)', re.MULTILINE)
+        skipped_pattern = re.compile(
+            r"(?:\[gw\d+\] )?SKIPPED (?:\[\d+\] )?(tests/[^ :]+)", re.MULTILINE
+        )
         skipped_matches = skipped_pattern.findall(log)
         for test in skipped_matches:
             skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

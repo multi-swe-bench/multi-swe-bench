@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -115,7 +115,7 @@ cd /home/jackson-databind && mvn clean install -DskipTests
 ###ACTION_DELIMITER###
 cd /home/jackson-databind && mvn clean install
 ###ACTION_DELIMITER###
-echo "mvn test -Dstyle.color=never" > /home/jackson-databind/test_commands.sh"""
+echo "mvn test -Dstyle.color=never" > /home/jackson-databind/test_commands.sh""",
             ),
             File(
                 ".",
@@ -124,9 +124,7 @@ echo "mvn test -Dstyle.color=never" > /home/jackson-databind/test_commands.sh"""
 cd /home/{pr.repo}
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -139,9 +137,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -154,9 +150,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mvn test -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -218,7 +212,7 @@ class JACKSON_DATABIND_5022_TO_4968(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -232,15 +226,17 @@ class JACKSON_DATABIND_5022_TO_4968(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
-        pattern = re.compile(r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: .* s(?: <<< FAILURE!)? -- in (.*)")
+
+        pattern = re.compile(
+            r"Tests run: (\d+), Failures: (\d+), Errors: (\d+), Skipped: (\d+), Time elapsed: .* s(?: <<< FAILURE!)? -- in (.*)"
+        )
         for line in log.splitlines():
             match = pattern.search(line)
             if match:
@@ -255,9 +251,8 @@ class JACKSON_DATABIND_5022_TO_4968(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

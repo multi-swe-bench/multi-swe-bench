@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -72,7 +72,7 @@ sed -i 's|"numeral": "git+https://github.com/LiskHQ/Numeral-js.git"|"numeral": "
 ###ACTION_DELIMITER###
 echo 'yarn test --verbose' > test_commands.sh && echo 'yarn cypress:run --reporter spec' >> test_commands.sh
 ###ACTION_DELIMITER###
-cat test_commands.sh"""
+cat test_commands.sh""",
             ),
             File(
                 ".",
@@ -82,7 +82,7 @@ cd /home/[[REPO_NAME]]
 yarn test --verbose
 yarn cypress:run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -96,7 +96,7 @@ fi
 yarn test --verbose
 yarn cypress:run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -110,7 +110,7 @@ fi
 yarn test --verbose
 yarn cypress:run --reporter spec
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -172,7 +172,7 @@ class LISK_DESKTOP_5290_TO_5252(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -186,20 +186,22 @@ class LISK_DESKTOP_5290_TO_5252(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Track test hierarchy and statuses
         hierarchy = []
-        test_case_pattern = re.compile(r'^(\s*)([✓✕○])\s+(.*?)\s+\(\d+ ms\)$')
-        pass_fail_pattern = re.compile(r'^(PASS|FAIL)\s+(.*?)(?:\s+\(\d+\.\d+ s\))?$')  # Extract file path from PASS/FAIL lines (with or without time)
-        for line in log.split('\n'):
+        test_case_pattern = re.compile(r"^(\s*)([✓✕○])\s+(.*?)\s+\(\d+ ms\)$")
+        pass_fail_pattern = re.compile(
+            r"^(PASS|FAIL)\s+(.*?)(?:\s+\(\d+\.\d+ s\))?$"
+        )  # Extract file path from PASS/FAIL lines (with or without time)
+        for line in log.split("\n"):
             # Update hierarchy based on indentation
-            indent_match = re.match(r'^(\s*)', line)
+            indent_match = re.match(r"^(\s*)", line)
             if indent_match:
                 indent = len(indent_match.group(1))
                 # Pop hierarchy items with greater/equal indent
@@ -207,35 +209,38 @@ class LISK_DESKTOP_5290_TO_5252(Instance):
                     hierarchy.pop()
                 # Extract suite/case name (non-test lines)
                 if not test_case_pattern.match(line):
-                    stripped_line = line.strip().rstrip(':')
+                    stripped_line = line.strip().rstrip(":")
                     # Skip stack traces, errors, and irrelevant lines
-                    if stripped_line.startswith(('at ', 'Error:', 'Your system is missing', 'info', 'warning')):
+                    if stripped_line.startswith(
+                        ("at ", "Error:", "Your system is missing", "info", "warning")
+                    ):
                         continue
                     # Extract file path from PASS/FAIL lines
                     pass_fail_match = pass_fail_pattern.match(stripped_line)
                     if pass_fail_match:
-                        name = pass_fail_match.group(2)  # Use file path as top-level name
+                        name = pass_fail_match.group(
+                            2
+                        )  # Use file path as top-level name
                     else:
                         name = stripped_line
-                    if name and not line.strip().startswith(('✓', '✕', '○')):
+                    if name and not line.strip().startswith(("✓", "✕", "○")):
                         hierarchy.append((name, indent))
             # Match test cases
             case_match = test_case_pattern.match(line)
             if case_match:
                 indent, status, desc = case_match.groups()
-                full_name = ' '.join([h[0] for h in hierarchy] + [desc])
-                if status == '✓':
+                full_name = " ".join([h[0] for h in hierarchy] + [desc])
+                if status == "✓":
                     passed_tests.add(full_name)
-                elif status == '✕':
+                elif status == "✕":
                     failed_tests.add(full_name)
-                elif status == '○':
+                elif status == "○":
                     skipped_tests.add(full_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

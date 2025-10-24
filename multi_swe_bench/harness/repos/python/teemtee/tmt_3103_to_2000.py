@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.10-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -140,7 +140,7 @@ bash /home/tmt/test_commands.sh
 ###ACTION_DELIMITER###
 echo -e 'pip install -e .\npip install pytest testcloud pytest-container python3-nitrate pytest-junit\nmake nitrateconf\nexport PYTHONPATH=/usr/lib/python3/dist-packages:$PYTHONPATH\nexport PATH=$PATH:/home/tmt/.local/bin\nexport TERM=dumb\npytest tests/unit -v -k "not (container or gssapi or nitrate or cli or junit)"' > /home/tmt/test_commands.sh && chmod +x /home/tmt/test_commands.sh
 ###ACTION_DELIMITER###
-bash /home/tmt/test_commands.sh"""
+bash /home/tmt/test_commands.sh""",
             ),
             File(
                 ".",
@@ -155,7 +155,7 @@ export PATH=$PATH:/home/tmt/.local/bin
 export TERM=dumb
 pytest tests/unit -v -k "not (container or gssapi or nitrate or cli or junit)"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -174,7 +174,7 @@ export PATH=$PATH:/home/tmt/.local/bin
 export TERM=dumb
 pytest tests/unit -v -k "not (container or gssapi or nitrate or cli or junit)"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -193,7 +193,7 @@ export PATH=$PATH:/home/tmt/.local/bin
 export TERM=dumb
 pytest tests/unit -v -k "not (container or gssapi or nitrate or cli or junit)"
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -255,7 +255,7 @@ class TMT_3103_TO_2000(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -269,31 +269,30 @@ class TMT_3103_TO_2000(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set[str]()  # Tests that passed successfully
         failed_tests = set[str]()  # Tests that failed
         skipped_tests = set[str]()  # Tests that were skipped
         import re
+
         # Extract passed tests (pattern: line number ] followed by test name and PASSED)
-        passed_pattern = re.compile(r'\]\s+(tests/.*?)\s+PASSED', re.MULTILINE)
+        passed_pattern = re.compile(r"\]\s+(tests/.*?)\s+PASSED", re.MULTILINE)
         for test in passed_pattern.findall(log):
             passed_tests.add(test.strip())
         # Extract failed tests (pattern: FAILED followed by test name)
-        failed_pattern = re.compile(r'FAILED\s+(tests/.*)', re.MULTILINE)
+        failed_pattern = re.compile(r"FAILED\s+(tests/.*)", re.MULTILINE)
         for test in failed_pattern.findall(log):
             failed_tests.add(test.strip())
         # Extract skipped tests (pattern: SKIPPED followed by test name, if present)
-        skipped_pattern = re.compile(r'SKIPPED\s+(tests/.*)', re.MULTILINE)
+        skipped_pattern = re.compile(r"SKIPPED\s+(tests/.*)", re.MULTILINE)
         for test in skipped_pattern.findall(log):
             skipped_tests.add(test.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

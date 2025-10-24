@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -133,7 +133,7 @@ echo "mvn clean test -U -Dstyle.color=never" > test_commands.sh
 ###ACTION_DELIMITER###
 bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -142,9 +142,7 @@ bash test_commands.sh
 cd /home/{pr.repo}
 mvn clean test -U -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -157,9 +155,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mvn clean test -U -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -172,9 +168,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mvn clean test -U -Dstyle.color=never
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -236,7 +230,7 @@ class JACKSON_CORE_1178_TO_1171(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -250,7 +244,6 @@ class JACKSON_CORE_1178_TO_1171(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -258,8 +251,11 @@ class JACKSON_CORE_1178_TO_1171(Instance):
         skipped_tests = set()
         import re
         import json
+
         # TODO: Implement the parse_log function
-        passed_tests_pattern = re.compile(r"Tests run: (\d+), Failures: 0, Errors: 0, Skipped: (\d+), Time elapsed: .* s -- in (.*)")
+        passed_tests_pattern = re.compile(
+            r"Tests run: (\d+), Failures: 0, Errors: 0, Skipped: (\d+), Time elapsed: .* s -- in (.*)"
+        )
         failed_tests_pattern = re.compile(r"/home/jackson-core/src/test/java/(.*).java")
         for line in log.split("\n"):
             passed_match = passed_tests_pattern.search(line)
@@ -275,9 +271,8 @@ class JACKSON_CORE_1178_TO_1171(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

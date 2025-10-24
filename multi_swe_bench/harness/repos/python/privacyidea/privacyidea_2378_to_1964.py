@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -64,7 +64,7 @@ pip install -r tests/requirements.txt
 ###ACTION_DELIMITER###
 echo 'python -b -m pytest -v --cov=privacyidea tests/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -73,7 +73,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 python -b -m pytest -v --cov=privacyidea tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -86,7 +86,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 python -b -m pytest -v --cov=privacyidea tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -99,7 +99,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 python -b -m pytest -v --cov=privacyidea tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -161,7 +161,7 @@ class PRIVACYIDEA_2378_TO_1964(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -175,7 +175,6 @@ class PRIVACYIDEA_2378_TO_1964(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()
@@ -183,30 +182,32 @@ class PRIVACYIDEA_2378_TO_1964(Instance):
         skipped_tests = set()
         import re
         import json
+
         # Regex pattern to match test lines with status
-        pattern = re.compile(r'^(tests/.*?) (PASSED|FAILED|SKIPPED|XFAIL) \[\s*\d+%\]', re.MULTILINE)
+        pattern = re.compile(
+            r"^(tests/.*?) (PASSED|FAILED|SKIPPED|XFAIL) \[\s*\d+%\]", re.MULTILINE
+        )
         matches = pattern.findall(log)
         for test_name, status in matches:
-            if status == 'PASSED':
+            if status == "PASSED":
                 passed_tests.add(test_name)
-            elif status == 'FAILED':
+            elif status == "FAILED":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
-            elif status == 'XFAIL':
+            elif status == "XFAIL":
                 # XFAIL is considered a failed test for this context
                 failed_tests.add(test_name)
         # Check summary section for additional failed tests
-        summary_pattern = re.compile(r'^FAILED (tests/.*)$', re.MULTILINE)
+        summary_pattern = re.compile(r"^FAILED (tests/.*)$", re.MULTILINE)
         summary_matches = summary_pattern.findall(log)
         for test_name in summary_matches:
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

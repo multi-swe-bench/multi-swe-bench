@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.12-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -58,7 +58,7 @@ pip install -e ".[tests]"
 ###ACTION_DELIMITER###
 pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo
 ###ACTION_DELIMITER###
-echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo' > test_commands.sh"""
+echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -67,7 +67,7 @@ echo 'pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo' > test_comm
 cd /home/[[REPO_NAME]]
 pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -80,7 +80,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest --no-header -rA --tb=no -p no:cacheprovider -v ./pyomo
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -155,7 +155,7 @@ class PYOMO_3609_TO_3433(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -169,42 +169,41 @@ class PYOMO_3609_TO_3433(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Define regex patterns to match test cases and their statuses
         patterns = [
             # Matches "test_name STATUS [percentage]" (e.g., "pyomo/... PASSED [  0%]")
-            (r'(pyomo/[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s+\[.*?\]', 1, 2),
+            (r"(pyomo/[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL)\s+\[.*?\]", 1, 2),
             # Matches "STATUS test_name" (e.g., "PASSED pyomo/...", "XFAIL pyomo/...")
-            (r'(PASSED|FAILED|SKIPPED|XFAIL)\s+(pyomo/[^\s]+)\s*(?:$|\[)', 2, 1),
+            (r"(PASSED|FAILED|SKIPPED|XFAIL)\s+(pyomo/[^\s]+)\s*(?:$|\[)", 2, 1),
             # Matches "SKIPPED [1] test_file:line" (e.g., "SKIPPED [1] pyomo/...:199:")
-            (r'(SKIPPED)\s+\[\d+\]\s+(pyomo/[^:]+):\d+:', 2, 1)
+            (r"(SKIPPED)\s+\[\d+\]\s+(pyomo/[^:]+):\d+:", 2, 1),
         ]
-        lines = log.split('\n')
+        lines = log.split("\n")
         for line in lines:
             for pattern, test_group, status_group in patterns:
                 match = re.search(pattern, line)
                 if match:
                     test_name = match.group(test_group).strip()
                     status = match.group(status_group).strip()
-                    if status == 'PASSED':
+                    if status == "PASSED":
                         passed_tests.add(test_name)
-                    elif status in ('FAILED', 'XFAIL'):
+                    elif status in ("FAILED", "XFAIL"):
                         failed_tests.add(test_name)
-                    elif status == 'SKIPPED':
+                    elif status == "SKIPPED":
                         skipped_tests.add(test_name)
                     break  # Stop checking other patterns for this line
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

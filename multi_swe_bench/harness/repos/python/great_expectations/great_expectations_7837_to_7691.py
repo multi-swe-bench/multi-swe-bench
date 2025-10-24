@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -125,7 +125,7 @@ export LC_ALL=en_US.UTF-8
 source venv/bin/activate && pip install pytest-xdist && echo -e '#!/bin/bash
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
-./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh"""
+./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/' > test_commands.sh && chmod +x test_commands.sh && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -137,9 +137,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 ./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -155,9 +153,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 ./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -173,9 +169,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 ./venv/bin/pytest -v -n auto --no-header -rA --tb=short -p no:cacheprovider -W ignore::PendingDeprecationWarning -W ignore::DeprecationWarning tests/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -237,7 +231,7 @@ class GREAT_EXPECTATIONS_7837_TO_7691(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -251,7 +245,6 @@ class GREAT_EXPECTATIONS_7837_TO_7691(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -259,19 +252,19 @@ class GREAT_EXPECTATIONS_7837_TO_7691(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         # Parse test statuses using regex
-        passed_matches = re.findall(r'PASSED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        passed_matches = re.findall(r"PASSED\s+(tests/.*?\.py::.*?)(?=\s|$)", log)
         passed_tests.update(passed_matches)
-        failed_matches = re.findall(r'FAILED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        failed_matches = re.findall(r"FAILED\s+(tests/.*?\.py::.*?)(?=\s|$)", log)
         failed_tests.update(failed_matches)
-        skipped_matches = re.findall(r'SKIPPED\s+(tests/.*?\.py::.*?)(?=\s|$)', log)
+        skipped_matches = re.findall(r"SKIPPED\s+(tests/.*?\.py::.*?)(?=\s|$)", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

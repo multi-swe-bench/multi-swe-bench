@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -81,7 +81,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 apt-get update && apt-get install -y vcftools
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cd /home/[[REPO_NAME]]
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -105,7 +105,7 @@ fi
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -119,7 +119,7 @@ fi
 python3 -m pytest -v -c pytest.python3.ini
 cram -v --shell=/bin/bash tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -181,7 +181,7 @@ class AUGUR_1119_TO_1088(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -195,7 +195,6 @@ class AUGUR_1119_TO_1088(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -203,43 +202,58 @@ class AUGUR_1119_TO_1088(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
+
         current_test = None
         lines = log.split("\n")
         for line in lines:
             line_stripped = line.strip()
             # Handle inline status (e.g., 'test_name PASSED' or 'test_name: passed')
-            if line_stripped.endswith(('PASSED', 'passed')):
-                status_len = len('PASSED') if line_stripped.endswith('PASSED') else len('passed')
-                test_name = line_stripped[:-status_len].strip().rstrip(':')
+            if line_stripped.endswith(("PASSED", "passed")):
+                status_len = (
+                    len("PASSED") if line_stripped.endswith("PASSED") else len("passed")
+                )
+                test_name = line_stripped[:-status_len].strip().rstrip(":")
                 passed_tests.add(test_name)
-            elif line_stripped.endswith(('FAILED', 'failed')):
-                status_len = len('FAILED') if line_stripped.endswith('FAILED') else len('failed')
-                test_name = line_stripped[:-status_len].strip().rstrip(':')
+            elif line_stripped.endswith(("FAILED", "failed")):
+                status_len = (
+                    len("FAILED") if line_stripped.endswith("FAILED") else len("failed")
+                )
+                test_name = line_stripped[:-status_len].strip().rstrip(":")
                 failed_tests.add(test_name)
-            elif line_stripped.endswith(('SKIPPED', 'skipped')):
-                status_len = len('SKIPPED') if line_stripped.endswith('SKIPPED') else len('skipped')
-                test_name = line_stripped[:-status_len].strip().rstrip(':')
+            elif line_stripped.endswith(("SKIPPED", "skipped")):
+                status_len = (
+                    len("SKIPPED")
+                    if line_stripped.endswith("SKIPPED")
+                    else len("skipped")
+                )
+                test_name = line_stripped[:-status_len].strip().rstrip(":")
                 skipped_tests.add(test_name)
             # Capture test name for standalone status (e.g., 'test_name' followed by 'PASSED')
-            elif '::' in line_stripped or (line_stripped.endswith('.t') and not line_stripped.endswith(('PASSED', 'passed', 'FAILED', 'failed', 'SKIPPED', 'skipped'))):
-                test_name = line_stripped.split(' ', 1)[0]  # Split on first space to ignore extra info
+            elif "::" in line_stripped or (
+                line_stripped.endswith(".t")
+                and not line_stripped.endswith(
+                    ("PASSED", "passed", "FAILED", "failed", "SKIPPED", "skipped")
+                )
+            ):
+                test_name = line_stripped.split(" ", 1)[
+                    0
+                ]  # Split on first space to ignore extra info
                 current_test = test_name
             # Handle standalone status lines (e.g., 'PASSED' on its own line)
-            elif line_stripped in ('PASSED', 'FAILED', 'SKIPPED'):
+            elif line_stripped in ("PASSED", "FAILED", "SKIPPED"):
                 if current_test:
-                    if line_stripped == 'PASSED':
+                    if line_stripped == "PASSED":
                         passed_tests.add(current_test)
-                    elif line_stripped == 'FAILED':
+                    elif line_stripped == "FAILED":
                         failed_tests.add(current_test)
-                    elif line_stripped == 'SKIPPED':
+                    elif line_stripped == "SKIPPED":
                         skipped_tests.add(current_test)
                     current_test = None  # Reset after processing
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

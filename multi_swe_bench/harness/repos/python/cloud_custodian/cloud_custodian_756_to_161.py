@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -121,7 +121,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'source bin/activate && export PYTHONIOENCODING=utf-8 && AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 nosetests -v tests' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -130,9 +130,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 source bin/activate && export PYTHONIOENCODING=utf-8 && AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 nosetests -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -145,9 +143,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 source bin/activate && export PYTHONIOENCODING=utf-8 && AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 nosetests -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -160,9 +156,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 source bin/activate && export PYTHONIOENCODING=utf-8 && AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar AWS_DEFAULT_REGION=us-east-1 nosetests -v tests
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -224,7 +218,7 @@ class CLOUD_CUSTODIAN_756_TO_161(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -238,27 +232,26 @@ class CLOUD_CUSTODIAN_756_TO_161(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests = set()
         failed_tests = set()
         skipped_tests = set()
         import re
+
         # Regex pattern to match test lines (e.g., [   1] test_name (class) ... status)
         passed_pattern = r"^(\w+)\s*\(.*?\)\s+\.\.\.\s+ok$"
         failed_pattern = r"^(ERROR|FAIL):\s*(\w+)\s*\(.*?\)"
         passed_matches = re.findall(passed_pattern, log, re.MULTILINE)
         failed_matches = re.findall(failed_pattern, log, re.MULTILINE)
         for test_name in passed_matches:
-                                                    passed_tests.add(test_name.strip())
+            passed_tests.add(test_name.strip())
         for status, test_name in failed_matches:
-                                                failed_tests.add(test_name.strip())
+            failed_tests.add(test_name.strip())
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

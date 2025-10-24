@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -180,7 +180,7 @@ runtests()' > run_tests_wrapper.py && chmod +x run_tests_wrapper.py && bash test
 ###ACTION_DELIMITER###
 source venv/bin/activate && pip uninstall -y django-modelcluster && pip install django-modelcluster==3.1.0 && bash test_commands.sh
 ###ACTION_DELIMITER###
-"""
+""",
             ),
             File(
                 ".",
@@ -190,9 +190,7 @@ cd /home/{pr.repo}
 source venv/bin/activate
 python run_tests_wrapper.py --verbosity 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -206,9 +204,7 @@ fi
 source venv/bin/activate
 python run_tests_wrapper.py --verbosity 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -222,9 +218,7 @@ fi
 source venv/bin/activate
 python run_tests_wrapper.py --verbosity 2
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -286,7 +280,7 @@ class WAGTAIL_1444_TO_1232(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -300,29 +294,28 @@ class WAGTAIL_1444_TO_1232(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         passed_tests: set[str] = set()
         failed_tests: set[str] = set()
         skipped_tests: set[str] = set()
         import re
-        for line in log.split('\n'):
-            if ' ... ' in line:
-                test_part, status = line.split(' ... ', 1)
-                test_name = re.sub(r'^\[\s*\d+\]\s*', '', test_part).strip()
+
+        for line in log.split("\n"):
+            if " ... " in line:
+                test_part, status = line.split(" ... ", 1)
+                test_name = re.sub(r"^\[\s*\d+\]\s*", "", test_part).strip()
                 status = status.strip().lower()
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status in ('error', 'failed'):
+                elif status in ("error", "failed"):
                     failed_tests.add(test_name)
-                elif status.startswith('skipped'):
+                elif status.startswith("skipped"):
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

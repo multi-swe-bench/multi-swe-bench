@@ -6,7 +6,6 @@ from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
 
-
 class RDKitImageBase_gt_5130_lt_6300(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
@@ -33,11 +32,10 @@ class RDKitImageBase_gt_5130_lt_6300(Image):
         return []
 
     def dockerfile(self) -> str:
-
         image_name = self.dependency()
         if isinstance(image_name, Image):
             image_name = image_name.image_full_name()
-        
+
         if self.config.need_clone:
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
@@ -87,13 +85,13 @@ RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \
 
 {code}
         """
-        
+
         file_text = template.format(
             image_name=image_name,
             global_env=self.global_env,
             code=code,
         )
-        
+
         return file_text
 
 
@@ -111,7 +109,9 @@ class RDKitImageDefault_gt_3000_lt_5130(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        return RDKitImageBase_gt_5130_lt_6300(self.pr, self._config)  # base image还是使用 gt_5130_lt_6300 的。
+        return RDKitImageBase_gt_5130_lt_6300(
+            self.pr, self._config
+        )  # base image还是使用 gt_5130_lt_6300 的。
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
@@ -120,7 +120,6 @@ class RDKitImageDefault_gt_3000_lt_5130(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-
         return [
             File(
                 ".",
@@ -301,7 +300,6 @@ ctest --output-on-failure
 
 
 """
-
 
 
 class RDKitImageDefault_gt_5130_lt_6300(Image):
@@ -327,7 +325,6 @@ class RDKitImageDefault_gt_5130_lt_6300(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-
         return [
             File(
                 ".",
@@ -456,12 +453,6 @@ ctest --output-on-failure
 {prepare_commands}
 
 """
-
-
-
-
-
-
 
 
 class RDKitImageBase(Image):
@@ -490,11 +481,10 @@ class RDKitImageBase(Image):
         return []
 
     def dockerfile(self) -> str:
-
         image_name = self.dependency()
         if isinstance(image_name, Image):
             image_name = image_name.image_full_name()
-        
+
         if self.config.need_clone:
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
@@ -537,15 +527,14 @@ RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \\
 {code}
 
         """
-        
+
         file_text = template.format(
             image_name=image_name,
             global_env=self.global_env,
             code=code,
         )
-        
-        return file_text
 
+        return file_text
 
 
 class RDKitImageBase_gt_7300(Image):
@@ -574,11 +563,10 @@ class RDKitImageBase_gt_7300(Image):
         return []
 
     def dockerfile(self) -> str:
-
         image_name = self.dependency()
         if isinstance(image_name, Image):
             image_name = image_name.image_full_name()
-        
+
         if self.config.need_clone:
             code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
         else:
@@ -621,13 +609,11 @@ RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \\
 {code}
 
         """
-        
+
         file_text = template.format(
-            image_name=image_name,
-            global_env=self.global_env,
-            code=code
+            image_name=image_name, global_env=self.global_env, code=code
         )
-        
+
         return file_text
 
 
@@ -654,7 +640,6 @@ class RDKitImageDefault_gt_7300(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-
         return [
             File(
                 ".",
@@ -781,8 +766,6 @@ ctest --output-on-failure
 
 
 """
-
-
 
 
 class RDKitImageDefault(Image):
@@ -808,8 +791,6 @@ class RDKitImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-
-
         return [
             File(
                 ".",
@@ -936,8 +917,6 @@ ctest --output-on-failure
 
 
 """
-
-
 
 
 class RDKitImageDefault(Image):
@@ -963,8 +942,6 @@ class RDKitImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-
-
         return [
             File(
                 ".",
@@ -1092,7 +1069,6 @@ ctest --output-on-failure
 
 
 """
-
 
 
 @Instance.register("rdkit", "rdkit")
@@ -1106,9 +1082,8 @@ class RDkit(Instance):
     def pr(self) -> PullRequest:
         return self._pr
 
-
     def dependency(self) -> Image | None:
-        if  7300<= self.pr.number:
+        if 7300 <= self.pr.number:
             return RDKitImageDefault_gt_7300(self.pr, self._config)
         elif self.pr.number < 6300 and self.pr.number >= 5130:
             return RDKitImageDefault_gt_5130_lt_6300(self.pr, self._config)

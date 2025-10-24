@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "ubuntu:latest"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -108,7 +108,7 @@ source .env/bin/activate && pip uninstall -y werkzeug && pip install werkzeug==1
 
 ###ACTION_DELIMITER###
 echo -e 'source .env/bin/activate
-pytest -v --no-header -rA --tb=long tests/' > test_commands.sh && chmod +x test_commands.sh"""
+pytest -v --no-header -rA --tb=long tests/' > test_commands.sh && chmod +x test_commands.sh""",
             ),
             File(
                 ".",
@@ -118,7 +118,7 @@ cd /home/[[REPO_NAME]]
 source .env/bin/activate
 pytest -v --no-header -rA --tb=long tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -132,7 +132,7 @@ fi
 source .env/bin/activate
 pytest -v --no-header -rA --tb=long tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -146,7 +146,7 @@ fi
 source .env/bin/activate
 pytest -v --no-header -rA --tb=long tests/
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -208,7 +208,7 @@ class FREQTRADE_3719_TO_3682(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -222,7 +222,6 @@ class FREQTRADE_3719_TO_3682(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -230,27 +229,27 @@ class FREQTRADE_3719_TO_3682(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Extract PASSED tests
-        passed_pattern = r'(\btests/[^:]+::[^ ]+)\s+PASSED'
+        passed_pattern = r"(\btests/[^:]+::[^ ]+)\s+PASSED"
         passed_matches = re.findall(passed_pattern, log)
         for test in passed_matches:
             passed_tests.add(test)
         # Extract FAILED tests
-        failed_pattern = r'FAILED\s+(\btests/[^:]+::[^ ]+)'
+        failed_pattern = r"FAILED\s+(\btests/[^:]+::[^ ]+)"
         failed_matches = re.findall(failed_pattern, log)
         for test in failed_matches:
             failed_tests.add(test)
         # Extract SKIPPED tests
-        skipped_pattern = r'SKIPPED\s+.*?(\btests/[^:]+:\d+)'
+        skipped_pattern = r"SKIPPED\s+.*?(\btests/[^:]+:\d+)"
         skipped_matches = re.findall(skipped_pattern, log)
         for test in skipped_matches:
             skipped_tests.add(test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

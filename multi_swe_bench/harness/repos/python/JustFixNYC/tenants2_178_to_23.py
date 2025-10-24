@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.11-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -126,7 +126,7 @@ apt-get update && apt-get install -y libssl-dev zlib1g-dev libbz2-dev libreadlin
 ###ACTION_DELIMITER###
 echo -e '#!/bin/bash
 pipenv run pytest
-npm test' > /home/tenants2/test_commands.sh && chmod +x /home/tenants2/test_commands.sh"""
+npm test' > /home/tenants2/test_commands.sh && chmod +x /home/tenants2/test_commands.sh""",
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ cd /home/[[REPO_NAME]]
 pipenv run pytest
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -152,7 +152,7 @@ fi
 pipenv run pytest
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -167,7 +167,7 @@ fi
 pipenv run pytest
 npm test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -229,7 +229,7 @@ class TENANTS2_178_TO_23(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -243,7 +243,6 @@ class TENANTS2_178_TO_23(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
@@ -251,22 +250,22 @@ class TENANTS2_178_TO_23(Instance):
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
         import json
-        pattern = re.compile(r'^(PASS|FAIL|SKIPPED)\s+(.*)$', re.MULTILINE)
+
+        pattern = re.compile(r"^(PASS|FAIL|SKIPPED)\s+(.*)$", re.MULTILINE)
         for match in pattern.finditer(log):
             status = match.group(1)
             test_name = match.group(2)
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIPPED':
+            elif status == "SKIPPED":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

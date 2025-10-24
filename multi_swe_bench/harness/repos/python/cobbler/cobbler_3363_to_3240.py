@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "registry.opensuse.org/opensuse/leap:15.4"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -132,7 +132,7 @@ chown -R mongodb:mongodb /data/db; rm -f /data/db/mongod.lock; mongod --logpath 
 ###ACTION_DELIMITER###
 pkill mongod; rm -rf /data/db; mkdir -p /data/db; chown -R mongodb:mongodb /data/db; mongod --fork --logpath /var/log/mongodb.log; sleep 5; fuser -k 25151/tcp; cobblerd -F & sleep 10; apache2ctl start; cobbler check; cobbler sync; bash test_commands.sh
 ###ACTION_DELIMITER###
-pkill -f 'mongod|cobblerd|httpd'; rm -rf /data/db /var/lib/mongodb; mkdir -p /data/db /var/www/cobbler /srv/tftpboot; chown -R mongodb:mongodb /data/db; mongod --fork --logpath /var/log/mongodb.log; sleep 5; cobblerd -F & sleep 10; apache2ctl start; cobbler check; cobbler sync; bash test_commands.sh"""
+pkill -f 'mongod|cobblerd|httpd'; rm -rf /data/db /var/lib/mongodb; mkdir -p /data/db /var/www/cobbler /srv/tftpboot; chown -R mongodb:mongodb /data/db; mongod --fork --logpath /var/log/mongodb.log; sleep 5; cobblerd -F & sleep 10; apache2ctl start; cobbler check; cobbler sync; bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -141,7 +141,7 @@ pkill -f 'mongod|cobblerd|httpd'; rm -rf /data/db /var/lib/mongodb; mkdir -p /da
 cd /home/[[REPO_NAME]]
 pytest -v -p pytest_cov -p pytest_benchmark --cov=cobbler --benchmark-skip
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -154,7 +154,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v -p pytest_cov -p pytest_benchmark --cov=cobbler --benchmark-skip
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -167,7 +167,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v -p pytest_cov -p pytest_benchmark --cov=cobbler --benchmark-skip
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -229,7 +229,7 @@ class COBBLER_3363_TO_3240(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -243,19 +243,21 @@ class COBBLER_3363_TO_3240(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex patterns to match test lines
         # Pattern 1: Test name followed by status and percentage (e.g., "tests/... PASSED [  0%]")
-        pattern1 = re.compile(r'^(tests/.+?) (PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$', re.IGNORECASE)
+        pattern1 = re.compile(
+            r"^(tests/.+?) (PASSED|FAILED|SKIPPED)\s+\[\s*\d+%\s*\]$", re.IGNORECASE
+        )
         # Pattern 2: Status followed by test name (e.g., "ERROR tests/... - ..." or "ERROR tests/...")
-        pattern2 = re.compile(r'^(ERROR|FAILED) (tests/.+?)(?: - .*)?$')
-        for line in log.split('\n'):
+        pattern2 = re.compile(r"^(ERROR|FAILED) (tests/.+?)(?: - .*)?$")
+        for line in log.split("\n"):
             line = line.strip()
             if not line:
                 continue
@@ -264,11 +266,11 @@ class COBBLER_3363_TO_3240(Instance):
             if match:
                 test_name = match.group(1)
                 status = match.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
                 continue
             # Check pattern 2
@@ -280,9 +282,8 @@ class COBBLER_3363_TO_3240(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

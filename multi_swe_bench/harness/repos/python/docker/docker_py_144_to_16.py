@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -71,7 +71,7 @@ echo 'python -m unittest discover -s tests -v' > test_commands.sh
 ###ACTION_DELIMITER###
 echo 'PYTHONPATH=tests python -m unittest discover -s tests -v' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -80,9 +80,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 PYTHONPATH=tests python -m unittest discover -s tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -95,9 +93,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 PYTHONPATH=tests python -m unittest discover -s tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -110,9 +106,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 PYTHONPATH=tests python -m unittest discover -s tests -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -174,7 +168,7 @@ class DOCKER_PY_144_TO_16(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -188,7 +182,6 @@ class DOCKER_PY_144_TO_16(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -196,31 +189,31 @@ class DOCKER_PY_144_TO_16(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex pattern to match test lines and extract name/status
         # Split log into lines and process each line
         for line in log.splitlines():
             # Check if line contains test result pattern
-            if '...' in line:
+            if "..." in line:
                 # Split into test entry and status parts
-                test_part, status_part = line.split('...', 1)
+                test_part, status_part = line.split("...", 1)
                 # Extract test name (remove leading number bracket)
-                test_entry = test_part.split(']', 1)[-1].strip()
+                test_entry = test_part.split("]", 1)[-1].strip()
                 # Extract status and clean up
                 status = status_part.strip()
                 # Extract test name by removing class part in parentheses
-                test_name = test_entry.split('(', 1)[0].strip()
+                test_name = test_entry.split("(", 1)[0].strip()
                 # Categorize test based on status
-                if status == 'ok':
+                if status == "ok":
                     passed_tests.add(test_name)
-                elif status == 'FAIL':
+                elif status == "FAIL":
                     failed_tests.add(test_name)
                 # Add handling for 'SKIPPED' or other statuses if needed
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

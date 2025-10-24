@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:14-bullseye-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -62,7 +62,7 @@ ls packages
 ###ACTION_DELIMITER###
 yarn build
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -71,7 +71,7 @@ bash test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn ci-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -84,7 +84,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn ci-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -97,7 +97,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn ci-test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -159,7 +159,7 @@ class PIONEER_1617_TO_1588(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -173,29 +173,32 @@ class PIONEER_1617_TO_1588(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse passed tests (individual and suite)
-        passed_tests.update(re.findall(r'\|\s+✓\s+(.+?)\s+\(\d+ ms\)', log))
-        passed_tests.update(re.findall(r'PASS\s+(.+?\.test\.tsx)', log))
+        passed_tests.update(re.findall(r"\|\s+✓\s+(.+?)\s+\(\d+ ms\)", log))
+        passed_tests.update(re.findall(r"PASS\s+(.+?\.test\.tsx)", log))
         # Parse failed tests (individual and suite)
-        failed_tests.update(re.findall(r'\|\s+x\s+(.+?)\s+\(\d+ ms\)', log))
-        failed_tests.update(re.findall(r'FAIL\s+(.+?\.test\.tsx)', log))
+        failed_tests.update(re.findall(r"\|\s+x\s+(.+?)\s+\(\d+ ms\)", log))
+        failed_tests.update(re.findall(r"FAIL\s+(.+?\.test\.tsx)", log))
         # Parse skipped tests (individual and suite)
-        skipped_tests.update(re.findall(r'\|\s*(?:[-−]|SKIPPED)\s*(.+?)(?:\s+\(\d+ ms\))?\s*', log))  # Handle hyphen/en dash or SKIPPED
-        skipped_tests.update(re.findall(r'SKIPPED\s+(.+?\.test\.tsx)', log))  # Suite-level (with/without pipe)
+        skipped_tests.update(
+            re.findall(r"\|\s*(?:[-−]|SKIPPED)\s*(.+?)(?:\s+\(\d+ ms\))?\s*", log)
+        )  # Handle hyphen/en dash or SKIPPED
+        skipped_tests.update(
+            re.findall(r"SKIPPED\s+(.+?\.test\.tsx)", log)
+        )  # Suite-level (with/without pipe)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

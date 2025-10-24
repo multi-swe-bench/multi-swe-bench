@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -79,7 +79,7 @@ cd core
 export TOGA_BACKEND=toga_dummy
 python -m pytest -vv' > test_commands.sh && chmod +x test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -91,7 +91,7 @@ cd core
 export TOGA_BACKEND=toga_dummy
 python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -107,7 +107,7 @@ cd core
 export TOGA_BACKEND=toga_dummy
 python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -123,7 +123,7 @@ cd core
 export TOGA_BACKEND=toga_dummy
 python -m pytest -vv
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -185,7 +185,7 @@ class TOGA_3213_TO_3018(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -199,25 +199,25 @@ class TOGA_3213_TO_3018(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
-        lines = log.split('\n')
-        test_name_pattern = re.compile(r'(tests/.*?::.*?)(?= PASSED| FAILED| -|$)')
+
+        ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+        lines = log.split("\n")
+        test_name_pattern = re.compile(r"(tests/.*?::.*?)(?= PASSED| FAILED| -|$)")
         for line in lines:
-            clean_line = ansi_escape.sub('', line)
-            if 'PASSED' in clean_line:
+            clean_line = ansi_escape.sub("", line)
+            if "PASSED" in clean_line:
                 match = test_name_pattern.search(clean_line)
                 if match:
                     test_name = match.group(1).strip()
                     passed_tests.add(test_name)
-            elif 'FAILED' in clean_line:
+            elif "FAILED" in clean_line:
                 match = test_name_pattern.search(clean_line)
                 if match:
                     test_name = match.group(1).strip()
@@ -231,9 +231,8 @@ class TOGA_3213_TO_3018(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -103,7 +103,7 @@ pip install -r requirements.txt && pip install .[tests] && bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install --force-reinstall numpy==1.19.5 && bash test_commands.sh
 ###ACTION_DELIMITER###
-pip install numpy==1.17.5 && bash test_commands.sh"""
+pip install numpy==1.17.5 && bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -112,9 +112,7 @@ pip install numpy==1.17.5 && bash test_commands.sh"""
 cd /home/{pr.repo}
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -127,9 +125,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -142,9 +138,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 pytest -v
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -206,7 +200,7 @@ class NIPYPE_2352_TO_2336(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -220,19 +214,19 @@ class NIPYPE_2352_TO_2336(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set() # Tests that passed successfully
-        failed_tests = set() # Tests that failed
-        skipped_tests = set() # Tests that were skipped
+        passed_tests = set()  # Tests that passed successfully
+        failed_tests = set()  # Tests that failed
+        skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Regex patterns to match test status lines
         # Revised regex patterns to match test status lines
-        passed_pattern = re.compile(r'(\S+)\s+PASSED\s+\[\s*\d+%\]')
-        skipped_pattern = re.compile(r'(\S+)\s+SKIPPED\s+\[\s*\d+%\]')
-        failed_pattern = re.compile(r'(?:FAILED|ERROR)\s+(\S+)')
+        passed_pattern = re.compile(r"(\S+)\s+PASSED\s+\[\s*\d+%\]")
+        skipped_pattern = re.compile(r"(\S+)\s+SKIPPED\s+\[\s*\d+%\]")
+        failed_pattern = re.compile(r"(?:FAILED|ERROR)\s+(\S+)")
         # Extract test names using the patterns
         passed_tests = set(passed_pattern.findall(log))
         skipped_tests = set(skipped_pattern.findall(log))
@@ -240,9 +234,8 @@ class NIPYPE_2352_TO_2336(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

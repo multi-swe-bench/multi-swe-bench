@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:20-bookworm"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -65,7 +65,7 @@ npm run test:unit --verbose
 echo -e '#!/bin/bash
 set -e
 npm run test:unit -- --verbose
-npm run test:e2e -- --verbose' > /home/metamask-mobile/test_commands.sh && chmod +x /home/metamask-mobile/test_commands.sh"""
+npm run test:e2e -- --verbose' > /home/metamask-mobile/test_commands.sh && chmod +x /home/metamask-mobile/test_commands.sh""",
             ),
             File(
                 ".",
@@ -77,7 +77,7 @@ set -e
 npm run test:unit -- --verbose
 npm run test:e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -93,7 +93,7 @@ set -e
 npm run test:unit -- --verbose
 npm run test:e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -109,7 +109,7 @@ set -e
 npm run test:unit -- --verbose
 npm run test:e2e -- --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -171,7 +171,7 @@ class METAMASK_MOBILE_759_TO_753(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -185,30 +185,29 @@ class METAMASK_MOBILE_759_TO_753(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Pattern for passed tests: captures test group and description
-        passed_pattern = re.compile(r'  ([^\n✓]+)\n    ✓ ([^\n]+) \(\d+ms\)')
+        passed_pattern = re.compile(r"  ([^\n✓]+)\n    ✓ ([^\n]+) \(\d+ms\)")
         for group, desc in passed_pattern.findall(log):
             test_name = f"{group} {desc}"
             passed_tests.add(test_name)
         # Pattern for failed tests: captures test group and description
-        failed_pattern = re.compile(r'  ● (.*?) › (.*?)\n')
+        failed_pattern = re.compile(r"  ● (.*?) › (.*?)\n")
         for group, desc in failed_pattern.findall(log):
             test_name = f"{group} {desc}"
             failed_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

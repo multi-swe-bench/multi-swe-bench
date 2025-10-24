@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "golang:1.21"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -92,7 +92,7 @@ pg_prove --host localhost --dbname tests --username tests --verbose database/tes
 
 # Run frontend tests
 cd /home/hub/web
-yarn test --watchAll=false --passWithNoTests --verbose' > /home/hub/test_commands.sh && chmod +x /home/hub/test_commands.sh"""
+yarn test --watchAll=false --passWithNoTests --verbose' > /home/hub/test_commands.sh && chmod +x /home/hub/test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ pg_prove --host localhost --dbname tests --username tests --verbose database/tes
 cd /home/hub/web
 yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -134,7 +134,7 @@ pg_prove --host localhost --dbname tests --username tests --verbose database/tes
 cd /home/hub/web
 yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -157,7 +157,7 @@ pg_prove --host localhost --dbname tests --username tests --verbose database/tes
 cd /home/hub/web
 yarn test --watchAll=false --passWithNoTests --verbose
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -219,7 +219,7 @@ class HUB_1268_TO_1119(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -233,31 +233,30 @@ class HUB_1268_TO_1119(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # TODO: Implement the parse_log function
         # Regular expression to match test results (PASS/FAIL/SKIP)
-        pattern = re.compile(r'--- (PASS|FAIL|SKIP): (.*?) \((?:\d+\.\d+|\d+)s\)')
+        pattern = re.compile(r"--- (PASS|FAIL|SKIP): (.*?) \((?:\d+\.\d+|\d+)s\)")
         matches = pattern.findall(log)
         for status, test_name in matches:
             test_name = test_name.strip()
-            if status == 'PASS':
+            if status == "PASS":
                 passed_tests.add(test_name)
-            elif status == 'FAIL':
+            elif status == "FAIL":
                 failed_tests.add(test_name)
-            elif status == 'SKIP':
+            elif status == "SKIP":
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

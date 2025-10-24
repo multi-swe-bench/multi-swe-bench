@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "node:18-bullseye"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -80,7 +80,7 @@ yarn lerna run --no-bail test -- --verbose
 ###ACTION_DELIMITER###
 yarn test
 ###ACTION_DELIMITER###
-echo 'yarn test' > test_commands.sh"""
+echo 'yarn test' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -89,7 +89,7 @@ echo 'yarn test' > test_commands.sh"""
 cd /home/[[REPO_NAME]]
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -102,7 +102,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -115,7 +115,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 yarn test
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -177,7 +177,7 @@ class AGORIC_SDK_7552_TO_5270(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -191,7 +191,6 @@ class AGORIC_SDK_7552_TO_5270(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
@@ -199,32 +198,34 @@ class AGORIC_SDK_7552_TO_5270(Instance):
         skipped_tests = set()  # Tests that were skipped
         import re
         import json
+
         # Parse log lines to extract test names and statuses
-        for line in log.split('\n'):
+        for line in log.split("\n"):
             # Check for passed tests (format: "  ✔ test_name")
-            if line.startswith('  ✔ '):
+            if line.startswith("  ✔ "):
                 test_name = line[4:].strip()
                 passed_tests.add(test_name)
             # Check for failed tests (format: "  ✘ [fail]: test_name Error...")
-            elif line.startswith('  ✘ [fail]: '):
-                test_part = line[len('  ✘ [fail]: '):]
+            elif line.startswith("  ✘ [fail]: "):
+                test_part = line[len("  ✘ [fail]: ") :]
                 # Extract test name before error indicators
-                match = re.match(r'(.*?) (Error|Rejected|Returned|Thrown|Expected)', test_part)
+                match = re.match(
+                    r"(.*?) (Error|Rejected|Returned|Thrown|Expected)", test_part
+                )
                 if match:
                     test_name = match.group(1).strip()
                 else:
                     test_name = test_part.strip()
                 failed_tests.add(test_name)
             # Check for skipped tests (format: "  - [todo] test_name")
-            elif line.startswith('  - [todo] '):
-                test_name = line[len('  - [todo] '):].strip()
+            elif line.startswith("  - [todo] "):
+                test_name = line[len("  - [todo] ") :].strip()
                 skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -99,7 +99,7 @@ bash test_commands.sh
 echo -e 'pip install scvi-tools==0.9.0 torch==1.13.1 pyro-ppl==1.8.4
 pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider' > test_commands.sh
 ###ACTION_DELIMITER###
-echo 'pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider' > test_commands.sh"""
+echo 'pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider' > test_commands.sh""",
             ),
             File(
                 ".",
@@ -108,7 +108,7 @@ echo 'pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cac
 cd /home/[[REPO_NAME]]
 pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -121,7 +121,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -134,7 +134,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 pytest -v --no-header -rA --tb=short --junitxml=test_results.xml -p no:cacheprovider
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -196,7 +196,7 @@ class SCVI_TOOLS_2060_TO_1629(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -210,25 +210,25 @@ class SCVI_TOOLS_2060_TO_1629(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Regex pattern to identify test names (tests/...py::test_...)
-        test_pattern = re.compile(r'tests/.*?\.py::(?:[^:]+::)*test_\w+')
-        lines = log.split('\n')
+        test_pattern = re.compile(r"tests/.*?\.py::(?:[^:]+::)*test_\w+")
+        lines = log.split("\n")
         for line in lines:
             line = line.strip()
             # Determine the status from the line
-            if 'PASSED' in line:
-                status = 'PASSED'
-            elif 'FAILED' in line:
-                status = 'FAILED'
-            elif 'SKIPPED' in line:
-                status = 'SKIPPED'
+            if "PASSED" in line:
+                status = "PASSED"
+            elif "FAILED" in line:
+                status = "FAILED"
+            elif "SKIPPED" in line:
+                status = "SKIPPED"
             else:
                 continue  # No relevant status in this line
             # Extract the test name using the regex pattern
@@ -236,18 +236,17 @@ class SCVI_TOOLS_2060_TO_1629(Instance):
             if test_match:
                 test_name = test_match.group()
                 # Add the test name to the appropriate set
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

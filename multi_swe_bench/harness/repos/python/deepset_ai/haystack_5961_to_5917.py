@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -77,7 +77,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 pip install openai==0.28.1
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -86,9 +86,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 cd test && pytest -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -101,9 +99,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 cd test && pytest -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -116,9 +112,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 cd test && pytest -vv
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -180,7 +174,7 @@ class HAYSTACK_5961_TO_5917(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -194,43 +188,44 @@ class HAYSTACK_5961_TO_5917(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
-        passed_tests = set[str]() # Tests that passed successfully
-        failed_tests = set[str]() # Tests that failed
-        skipped_tests = set[str]() # Tests that were skipped
+        passed_tests = set[str]()  # Tests that passed successfully
+        failed_tests = set[str]()  # Tests that failed
+        skipped_tests = set[str]()  # Tests that were skipped
         import re
         import json
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         current_test = None
         for line in lines:
             # Check for test name
-            test_match = re.search(r'([\w\/]+\.py::test_\w+(?:\[.+\])?)', line)
+            test_match = re.search(r"([\w\/]+\.py::test_\w+(?:\[.+\])?)", line)
             if test_match:
                 current_test = test_match.group(1)
             # Check for status
-            status_match = re.search(r'(PASSED|FAILED|SKIPPED)', line)
+            status_match = re.search(r"(PASSED|FAILED|SKIPPED)", line)
             if status_match and current_test:
                 status = status_match.group(1)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(current_test)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(current_test)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(current_test)
                 current_test = None
             # Check for ERROR
-            error_match = re.search(r'ERROR\s+([\w\/]+\.py::test_\w+(?:\[.+\])?)\s+-', line)
+            error_match = re.search(
+                r"ERROR\s+([\w\/]+\.py::test_\w+(?:\[.+\])?)\s+-", line
+            )
             if error_match:
                 error_test = error_match.group(1)
                 failed_tests.add(error_test)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

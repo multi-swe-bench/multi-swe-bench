@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.12-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -127,7 +127,7 @@ apt-get update && apt-get install -y cmake
 ###ACTION_DELIMITER###
 pip install -U pip wheel setuptools cmake pybind11 'conan<2' resdata
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -138,7 +138,7 @@ export QT_API=pyqt5
 export QT_QPA_PLATFORM=offscreen
 mkdir -p build && cd build && cmake ../src/clib -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc) && ctest -j$(nproc) -E Lint --output-on-failure
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -153,7 +153,7 @@ export QT_API=pyqt5
 export QT_QPA_PLATFORM=offscreen
 mkdir -p build && cd build && cmake ../src/clib -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc) && ctest -j$(nproc) -E Lint --output-on-failure
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -168,7 +168,7 @@ export QT_API=pyqt5
 export QT_QPA_PLATFORM=offscreen
 mkdir -p build && cd build && cmake ../src/clib -DCMAKE_BUILD_TYPE=Debug && make -j$(nproc) && ctest -j$(nproc) -E Lint --output-on-failure
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -230,7 +230,7 @@ class ERT_7562_TO_7302(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -244,18 +244,17 @@ class ERT_7562_TO_7302(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # import json  # Not used for this parsing
         # Pattern to match test lines with status (Passed, Failed, Skipped)
         test_line_pattern = re.compile(
-            r"Test\s+#\d+: (.*?)\s+\.{2,}\s+(Passed|Failed|Skipped)\b",
-            re.IGNORECASE
+            r"Test\s+#\d+: (.*?)\s+\.{2,}\s+(Passed|Failed|Skipped)\b", re.IGNORECASE
         )
         # Find all test lines and extract name and status
         test_matches = test_line_pattern.findall(log)
@@ -271,7 +270,7 @@ class ERT_7562_TO_7302(Instance):
         # Pattern to match the failed tests summary section
         failed_summary_pattern = re.compile(
             r"The following tests FAILED:\s*(.*?)\s*(Errors|Total Test time)",
-            re.DOTALL | re.IGNORECASE
+            re.DOTALL | re.IGNORECASE,
         )
         failed_summary_match = failed_summary_pattern.search(log)
         if failed_summary_match:
@@ -285,9 +284,8 @@ class ERT_7562_TO_7302(Instance):
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

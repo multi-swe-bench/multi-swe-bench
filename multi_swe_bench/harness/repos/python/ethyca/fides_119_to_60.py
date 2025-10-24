@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -114,7 +114,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 sed -i 's/server_url = "http:\/\/fidesctl:8080"/server_url = "http:\/\/localhost:8080"/' fidesctl/fidesctl.toml
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -127,7 +127,7 @@ sleep 5
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -144,7 +144,7 @@ sleep 5
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -161,7 +161,7 @@ sleep 5
 pytest --no-header -rA --tb=no -p no:cacheprovider -v
 kill $SERVER_PID
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -223,7 +223,7 @@ class FIDES_119_TO_60(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -237,54 +237,57 @@ class FIDES_119_TO_60(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
-        lines = log.split('\n')
+
+        lines = log.split("\n")
         for i, line in enumerate(lines):
             # Pattern 1: Test name followed by status and percentage (e.g., "test_name PASSED [  0%]")
-            match1 = re.match(r'^(.*?::test_.+?)\s+(PASSED|FAILED)\s+\[\s*\d+%\]', line)
+            match1 = re.match(r"^(.*?::test_.+?)\s+(PASSED|FAILED)\s+\[\s*\d+%\]", line)
             if match1:
                 test_name = match1.group(1).strip()
                 status = match1.group(2)
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
                 continue
             # Pattern 2: Status followed by test name (e.g., "FAILED test_name")
-            match2 = re.match(r'^(FAILED|PASSED)\s+(.+?::test_.+?)(?:\s|-|$)', line)
+            match2 = re.match(r"^(FAILED|PASSED)\s+(.+?::test_.+?)(?:\s|-|$)", line)
             if match2:
                 status = match2.group(1)
                 test_name = match2.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
                 continue
             # Pattern 3: Test name in current line, status in next line (e.g., "test_name INFO: ..." followed by "PASSED [  0%]")
-            if '::test_' in line and not re.search(r'PASSED|FAILED', line):
+            if "::test_" in line and not re.search(r"PASSED|FAILED", line):
                 if i + 1 < len(lines):
-                    next_line = lines[i+1]
-                    match3_status = re.match(r'^(PASSED|FAILED)\s+\[\s*\d+%\]', next_line)
+                    next_line = lines[i + 1]
+                    match3_status = re.match(
+                        r"^(PASSED|FAILED)\s+\[\s*\d+%\]", next_line
+                    )
                     if match3_status:
-                        test_name = re.match(r'^(.*?::test_.+?)\s+', line).group(1).strip()
+                        test_name = (
+                            re.match(r"^(.*?::test_.+?)\s+", line).group(1).strip()
+                        )
                         status = match3_status.group(1)
-                        if status == 'PASSED':
+                        if status == "PASSED":
                             passed_tests.add(test_name)
-                        elif status == 'FAILED':
+                        elif status == "FAILED":
                             failed_tests.add(test_name)
                         continue
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -79,7 +79,7 @@ bash test_commands.sh
 ###ACTION_DELIMITER###
 echo 'mkdir -p /tmp/certbot_test && export TMPDIR=/tmp/certbot_test && export PYTHONPATH=. && python tests/lock_test.py && pytest -v --numprocesses auto acme/ && pytest -v --numprocesses auto certbot/ && pytest -v --numprocesses auto certbot-apache/ && pytest -v --numprocesses auto certbot-dns-cloudflare/ && pytest -v --numprocesses auto certbot-dns-cloudxns/ && pytest -v --numprocesses auto certbot-dns-digitalocean/ && pytest -v --numprocesses auto certbot-dns-dnsimple/ && pytest -v --numprocesses auto certbot-dns-dnsmadeeasy/ && pytest -v --numprocesses auto certbot-dns-gehirn/ && pytest -v --numprocesses auto certbot-dns-google/ && pytest -v --numprocesses auto certbot-dns-linode/ && pytest -v --numprocesses auto certbot-dns-luadns/ && pytest -v --numprocesses auto certbot-dns-nsone/ && pytest -v --numprocesses auto certbot-dns-ovh/ && pytest -v --numprocesses auto certbot-dns-rfc2136/ && pytest -v --numprocesses auto certbot-dns-route53/ && pytest -v --numprocesses auto certbot-dns-sakuracloud/ && pytest -v --numprocesses auto certbot-nginx/' > test_commands.sh
 ###ACTION_DELIMITER###
-bash test_commands.sh"""
+bash test_commands.sh""",
             ),
             File(
                 ".",
@@ -88,9 +88,7 @@ bash test_commands.sh"""
 cd /home/{pr.repo}
 mkdir -p /tmp/certbot_test && export TMPDIR=/tmp/certbot_test && export PYTHONPATH=. && python tests/lock_test.py && pytest -v --numprocesses auto acme/ && pytest -v --numprocesses auto certbot/ && pytest -v --numprocesses auto certbot-apache/ && pytest -v --numprocesses auto certbot-dns-cloudflare/ && pytest -v --numprocesses auto certbot-dns-cloudxns/ && pytest -v --numprocesses auto certbot-dns-digitalocean/ && pytest -v --numprocesses auto certbot-dns-dnsimple/ && pytest -v --numprocesses auto certbot-dns-dnsmadeeasy/ && pytest -v --numprocesses auto certbot-dns-gehirn/ && pytest -v --numprocesses auto certbot-dns-google/ && pytest -v --numprocesses auto certbot-dns-linode/ && pytest -v --numprocesses auto certbot-dns-luadns/ && pytest -v --numprocesses auto certbot-dns-nsone/ && pytest -v --numprocesses auto certbot-dns-ovh/ && pytest -v --numprocesses auto certbot-dns-rfc2136/ && pytest -v --numprocesses auto certbot-dns-route53/ && pytest -v --numprocesses auto certbot-dns-sakuracloud/ && pytest -v --numprocesses auto certbot-nginx/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -103,9 +101,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
 fi
 mkdir -p /tmp/certbot_test && export TMPDIR=/tmp/certbot_test && export PYTHONPATH=. && python tests/lock_test.py && pytest -v --numprocesses auto acme/ && pytest -v --numprocesses auto certbot/ && pytest -v --numprocesses auto certbot-apache/ && pytest -v --numprocesses auto certbot-dns-cloudflare/ && pytest -v --numprocesses auto certbot-dns-cloudxns/ && pytest -v --numprocesses auto certbot-dns-digitalocean/ && pytest -v --numprocesses auto certbot-dns-dnsimple/ && pytest -v --numprocesses auto certbot-dns-dnsmadeeasy/ && pytest -v --numprocesses auto certbot-dns-gehirn/ && pytest -v --numprocesses auto certbot-dns-google/ && pytest -v --numprocesses auto certbot-dns-linode/ && pytest -v --numprocesses auto certbot-dns-luadns/ && pytest -v --numprocesses auto certbot-dns-nsone/ && pytest -v --numprocesses auto certbot-dns-ovh/ && pytest -v --numprocesses auto certbot-dns-rfc2136/ && pytest -v --numprocesses auto certbot-dns-route53/ && pytest -v --numprocesses auto certbot-dns-sakuracloud/ && pytest -v --numprocesses auto certbot-nginx/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
             File(
                 ".",
@@ -118,9 +114,7 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
 fi
 mkdir -p /tmp/certbot_test && export TMPDIR=/tmp/certbot_test && export PYTHONPATH=. && python tests/lock_test.py && pytest -v --numprocesses auto acme/ && pytest -v --numprocesses auto certbot/ && pytest -v --numprocesses auto certbot-apache/ && pytest -v --numprocesses auto certbot-dns-cloudflare/ && pytest -v --numprocesses auto certbot-dns-cloudxns/ && pytest -v --numprocesses auto certbot-dns-digitalocean/ && pytest -v --numprocesses auto certbot-dns-dnsimple/ && pytest -v --numprocesses auto certbot-dns-dnsmadeeasy/ && pytest -v --numprocesses auto certbot-dns-gehirn/ && pytest -v --numprocesses auto certbot-dns-google/ && pytest -v --numprocesses auto certbot-dns-linode/ && pytest -v --numprocesses auto certbot-dns-luadns/ && pytest -v --numprocesses auto certbot-dns-nsone/ && pytest -v --numprocesses auto certbot-dns-ovh/ && pytest -v --numprocesses auto certbot-dns-rfc2136/ && pytest -v --numprocesses auto certbot-dns-route53/ && pytest -v --numprocesses auto certbot-dns-sakuracloud/ && pytest -v --numprocesses auto certbot-nginx/
 
-""".format(
-                    pr=self.pr
-                ),
+""".format(pr=self.pr),
             ),
         ]
 
@@ -182,7 +176,7 @@ class CERTBOT_8263_TO_8029(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -196,33 +190,34 @@ class CERTBOT_8263_TO_8029(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests: set[str] = set()  # Tests that passed successfully
         failed_tests: set[str] = set()  # Tests that failed
         skipped_tests: set[str] = set()  # Tests that were skipped
         import re
+
         # Implement the log parsing logic here
         # Extract test cases using regular expressions
-        test_pattern = re.compile(r'(?:\[gw\d+\]\s+)?(PASSED|FAILED|SKIPPED)\s+([\w/-]+\.py::[\w:]+)')
+        test_pattern = re.compile(
+            r"(?:\[gw\d+\]\s+)?(PASSED|FAILED|SKIPPED)\s+([\w/-]+\.py::[\w:]+)"
+        )
         for line in log.splitlines():
             match = test_pattern.search(line)
             if match:
                 status = match.group(1)
                 test_name = match.group(2).strip()
-                if status == 'PASSED':
+                if status == "PASSED":
                     passed_tests.add(test_name)
-                elif status == 'FAILED':
+                elif status == "FAILED":
                     failed_tests.add(test_name)
-                elif status == 'SKIPPED':
+                elif status == "SKIPPED":
                     skipped_tests.add(test_name)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),

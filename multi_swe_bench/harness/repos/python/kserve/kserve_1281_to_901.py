@@ -22,10 +22,10 @@ class ImageDefault(Image):
 
     def dependency(self) -> str:
         return "python:3.9-slim"
-    
+
     def image_prefix(self) -> str:
         return "envagent"
-       
+
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
 
@@ -33,7 +33,7 @@ class ImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
-        repo_name= self.pr.repo
+        repo_name = self.pr.repo
         return [
             File(
                 ".",
@@ -102,7 +102,7 @@ kubebuilder version && export KUBEBUILDER_ASSETS=$(kubebuilder env assets) && go
 ###ACTION_DELIMITER###
 wget https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_linux_amd64.tar.gz && tar -zxvf kubebuilder_2.3.1_linux_amd64.tar.gz && mv kubebuilder_2.3.1_linux_amd64 /usr/local/kubebuilder && export KUBEBUILDER_ASSETS=/usr/local/kubebuilder/bin && go test -v ./pkg/... ./cmd/... -coverprofile coverage.out
 ###ACTION_DELIMITER###
-echo 'go test -v ./pkg/... ./cmd/... -coverprofile coverage.out' > /home/kserve/test_commands.sh"""
+echo 'go test -v ./pkg/... ./cmd/... -coverprofile coverage.out' > /home/kserve/test_commands.sh""",
             ),
             File(
                 ".",
@@ -111,7 +111,7 @@ echo 'go test -v ./pkg/... ./cmd/... -coverprofile coverage.out' > /home/kserve/
 cd /home/[[REPO_NAME]]
 go test -v ./pkg/... ./cmd/... -coverprofile coverage.out
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -124,7 +124,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn /home/test.patch; then
 fi
 go test -v ./pkg/... ./cmd/... -coverprofile coverage.out
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
             File(
                 ".",
@@ -137,7 +137,7 @@ if ! git -C /home/[[REPO_NAME]] apply --whitespace=nowarn  /home/test.patch /hom
 fi
 go test -v ./pkg/... ./cmd/... -coverprofile coverage.out
 
-""".replace("[[REPO_NAME]]", repo_name)
+""".replace("[[REPO_NAME]]", repo_name),
             ),
         ]
 
@@ -199,7 +199,7 @@ class KSERVE_1281_TO_901(Instance):
         if run_cmd:
             return run_cmd
 
-        return 'bash /home/run.sh'
+        return "bash /home/run.sh"
 
     def test_patch_run(self, test_patch_run_cmd: str = "") -> str:
         if test_patch_run_cmd:
@@ -213,29 +213,28 @@ class KSERVE_1281_TO_901(Instance):
 
         return "bash /home/fix-run.sh"
 
-
     def parse_log(self, log: str) -> TestResult:
         # Parse the log content and extract test execution results.
         passed_tests = set()  # Tests that passed successfully
         failed_tests = set()  # Tests that failed
         skipped_tests = set()  # Tests that were skipped
         import re
+
         # Implement log parsing logic using regex
         # Extract passed tests
-        passed_matches = re.findall(r'--- PASS: (\S+)', log)
+        passed_matches = re.findall(r"--- PASS: (\S+)", log)
         passed_tests.update(passed_matches)
         # Extract failed tests
-        failed_matches = re.findall(r'--- FAIL: (\S+)', log)
+        failed_matches = re.findall(r"--- FAIL: (\S+)", log)
         failed_tests.update(failed_matches)
         # Extract skipped tests
-        skipped_matches = re.findall(r'--- SKIP: (\S+)', log)
+        skipped_matches = re.findall(r"--- SKIP: (\S+)", log)
         skipped_tests.update(skipped_matches)
         parsed_results = {
             "passed_tests": passed_tests,
             "failed_tests": failed_tests,
-            "skipped_tests": skipped_tests
+            "skipped_tests": skipped_tests,
         }
-        
 
         return TestResult(
             passed_count=len(passed_tests),
