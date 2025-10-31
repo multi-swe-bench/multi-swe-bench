@@ -4,276 +4,328 @@ from multi_swe_bench.harness.image import Config, File, Image
 from multi_swe_bench.harness.instance import Instance, TestResult
 from multi_swe_bench.harness.pull_request import PullRequest
 
+# Set to True to test individual files, False to test directories only
+TEST_INDIVIDUAL_FILES = False
+
 
 class ImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
         self._pr_summary = {
-            "2895": {"version": "2.9.0", "test_directory": ["pyscf/gto/test"]},
-            "2893": {
+            "2886": {
                 "version": "2.9.0",
-                "test_directory": ["pyscf/adc/test/test_radc,pyscf/adc/test/test_uadc"],
+                "test_directory": [
+                    "pyscf/tdscf/test/test_tdgks.py",
+                    "pyscf/tdscf/test/test_tdrhf.py",
+                    "pyscf/tdscf/test/test_tduhf.py",
+                ],
             },
-            "2886": {"version": "2.9.0", "test_directory": ["pyscf/tdscf/test"]},
-            "2883": {"version": "2.9.0", "test_directory": ["pyscf/pbc/dft/test"]},
             "2871": {
                 "version": "2.9.0",
-                "test_directory": ["pyscf/dft/test,pyscf/scf/test"],
-            },
-            "2870": {"version": "2.9.0", "test_directory": ["pyscf/scf/test"]},
-            "2855": {"version": "2.9.0", "test_directory": ["pyscf/geomopt/test"]},
-            "2850": {
-                "version": "2.9.0",
                 "test_directory": [
-                    "pyscf/gto/test,pyscf/pbc/df/test,pyscf/pbc/dft/test,pyscf/pbc/gto/test,pyscf/pbc/mp/test,pyscf/pbc/scf/test"
+                    "pyscf/dft/test/test_gks.py",
+                    "pyscf/dft/test/test_h2o.py",
+                    "pyscf/scf/test/test_response_function.py",
                 ],
             },
-            "2828": {"version": "2.9.0", "test_directory": ["pyscf/fci/test"]},
-            "2826": {"version": "2.9.0", "test_directory": ["pyscf/fci/test"]},
-            "2824": {"version": "2.8.0", "test_directory": ["pyscf/geomopt/test"]},
-            "2814": {
+            "2870": {
                 "version": "2.9.0",
-                "test_directory": [
-                    "pyscf/cc/test,pyscf/gto/test,pyscf/mp/test,pyscf/pbc/dft/test"
-                ],
+                "test_directory": ["pyscf/scf/test/test_dhf.py"],
             },
-            "2803": {"version": "2.9.0", "test_directory": ["pyscf/dft/test"]},
+            "2826": {
+                "version": "2.9.0",
+                "test_directory": ["pyscf/fci/test/test_rdm.py"],
+            },
+            "2803": {
+                "version": "2.9.0",
+                "test_directory": ["pyscf/dft/test/test_h2o.py"],
+            },
             "2797": {
                 "version": "2.9.0",
-                "test_directory": ["pyscf/pbc/df/test,pyscf/pbc/dft/test"],
-            },
-            "2775": {"version": "2.8.0", "test_directory": ["pyscf/fci/test"]},
-            "2760": {"version": "2.8.0", "test_directory": ["pyscf/dft/test"]},
-            "2733": {"version": "2.8.0", "test_directory": ["pyscf/solvent/test"]},
-            "2715": {"version": "2.8.0", "test_directory": ["pyscf/symm/test"]},
-            "2709": {"version": "2.8.0", "test_directory": ["pyscf/gto/test"]},
-            "2691": {"version": "2.8.0", "test_directory": ["pyscf/solvent/test"]},
-            "2677": {
-                "version": "2.7.0",
                 "test_directory": [
-                    "pyscf/mcscf/test,pyscf/pbc/scf/test,pyscf/pbc/tools/test,pyscf/tools/test"
+                    "pyscf/pbc/df/test/test_df.py",
+                    "pyscf/pbc/dft/test/test_uks.py",
                 ],
             },
-            "2676": {"version": "2.8.0", "test_directory": ["pyscf/df/test"]},
-            "2611": {"version": "2.8.0", "test_directory": ["pyscf/x2c/test"]},
-            "2577": {"version": "2.7.0", "test_directory": ["pyscf/pbc/df/test"]},
-            "2574": {"version": "2.7.0", "test_directory": ["pyscf/dft/test"]},
-            "2531": {"version": "2.7.0", "test_directory": ["pyscf/cc/test"]},
-            "2530": {"version": "2.7.0", "test_directory": ["pyscf/soscf/test"]},
-            "2528": {
-                "version": "2.7.0",
-                "test_directory": ["pyscf/pbc/tdscf/test,pyscf/tdscf/test"],
-            },
-            "2526": {
-                "version": "2.7.0",
-                "test_directory": ["pyscf/gto/test,pyscf/soscf/test,pyscf/tdscf/test"],
-            },
-            "2525": {
-                "version": "2.7.0",
+            "2715": {
+                "version": "2.8.0",
                 "test_directory": [
-                    "pyscf/dft/test,pyscf/grad/test,pyscf/hessian/test,pyscf/pbc/df/test,pyscf/pbc/dft/test,pyscf/pbc/scf/test,pyscf/pbc/tdscf/test,pyscf/tdscf/test"
+                    "pyscf/symm/test/test_basis.py",
+                    "pyscf/symm/test/test_geom.py",
                 ],
             },
-            "2524": {"version": "2.7.0", "test_directory": ["pyscf/cc/test"]},
-            "2499": {"version": "2.7.0", "test_directory": ["pyscf/dft/test"]},
-            "2496": {"version": "2.7.0", "test_directory": ["pyscf/mcscf/test"]},
-            "2457": {"version": "2.7.0", "test_directory": ["pyscf/df/test"]},
-            "2396": {"version": "2.6.2", "test_directory": ["pyscf/x2c/test"]},
-            "2395": {"version": "2.6.2", "test_directory": ["pyscf/fci/test"]},
-            "2387": {
+            "2691": {
+                "version": "2.8.0",
+                "test_directory": [
+                    "pyscf/solvent/test/test_pcm_grad.py",
+                    "pyscf/solvent/test/test_pcm_hessian.py",
+                ],
+            },
+            "2676": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/df/test/test_df_jk.py"],
+            },
+            "2611": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/x2c/test/test_x2c.py"],
+            },
+            "2577": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/pbc/df/test/test_aft.py"],
+            },
+            "2574": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/dft/test/test_libxc.py"],
+            },
+            "2531": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/cc/test/test_gccsd.py"],
+            },
+            "2524": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/cc/test/test_uccsd.py"],
+            },
+            "2499": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/dft/test/test_grids.py"],
+            },
+            "2457": {
+                "version": "2.8.0",
+                "test_directory": ["pyscf/df/test/test_df.py"],
+            },
+            "2396": {
                 "version": "2.6.2",
-                "test_directory": [
-                    ".github/workflows,pyscf/pbc/gto/test,pyscf/pbc/scf/test,pyscf/pbc/tools/test,pyscf/scf/test"
-                ],
+                "test_directory": ["pyscf/x2c/test/test_x2c.py"],
             },
-            "2382": {
+            "2373": {
                 "version": "2.6.2",
-                "test_directory": [
-                    "pyscf/adc/test/test_radc,pyscf/grad/test,pyscf/pbc/tdscf/test,pyscf/tdscf/test,pyscf/x2c/test"
-                ],
+                "test_directory": ["pyscf/tdscf/test/test_tdrhf.py"],
             },
-            "2380": {"version": "2.6.2", "test_directory": ["pyscf/gto/test"]},
-            "2373": {"version": "2.6.2", "test_directory": ["pyscf/tdscf/test"]},
-            "2371": {"version": "2.6.2", "test_directory": ["pyscf/sgx/test"]},
-            "2366": {"version": "2.6.2", "test_directory": ["pyscf/dft/test"]},
-            "2364": {"version": "2.6.2", "test_directory": ["pyscf/dft/test"]},
-            "2360": {"version": "2.6.2", "test_directory": ["pyscf/pbc/gto/test"]},
-            "2359": {"version": "2.6.2", "test_directory": ["pyscf/pbc/tdscf/test"]},
-            "2357": {"version": "2.6.2", "test_directory": ["pyscf/fci/test"]},
-            "2356": {"version": "2.6.2", "test_directory": ["pyscf/scf/test"]},
-            "2354": {"version": "2.6.2", "test_directory": ["pyscf/gto/test"]},
+            "2371": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/sgx/test/test_sgx.py"],
+            },
+            "2364": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/dft/test/test_libxc.py"],
+            },
+            "2357": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/fci/test/test_rdm.py"],
+            },
+            "2356": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/scf/test/test_addons.py"],
+            },
+            "2354": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/gto/test/test_mole.py"],
+            },
             "2353": {
                 "version": "2.6.2",
-                "test_directory": ["pyscf/adc/test/test_radc"],
+                "test_directory": [
+                    "pyscf/adc/test/test_radc/test_H2O_radc_ea.py",
+                    "pyscf/adc/test/test_radc/test_H2O_radc_ip.py",
+                    "pyscf/adc/test/test_radc/test_N2_radc_ea.py",
+                    "pyscf/adc/test/test_radc/test_N2_radc_ip.py",
+                ],
             },
-            "2349": {"version": "2.6.2", "test_directory": ["pyscf/mcscf/test"]},
-            "2320": {"version": "2.6.2", "test_directory": [".github/workflows"]},
-            "2307": {"version": "2.6.2", "test_directory": ["pyscf/fci/test"]},
-            "2306": {"version": "2.6.2", "test_directory": ["pyscf/fci/test"]},
-            "2305": {"version": "2.6.2", "test_directory": ["pyscf/fci/test"]},
-            "2299": {"version": "2.6.2", "test_directory": ["pyscf/scf/test"]},
-            "2290": {"version": "2.6.2", "test_directory": ["pyscf/scf/test"]},
-            "2279": {"version": "2.6.2", "test_directory": ["pyscf/tdscf/test"]},
-            "2262": {"version": "2.6.0", "test_directory": ["pyscf/pbc/dft/test"]},
-            "2240": {"version": "2.5.0", "test_directory": ["pyscf/df/test"]},
-            "2188": {"version": "2.5.0", "test_directory": ["pyscf/dft/test"]},
-            "2186": {
+            "2306": {
                 "version": "2.6.2",
                 "test_directory": [
-                    "pyscf/df/test,pyscf/dft/test,pyscf/grad/test,pyscf/hessian/test,pyscf/lib/test,pyscf/pbc/dft/test,pyscf/scf/test,pyscf/sgx/test,pyscf/solvent/test,pyscf/soscf/test,pyscf/tdscf/test,pyscf/x2c/test"
+                    "pyscf/fci/test/test_spin1.py",
+                    "pyscf/fci/test/test_spin1_symm.py",
                 ],
             },
-            "2173": {"version": "2.5.0", "test_directory": ["pyscf/solvent/test"]},
-            "2172": {"version": "2.5.0", "test_directory": ["pyscf/pbc/dft/test"]},
-            "2164": {"version": "2.5.0", "test_directory": ["pyscf/pbc/tools/test"]},
-            "2163": {"version": "2.5.0", "test_directory": ["pyscf/pbc/df/test"]},
-            "2144": {"version": "2.5.0", "test_directory": [".,.github/workflows"]},
-            "2084": {"version": "2.5.0", "test_directory": ["pyscf/dft/test"]},
-            "2078": {
+            "2305": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/fci/test/test_direct_nosym.py"],
+            },
+            "2290": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/scf/test/test_addons.py"],
+            },
+            "2279": {
+                "version": "2.6.2",
+                "test_directory": [
+                    "pyscf/tdscf/test/test_tdrks.py",
+                    "pyscf/tdscf/test/test_tduks.py",
+                ],
+            },
+            "2172": {
                 "version": "2.5.0",
                 "test_directory": [
-                    "pyscf/lib/test,pyscf/pbc/dft/test,pyscf/pbc/gto/pseudo/test,pyscf/pbc/gto/test,pyscf/pbc/scf/test"
+                    "pyscf/pbc/dft/test/test_kgks.py",
+                    "pyscf/pbc/dft/test/test_krks.py",
+                    "pyscf/pbc/dft/test/test_kuks.py",
                 ],
             },
-            "2063": {"version": "2.4.0", "test_directory": ["pyscf/df/test"]},
-            "2062": {"version": "2.4.0", "test_directory": ["pyscf/fci/test"]},
-            "2061": {
+            "2062": {
                 "version": "2.4.0",
-                "test_directory": ["pyscf/dft/test,pyscf/scf/test"],
+                "test_directory": [
+                    "pyscf/fci/test/test_spin1_cyl_sym.py",
+                    "pyscf/fci/test/test_spin1_symm.py",
+                ],
             },
-            "2059": {"version": "2.4.0", "test_directory": ["pyscf/cc/test"]},
-            "2050": {"version": "2.4.0", "test_directory": ["pyscf/fci/test"]},
-            "2049": {"version": "2.4.0", "test_directory": ["pyscf/pbc/gto/test"]},
-            "2045": {"version": "2.4.0", "test_directory": ["pyscf/gto/test"]},
-            "2041": {"version": "2.4.0", "test_directory": ["pyscf/pbc/tools/test"]},
-            "2023": {"version": "2.4.0", "test_directory": ["pyscf/mcscf/test"]},
-            "2010": {"version": "2.4.0", "test_directory": ["pyscf/dft/test"]},
-            "2001": {"version": "2.4.0", "test_directory": ["pyscf/grad/test"]},
-            "1991": {"version": "2.4.0", "test_directory": ["pyscf/mp/test"]},
-            "1990": {"version": "2.4.0", "test_directory": ["pyscf/lo/test"]},
-            "1963": {"version": "2.4.0", "test_directory": ["pyscf/tools/test"]},
-            "1960": {"version": "2.4.0", "test_directory": ["pyscf/pbc/dft/test"]},
-            "1947": {"version": "2.4.0", "test_directory": ["pyscf/pbc/df/test"]},
-            "1943": {"version": "2.4.0", "test_directory": ["pyscf/gto/test"]},
-            "1927": {"version": "2.4.0", "test_directory": ["pyscf/pbc/dft/test"]},
-            "1923": {
+            "2050": {
                 "version": "2.4.0",
-                "test_directory": ["pyscf/pbc/adc/test,pyscf/pbc/df/test"],
+                "test_directory": ["pyscf/fci/test/test_cistring.py"],
             },
-            "1914": {"version": "2.4.0", "test_directory": ["pyscf/grad/test"]},
-            "1900": {"version": "2.3.0", "test_directory": [".github/workflows"]},
-            "1897": {
-                "version": "2.3.0",
+            "2010": {
+                "version": "2.5.0",
                 "test_directory": [
-                    "pyscf/grad/test,pyscf/pbc/dft/test,pyscf/pbc/tdscf/test,pyscf/tdscf/test"
+                    "pyscf/dft/test/test_he.py",
+                    "pyscf/dft/test/test_xc_deriv.py",
                 ],
             },
-            "1891": {"version": "2.3.0", "test_directory": ["pyscf/gto/test"]},
-            "1869": {"version": "2.3.0", "test_directory": ["pyscf/mcscf/test"]},
-            "1859": {
+            "1963": {
+                "version": "2.5.0",
+                "test_directory": ["pyscf/tools/test/test_molden.py"],
+            },
+            "1960": {
+                "version": "2.5.0",
+                "test_directory": ["pyscf/pbc/dft/test/test_gen_grid.py"],
+            },
+            "1947": {
+                "version": "2.4.0",
+                "test_directory": ["pyscf/pbc/df/test/test_rsdf.py"],
+            },
+            "1943": {
+                "version": "2.4.0",
+                "test_directory": ["pyscf/gto/test/test_mole.py"],
+            },
+            "1927": {
+                "version": "2.4.0",
+                "test_directory": ["pyscf/pbc/dft/test/test_krks_ksym.py"],
+            },
+            "1914": {
+                "version": "2.4.0",
+                "test_directory": ["pyscf/grad/test/test_casci.py"],
+            },
+            "1891": {
                 "version": "2.3.0",
-                "test_directory": [
-                    "pyscf/cc/test,pyscf/ci/test,pyscf/df/test,pyscf/dft/test,pyscf/fci/test,pyscf/grad/test,pyscf/gto/test,pyscf/mcscf/test,pyscf/mp/test,pyscf/pbc/cc/test,pyscf/pbc/ci/test,pyscf/pbc/df/test,pyscf/pbc/dft/test,pyscf/pbc/gto/test,pyscf/pbc/gw/test,pyscf/pbc/scf/test,pyscf/qmmm/test,pyscf/scf/test,pyscf/sgx/test,pyscf/solvent/test,pyscf/soscf/test,pyscf/tdscf/test,pyscf/tools/test,pyscf/x2c/test"
-                ],
+                "test_directory": ["pyscf/gto/test/test_ecp.py"],
             },
-            "1845": {"version": "2.3.0", "test_directory": ["pyscf/fci/test"]},
-            "1841": {"version": "2.6.2", "test_directory": ["pyscf/scf/test"]},
-            "1834": {
+            "1869": {
                 "version": "2.3.0",
-                "test_directory": [
-                    "pyscf/lib/gto/test,pyscf/lib/test,pyscf/mcscf/test,pyscf/pbc/symm/test"
-                ],
+                "test_directory": ["pyscf/mcscf/test/test_newton_casscf.py"],
             },
-            "1824": {
-                "version": "2.2.1",
-                "test_directory": ["pyscf/adc/test/test_radc,pyscf/adc/test/test_uadc"],
+            "1845": {
+                "version": "2.3.0",
+                "test_directory": ["pyscf/fci/test/test_selected_ci.py"],
             },
-            "1821": {"version": "2.3.0", "test_directory": ["pyscf/pbc/gto/test"]},
-            "1813": {"version": "2.3.0", "test_directory": ["pyscf/fci/test"]},
-            "1803": {"version": "2.3.0", "test_directory": ["pyscf/lo/test"]},
-            "1788": {"version": "2.3.0", "test_directory": ["pyscf/dft/test"]},
+            "1841": {
+                "version": "2.6.2",
+                "test_directory": ["pyscf/scf/test/test_uhf.py"],
+            },
+            "1821": {
+                "version": "2.3.0",
+                "test_directory": ["pyscf/pbc/gto/test/test_cell.py"],
+            },
+            "1803": {
+                "version": "2.3.0",
+                "test_directory": ["pyscf/lo/test/test_nao.py"],
+            },
             "1773": {
                 "version": "2.3.0",
                 "test_directory": [
-                    "pyscf/pbc/mp/test,pyscf/pbc/symm/test,pyscf/pbc/tools/test"
+                    "pyscf/pbc/mp/test/test_ksym.py",
+                    "pyscf/pbc/symm/test/test_spg.py",
+                    "pyscf/pbc/tools/test/test_pbc.py",
                 ],
             },
-            "1734": {"version": "2.2.1", "test_directory": ["pyscf/mcscf/test"]},
-            "1723": {"version": "2.2.1", "test_directory": ["pyscf/gto/test"]},
-            "1700": {
-                "version": "2.2.1",
-                "test_directory": ["pyscf/geomopt/test,pyscf/grad/test"],
-            },
-            "1681": {"version": "2.2.0", "test_directory": ["pyscf/dft/test"]},
-            "1677": {"version": "2.2.0", "test_directory": ["pyscf/qmmm/test"]},
-            "1675": {"version": "2.2.0", "test_directory": ["pyscf/fci/test"]},
-            "1672": {"version": "2.2.0", "test_directory": ["pyscf/fci/test"]},
-            "1664": {"version": "2.2.0", "test_directory": ["pyscf/df/test"]},
             "1654": {
                 "version": "2.2.0",
-                "test_directory": ["pyscf/ci/test,pyscf/lib/test,pyscf/mcscf/test"],
-            },
-            "1647": {"version": "2.2.0", "test_directory": ["pyscf/pbc/dft/test"]},
-            "1643": {"version": "2.2.0", "test_directory": ["pyscf/symm/test"]},
-            "1638": {"version": "2.2.0", "test_directory": ["pyscf/scf/test"]},
-            "1623": {
-                "version": "2.2.1",
-                "test_directory": ["pyscf/fci/test,pyscf/mcscf/test"],
-            },
-            "1622": {
-                "version": "2.2.1",
                 "test_directory": [
-                    "pyscf/cc/test,pyscf/fci/test,pyscf/lib/test,pyscf/mp/test,pyscf/pbc/cc/test,pyscf/pbc/ci/test,pyscf/pbc/df/test,pyscf/pbc/dft/test,pyscf/pbc/gto/pseudo/test,pyscf/pbc/gto/test,pyscf/pbc/lib/test,pyscf/pbc/mp/test,pyscf/pbc/scf/test,pyscf/pbc/tools/test"
+                    "pyscf/ci/test/test_cisd.py",
+                    "pyscf/lib/test/test_linalg_helper.py",
+                    "pyscf/mcscf/test/test_newton_casscf.py",
                 ],
             },
-            "1620": {"version": "2.1.1", "test_directory": ["pyscf/gto/test"]},
-            "1594": {"version": "2.1.1", "test_directory": ["pyscf/pbc/dft/test"]},
-            "1584": {"version": "2.1.1", "test_directory": ["pyscf/pbc/lib/test"]},
-            "1578": {
+            "1643": {
+                "version": "2.2.0",
+                "test_directory": ["pyscf/symm/test/test_geom.py"],
+            },
+            "1638": {
+                "version": "2.2.0",
+                "test_directory": [
+                    "pyscf/scf/test/test_diis.py",
+                    "pyscf/scf/test/test_rhf.py",
+                ],
+            },
+            "1620": {
                 "version": "2.1.1",
-                "test_directory": [
-                    "pyscf/pbc/cc/test,pyscf/pbc/dft/test,pyscf/pbc/lib/test,pyscf/pbc/mp/test,pyscf/pbc/scf/test,pyscf/pbc/symm/test,pyscf/pbc/tools/test"
-                ],
+                "test_directory": ["pyscf/gto/test/test_mole.py"],
             },
-            "1532": {"version": "2.2.0", "test_directory": ["pyscf/tools/test"]},
+            "1594": {
+                "version": "2.1.1",
+                "test_directory": ["pyscf/pbc/dft/test/test_krks_ksym.py"],
+            },
+            "1584": {
+                "version": "2.1.1",
+                "test_directory": ["pyscf/pbc/lib/test/test_kpts_ksymm.py"],
+            },
             "1529": {
                 "version": "2.1.1",
                 "test_directory": [
-                    "pyscf/fci/test,pyscf/gto/test,pyscf/mcscf/test,pyscf/soscf/test"
+                    "pyscf/fci/test/test_addons.py",
+                    "pyscf/fci/test/test_spin0_symm.py",
+                    "pyscf/fci/test/test_spin1_symm.py",
+                    "pyscf/gto/test/test_mole.py",
+                    "pyscf/mcscf/test/test_addons.py",
+                    "pyscf/mcscf/test/test_casci.py",
+                    "pyscf/mcscf/test/test_mc1step.py",
+                    "pyscf/mcscf/test/test_n2.py",
+                    "pyscf/mcscf/test/test_newton_casscf.py",
+                    "pyscf/soscf/test/test_newton_ah.py",
                 ],
             },
-            "1486": {"version": "2.1.1", "test_directory": ["pyscf/grad/test"]},
-            "1481": {
-                "version": "2.2.0",
-                "test_directory": [
-                    "pyscf/dft/test,pyscf/eph/test,pyscf/grad/test,pyscf/hessian/test,pyscf/pbc/grad/test,pyscf/pbc/scf/test,pyscf/scf/test,pyscf/soscf/test,pyscf/tdscf/test,pyscf/x2c/test"
-                ],
+            "1450": {
+                "version": "2.1.1",
+                "test_directory": ["pyscf/ci/test/test_ucisd.py"],
             },
-            "1450": {"version": "2.1.1", "test_directory": ["pyscf/ci/test"]},
-            "1442": {"version": "2.1.0", "test_directory": ["pyscf/mcscf/test"]},
             "1441": {
                 "version": "2.1.1",
                 "test_directory": [
-                    "pyscf/lib/test,pyscf/pbc/cc/test,pyscf/pbc/df/test,pyscf/pbc/dft/test,pyscf/pbc/gto/test,pyscf/pbc/mp/test,pyscf/pbc/scf/test,pyscf/pbc/tools,pyscf/pbc/tools/test"
+                    "pyscf/lib/test/test_numint_uniform_grid.py",
+                    "pyscf/pbc/cc/test/test_eom_kgccsd.py",
+                    "pyscf/pbc/cc/test/test_eom_kgccsd_diag.py",
+                    "pyscf/pbc/cc/test/test_eom_krccsd.py",
+                    "pyscf/pbc/cc/test/test_eom_kuccsd.py",
+                    "pyscf/pbc/cc/test/test_kgccsd.py",
+                    "pyscf/pbc/cc/test/test_krccsd.py",
+                    "pyscf/pbc/df/test/test_df_jk.py",
+                    "pyscf/pbc/df/test/test_gdf_builder.py",
+                    "pyscf/pbc/df/test/test_mdf.py",
+                    "pyscf/pbc/df/test/test_mdf_builder.py",
+                    "pyscf/pbc/df/test/test_mdf_jk.py",
+                    "pyscf/pbc/df/test/test_rsdf_scf.py",
+                    "pyscf/pbc/dft/test/test_gen_grid.py",
+                    "pyscf/pbc/dft/test/test_kgks.py",
+                    "pyscf/pbc/dft/test/test_krkspu.py",
+                    "pyscf/pbc/dft/test/test_kukspu.py",
+                    "pyscf/pbc/dft/test/test_multigrid.py",
+                    "pyscf/pbc/dft/test/test_numint.py",
+                    "pyscf/pbc/dft/test/test_rks.py",
+                    "pyscf/pbc/gto/test/test_cell.py",
+                    "pyscf/pbc/mp/test/test_kpoint.py",
+                    "pyscf/pbc/mp/test/test_padding.py",
+                    "pyscf/pbc/scf/test/test_hf.py",
+                    "pyscf/pbc/scf/test/test_khf.py",
+                    "pyscf/pbc/scf/test/test_khf_ksym.py",
+                    "pyscf/pbc/scf/test/test_rohf.py",
+                    "pyscf/pbc/scf/test/test_uhf.py",
+                    "pyscf/pbc/tools/make_test_cell.py",
+                    "pyscf/pbc/tools/test/test_pbc.py",
                 ],
             },
-            "1432": {
-                "version": "2.1.1",
-                "test_directory": ["pyscf/df/test,pyscf/grad/test"],
-            },
-            "1429": {
-                "version": "2.1.0",
-                "test_directory": ["pyscf/pbc/mp/test,pyscf/pbc/x2c/test"],
-            },
-            "1426": {"version": "2.1.0", "test_directory": ["pyscf/cc/test"]},
-            "1417": {"version": "2.1.0", "test_directory": ["pyscf/grad/test"]},
-            "1416": {"version": "2.2.0", "test_directory": ["pyscf/scf/test"]},
-            "1411": {"version": "2.1.1", "test_directory": ["pyscf/ao2mo/test"]},
-            "1402": {
+            "1426": {
                 "version": "2.1.0",
                 "test_directory": [
-                    "pyscf/gto/test,pyscf/mp/test,pyscf/pbc/adc/test,pyscf/pbc/cc/test,pyscf/pbc/df/test"
+                    "pyscf/cc/test/test_dfccsd.py",
+                    "pyscf/cc/test/test_eom_rccsd.py",
+                    "pyscf/cc/test/test_eom_uccsd.py",
                 ],
             },
         }
@@ -304,11 +356,26 @@ class ImageDefault(Image):
         test_dirs = self._pr_summary.get(str(self.pr.number), {}).get(
             "test_directory", []
         )
-        test_dir_cmd = " ".join(test_dirs)
+        
+        if TEST_INDIVIDUAL_FILES:
+            # Test individual files
+            test_targets = test_dirs
+        else:
+            # Test directories only - extract unique directories
+            test_directories = set()
+            for test_path in test_dirs:
+                if test_path.endswith('.py'):
+                    # Extract directory from file path
+                    test_directories.add('/'.join(test_path.split('/')[:-1]))
+                else:
+                    test_directories.add(test_path)
+            test_targets = sorted(test_directories)
+        
         if not test_dirs:
             raise ValueError(f"No test directories found for PR #{self.pr.number}")
 
-        print(f"Test directories for PR #{self.pr.number}: {test_dirs}")
+        # Format test targets for pytest command - each target prefixed with /home/pyscf/
+        pytest_targets = ' '.join(f'/home/pyscf/{target}' for target in test_targets)
 
         return [
             File(
@@ -326,8 +393,8 @@ class ImageDefault(Image):
                 "run.sh",
                 """#!/bin/bash
 cd /home/{pr.repo}
-python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
-""".format(pr=self.pr, test_dir=test_dir_cmd),
+python -m pytest {pytest_targets} --no-header -rA --tb=no -p no:cacheprovider
+""".format(pr=self.pr, pytest_targets=pytest_targets),
             ),
             File(
                 ".",
@@ -338,8 +405,8 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn /home/test.patch; then
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
-""".format(pr=self.pr, test_dir=test_dir_cmd),
+python -m pytest {pytest_targets} --no-header -rA --tb=no -p no:cacheprovider
+""".format(pr=self.pr, pytest_targets=pytest_targets),
             ),
             File(
                 ".",
@@ -350,9 +417,9 @@ if ! git -C /home/{pr.repo} apply --whitespace=nowarn  /home/test.patch /home/fi
     echo "Error: git apply failed" >&2
     exit 1  
 fi
-python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
+python -m pytest {pytest_targets} --no-header -rA --tb=no -p no:cacheprovider
 
-""".format(pr=self.pr, test_dir=test_dir_cmd),
+""".format(pr=self.pr, pytest_targets=pytest_targets),
             ),
         ]
 
@@ -368,8 +435,6 @@ python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
         if not pyscf_version:
             raise ValueError(f"No PySCF version found for PR #{self.pr.number}")
 
-        print(self.pr.base.sha)
-
         dockerfile_content = f"""
         FROM titouandu/pyscf-build:{pyscf_version}
 
@@ -378,6 +443,8 @@ python -m pytest {test_dir} --no-header -rA --tb=no -p no:cacheprovider
         RUN git fetch origin && \
             git fetch --no-tags origin "pull/{self.pr.number}/head:pr-{self.pr.number}" && \
             git checkout {self.pr.base.sha}
+
+        RUN python -c "import pyscf; from pyscf import cc; print('✅ PySCF CC module import successful')"
 
         """
 
@@ -449,3 +516,4 @@ class PYSCF(Instance):
             failed_tests=failed_tests,
             skipped_tests=skipped_tests,
         )
+
