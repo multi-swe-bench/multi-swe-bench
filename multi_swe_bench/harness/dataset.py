@@ -60,7 +60,7 @@ class Dataset(PullRequest):
             repo=pr.repo,
             number=pr.number,
             tag=pr.tag,
-            language=pr.lang,
+            lang=pr.lang,
             state=pr.state,
             title=pr.title,
             body=pr.body,
