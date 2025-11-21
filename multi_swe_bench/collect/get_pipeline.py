@@ -73,7 +73,7 @@ def run_pipeline(
     # step 1: get all pull requests
     get_all_prs(tokens, out_dir, org, repo)
 
-    # step 2: filter to obtain reqired pull requests
+    # step 2: filter to obtain required pull requests
     # - closed
     # - resolve some issues
     pull_file = out_dir / f"{org}__{repo}_prs.jsonl"
