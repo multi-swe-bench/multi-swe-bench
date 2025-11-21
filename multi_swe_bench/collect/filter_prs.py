@@ -22,16 +22,31 @@ from pathlib import Path
 from github import Auth, Github
 from tqdm import tqdm
 
+from multi_swe_bench.collect.util import get_tokens
+
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="A command-line tool for processing repositories."
     )
     parser.add_argument(
+        "--tokens",
+        type=str,
+        nargs="*",
+        default=None,
+        help="API token(s) or path to token file.",
+    )
+    parser.add_argument(
         "--out_dir", type=Path, required=True, help="Output directory path."
     )
     parser.add_argument(
         "--prs_file", type=Path, required=True, help="Path to pull file."
+    )
+    parser.add_argument(
+        "--skip-commit-message",
+        type=bool,
+        default=False,
+        help="Skip commit message.",
     )
 
     return parser
@@ -106,7 +121,7 @@ def main(tokens: list[str], out_dir: Path, prs_file: Path, skip_commit_message: 
             "w",
             encoding="utf-8",
         ) as out_file,
-        open(prs_file, "r", encoding="utf-8") as in_file,
+        open(out_dir / prs_file, "r", encoding="utf-8") as in_file,
     ):
         prs = [json.loads(line) for line in in_file]
 
@@ -138,4 +153,6 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    main(Path.cwd() / args.out_dir, args.prs_file)
+    tokens = get_tokens(args.tokens)
+
+    main(tokens, Path.cwd() / args.out_dir, args.prs_file, args.skip_commit_message)
