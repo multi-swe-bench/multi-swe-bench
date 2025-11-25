@@ -334,3 +334,4 @@ class PyCBC(Instance):
                 failed_tests.add(clean_name)
             return
 
+
