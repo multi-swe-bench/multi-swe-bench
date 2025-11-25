@@ -5,3 +5,4 @@ from multi_swe_bench.harness.repos.python.Qiskit.qiskit_12664_to_12523 import *
 from multi_swe_bench.harness.repos.python.Qiskit.qiskit_12439_to_12061 import *
 from multi_swe_bench.harness.repos.python.Qiskit.qiskit_11432_to_10850 import *
 from multi_swe_bench.harness.repos.python.Qiskit.qiskit_ibm_runtime_1065_to_913 import *
+from multi_swe_bench.harness.repos.python.Qiskit.qiskit import *
