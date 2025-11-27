@@ -121,7 +121,7 @@ def main(tokens: list[str], out_dir: Path, prs_file: Path, skip_commit_message: 
             "w",
             encoding="utf-8",
         ) as out_file,
-        open(out_dir / prs_file, "r", encoding="utf-8") as in_file,
+        open(prs_file, "r", encoding="utf-8") as in_file,
     ):
         prs = [json.loads(line) for line in in_file]
 
