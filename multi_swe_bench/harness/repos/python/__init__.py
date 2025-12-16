@@ -133,7 +133,7 @@ from multi_swe_bench.harness.repos.python.allenai import *
 from multi_swe_bench.harness.repos.python.mabel_dev import *
 from multi_swe_bench.harness.repos.python.mandiant import *
 from multi_swe_bench.harness.repos.python.py_pdf import *
-from multi_swe_bench.harness.repos.python.Qiskit import *
+from multi_swe_bench.harness.repos.python.QiskitVersions import *
 from multi_swe_bench.harness.repos.python.mne_tools import *
 from multi_swe_bench.harness.repos.python.datalad import *
 from multi_swe_bench.harness.repos.python.PlasmaControl import *
@@ -296,7 +296,7 @@ from multi_swe_bench.harness.repos.python.fractal_analytics_platform import *
 from multi_swe_bench.harness.repos.python.freedomofpress import *
 from multi_swe_bench.harness.repos.python.opensafely_core import *
 from multi_swe_bench.harness.repos.python.OpenSlides import *
-from multi_swe_bench.harness.repos.python.Qiskit import *
+from multi_swe_bench.harness.repos.python.QiskitVersions import *
 from multi_swe_bench.harness.repos.python.secdev import *
 from multi_swe_bench.harness.repos.python.silx_kit import *
 from multi_swe_bench.harness.repos.python.Theano import *
