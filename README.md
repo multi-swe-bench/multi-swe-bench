@@ -86,18 +86,52 @@ To run the evaluation, you need to prepare the following:
 1. Patch Files: Some patch files in JSONL format, each item containing:
    - `org`: Organization Name
    - `repo`: Repository Name
-   - `number`: Pull Request Number
-   - `fix_patch`: Fix Patch Content
+   - `number`: Pull Request Number (**must be an integer**)
+   - `fix_patch`: Fix Patch Content (a unified diff that can be applied to the repo checkout)
 
     Example:
     ```json
     {
         "org": "zeromicro",
         "repo": "go-zero",
-        "number": "2787",
+        "number": 2787,
         "fix_patch": "diff --git ...."
     }
     ```
+
+#### Generating Patch Files (JSONL)
+
+`run_evaluation` uses `patch_files` to supply a **replacement** `/home/fix.patch` for each task instance. In other words: for each dataset item you want to evaluate, you create one JSON object with the same `(org, repo, number)` and set `fix_patch` to the patch produced by your agent/model.
+
+A practical workflow:
+
+1. Read the task’s `base.sha` from the dataset JSONL you’re evaluating.
+2. Check out that commit locally, apply your proposed fix, then export a patch using `git diff --binary`.
+3. Write a JSONL file where each line is a JSON object with `org`, `repo`, `number`, `fix_patch`.
+
+Example helper for creating a patch file for a single single task instance:
+
+```python
+import json
+import subprocess
+from pathlib import Path
+
+org = "zeromicro"
+repo = "go-zero"
+number = 2787
+base_sha = "PUT_BASE_SHA_HERE"  # from your dataset_files JSONL (field: base.sha)
+
+repo_dir = Path("repos") / org / repo
+subprocess.run(["git", "checkout", "--force", base_sha], cwd=repo_dir, check=True)
+
+# TODO: apply your changes here (edit files / apply a patch / run your agent)
+
+fix_patch = subprocess.check_output(["git", "diff", "--binary"], cwd=repo_dir).decode("utf-8")
+Path("patches").mkdir(exist_ok=True)
+with open(Path("patches") / "predictions.jsonl", "a", encoding="utf-8") as f:
+    f.write(json.dumps({"org": org, "repo": repo, "number": number, "fix_patch": fix_patch}, ensure_ascii=False))
+    f.write("\n")
+```
 
 2. Dataset Files: Dataset files in JSONL format available on Hugging Face, such as [Multi-SWE-bench](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-bench) or [Multi-SWE-RL](https://huggingface.co/datasets/ByteDance-Seed/Multi-SWE-RL)
 3. (Optional) Docker Images: You can download required Docker images using `scripts/download_images.ps1` (for Windows) or `scripts/download_images.sh` (for Linux/macOS) with either mini and verified images, or RL images:
