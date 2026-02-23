@@ -56,6 +56,32 @@ class Instance:
     def name(self) -> str:
         return self.dependency().image_full_name()
 
+    # NOTE: Metamorphic-based run scripts:
+    #  1. used when --run-metamorphic is passed;
+    #  2. requires the JSONL file to be patched with metamorphic patches
+    def metamorphic_run(self, metamorphic_run_cmd: str = "") -> str:
+        """
+        The metamorphic patch should be applied on the base commit of the project.
+
+        base + metamorphic_run.patch
+        """
+        if metamorphic_run_cmd:
+            return metamorphic_run_cmd
+
+        raise NotImplementedError
+
+    def metamorphic_fix_patch_run(self, metamorphic_fix_patch_run_cmd: str = "") -> str:
+        """
+        The metamorphic patch should be applied AFTER both test and fix patches.
+
+        base + test.patch + fix.patch + metamorphic_fix.patch
+        """
+        if metamorphic_fix_patch_run_cmd:
+            return metamorphic_fix_patch_run_cmd
+
+        raise NotImplementedError
+
+    # NOTE: Normal run scripts:
     def run(self) -> str:
         raise NotImplementedError
 

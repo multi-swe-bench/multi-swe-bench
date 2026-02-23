@@ -193,6 +193,20 @@ def get_parser() -> ArgumentParser:
         default=True,
         help="The dataset is constructed by human or not",
     )
+    parser.add_argument(
+        "--run_metamorphic",
+        type=parser.bool,
+        required=False,
+        default=False,
+        help="Whether to run metamorphic test scenarios instead of normal scenarios.",
+    )
+    parser.add_argument(
+        "--metamorphic_fix_patch_run_cmd",
+        type=str,
+        required=False,
+        default="",
+        help="The command to run the metamorphic fix patch scenario.",
+    )
 
     return parser
 
@@ -237,6 +251,8 @@ class CliArgs:
     log_level: str
     log_to_console: bool
     human_mode: bool = True
+    run_metamorphic: bool = False
+    metamorphic_fix_patch_run_cmd: str = ""
 
     def __post_init__(self):
         self._check_mode()
@@ -734,11 +750,20 @@ class CliArgs:
                 / f"pr-{instance.pr.number}"
                 / "prepare.sh"
             )
+
+            # Determine which command to use based on a run_metamorphic flag
+            if self.run_metamorphic:
+                self.logger.info("Running metamorphic versions of scripts")
+                run_cmd = instance.metamorphic_fix_patch_run(self.metamorphic_fix_patch_run_cmd)
+            else:
+                self.logger.info("Running normal (NON-metamorphic) versions of scripts")
+                run_cmd = instance.fix_patch_run(self.fix_patch_run_cmd)
+
             asyncio.run(
                 run_and_save_logs(
                     "fix",
                     instance.name(),
-                    f"{instance.fix_patch_run(self.fix_patch_run_cmd)} >> /home/fix_msb.log 2>&1",
+                    f"{run_cmd} >> /home/fix_msb.log 2>&1",
                     self.logger,
                     instance_dir / FIX_PATCH_RUN_LOG_FILE,
                     "/home/fix_msb.log",
@@ -747,9 +772,17 @@ class CliArgs:
                 )
             )
         else:
+            # Determine which command to use based on a run_metamorphic flag
+            if self.run_metamorphic:
+                self.logger.info("Running metamorphic versions of scripts")
+                run_command = instance.metamorphic_fix_patch_run(self.metamorphic_fix_patch_run_cmd)
+            else:
+                self.logger.info("Running normal (NON-metamorphic) versions of scripts")
+                run_command = instance.fix_patch_run(self.fix_patch_run_cmd)
+
             run_and_save_output(
                 instance.name(),
-                instance.fix_patch_run(self.fix_patch_run_cmd),
+                run_command,
                 instance_dir / FIX_PATCH_RUN_LOG_FILE,
             )
 
