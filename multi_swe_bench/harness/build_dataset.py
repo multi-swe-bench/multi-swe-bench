@@ -48,6 +48,28 @@ from multi_swe_bench.utils.fs_utils import copy_source_code
 from multi_swe_bench.utils.logger import get_non_propagate_logger, setup_logger
 
 
+def _strip_future_history_run(repo_dir: str, base_sha: str) -> str:
+    """Dockerfile RUN block that scopes a cloned repo to base_sha's ancestors.
+
+    Detaches HEAD at `base_sha`, deletes every ref under `refs/heads/`,
+    `refs/remotes/`, `refs/tags/`, drops the origin URL, expires reflogs,
+    and runs `git gc --prune=now`. 
+    HEAD's ancestor chain is preserved, so `git log`, `git blame`, and 
+    `git show <past-sha>` continue to work.
+    """
+    return (
+        "\n"
+        "# Strip future git history so agents can't read the reference fix.\n"
+        f"RUN cd {repo_dir} && \\\n"
+        f"    git checkout {base_sha} && \\\n"
+        "    git remote remove origin && \\\n"
+        "    git for-each-ref --format='delete %(refname)' refs/heads refs/remotes refs/tags | git update-ref --stdin && \\\n"
+        "    rm -f .git/FETCH_HEAD .git/ORIG_HEAD && \\\n"
+        "    git reflog expire --expire=now --all && \\\n"
+        "    git gc --prune=now\n"
+    )
+
+
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(
         description="A command-line tool for processing build dataset."
@@ -551,8 +573,15 @@ class CliArgs:
 
         dockerfile_path = image_dir / image.dockerfile_name()
         dockerfile_path.parent.mkdir(parents=True, exist_ok=True)
+        dockerfile_content = image.dockerfile()
+        # For PR-specific images, append a final layer that scopes the cloned 
+        # repo to pr.base.sha's ancestor chain.
+        if isinstance(image.dependency(), Image):
+            dockerfile_content += _strip_future_history_run(
+                f"/home/{image.pr.repo}", image.pr.base.sha
+            )
         with open(dockerfile_path, "w", encoding="utf-8", newline="\n") as f:
-            f.write(image.dockerfile())
+            f.write(dockerfile_content)
 
         for file in image.files():
             file_path = image_dir / file.dir / file.name
