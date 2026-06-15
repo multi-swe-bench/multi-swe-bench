@@ -213,7 +213,7 @@ class JSON_4517_TO_1257(Instance):
         import re
 
         # Pattern for passed tests
-        passed_pattern = re.compile(r"Test #\d+: (.*?)\s+\.+\s+Passed")
+        passed_pattern = re.compile(r"Test\s+#\d+: (.*?)\s+\.+\s+Passed")
         # Pattern for failed tests due to build errors
         failed_pattern = re.compile(r"make\[\d+\]: \*\*\* .*?/(test-.*?)\.dir")
         for line in log.splitlines():

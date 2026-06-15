@@ -194,7 +194,7 @@ class SIMDJSON_1674_TO_1534(Instance):
         import re
         import json
 
-        passed_pattern = re.compile(r"Test #\d+: (.*) \.+   Passed")
+        passed_pattern = re.compile(r"Test\s+#\d+: (.*) \.+   Passed")
         failed_pattern = re.compile(r"\t \d+ - (.*) \(Failed\)")
         for line in log.splitlines():
             passed_match = passed_pattern.search(line)
