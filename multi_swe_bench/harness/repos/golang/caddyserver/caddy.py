@@ -226,7 +226,6 @@ class Caddy(Instance):
         re_pass_tests = [re.compile(r"--- PASS: (\S+)")]
         re_fail_tests = [
             re.compile(r"--- FAIL: (\S+)"),
-            re.compile(r"FAIL:?\s?(.+?)\s"),
         ]
         re_skip_tests = [re.compile(r"--- SKIP: (\S+)")]
 
@@ -262,7 +261,7 @@ class Caddy(Instance):
                     test_name = skip_match.group(1)
                     if test_name in passed_tests:
                         continue
-                    if test_name not in failed_tests:
+                    if test_name in failed_tests:
                         continue
                     skipped_tests.add(get_base_name(test_name))
 
