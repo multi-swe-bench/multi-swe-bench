@@ -15,6 +15,7 @@
 import concurrent.futures
 import glob
 import logging
+import os
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -359,6 +360,11 @@ class CliArgs:
             raise ValueError(
                 f"Invalid max_workers_run_instance: {self.max_workers_run_instance}"
             )
+
+    @property
+    def cpus_per_container(self) -> float:
+        total_cpus = os.cpu_count() or 1
+        return (total_cpus * 0.75) / self.max_workers_run_instance
 
     @property
     def logger(self) -> logging.Logger:
@@ -720,6 +726,7 @@ class CliArgs:
                         "mode": "rw",
                     }
                 },
+                nano_cpus=int(self.cpus_per_container * 1e9),
             )
             return output
 
@@ -744,6 +751,7 @@ class CliArgs:
                     "/home/fix_msb.log",
                     prepare_script_path=prepare_script_path,
                     global_env=self.global_env,
+                    cpus_per_container=self.cpus_per_container,
                 )
             )
         else:

@@ -370,6 +370,11 @@ class CliArgs:
             )
 
     @property
+    def cpus_per_container(self) -> float:
+        total_cpus = os.cpu_count() or 1
+        return (total_cpus * 0.75) / self.max_workers_run_instance
+
+    @property
     def logger(self) -> logging.Logger:
         if not hasattr(self, "_logger"):
             self._logger = setup_logger(
@@ -677,7 +682,11 @@ class CliArgs:
                 f"Running {image_full_name} with command: {run_command}..."
             )
             output = docker_util.run(
-                image_full_name, run_command, output_path, self.global_env
+                image_full_name,
+                run_command,
+                output_path,
+                self.global_env,
+                nano_cpus=int(self.cpus_per_container * 1e9),
             )
             self.logger.info(
                 f"Running {image_full_name} with command: {run_command}... done"
@@ -700,6 +709,7 @@ class CliArgs:
                     prepare_script_path=prepare_script_path,
                     global_env=self.global_env,
                     timeout=self.agent_timeout,
+                    cpus_per_container=self.cpus_per_container,
                 )
             )
 
@@ -718,6 +728,7 @@ class CliArgs:
                     prepare_script_path=prepare_script_path,
                     global_env=self.global_env,
                     timeout=self.agent_timeout,
+                    cpus_per_container=self.cpus_per_container,
                 )
             )
 
@@ -738,6 +749,7 @@ class CliArgs:
                     prepare_script_path=prepare_script_path,
                     global_env=self.global_env,
                     timeout=self.agent_timeout,
+                    cpus_per_container=self.cpus_per_container,
                 )
             )
 

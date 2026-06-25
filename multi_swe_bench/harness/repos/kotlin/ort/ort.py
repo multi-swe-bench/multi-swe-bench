@@ -10,87 +10,36 @@ from multi_swe_bench.harness.repos.kotlin.junit_parser import (
     to_test_result,
 )
 
+# Flaky tests that hit live services. They are untagged and predate ORT's
+# `tests.exclude` hook. A Gradle init script excludes them by class name
+# so it survives package renames.
+#
+# - ClearlyDefinedPackageCurationProviderTest: queries live clearlydefined.io.
+FLAKY_TEST_CLASSES = (
+    "ClearlyDefinedPackageCurationProviderTest",
+)
 
-class ktlintImageBase(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
+FLAKY_TESTS_INIT_SCRIPT = "/home/exclude-flaky-tests.gradle"
 
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
 
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "eclipse-temurin:21-jdk"
-
-    def image_tag(self) -> str:
-        return "base"
-
-    def workdir(self) -> str:
-        return "base"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends \
-  curl \
-  git \
-  bash \
-  ca-certificates \
-  unzip && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN $JAVA_HOME/bin/keytool -importkeystore -noprompt -trustcacerts \
-  -srckeystore /etc/ssl/certs/java/cacerts \
-  -destkeystore $JAVA_HOME/lib/security/cacerts \
-  -srcstorepass changeit -deststorepass changeit || true
-
-ENV ANDROID_SDK_ROOT=/opt/android-sdk \
-    ANDROID_HOME=/opt/android-sdk \
-    PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
-
-RUN mkdir -p ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
-  curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip && \
-  unzip sdk-tools.zip -d ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
-  mv ${{ANDROID_SDK_ROOT}}/cmdline-tools/cmdline-tools ${{ANDROID_SDK_ROOT}}/cmdline-tools/latest && \
-  rm sdk-tools.zip
-
-RUN yes | sdkmanager --licenses && \
-  sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-{code}
-
-{self.clear_env}
-
-RUN git config --global --add safe.directory /home
+def _exclude_flaky_tests_init_script() -> str:
+    """Render a Gradle init script that excludes the flaky specs from every Test task."""
+    exclude_lines = "\n".join(
+        f'            excludeTestsMatching "*{cls}"' for cls in FLAKY_TEST_CLASSES
+    )
+    return f"""
+allprojects {{
+    tasks.withType(Test).configureEach {{
+        filter {{
+{exclude_lines}
+            setFailOnNoMatchingTests(false)
+        }}
+    }}
+}}
 """
 
 
-class ktlintImageBaseJDK17(Image):
+class ortImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -107,10 +56,10 @@ class ktlintImageBaseJDK17(Image):
         return "eclipse-temurin:17-jdk"
 
     def image_tag(self) -> str:
-        return "base-JDK-17"
+        return "base"
 
     def workdir(self) -> str:
-        return "base-JDK-17"
+        return "base"
 
     def files(self) -> list[File]:
         return []
@@ -139,7 +88,9 @@ RUN apt-get update && \
   git \
   bash \
   ca-certificates \
-  unzip && \
+  unzip \
+  nodejs \
+  npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
@@ -151,6 +102,7 @@ RUN $JAVA_HOME/bin/keytool -importkeystore -noprompt -trustcacerts \
 ENV ANDROID_SDK_ROOT=/opt/android-sdk \
     ANDROID_HOME=/opt/android-sdk \
     PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
+
 
 RUN mkdir -p ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
   curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip && \
@@ -169,7 +121,84 @@ RUN git config --global --add safe.directory /home
 """
 
 
-class ktlintImageDefault(Image):
+class ortImageBaseJDK11(ortImageBase):
+    """JDK 11 base image for older ORT PRs (<= 5706).
+
+    Older PRs were built against JDK 11. Running them on JDK 17 results in
+    `jvmTarget="17"`, causing Kotlin 1.7.10 to emit JVM-enforced
+    `PermittedSubclasses` on sealed types, which breaks `mockk`'s subclassing
+    logic (e.g., `ExperimentalScannerTest`).
+
+    Using JDK 11 ensures bytecode compatibility (`jvmTarget="11"`) for mockk
+    to function as expected.
+    """
+
+    def dependency(self) -> Union[str, "Image"]:
+        return "eclipse-temurin:11-jdk"
+
+    def image_tag(self) -> str:
+        return "base-JDK-11"
+
+    def workdir(self) -> str:
+        return "base-JDK-11"
+
+    def dockerfile(self) -> str:
+        image_name = self.dependency()
+        if isinstance(image_name, Image):
+            image_name = image_name.image_full_name()
+
+        if self.config.need_clone:
+            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
+        else:
+            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
+
+        return f"""FROM {image_name}
+
+{self.global_env}
+
+WORKDIR /home/
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends \
+  curl \
+  git \
+  bash \
+  ca-certificates \
+  unzip \
+  nodejs \
+  npm && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN $JAVA_HOME/bin/keytool -importkeystore -noprompt -trustcacerts \
+  -srckeystore /etc/ssl/certs/java/cacerts \
+  -destkeystore $JAVA_HOME/lib/security/cacerts \
+  -srcstorepass changeit -deststorepass changeit || true
+
+ENV ANDROID_SDK_ROOT=/opt/android-sdk \
+    ANDROID_HOME=/opt/android-sdk \
+    PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
+
+RUN mkdir -p ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
+  curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-7302050_latest.zip && \
+  unzip sdk-tools.zip -d ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
+  mv ${{ANDROID_SDK_ROOT}}/cmdline-tools/cmdline-tools ${{ANDROID_SDK_ROOT}}/cmdline-tools/latest && \
+  rm sdk-tools.zip
+
+RUN yes | sdkmanager --licenses && \
+  sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+{code}
+
+{self.clear_env}
+
+RUN git config --global --add safe.directory /home
+"""
+
+
+class ortImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -183,10 +212,10 @@ class ktlintImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if self.pr.number <= 2163:
-            return ktlintImageBaseJDK17(self.pr, self._config)
+        if self.pr.number <= 5706:
+            return ortImageBaseJDK11(self.pr, self._config)
         else:
-            return ktlintImageBase(self.pr, self._config)
+            return ortImageBase(self.pr, self._config)
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
@@ -195,6 +224,7 @@ class ktlintImageDefault(Image):
         return f"pr-{self.pr.number}"
 
     def files(self) -> list[File]:
+
         logs_collector = (Path(__file__).parents[1] / "kotlin_logs_collector.sh").read_text(encoding="utf-8")
         return [
             File(
@@ -211,6 +241,11 @@ class ktlintImageDefault(Image):
                 ".",
                 "kotlin_logs_collector.sh",
                 logs_collector,
+            ),
+            File(
+                ".",
+                "exclude-flaky-tests.gradle",
+                _exclude_flaky_tests_init_script(),
             ),
             File(
                 ".",
@@ -248,10 +283,9 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
-./gradlew clean test
+JDK_JAVA_OPTIONS="--add-opens=java.base/java.util=ALL-UNNAMED" ./gradlew test --continue --max-workers=2 --init-script {init_script} || true
 
-""".format(pr=self.pr),
+""".format(pr=self.pr, init_script=FLAKY_TESTS_INIT_SCRIPT),
             ),
             File(
                 ".",
@@ -261,13 +295,12 @@ set -e
 
 cd /home/{pr.repo}
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
-./gradlew clean test --continue || true
+JDK_JAVA_OPTIONS="--add-opens=java.base/java.util=ALL-UNNAMED" ./gradlew clean test --max-workers=2 --continue --init-script {init_script} || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
 cat /home/all-testsuites.xml
 
-""".format(pr=self.pr),
+""".format(pr=self.pr, init_script=FLAKY_TESTS_INIT_SCRIPT),
             ),
             File(
                 ".",
@@ -278,13 +311,12 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
-./gradlew clean test --continue || true
+JDK_JAVA_OPTIONS="--add-opens=java.base/java.util=ALL-UNNAMED" ./gradlew clean test --max-workers=2 --continue --init-script {init_script} || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
 cat /home/all-testsuites.xml
 
-""".format(pr=self.pr),
+""".format(pr=self.pr, init_script=FLAKY_TESTS_INIT_SCRIPT),
             ),
             File(
                 ".",
@@ -295,13 +327,12 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
-./gradlew clean test --continue || true
+JDK_JAVA_OPTIONS="--add-opens=java.base/java.util=ALL-UNNAMED" ./gradlew clean test --max-workers=2 --continue --init-script {init_script} || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
 cat /home/all-testsuites.xml
 
-""".format(pr=self.pr),
+""".format(pr=self.pr, init_script=FLAKY_TESTS_INIT_SCRIPT),
             ),
         ]
 
@@ -375,8 +406,8 @@ cat /home/all-testsuites.xml
 """
 
 
-@Instance.register("pinterest", "ktlint")
-class ktlint(Instance):
+@Instance.register("oss-review-toolkit", "ort")
+class ort(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -387,7 +418,7 @@ class ktlint(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return ktlintImageDefault(self.pr, self._config)
+        return ortImageDefault(self.pr, self._config)
 
     def run(self, run_cmd: str = "") -> str:
         if run_cmd:

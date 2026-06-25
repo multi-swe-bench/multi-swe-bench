@@ -74,6 +74,7 @@ def run(
     output_path: Optional[Path] = None,
     global_env: Optional[list[str]] = None,
     volumes: Optional[Union[dict[str, str], list[str]]] = None,
+    nano_cpus: Optional[int] = None,
 ) -> str:
     container = None
     try:
@@ -86,6 +87,7 @@ def run(
             stderr=True,
             environment=global_env,
             volumes=volumes,
+            nano_cpus=nano_cpus,
         )
 
         output = ""

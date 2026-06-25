@@ -11,86 +11,7 @@ from multi_swe_bench.harness.repos.kotlin.junit_parser import (
 )
 
 
-class ktlintImageBase(Image):
-    def __init__(self, pr: PullRequest, config: Config):
-        self._pr = pr
-        self._config = config
-
-    @property
-    def pr(self) -> PullRequest:
-        return self._pr
-
-    @property
-    def config(self) -> Config:
-        return self._config
-
-    def dependency(self) -> Union[str, "Image"]:
-        return "eclipse-temurin:21-jdk"
-
-    def image_tag(self) -> str:
-        return "base"
-
-    def workdir(self) -> str:
-        return "base"
-
-    def files(self) -> list[File]:
-        return []
-
-    def dockerfile(self) -> str:
-        image_name = self.dependency()
-        if isinstance(image_name, Image):
-            image_name = image_name.image_full_name()
-
-        if self.config.need_clone:
-            code = f"RUN git clone https://github.com/{self.pr.org}/{self.pr.repo}.git /home/{self.pr.repo}"
-        else:
-            code = f"COPY {self.pr.repo} /home/{self.pr.repo}"
-
-        return f"""FROM {image_name}
-
-{self.global_env}
-
-WORKDIR /home/
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends \
-  curl \
-  git \
-  bash \
-  ca-certificates \
-  unzip && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN $JAVA_HOME/bin/keytool -importkeystore -noprompt -trustcacerts \
-  -srckeystore /etc/ssl/certs/java/cacerts \
-  -destkeystore $JAVA_HOME/lib/security/cacerts \
-  -srcstorepass changeit -deststorepass changeit || true
-
-ENV ANDROID_SDK_ROOT=/opt/android-sdk \
-    ANDROID_HOME=/opt/android-sdk \
-    PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
-
-RUN mkdir -p ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
-  curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip && \
-  unzip sdk-tools.zip -d ${{ANDROID_SDK_ROOT}}/cmdline-tools && \
-  mv ${{ANDROID_SDK_ROOT}}/cmdline-tools/cmdline-tools ${{ANDROID_SDK_ROOT}}/cmdline-tools/latest && \
-  rm sdk-tools.zip
-
-RUN yes | sdkmanager --licenses && \
-  sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-{code}
-
-{self.clear_env}
-
-RUN git config --global --add safe.directory /home
-"""
-
-
-class ktlintImageBaseJDK17(Image):
+class detektImageBase(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -107,10 +28,10 @@ class ktlintImageBaseJDK17(Image):
         return "eclipse-temurin:17-jdk"
 
     def image_tag(self) -> str:
-        return "base-JDK-17"
+        return "base"
 
     def workdir(self) -> str:
-        return "base-JDK-17"
+        return "base"
 
     def files(self) -> list[File]:
         return []
@@ -169,7 +90,7 @@ RUN git config --global --add safe.directory /home
 """
 
 
-class ktlintImageDefault(Image):
+class detektImageDefault(Image):
     def __init__(self, pr: PullRequest, config: Config):
         self._pr = pr
         self._config = config
@@ -183,10 +104,7 @@ class ktlintImageDefault(Image):
         return self._config
 
     def dependency(self) -> Image | None:
-        if self.pr.number <= 2163:
-            return ktlintImageBaseJDK17(self.pr, self._config)
-        else:
-            return ktlintImageBase(self.pr, self._config)
+        return detektImageBase(self.pr, self._config)
 
     def image_tag(self) -> str:
         return f"pr-{self.pr.number}"
@@ -248,7 +166,6 @@ bash /home/check_git_changes.sh
 git checkout {pr.base.sha}
 bash /home/check_git_changes.sh
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
 ./gradlew clean test
 
 """.format(pr=self.pr),
@@ -261,7 +178,6 @@ set -e
 
 cd /home/{pr.repo}
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
 ./gradlew clean test --continue || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
@@ -278,7 +194,6 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
 ./gradlew clean test --continue || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
@@ -295,7 +210,6 @@ set -e
 cd /home/{pr.repo}
 git apply --whitespace=nowarn /home/test.patch /home/fix.patch
 
-export CLI_TEST_MAX_DURATION_IN_SECONDS=60
 ./gradlew clean test --continue || true
 
 /home/kotlin_logs_collector.sh --root . --output /home/all-testsuites.xml
@@ -375,8 +289,8 @@ cat /home/all-testsuites.xml
 """
 
 
-@Instance.register("pinterest", "ktlint")
-class ktlint(Instance):
+@Instance.register("detekt", "detekt")
+class detekt(Instance):
     def __init__(self, pr: PullRequest, config: Config, *args, **kwargs):
         super().__init__()
         self._pr = pr
@@ -387,7 +301,7 @@ class ktlint(Instance):
         return self._pr
 
     def dependency(self) -> Optional[Image]:
-        return ktlintImageDefault(self.pr, self._config)
+        return detektImageDefault(self.pr, self._config)
 
     def run(self, run_cmd: str = "") -> str:
         if run_cmd:

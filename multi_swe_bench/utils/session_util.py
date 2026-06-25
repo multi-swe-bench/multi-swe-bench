@@ -184,6 +184,7 @@ async def run_and_save_logs(
     prepare_script_path: Path,
     global_env: list[str] = None,
     timeout: int = 1800,
+    cpus_per_container: float = 0.0,
 ):
     """name: Type of operation (run/test/fix)
     - Start container and initialize swe-rex service
@@ -196,6 +197,8 @@ async def run_and_save_logs(
     if global_env:
         for env in global_env:
             docker_args.extend(["-e", env])
+    if cpus_per_container > 0:
+        docker_args.extend(["--cpus", str(round(cpus_per_container, 4))])
 
     dockerdeploymentconfig = DockerDeploymentConfig(
         image=image_name,
@@ -266,6 +269,7 @@ async def run_and_save_logs_and_generate_dockerfile(
     prepare_script_path: Path,
     global_env: list[str] = None,
     timeout: int = 1800,
+    cpus_per_container: float = 0.0,
 ):
     """add the generate_dockerfile feature based on the run_and_save_logs function
     because the code is scattered in various places, so a new function is written to handle it
@@ -275,6 +279,8 @@ async def run_and_save_logs_and_generate_dockerfile(
     if global_env:
         for env in global_env:
             docker_args.extend(["-e", env])
+    if cpus_per_container > 0:
+        docker_args.extend(["--cpus", str(round(cpus_per_container, 4))])
 
     dockerdeploymentconfig = DockerDeploymentConfig(
         image=image_name,
